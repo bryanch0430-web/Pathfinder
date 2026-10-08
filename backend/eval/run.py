@@ -131,6 +131,8 @@ def parse_metrics(values: Sequence[str] | None) -> list[str]:
                 wanted.add(name)
             else:
                 raise ValueError(f"unknown metric {name!r}; choose from {', '.join(METRICS)} or all")
+    if not wanted:
+        raise ValueError(f"no metric given; choose from {', '.join(METRICS)} or all")
     return [m for m in METRICS if m in wanted]
 
 
