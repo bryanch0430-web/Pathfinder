@@ -1,0 +1,29 @@
+{
+  "name": "pathfinder-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pathfinder web console (Vue 3). Coupled to the backend only through the HTTP/WebSocket API contract.",
+  "engines": {
+    "node": ">=18.19"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "gen:types": "openapi-typescript ../contracts/openapi.json -o src/api/generated/openapi.ts"
+  },
+  "dependencies": {
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "openapi-typescript": "^7.4.4",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.1.10"
+  }
+}

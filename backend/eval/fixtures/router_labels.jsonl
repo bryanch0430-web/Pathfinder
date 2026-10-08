@@ -1,0 +1,80 @@
+{"id": "r-plan-01", "utterance": "Plan a 3-day trip to Kyoto for two of us", "label": "plan", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-plan-02", "utterance": "Can you make an itinerary for Tokyo, 12-14 November?", "label": "plan", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-plan-03", "utterance": "plan my trip to osaka pls", "label": "plan", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-plan-04", "utterance": "I want a 4-day holiday in Hong Kong with my family", "label": "plan", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-plan-05", "utterance": "幫我計劃一個京都三日遊", "label": "plan", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-plan-06", "utterance": "Plan a new trip to Osaka for next month", "label": "plan", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-plan-07", "utterance": "We are thinking of a weekend in Tokyo, can you put together a plan?", "label": "plan", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-plan-08", "utterance": "itinerary for HK 3 days, 2 ppl", "label": "plan", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-plan-09", "utterance": "Create a travel plan to Kyoto for my parents", "label": "plan", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-plan-10", "utterance": "Plan a trip to Tokyo: museums and food", "label": "plan", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-plan-11", "utterance": "Plan the Hong Kong trip for our team offsite", "label": "plan", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-plan-12", "utterance": "我想去大阪旅行，幫我排行程", "label": "plan", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-plan-13", "utterance": "Plan a 5 day vacation in Kyoto", "label": "plan", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-plan-14", "utterance": "plz plan a trip to tokyo", "label": "plan", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-plan-15", "utterance": "Make me a 2-day getaway plan for Osaka", "label": "plan", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-plan-16", "utterance": "We'd like a new trip: Hong Kong in December, plan it please", "label": "plan", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-plan-17", "utterance": "Plan a family holiday to Tokyo with Disneyland", "label": "plan", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-plan-18", "utterance": "Kyoto trip plan for 3 days in autumn", "label": "plan", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-plan-19", "utterance": "Help me plan a Hong Kong itinerary 香港 3日", "label": "plan", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-plan-20", "utterance": "Plan a trip to Osaka with my friends, food focused", "label": "plan", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-modify-01", "utterance": "Swap the hotel for a cheaper one", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-02", "utterance": "Change dates to 14-16 November", "label": "modify", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-modify-03", "utterance": "Cut the budget to 80000 yen", "label": "modify", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-modify-04", "utterance": "Remove the museum from day 2", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-05", "utterance": "Add a temple on day 3", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-06", "utterance": "Can we move everything one day later?", "label": "modify", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-modify-07", "utterance": "replace the hotel with a ryokan", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-08", "utterance": "Drop Kyoto Tower, not interested", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-09", "utterance": "換一間酒店 please, somewhere cheaper", "label": "modify", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-modify-10", "utterance": "改去 14 號出發", "label": "modify", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-modify-11", "utterance": "Extend the trip by one more day", "label": "modify", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-modify-12", "utterance": "Shorten the trip, we need to leave earlier", "label": "modify", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-modify-13", "utterance": "Skip the market and add a shrine instead", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-14", "utterance": "Re-check the weather and update the plan", "label": "modify", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-modify-15", "utterance": "The Peak is closed, please fix day 2", "label": "modify", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-modify-16", "utterance": "Our train is delayed, update the tickets", "label": "modify", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-modify-17", "utterance": "Increase the budget to 250000 JPY", "label": "modify", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-modify-18", "utterance": "We are 4 people now instead of 2", "label": "modify", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-modify-19", "utterance": "swap teh hotel", "label": "modify", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-modify-20", "utterance": "different hotel pls, too far from the station", "label": "modify", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-ask-01", "utterance": "What is the weather in Kyoto on 12 April?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-ask-02", "utterance": "what time is our train?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-ask-03", "utterance": "How far is Kinkaku-ji from our hotel?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-ask-04", "utterance": "Is it going to rain in Tokyo tomorrow?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-ask-05", "utterance": "What are the opening hours of Senso-ji?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-ask-06", "utterance": "When does the Peak Tram close?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-ask-07", "utterance": "How much is the entrance fee for Kiyomizu-dera?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-ask-08", "utterance": "which day do we visit the museum?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-ask-09", "utterance": "京都 12 號天氣點樣?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-ask-10", "utterance": "Does the Ghibli Museum need a reservation?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-ask-11", "utterance": "what's the temperature in osaka next week", "label": "ask", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-ask-12", "utterance": "Where is Nishiki Market?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Kyoto"}
+{"id": "r-ask-13", "utterance": "How long is the train from Tokyo to Kyoto?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-ask-14", "utterance": "Are there any warnings for Hong Kong this weekend?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-ask-15", "utterance": "What time does our flight depart on the last day?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-ask-16", "utterance": "我哋幾點出發? what time do we leave", "label": "ask", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-ask-17", "utterance": "Is Osaka Castle open on Mondays?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-ask-18", "utterance": "how much is our hotel per night?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-ask-19", "utterance": "What's the forecast for day 2?", "label": "ask", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-ask-20", "utterance": "When is the best time to see the Shibuya crossing?", "label": "ask", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-unclear-01", "utterance": "hmm", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-unclear-02", "utterance": "ok", "label": "unclear", "has_plan": true, "context_complete": true, "city": "Tokyo"}
+{"id": "r-unclear-03", "utterance": "Tell me a joke", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-unclear-04", "utterance": "something fun", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-unclear-05", "utterance": "I don't know, you decide", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-unclear-06", "utterance": "asdfgh", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-unclear-07", "utterance": "What's the meaning of life", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Osaka"}
+{"id": "r-unclear-08", "utterance": "Plan a trip to Kyoto", "label": "unclear", "has_plan": false, "context_complete": false, "city": "Kyoto"}
+{"id": "r-unclear-09", "utterance": "Plan a holiday in Tokyo for us", "label": "unclear", "has_plan": false, "context_complete": false, "city": "Tokyo"}
+{"id": "r-unclear-10", "utterance": "幫我計劃旅行", "label": "unclear", "has_plan": false, "context_complete": false, "city": "Osaka"}
+{"id": "r-unclear-11", "utterance": "itinerary for osaka", "label": "unclear", "has_plan": false, "context_complete": false, "city": "Osaka"}
+{"id": "r-unclear-12", "utterance": "Plan a trip to Hong Kong next month", "label": "unclear", "has_plan": false, "context_complete": false, "city": "Hong Kong"}
+{"id": "r-unclear-13", "utterance": "Swap the hotel", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-unclear-14", "utterance": "Change the dates to 3-5 December", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Tokyo"}
+{"id": "r-unclear-15", "utterance": "maybe", "label": "unclear", "has_plan": true, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-unclear-16", "utterance": "Can you help", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Kyoto"}
+{"id": "r-unclear-17", "utterance": "Do the thing we talked about", "label": "unclear", "has_plan": true, "context_complete": true, "city": "Osaka"}
+{"id": "r-unclear-18", "utterance": "Plan something", "label": "unclear", "has_plan": false, "context_complete": false, "city": "Tokyo"}
+{"id": "r-unclear-19", "utterance": "Let's go somewhere warm", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Hong Kong"}
+{"id": "r-unclear-20", "utterance": "Remove it", "label": "unclear", "has_plan": false, "context_complete": true, "city": "Kyoto"}
