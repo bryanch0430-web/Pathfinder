@@ -187,9 +187,9 @@ function revert(): void {
 </script>
 
 <template>
-  <section class="card" aria-labelledby="trip-form-title">
-    <header>
-      <h2 id="trip-form-title">Trip details</h2>
+  <section aria-labelledby="trip-form-title">
+    <header class="form-head">
+      <h2 id="trip-form-title" class="sr-only">Trip details form</h2>
       <span class="small muted" role="status">
         {{ store.savingContext ? 'Saving...' : dirty ? 'Unsaved changes' : 'Saved' }}
       </span>
@@ -342,7 +342,7 @@ function revert(): void {
 
         <ul v-if="draft.constraints.length > 0" class="constraint-list" aria-label="Hard constraints">
           <li v-for="(constraint, index) in draft.constraints" :key="`${constraint.kind}-${index}-${constraint.value}`">
-            <span class="badge badge-info">{{ CONSTRAINT_LABELS[constraint.kind] }}</span>
+            <span class="badge badge-accent">{{ CONSTRAINT_LABELS[constraint.kind] }}</span>
             <span class="constraint-value">{{ constraint.value }}</span>
             <button
               type="button"
@@ -461,7 +461,7 @@ label.inline {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: var(--surface-2);
+  background: var(--card-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
@@ -492,5 +492,13 @@ label.inline {
   .constraint-add {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+</style>
+
+<style scoped>
+.form-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
 }
 </style>

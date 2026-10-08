@@ -50,7 +50,10 @@ Check it with `curl http://127.0.0.1:8000/api/health`. Interactive API docs are 
 cd frontend
 npm install
 npm run dev                   # http://localhost:5173, proxies /api (and the WebSocket) to :8000
+npm test                      # Vitest component tests (no backend needed)
 ```
+For a quick look with no keys and no database, start the backend with
+`PATHFINDER_STORAGE_BACKEND=memory uv run uvicorn backend.api.main:app --port 8000`.
 After any backend schema change, regenerate the contract and the frontend types:
 ```bash
 uv run python -m backend.api.export_contracts
@@ -81,7 +84,7 @@ PATHFINDER_TEST_DATABASE_URL=postgresql+asyncpg://... uv run pytest -m postgres 
 | `backend/tests/` | Unit tests per area + `integration/` (numbered scenarios end to end) |
 | `backend/settings.py`, `backend/container.py` | All settings in one module; composition root shared by the API and the eval harness |
 | `contracts/` | Exported OpenAPI + TripPlan JSON Schema (the only backend/frontend coupling) |
-| `frontend/` | Vue 3 + TypeScript + Vite + Pinia console; all HTTP/WebSocket access in `src/api/` (see `frontend/README.md`) |
+| `frontend/` | Vue 3 + TypeScript + Vite + Pinia dashboard; all HTTP/WebSocket access in `src/api/`, design tokens in `src/styles/tokens.css` (see `frontend/README.md`) |
 
 ---
 
@@ -195,3 +198,55 @@ every tool call (raw request, status, failure kind, attempts, provider, payload,
 recorded in memory and written as JSON lines to `var/logs/`. When
 `PATHFINDER_LANGFUSE_PUBLIC_KEY` and `PATHFINDER_LANGFUSE_SECRET_KEY` are set, the same records go
 to Langfuse.
+
+---
+
+## 8. Frontend dashboard
+
+A three-column dashboard (`frontend/`). Everything below runs against the mock backend with no
+keys and no database. Screenshots, described in text:
+
+**Plan tab, wide screen (≥ 1280 px).** Warm off-white page; every block is a white card with
+20 px corners and a faint shadow. The top bar has the round black Pathfinder compass logo on the
+left, a pill tab group in the middle ("Plan" is a solid black pill, "Itinerary" and "Saved trips"
+grey text), and round search and help buttons plus a peach avatar circle on the right.
+- *Left column:* the chat card opens with "Hello! Where are we going?" and four outlined chips
+  (Hotel, Tickets, Attractions, Weather). User messages are black bubbles on the right; assistant
+  replies are light bubbles on the left, each with a grey status line under it ("Plan · 4
+  agents", "Modify · hotel agent", "Quick question"). A clarification shows as a peach-edged card
+  with inline date, party-size and budget inputs and a black "Continue" button, and "Needs
+  clarification" under it. While a turn runs, a live bubble shows the route and the agents as
+  they start and finish. The rounded input with a black circular send button sits at the bottom.
+  Under the chat, "5 Days in Kyoto" (10 Nov – 14 Nov · 2 travellers · from Tokyo) lists
+  Accommodation / Attractions / Tickets / Weather, each with a green tick (grey when stale or
+  unavailable), followed by a black "Mark as useful" pill and a white "Trip details" pill.
+- *Centre column:* a large beige map with a faint grid. The selected day's stops are numbered
+  white pins joined by a dashed route from a black "H" hotel marker, and the selected stop has a
+  peach ring. Round floating buttons sit in the corners: close (top left), layers (top right),
+  zoom + and − (bottom right). Below the map, the place card shows "Kiyomizu-dera", "Temple ·
+  ★ 4.6", and a 2 × 2 grid of icon facts: Price ¥500 / person, Opening hours, "Temperature that
+  day 7–17 °C · Partly cloudy" and "≈ 15 min by transit from the hotel · estimate from
+  coordinates". Each tool fact has a small "Updated …" caption, and a grey "unavailable – refresh"
+  pill when the data is stale or missing.
+- *Right column:* "Budget Details" has a "31% used" badge, a donut (Transport peach, Attractions
+  teal, Hotel dark blue) with "Total 5-Day ¥93,300" in the centre, and a legend where Food and
+  Other read "not tracked". A full-width black "Optimise my budget" pill sits below. "Travel Plan"
+  has numbered day circles; the active one is black with a peach ring and the date sits under
+  each circle. The "Day 1" card lists stops on a vertical line: the time on the left, then a white
+  pill "Kiyomizu-dera · ¥500" with a drag handle and a lock (filled peach when confirmed).
+
+**Medium screens (900–1279 px)** use two columns: chat and trip summary on the left; map, place
+card, budget, days and timeline stacked on the right. **Phones (< 900 px)** stack everything in
+one column, with the tabs on their own row under the logo. There is no horizontal scrolling at
+390 px.
+
+**Itinerary tab:** the whole trip on one card: section states with fetch times, cost table and
+budget bar, constraint checks, every day with forecast and confirm checkboxes, hotel, tickets and
+reservations. **Saved trips tab:** a placeholder (the API has no list endpoint) showing what this
+session saved.
+
+Keyboard: all controls are buttons or inputs with a visible blue focus ring. The tabs and day
+circles use arrow keys. A stop can be reordered with Space, then the arrow keys, then Space.
+Dialogs keep focus inside and close on Escape. What the API does not expose (popular times,
+Food/Other costs, travel times, reordering, a saved-trips list) is listed in
+[DECISIONS.md §12](DECISIONS.md#12-frontend-dashboard).

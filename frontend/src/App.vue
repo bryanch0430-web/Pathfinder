@@ -1,79 +1,120 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
-import TripForm from '@/components/TripForm.vue'
+import { useUiStore } from '@/stores/ui'
+import TopBar from '@/components/TopBar.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
-import ItineraryView from '@/components/ItineraryView.vue'
+import TripSummaryCard from '@/components/TripSummaryCard.vue'
 import MapView from '@/components/MapView.vue'
-import RatingControl from '@/components/RatingControl.vue'
+import PlaceDetailCard from '@/components/PlaceDetailCard.vue'
+import BudgetCard from '@/components/BudgetCard.vue'
+import DaySelector from '@/components/DaySelector.vue'
+import DayTimeline from '@/components/DayTimeline.vue'
+import ItineraryView from '@/components/ItineraryView.vue'
+import SavedTripsList from '@/components/SavedTripsList.vue'
+import RatingDialog from '@/components/RatingDialog.vue'
+import AppDialog from '@/components/AppDialog.vue'
+import TripForm from '@/components/TripForm.vue'
 
-const store = useSessionStore()
-
-const backendText = computed(() => {
-  const state = store.backend
-  if (state.online === null) return 'Checking backend...'
-  if (!state.online) return 'Backend unreachable'
-  const { storage_backend, router_provider, agent_llm_provider } = state.info
-  return `Backend online (storage: ${storage_backend}, router: ${router_provider}, agents: ${agent_llm_provider})`
-})
-
-const backendClass = computed(() => {
-  const state = store.backend
-  if (state.online === null) return ''
-  return state.online ? 'badge-ok' : 'badge-danger'
-})
+const session = useSessionStore()
+const ui = useUiStore()
 
 function connect(): void {
-  void store.checkHealth()
-  void store.ensureSession().catch(() => {
+  void session.checkHealth()
+  void session.ensureSession().catch(() => {
     // The failure is already shown in the error banner.
   })
 }
 
 onMounted(connect)
-onBeforeUnmount(() => store.closeStream())
+onBeforeUnmount(() => session.closeStream())
 </script>
 
 <template>
   <a class="skip-link" href="#main">Skip to main content</a>
 
-  <header class="app-header">
-    <div class="brand">
-      <h1>Pathfinder</h1>
-      <p class="muted small">State-aware trip planner</p>
-    </div>
-    <div class="header-actions">
-      <span class="badge" :class="backendClass" role="status">{{ backendText }}</span>
-      <button type="button" class="btn btn-small" :disabled="store.busy || store.loading" @click="store.newSession()">
-        New session
-      </button>
-    </div>
-  </header>
+  <TopBar />
 
-  <div v-if="store.lastError" class="banner" role="alert">
-    <p>{{ store.lastError }}</p>
+  <div v-if="session.lastError" class="banner" role="alert">
+    <p>{{ session.lastError }}</p>
     <div class="row">
-      <button v-if="store.sessionLost" type="button" class="btn btn-small btn-primary" @click="store.newSession()">
+      <button v-if="session.sessionLost" type="button" class="btn btn-small btn-primary" @click="session.newSession()">
         Start a new session
       </button>
-      <button v-else-if="!store.sessionId && !store.loading" type="button" class="btn btn-small" @click="connect">
+      <button v-else-if="!session.sessionId && !session.loading" type="button" class="btn btn-small" @click="connect">
         Retry
       </button>
-      <button type="button" class="btn btn-small" @click="store.dismissError()">Dismiss</button>
+      <button type="button" class="btn btn-small" @click="session.dismissError()">Dismiss</button>
     </div>
   </div>
 
-  <main id="main" class="layout">
-    <div class="column">
-      <TripForm />
-      <ChatPanel />
+  <main id="main">
+    <div
+      v-show="ui.activeTab === 'plan'"
+      id="panel-plan"
+      class="dashboard"
+      role="tabpanel"
+      aria-labelledby="tab-plan"
+    >
+      <div class="col col-left">
+        <ChatPanel />
+        <TripSummaryCard />
+      </div>
+      <div class="col col-center">
+        <MapView />
+        <PlaceDetailCard />
+      </div>
+      <div class="col col-right">
+        <BudgetCard />
+        <DaySelector />
+        <DayTimeline />
+      </div>
     </div>
-    <div class="column">
+
+    <div v-if="ui.activeTab === 'itinerary'" id="panel-itinerary" class="single" role="tabpanel" aria-labelledby="tab-itinerary">
       <ItineraryView />
-      <MapView />
-      <RatingControl />
+    </div>
+
+    <div v-if="ui.activeTab === 'saved'" id="panel-saved" class="single" role="tabpanel" aria-labelledby="tab-saved">
+      <SavedTripsList />
     </div>
   </main>
+
+  <RatingDialog />
+
+  <AppDialog :open="ui.dialog === 'trip-details'" title="Trip details" @close="ui.closeDialog()">
+    <TripForm />
+  </AppDialog>
+
+  <AppDialog :open="ui.dialog === 'help'" title="How Pathfinder works" @close="ui.closeDialog()">
+    <div class="stack small help">
+      <p>Every message goes down one path, shown in grey under each reply:</p>
+      <ul>
+        <li><strong>Plan · 4 agents</strong>: a new trip. Attraction, hotel, weather and ticket agents run in parallel.</li>
+        <li><strong>Modify · hotel agent</strong>: a change. Only the affected agents re-run; locked (confirmed) stops are kept.</li>
+        <li><strong>Quick question</strong>: answered from your plan or one tool call.</li>
+        <li><strong>Needs clarification</strong>: something is missing; fill it in and press Continue.</li>
+      </ul>
+      <p>
+        Facts from tools carry a timestamp. A grey “unavailable – refresh” badge re-checks just that part.
+        Drag a stop’s handle (or press Space on it, then the arrow keys) to ask for a new order.
+      </p>
+      <p class="muted">
+        Backend:
+        <template v-if="session.backend.online === true">
+          online (storage {{ session.backend.info.storage_backend }}, router {{ session.backend.info.router_provider }},
+          agents {{ session.backend.info.agent_llm_provider }})
+        </template>
+        <template v-else-if="session.backend.online === false">unreachable</template>
+        <template v-else>checking…</template>
+      </p>
+      <div class="row">
+        <button type="button" class="btn btn-small" :disabled="session.busy || session.loading" @click="session.newSession(); ui.closeDialog()">
+          Start a new session
+        </button>
+      </div>
+    </div>
+  </AppDialog>
 </template>
 
 <style scoped>
@@ -81,9 +122,9 @@ onBeforeUnmount(() => store.closeStream())
   position: absolute;
   left: 8px;
   top: -48px;
-  z-index: 10;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  z-index: 60;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
   background: var(--primary);
   color: var(--primary-text);
 }
@@ -92,78 +133,95 @@ onBeforeUnmount(() => store.closeStream())
   top: 8px;
 }
 
-.app-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 14px 20px;
-}
-
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-h1 {
-  font-size: 1.4rem;
-}
-
-.header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px 16px;
-  max-width: 1360px;
-  margin: 0 auto 8px;
-  padding: 10px 14px;
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
+  gap: var(--space-2) var(--space-4);
+  max-width: 1560px;
+  margin: 0 auto var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
   background: var(--danger-soft);
-  color: var(--text);
+  color: var(--danger);
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  align-items: start;
-  gap: 16px;
-  max-width: 1400px;
+main {
+  max-width: 1560px;
   margin: 0 auto;
-  padding: 8px 20px 32px;
+  padding: 0 var(--space-6) var(--space-8);
 }
 
-.column {
+/* Three columns >= 1280px, two columns >= 900px, one column below. */
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.3fr) minmax(300px, 0.95fr);
+  grid-template-areas: 'left center right';
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.col {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-5);
   min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 8px 12px 24px;
+.col-left {
+  grid-area: left;
+}
+
+.col-center {
+  grid-area: center;
+}
+
+.col-right {
+  grid-area: right;
+}
+
+.single {
+  min-width: 0;
+}
+
+.help ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: 18px;
+  list-style: disc;
+}
+
+@media (max-width: 1279px) {
+  .dashboard {
+    grid-template-columns: minmax(300px, 1fr) minmax(0, 1.2fr);
+    grid-template-areas:
+      'left center'
+      'left right';
+  }
+}
+
+@media (max-width: 899px) {
+  main {
+    padding: 0 var(--space-3) var(--space-6);
   }
 
-  .app-header {
-    padding: 12px;
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'left'
+      'center'
+      'right';
+    gap: var(--space-4);
+  }
+
+  .col {
+    gap: var(--space-4);
   }
 
   .banner {
-    margin: 0 12px 8px;
+    margin: 0 var(--space-3) var(--space-3);
   }
 }
 </style>

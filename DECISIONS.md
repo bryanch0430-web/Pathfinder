@@ -104,3 +104,37 @@ is behind an interface with only a mock implementation (see the table in README.
 1. **REST for state, WebSocket for streaming turns.** `POST /api/sessions/{id}/messages` returns the `TurnResult`; `WS /api/sessions/{id}/stream` streams `TurnEvent`s (route, agent started/finished, plan/answer/clarification/error) and ends each turn with `done` carrying the full result. `TurnEvent` is added to the OpenAPI components so the frontend can generate its type.
 2. Turns within one session are serialised with a per-session `asyncio.Lock`.
 3. Errors: unknown session → 404; plan action without a plan → 409; unknown item ids → 422.
+
+## 12. Frontend dashboard
+
+The dashboard follows `docs/tasks/frontend-ui-dashboard.md`. The backend API contract was not changed. Where the spec needs data the API does not expose, the UI derives it client-side or shows a placeholder, as listed below.
+
+### Data the API does not expose
+
+| Spec item | Missing from the contract | What the UI does |
+|---|---|---|
+| "Popular times" chart | `Place` has no popular-times field | `PopularTimesChart.vue` exists, but `lib/popularTimes.ts` reads `place.popular_times` defensively and returns null today, so the chart stays hidden. It appears with no UI change if the field is ever added. |
+| Budget legend Food / Other | `CostBreakdown` has only `hotel`, `tickets`, `attractions`, `total`, `complete` | Transport = `tickets`, Attractions, Hotel come from the plan. Food and Other appear in the legend as "not tracked" (dashed swatch) and are not drawn in the donut. "% used" = `total / budget.amount`, shown only when both use the same currency. `complete: false` shows an "Incomplete" note. |
+| Travel time from the previous stop | TripPlan has no travel times | Derived in `lib/geo.ts` from coordinates: great-circle distance × 1.3 detour; walking at 4.5 km/h up to 1.5 km, otherwise transit at 20 km/h + 8 min wait. The first stop of a day is measured from the hotel. It is always labelled "estimate from coordinates". |
+| Drag-to-reorder | No reorder field in the API, and `ChangeRequest` has no ordering | A drop (or Space + arrow keys + Space on the handle) sends a chat message through the modify path: "Change the order of the day N stops to: A, then B, then C". It is worded as a change so the router takes the modify path, and it has no calendar date so it cannot be read as a date change. The new order is shown until the server's plan arrives. **Limitation:** the modify path re-orders each day by nearest neighbour and cannot apply a user order, so today the reply is "Nothing in the plan needed to change" and the order reverts. Confirmed (locked) items cannot be dragged because they keep their slot. |
+| "Saved trips" tab | No endpoint lists saved trips | `SavedTripsList.vue` is a placeholder. It shows this session's feedback outcome and how many saved trips the current plan used (`saved_trip_refs`). |
+| Staleness "refresh" badge | No refresh endpoint | `StalenessBadge.vue` reads `SectionState.status` and `fetched_at` from `TripPlan.sections` (and the fact's own `source.fetched_at`). For stale or unavailable data it sends a modify message, so only that agent re-runs: weather "re-check the weather", hotel "re-check the hotel", tickets "re-check the train and flight tickets", attractions "re-check whether any attraction is closed". The wordings were checked against the mock router and change extractor, which match whole words only ("tickets" and "attractions" do not match). Refresh works per section, not per item: the API has no per-item refresh. |
+| "Optimise my budget" | (none) | Sends "reduce budget" through the chat, as the spec says. The mock routes it to modify → hotel agent. |
+| Token-by-token streaming | The WebSocket streams `TurnEvent`s, not tokens | The live bubble shows the route as soon as the `route` event arrives, then per-agent progress, then the reply text from the `plan` / `answer` / `clarification` event, before `done` delivers the full result. |
+| Status line for restored history | `ConversationTurn` has the route but not `agents_run` | Messages loaded from the server show "Plan" / "Modify" without the agent count. Live turns show "Plan · 4 agents" / "Modify · hotel agent". |
+
+### UI choices the spec leaves open
+
+1. **Three stores.** `session` (conversation, route status, live progress, trip context, session lifecycle), `plan` (the TripPlan, selected day and stop) and `ui` (active tab, open dialog). The session store writes each new plan into the plan store. The map, timeline and place card all read the selection from the plan store, so selecting a day updates all three.
+2. **Clarification card.** Inputs appear for the gate's `missing_fields` that are key variables (destination, dates, party size, budget). When the destination is missing, an optional "From" field is added for tickets. "Continue" saves the fields with `PUT /context`, then resends the user message that triggered the question. An `unclear` route with no missing field gets one free-text answer box. Only the latest clarification is interactive. Its "Needs clarification" status line sits under the card.
+3. **Other trip details.** The proposal's console gathers key variables in a form. The spec's layout has no form, so the existing `TripForm` (origin, hotel style, hard constraints, all fields) opens in a "Trip details" dialog from the trip summary card.
+4. **Top bar.** Search focuses the chat input ("ask Pathfinder"); there is no search endpoint. Help opens a dialog that explains the routes and has "Start a new session". The avatar is a static circle because there are no user accounts (DECISIONS §9.5).
+5. **Quick chips** put a full starter sentence into the input and never send by themselves: "Swap the hotel for something cheaper", "Re-check the train and flight tickets", "Add a museum on day 2", "What is the weather in {destination}?".
+6. **Lock icon** is also the confirm toggle (`POST /plan/confirm`), because the proposal does not say how items become confirmed (DECISIONS §5.4).
+7. **Map controls.** Zoom +/− (4 steps, centred on the selected stop, pins keep their size); layers toggles the route line and hotel marker; close clears the selected stop.
+8. **Itinerary tab** reuses the full-trip view (`ItineraryView.vue`): all days, hotel, tickets, reservations, violations, disruptions, section states, with confirm checkboxes.
+9. **Colour contrast.** The spec's secondary grey `#8A8784` is 3.6:1 on white, below the required 4.5:1. It is kept as `--icon-muted` for icons and decorative marks. Secondary text uses `--text-muted` `#6E6A66` (5.3:1 on white, 4.7:1 on the page colour). The accent `#F4A261` is never used for text; `--accent-strong` `#A8521A` (5.4:1) is used where accent-coloured text is needed. Focus ring: a white gap plus a 2px blue ring, visible on white, beige and black.
+10. **Light theme only.** The spec defines one palette, so the old dark-mode overrides were removed.
+11. **Font.** Inter via `@fontsource-variable/inter`, bundled so it works offline (no Google Fonts request).
+12. **Icons.** `lucide-vue-next@0.460` as the spec says. The package now marks itself deprecated in favour of `@lucide/vue`, so switching is a one-line import change if needed.
+13. **Test tooling.** Vitest 2.1 (supports Vite 5), `@vue/test-utils`, jsdom and `@pinia/testing`. Tests stub store actions, or mock `@/api` for the feedback call.

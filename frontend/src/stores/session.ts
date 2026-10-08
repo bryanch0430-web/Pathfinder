@@ -1,7 +1,9 @@
 /**
- * Session store: the single source of truth for the console.
+ * Session store: the conversation, the route status of the turn in flight, the trip context and
+ * the session lifecycle. The TripPlan itself lives in the plan store (`./plan`); this store
+ * writes it there after each turn.
  *
- * All backend access goes through `@/api`; components only read this store and call its actions.
+ * All backend access goes through `@/api`; components only read the stores and call actions.
  * A turn prefers the WebSocket stream (live route + per-agent progress) and falls back to the
  * plain POST /messages endpoint when the socket cannot be used.
  */
@@ -22,6 +24,7 @@ import type {
   AgentName,
   Clarification,
   ConfirmInput,
+  GateReason,
   ConversationTurn,
   HealthResponse,
   PreferenceProfile,
@@ -31,12 +34,12 @@ import type {
   SessionView,
   StreamHandle,
   TripContext,
-  TripPlan,
   TurnEvent,
   TurnResult,
 } from '@/api'
 import { AGENT_NAMES } from '@/lib/constants'
 import { missingKeyVariables } from '@/lib/context'
+import { usePlanStore } from './plan'
 
 const STORAGE_KEY = 'pathfinder.sessionId'
 
@@ -53,6 +56,10 @@ export interface ChatEntry {
   at: string | null
   /** Names of context fields the backend still needs (clarification replies only). */
   missingFields: string[]
+  /** The user message this assistant entry answers (used to resend after a clarification). */
+  prompt: string | null
+  /** Why the gate asked for clarification (clarification entries only). */
+  gateReason: GateReason | null
   /** Structured quick answer for the "ask" route, when one was produced. */
   answer: QuickAnswer | null
   /** The input was flagged by the injection screen (it is still handled as plain data). */
@@ -132,14 +139,16 @@ function idleProgress(): Record<AgentName, AgentProgress> {
 export const useSessionStore = defineStore('session', () => {
   // Session data
   const sessionId = ref<string | null>(null)
+  const planStore = usePlanStore()
   const context = ref<TripContext>({})
-  const plan = ref<TripPlan | null>(null)
   const preferences = ref<PreferenceProfile | null>(null)
   const log = ref<ChatEntry[]>([])
 
   // Turn state
   const busy = ref(false)
   const currentRoute = ref<Route | null>(null)
+  /** Reply text of the turn in flight, as soon as the stream delivers it (before "done"). */
+  const liveReply = ref<string | null>(null)
   const agents = ref<Record<AgentName, AgentProgress>>(idleProgress())
   const transport = ref<'stream' | 'http' | null>(null)
 
@@ -159,7 +168,7 @@ export const useSessionStore = defineStore('session', () => {
   let initPromise: Promise<void> | null = null
   let nextEntryId = 1
 
-  const hasPlan = computed(() => plan.value !== null)
+  const hasPlan = computed(() => planStore.plan !== null)
   const missingVariables = computed(() => missingKeyVariables(context.value))
   const agentsActive = computed(() => AGENT_NAMES.some((agent) => agents.value[agent].phase !== 'idle'))
 
@@ -172,6 +181,8 @@ export const useSessionStore = defineStore('session', () => {
       route: null,
       at: null,
       missingFields: [],
+      prompt: null,
+      gateReason: null,
       answer: null,
       flagged: false,
       agentsRun: [],
@@ -181,6 +192,7 @@ export const useSessionStore = defineStore('session', () => {
 
   function entriesFromHistory(history: ConversationTurn[]): void {
     log.value = []
+    let lastUserText: string | null = null
     for (const turn of history) {
       appendEntry({
         role: turn.role,
@@ -188,13 +200,16 @@ export const useSessionStore = defineStore('session', () => {
         route: turn.route ?? null,
         at: turn.at ?? null,
         kind: turn.role === 'assistant' && turn.route === 'unclear' ? 'clarification' : 'message',
+        prompt: turn.role === 'assistant' ? lastUserText : null,
       })
+      if (turn.role === 'user') lastUserText = turn.content
     }
   }
 
   function resetProgress(): void {
     agents.value = idleProgress()
     currentRoute.value = null
+    liveReply.value = null
   }
 
   // ---- session lifecycle -----------------------------------------------------------------------
@@ -202,7 +217,7 @@ export const useSessionStore = defineStore('session', () => {
   function applySession(view: SessionView, options: { replaceLog: boolean }): void {
     sessionId.value = view.session_id
     context.value = view.context
-    plan.value = view.plan
+    planStore.setPlan(view.plan)
     preferences.value = view.preferences
     if (options.replaceLog) entriesFromHistory(view.history)
     writeStoredSessionId(view.session_id)
@@ -264,7 +279,7 @@ export const useSessionStore = defineStore('session', () => {
       const view = await getSession(id)
       context.value = view.context
       preferences.value = view.preferences
-      if (view.plan) plan.value = view.plan
+      if (view.plan) planStore.setPlan(view.plan)
     } catch (error) {
       if (error instanceof ApiError && error.isNotFound) markSessionLost()
     }
@@ -277,7 +292,7 @@ export const useSessionStore = defineStore('session', () => {
     writeStoredSessionId(null)
     sessionId.value = null
     context.value = {}
-    plan.value = null
+    planStore.setPlan(null)
     preferences.value = null
     log.value = []
     feedbackOutcome.value = null
@@ -312,7 +327,7 @@ export const useSessionStore = defineStore('session', () => {
       const view = await updateContext(id, next)
       context.value = view.context
       preferences.value = view.preferences
-      if (view.plan) plan.value = view.plan
+      if (view.plan) planStore.setPlan(view.plan)
       return true
     } catch (error) {
       reportError(error)
@@ -361,7 +376,14 @@ export const useSessionStore = defineStore('session', () => {
           agents.value[event.agent] = { phase: 'finished', status: event.status, note: event.message }
         }
         break
+      case 'plan':
+      case 'answer':
+      case 'clarification':
+        // The reply text arrives here, before "done" delivers the full result.
+        liveReply.value = event.message
+        break
       case 'error':
+        liveReply.value = event.message
         // An error without a trace id means the server refused the frame before starting a
         // turn, so no "done" will follow. Errors inside a turn are followed by "done".
         if (!event.trace_id) {
@@ -375,7 +397,6 @@ export const useSessionStore = defineStore('session', () => {
         else turn.reject(new StreamRejectedError('The turn ended without a result'))
         break
       default:
-        // plan / answer / clarification carry the same reply text that "done" delivers in full.
         break
     }
   }
@@ -416,7 +437,7 @@ export const useSessionStore = defineStore('session', () => {
     })
   }
 
-  function applyResult(result: TurnResult): void {
+  function applyResult(result: TurnResult, prompt: string): void {
     currentRoute.value = result.route
 
     // Over plain HTTP there are no live events, so settle the chips from the result itself.
@@ -443,12 +464,14 @@ export const useSessionStore = defineStore('session', () => {
       route: result.route,
       at: new Date().toISOString(),
       missingFields: clarification?.missing_fields ?? result.gate.missing_fields ?? [],
+      prompt,
+      gateReason: kind === 'clarification' ? clarification?.reason ?? result.gate.reason : null,
       answer: result.answer ?? null,
       flagged: result.input_flagged,
       agentsRun: result.agents_run ?? [],
     })
 
-    if (result.plan) plan.value = result.plan
+    if (result.plan) planStore.setPlan(result.plan)
   }
 
   /**
@@ -481,7 +504,7 @@ export const useSessionStore = defineStore('session', () => {
         transport.value = 'http'
         result = await postMessage(id, message)
       }
-      applyResult(result)
+      applyResult(result, message)
       await refreshSession()
     } catch (error) {
       // A failed turn is reported in the chat itself; only a vanished session gets the banner.
@@ -499,11 +522,11 @@ export const useSessionStore = defineStore('session', () => {
 
   async function confirm(input: ConfirmInput): Promise<boolean> {
     const id = sessionId.value
-    if (!id || !plan.value) return false
+    if (!id || !planStore.plan) return false
     confirming.value = true
     lastError.value = null
     try {
-      plan.value = await confirmItems(id, input)
+      planStore.setPlan(await confirmItems(id, input))
       return true
     } catch (error) {
       reportError(error)
@@ -525,7 +548,7 @@ export const useSessionStore = defineStore('session', () => {
 
   async function submitFeedback(useful: boolean, rating: number): Promise<boolean> {
     const id = sessionId.value
-    const current = plan.value
+    const current = planStore.plan
     if (!id || !current) return false
     sendingFeedback.value = true
     lastError.value = null
@@ -555,11 +578,11 @@ export const useSessionStore = defineStore('session', () => {
     // state
     sessionId,
     context,
-    plan,
     preferences,
     log,
     busy,
     currentRoute,
+    liveReply,
     agents,
     transport,
     loading,

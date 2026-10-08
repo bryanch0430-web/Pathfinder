@@ -1,0 +1,92 @@
+/*
+ * Design tokens: the only place colours, radii, shadows, spacing and type are defined.
+ * Components use these variables and never hard-code a colour.
+ *
+ * Contrast notes (WCAG 2.1, normal text needs >= 4.5:1):
+ * - --text (#1F1D1B) on white: 16.4:1; on --page (#F3F1EE): 14.6:1.
+ * - --text-muted (#6E6A66) on white: 5.3:1; on --page: 4.7:1. The spec's #8A8784 is 3.6:1 on
+ *   white, so it is kept as --icon-muted (icons, borders, decorative marks only), never for text.
+ * - --accent (#F4A261) is never used for text: rings, chart fills and highlights only, with
+ *   --text on top when something sits on it (9.4:1).
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --page: #f3f1ee;
+  --card: #ffffff;
+  --card-soft: #faf8f6;
+  --border: #e8e5e0;
+  --border-strong: #d4d0ca;
+
+  /* Text */
+  --text: #1f1d1b;
+  --text-muted: #6e6a66;
+  --icon-muted: #8a8784;
+
+  /* Accent (peach-orange) */
+  --accent: #f4a261;
+  --accent-soft: #fdeee1;
+  --accent-strong: #a8521a; /* text-safe variant: 5.4:1 on white */
+
+  /* Primary (black pill) */
+  --primary: #151413;
+  --primary-hover: #33302d;
+  --primary-text: #ffffff;
+
+  /* Status */
+  --ok: #1f6b3a;
+  --ok-soft: #e3f3e8;
+  --warn: #8a4b04;
+  --warn-soft: #fcefd6;
+  --danger: #a92317;
+  --danger-soft: #fde6e3;
+  --unavailable: #5f5b57;
+  --unavailable-soft: #eeebe7;
+
+  /* Chart series (budget donut). Distinguishable by lightness as well as hue. */
+  --chart-transport: #f4a261;
+  --chart-attractions: #2a9d8f;
+  --chart-hotel: #264653;
+  --chart-food: #e9c46a;
+  --chart-other: #c9c5bf;
+
+  /* Map placeholder */
+  --map-land: #efece7;
+  --map-grid: #e2ded8;
+  --map-route: #151413;
+
+  /* Focus ring: visible on white, the page colour and the black pill */
+  --focus: #1d4ed8;
+  --focus-ring: 0 0 0 3px #ffffff, 0 0 0 5px var(--focus);
+
+  /* Shape */
+  --radius-card: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgb(31 29 27 / 4%), 0 8px 24px rgb(31 29 27 / 4%);
+  --shadow-float: 0 2px 8px rgb(31 29 27 / 12%);
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Type */
+  --font: 'Inter Variable', 'Inter', 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Noto Sans TC', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+}

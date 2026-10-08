@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { AgentName, DayPlan, DisruptionKind, ItineraryItem, TicketOption } from '@/api'
 import { useSessionStore } from '@/stores/session'
+import { usePlanStore } from '@/stores/plan'
 import { AGENT_LABELS, AGENT_NAMES } from '@/lib/constants'
 import {
   formatDate,
@@ -16,7 +17,8 @@ import {
 import StatusBadge from './StatusBadge.vue'
 
 const store = useSessionStore()
-const plan = computed(() => store.plan)
+const planStore = usePlanStore()
+const plan = computed(() => planStore.plan)
 
 const DISRUPTION_LABELS: Record<DisruptionKind, string> = {
   venue_closed: 'Venue closed',
@@ -89,17 +91,17 @@ const barWidth = computed(() => {
 // ---- confirmation toggles ----------------------------------------------------------------------
 
 function isItemConfirmed(itemId: string): boolean {
-  return (store.plan?.days ?? []).some((day) =>
+  return (planStore.plan?.days ?? []).some((day) =>
     (day.items ?? []).some((item) => item.item_id === itemId && item.confirmed),
   )
 }
 
 function isTicketConfirmed(ticketId: string): boolean {
-  return (store.plan?.tickets ?? []).some((ticket) => ticket.ticket_id === ticketId && ticket.confirmed)
+  return (planStore.plan?.tickets ?? []).some((ticket) => ticket.ticket_id === ticketId && ticket.confirmed)
 }
 
 function isHotelConfirmed(): boolean {
-  return store.plan?.hotel?.confirmed ?? false
+  return planStore.plan?.hotel?.confirmed ?? false
 }
 
 /**
@@ -136,9 +138,9 @@ const bookingLink = safeHttpUrl
 
 <template>
   <section class="card itinerary" aria-labelledby="itinerary-title">
-    <header>
+    <header class="card-header">
       <h2 id="itinerary-title">Itinerary</h2>
-      <span v-if="plan" class="badge badge-primary" :title="`Plan ${plan.plan_id}`">Version {{ plan.version }}</span>
+      <span v-if="plan" class="badge badge-accent" :title="`Plan ${plan.plan_id}`">Version {{ plan.version }}</span>
     </header>
 
     <p v-if="!plan" class="empty">
@@ -379,7 +381,7 @@ const bookingLink = safeHttpUrl
             />
             <div class="item-main">
               <p>
-                <span class="badge badge-info">{{ ticket.direction }}</span>
+                <span class="badge badge-accent">{{ ticket.direction }}</span>
                 <strong>{{ ticket.carrier }}</strong>
                 ({{ ticket.mode }})
                 <span class="badge" :class="ticketStatusClass(ticket)">{{ ticketStatusText(ticket) }}</span>
@@ -559,7 +561,7 @@ h4 {
 .time {
   margin-right: 6px;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .badges {

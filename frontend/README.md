@@ -1,14 +1,16 @@
 # Pathfinder web console
 
-A Vue 3 + TypeScript + Vite + Pinia front end for the Pathfinder trip planner. It is deliberately
+A Vue 3 + TypeScript + Vite + Pinia dashboard for the Pathfinder trip planner. It is deliberately
 thin and **decoupled**: the only thing it shares with the backend is the HTTP/WebSocket API
 contract (`../contracts/openapi.json`, plus the shared TripPlan JSON Schema in
 `../contracts/trip_plan.schema.json`).
 
 ## Requirements
 
-Node 18.19+ and npm 10 (developed on Node 18.19.0). No UI component library: plain CSS with CSS
-variables (`src/styles/main.css`).
+Node 18.19+ and npm 10 (developed on Node 18.19.0). No UI component library: plain CSS with
+design tokens in `src/styles/tokens.css` (colours, radii, shadows, spacing, type) and a few shared
+primitives in `src/styles/main.css`. Icons: `lucide-vue-next`. Font: Inter, bundled through
+`@fontsource-variable/inter` so it works offline.
 
 ## Install and run
 
@@ -42,6 +44,8 @@ The generated types are committed (`src/api/generated/openapi.ts`), so `npm run 
 | `npm run typecheck` | `vue-tsc --noEmit` only |
 | `npm run preview` | Serve the production build locally |
 | `npm run gen:types` | Regenerate `src/api/generated/openapi.ts` from `../contracts/openapi.json` |
+| `npm test` | Vitest component tests in jsdom (`src/components/__tests__/`), no backend needed |
+| `npm run test:watch` | Vitest in watch mode |
 
 ### Configuration
 
@@ -73,16 +77,33 @@ friendly aliases (`TripPlan`, `TripContext`, `TurnResult`, `TurnEvent`, `Session
 
 ```
 src/
-  api/             THE ONLY module that touches the network
-    generated/     openapi.ts, generated, committed
-    types.ts       aliases over the generated types
-    client.ts      typed HTTP functions, openStream() for the WebSocket, ApiError
-    index.ts       what the rest of the app imports ("@/api")
-  stores/session.ts  Pinia store: session, context, plan, chat log, streaming state
-  components/      TripForm, ChatPanel, ItineraryView, MapView (placeholder), RatingControl
-  lib/             pure helpers (formatting, constants, "missing key variables")
-  styles/main.css  design tokens and shared primitives
+  api/                 THE ONLY module that touches the network
+    generated/         openapi.ts, generated, committed
+    types.ts           aliases over the generated types
+    client.ts          typed HTTP functions, openStream() for the WebSocket, ApiError
+    index.ts           what the rest of the app imports ("@/api")
+  stores/
+    session.ts         conversation, route status, live turn progress, trip context, session lifecycle
+    plan.ts            the TripPlan, selected day and selected stop
+    ui.ts              active tab, open dialog
+  components/          one file per component (below); tests in __tests__/
+  lib/                 pure helpers: formatting, route status line, budget segments,
+                       travel-time estimate, refresh/reorder chat messages, constants
+  styles/tokens.css    design tokens
+  styles/main.css      base styles + shared primitives (card, pill buttons, chips, badges)
+  test/fixtures.ts     a typed TripPlan for tests
 ```
+
+| Area | Components |
+|---|---|
+| Top bar | `TopBar` (logo, Plan / Itinerary / Saved trips tabs, search, help, avatar) |
+| Left column | `ChatPanel` → `QuickChips`, `ChatMessage`, `ClarificationCard`; `TripSummaryCard` |
+| Centre column | `MapView` → `MapControls`; `PlaceDetailCard` → `PopularTimesChart` (hidden: no data), `StalenessBadge` |
+| Right column | `BudgetCard` → `DonutChart`; `DaySelector`; `DayTimeline` → `TimelineItem` |
+| Other tabs | `ItineraryView` (whole trip), `SavedTripsList` (placeholder) |
+| Dialogs | `AppDialog` (modal shell), `RatingDialog` (Mark as useful, 1–5 stars), `TripForm` (trip details) |
+
+Breakpoints: three columns at ≥ 1280 px, two at ≥ 900 px, one below (`App.vue`).
 
 Rules that keep it decoupled:
 
@@ -114,8 +135,12 @@ TypeScript too, and mostly reusable, but it is not part of the decoupling guaran
 
 ## Notes and known limits
 
-- `MapView` is a placeholder for the proposal's map replay: an SVG that plots the selected day's
-  stops (from `plan.places`) with no basemap. Real map tiles and the replay are a later step.
+- `MapView` is a provider-agnostic placeholder (`TODO(provisional)`): an SVG with an
+  equirectangular projection of the selected day's stops (numbered pins) and the hotel, with no
+  basemap, so it works offline. Swap the `<svg>` for a real map behind the same inputs.
+- Items the API does not expose (popular times, Food/Other costs, travel times, reordering, a
+  saved-trips list, a refresh endpoint) are placeholders, derived values or chat messages. The
+  full list is in `../DECISIONS.md` §12.
 - The `/api/sessions/{id}/stream` WebSocket is not described by OpenAPI. Only the `TurnEvent`
   schema is exported, so the framing (client sends `{"message": "..."}`, server ends each turn with
   a `done` event carrying the `TurnResult`) is documented in `src/api/client.ts`.
