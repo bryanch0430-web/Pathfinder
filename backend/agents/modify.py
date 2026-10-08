@@ -196,7 +196,7 @@ class ModifyPath:
 
     @staticmethod
     def _exclusions(agent: AgentName, plan: TripPlan, change: ChangeRequest) -> list[str]:
-        if agent is AgentName.HOTEL and change.replace_hotel and plan.hotel:
+        if agent is AgentName.HOTEL and (change.replace_hotel or change.cheaper_hotel) and plan.hotel:
             return [plan.hotel.hotel.hotel_id]
         if agent is AgentName.ATTRACTION:
             return list(change.remove_place_ids)

@@ -41,6 +41,7 @@ from backend.tools.providers.base import (
     ProviderUnavailable,
 )
 from backend.tools.providers.mock.data import (
+    USD_PER_UNIT,
     Attraction,
     City,
     convert,
@@ -392,7 +393,7 @@ class MockTicketProvider(_MockProvider):
             leg = _train_leg(origin, dest, km) if mode == "train" else _flight_leg(origin, dest, km)
             if leg is None:  # mode does not serve this route (e.g. no train Hong Kong -> Tokyo)
                 continue
-            records.extend(self._options(mode, origin, dest, request.travel_date, leg))
+            records.extend(self._options(mode, origin, dest, request.travel_date, leg, request.currency))
         return records
 
     def _options(
@@ -402,17 +403,20 @@ class MockTicketProvider(_MockProvider):
         dest: City,
         on: date,
         leg: _Leg,
+        currency: str | None = None,
     ) -> list[TicketRecord]:
         delay = self._faults.transit_delay(mode, on, origin.key, dest.key) if self._faults else None
         origin_tz = timezone(timedelta(hours=origin.utc_offset_h))
         dest_tz = timezone(timedelta(hours=dest.utc_offset_h))
+        # The requested currency when the mock knows its rate, else the arriving city's currency.
+        ccy = currency.upper() if currency and currency.upper() in USD_PER_UNIT else dest.currency
         out: list[TicketRecord] = []
         for n, (dep, factor) in enumerate(zip(_DEPARTURES, leg.slot_factors, strict=True), start=1):
             ticket_id = f"{mode}-{origin.key}-{dest.key}-{on:%Y%m%d}-{n}"
             jitter = 1.0
             if mode == "flight":
                 jitter = 0.95 + 0.1 * stable_unit("fare", ticket_id)
-            amount = convert(leg.price_usd * factor * jitter, "USD", dest.currency)
+            amount = convert(leg.price_usd * factor * jitter, "USD", ccy)
             depart_at = datetime.combine(on, dep, tzinfo=origin_tz)
             out.append(
                 TicketRecord(
@@ -423,7 +427,7 @@ class MockTicketProvider(_MockProvider):
                     destination=dest.name,
                     depart_at=depart_at,
                     arrive_at=(depart_at + timedelta(minutes=leg.minutes)).astimezone(dest_tz),
-                    price=Money(amount=round_money(amount, dest.currency), currency=dest.currency),
+                    price=Money(amount=round_money(amount, ccy), currency=ccy),
                     status="delayed" if delay else "scheduled",
                     delay_minutes=delay or 0,
                 )

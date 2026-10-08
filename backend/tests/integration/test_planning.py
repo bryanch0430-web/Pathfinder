@@ -10,7 +10,8 @@ from backend.agents.plan_ops import hotel_point, locator
 from backend.agents.route_order import NearestNeighbourOrderer, route_length_km
 from backend.agents.runtime.mock_llm import MockLLMClient, ScriptedLLMClient
 from backend.container import Container
-from backend.schemas.common import AgentName, GeoPoint, Route, SectionStatus
+from backend.schemas.common import AgentName, GeoPoint, Money, Route, SectionStatus
+from backend.schemas.trip import TripContext
 from backend.schemas.trip_plan import ItineraryItem
 from backend.schemas.tools import ToolOperation
 from backend.schemas.turn import TurnErrorCode
@@ -180,3 +181,27 @@ async def test_s09_planned_days_follow_nearest_neighbour_order_from_hotel(contai
         assert [i.place_id for i in day.items] == [i.place_id for i in expected]
         times = [i.start_time for i in day.items]
         assert times == sorted(t for t in times if t is not None)
+
+
+# ---- Cost currency ------------------------------------------------------------------------------
+
+
+async def test_both_ticket_legs_use_the_budget_currency_so_the_cost_is_complete(container: Container) -> None:
+    context = TripContext.model_validate(
+        {
+            "destination": "Hong Kong",
+            "origin": "Shenzhen",
+            "start_date": "2026-11-12",
+            "days": 3,
+            "party_size": 2,
+            "budget": Money(amount=18_000, currency="HKD"),
+        }
+    )
+    state = await container.orchestrator.create_session(context)
+    result = await container.orchestrator.handle_turn(state.session_id, "Plan my trip to Hong Kong")
+    plan = result.plan
+    assert plan is not None and plan.cost is not None
+    assert {t.direction for t in plan.tickets} == {"outbound", "return"}
+    assert all(t.price.currency == "HKD" for t in plan.tickets)
+    assert plan.cost.complete
+    assert not [v for v in plan.violations if "currency" in v.message.lower()]

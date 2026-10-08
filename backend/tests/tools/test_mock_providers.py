@@ -174,6 +174,27 @@ async def test_tickets_flight_overseas_priced_in_destination_currency(mock: Mock
     assert all(re.fullmatch(r"flight-tokyo-hong-kong-20260412-[123]", t.ticket_id) for t in flights)
 
 
+async def test_tickets_quoted_in_the_requested_currency(mock: MockProviders) -> None:
+    # The return leg of a Hong Kong trip from Tokyo arrives in Tokyo; asked for HKD it must not
+    # be priced in JPY (which would leave the plan cost incomplete).
+    request = TicketSearchRequest(
+        origin="Hong Kong", destination="Tokyo", travel_date=TRAVEL_DAY, modes=["flight"], currency="hkd"
+    )
+    in_hkd = await mock.tickets.search(request)
+    in_jpy = await mock.tickets.search(request.model_copy(update={"currency": None}))
+    assert in_hkd and all(t.price.currency == "HKD" for t in in_hkd)
+    assert all(t.price.currency == "JPY" for t in in_jpy)  # default: the arriving city's currency
+    for hkd, jpy in zip(in_hkd, in_jpy, strict=True):  # same fare, converted at the mock rate
+        assert abs(hkd.price.amount * 150 / 7.8 - jpy.price.amount) / jpy.price.amount < 0.01
+
+
+async def test_tickets_unknown_currency_falls_back_to_destination_currency(mock: MockProviders) -> None:
+    flights = await mock.tickets.search(
+        TicketSearchRequest(origin="Tokyo", destination="Hong Kong", travel_date=TRAVEL_DAY, modes=["flight"], currency="XYZ")
+    )
+    assert flights and all(t.price.currency == "HKD" for t in flights)
+
+
 async def test_tickets_same_city_is_empty(mock: MockProviders) -> None:
     same = await mock.tickets.search(
         TicketSearchRequest(origin="Kyoto, Japan", destination="kyoto", travel_date=TRAVEL_DAY, modes=["train"])

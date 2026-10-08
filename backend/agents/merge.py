@@ -53,6 +53,17 @@ from backend.schemas.trip_plan import (
 # ------------------------------------------------------------------------------------------------
 
 
+def cheaper_than(candidates: Sequence[Hotel], current: Hotel) -> list[Hotel]:
+    """Candidates with a lower nightly price than `current`, in the same currency (there is no
+    exchange-rate tool, so a price in another currency cannot be compared)."""
+    price = current.nightly_price
+    return [
+        h
+        for h in candidates
+        if h.nightly_price.currency == price.currency and h.nightly_price.amount < price.amount
+    ]
+
+
 def choose_hotel(
     candidates: Sequence[Hotel], context: TripContext, *, preferred_id: str | None = None
 ) -> HotelStay | None:
@@ -255,7 +266,7 @@ def agents_for_change(change: ChangeRequest, old: TripContext, new: TripContext)
         agents |= {AgentName.HOTEL, AgentName.TICKET}
     if change.budget is not None and change.budget != old.budget:
         agents.add(AgentName.HOTEL)
-    if change.replace_hotel or (change.hotel_style and change.hotel_style != old.hotel_style):
+    if change.replace_hotel or change.cheaper_hotel or (change.hotel_style and change.hotel_style != old.hotel_style):
         agents.add(AgentName.HOTEL)
     if change.remove_place_ids or change.add_requests:
         agents.add(AgentName.ATTRACTION)
@@ -335,15 +346,26 @@ def merge_modify(
     hotel_result = results.get(AgentName.HOTEL)
     if hotel_result is not None and hotel_result.status is SectionStatus.OK and isinstance(hotel_result.data, HotelData):
         candidates = hotel_result.data.candidates
-        keep_confirmed = hotel is not None and hotel.confirmed and not change.replace_hotel
+        wants_new = change.replace_hotel or change.cheaper_hotel
+        keep_confirmed = hotel is not None and hotel.confirmed and not wants_new
         if keep_confirmed and hotel is not None and context.start_date and context.end_date:
             refreshed = next((h for h in candidates if h.hotel_id == hotel.hotel.hotel_id), hotel.hotel)
             hotel = hotel.model_copy(
                 update={"hotel": refreshed, "check_in": context.start_date, "check_out": context.end_date}
             )
         else:
-            excluded = {plan.hotel.hotel.hotel_id} if (change.replace_hotel and plan.hotel) else set()
-            hotel = choose_hotel([h for h in candidates if h.hotel_id not in excluded], context)
+            excluded = {plan.hotel.hotel.hotel_id} if (wants_new and plan.hotel) else set()
+            hotel_pool = [h for h in candidates if h.hotel_id not in excluded]
+            if change.cheaper_hotel and plan.hotel is not None:
+                hotel_pool = cheaper_than(hotel_pool, plan.hotel.hotel)
+            if not hotel_pool and change.cheaper_hotel and plan.hotel is not None:
+                # Nothing cheaper was fetched: keep the current stay rather than pick a pricier one.
+                hotel = plan.hotel
+                if context.start_date and context.end_date:
+                    hotel = hotel.model_copy(update={"check_in": context.start_date, "check_out": context.end_date})
+                notes.append(f"no cheaper hotel than {plan.hotel.hotel.name} was found; kept it")
+            else:
+                hotel = choose_hotel(hotel_pool, context)
     elif dates_changed and hotel is not None and not hotel.confirmed:
         hotel = None
         notes.append("hotel needs re-checking for the new dates; hotel source unavailable")

@@ -54,6 +54,9 @@ class ChangeRequest(StrictModel):
     budget: Money | None = None
     hotel_style: str | None = Field(default=None, max_length=100)
     replace_hotel: bool = False
+    cheaper_hotel: bool = Field(
+        default=False, description="The replacement hotel must cost less per night than the current one"
+    )
     remove_place_ids: list[str] = Field(default_factory=list)
     add_requests: list[str] = Field(default_factory=list, description="e.g. 'a museum on day 2'")
     refresh: list[AgentName] = Field(

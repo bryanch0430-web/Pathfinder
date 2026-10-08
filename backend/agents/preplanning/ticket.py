@@ -42,6 +42,9 @@ class TicketAgent(PreplanningAgent):
         requests: list[ToolRequest] = []
         if ctx.origin and ctx.start_date and ctx.end_date and not _same_city(ctx.origin, ctx.destination):
             party = ctx.party_size or 1
+            # Both legs are quoted in the budget currency, so the return leg is not priced in the
+            # origin city's currency (which would leave the cost incomplete).
+            currency = ctx.budget.currency if ctx.budget else None
             requests.append(
                 TicketSearchRequest(
                     origin=ctx.origin,
@@ -49,6 +52,7 @@ class TicketAgent(PreplanningAgent):
                     travel_date=ctx.start_date,
                     modes=["train", "flight"],
                     party_size=party,
+                    currency=currency,
                 )
             )
             requests.append(
@@ -58,6 +62,7 @@ class TicketAgent(PreplanningAgent):
                     travel_date=ctx.end_date,
                     modes=["train", "flight"],
                     party_size=party,
+                    currency=currency,
                 )
             )
         requests.append(ReservationCheckRequest(destination=ctx.destination))

@@ -301,19 +301,21 @@ def ticket_tools(request: LLMRequest) -> str:
     origin = s(ctx.get("origin"))
     start, end = as_date(ctx.get("start_date")), as_date(ctx.get("end_date"))
     party = int(num(ctx.get("party_size")) or 1)
+    currency = s(obj(ctx.get("budget")).get("currency"))
     calls: list[JsonValue] = []
     if origin and start and end and origin.strip().lower() != dest.strip().lower():
         for o, d, day in ((origin, dest, start), (dest, origin, end)):
-            calls.append(
-                {
-                    "operation": "ticket_search",
-                    "origin": o,
-                    "destination": d,
-                    "travel_date": day.isoformat(),
-                    "modes": ["train", "flight"],
-                    "party_size": party,
-                }
-            )
+            call: dict[str, JsonValue] = {
+                "operation": "ticket_search",
+                "origin": o,
+                "destination": d,
+                "travel_date": day.isoformat(),
+                "modes": ["train", "flight"],
+                "party_size": party,
+            }
+            if currency:
+                call["currency"] = currency
+            calls.append(call)
     calls.append({"operation": "reservation_check", "destination": dest, "place_names": []})
     return dumps({"tool_calls": calls})
 
@@ -489,6 +491,8 @@ def modify_extract(request: LLMRequest) -> str:
         t, ("swap", "change", "replace", "another", "different", "cheaper", "instead", "new")
     ):
         change["replace_hotel"] = True
+        if has_any(t, ("cheaper", "cheapest", "less expensive", "lower price")):
+            change["cheaper_hotel"] = True
         style = next((st for st in STYLES if st in t), None)
         if style:
             change["hotel_style"] = style

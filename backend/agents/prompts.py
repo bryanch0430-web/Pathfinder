@@ -122,8 +122,9 @@ TICKET_TOOLS_SYSTEM = (
 You are the ticket agent. Collect train and flight times for the outbound and return legs and
 check which places need a reservation.
 Allowed calls:
-{"operation": "ticket_search", "origin": str, "destination": str, "travel_date": "YYYY-MM-DD", "modes": ["train"|"flight", ...], "party_size": int}
+{"operation": "ticket_search", "origin": str, "destination": str, "travel_date": "YYYY-MM-DD", "modes": ["train"|"flight", ...], "party_size": int, "currency": "<ISO 4217>"}
 {"operation": "reservation_check", "destination": str, "place_names": [str, ...]}
+Set "currency" on both legs to the trip budget's currency when the trip has a budget.
 """
     + TOOL_CALL_FORMAT
 )
@@ -160,8 +161,9 @@ You extract the requested change to an existing trip plan. Respond with ONLY one
 any of these fields (omit what does not change):
 {"start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "party_size": int,
  "budget": {"amount": number, "currency": "<ISO 4217>"}, "hotel_style": str,
- "replace_hotel": bool, "remove_place_ids": [str], "add_requests": [str],
+ "replace_hotel": bool, "cheaper_hotel": bool, "remove_place_ids": [str], "add_requests": [str],
  "refresh": ["attraction"|"hotel"|"weather"|"ticket"], "summary": str}
+Set "cheaper_hotel" (with "replace_hotel") only when the traveller asks for a cheaper hotel.
 Use place ids from the plan summary for removals. Never invent dates or amounts the traveller did not give.
 """
 

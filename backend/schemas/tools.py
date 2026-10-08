@@ -88,6 +88,9 @@ class TicketSearchRequest(StrictModel):
     travel_date: date
     modes: list[Literal["train", "flight"]] = Field(min_length=1)
     party_size: int = Field(default=1, ge=1, le=50)
+    currency: str | None = Field(
+        default=None, min_length=3, max_length=3, description="Quote prices in this ISO 4217 currency"
+    )
 
 
 class ReservationCheckRequest(StrictModel):
