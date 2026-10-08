@@ -7,7 +7,7 @@
  * - --text-muted (#6E6A66) on white: 5.3:1; on --page: 4.7:1. The spec's #8A8784 is 3.6:1 on
  *   white, so it is kept as --icon-muted (icons, borders, decorative marks only), never for text.
  * - --accent (#F4A261) is never used for text: rings, chart fills and highlights only, with
- *   --text on top when something sits on it (9.4:1).
+ *   --text on top when something sits on it (8.1:1).
  */
 
 :root {

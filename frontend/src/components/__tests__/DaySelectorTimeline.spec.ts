@@ -78,4 +78,22 @@ describe('DaySelector / DayTimeline sync', () => {
     await wrapper.get('button[aria-label^="Reorder Gion District"]').trigger('keydown', { key: ' ' })
     expect(session.send).toHaveBeenCalledWith('Change the order of the day 2 stops to: Nijo Castle, then Gion District')
   })
+
+  it('moving focus away cancels a keyboard grab without sending', async () => {
+    const session = useSessionStore()
+    session.send = vi.fn().mockResolvedValue(undefined)
+    usePlanStore().selectDay(1)
+    const wrapper = mount(Dashboard, { attachTo: document.body })
+    const handle = wrapper.get('button[aria-label^="Reorder Gion District"]')
+    await handle.trigger('keydown', { key: ' ' })
+    await handle.trigger('keydown', { key: 'ArrowDown' })
+    const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    await frame() // the moved handle takes focus back
+    ;(wrapper.get('button[aria-label^="Unconfirm Fushimi"], .lock').element as HTMLElement).focus()
+    await frame()
+    await wrapper.vm.$nextTick()
+    expect(timelineTitles(wrapper)).toEqual(['Gion District · Free', 'Nijo Castle · ¥1,300'])
+    expect(session.send).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
 })

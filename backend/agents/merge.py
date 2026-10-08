@@ -363,7 +363,10 @@ def merge_modify(
                 hotel = plan.hotel
                 if context.start_date and context.end_date:
                     hotel = hotel.model_copy(update={"check_in": context.start_date, "check_out": context.end_date})
-                notes.append(f"no cheaper hotel than {plan.hotel.hotel.name} was found; kept it")
+                kept = f"no cheaper hotel than {plan.hotel.hotel.name} was found; kept it"
+                if dates_changed:
+                    kept += " (its price for the new dates was not re-checked)"
+                notes.append(kept)
             else:
                 hotel = choose_hotel(hotel_pool, context)
     elif dates_changed and hotel is not None and not hotel.confirmed:

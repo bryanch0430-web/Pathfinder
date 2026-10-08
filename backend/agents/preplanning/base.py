@@ -106,6 +106,11 @@ class PreplanningAgent(ABC):
     def canonical_requests(self, task: AgentTask) -> list[ToolRequest]:
         """The agent's own task expressed as code-built requests (off-task fallback)."""
 
+    def normalise_raw(self, raw: str, task: AgentTask) -> str:
+        """Hook to fill in task facts the model left out of a proposed call (default: none).
+        Only adds missing fields; it never changes what the model did send."""
+        return raw
+
     def unavailable(self, reason: str) -> AgentResult:
         return AgentResult(agent=self.name, status=SectionStatus.UNAVAILABLE, reason=reason)
 
@@ -129,7 +134,7 @@ class PreplanningAgent(ABC):
                 agent=self.name,
                 max_repairs=settings.max_model_repairs,
             )
-            raws = [json.dumps(call) for call in proposal.tool_calls]
+            raws = [self.normalise_raw(json.dumps(call), task) for call in proposal.tool_calls]
         except (OutputRejected, StructuredOutputError):
             raws = []
 

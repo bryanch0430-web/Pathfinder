@@ -88,7 +88,7 @@ function nextContext(): TripContext {
 
 async function submit(): Promise<void> {
   showErrors.value = true
-  if (!valid.value || session.busy) return
+  if (!valid.value || session.busy || session.savingContext) return
   if (!hasFields.value) {
     await session.send(draft.answer)
     return

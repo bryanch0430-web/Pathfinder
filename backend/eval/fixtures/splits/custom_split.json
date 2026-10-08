@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "seed": 20261006,
+  "dev_fraction": 0.7,
+  "created_at": "2026-10-08T18:21:51.741723Z",
+  "fixture_sha256": {
+    "hk_scenarios.jsonl": "e66742019e9ce790de718a956527e76617ee1afc9239fe473f1d58246043e434",
+    "injection_probes.jsonl": "dec4c8f5801fd66c5d11f05af9eaed61baf52dfba5977ea7b5d2a01870437752",
+    "japan_scenarios.jsonl": "08ce651c1329835466108fa16db74f246e9822c17fd746f26212209f54e8e371",
+    "router_labels.jsonl": "6c5e7ef75da991aa1e27f9fc01585ad62737bc1a8c397fc13c993b4f688eab3f"
+  },
+  "stratified_by": {
+    "japan": "city|constraint_type",
+    "hk": "city|constraint_type",
+    "router": "label",
+    "probes": "category (all held-out, not split)"
+  },
+  "sets": {
+    "japan": {
+      "dev": [
+        "jp-kyoto-avoid-1",
+        "jp-kyoto-avoid-3",
+        "jp-kyoto-freetext-1",
+        "jp-kyoto-freetext-2",
+        "jp-osaka-dates-1",
+        "jp-osaka-dates-3",
+        "jp-osaka-party-1",
+        "jp-osaka-party-2",
+        "jp-tokyo-budget-1",
+        "jp-tokyo-budget-2",
+        "jp-tokyo-mustvisit-2",
+        "jp-tokyo-mustvisit-3"
+      ],
+      "heldout": [
+        "jp-kyoto-avoid-2",
+        "jp-kyoto-freetext-3",
+        "jp-osaka-dates-2",
+        "jp-osaka-party-3",
+        "jp-tokyo-budget-3",
+        "jp-tokyo-mustvisit-1"
+      ],
+      "strata": {
+        "Kyoto|avoid": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Kyoto|free_text": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Osaka|dates": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Osaka|party": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Tokyo|budget": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Tokyo|must_visit": {
+          "dev": 2,
+          "heldout": 1
+        }
+      }
+    },
+    "hk": {
+      "dev": [
+        "hk-01",
+        "hk-02",
+        "hk-04",
+        "hk-05",
+        "hk-07",
+        "hk-09",
+        "hk-10",
+        "hk-11",
+        "hk-13",
+        "hk-15"
+      ],
+      "heldout": [
+        "hk-03",
+        "hk-06",
+        "hk-08",
+        "hk-12",
+        "hk-14"
+      ],
+      "strata": {
+        "Hong Kong|avoid": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Hong Kong|budget": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Hong Kong|free_text": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Hong Kong|must_visit": {
+          "dev": 2,
+          "heldout": 1
+        },
+        "Hong Kong|party": {
+          "dev": 2,
+          "heldout": 1
+        }
+      }
+    },
+    "router": {
+      "dev": [
+        "r-ask-01",
+        "r-ask-02",
+        "r-ask-04",
+        "r-ask-05",
+        "r-ask-06",
+        "r-ask-08",
+        "r-ask-09",
+        "r-ask-11",
+        "r-ask-12",
+        "r-ask-14",
+        "r-ask-15",
+        "r-ask-17",
+        "r-ask-19",
+        "r-ask-20",
+        "r-modify-02",
+        "r-modify-03",
+        "r-modify-04",
+        "r-modify-05",
+        "r-modify-06",
+        "r-modify-08",
+        "r-modify-09",
+        "r-modify-10",
+        "r-modify-11",
+        "r-modify-13",
+        "r-modify-16",
+        "r-modify-17",
+        "r-modify-18",
+        "r-modify-20",
+        "r-plan-01",
+        "r-plan-02",
+        "r-plan-05",
+        "r-plan-08",
+        "r-plan-10",
+        "r-plan-11",
+        "r-plan-12",
+        "r-plan-13",
+        "r-plan-15",
+        "r-plan-16",
+        "r-plan-17",
+        "r-plan-18",
+        "r-plan-19",
+        "r-plan-20",
+        "r-unclear-01",
+        "r-unclear-03",
+        "r-unclear-04",
+        "r-unclear-05",
+        "r-unclear-08",
+        "r-unclear-09",
+        "r-unclear-10",
+        "r-unclear-11",
+        "r-unclear-12",
+        "r-unclear-13",
+        "r-unclear-15",
+        "r-unclear-17",
+        "r-unclear-18",
+        "r-unclear-19"
+      ],
+      "heldout": [
+        "r-ask-03",
+        "r-ask-07",
+        "r-ask-10",
+        "r-ask-13",
+        "r-ask-16",
+        "r-ask-18",
+        "r-modify-01",
+        "r-modify-07",
+        "r-modify-12",
+        "r-modify-14",
+        "r-modify-15",
+        "r-modify-19",
+        "r-plan-03",
+        "r-plan-04",
+        "r-plan-06",
+        "r-plan-07",
+        "r-plan-09",
+        "r-plan-14",
+        "r-unclear-02",
+        "r-unclear-06",
+        "r-unclear-07",
+        "r-unclear-14",
+        "r-unclear-16",
+        "r-unclear-20"
+      ],
+      "strata": {
+        "ask": {
+          "dev": 14,
+          "heldout": 6
+        },
+        "modify": {
+          "dev": 14,
+          "heldout": 6
+        },
+        "plan": {
+          "dev": 14,
+          "heldout": 6
+        },
+        "unclear": {
+          "dev": 14,
+          "heldout": 6
+        }
+      }
+    },
+    "probes": {
+      "dev": [],
+      "heldout": [
+        "p01",
+        "p02",
+        "p03",
+        "p04",
+        "p05",
+        "p06",
+        "p07",
+        "p08",
+        "p09",
+        "p10",
+        "p11",
+        "p12",
+        "p13",
+        "p14",
+        "p15",
+        "p16",
+        "p17",
+        "p18",
+        "p19",
+        "p20",
+        "p21",
+        "p22",
+        "p23",
+        "p24",
+        "p25"
+      ],
+      "strata": {
+        "disallowed_tool": {
+          "dev": 0,
+          "heldout": 6
+        },
+        "instruction_leakage": {
+          "dev": 0,
+          "heldout": 7
+        },
+        "route_override": {
+          "dev": 0,
+          "heldout": 6
+        },
+        "task_drop": {
+          "dev": 0,
+          "heldout": 6
+        }
+      }
+    }
+  }
+}

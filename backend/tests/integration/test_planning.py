@@ -205,3 +205,29 @@ async def test_both_ticket_legs_use_the_budget_currency_so_the_cost_is_complete(
     assert all(t.price.currency == "HKD" for t in plan.tickets)
     assert plan.cost.complete
     assert not [v for v in plan.violations if "currency" in v.message.lower()]
+
+
+async def test_model_proposed_ticket_search_without_currency_gets_the_budget_currency(
+    make_container: ContainerFactory,
+) -> None:
+    # A real model may leave "currency" out; the ticket agent fills in the budget currency so the
+    # return leg (arriving in Tokyo) is not priced in JPY on an HKD budget.
+    calls = [
+        {"operation": "ticket_search", "origin": o, "destination": d, "travel_date": day,
+         "modes": ["flight"], "party_size": 2}
+        for o, d, day in (("Tokyo", "Hong Kong", "2026-11-12"), ("Hong Kong", "Tokyo", "2026-11-14"))
+    ]
+    calls.append({"operation": "reservation_check", "destination": "Hong Kong", "place_names": []})
+    agent = ScriptedLLMClient(MockLLMClient()).script("ticket.tool_call", json.dumps({"tool_calls": calls}))
+    container = await make_container(agent_llm=agent)
+    context = TripContext.model_validate(
+        {"destination": "Hong Kong", "origin": "Tokyo", "start_date": "2026-11-12", "days": 3,
+         "party_size": 2, "budget": Money(amount=18_000, currency="HKD")}
+    )
+    state = await container.orchestrator.create_session(context)
+    result = await container.orchestrator.handle_turn(state.session_id, "Plan my trip to Hong Kong")
+    plan = result.plan
+    assert plan is not None and plan.cost is not None
+    assert {t.direction for t in plan.tickets} == {"outbound", "return"}
+    assert all(t.price.currency == "HKD" for t in plan.tickets)
+    assert plan.cost.complete

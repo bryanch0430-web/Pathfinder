@@ -167,7 +167,7 @@ All scenario tests run offline (`uv run pytest`). End-to-end versions are in
 | 18 | Aggregate injection logging without personal data | `integration/test_security.py::test_s18_*`, `security/test_s18_audit.py` |
 | 19 | Useful plan → saved, embedded, background write | `integration/test_memory.py::test_s19_*`, `memory/test_background.py` |
 | 20 | Session memory across turns | `integration/test_memory.py::test_s20_*`, `memory/test_session.py` |
-| 21 | Evaluation harness | `backend/eval/` (see §6) |
+| 21 | Evaluation harness | `backend/tests/eval/test_s21_*` (see §6) |
 
 ---
 
@@ -185,9 +185,16 @@ The metrics are routing accuracy, constraint satisfaction, error recovery, groun
 efficiency, edit-path efficiency and injection containment. Custom sets are split 70/30 into dev
 and held-out, stratified by city and constraint type, and frozen by a saved seed file.
 
-> **Status:** fixtures and the metric modules are in place. The injection-containment metric, the
-> `python -m backend.eval.run` CLI, the frozen split file and the harness tests are still being
-> completed.
+Run it offline (about 2 s for everything):
+```bash
+uv run python -m backend.eval.run                       # all metrics, held-out split
+uv run python -m backend.eval.run --metric injection --split heldout --out var/eval
+uv run python -m backend.eval.split                     # show the frozen split
+```
+The split is frozen in `backend/eval/fixtures/splits/` (seed + per-fixture sha256). A changed
+fixture makes the CLI exit with code 2 until it is re-frozen explicitly with `--refreeze`.
+TravelPlanner is loaded but not scored (see `backend/eval/fixtures/travelplanner/README.md`).
+Details, metric definitions and current results: [backend/eval/README.md](backend/eval/README.md).
 
 ---
 

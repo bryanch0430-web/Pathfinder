@@ -96,10 +96,29 @@ function onDragend(): void {
 
 // ---- keyboard reorder --------------------------------------------------------------------------
 
+/** Drop a keyboard grab without sending anything (focus left the handle, or another was grabbed). */
+function cancelGrab(): void {
+  if (grabbedId.value === null) return
+  grabbedId.value = null
+  localOrder.value = orderBeforeGrab && orderBeforeGrab.join('|') !== serverIds().join('|') ? orderBeforeGrab : null
+  orderBeforeGrab = null
+  announcement.value = 'Reorder cancelled.'
+}
+
+function onHandleBlur(item: ItineraryItem): void {
+  // The handle is re-focused after each arrow-key move; only a real focus change cancels.
+  requestAnimationFrame(() => {
+    const active = document.activeElement
+    const stillOnHandle = active instanceof HTMLElement && active.dataset.handleFor === item.item_id
+    if (grabbedId.value === item.item_id && !stillOnHandle) cancelGrab()
+  })
+}
+
 function onHandleKeydown(event: KeyboardEvent, item: ItineraryItem): void {
   const id = item.item_id
   if (event.key === ' ' || event.key === 'Enter') {
     event.preventDefault()
+    if (grabbedId.value !== null && grabbedId.value !== id) cancelGrab()
     if (grabbedId.value === id) {
       grabbedId.value = null
       announcement.value = `${item.title} dropped.`
@@ -115,9 +134,7 @@ function onHandleKeydown(event: KeyboardEvent, item: ItineraryItem): void {
   if (grabbedId.value !== id) return
   if (event.key === 'Escape') {
     event.preventDefault()
-    grabbedId.value = null
-    localOrder.value = orderBeforeGrab && orderBeforeGrab.join('|') !== serverIds().join('|') ? orderBeforeGrab : null
-    announcement.value = 'Reorder cancelled.'
+    cancelGrab()
     return
   }
   if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
@@ -164,6 +181,7 @@ function toggleLock(item: ItineraryItem): void {
         @select="planStore.selectItem(item.item_id)"
         @toggle-lock="toggleLock(item)"
         @handle-keydown="onHandleKeydown($event, item)"
+        @handle-blur="onHandleBlur(item)"
         @handle-dragstart="onDragstart($event, item)"
         @handle-dragend="onDragend"
         @dragover="onDragover($event, item)"

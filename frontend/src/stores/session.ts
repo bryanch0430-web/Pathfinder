@@ -201,6 +201,9 @@ export const useSessionStore = defineStore('session', () => {
         at: turn.at ?? null,
         kind: turn.role === 'assistant' && turn.route === 'unclear' ? 'clarification' : 'message',
         prompt: turn.role === 'assistant' ? lastUserText : null,
+        // History does not keep the gate's missing fields; recompute them from the context so a
+        // restored clarification still gets its inline inputs.
+        missingFields: turn.role === 'assistant' && turn.route === 'unclear' ? missingVariables.value : [],
       })
       if (turn.role === 'user') lastUserText = turn.content
     }

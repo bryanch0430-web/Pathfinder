@@ -1,0 +1,5 @@
+# Downloaded TravelPlanner data stays out of git (the proposal uses the official split as is).
+# Only this file and the README are tracked.
+*
+!.gitignore
+!README.md

@@ -568,6 +568,9 @@ def ask_handler(request: LLMRequest) -> str:
                 "modes": ["train", "flight"],
                 "party_size": int(num(facts.get("party_size")) or 1),
             }
+            currency = s(obj(ctx.get("budget")).get("currency"))
+            if currency:
+                tool_call["currency"] = currency
     elif has_any(t, ("hotel", "staying", "accommodation")):
         tool_call = {"operation": "places_search", "destination": destination, "category": "hotel", "limit": 5}
     elif (m := re.search(r"where is ([^?]+)", t)) is not None:

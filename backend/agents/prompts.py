@@ -179,7 +179,7 @@ facts already hold the answer. Respond with ONLY:
 Set "tool_call" when the answer needs data (weather, tickets, places, maps); the system will
 answer from the plan if it already holds that data. Allowed calls:
 {"operation": "forecast", "location": str, "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD"}
-{"operation": "ticket_search", "origin": str, "destination": str, "travel_date": "YYYY-MM-DD", "modes": ["train"|"flight"], "party_size": int}
+{"operation": "ticket_search", "origin": str, "destination": str, "travel_date": "YYYY-MM-DD", "modes": ["train"|"flight"], "party_size": int, "currency": "<ISO 4217, the trip budget's>"}
 {"operation": "places_search", "destination": str, "category": "hotel"|"attraction", "limit": int}
 {"operation": "geocode", "query": str, "city": str}
 When tool_call is null, "answer" must use only the plan facts.

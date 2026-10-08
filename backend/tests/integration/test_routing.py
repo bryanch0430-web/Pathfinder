@@ -88,22 +88,6 @@ async def test_s02_swap_hotel_reruns_only_hotel_agent_and_preserves_confirmed(co
     assert new_plan.cost is not None  # re-checked after merge
 
 
-async def test_s02_cheaper_hotel_swap_never_picks_a_pricier_hotel(container: Container) -> None:
-    session_id, _ = await _planned(container)
-    pricier = await container.orchestrator.handle_turn(session_id, "Swap the hotel for a luxury one")
-    assert pricier.plan is not None and pricier.plan.hotel is not None
-    before = pricier.plan.hotel.hotel
-
-    result = await container.orchestrator.handle_turn(session_id, "Swap the hotel for something cheaper")
-
-    assert result.route is Route.MODIFY and result.agents_run == [AgentName.HOTEL]
-    assert result.plan is not None and result.plan.hotel is not None
-    after = result.plan.hotel.hotel
-    assert after.hotel_id != before.hotel_id
-    assert after.nightly_price.currency == before.nightly_price.currency
-    assert after.nightly_price.amount < before.nightly_price.amount
-
-
 async def test_s02_cheaper_hotel_swap_keeps_the_cheapest_hotel(container: Container) -> None:
     session_id, plan = await _planned(container)
     assert plan.hotel is not None

@@ -18,6 +18,7 @@ const emit = defineEmits<{
   select: []
   toggleLock: []
   handleKeydown: [event: KeyboardEvent]
+  handleBlur: []
   handleDragstart: [event: DragEvent]
   handleDragend: []
 }>()
@@ -36,6 +37,12 @@ const canDrag = computed(() => !props.item.confirmed && !props.busy)
  * but a drag may only start from the handle: pressing the handle arms the row.
  */
 const armed = ref(false)
+
+/** Arm on press; disarm on the next release anywhere (a release outside the handle included). */
+function arm(): void {
+  armed.value = true
+  window.addEventListener('pointerup', () => (armed.value = false), { once: true })
+}
 
 function onDragstart(event: DragEvent): void {
   if (!armed.value || !canDrag.value) {
@@ -69,9 +76,10 @@ function onDragend(): void {
         :aria-label="item.confirmed ? `${item.title} is confirmed and keeps its slot` : `Reorder ${item.title}: press Space, then the arrow keys`"
         :aria-pressed="grabbed"
         :title="item.confirmed ? 'Confirmed items keep their slot' : 'Drag to reorder'"
+        :data-handle-for="item.item_id"
         @keydown="emit('handleKeydown', $event)"
-        @pointerdown="armed = true"
-        @pointerup="armed = false"
+        @blur="emit('handleBlur')"
+        @pointerdown="arm"
       >
         <GripVertical :size="14" aria-hidden="true" />
       </button>

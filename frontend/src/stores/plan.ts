@@ -43,19 +43,22 @@ export const usePlanStore = defineStore('plan', () => {
     return days.value[index]?.items?.[0]?.item_id ?? null
   }
 
-  /** Replace the plan, keeping the selection where it still exists. */
+  /**
+   * Replace the plan, keeping the selection where it still exists. A shorter trip moves the
+   * selection to its last day; a stop the user deselected (map "close") stays deselected.
+   */
   function setPlan(next: TripPlan | null): void {
+    const first = plan.value === null
     plan.value = next
     if (!next) {
       selectedDayIndex.value = 0
       selectedItemId.value = null
       return
     }
-    if (selectedDayIndex.value >= next.days.length) selectedDayIndex.value = 0
+    if (selectedDayIndex.value >= next.days.length) selectedDayIndex.value = Math.max(0, next.days.length - 1)
     const items = next.days[selectedDayIndex.value]?.items ?? []
-    if (!items.some((item) => item.item_id === selectedItemId.value)) {
-      selectedItemId.value = items[0]?.item_id ?? null
-    }
+    const kept = items.some((item) => item.item_id === selectedItemId.value)
+    if (!kept && (first || selectedItemId.value !== null)) selectedItemId.value = items[0]?.item_id ?? null
   }
 
   function selectDay(index: number): void {

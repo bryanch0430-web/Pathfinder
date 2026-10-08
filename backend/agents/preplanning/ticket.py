@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from backend.agents.geo import normalise_name
 from backend.agents.preplanning.base import (
     AgentRun,
@@ -67,6 +69,22 @@ class TicketAgent(PreplanningAgent):
             )
         requests.append(ReservationCheckRequest(destination=ctx.destination))
         return requests
+
+    def normalise_raw(self, raw: str, task: AgentTask) -> str:
+        """Quote both legs in the budget currency when the model's ticket search leaves it out,
+        so the return leg is not priced in the origin city's currency (DECISIONS §3.7)."""
+        budget = task.context.budget
+        if budget is None:
+            return raw
+        try:
+            call = json.loads(raw)
+        except ValueError:
+            return raw
+        is_search = isinstance(call, dict) and call.get("operation") == ToolOperation.TICKET_SEARCH.value
+        if is_search and not call.get("currency"):
+            call["currency"] = budget.currency
+            return json.dumps(call)
+        return raw
 
     async def _run(self, task: AgentTask, run: AgentRun) -> AgentResult:
         outcomes = await self.propose_and_call(task, run)

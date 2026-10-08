@@ -37,7 +37,7 @@ const hotel = computed(() => planStore.plan?.hotel?.hotel ?? null)
 
 const raw = computed(() => {
   const list: Array<Omit<Pin, 'x' | 'y'> & { point: GeoPoint }> = []
-  if (hotel.value?.location) {
+  if (routeLayer.value && hotel.value?.location) {
     list.push({ key: 'hotel', kind: 'hotel', order: 0, label: hotel.value.name, point: hotel.value.location })
   }
   for (const [index, item] of (day.value?.items ?? []).entries()) {
