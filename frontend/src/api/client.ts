@@ -10,6 +10,8 @@ import type {
   FeedbackRequest,
   FeedbackResponse,
   HealthResponse,
+  PlanFocus,
+  PlanItemPatch,
   SessionView,
   TripContext,
   TripPlan,
@@ -143,9 +145,16 @@ export function updateContext(sessionId: string, context: TripContext): Promise<
   return request<SessionView>('PUT', `${sessionPath(sessionId)}/context`, { context })
 }
 
-/** POST /api/sessions/{id}/messages: one chat turn over plain HTTP (no live progress). */
-export function postMessage(sessionId: string, message: string): Promise<TurnResult> {
-  return request<TurnResult>('POST', `${sessionPath(sessionId)}/messages`, { message })
+/**
+ * POST /api/sessions/{id}/messages: one chat turn over plain HTTP (no live progress). With a
+ * `focus`, 409 means the session has no plan and 422 that the part is not in the plan.
+ */
+export function postMessage(
+  sessionId: string,
+  message: string,
+  focus: PlanFocus | null = null,
+): Promise<TurnResult> {
+  return request<TurnResult>('POST', `${sessionPath(sessionId)}/messages`, chatFrame(message, focus))
 }
 
 /**
@@ -163,6 +172,22 @@ export function confirmItems(sessionId: string, input: ConfirmInput): Promise<Tr
   })
 }
 
+const itemPath = (sessionId: string, itemId: string): string =>
+  `${sessionPath(sessionId)}/plan/items/${encodeURIComponent(itemId)}`
+
+/**
+ * PATCH /api/sessions/{id}/plan/items/{item_id}: edit one stop by hand (send only the fields that
+ * change). 409 without a plan or for a locked stop; 422 for an unknown stop or an invalid edit.
+ */
+export function patchPlanItem(sessionId: string, itemId: string, patch: PlanItemPatch): Promise<TripPlan> {
+  return request<TripPlan>('PATCH', itemPath(sessionId, itemId), patch)
+}
+
+/** DELETE /api/sessions/{id}/plan/items/{item_id}: remove one stop; same errors as the PATCH. */
+export function deletePlanItem(sessionId: string, itemId: string): Promise<TripPlan> {
+  return request<TripPlan>('DELETE', itemPath(sessionId, itemId))
+}
+
 /** POST /api/sessions/{id}/plan/feedback; 409 when the session has no plan yet. */
 export function sendFeedback(
   sessionId: string,
@@ -172,6 +197,11 @@ export function sendFeedback(
 }
 
 // ---- WebSocket ---------------------------------------------------------------------------------
+
+/** A chat message as the server reads it (ChatRequest); `focus` is left out when there is none. */
+function chatFrame(message: string, focus: PlanFocus | null): { message: string; focus?: PlanFocus } {
+  return focus ? { message, focus } : { message }
+}
 
 const TURN_EVENT_TYPES: ReadonlySet<string> = new Set<TurnEventType>([
   'route',
@@ -226,8 +256,11 @@ export interface StreamHooks {
 export interface StreamHandle {
   /** Resolves when the socket is open; rejects with an ApiError if it cannot be opened. */
   readonly ready: Promise<void>
-  /** Send one chat message. Throws an ApiError unless the socket is open. */
-  send(message: string): void
+  /**
+   * Send one chat message, optionally scoped to a part of the plan. Throws an ApiError unless the
+   * socket is open. A refused focus comes back as one "error" event with an empty trace id.
+   */
+  send(message: string, focus?: PlanFocus | null): void
   /** Close the socket. Safe to call more than once. */
   close(): void
   readonly state: 'connecting' | 'open' | 'closed'
@@ -301,9 +334,9 @@ export function openStream(
 
   return {
     ready,
-    send(message: string) {
+    send(message: string, focus: PlanFocus | null = null) {
       if (state !== 'open') throw new ApiError(0, 'The event stream is not open')
-      socket.send(JSON.stringify({ message }))
+      socket.send(JSON.stringify(chatFrame(message, focus)))
     },
     close() {
       closeRequested = true
