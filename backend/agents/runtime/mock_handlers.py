@@ -454,6 +454,10 @@ def planner_handler(request: LLMRequest) -> str:
 
 # ---- modify: change extraction --------------------------------------------------------------------
 
+FOCUS_SWAP_WORDS = (
+    "swap", "change", "replace", "instead", "another", "different", "something else", "other",
+    "cheaper", "earlier", "later",
+)
 CURRENCY_WORDS = {"yen": "JPY", "jpy": "JPY", "¥": "JPY", "hkd": "HKD", "hk$": "HKD", "usd": "USD", "$": "USD", "eur": "EUR", "€": "EUR"}
 
 
@@ -462,6 +466,7 @@ def modify_extract(request: LLMRequest) -> str:
     message = b.get("user_message") or ""
     t = message.lower()
     plan = obj(load(b.get("plan_summary")))
+    focus_kind = s(obj(load(b.get("focus"))).get("kind")) or ""
     start, end = as_date(plan.get("start_date")), as_date(plan.get("end_date"))
     year = start.year if start else date.today().year
     change: dict[str, JsonValue] = {"summary": message[:200]}
@@ -491,7 +496,8 @@ def modify_extract(request: LLMRequest) -> str:
     if party:
         change["party_size"] = int(party.group(1))
 
-    if has_any(t, ("hotel", "room", "ryokan", "accommodation", "stay")) and has_any(
+    hotel_named = has_any(t, ("hotel", "room", "ryokan", "accommodation", "stay")) or focus_kind == "hotel"
+    if hotel_named and has_any(
         t, ("swap", "change", "replace", "another", "different", "cheaper", "instead", "new")
     ):
         change["replace_hotel"] = True
@@ -516,6 +522,14 @@ def modify_extract(request: LLMRequest) -> str:
     add = re.findall(r"\badd (?:a |an |another |some )?([a-z ]+?)(?: on| to|$|,|\.)", t)
     if add:
         change["add_requests"] = [a.strip() for a in add if a.strip()]
+    if focus_kind:
+        # A focused message ("swap this for an aquarium") is about the selected part.
+        if has_any(t, FOCUS_SWAP_WORDS):
+            change["replace_focus"] = True
+        existing = [s(a) or "" for a in arr(change.get("add_requests"))]
+        wanted = [c for c in CATEGORY_WORDS if has_any(t, (c,)) and c not in existing]
+        if wanted:
+            change["add_requests"] = [*existing, *wanted]
 
     refresh: list[JsonValue] = []
     if has_any(t, ("weather", "typhoon", "rain", "forecast", "signal", "storm")):

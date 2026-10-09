@@ -13,9 +13,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import partial
 
-from backend.agents.merge import agents_for_change, apply_change, merge_modify
+from backend.agents.focus import focus_summary, locked_note, scope_change, scoped_agents
+from backend.agents.merge import agents_for_change, apply_change, merge_focused, merge_modify
 from backend.agents.preplanning.base import PreplanningAgent
 from backend.agents.prompts import (
+    MODIFY_EXTRACT_FOCUS_INSTRUCTION,
+    MODIFY_EXTRACT_FOCUS_SYSTEM,
     MODIFY_EXTRACT_INSTRUCTION,
     MODIFY_EXTRACT_SYSTEM,
     Purpose,
@@ -31,7 +34,7 @@ from backend.schemas.agents import AgentResult, AgentTask, WeatherData
 from backend.schemas.common import ALL_AGENTS, AgentName, PathName, SectionStatus
 from backend.schemas.memory import SessionState
 from backend.schemas.observability import TraceContext
-from backend.schemas.routing import ChangeRequest, RouterDecision
+from backend.schemas.routing import ChangeRequest, PlanFocus, RouterDecision
 from backend.schemas.trip import TripContext
 from backend.schemas.trip_plan import TripPlan
 from backend.tools.staleness import sections_needing_refresh
@@ -78,20 +81,25 @@ class ModifyPath:
         self.orderer = orderer
 
     async def extract_change(
-        self, state: SessionState, message: str, *, trace: TraceContext, path: PathName = PathName.MODIFY
+        self,
+        state: SessionState,
+        message: str,
+        *,
+        trace: TraceContext,
+        path: PathName = PathName.MODIFY,
+        focus: PlanFocus | None = None,
     ) -> ChangeRequest:
         assert state.plan is not None
-        messages = [
-            system(MODIFY_EXTRACT_SYSTEM, self.deps.canary),
-            data_message(
-                MODIFY_EXTRACT_INSTRUCTION,
-                [
-                    ("plan_summary", plan_summary(state.plan)),
-                    ("trip_context", state.context.model_dump_json()),
-                    ("user_message", message),
-                ],
-            ),
-        ]
+        data = [("plan_summary", plan_summary(state.plan)), ("trip_context", state.context.model_dump_json())]
+        if focus is not None:
+            data.append(("focus", focus_summary(state.plan, focus)))
+        data.append(("user_message", message))
+        role, instruction = (
+            (MODIFY_EXTRACT_FOCUS_SYSTEM, MODIFY_EXTRACT_FOCUS_INSTRUCTION)
+            if focus is not None
+            else (MODIFY_EXTRACT_SYSTEM, MODIFY_EXTRACT_INSTRUCTION)
+        )
+        messages = [system(role, self.deps.canary), data_message(instruction, data)]
         try:
             return await complete_structured(
                 self.deps.agent_caller,
@@ -108,8 +116,10 @@ class ModifyPath:
 
     def affected_agents(
         self, plan: TripPlan, decision: RouterDecision | None, change: ChangeRequest,
-        old: TripContext, new: TripContext,
+        old: TripContext, new: TripContext, focus: PlanFocus | None = None,
     ) -> list[AgentName]:
+        if focus is not None:
+            return scoped_agents(decision.affected_parts if decision else [], focus)
         wanted: set[AgentName] = set(decision.affected_parts if decision else [])
         wanted |= agents_for_change(change, old, new)
         wanted |= set(sections_needing_refresh(plan, self.deps.settings))
@@ -124,12 +134,22 @@ class ModifyPath:
         trace: TraceContext,
         on_start: AgentHook | None = None,
         on_finish: AgentHook | None = None,
+        focus: PlanFocus | None = None,
     ) -> ModifyOutcome:
+        """With a `focus`, only that part may change (design 4.1): a locked part is left alone
+        with a note and no agent runs; otherwise the change is clamped to the part, only the
+        part's agent runs, and merge_focused keeps everything else as it is."""
         plan = state.plan
         assert plan is not None
-        change = await self.extract_change(state, message, trace=trace)
+        if focus is not None:
+            note = locked_note(plan, focus)
+            if note is not None:
+                return ModifyOutcome(plan=plan, context=state.context, change=ChangeRequest(), agents_run=[], notes=[note])
+        change = await self.extract_change(state, message, trace=trace, focus=focus)
+        if focus is not None:
+            change = scope_change(change, plan, focus)
         new_context = apply_change(state.context, change)
-        affected = self.affected_agents(plan, decision, change, state.context, new_context)
+        affected = self.affected_agents(plan, decision, change, state.context, new_context, focus=focus)
 
         indoor_dates = [d.date for d in plan.days if d.forecast and d.forecast.warning_signal]
         task_for = {
@@ -185,7 +205,12 @@ class ModifyPath:
             )
             results.update(cascade)
 
-        merged = merge_modify(plan, results, context=new_context, change=change, orderer=self.orderer)
+        if focus is not None:
+            merged = merge_focused(
+                plan, results, context=new_context, change=change, focus=focus, orderer=self.orderer
+            )
+        else:
+            merged = merge_modify(plan, results, context=new_context, change=change, orderer=self.orderer)
         return ModifyOutcome(
             plan=merged.plan,
             context=new_context,

@@ -33,7 +33,7 @@ from backend.schemas.agents import (
     WeatherData,
 )
 from backend.schemas.common import AgentName, SectionStatus
-from backend.schemas.routing import ChangeRequest
+from backend.schemas.routing import ChangeRequest, FocusKind, PlanFocus
 from backend.schemas.trip import TripContext
 from backend.schemas.trip_plan import (
     DayPlan,
@@ -475,6 +475,124 @@ def _categories_in(requests: Sequence[str], pool: Sequence[Place]) -> list[str]:
     words = {normalise_name(w) for r in requests for w in normalise_name(r).split()}
     words |= {w[:-1] for w in words if w.endswith("s")}
     return sorted({p.category for p in pool if normalise_name(p.category) in words})
+
+
+# ------------------------------------------------------------------------------------------------
+# Focused modify (plan workspace: the traveller selected one part of the plan)
+# ------------------------------------------------------------------------------------------------
+
+
+def _attraction_pool(results: Mapping[AgentName, AgentResult], removed: Sequence[str]) -> list[Place]:
+    attraction = results.get(AgentName.ATTRACTION)
+    if attraction and attraction.status is SectionStatus.OK and isinstance(attraction.data, AttractionData):
+        skip = set(removed)
+        return [p for p in attraction.data.places if p.place_id not in skip]
+    return []
+
+
+def replace_item(
+    plan: TripPlan, item_id: str, pool: Sequence[Place], *, prefer_categories: Sequence[str] = ()
+) -> tuple[list[DayPlan], list[str]]:
+    """Swap one stop for the best pool place that is not used anywhere in the plan and can happen
+    that day, keeping the stop's position and time slot. Every other stop is left as it is."""
+    days = list(plan.days)
+    found = next(
+        ((d, p) for d, day in enumerate(days) for p, item in enumerate(day.items) if item.item_id == item_id),
+        None,
+    )
+    if found is None:
+        return days, []
+    index, position = found
+    day = days[index]
+    old = day.items[position]
+    used = {i.place_id for i in plan.all_items()}
+    wanted = {normalise_name(c) for c in prefer_categories}
+
+    def rank(p: Place) -> tuple[int, float, str]:
+        return (0 if normalise_name(p.category) in wanted else 1, -(p.rating or 0.0), p.place_id)
+
+    candidates = sorted((p for p in pool if p.place_id not in used and not _blocked(p, day)), key=rank)
+    if not candidates:
+        return days, [f"no other place was found to replace {old.title}; kept it"]
+    place = candidates[0]
+    items = list(day.items)
+    items[position] = ItineraryItem(
+        item_id=f"{place.place_id}@{day.date.isoformat()}",
+        place_id=place.place_id,
+        title=place.name,
+        start_time=old.start_time,
+        end_time=old.end_time,
+        needs_reservation=place.needs_reservation,
+    )
+    days[index] = day.model_copy(update={"items": items})
+    return days, []
+
+
+def _finish_focused(
+    plan: TripPlan,
+    results: Mapping[AgentName, AgentResult],
+    *,
+    context: TripContext,
+    days: list[DayPlan],
+    hotel: HotelStay | None,
+    tickets: list[TicketOption],
+    pool: Sequence[Place],
+    notes: list[str],
+) -> MergeOutcome:
+    referenced = {i.place_id for d in days for i in d.items}
+    known = {p.place_id: p for p in plan.places}
+    for p in pool:
+        known.setdefault(p.place_id, p)
+    places = [p for p in known.values() if p.place_id in referenced]
+    merged = plan.model_copy(
+        update={
+            "days": days,
+            "places": places,
+            "hotel": hotel,
+            "tickets": tickets,
+            "reservations": link_reservations(plan.reservations, places),
+            "sections": build_sections(results, previous=plan.sections),
+        }
+    )
+    new_disruptions = [d for r in results.values() for d in r.disruptions]
+    merged = merged.model_copy(
+        update={"disruptions": resolve_disruptions(merged, [*plan.disruptions, *new_disruptions])}
+    )
+    merged = merged.model_copy(update={"cost": compute_cost(merged)})
+    merged = merged.model_copy(update={"violations": check_plan(merged, context)})
+    touched = {d.date for d, old in zip(days, plan.days, strict=True) if d != old}
+    return MergeOutcome(plan=touch(merged, version=plan.version + 1), touched_days=touched, notes=notes)
+
+
+def merge_focused(
+    plan: TripPlan,
+    results: Mapping[AgentName, AgentResult],
+    *,
+    context: TripContext,
+    change: ChangeRequest,
+    focus: PlanFocus,
+    orderer: RouteOrderer,
+) -> MergeOutcome:
+    """Merge for a focused modify turn (design 4.1 "Modify scope"). Only the focused part may
+    change; every other stop, the hotel and the tickets are kept exactly as they are, as if they
+    were confirmed for this turn. Dates, party size and budget never change here (`change` was
+    clamped by focus.scope_change). Cost and checks are recomputed; the version goes up by one."""
+    notes: list[str] = []
+    days = list(plan.days)
+    hotel = plan.hotel
+    tickets = list(plan.tickets)
+    pool = _attraction_pool(results, change.remove_place_ids)
+    if focus.kind is FocusKind.ITEM and change.replace_focus:
+        days, notes = replace_item(
+            plan, focus.id, pool, prefer_categories=_categories_in(change.add_requests, pool)
+        )
+    elif focus.kind is FocusKind.HOTEL:
+        hotel, notes = merge_hotel(
+            plan, results.get(AgentName.HOTEL), context=context, change=change, dates_changed=False
+        )
+    return _finish_focused(
+        plan, results, context=context, days=days, hotel=hotel, tickets=tickets, pool=pool, notes=notes
+    )
 
 
 # ------------------------------------------------------------------------------------------------

@@ -176,6 +176,17 @@ Use place ids from the plan summary for removals. Never invent dates or amounts 
 
 MODIFY_EXTRACT_INSTRUCTION = "Extract the change request."
 
+MODIFY_EXTRACT_FOCUS_SYSTEM = (
+    MODIFY_EXTRACT_SYSTEM
+    + """
+The traveller selected one part of the plan (the focus block): change only that part. One more
+field is allowed: "replace_focus": true when they want the focused stop, hotel or ticket swapped
+for another option. Put any kind of place they want instead (for example "museum") in "add_requests".
+"""
+)
+
+MODIFY_EXTRACT_FOCUS_INSTRUCTION = f"{MODIFY_EXTRACT_INSTRUCTION} {FOCUS_RULE}"
+
 
 # ---- Quick question --------------------------------------------------------------------------------
 

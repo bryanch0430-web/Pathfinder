@@ -268,6 +268,7 @@ class TurnOrchestrator:
                 trace=trace,
                 on_start=self._agent_hook(trace, send, TurnEventType.AGENT_STARTED),
                 on_finish=self._agent_hook(trace, send, TurnEventType.AGENT_FINISHED),
+                focus=focus,
             )
             plan, plan_changed = outcome.plan, True
             state.context = outcome.context
@@ -390,7 +391,7 @@ class TurnOrchestrator:
     @staticmethod
     def _modify_reply(plan: TripPlan, agents_run: Sequence[AgentName], notes: Sequence[str]) -> str:
         if not agents_run:
-            return "Nothing in the plan needed to change."
+            return " ".join(["Nothing in the plan needed to change.", *notes])
         parts = [f"Updated your plan (re-checked: {', '.join(a.value for a in agents_run)})."]
         resolved = [d for d in plan.disruptions if d.resolved and d.resolution]
         if resolved:

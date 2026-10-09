@@ -151,3 +151,25 @@ def test_api_websocket_rejects_a_stale_focus_and_keeps_the_socket_open(client: T
         ws.send_text(json.dumps({"message": "What time do we get there?", "focus": {"kind": "item", "id": item_id}}))
         events = _until_done(ws)
     assert events[-1]["result"]["route"] == "ask"
+
+
+def test_api_post_and_websocket_carry_the_focus_into_the_turn(client: TestClient) -> None:
+    sid, plan = _planned(client)
+    first, second = plan["days"][0]["items"][:2]
+    turn = client.post(
+        f"/api/sessions/{sid}/messages",
+        json={"message": "Swap this for a museum", "focus": {"kind": "item", "id": first["item_id"]}},
+    )
+    body = turn.json()
+    assert body["route"] == "modify" and body["agents_run"] == ["attraction"]
+    items = body["plan"]["days"][0]["items"]
+    assert items[0]["item_id"] != first["item_id"] and items[1] == second  # only the focused stop changed
+
+    with client.websocket_connect(f"/api/sessions/{sid}/stream") as ws:
+        ws.send_text(
+            json.dumps({"message": "Swap this for an aquarium", "focus": {"kind": "item", "id": second["item_id"]}})
+        )
+        result = _until_done(ws)[-1]["result"]
+    assert result["agents_run"] == ["attraction"]
+    new_items = result["plan"]["days"][0]["items"]
+    assert new_items[0] == items[0] and new_items[1]["item_id"] != second["item_id"]
