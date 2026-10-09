@@ -202,7 +202,7 @@ def freeze_split(
 ) -> SplitFile:
     split = build_split(fixtures_dir, read_seed(seed_path))
     split_path.parent.mkdir(parents=True, exist_ok=True)
-    split_path.write_text(split.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    split_path.write_text(split.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     return split
 
 

@@ -3,19 +3,41 @@ __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 *.egg-info/
 build/
 dist/
 
-# Local runtime output (logs, eval reports)
+# Local runtime output (logs, call traces, eval reports)
 var/
+*.log
+npm-debug.log*
 
-# Env
+# Secrets: env files (any directory, any mode) except the committed templates
 .env
+.env.*
+!.env.example
+
+# Secrets: keys and credential files
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+
+# Claude Code local (per-machine) settings
+.claude/settings.local.json
+CLAUDE.local.md
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
 
 # Editors / OS
 .vscode/

@@ -1,0 +1,3 @@
+# Eval fixtures and the frozen split are compared byte-for-byte (see backend/eval/split.py),
+# so keep them LF on every OS, including Windows checkouts with core.autocrlf=true.
+backend/eval/fixtures/** text eol=lf
