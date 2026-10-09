@@ -84,11 +84,11 @@ src/
     index.ts           what the rest of the app imports ("@/api")
   stores/
     session.ts         conversation, route status, live turn progress, trip context, session lifecycle
-    plan.ts            the TripPlan, selected day and selected stop
+    plan.ts            the TripPlan, selected day and stop, and the workspace selection (chat focus)
     ui.ts              active tab, open dialog
   components/          one file per component (below); tests in __tests__/
   lib/                 pure helpers: formatting, route status line, budget segments,
-                       travel-time estimate, refresh/reorder chat messages, constants
+                       travel-time estimate, refresh chat messages, constants
   styles/tokens.css    design tokens
   styles/main.css      base styles + shared primitives (card, pill buttons, chips, badges)
   test/fixtures.ts     a typed TripPlan for tests
@@ -96,11 +96,11 @@ src/
 
 | Area | Components |
 |---|---|
-| Top bar | `TopBar` (logo, Plan / Itinerary / Saved trips tabs, search, help, avatar) |
-| Left column | `ChatPanel` → `QuickChips`, `ChatMessage`, `ClarificationCard`; `TripSummaryCard` |
-| Centre column | `MapView` → `MapControls`; `PlaceDetailCard` → `PopularTimesChart` (hidden: no data), `StalenessBadge` |
-| Right column | `BudgetCard` → `DonutChart`; `DaySelector`; `DayTimeline` → `TimelineItem` |
-| Other tabs | `ItineraryView` (whole trip), `SavedTripsList` (placeholder) |
+| Top bar | `TopBar` (logo, Plan / Saved trips tabs, search, help, avatar) |
+| Left column | `TripInputPanel` → `TripForm` (Generate); `ChatPanel` → `QuickChips`, `ChatMessage`, `ClarificationCard`, focus chip |
+| Centre column | `PlanWorkspace` → `WorkspaceDay` → `WorkspaceStop` → `StopEditor`; `WorkspaceBookings` (hotel, tickets); `WorkspaceDetails` (cost, checks, reservations, disruptions, data sections) |
+| Right column | `MapView` → `MapControls`; `PlaceDetailCard` → `PopularTimesChart` (hidden: no data), `StalenessBadge`; `BudgetCard` → `DonutChart` |
+| Other tabs | `SavedTripsList` (placeholder) |
 | Dialogs | `AppDialog` (modal shell), `RatingDialog` (Mark as useful, 1–5 stars), `TripForm` (trip details) |
 
 Breakpoints: three columns at ≥ 1280 px, two at ≥ 900 px, one below (`App.vue`).
@@ -138,8 +138,8 @@ TypeScript too, and mostly reusable, but it is not part of the decoupling guaran
 - `MapView` is a provider-agnostic placeholder (`TODO(provisional)`): an SVG with an
   equirectangular projection of the selected day's stops (numbered pins) and the hotel, with no
   basemap, so it works offline. Swap the `<svg>` for a real map behind the same inputs.
-- Items the API does not expose (popular times, Food/Other costs, travel times, reordering, a
-  saved-trips list, a refresh endpoint) are placeholders, derived values or chat messages. The
+- Items the API does not expose (popular times, Food/Other costs, travel times, a saved-trips
+  list, a refresh endpoint) are placeholders, derived values or chat messages. The
   full list is in `../DECISIONS.md` §12.
 - The `/api/sessions/{id}/stream` WebSocket is not described by OpenAPI. Only the `TurnEvent`
   schema is exported, so the framing (client sends `{"message": "..."}`, server ends each turn with

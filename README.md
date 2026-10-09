@@ -215,45 +215,41 @@ keys and no database. Screenshots, described in text:
 
 **Plan tab, wide screen (≥ 1280 px).** Warm off-white page; every block is a white card with
 20 px corners and a faint shadow. The top bar has the round black Pathfinder compass logo on the
-left, a pill tab group in the middle ("Plan" is a solid black pill, "Itinerary" and "Saved trips"
-grey text), and round search and help buttons plus a peach avatar circle on the right.
-- *Left column:* the chat card opens with "Hello! Where are we going?" and four outlined chips
-  (Hotel, Tickets, Attractions, Weather). User messages are black bubbles on the right; assistant
-  replies are light bubbles on the left, each with a grey status line under it ("Plan · 4
-  agents", "Modify · hotel agent", "Quick question"). A clarification shows as a peach-edged card
-  with inline date, party-size and budget inputs and a black "Continue" button, and "Needs
-  clarification" under it. While a turn runs, a live bubble shows the route and the agents as
-  they start and finish. The rounded input with a black circular send button sits at the bottom.
-  Under the chat, "5 Days in Kyoto" (10 Nov – 14 Nov · 2 travellers · from Tokyo) lists
-  Accommodation / Attractions / Tickets / Weather, each with a green tick (grey when stale or
-  unavailable), followed by a black "Mark as useful" pill and a white "Trip details" pill.
-- *Centre column:* a large beige map with a faint grid. The selected day's stops are numbered
-  white pins joined by a dashed route from a black "H" hotel marker, and the selected stop has a
-  peach ring. Round floating buttons sit in the corners: close (top left), layers (top right),
-  zoom + and − (bottom right). Below the map, the place card shows "Kiyomizu-dera", "Temple ·
-  ★ 4.6", and a 2 × 2 grid of icon facts: Price ¥500 / person, Opening hours, "Temperature that
-  day 7–17 °C · Partly cloudy" and "≈ 15 min by transit from the hotel · estimate from
-  coordinates". Each tool fact has a small "Updated …" caption, and a grey "unavailable – refresh"
-  pill when the data is stale or missing.
-- *Right column:* "Budget Details" has a "31% used" badge, a donut (Transport peach, Attractions
-  teal, Hotel dark blue) with "Total 5-Day ¥93,300" in the centre, and a legend where Food and
-  Other read "not tracked". A full-width black "Optimise my budget" pill sits below. "Travel Plan"
-  has numbered day circles; the active one is black with a peach ring and the date sits under
-  each circle. The "Day 1" card lists stops on a vertical line: the time on the left, then a white
-  pill "Kiyomizu-dera · ¥500" with a drag handle and a lock (filled peach when confirmed).
+left, a pill tab group in the middle ("Plan" is a solid black pill, "Saved trips" grey text), and
+round search and help buttons plus a peach avatar circle on the right.
+- *Left column (input and chat):* "Your trip" holds the trip form (destination, dates, party size,
+  budget, origin, hotel style, hard constraints) and a black "Generate" button, which saves the
+  form and sends "Plan my trip" through the chat. Once a plan exists it folds to a one-line
+  summary with an Edit button. Under it, the chat card opens with "Hello! Where are we going?" and
+  four outlined chips (Hotel, Tickets, Attractions, Weather). User messages are black bubbles on
+  the right; assistant replies are light bubbles on the left, each with a grey status line under
+  it ("Plan · 4 agents", "Modify · hotel agent", "Quick question"). A clarification shows as a
+  peach-edged card with inline inputs and a black "Continue" button. While a turn runs, a live
+  bubble shows the route and the agents as they start and finish. When part of the plan is
+  selected, an "About: Day 1 · Kiyomizu-dera" chip with a ✕ sits above the rounded input.
+- *Centre column (workspace):* the whole plan. The header has the destination, dates, party size
+  and the "Mark as useful" pill; a day-jump strip scrolls to a day. Each day section has a
+  selectable heading (date and forecast) and its stops in time order. Hotel and Tickets cards
+  follow, then collapsible Cost, Constraint checks, Reservations to make, Disruptions and Data
+  sections (with staleness and refresh). Selecting a day, stop, hotel or ticket scopes the next
+  chat message to it ("swap for a museum"); a selected stop also opens an editor for its times,
+  note and day, delete, and lock.
+- *Right column:* a large beige map with numbered pins for the selected day joined by a dashed
+  route from a black "H" hotel marker, round zoom/layers/close buttons, the place card for the
+  selected stop (price, opening hours, the day's weather, a travel-time estimate, "Updated …"
+  captions and "unavailable – refresh" pills), and "Budget Details" with its donut, legend (Food
+  and Other read "not tracked") and the black "Optimise my budget" pill.
 
-**Medium screens (900–1279 px)** use two columns: chat and trip summary on the left; map, place
-card, budget, days and timeline stacked on the right. **Phones (< 900 px)** stack everything in
-one column, with the tabs on their own row under the logo. There is no horizontal scrolling at
-390 px.
+**Medium screens (900–1279 px)** use two columns: input and chat on the left; the workspace, then
+the map, place card and budget on the right. **Phones (< 900 px)** stack everything in one column
+(input, chat, workspace, map/details/budget), with the tabs on their own row under the logo.
+There is no horizontal scrolling at 390 px.
 
-**Itinerary tab:** the whole trip on one card: section states with fetch times, cost table and
-budget bar, constraint checks, every day with forecast and confirm checkboxes, hotel, tickets and
-reservations. **Saved trips tab:** a placeholder (the API has no list endpoint) showing what this
-session saved.
+**Saved trips tab:** a placeholder (the API has no list endpoint) showing what this session
+saved.
 
-Keyboard: all controls are buttons or inputs with a visible blue focus ring. The tabs and day
-circles use arrow keys. A stop can be reordered with Space, then the arrow keys, then Space.
-Dialogs keep focus inside and close on Escape. What the API does not expose (popular times,
-Food/Other costs, travel times, reordering, a saved-trips list) is listed in
+Keyboard: all controls are buttons or inputs with a visible blue focus ring. The tabs use arrow
+keys. Days, stops, the hotel and tickets select with Enter or Space; Escape (in the workspace or
+the chat input) clears the selection. Dialogs keep focus inside and close on Escape. What the API
+does not expose (popular times, Food/Other costs, travel times, a saved-trips list) is listed in
 [DECISIONS.md §12](DECISIONS.md#12-frontend-dashboard).
