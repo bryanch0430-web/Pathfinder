@@ -95,7 +95,7 @@ describe('session store: plan workspace', () => {
     const planStore = usePlanStore()
     const session = useSessionStore()
     planStore.select('item', 'kiyomizu@1')
-    const sent = session.send('swap for a museum')
+    const sent = session.send('swap for a museum', { focus: true })
     await vi.waitFor(() => expect(stream.send).toHaveBeenCalled())
     expect(stream.send).toHaveBeenCalledWith('swap for a museum', { kind: 'item', id: 'kiyomizu@1' })
     stream.emit(event({ type: 'done', trace_id: 'trace-1', result: turnResult() }))
@@ -113,11 +113,32 @@ describe('session store: plan workspace', () => {
     await sent
   })
 
+  it('sends no focus for a shortcut send while a selection exists', async () => {
+    const stream = fakeStream()
+    const planStore = usePlanStore()
+    const session = useSessionStore()
+    planStore.select('day', '2026-11-11')
+    const sent = session.send('re-check the weather')
+    await vi.waitFor(() => expect(stream.send).toHaveBeenCalled())
+    expect(stream.send).toHaveBeenCalledWith('re-check the weather', null)
+    stream.emit(event({ type: 'done', trace_id: 'trace-1', result: turnResult() }))
+    await expect(sent).resolves.toEqual({ ok: true, draft: null })
+    expect(planStore.selection).toEqual({ kind: 'day', id: '2026-11-11' })
+  })
+
+  it('sends no focus over POST /messages for an unfocused send while a selection exists', async () => {
+    noStream()
+    vi.mocked(postMessage).mockResolvedValue(turnResult())
+    usePlanStore().select('item', 'kiyomizu@1')
+    await expect(useSessionStore().send('reduce budget')).resolves.toEqual({ ok: true, draft: null })
+    expect(postMessage).toHaveBeenCalledWith('session-123', 'reduce budget', null)
+  })
+
   it('sends the focus over POST /messages when the stream is unavailable', async () => {
     noStream()
     vi.mocked(postMessage).mockResolvedValue(turnResult())
     usePlanStore().select('day', '2026-11-11')
-    await expect(useSessionStore().send('something calmer')).resolves.toEqual({ ok: true, draft: null })
+    await expect(useSessionStore().send('something calmer', { focus: true })).resolves.toEqual({ ok: true, draft: null })
     expect(postMessage).toHaveBeenCalledWith('session-123', 'something calmer', { kind: 'day', id: '2026-11-11' })
   })
 
@@ -128,7 +149,7 @@ describe('session store: plan workspace', () => {
     const planStore = usePlanStore()
     const session = useSessionStore()
     planStore.select('item', 'kiyomizu@1')
-    await expect(session.send('  swap for a museum ')).resolves.toEqual({ ok: false, draft: '  swap for a museum ' })
+    await expect(session.send('  swap for a museum ', { focus: true })).resolves.toEqual({ ok: false, draft: '  swap for a museum ' })
     expect(planStore.selection).toBeNull()
     expect(session.log.map((e) => [e.role, e.kind, e.content])).toEqual([['assistant', 'error', detail]])
   })
@@ -138,7 +159,7 @@ describe('session store: plan workspace', () => {
     const planStore = usePlanStore()
     const session = useSessionStore()
     planStore.select('item', 'gion@2')
-    const sent = session.send('something cheaper')
+    const sent = session.send('something cheaper', { focus: true })
     await vi.waitFor(() => expect(stream.send).toHaveBeenCalled())
     stream.emit(event({ type: 'error', message: 'session has no plan' }))
     await expect(sent).resolves.toEqual({ ok: false, draft: 'something cheaper' })

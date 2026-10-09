@@ -91,7 +91,14 @@ async function toggleLock(): Promise<void> {
 </script>
 
 <template>
-  <div class="editor" :aria-label="`Edit ${item.title}`" role="group" data-testid="stop-editor">
+  <!-- Escape stays in here: the workspace would clear the selection, unmounting unsaved edits. -->
+  <div
+    class="editor"
+    :aria-label="`Edit ${item.title}`"
+    role="group"
+    data-testid="stop-editor"
+    @keydown.escape.stop
+  >
     <p v-if="locked" class="small muted">Locked: unlock it to change its time, note or day.</p>
 
     <form class="times" novalidate @submit.prevent="saveTimes">

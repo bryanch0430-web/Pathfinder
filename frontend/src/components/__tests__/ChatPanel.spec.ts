@@ -74,7 +74,7 @@ describe('ChatPanel routing status', () => {
     const session = useSessionStore()
     await wrapper.get('textarea').setValue('Plan 5 days in Kyoto')
     await wrapper.get('form.composer').trigger('submit')
-    expect(session.send).toHaveBeenCalledWith('Plan 5 days in Kyoto')
+    expect(session.send).toHaveBeenCalledWith('Plan 5 days in Kyoto', { focus: true })
   })
 })
 
@@ -84,6 +84,12 @@ describe('ChatPanel focus chip', () => {
     const chip = wrapper.get('[data-testid="focus-chip"]')
     expect(chip.text()).toBe('About: Day 1 · Kiyomizu-dera')
     await chip.get('button').trigger('click')
+    expect(usePlanStore().clearSelection).toHaveBeenCalled()
+  })
+
+  it('Escape in the composer clears the selection', async () => {
+    const wrapper = mountWith([], {}, { plan: makePlan(), selection: { kind: 'item', id: 'kiyomizu@1' } })
+    await wrapper.get('textarea').trigger('keydown', { key: 'Escape' })
     expect(usePlanStore().clearSelection).toHaveBeenCalled()
   })
 

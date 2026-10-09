@@ -11,7 +11,8 @@ import WorkspaceDetails from './WorkspaceDetails.vue'
 
 /**
  * The plan workspace (center column): the whole itinerary with selectable days, stops, hotel and
- * tickets. The selection scopes the next chat message; Escape anywhere in here clears it.
+ * tickets. The selection scopes the next chat message; Escape in here (outside the stop editor) or
+ * in the chat composer clears it.
  */
 const planStore = usePlanStore()
 const session = useSessionStore()

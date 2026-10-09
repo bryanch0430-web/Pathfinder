@@ -95,6 +95,15 @@ export interface SendResult {
   draft: string | null
 }
 
+/** Options for `send()`. */
+export interface SendOptions {
+  /**
+   * Send the workspace selection as the message's `focus`. Only messages the user types in the
+   * chat composer opt in; refresh badges, budget and clarification shortcuts and Generate never do.
+   */
+  focus?: boolean
+}
+
 /** Outcome of a manual stop edit; `error` is the server message to show next to the control. */
 export interface PlanEditResult {
   ok: boolean
@@ -514,11 +523,12 @@ export const useSessionStore = defineStore('session', () => {
    * Send one chat message. Prefers the WebSocket stream; if the socket cannot be used before the
    * server has said anything, the same message is sent once through POST /messages instead.
    *
-   * The plan store's selection, if any, goes with the message as its `focus`. When the server
-   * refuses that focus (stale selection), the selection is cleared, the server message is shown
-   * in the chat and the text comes back in `draft` so the composer can restore it.
+   * With `focus: true` (the chat composer only), the plan store's selection, if any, goes with the
+   * message as its `focus`. When the server refuses that focus (stale selection), the selection is
+   * cleared, the server message is shown in the chat and the text comes back in `draft` so the
+   * composer can restore it.
    */
-  async function send(text: string): Promise<SendResult> {
+  async function send(text: string, options: SendOptions = {}): Promise<SendResult> {
     const message = text.trim()
     if (!message) return { ok: false, draft: null }
     if (busy.value) return { ok: false, draft: text }
@@ -531,7 +541,7 @@ export const useSessionStore = defineStore('session', () => {
     const id = sessionId.value
     if (!id) return { ok: false, draft: text }
 
-    const focus: PlanFocus | null = planStore.selection ? { ...planStore.selection } : null
+    const focus: PlanFocus | null = options.focus && planStore.selection ? { ...planStore.selection } : null
     const userEntryId = appendEntry({ role: 'user', content: message, at: new Date().toISOString() })
     busy.value = true
     resetProgress()

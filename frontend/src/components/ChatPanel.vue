@@ -45,7 +45,7 @@ async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text || session.busy) return
   draft.value = ''
-  const result = await session.send(text)
+  const result = await session.send(text, { focus: true })
   // A message the server did not take (e.g. its focus was refused) goes back into an empty composer.
   if (result?.draft && !draft.value) draft.value = result.draft
 }
@@ -54,6 +54,9 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
     event.preventDefault()
     void send()
+  } else if (event.key === 'Escape' && !event.isComposing && planStore.selection) {
+    // Escape here clears the focus chip, the same as Escape in the workspace.
+    planStore.clearSelection()
   }
 }
 

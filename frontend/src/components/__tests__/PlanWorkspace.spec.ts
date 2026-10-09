@@ -122,6 +122,15 @@ describe('PlanWorkspace', () => {
       expect(editor.get('form.times [role="alert"]').text()).toBe('end_time 12:00 must be after start_time 12:30')
     })
 
+    it('Escape inside the stop editor keeps the selection and the editor', async () => {
+      const wrapper = mount(PlanWorkspace)
+      const editor = wrapper.get('[data-testid="stop-editor"]')
+      await editor.get('textarea').setValue('Go early')
+      await editor.get('textarea').trigger('keydown', { key: 'Escape' })
+      expect(usePlanStore().selection).toEqual({ kind: 'item', id: 'kiyomizu@1' })
+      expect((wrapper.get('[data-testid="stop-editor"] textarea').element as HTMLTextAreaElement).value).toBe('Go early')
+    })
+
     it('edits the note, moves the stop to another day and deletes it', async () => {
       const session = useSessionStore()
       session.editItem = vi.fn().mockResolvedValue({ ok: true })
