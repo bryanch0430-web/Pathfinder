@@ -13,9 +13,11 @@ import {
   ApiError,
   confirmItems,
   createSession,
+  deletePlanItem,
   getHealth,
   getSession,
   openStream,
+  patchPlanItem,
   postMessage,
   sendFeedback,
   updateContext,
@@ -27,6 +29,8 @@ import type {
   GateReason,
   ConversationTurn,
   HealthResponse,
+  PlanFocus,
+  PlanItemPatch,
   PreferenceProfile,
   QuickAnswer,
   Route,
@@ -34,6 +38,7 @@ import type {
   SessionView,
   StreamHandle,
   TripContext,
+  TripPlan,
   TurnEvent,
   TurnResult,
 } from '@/api'
@@ -81,6 +86,21 @@ export interface FeedbackOutcome {
   queued: boolean
 }
 
+/**
+ * What `send()` did. `draft` is the text to put back in the composer when the message was not
+ * taken (the server refused its focus, or there was no session); otherwise null.
+ */
+export interface SendResult {
+  ok: boolean
+  draft: string | null
+}
+
+/** Outcome of a manual stop edit; `error` is the server message to show next to the control. */
+export interface PlanEditResult {
+  ok: boolean
+  error?: string
+}
+
 export type BackendState =
   | { online: null }
   | { online: true; info: HealthResponse }
@@ -98,6 +118,8 @@ class StreamInterruptedError extends Error {
 }
 /** The server refused the message before starting a turn (invalid message, unknown session). */
 class StreamRejectedError extends Error {}
+/** The refusal was the pre-turn "error" event (empty trace id), e.g. a focus not in the plan. */
+class StreamRefusedError extends StreamRejectedError {}
 
 interface PendingTurn {
   resolve: (result: TurnResult) => void
@@ -126,6 +148,12 @@ function describeError(error: unknown): string {
   if (error instanceof ApiError) return error.detail
   if (error instanceof Error) return error.message
   return String(error)
+}
+
+/** The server refused a focused message's focus: no plan (409) or a part not in the plan (422). */
+function isFocusRefusal(error: unknown): boolean {
+  if (error instanceof StreamRefusedError) return true
+  return error instanceof ApiError && (error.isConflict || error.status === 422)
 }
 
 function idleProgress(): Record<AgentName, AgentProgress> {
@@ -157,6 +185,8 @@ export const useSessionStore = defineStore('session', () => {
   const savingContext = ref(false)
   const confirming = ref(false)
   const sendingFeedback = ref(false)
+  /** The stop whose manual edit (PATCH/DELETE) is in flight. */
+  const editingItemId = ref<string | null>(null)
   const feedbackOutcome = ref<FeedbackOutcome | null>(null)
   const lastError = ref<string | null>(null)
   const sessionLost = ref(false)
@@ -174,9 +204,11 @@ export const useSessionStore = defineStore('session', () => {
 
   // ---- log helpers -----------------------------------------------------------------------------
 
-  function appendEntry(entry: Partial<ChatEntry> & Pick<ChatEntry, 'role' | 'content'>): void {
+  /** Add one chat entry and return its id. */
+  function appendEntry(entry: Partial<ChatEntry> & Pick<ChatEntry, 'role' | 'content'>): number {
+    const id = nextEntryId++
     log.value.push({
-      id: nextEntryId++,
+      id,
       kind: 'message',
       route: null,
       at: null,
@@ -188,6 +220,7 @@ export const useSessionStore = defineStore('session', () => {
       agentsRun: [],
       ...entry,
     })
+    return id
   }
 
   function entriesFromHistory(history: ConversationTurn[]): void {
@@ -391,7 +424,7 @@ export const useSessionStore = defineStore('session', () => {
         // turn, so no "done" will follow. Errors inside a turn are followed by "done".
         if (!event.trace_id) {
           pending = null
-          turn.reject(new StreamRejectedError(event.message ?? 'The server rejected the message'))
+          turn.reject(new StreamRefusedError(event.message ?? 'The server rejected the message'))
         }
         break
       case 'done':
@@ -427,12 +460,12 @@ export const useSessionStore = defineStore('session', () => {
     return handle
   }
 
-  async function runOnStream(message: string): Promise<TurnResult> {
+  async function runOnStream(message: string, focus: PlanFocus | null): Promise<TurnResult> {
     const handle = await ensureStream()
     return new Promise<TurnResult>((resolve, reject) => {
       pending = { resolve, reject, sawEvent: false }
       try {
-        handle.send(message)
+        handle.send(message, focus)
       } catch {
         pending = null
         reject(new StreamUnavailableError('send failed'))
@@ -480,42 +513,58 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Send one chat message. Prefers the WebSocket stream; if the socket cannot be used before the
    * server has said anything, the same message is sent once through POST /messages instead.
+   *
+   * The plan store's selection, if any, goes with the message as its `focus`. When the server
+   * refuses that focus (stale selection), the selection is cleared, the server message is shown
+   * in the chat and the text comes back in `draft` so the composer can restore it.
    */
-  async function send(text: string): Promise<void> {
+  async function send(text: string): Promise<SendResult> {
     const message = text.trim()
-    if (!message || busy.value) return
+    if (!message) return { ok: false, draft: null }
+    if (busy.value) return { ok: false, draft: text }
     lastError.value = null
     try {
       await ensureSession()
     } catch {
-      return
+      return { ok: false, draft: text }
     }
     const id = sessionId.value
-    if (!id) return
+    if (!id) return { ok: false, draft: text }
 
-    appendEntry({ role: 'user', content: message, at: new Date().toISOString() })
+    const focus: PlanFocus | null = planStore.selection ? { ...planStore.selection } : null
+    const userEntryId = appendEntry({ role: 'user', content: message, at: new Date().toISOString() })
     busy.value = true
     resetProgress()
 
     try {
       let result: TurnResult
       try {
-        result = await runOnStream(message)
+        result = await runOnStream(message, focus)
         transport.value = 'stream'
       } catch (error) {
         if (!(error instanceof StreamUnavailableError)) throw error
         transport.value = 'http'
-        result = await postMessage(id, message)
+        result = await postMessage(id, message, focus)
       }
       applyResult(result, message)
       await refreshSession()
+      return { ok: true, draft: null }
     } catch (error) {
+      if (focus && isFocusRefusal(error)) {
+        // The turn never ran (the server keeps no history for it): the text goes back to the composer.
+        log.value = log.value.filter((entry) => entry.id !== userEntryId)
+        planStore.clearSelection()
+        appendEntry({ role: 'assistant', kind: 'error', content: describeError(error) })
+        await refreshSession()
+        return { ok: false, draft: text }
+      }
       // A failed turn is reported in the chat itself; only a vanished session gets the banner.
       if (error instanceof ApiError && error.isNotFound) markSessionLost()
       else appendEntry({ role: 'assistant', kind: 'error', content: describeError(error) })
       if (error instanceof StreamInterruptedError || error instanceof StreamRejectedError) {
         await refreshSession()
       }
+      return { ok: false, draft: null }
     } finally {
       busy.value = false
     }
@@ -548,6 +597,35 @@ export const useSessionStore = defineStore('session', () => {
     confirm({ ticket_ids: [ticketId], confirmed })
 
   const setHotelConfirmed = (confirmed: boolean): Promise<boolean> => confirm({ hotel: true, confirmed })
+
+  /**
+   * Run one manual stop edit and apply the plan the server returns (never optimistic). Errors are
+   * returned for an inline message rather than shown in the banner.
+   */
+  async function editStop(itemId: string, call: (id: string) => Promise<TripPlan>): Promise<PlanEditResult> {
+    const id = sessionId.value
+    if (!id || !planStore.plan) return { ok: false, error: 'There is no plan to edit yet.' }
+    if (busy.value) return { ok: false, error: 'Wait for the current reply to finish.' }
+    if (editingItemId.value) return { ok: false, error: 'Another change is still being saved.' }
+    editingItemId.value = itemId
+    try {
+      planStore.setPlan(await call(id))
+      return { ok: true }
+    } catch (error) {
+      if (error instanceof ApiError && error.isNotFound) markSessionLost()
+      return { ok: false, error: describeError(error) }
+    } finally {
+      editingItemId.value = null
+    }
+  }
+
+  /** PATCH one stop: times, note (null clears it) or day. Send only the fields that change. */
+  const editItem = (itemId: string, patch: PlanItemPatch): Promise<PlanEditResult> =>
+    editStop(itemId, (id) => patchPlanItem(id, itemId, patch))
+
+  /** DELETE one stop. A selection on it clears with the new plan. */
+  const deleteItem = (itemId: string): Promise<PlanEditResult> =>
+    editStop(itemId, (id) => deletePlanItem(id, itemId))
 
   async function submitFeedback(useful: boolean, rating: number): Promise<boolean> {
     const id = sessionId.value
@@ -592,6 +670,7 @@ export const useSessionStore = defineStore('session', () => {
     savingContext,
     confirming,
     sendingFeedback,
+    editingItemId,
     feedbackOutcome,
     lastError,
     sessionLost,
@@ -611,6 +690,8 @@ export const useSessionStore = defineStore('session', () => {
     setItemConfirmed,
     setTicketConfirmed,
     setHotelConfirmed,
+    editItem,
+    deleteItem,
     submitFeedback,
     dismissError,
     closeStream,
