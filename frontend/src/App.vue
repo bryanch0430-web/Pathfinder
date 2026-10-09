@@ -10,7 +10,6 @@ import PlaceDetailCard from '@/components/PlaceDetailCard.vue'
 import BudgetCard from '@/components/BudgetCard.vue'
 import DaySelector from '@/components/DaySelector.vue'
 import DayTimeline from '@/components/DayTimeline.vue'
-import ItineraryView from '@/components/ItineraryView.vue'
 import SavedTripsList from '@/components/SavedTripsList.vue'
 import RatingDialog from '@/components/RatingDialog.vue'
 import AppDialog from '@/components/AppDialog.vue'
@@ -69,10 +68,6 @@ onBeforeUnmount(() => session.closeStream())
         <DaySelector />
         <DayTimeline />
       </div>
-    </div>
-
-    <div v-if="ui.activeTab === 'itinerary'" id="panel-itinerary" class="single" role="tabpanel" aria-labelledby="tab-itinerary">
-      <ItineraryView />
     </div>
 
     <div v-if="ui.activeTab === 'saved'" id="panel-saved" class="single" role="tabpanel" aria-labelledby="tab-saved">
