@@ -507,21 +507,24 @@ export interface components {
         PlanItemPatch: {
             /**
              * Start Time
+             * Format: time
              * @description Local time, HH:MM
              */
-            start_time?: string | null;
+            start_time?: string;
             /**
              * End Time
+             * Format: time
              * @description Local time, HH:MM
              */
-            end_time?: string | null;
+            end_time?: string;
             /** Note */
             note?: string | null;
             /**
              * Day
+             * Format: date
              * @description Move the stop to this trip date
              */
-            day?: string | null;
+            day?: string;
         };
         /**
          * PreferenceProfile

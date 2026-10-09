@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, time
 
 from pydantic import Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from backend.schemas.common import StrictModel
 
@@ -13,10 +14,13 @@ class PlanItemPatch(StrictModel):
     """Body of PATCH /api/sessions/{session_id}/plan/items/{item_id}. Only the fields sent
     change: `note: null` clears the note; times and day cannot be null. At least one field."""
 
-    start_time: time | None = Field(default=None, description="Local time, HH:MM")
-    end_time: time | None = Field(default=None, description="Local time, HH:MM")
+    # SkipJsonSchema keeps null out of the contract for the fields that refuse it.
+    start_time: time | SkipJsonSchema[None] = Field(default=None, description="Local time, HH:MM")
+    end_time: time | SkipJsonSchema[None] = Field(default=None, description="Local time, HH:MM")
     note: str | None = Field(default=None, max_length=500)
-    day: date | None = Field(default=None, description="Move the stop to this trip date")
+    day: date | SkipJsonSchema[None] = Field(
+        default=None, description="Move the stop to this trip date"
+    )
 
     @model_validator(mode="after")
     def _check_fields(self) -> PlanItemPatch:

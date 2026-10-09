@@ -1498,28 +1498,14 @@
       "PlanItemPatch": {
         "properties": {
           "start_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "format": "time",
             "title": "Start Time",
             "description": "Local time, HH:MM"
           },
           "end_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "format": "time",
             "title": "End Time",
             "description": "Local time, HH:MM"
           },
@@ -1536,15 +1522,8 @@
             "title": "Note"
           },
           "day": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "format": "date",
             "title": "Day",
             "description": "Move the stop to this trip date"
           }

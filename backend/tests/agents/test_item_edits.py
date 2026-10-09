@@ -35,6 +35,13 @@ def test_patch_rejects_an_empty_body_and_nulls_for_times_and_day() -> None:
     assert PlanItemPatch.model_validate({"note": None}).model_fields_set == {"note"}
 
 
+def test_patch_schema_shows_null_only_for_the_note() -> None:
+    props = PlanItemPatch.model_json_schema()["properties"]
+    for field in ("start_time", "end_time", "day"):
+        assert props[field]["type"] == "string" and "anyOf" not in props[field]
+    assert {"type": "null"} in props["note"]["anyOf"]
+
+
 def test_new_times_re_sort_the_day() -> None:
     edited = apply_item_patch(
         make_trip_plan(), TEMPLE, PlanItemPatch(start_time=time(15, 0), end_time=time(16, 0))
