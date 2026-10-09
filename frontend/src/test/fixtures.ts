@@ -1,5 +1,5 @@
 /** A small, typed TripPlan for component tests (two days in Kyoto, taken from a mock run). */
-import type { Place, SourceRef, TripPlan } from '@/api'
+import type { HotelStay, Place, SourceRef, TicketOption, TripPlan } from '@/api'
 
 const at = '2026-10-08T18:01:31Z'
 const src = (tool: SourceRef['tool'], call: string): SourceRef => ({ tool, call_id: call, provider: `mock-${tool}`, fetched_at: at })
@@ -76,6 +76,42 @@ export function makePlan(overrides: Partial<TripPlan> = {}): TripPlan {
     violations: [],
     disruptions: [],
     saved_trip_refs: [],
+    ...overrides,
+  }
+}
+
+/** A two-night stay to pass as `makePlan({ hotel: makeHotelStay() })`. */
+export function makeHotelStay(overrides: Partial<HotelStay> = {}): HotelStay {
+  return {
+    hotel: {
+      hotel_id: 'piece-sanjo',
+      name: 'Piece Hostel Sanjo',
+      nightly_price: { amount: 7600, currency: 'JPY' },
+      source: src('web_search', 'tc_hotels'),
+    },
+    check_in: '2026-11-10',
+    check_out: '2026-11-12',
+    confirmed: false,
+    ...overrides,
+  }
+}
+
+/** An outbound train to pass as `makePlan({ tickets: [makeTicket()] })`. */
+export function makeTicket(overrides: Partial<TicketOption> = {}): TicketOption {
+  return {
+    ticket_id: 'nozomi-1',
+    direction: 'outbound',
+    mode: 'train',
+    carrier: 'JR Central',
+    origin: 'Tokyo',
+    destination: 'Kyoto',
+    depart_at: '2026-11-10T07:00:00+09:00',
+    arrive_at: '2026-11-10T09:15:00+09:00',
+    price: { amount: 14170, currency: 'JPY' },
+    status: 'scheduled',
+    delay_minutes: 0,
+    confirmed: false,
+    source: src('tickets', 'tc_tickets'),
     ...overrides,
   }
 }
