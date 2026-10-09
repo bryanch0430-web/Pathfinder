@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { ArrowUp, LoaderCircle } from 'lucide-vue-next'
+import { ArrowUp, LoaderCircle, X } from 'lucide-vue-next'
 import { useSessionStore } from '@/stores/session'
 import { usePlanStore } from '@/stores/plan'
 import { useUiStore } from '@/stores/ui'
@@ -45,7 +45,9 @@ async function send(): Promise<void> {
   const text = draft.value.trim()
   if (!text || session.busy) return
   draft.value = ''
-  await session.send(text)
+  const result = await session.send(text)
+  // A message the server did not take (e.g. its focus was refused) goes back into an empty composer.
+  if (result?.draft && !draft.value) draft.value = result.draft
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -115,6 +117,19 @@ watch(
         <p class="status" data-testid="live-status">{{ liveStatus }}</p>
       </li>
     </ol>
+
+    <div v-if="planStore.selectionLabel" class="focus chip" data-testid="focus-chip">
+      <span class="focus-label">About: {{ planStore.selectionLabel }}</span>
+      <button
+        type="button"
+        class="focus-clear"
+        :aria-label="`Stop asking about ${planStore.selectionLabel}`"
+        title="Clear the selection"
+        @click="planStore.clearSelection()"
+      >
+        <X :size="14" aria-hidden="true" />
+      </button>
+    </div>
 
     <form class="composer" @submit.prevent="send">
       <label for="chat-input" class="sr-only">Message Pathfinder</label>
@@ -232,6 +247,41 @@ h2 {
   padding-left: 6px;
   font-size: var(--text-xs);
   color: var(--text-muted);
+}
+
+/* "About: Day 1 · Kiyomizu-dera ✕": the selection the next message is scoped to. */
+.focus {
+  align-self: flex-start;
+  max-width: 100%;
+  padding-right: 4px;
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  cursor: default;
+}
+
+.focus-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-clear {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.focus-clear:hover {
+  background: var(--card);
 }
 
 .composer {

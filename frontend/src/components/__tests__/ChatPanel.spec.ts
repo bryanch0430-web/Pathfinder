@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
 import ChatPanel from '../ChatPanel.vue'
 import { useSessionStore, type ChatEntry } from '@/stores/session'
+import { usePlanStore } from '@/stores/plan'
+import { makePlan } from '@/test/fixtures'
 
 let nextId = 1
 function entry(partial: Partial<ChatEntry> & Pick<ChatEntry, 'role' | 'content'>): ChatEntry {
@@ -21,10 +23,10 @@ function entry(partial: Partial<ChatEntry> & Pick<ChatEntry, 'role' | 'content'>
   }
 }
 
-function mountWith(log: ChatEntry[], extra: Record<string, unknown> = {}) {
+function mountWith(log: ChatEntry[], extra: Record<string, unknown> = {}, plan: Record<string, unknown> = {}) {
   return mount(ChatPanel, {
     global: {
-      plugins: [createTestingPinia({ createSpy: vi.fn, initialState: { session: { log, ...extra } } })],
+      plugins: [createTestingPinia({ createSpy: vi.fn, initialState: { session: { log, ...extra }, plan } })],
     },
   })
 }
@@ -73,5 +75,30 @@ describe('ChatPanel routing status', () => {
     await wrapper.get('textarea').setValue('Plan 5 days in Kyoto')
     await wrapper.get('form.composer').trigger('submit')
     expect(session.send).toHaveBeenCalledWith('Plan 5 days in Kyoto')
+  })
+})
+
+describe('ChatPanel focus chip', () => {
+  it('shows what the next message is about, and the ✕ clears the selection', async () => {
+    const wrapper = mountWith([], {}, { plan: makePlan(), selection: { kind: 'item', id: 'kiyomizu@1' } })
+    const chip = wrapper.get('[data-testid="focus-chip"]')
+    expect(chip.text()).toBe('About: Day 1 · Kiyomizu-dera')
+    await chip.get('button').trigger('click')
+    expect(usePlanStore().clearSelection).toHaveBeenCalled()
+  })
+
+  it('has no chip without a selection', () => {
+    const wrapper = mountWith([], {}, { plan: makePlan(), selection: null })
+    expect(wrapper.find('[data-testid="focus-chip"]').exists()).toBe(false)
+  })
+
+  it('puts the typed text back when the server refuses the focused message', async () => {
+    const wrapper = mountWith([], {}, { plan: makePlan(), selection: { kind: 'day', id: '2026-11-11' } })
+    vi.mocked(useSessionStore().send).mockResolvedValue({ ok: false, draft: 'Something cheaper' })
+    const textarea = wrapper.get('textarea')
+    await textarea.setValue('Something cheaper')
+    await wrapper.get('form.composer').trigger('submit')
+    await flushPromises()
+    expect((textarea.element as HTMLTextAreaElement).value).toBe('Something cheaper')
   })
 })
