@@ -173,6 +173,7 @@ PART_WORDS: dict[str, tuple[str, ...]] = {
     "attraction": ("museum", "temple", "shrine", "attraction", "sight", "place", "park", "market", "closed", "closure", "remove", "add", "visit", "stop"),
 }
 DATE_WORDS = ("date", "dates", "extend", "shorten", "postpone", "reschedule", "earlier", "later", "one more day", "extra day")
+FOCUS_PARTS: dict[str, str] = {"item": "attraction", "day": "attraction", "hotel": "hotel", "ticket": "ticket"}
 
 
 def route_handler(request: LLMRequest) -> str:
@@ -180,6 +181,7 @@ def route_handler(request: LLMRequest) -> str:
     message = (b.get("user_message") or "").strip()
     t = message.lower()
     has_plan = (b.get("current_plan") or "null").strip() != "null"
+    focus_kind = s(obj(load(b.get("focus"))).get("kind")) or ""
     words = re.findall(r"\w+", t)
 
     scores = {"plan": 0.0, "modify": 0.0, "ask": 0.0}
@@ -213,6 +215,8 @@ def route_handler(request: LLMRequest) -> str:
         if has_any(t, DATE_WORDS) or len(find_dates(t, 2026)) >= 1:
             parts += ["weather", "hotel", "ticket"]
         affected = [p for p in ("attraction", "hotel", "weather", "ticket") if p in parts]
+        if not affected and focus_kind in FOCUS_PARTS:
+            affected = [FOCUS_PARTS[focus_kind]]  # "swap this ...": the selected part is the one to change
     decision = {
         "route": best,
         "confidence": round(confidence, 3),
@@ -534,6 +538,7 @@ def ask_handler(request: LLMRequest) -> str:
     t = question.lower()
     facts = obj(load(b.get("plan_facts")))
     ctx = obj(load(b.get("trip_context")))
+    focus_label = s(obj(load(b.get("focus"))).get("label"))
     destination = s(facts.get("destination")) or s(ctx.get("destination")) or ""
     start = as_date(facts.get("start_date")) or as_date(ctx.get("start_date"))
     end = as_date(facts.get("end_date")) or as_date(ctx.get("end_date"))
@@ -583,6 +588,8 @@ def ask_handler(request: LLMRequest) -> str:
             if 0 <= idx < len(days):
                 stops = [s(x) or "" for x in arr(obj(days[idx]).get("stops"))]
                 answer = f"Day {idx + 1}: " + (", ".join(stops) if stops else "no stops planned yet") + "."
+        if answer is None and focus_label:
+            answer = f"From your plan: {focus_label}."
         if answer is None:
             answer = "Your plan doesn't hold that information." if facts else "There is no plan yet."
     return dumps({"related_to_plan": related, "answer": answer, "tool_call": tool_call})

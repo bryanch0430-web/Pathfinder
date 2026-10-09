@@ -67,6 +67,13 @@ For "modify", affected_parts names only the parts that must change.
 
 ROUTER_INSTRUCTION = "Route the latest traveller message. The trip context, current plan, recent history and preference profile are provided as data."
 
+FOCUS_RULE = "A focus block names the one part of the plan the traveller selected; the message is about that part."
+
+ROUTER_FOCUS_INSTRUCTION = (
+    f"{ROUTER_INSTRUCTION} {FOCUS_RULE} For \"modify\", affected_parts names the part that owns it: "
+    'a stop or a day is "attraction", the hotel is "hotel", a ticket is "ticket".'
+)
+
 
 # ---- Clarification -------------------------------------------------------------------------------
 
@@ -186,3 +193,5 @@ When tool_call is null, "answer" must use only the plan facts.
 """
 
 ASK_INSTRUCTION = "Answer the traveller's question."
+
+ASK_FOCUS_INSTRUCTION = f"{ASK_INSTRUCTION} {FOCUS_RULE} Use it as context for the answer."

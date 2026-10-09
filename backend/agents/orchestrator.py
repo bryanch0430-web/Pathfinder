@@ -190,7 +190,7 @@ class TurnOrchestrator:
                     trace, "focus", {"kind": focus.kind.value, "id": focus.id}
                 )
             try:
-                result = await self._turn(state, message, trace, emit, mode)
+                result = await self._turn(state, message, trace, emit, mode, focus)
             except Exception:
                 logger.exception("turn failed")
                 self.deps.observability.end_trace(trace, output="internal error")
@@ -206,6 +206,7 @@ class TurnOrchestrator:
         trace: TraceContext,
         emit: EventSink | None,
         mode: TurnMode,
+        focus: PlanFocus | None = None,
     ) -> TurnResult:
         obs = self.deps.observability
 
@@ -222,7 +223,7 @@ class TurnOrchestrator:
         if mode is TurnMode.FULL_REPLAN:
             gate = GateResult(route=Route.PLAN, reason=GateReason.ACCEPTED)
         else:
-            gate = await self.router.route(state, message, trace=trace)
+            gate = await self.router.route(state, message, trace=trace, focus=focus)
         await send(TurnEvent(type=TurnEventType.ROUTE, trace_id=trace.trace_id, route=gate.route))
 
         plan: TripPlan | None = state.plan
@@ -274,7 +275,7 @@ class TurnOrchestrator:
             notes = outcome.notes
             reply = self._modify_reply(outcome.plan, agents_run, notes)
         else:
-            answer = await self.ask.run(state, message, trace=trace)
+            answer = await self.ask.run(state, message, trace=trace, focus=focus)
             reply = answer.text
 
         if error is not None:

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
 from backend.agents.focus import check_focus
 from backend.agents.plan_ops import PlanRequestError
+from backend.agents.prompts import ROUTER_FOCUS_INSTRUCTION, data_message
+from backend.agents.runtime.mock_handlers import route_handler
+from backend.schemas.llm import LLMRequest
 from backend.schemas.routing import FocusKind, PlanFocus
 from backend.tests.agents.helpers import make_trip_plan
 
@@ -60,3 +65,29 @@ def test_plan_focus_rejects_an_unknown_kind_and_an_empty_id() -> None:
         PlanFocus.model_validate({"kind": "restaurant", "id": "x"})
     with pytest.raises(ValidationError):
         PlanFocus.model_validate({"kind": "item", "id": ""})
+
+
+# ---- mock router honours the focus (deterministic, for scope tests) -------------------------------
+
+
+def _router_request(focus: dict[str, str] | None, message: str) -> LLMRequest:
+    data: list[tuple[str, str]] = [("current_plan", '{"plan_id": "p"}')]
+    if focus is not None:
+        data.append(("focus", json.dumps(focus)))
+    data.append(("user_message", message))
+    return LLMRequest(purpose="router", model="mock", messages=[data_message(ROUTER_FOCUS_INSTRUCTION, data)])
+
+
+@pytest.mark.parametrize(
+    ("kind", "part"), [("item", "attraction"), ("day", "attraction"), ("hotel", "hotel"), ("ticket", "ticket")]
+)
+def test_mock_router_names_the_focused_part_when_the_message_names_none(kind: str, part: str) -> None:
+    decision = json.loads(route_handler(_router_request({"kind": kind, "id": "x"}, "Swap this for something else")))
+    assert decision["route"] == "modify" and decision["affected_parts"] == [part]
+
+
+def test_mock_router_keeps_the_parts_the_message_names() -> None:
+    named = json.loads(route_handler(_router_request({"kind": "hotel", "id": "x"}, "Swap this for a museum")))
+    assert named["affected_parts"] == ["attraction"]  # the code-level scope rule then applies
+    unfocused = json.loads(route_handler(_router_request(None, "Swap this for something else")))
+    assert unfocused["affected_parts"] == []

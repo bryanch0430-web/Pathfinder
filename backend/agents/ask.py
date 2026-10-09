@@ -17,12 +17,21 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 
 from backend.agents.geo import normalise_name
 from backend.agents.preplanning.base import source_of
-from backend.agents.prompts import ASK_INSTRUCTION, ASK_SYSTEM, Purpose, data_message, system
+from backend.agents.focus import focus_summary
+from backend.agents.prompts import (
+    ASK_FOCUS_INSTRUCTION,
+    ASK_INSTRUCTION,
+    ASK_SYSTEM,
+    Purpose,
+    data_message,
+    system,
+)
 from backend.agents.runtime.caller import ModelCallError, OutputRejected
 from backend.agents.runtime.deps import RuntimeDeps
 from backend.agents.runtime.structured import StructuredOutputError, complete_structured
 from backend.schemas.common import AgentName, PathName, StrictModel
 from backend.schemas.memory import SessionState
+from backend.schemas.routing import PlanFocus
 from backend.schemas.observability import TraceContext
 from backend.schemas.tools import (
     ForecastDay,
@@ -215,19 +224,16 @@ class AskPath:
     def __init__(self, deps: RuntimeDeps) -> None:
         self.deps = deps
 
-    async def run(self, state: SessionState, message: str, *, trace: TraceContext) -> QuickAnswer:
+    async def run(
+        self, state: SessionState, message: str, *, trace: TraceContext, focus: PlanFocus | None = None
+    ) -> QuickAnswer:
         plan = state.plan
-        messages = [
-            system(ASK_SYSTEM, self.deps.canary),
-            data_message(
-                ASK_INSTRUCTION,
-                [
-                    ("plan_facts", plan_facts(plan)),
-                    ("trip_context", state.context.model_dump_json()),
-                    ("question", message),
-                ],
-            ),
-        ]
+        blocks = [("plan_facts", plan_facts(plan)), ("trip_context", state.context.model_dump_json())]
+        if focus is not None and plan is not None:
+            blocks.append(("focus", focus_summary(plan, focus)))
+        blocks.append(("question", message))
+        instruction = ASK_FOCUS_INSTRUCTION if focus is not None else ASK_INSTRUCTION
+        messages = [system(ASK_SYSTEM, self.deps.canary), data_message(instruction, blocks)]
         try:
             decision = await complete_structured(
                 self.deps.agent_caller,
