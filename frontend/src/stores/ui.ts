@@ -6,7 +6,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export type Tab = 'plan' | 'saved'
-export type Dialog = 'rating' | 'trip-details' | 'help'
+export type Dialog = 'rating' | 'help'
 
 export const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
   { id: 'plan', label: 'Plan' },

@@ -3,17 +3,15 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useUiStore } from '@/stores/ui'
 import TopBar from '@/components/TopBar.vue'
+import TripInputPanel from '@/components/TripInputPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
-import TripSummaryCard from '@/components/TripSummaryCard.vue'
+import PlanWorkspace from '@/components/PlanWorkspace.vue'
 import MapView from '@/components/MapView.vue'
 import PlaceDetailCard from '@/components/PlaceDetailCard.vue'
 import BudgetCard from '@/components/BudgetCard.vue'
-import DaySelector from '@/components/DaySelector.vue'
-import DayTimeline from '@/components/DayTimeline.vue'
 import SavedTripsList from '@/components/SavedTripsList.vue'
 import RatingDialog from '@/components/RatingDialog.vue'
 import AppDialog from '@/components/AppDialog.vue'
-import TripForm from '@/components/TripForm.vue'
 
 const session = useSessionStore()
 const ui = useUiStore()
@@ -56,17 +54,16 @@ onBeforeUnmount(() => session.closeStream())
       aria-labelledby="tab-plan"
     >
       <div class="col col-left">
+        <TripInputPanel />
         <ChatPanel />
-        <TripSummaryCard />
       </div>
       <div class="col col-center">
-        <MapView />
-        <PlaceDetailCard />
+        <PlanWorkspace />
       </div>
       <div class="col col-right">
+        <MapView />
+        <PlaceDetailCard />
         <BudgetCard />
-        <DaySelector />
-        <DayTimeline />
       </div>
     </div>
 
@@ -76,10 +73,6 @@ onBeforeUnmount(() => session.closeStream())
   </main>
 
   <RatingDialog />
-
-  <AppDialog :open="ui.dialog === 'trip-details'" title="Trip details" @close="ui.closeDialog()">
-    <TripForm />
-  </AppDialog>
 
   <AppDialog :open="ui.dialog === 'help'" title="How Pathfinder works" @close="ui.closeDialog()">
     <div class="stack small help">
@@ -91,9 +84,11 @@ onBeforeUnmount(() => session.closeStream())
         <li><strong>Needs clarification</strong>: something is missing; fill it in and press Continue.</li>
       </ul>
       <p>
-        Facts from tools carry a timestamp. A grey “unavailable – refresh” badge re-checks just that part.
-        Drag a stop’s handle (or press Space on it, then the arrow keys) to ask for a new order.
+        Fill in your trip on the left and press Generate, or just type in the chat. Select a day, stop, hotel or
+        ticket in the plan to ask about just that part (the chat shows “About: …”); select it again or press
+        Escape to clear. A selected stop can also be edited directly: its times, note and day, delete, or lock.
       </p>
+      <p>Facts from tools carry a timestamp. A grey “unavailable – refresh” badge re-checks just that part.</p>
       <p class="muted">
         Backend:
         <template v-if="session.backend.online === true">
@@ -148,7 +143,7 @@ main {
   padding: 0 var(--space-6) var(--space-8);
 }
 
-/* Three columns >= 1280px, two columns >= 900px, one column below. */
+/* Three columns >= 1280px, two columns >= 900px, one column below (input, chat, plan, map). */
 .dashboard {
   display: grid;
   grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.3fr) minmax(300px, 0.95fr);
@@ -199,7 +194,7 @@ main {
 
 @media (max-width: 899px) {
   main {
-    padding: 0 var(--space-3) var(--space-6);
+    padding: 0 var(--space-4) var(--space-6);
   }
 
   .dashboard {
@@ -216,7 +211,7 @@ main {
   }
 
   .banner {
-    margin: 0 var(--space-3) var(--space-3);
+    margin: 0 var(--space-4) var(--space-3);
   }
 }
 </style>

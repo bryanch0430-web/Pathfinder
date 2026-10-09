@@ -121,7 +121,7 @@ const popular = computed(() => popularTimesOf(place.value))
     <template v-else>
       <h2 id="place-title" class="sr-only">Place details</h2>
       <p class="empty">
-        {{ planStore.hasPlan ? 'Select a stop on the map or in the day timeline.' : 'Place details appear here once a plan exists.' }}
+        {{ planStore.hasPlan ? 'Select a stop on the map or in the plan.' : 'Place details appear here once a plan exists.' }}
       </p>
     </template>
   </section>
