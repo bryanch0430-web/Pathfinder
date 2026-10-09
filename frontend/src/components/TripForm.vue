@@ -171,13 +171,15 @@ function removeConstraint(index: number): void {
 
 // ---- actions -----------------------------------------------------------------------------------
 
-async function save(): Promise<void> {
-  if (hasErrors.value) return
+/** Save the draft as the trip context; false when it has errors or the request failed. */
+async function save(): Promise<boolean> {
+  if (hasErrors.value) return false
   const saved = await store.saveContext(draftContext.value)
   if (saved) {
     Object.assign(draft, fromContext(store.context))
     syncedKey.value = keyOf(draft)
   }
+  return saved
 }
 
 function revert(): void {
@@ -187,9 +189,9 @@ function revert(): void {
 </script>
 
 <template>
-  <section aria-labelledby="trip-form-title">
+  <section class="trip-form" :aria-labelledby="id('title')">
     <header class="form-head">
-      <h2 id="trip-form-title" class="sr-only">Trip details form</h2>
+      <h2 :id="id('title')" class="sr-only">Trip details form</h2>
       <span class="small muted" role="status">
         {{ store.savingContext ? 'Saving...' : dirty ? 'Unsaved changes' : 'Saved' }}
       </span>
@@ -383,18 +385,26 @@ function revert(): void {
       </fieldset>
 
       <div class="row actions">
-        <button type="submit" class="btn btn-primary" :disabled="store.savingContext || hasErrors || !dirty">
-          {{ store.savingContext ? 'Saving...' : 'Save trip details' }}
-        </button>
-        <button type="button" class="btn" :disabled="!dirty || store.savingContext" @click="revert">
-          Discard edits
-        </button>
+        <!-- An embedding panel can replace the buttons, e.g. with Generate (save, then plan). -->
+        <slot name="actions" :save="save" :revert="revert" :has-errors="hasErrors" :dirty="dirty">
+          <button type="submit" class="btn btn-primary" :disabled="store.savingContext || hasErrors || !dirty">
+            {{ store.savingContext ? 'Saving...' : 'Save trip details' }}
+          </button>
+          <button type="button" class="btn" :disabled="!dirty || store.savingContext" @click="revert">
+            Discard edits
+          </button>
+        </slot>
       </div>
     </form>
   </section>
 </template>
 
 <style scoped>
+/* Sized by its container: the form also sits in the narrow left column. */
+.trip-form {
+  container-type: inline-size;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -484,12 +494,14 @@ label.inline {
   justify-content: flex-start;
 }
 
-@media (max-width: 520px) {
-  .grid {
+@container (max-width: 400px) {
+  .constraint-add {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .constraint-add {
+@container (max-width: 340px) {
+  .grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
