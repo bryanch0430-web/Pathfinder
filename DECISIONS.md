@@ -109,7 +109,7 @@ is behind an interface with only a mock implementation (see the table in README.
 
 ## 12. Frontend dashboard
 
-The dashboard follows `docs/tasks/frontend-ui-dashboard.md`. The backend API contract was not changed. Where the spec needs data the API does not expose, the UI derives it client-side or shows a placeholder, as listed below.
+The dashboard follows the team's three-column dashboard spec. The backend API contract was not changed. Where the spec needs data the API does not expose, the UI derives it client-side or shows a placeholder, as listed below.
 
 ### Data the API does not expose
 

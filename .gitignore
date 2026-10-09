@@ -44,3 +44,6 @@ frontend/coverage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Internal task specs (kept locally, not published)
+docs/tasks/
