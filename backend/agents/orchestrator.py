@@ -22,6 +22,7 @@ from functools import partial
 from backend.agents.ask import AskPath
 from backend.agents.clarify import ClarifyPath
 from backend.agents.focus import check_focus
+from backend.agents.item_edits import apply_item_patch, recompute_plan, remove_item
 from backend.agents.merge import apply_change, set_confirmation
 from backend.agents.modify import ModifyPath
 from backend.agents.planner import Planner, PlanInvalidError
@@ -36,6 +37,7 @@ from backend.memory.retrieval import SavedTripRetriever
 from backend.memory.session import SessionNotFound, SessionStore, append_turn
 from backend.schemas.agents import AgentResult, AgentTask, PlannerInput, SavedTripHint
 from backend.schemas.common import ALL_AGENTS, AgentName, PathName, Route, SectionStatus, StrictModel
+from backend.schemas.edits import PlanItemPatch
 from backend.schemas.memory import ConversationTurn, SessionState
 from backend.schemas.observability import TraceContext
 from backend.schemas.routing import GateReason, GateResult, PlanFocus
@@ -145,6 +147,49 @@ class TurnOrchestrator:
             )
             await self.sessions.save(state)
             return state.plan
+
+    async def patch_item(self, session_id: str, item_id: str, patch: PlanItemPatch) -> TripPlan:
+        """Manual edit of one stop: times, note or day (design 4.2). No agent runs."""
+        return await self._edit_plan(
+            session_id,
+            op="patch",
+            item_id=item_id,
+            fields=",".join(sorted(patch.model_fields_set)),
+            edit=lambda plan: apply_item_patch(plan, item_id, patch),
+        )
+
+    async def delete_item(self, session_id: str, item_id: str) -> TripPlan:
+        """Manual delete of one stop (design 4.2). No agent runs."""
+        return await self._edit_plan(
+            session_id, op="delete", item_id=item_id, fields="", edit=lambda plan: remove_item(plan, item_id)
+        )
+
+    async def _edit_plan(
+        self,
+        session_id: str,
+        *,
+        op: str,
+        item_id: str,
+        fields: str,
+        edit: Callable[[TripPlan], TripPlan],
+    ) -> TripPlan:
+        """Apply a manual edit under the session lock, re-price and re-check the plan, trace it
+        (its own trace, no model or tool calls), save, and return the new plan. 409 without a
+        plan; PlanRequestError from the edit is raised before anything is saved."""
+        async with self._lock(session_id):
+            state = await self.get_session(session_id)
+            if state.plan is None:
+                raise LookupError("session has no plan")
+            plan = recompute_plan(edit(state.plan), state.context)
+            obs = self.deps.observability
+            trace = obs.start_trace(name=f"edit:{op}_item", session_id=session_id)
+            obs.record_event(
+                trace, "plan_item_edited", {"op": op, "item_id": item_id, "fields": fields, "version": plan.version}
+            )
+            obs.end_trace(trace, output=f"{op} {item_id}")
+            state.plan = plan
+            await self.sessions.save(state)
+            return plan
 
     async def mark_useful(self, session_id: str, *, useful: bool, rating: int) -> bool:
         """Proposal: "A plan you mark useful is saved (for future use and for other client with

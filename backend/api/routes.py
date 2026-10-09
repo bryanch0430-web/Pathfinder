@@ -23,6 +23,7 @@ from backend.api.schemas import (
 )
 from backend.container import Container
 from backend.memory.session import SessionNotFound
+from backend.schemas.edits import PlanItemPatch
 from backend.schemas.trip_plan import TripPlan
 from backend.schemas.turn import TurnEvent, TurnEventType, TurnResult
 
@@ -94,6 +95,36 @@ async def confirm_items(session_id: str, body: ConfirmRequest, orchestrator: Orc
         raise
     except KeyError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+ITEM_EDIT_ERRORS = {**NOT_FOUND, 409: {"model": ErrorResponse}, 422: {"model": ErrorResponse}}
+
+
+@router.patch(
+    "/sessions/{session_id}/plan/items/{item_id}",
+    response_model=TripPlan,
+    responses=ITEM_EDIT_ERRORS,
+    tags=["plan"],
+)
+async def patch_plan_item(
+    session_id: str, item_id: str, body: PlanItemPatch, orchestrator: Orchestrator
+) -> TripPlan:
+    """Edit one stop by hand (no AI): times, note, or move it to another trip day. 409 without a
+    plan or when the stop is locked; 422 for an unknown stop, end <= start, or a day outside the
+    trip."""
+    return await orchestrator.patch_item(session_id, item_id, body)
+
+
+@router.delete(
+    "/sessions/{session_id}/plan/items/{item_id}",
+    response_model=TripPlan,
+    responses=ITEM_EDIT_ERRORS,
+    tags=["plan"],
+)
+async def delete_plan_item(session_id: str, item_id: str, orchestrator: Orchestrator) -> TripPlan:
+    """Delete one stop by hand (no AI). 409 without a plan or when the stop is locked; 422 for an
+    unknown stop."""
+    return await orchestrator.delete_item(session_id, item_id)
 
 
 @router.post(

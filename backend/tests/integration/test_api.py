@@ -173,3 +173,75 @@ def test_api_post_and_websocket_carry_the_focus_into_the_turn(client: TestClient
     assert result["agents_run"] == ["attraction"]
     new_items = result["plan"]["days"][0]["items"]
     assert new_items[0] == items[0] and new_items[1]["item_id"] != second["item_id"]
+
+
+# ---- plan workspace: manual edits of one stop -----------------------------------------------------
+
+
+def test_api_patch_item_time_note_and_day(client: TestClient) -> None:
+    sid, plan = _planned(client)
+    item = plan["days"][0]["items"][0]  # Kiyomizu-dera, 10:00-12:00 on 2026-04-10
+    url = f"/api/sessions/{sid}/plan/items/{item['item_id']}"
+
+    timed = client.patch(url, json={"start_time": "17:30", "end_time": "18:30"})
+    assert timed.status_code == 200
+    last = timed.json()["days"][0]["items"][-1]  # re-sorted by start time
+    assert (last["item_id"], last["start_time"], last["end_time"]) == (item["item_id"], "17:30:00", "18:30:00")
+
+    noted = client.patch(url, json={"note": "Buy tickets at the gate"})
+    assert noted.status_code == 200 and noted.json()["days"][0]["items"][-1]["note"] == "Buy tickets at the gate"
+
+    moved = client.patch(url, json={"day": "2026-04-11"})
+    assert moved.status_code == 200
+    body = moved.json()
+    assert item["item_id"] not in [i["item_id"] for i in body["days"][0]["items"]]
+    assert body["days"][1]["items"][-1]["item_id"] == item["item_id"]  # 17:30 sorts last on day 2
+    assert body["version"] == plan["version"] + 3
+    assert client.get(f"/api/sessions/{sid}").json()["plan"] == body  # the server copy is the truth
+
+
+def test_api_patch_item_rules(client: TestClient) -> None:
+    sid, plan = _planned(client)
+    item = plan["days"][0]["items"][0]  # starts 10:00
+    url = f"/api/sessions/{sid}/plan/items/{item['item_id']}"
+
+    assert client.patch(url, json={}).status_code == 422
+    end_first = client.patch(url, json={"end_time": "09:00"})
+    assert end_first.status_code == 422 and "end_time" in end_first.json()["detail"]
+    outside = client.patch(url, json={"day": "2026-04-13"})
+    assert outside.status_code == 422 and "outside the trip" in outside.json()["detail"]
+    unknown = client.patch(f"/api/sessions/{sid}/plan/items/nope", json={"note": "x"})
+    assert unknown.status_code == 422 and "nope" in unknown.json()["detail"]
+    assert client.delete(f"/api/sessions/{sid}/plan/items/nope").status_code == 422
+
+    client.post(f"/api/sessions/{sid}/plan/confirm", json={"item_ids": [item["item_id"]]})
+    locked = client.patch(url, json={"note": "x"})
+    assert locked.status_code == 409 and "unlock it first" in locked.json()["detail"]
+    assert client.delete(url).status_code == 409
+    assert client.get(f"/api/sessions/{sid}").json()["plan"]["version"] == plan["version"]  # nothing applied
+
+
+def test_api_delete_item_recomputes_the_budget(client: TestClient) -> None:
+    sid, plan = _planned(client)
+    priced = plan["days"][1]["items"][2]  # Kyoto Railway Museum
+    price = next(p for p in plan["places"] if p["place_id"] == priced["place_id"])["price"]["amount"]
+    assert price > 0
+
+    deleted = client.delete(f"/api/sessions/{sid}/plan/items/{priced['item_id']}")
+
+    assert deleted.status_code == 200
+    body = deleted.json()
+    assert priced["item_id"] not in [i["item_id"] for d in body["days"] for i in d["items"]]
+    assert priced["place_id"] not in [p["place_id"] for p in body["places"]]
+    assert body["cost"]["attractions"] == plan["cost"]["attractions"] - price * plan["party_size"]
+    assert body["cost"]["total"] == plan["cost"]["total"] - price * plan["party_size"]
+    assert body["version"] == plan["version"] + 1
+
+
+def test_api_item_edits_need_a_session_and_a_plan(client: TestClient) -> None:
+    assert client.patch("/api/sessions/missing/plan/items/x", json={"note": "x"}).status_code == 404
+    assert client.delete("/api/sessions/missing/plan/items/x").status_code == 404
+    sid = client.post("/api/sessions", json={"context": CONTEXT}).json()["session_id"]
+    no_plan = client.patch(f"/api/sessions/{sid}/plan/items/x", json={"note": "x"})
+    assert no_plan.status_code == 409 and no_plan.json() == {"detail": "session has no plan"}
+    assert client.delete(f"/api/sessions/{sid}/plan/items/x").status_code == 409
