@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -83,3 +84,70 @@ def test_api_websocket_streams_events_and_result(client: TestClient) -> None:
 def test_openapi_includes_turn_event_schema(client: TestClient) -> None:
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert {"TripPlan", "TurnResult", "TurnEvent", "SessionView"} <= set(schemas)
+
+
+# ---- plan workspace: chat focus ---------------------------------------------------------------
+
+
+def _planned(client: TestClient) -> tuple[str, dict[str, Any]]:
+    sid = client.post("/api/sessions", json={"context": CONTEXT}).json()["session_id"]
+    turn = client.post(f"/api/sessions/{sid}/messages", json={"message": "Plan my trip to Kyoto please"})
+    assert turn.status_code == 200
+    plan: dict[str, Any] = turn.json()["plan"]
+    return sid, plan
+
+
+def _until_done(ws: Any) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    while True:
+        event = json.loads(ws.receive_text())
+        events.append(event)
+        if event["type"] == "done":
+            return events
+
+
+def test_api_chat_focus_needs_a_plan_and_a_part_of_it(client: TestClient) -> None:
+    sid = client.post("/api/sessions", json={"context": CONTEXT}).json()["session_id"]
+    focus = {"kind": "item", "id": "kyoto-kiyomizu-dera@2026-04-10"}
+    no_plan = client.post(f"/api/sessions/{sid}/messages", json={"message": "Swap this for a museum", "focus": focus})
+    assert no_plan.status_code == 409 and no_plan.json() == {"detail": "session has no plan"}
+
+    client.post(f"/api/sessions/{sid}/messages", json={"message": "Plan my trip to Kyoto please"})
+    unknown = client.post(
+        f"/api/sessions/{sid}/messages",
+        json={"message": "Swap this for a museum", "focus": {"kind": "item", "id": "nope"}},
+    )
+    assert unknown.status_code == 422 and "nope" in unknown.json()["detail"]
+    bad_kind = client.post(
+        f"/api/sessions/{sid}/messages",
+        json={"message": "Swap this for a museum", "focus": {"kind": "restaurant", "id": "x"}},
+    )
+    assert bad_kind.status_code == 422
+    assert len(client.get(f"/api/sessions/{sid}").json()["history"]) == 2  # rejected turns are not recorded
+
+
+def test_api_chat_accepts_a_focus_on_the_current_plan(client: TestClient) -> None:
+    sid, plan = _planned(client)
+    focus = {"kind": "item", "id": plan["days"][0]["items"][1]["item_id"]}
+    turn = client.post(
+        f"/api/sessions/{sid}/messages", json={"message": "What time do we get there?", "focus": focus}
+    )
+    assert turn.status_code == 200 and turn.json()["route"] == "ask"
+    plain = client.post(f"/api/sessions/{sid}/messages", json={"message": "What time do we get there?", "focus": None})
+    assert plain.status_code == 200
+
+
+def test_api_websocket_rejects_a_stale_focus_and_keeps_the_socket_open(client: TestClient) -> None:
+    sid, plan = _planned(client)
+    item_id = plan["days"][0]["items"][1]["item_id"]
+    with client.websocket_connect(f"/api/sessions/{sid}/stream") as ws:
+        ws.send_text(
+            json.dumps({"message": "Swap this for a museum", "focus": {"kind": "item", "id": "gone@2026-04-10"}})
+        )
+        error = json.loads(ws.receive_text())
+        assert error["type"] == "error" and error["trace_id"] == ""
+        assert "gone@2026-04-10" in error["message"]
+
+        ws.send_text(json.dumps({"message": "What time do we get there?", "focus": {"kind": "item", "id": item_id}}))
+        events = _until_done(ws)
+    assert events[-1]["result"]["route"] == "ask"

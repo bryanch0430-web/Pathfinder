@@ -32,6 +32,18 @@ PEOPLE_PER_ROOM = 2
 TARGET_ITEMS_PER_DAY = 3
 
 
+class PlanRequestError(Exception):
+    """A request about one part of the plan that the current plan cannot serve: an unknown or
+    locked part, or an edit that would break the plan. `status_code` is the HTTP status the API
+    answers with (409 conflict, 422 unprocessable); the WebSocket sends `message` as an error
+    event instead."""
+
+    def __init__(self, message: str, *, status_code: int) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
 def _add(t: time, minutes: int) -> time | None:
     total = t.hour * 60 + t.minute + minutes
     if total >= 24 * 60:

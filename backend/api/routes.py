@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from pydantic import ValidationError
 
 from backend.agents.orchestrator import TurnOrchestrator
+from backend.agents.plan_ops import PlanRequestError
 from backend.api.deps import get_container, get_orchestrator, ws_orchestrator
 from backend.api.schemas import (
     ChatRequest,
@@ -64,10 +65,14 @@ async def update_context(
 
 
 @router.post(
-    "/sessions/{session_id}/messages", response_model=TurnResult, responses=NOT_FOUND, tags=["chat"]
+    "/sessions/{session_id}/messages",
+    response_model=TurnResult,
+    responses={**NOT_FOUND, 409: {"model": ErrorResponse}},
+    tags=["chat"],
 )
 async def post_message(session_id: str, body: ChatRequest, orchestrator: Orchestrator) -> TurnResult:
-    return await orchestrator.handle_turn(session_id, body.message)
+    """409 when `focus` is sent without a plan; 422 when `focus` names a part not in the plan."""
+    return await orchestrator.handle_turn(session_id, body.message, focus=body.focus)
 
 
 @router.post(
@@ -106,8 +111,10 @@ async def plan_feedback(
 
 @router.websocket("/sessions/{session_id}/stream")
 async def stream(websocket: WebSocket, session_id: str) -> None:
-    """Client sends {"message": "..."}; server streams TurnEvent JSON objects, ending each turn
-    with a "done" event that carries the full TurnResult."""
+    """Client sends {"message": "...", "focus": {"kind": ..., "id": ...} | null}; server streams
+    TurnEvent JSON objects, ending each turn with a "done" event that carries the full TurnResult.
+    A message refused before its turn starts (invalid JSON, unknown session, a focus the plan
+    cannot serve) gets one "error" event with an empty trace_id and no "done"."""
     orchestrator = ws_orchestrator(websocket)
     await websocket.accept()
 
@@ -123,8 +130,10 @@ async def stream(websocket: WebSocket, session_id: str) -> None:
                 await emit(TurnEvent(type=TurnEventType.ERROR, trace_id="", message="invalid message"))
                 continue
             try:
-                await orchestrator.handle_turn(session_id, request.message, emit=emit)
+                await orchestrator.handle_turn(session_id, request.message, emit=emit, focus=request.focus)
             except SessionNotFound:
                 await emit(TurnEvent(type=TurnEventType.ERROR, trace_id="", message="session not found"))
+            except PlanRequestError as exc:
+                await emit(TurnEvent(type=TurnEventType.ERROR, trace_id="", message=exc.message))
     except WebSocketDisconnect:
         return

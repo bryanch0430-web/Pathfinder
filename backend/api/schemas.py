@@ -9,6 +9,7 @@ from pydantic import Field
 
 from backend.schemas.common import StrictModel
 from backend.schemas.memory import ConversationTurn, PreferenceProfile, SessionState
+from backend.schemas.routing import PlanFocus
 from backend.schemas.trip import TripContext
 from backend.schemas.trip_plan import TripPlan
 
@@ -41,6 +42,9 @@ class SessionView(StrictModel):
 
 class ChatRequest(StrictModel):
     message: str = Field(min_length=1, max_length=4000)
+    focus: PlanFocus | None = Field(
+        default=None, description="The part of the current plan this message is about (plan workspace selection)"
+    )
 
 
 class ConfirmRequest(StrictModel):

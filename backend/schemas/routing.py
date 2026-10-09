@@ -45,6 +45,22 @@ class GateResult(StrictModel):
     missing_fields: list[str] = Field(default_factory=list)
 
 
+class FocusKind(StrEnum):
+    """The plan parts a chat message can be scoped to (plan workspace selection)."""
+
+    DAY = "day"  # id = the day's ISO date
+    ITEM = "item"  # id = ItineraryItem.item_id
+    HOTEL = "hotel"  # id = Hotel.hotel_id of the plan's stay
+    TICKET = "ticket"  # id = TicketOption.ticket_id
+
+
+class PlanFocus(StrictModel):
+    """The one part of the current plan a chat message is about."""
+
+    kind: FocusKind
+    id: str = Field(min_length=1, max_length=200)
+
+
 class ChangeRequest(StrictModel):
     """Structured edit extracted from a modify message. Only set fields change."""
 

@@ -21,6 +21,7 @@ from functools import partial
 
 from backend.agents.ask import AskPath
 from backend.agents.clarify import ClarifyPath
+from backend.agents.focus import check_focus
 from backend.agents.merge import apply_change, set_confirmation
 from backend.agents.modify import ModifyPath
 from backend.agents.planner import Planner, PlanInvalidError
@@ -37,7 +38,7 @@ from backend.schemas.agents import AgentResult, AgentTask, PlannerInput, SavedTr
 from backend.schemas.common import ALL_AGENTS, AgentName, PathName, Route, SectionStatus, StrictModel
 from backend.schemas.memory import ConversationTurn, SessionState
 from backend.schemas.observability import TraceContext
-from backend.schemas.routing import GateReason, GateResult
+from backend.schemas.routing import GateReason, GateResult, PlanFocus
 from backend.schemas.security import SecurityEventKind
 from backend.schemas.trip import TripContext
 from backend.schemas.trip_plan import TripPlan
@@ -175,10 +176,19 @@ class TurnOrchestrator:
         *,
         emit: EventSink | None = None,
         mode: TurnMode = TurnMode.ROUTED,
+        focus: PlanFocus | None = None,
     ) -> TurnResult:
+        """Run one turn. A `focus` must name a part of the current plan (PlanRequestError
+        otherwise, raised before the turn starts, so nothing is traced or saved)."""
         async with self._lock(session_id):
             state = await self.get_session(session_id)
+            if focus is not None:
+                check_focus(state.plan, focus)
             trace = self.deps.observability.start_trace(name=f"turn:{mode.value}", session_id=session_id)
+            if focus is not None:
+                self.deps.observability.record_event(
+                    trace, "focus", {"kind": focus.kind.value, "id": focus.id}
+                )
             try:
                 result = await self._turn(state, message, trace, emit, mode)
             except Exception:

@@ -14,6 +14,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from pydantic import JsonValue
 
+from backend.agents.plan_ops import PlanRequestError
 from backend.api.routes import router
 from backend.container import Container, build_container
 from backend.memory.session import SessionNotFound
@@ -56,6 +57,10 @@ def create_app(container_factory: Callable[[], Container] | None = None) -> Fast
     @app.exception_handler(LookupError)
     async def _conflict(_: Request, exc: LookupError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(PlanRequestError)
+    async def _plan_request(_: Request, exc: PlanRequestError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     def openapi() -> dict[str, JsonValue]:
         """OpenAPI plus the WebSocket event schema (WebSockets are not described by OpenAPI, so
