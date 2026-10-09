@@ -57,6 +57,11 @@ export type FeedbackRequest = Schemas['FeedbackRequest']
 export type FeedbackResponse = Schemas['FeedbackResponse']
 export type HealthResponse = Schemas['HealthResponse']
 
+// Plan workspace: chat focus and manual stop edits
+export type PlanFocus = Schemas['PlanFocus']
+export type FocusKind = Schemas['FocusKind']
+export type PlanItemPatch = Schemas['PlanItemPatch']
+
 /**
  * The generated ConfirmRequest marks `confirmed` as required because the schema declares a
  * default (true); callers may leave it out and the client fills the default in.

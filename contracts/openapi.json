@@ -188,6 +188,7 @@
           "chat"
         ],
         "summary": "Post Message",
+        "description": "409 when `focus` is sent without a plan; 422 when `focus` names a part not in the plan.",
         "operationId": "post_message_api_sessions__session_id__messages_post",
         "parameters": [
           {
@@ -231,6 +232,16 @@
             },
             "description": "Not Found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -272,6 +283,158 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripPlan"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/plan/items/{item_id}": {
+      "patch": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Patch Plan Item",
+        "description": "Edit one stop by hand (no AI): times, note, or move it to another trip day. 409 without a\nplan or when the stop is locked; 422 for an unknown stop, end <= start, or a day outside the\ntrip.",
+        "operationId": "patch_plan_item_api_sessions__session_id__plan_items__item_id__patch",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanItemPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripPlan"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Delete Plan Item",
+        "description": "Delete one stop by hand (no AI). 409 without a plan or when the stop is locked; 422 for an\nunknown stop.",
+        "operationId": "delete_plan_item_api_sessions__session_id__plan_items__item_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Item Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -409,6 +572,17 @@
             "maxLength": 4000,
             "minLength": 1,
             "title": "Message"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanFocus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The part of the current plan this message is about (plan workspace selection)"
           }
         },
         "additionalProperties": false,
@@ -822,6 +996,17 @@
           "queued"
         ],
         "title": "FeedbackResponse"
+      },
+      "FocusKind": {
+        "type": "string",
+        "enum": [
+          "day",
+          "item",
+          "hotel",
+          "ticket"
+        ],
+        "title": "FocusKind",
+        "description": "The plan parts a chat message can be scoped to (plan workspace selection)."
       },
       "GateReason": {
         "type": "string",
@@ -1288,6 +1473,86 @@
           "source"
         ],
         "title": "Place"
+      },
+      "PlanFocus": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/FocusKind"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "PlanFocus",
+        "description": "The one part of the current plan a chat message is about."
+      },
+      "PlanItemPatch": {
+        "properties": {
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time",
+            "description": "Local time, HH:MM"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time",
+            "description": "Local time, HH:MM"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day",
+            "description": "Move the stop to this trip date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PlanItemPatch",
+        "description": "Body of PATCH /api/sessions/{session_id}/plan/items/{item_id}. Only the fields sent\nchange: `note: null` clears the note; times and day cannot be null. At least one field."
       },
       "PreferenceProfile": {
         "properties": {

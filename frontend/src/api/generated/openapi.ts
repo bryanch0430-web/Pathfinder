@@ -81,7 +81,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post Message */
+        /**
+         * Post Message
+         * @description 409 when `focus` is sent without a plan; 422 when `focus` names a part not in the plan.
+         */
         post: operations["post_message_api_sessions__session_id__messages_post"];
         delete?: never;
         options?: never;
@@ -104,6 +107,33 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{session_id}/plan/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Plan Item
+         * @description Delete one stop by hand (no AI). 409 without a plan or when the stop is locked; 422 for an
+         *     unknown stop.
+         */
+        delete: operations["delete_plan_item_api_sessions__session_id__plan_items__item_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Plan Item
+         * @description Edit one stop by hand (no AI): times, note, or move it to another trip day. 409 without a
+         *     plan or when the stop is locked; 422 for an unknown stop, end <= start, or a day outside the
+         *     trip.
+         */
+        patch: operations["patch_plan_item_api_sessions__session_id__plan_items__item_id__patch"];
         trace?: never;
     };
     "/api/sessions/{session_id}/plan/feedback": {
@@ -137,6 +167,8 @@ export interface components {
         ChatRequest: {
             /** Message */
             message: string;
+            /** @description The part of the current plan this message is about (plan workspace selection) */
+            focus?: components["schemas"]["PlanFocus"] | null;
         };
         /**
          * CheckName
@@ -292,6 +324,12 @@ export interface components {
             /** Queued */
             queued: boolean;
         };
+        /**
+         * FocusKind
+         * @description The plan parts a chat message can be scoped to (plan workspace selection).
+         * @enum {string}
+         */
+        FocusKind: "day" | "item" | "hotel" | "ticket";
         /**
          * GateReason
          * @enum {string}
@@ -451,6 +489,39 @@ export interface components {
             opening_hours?: string | null;
             source: components["schemas"]["SourceRef"];
             geocode_source?: components["schemas"]["SourceRef"] | null;
+        };
+        /**
+         * PlanFocus
+         * @description The one part of the current plan a chat message is about.
+         */
+        PlanFocus: {
+            kind: components["schemas"]["FocusKind"];
+            /** Id */
+            id: string;
+        };
+        /**
+         * PlanItemPatch
+         * @description Body of PATCH /api/sessions/{session_id}/plan/items/{item_id}. Only the fields sent
+         *     change: `note: null` clears the note; times and day cannot be null. At least one field.
+         */
+        PlanItemPatch: {
+            /**
+             * Start Time
+             * @description Local time, HH:MM
+             */
+            start_time?: string | null;
+            /**
+             * End Time
+             * @description Local time, HH:MM
+             */
+            end_time?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Day
+             * @description Move the stop to this trip date
+             */
+            day?: string | null;
         };
         /**
          * PreferenceProfile
@@ -1009,6 +1080,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1032,6 +1112,110 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripPlan"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_plan_item_api_sessions__session_id__plan_items__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripPlan"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_plan_item_api_sessions__session_id__plan_items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanItemPatch"];
             };
         };
         responses: {
