@@ -510,7 +510,8 @@ def modify_extract(request: LLMRequest) -> str:
             change["hotel_style"] = "budget"
 
     stops = [obj(x) for x in arr(plan.get("stops"))]
-    if has_any(t, ("remove", "drop", "skip", "delete", "cancel")):
+    swaps_a_stop = focus_kind == "day" and has_any(t, FOCUS_SWAP_WORDS)
+    if has_any(t, ("remove", "drop", "skip", "delete", "cancel")) or swaps_a_stop:
         removed = [
             s(st.get("place_id")) or ""
             for st in stops

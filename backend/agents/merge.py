@@ -528,6 +528,68 @@ def replace_item(
     return days, []
 
 
+def refill_day(
+    plan: TripPlan,
+    on: date,
+    pool: Sequence[Place],
+    *,
+    removed: Sequence[str],
+    add_requests: Sequence[str],
+    orderer: RouteOrderer,
+) -> tuple[list[DayPlan], list[str]]:
+    """Change one day only: drop its `removed` places, top it up from the pool (one extra stop
+    when something was asked for, preferring the asked-for categories), then re-order and re-time
+    that day's unconfirmed stops. Confirmed stops and every other day are left as they are."""
+    days = list(plan.days)
+    day = plan.day(on)
+    if day is None or not (removed or add_requests):
+        return days, []
+    gone = set(removed)
+    kept = [i for i in day.items if i.place_id not in gone]
+    trimmed = day.model_copy(update={"items": kept})
+    base = plan.model_copy(update={"days": [trimmed if d.date == on else d for d in plan.days]})
+    target = max(TARGET_ITEMS_PER_DAY, len(kept) + (1 if add_requests else 0))
+    filled = fill_day(base, trimmed, pool, target=target, prefer_categories=_categories_in(add_requests, pool))
+    base = base.model_copy(update={"days": [filled if d.date == on else d for d in base.days]})
+    ordered, dropped = order_and_schedule_day(base, filled, orderer)
+    notes = [f"{len(dropped)} stop(s) on {on} did not fit the day"] if dropped else []
+    return [ordered if d.date == on else d for d in plan.days], notes
+
+
+def replace_ticket(
+    plan: TripPlan, ticket_id: str, ticket_result: AgentResult | None, *, context: TripContext, replace: bool
+) -> tuple[list[TicketOption], list[str]]:
+    """Change one ticket only. `replace` picks another scheduled option for the same leg (the
+    agent already excluded the current one); otherwise the ticket's fresh record (status, delay)
+    is taken. The other leg is kept exactly as it is; without fresh data nothing changes."""
+    tickets = list(plan.tickets)
+    index = next((n for n, t in enumerate(tickets) if t.ticket_id == ticket_id), None)
+    if index is None:
+        return tickets, []
+    current = tickets[index]
+    if not (ticket_result and ticket_result.status is SectionStatus.OK and isinstance(ticket_result.data, TicketData)):
+        return tickets, []
+    data = ticket_result.data
+    if replace:
+        others = [t.ticket_id for t in tickets if t.ticket_id != ticket_id]
+        picked = next(
+            (
+                t
+                for t in choose_tickets(data, context, preferred_ids=others)
+                if t.direction == current.direction and t.ticket_id != ticket_id
+            ),
+            None,
+        )
+        if picked is None:
+            return tickets, [f"no other scheduled {current.direction} option was found; kept {current.carrier}"]
+        tickets[index] = picked.model_copy(update={"confirmed": False})
+        return tickets, []
+    fresh = next((t for t in [*data.outbound, *data.inbound] if t.ticket_id == ticket_id), None)
+    if fresh is not None:
+        tickets[index] = fresh.model_copy(update={"confirmed": current.confirmed})
+    return tickets, []
+
+
 def _finish_focused(
     plan: TripPlan,
     results: Mapping[AgentName, AgentResult],
@@ -589,6 +651,19 @@ def merge_focused(
     elif focus.kind is FocusKind.HOTEL:
         hotel, notes = merge_hotel(
             plan, results.get(AgentName.HOTEL), context=context, change=change, dates_changed=False
+        )
+    elif focus.kind is FocusKind.DAY:
+        days, notes = refill_day(
+            plan,
+            date.fromisoformat(focus.id),
+            pool,
+            removed=change.remove_place_ids,
+            add_requests=change.add_requests,
+            orderer=orderer,
+        )
+    elif focus.kind is FocusKind.TICKET:
+        tickets, notes = replace_ticket(
+            plan, focus.id, results.get(AgentName.TICKET), context=context, replace=change.replace_focus
         )
     return _finish_focused(
         plan, results, context=context, days=days, hotel=hotel, tickets=tickets, pool=pool, notes=notes

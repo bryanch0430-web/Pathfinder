@@ -34,7 +34,7 @@ from backend.schemas.agents import AgentResult, AgentTask, WeatherData
 from backend.schemas.common import ALL_AGENTS, AgentName, PathName, SectionStatus
 from backend.schemas.memory import SessionState
 from backend.schemas.observability import TraceContext
-from backend.schemas.routing import ChangeRequest, PlanFocus, RouterDecision
+from backend.schemas.routing import ChangeRequest, FocusKind, PlanFocus, RouterDecision
 from backend.schemas.trip import TripContext
 from backend.schemas.trip_plan import TripPlan
 from backend.tools.staleness import sections_needing_refresh
@@ -156,7 +156,7 @@ class ModifyPath:
             agent: AgentTask(
                 context=new_context,
                 preferences=state.preferences,
-                exclude_ids=self._exclusions(agent, plan, change),
+                exclude_ids=self._exclusions(agent, plan, change, focus),
                 indoor_only_dates=indoor_dates,
                 notes=change.add_requests,
             )
@@ -220,9 +220,13 @@ class ModifyPath:
         )
 
     @staticmethod
-    def _exclusions(agent: AgentName, plan: TripPlan, change: ChangeRequest) -> list[str]:
+    def _exclusions(
+        agent: AgentName, plan: TripPlan, change: ChangeRequest, focus: PlanFocus | None = None
+    ) -> list[str]:
         if agent is AgentName.HOTEL and (change.replace_hotel or change.cheaper_hotel) and plan.hotel:
             return [plan.hotel.hotel.hotel_id]
         if agent is AgentName.ATTRACTION:
             return list(change.remove_place_ids)
+        if agent is AgentName.TICKET and focus is not None and focus.kind is FocusKind.TICKET and change.replace_focus:
+            return [focus.id]
         return []

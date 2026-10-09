@@ -177,3 +177,48 @@ async def test_focused_hotel_swap_reruns_only_the_hotel_agent(container: Contain
     assert new_plan.days == plan.days and new_plan.tickets == plan.tickets
     weather = new_plan.section(AgentName.WEATHER)
     assert weather is not None and weather.status is SectionStatus.STALE
+
+
+# ---- modify scope: one day and one ticket ------------------------------------------------------------
+
+
+async def test_focused_day_changes_only_that_days_unconfirmed_stops(container: Container) -> None:
+    session_id, plan = await _planned(container)
+    day2 = plan.days[1]  # Gion District, Nijo Castle, Kyoto Railway Museum
+    await container.orchestrator.confirm(session_id, item_ids=[day2.items[0].item_id])
+    before = (await container.orchestrator.get_session(session_id)).plan
+    assert before is not None
+
+    result = await container.orchestrator.handle_turn(
+        session_id, "Swap Nijo Castle for an aquarium", focus=PlanFocus(kind=FocusKind.DAY, id=day2.date.isoformat())
+    )
+
+    assert result.route is Route.MODIFY and result.agents_run == [AgentName.ATTRACTION]
+    new_plan = result.plan
+    assert new_plan is not None
+    assert new_plan.days[0] == before.days[0] and new_plan.days[2] == before.days[2]
+    new_day = new_plan.days[1]
+    assert new_day.items[0] == before.days[1].items[0]  # the confirmed stop keeps its time
+    place_ids = [i.place_id for i in new_day.items]
+    assert "kyoto-nijo-castle" not in place_ids and "kyoto-kyoto-aquarium" in place_ids
+    assert new_plan.hotel == before.hotel and new_plan.tickets == before.tickets
+
+
+async def test_focused_ticket_swap_changes_only_that_leg(container: Container) -> None:
+    session_id, plan = await _planned(container)
+    outbound, back = plan.tickets
+
+    result = await container.orchestrator.handle_turn(
+        session_id, "Swap this for a train", focus=PlanFocus(kind=FocusKind.TICKET, id=outbound.ticket_id)
+    )
+
+    assert result.route is Route.MODIFY and result.agents_run == [AgentName.TICKET]
+    new_plan = result.plan
+    assert new_plan is not None
+    new_out, new_back = new_plan.tickets
+    assert new_out.direction == "outbound" and new_out.ticket_id != outbound.ticket_id
+    assert new_out.depart_at.date() == outbound.depart_at.date()
+    assert new_back == back
+    assert new_plan.days == plan.days and new_plan.hotel == plan.hotel
+    assert new_plan.cost is not None
+    assert new_plan.cost.tickets == (new_out.price.amount + back.price.amount) * plan.party_size
