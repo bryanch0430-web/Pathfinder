@@ -280,6 +280,52 @@ class MergeOutcome:
     notes: list[str]
 
 
+def merge_hotel(
+    plan: TripPlan,
+    hotel_result: AgentResult | None,
+    *,
+    context: TripContext,
+    change: ChangeRequest,
+    dates_changed: bool,
+) -> tuple[HotelStay | None, list[str]]:
+    """The hotel stay after a modify turn, plus any notes for the reply. A confirmed stay is kept
+    (and refreshed) unless a new hotel was asked for; a "cheaper" request never picks a pricier
+    hotel; without fresh hotel data a date change drops an unconfirmed stay."""
+    notes: list[str] = []
+    hotel = plan.hotel
+    if hotel_result is not None and hotel_result.status is SectionStatus.OK and isinstance(hotel_result.data, HotelData):
+        candidates = hotel_result.data.candidates
+        wants_new = change.replace_hotel or change.cheaper_hotel
+        keep_confirmed = hotel is not None and hotel.confirmed and not wants_new
+        if keep_confirmed and hotel is not None and context.start_date and context.end_date:
+            refreshed = next((h for h in candidates if h.hotel_id == hotel.hotel.hotel_id), hotel.hotel)
+            hotel = hotel.model_copy(
+                update={"hotel": refreshed, "check_in": context.start_date, "check_out": context.end_date}
+            )
+        else:
+            excluded = {plan.hotel.hotel.hotel_id} if (wants_new and plan.hotel) else set()
+            hotel_pool = [h for h in candidates if h.hotel_id not in excluded]
+            if change.cheaper_hotel and plan.hotel is not None:
+                hotel_pool = cheaper_than(hotel_pool, plan.hotel.hotel)
+            if not hotel_pool and change.cheaper_hotel and plan.hotel is not None:
+                # Nothing cheaper was fetched: keep the current stay rather than pick a pricier one.
+                hotel = plan.hotel
+                if context.start_date and context.end_date:
+                    hotel = hotel.model_copy(update={"check_in": context.start_date, "check_out": context.end_date})
+                kept = f"no cheaper hotel than {plan.hotel.hotel.name} was found; kept it"
+                if dates_changed:
+                    kept += " (its price for the new dates was not re-checked)"
+                notes.append(kept)
+            else:
+                hotel = choose_hotel(hotel_pool, context)
+    elif dates_changed and hotel is not None and not hotel.confirmed:
+        hotel = None
+        notes.append("hotel needs re-checking for the new dates; hotel source unavailable")
+    elif dates_changed and hotel is not None and context.start_date and context.end_date:
+        hotel = hotel.model_copy(update={"check_in": context.start_date, "check_out": context.end_date})
+    return hotel, notes
+
+
 def _rebase_days(plan: TripPlan, context: TripContext) -> tuple[list[DayPlan], set[date], list[str]]:
     """Move day N of the old plan to day N of the new date range (dates changed)."""
     assert context.start_date and context.end_date
@@ -342,38 +388,10 @@ def merge_modify(
     elif dates_changed:
         days = [d.model_copy(update={"forecast": None}) for d in days]
 
-    hotel = plan.hotel
-    hotel_result = results.get(AgentName.HOTEL)
-    if hotel_result is not None and hotel_result.status is SectionStatus.OK and isinstance(hotel_result.data, HotelData):
-        candidates = hotel_result.data.candidates
-        wants_new = change.replace_hotel or change.cheaper_hotel
-        keep_confirmed = hotel is not None and hotel.confirmed and not wants_new
-        if keep_confirmed and hotel is not None and context.start_date and context.end_date:
-            refreshed = next((h for h in candidates if h.hotel_id == hotel.hotel.hotel_id), hotel.hotel)
-            hotel = hotel.model_copy(
-                update={"hotel": refreshed, "check_in": context.start_date, "check_out": context.end_date}
-            )
-        else:
-            excluded = {plan.hotel.hotel.hotel_id} if (wants_new and plan.hotel) else set()
-            hotel_pool = [h for h in candidates if h.hotel_id not in excluded]
-            if change.cheaper_hotel and plan.hotel is not None:
-                hotel_pool = cheaper_than(hotel_pool, plan.hotel.hotel)
-            if not hotel_pool and change.cheaper_hotel and plan.hotel is not None:
-                # Nothing cheaper was fetched: keep the current stay rather than pick a pricier one.
-                hotel = plan.hotel
-                if context.start_date and context.end_date:
-                    hotel = hotel.model_copy(update={"check_in": context.start_date, "check_out": context.end_date})
-                kept = f"no cheaper hotel than {plan.hotel.hotel.name} was found; kept it"
-                if dates_changed:
-                    kept += " (its price for the new dates was not re-checked)"
-                notes.append(kept)
-            else:
-                hotel = choose_hotel(hotel_pool, context)
-    elif dates_changed and hotel is not None and not hotel.confirmed:
-        hotel = None
-        notes.append("hotel needs re-checking for the new dates; hotel source unavailable")
-    elif dates_changed and hotel is not None and context.start_date and context.end_date:
-        hotel = hotel.model_copy(update={"check_in": context.start_date, "check_out": context.end_date})
+    hotel, hotel_notes = merge_hotel(
+        plan, results.get(AgentName.HOTEL), context=context, change=change, dates_changed=dates_changed
+    )
+    notes += hotel_notes
 
     tickets = list(plan.tickets)
     reservations = list(plan.reservations)

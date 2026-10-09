@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from backend.agents.merge import merge_modify
+from backend.agents.merge import merge_hotel, merge_modify
 from backend.agents.route_order import NearestNeighbourOrderer
 from backend.schemas.agents import AgentResult, HotelData
 from backend.schemas.common import AgentName, Money, SectionStatus
@@ -64,3 +64,27 @@ def test_cheaper_swap_keeps_the_current_hotel_when_nothing_is_cheaper() -> None:
 def test_cheaper_swap_ignores_prices_in_another_currency() -> None:
     merged = _merge(_hotel("mid", 9_000), [_hotel("hk", 300, currency="HKD")], CHEAPER)
     assert merged.hotel is not None and merged.hotel.hotel.hotel_id == "mid"
+
+
+def test_merge_hotel_keeps_a_confirmed_stay_unless_a_new_hotel_is_wanted() -> None:
+    stay = HotelStay(hotel=_hotel("mid", 9_000), check_in=START, check_out=END, confirmed=True)
+    plan = TripPlan(
+        plan_id="p1",
+        destination="Kyoto",
+        start_date=START,
+        end_date=END,
+        party_size=2,
+        days=[DayPlan(date=START), DayPlan(date=date(2026, 4, 11)), DayPlan(date=END)],
+        hotel=stay,
+    )
+    fetched = AgentResult(
+        agent=AgentName.HOTEL,
+        status=SectionStatus.OK,
+        data=HotelData(candidates=[_hotel("grand", 20_000), _hotel("hostel", 4_000)]),
+    )
+    kept, notes = merge_hotel(plan, fetched, context=_context(), change=ChangeRequest(), dates_changed=False)
+    assert kept == stay and notes == []
+    cheaper, _ = merge_hotel(plan, fetched, context=_context(), change=CHEAPER, dates_changed=False)
+    assert cheaper is not None and cheaper.hotel.hotel_id == "hostel"
+    down = AgentResult(agent=AgentName.HOTEL, status=SectionStatus.UNAVAILABLE, reason="down")
+    assert merge_hotel(plan, down, context=_context(), change=CHEAPER, dates_changed=False) == (stay, [])

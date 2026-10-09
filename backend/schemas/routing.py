@@ -75,6 +75,9 @@ class ChangeRequest(StrictModel):
     )
     remove_place_ids: list[str] = Field(default_factory=list)
     add_requests: list[str] = Field(default_factory=list, description="e.g. 'a museum on day 2'")
+    replace_focus: bool = Field(
+        default=False, description="Focused turns only: swap the focused stop, hotel or ticket for another option"
+    )
     refresh: list[AgentName] = Field(
         default_factory=list, description="Sections the user asked to re-check (e.g. weather)"
     )

@@ -8,11 +8,21 @@ turn starts, so a turn never runs against a part that does not exist.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import time
 
 from backend.agents.plan_ops import PlanRequestError
-from backend.schemas.routing import FocusKind, PlanFocus
+from backend.schemas.common import AgentName
+from backend.schemas.routing import ChangeRequest, FocusKind, PlanFocus
 from backend.schemas.trip_plan import TripPlan
+
+# Which agent owns each selectable part (design 4.1 "Affected agent by kind").
+FOCUS_AGENTS: dict[FocusKind, AgentName] = {
+    FocusKind.ITEM: AgentName.ATTRACTION,
+    FocusKind.DAY: AgentName.ATTRACTION,
+    FocusKind.HOTEL: AgentName.HOTEL,
+    FocusKind.TICKET: AgentName.TICKET,
+}
 
 
 def focus_ids(plan: TripPlan, kind: FocusKind) -> set[str]:
@@ -106,3 +116,56 @@ def focus_summary(plan: TripPlan, focus: PlanFocus) -> str:
             "confirmed": ticket.confirmed,
         }
     return json.dumps(data, ensure_ascii=False)
+
+
+def scoped_agents(parts: Sequence[AgentName], focus: PlanFocus) -> list[AgentName]:
+    """The agents a focused modify turn runs: the router's `affected_parts` intersected with the
+    focus mapping, or the mapping itself when the intersection is empty (the router named no part,
+    or only other parts). Each kind maps to one agent, so the result is always that one agent:
+    stale sections and trip-wide changes never widen a focused turn."""
+    allowed = FOCUS_AGENTS[focus.kind]
+    return [a for a in parts if a is allowed][:1] or [allowed]
+
+
+def scope_change(change: ChangeRequest, plan: TripPlan, focus: PlanFocus) -> ChangeRequest:
+    """Clamp an extracted change to the focused part. Trip-wide fields (dates, party size,
+    budget) and refresh requests are always dropped. A day focus keeps only removals of that
+    day's unconfirmed stops; a hotel focus turns `replace_focus` into `replace_hotel`."""
+    if focus.kind is FocusKind.ITEM:
+        return ChangeRequest(
+            add_requests=change.add_requests, replace_focus=change.replace_focus, summary=change.summary
+        )
+    if focus.kind is FocusKind.DAY:
+        day = next(d for d in plan.days if d.date.isoformat() == focus.id)
+        loose = {i.place_id for i in day.items if not i.confirmed}
+        return ChangeRequest(
+            remove_place_ids=[p for p in change.remove_place_ids if p in loose],
+            add_requests=change.add_requests,
+            summary=change.summary,
+        )
+    if focus.kind is FocusKind.HOTEL:
+        return ChangeRequest(
+            hotel_style=change.hotel_style,
+            replace_hotel=change.replace_hotel or change.replace_focus,
+            cheaper_hotel=change.cheaper_hotel,
+            summary=change.summary,
+        )
+    return ChangeRequest(replace_focus=change.replace_focus, summary=change.summary)
+
+
+def locked_note(plan: TripPlan, focus: PlanFocus) -> str | None:
+    """The reply note for a focused stop, hotel or ticket that is confirmed (locked): it is not
+    changed by the AI; the traveller unlocks it first. None when the part is not locked (a day
+    is never locked as a whole; its confirmed stops are simply kept)."""
+    if focus.kind is FocusKind.ITEM:
+        item = next((i for i in plan.all_items() if i.item_id == focus.id), None)
+        if item is not None and item.confirmed:
+            return f"{item.title} is locked; unlock it first to change it."
+    elif focus.kind is FocusKind.HOTEL:
+        if plan.hotel is not None and plan.hotel.confirmed:
+            return f"{plan.hotel.hotel.name} is locked; unlock it first to change it."
+    elif focus.kind is FocusKind.TICKET:
+        ticket = next((t for t in plan.tickets if t.ticket_id == focus.id), None)
+        if ticket is not None and ticket.confirmed:
+            return f"The {ticket.direction} {ticket.mode} is locked; unlock it first to change it."
+    return None
