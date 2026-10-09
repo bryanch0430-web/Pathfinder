@@ -217,10 +217,12 @@ keys and no database. Screenshots, described in text:
 20 px corners and a faint shadow. The top bar has the round black Pathfinder compass logo on the
 left, a pill tab group in the middle ("Plan" is a solid black pill, "Saved trips" grey text), and
 round search and help buttons plus a peach avatar circle on the right.
-- *Left column (input and chat):* "Your trip" holds the trip form (destination, dates, party size,
+- *Left column (input and chat):* a "Your trip | Chat" switch shows one of the two at a time
+  (the trip form first; a dot on "Chat" means a plan part is selected for the next message, and a
+  question back after Generate switches to the chat by itself). "Your trip" holds the trip form (destination, dates, party size,
   budget, origin, hotel style, hard constraints) and a black "Generate" button, which saves the
   form and sends "Plan my trip" through the chat. Once a plan exists it folds to a one-line
-  summary with an Edit button. Under it, the chat card opens with "Hello! Where are we going?" and
+  summary with an Edit button. "Chat" shows the chat card, which opens with "Hello! Where are we going?" and
   four outlined chips (Hotel, Tickets, Attractions, Weather). User messages are black bubbles on
   the right; assistant replies are light bubbles on the left, each with a grey status line under
   it ("Plan · 4 agents", "Modify · hotel agent", "Quick question"). A clarification shows as a

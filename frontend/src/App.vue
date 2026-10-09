@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useUiStore } from '@/stores/ui'
 import TopBar from '@/components/TopBar.vue'
+import LeftPanelSwitch from '@/components/LeftPanelSwitch.vue'
 import TripInputPanel from '@/components/TripInputPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import PlanWorkspace from '@/components/PlanWorkspace.vue'
@@ -54,8 +55,13 @@ onBeforeUnmount(() => session.closeStream())
       aria-labelledby="tab-plan"
     >
       <div class="col col-left">
-        <TripInputPanel />
-        <ChatPanel />
+        <LeftPanelSwitch />
+        <div v-show="ui.leftPanel === 'trip'" id="left-panel-trip" role="tabpanel" aria-labelledby="left-tab-trip">
+          <TripInputPanel />
+        </div>
+        <div v-show="ui.leftPanel === 'chat'" id="left-panel-chat" role="tabpanel" aria-labelledby="left-tab-chat">
+          <ChatPanel />
+        </div>
       </div>
       <div class="col col-center">
         <PlanWorkspace />

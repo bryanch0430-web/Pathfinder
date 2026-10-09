@@ -97,7 +97,7 @@ src/
 | Area | Components |
 |---|---|
 | Top bar | `TopBar` (logo, Plan / Saved trips tabs, search, help, avatar) |
-| Left column | `TripInputPanel` → `TripForm` (Generate); `ChatPanel` → `QuickChips`, `ChatMessage`, `ClarificationCard`, focus chip |
+| Left column | `LeftPanelSwitch` ("Your trip" / "Chat", one shown at a time) over `TripInputPanel` → `TripForm` (Generate); `ChatPanel` → `QuickChips`, `ChatMessage`, `ClarificationCard`, focus chip |
 | Centre column | `PlanWorkspace` → `WorkspaceDay` → `WorkspaceStop` → `StopEditor`; `WorkspaceBookings` (hotel, tickets); `WorkspaceDetails` (cost, checks, reservations, disruptions, data sections) |
 | Right column | `MapView` → `MapControls`; `PlaceDetailCard` → `PopularTimesChart` (hidden: no data), `StalenessBadge`; `BudgetCard` → `DonutChart` |
 | Other tabs | `SavedTripsList` (placeholder) |

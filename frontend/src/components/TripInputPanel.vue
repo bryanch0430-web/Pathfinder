@@ -49,7 +49,10 @@ async function generate(save: () => Promise<boolean>): Promise<void> {
   if (session.busy || session.savingContext) return
   if (!(await save())) return
   const result = await session.send(GENERATE_MESSAGE)
-  if (result.ok) ui.collapseInputPanel()
+  if (!result.ok) return
+  ui.collapseInputPanel()
+  // No plan means the reply is a question back (or an answer); it is in the chat, so show it.
+  if (!planStore.hasPlan) ui.setLeftPanel('chat')
 }
 </script>
 

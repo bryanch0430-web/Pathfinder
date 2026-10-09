@@ -57,6 +57,16 @@ describe('TripInputPanel', () => {
     const saveOrder = vi.mocked(session.saveContext).mock.invocationCallOrder[0]!
     expect(saveOrder).toBeLessThan(vi.mocked(session.send).mock.invocationCallOrder[0]!)
     expect(wrapper.find('[data-testid="trip-summary"]').exists()).toBe(true)
+    expect(useUiStore().leftPanel).toBe('trip')
+  })
+
+  it('switches to the chat when Generate gets a reply but no plan, so a question back is seen', async () => {
+    const wrapper = mount(TripInputPanel)
+    await wrapper.get('[data-testid="generate"]').trigger('click')
+    await flushPromises()
+
+    expect(useSessionStore().send).toHaveBeenCalledWith('Plan my trip')
+    expect(useUiStore().leftPanel).toBe('chat')
   })
 
   it('does not send when saving the context fails', async () => {
