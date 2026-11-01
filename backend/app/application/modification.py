@@ -136,6 +136,22 @@ class ModifyPath:
             agent_names.add(AgentName.HOTEL)
             agent_names.add(AgentName.TICKET)
 
+        if budget_mode and not _has_prices(plan):
+            # Nothing in the plan carries a price, so "make it cheaper" has
+            # nothing to act on. Ask instead of re-running agents and answering
+            # "no cheaper hotel was returned", which reads like a failure.
+            scoped = _scoped_name(plan, scope_item_id)
+            unchanged = plan.model_copy(deep=True)
+            unchanged.change_summary = (
+                "Nothing in this plan has a price yet — the hotel and flight sources "
+                "returned no rates, and "
+                + (f"{scoped} carries no price of its own. " if scoped else "no stop carries a price. ")
+                + "Do you want me to replace "
+                + (f"{scoped}" if scoped else "the selected stop")
+                + " with another verified option, or keep the itinerary as it is?"
+            )
+            return unchanged, []
+
         old_plan = plan
         new_range = context.date_range()
         date_requested = "dates" in affected or bool(
@@ -512,6 +528,22 @@ def _requested_alternative(plan: TripPlan, message: str) -> tuple[DayPlan, PlanI
             if best is None or len(name) > len(_norm(best[1].name)):
                 best = (day, item)
     return best
+
+
+def _has_prices(plan: TripPlan) -> bool:
+    """True when at least one line of the plan carries a real price."""
+    if plan.cost is not None and plan.cost.lines:
+        return True
+    if plan.hotels and plan.hotels[0].price_per_night is not None:
+        return True
+    return any(ticket.price is not None for ticket in plan.tickets)
+
+
+def _scoped_name(plan: TripPlan, scope_item_id: str | None) -> str:
+    if not scope_item_id:
+        return ""
+    found = plan.find_item(scope_item_id)
+    return found[1].name if found else ""
 
 
 def _items_in_order(plan: TripPlan):
