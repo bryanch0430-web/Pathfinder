@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import asyncio
 from datetime import date, timedelta
 
@@ -148,3 +150,25 @@ def test_distance_facts_focus_on_the_selected_stop(settings: Settings) -> None:
     assert facts["focus"] is not None
     assert facts["focus"]["name"] == item.name
     assert facts["named"], "the focused stop must also appear in named results"
+
+
+def test_follow_up_reuses_the_previous_exchange(settings: Settings) -> None:
+    from types import SimpleNamespace
+
+    from app.application.asking import FOLLOW_UP_WORDS, _plan_facts
+
+    plan = _plan(settings)
+    item = plan.days[0].items[0]
+    history = [
+        SimpleNamespace(role="user", content="Is it fun?"),
+        SimpleNamespace(role="assistant", content="Ocean Park has a 4.3 rating from 33,981 reviews."),
+    ]
+
+    assert re.search(FOLLOW_UP_WORDS, "really?")
+    assert not re.search(FOLLOW_UP_WORDS, "is it fun?")
+
+    facts = _plan_facts("really?", plan, history, item.id)
+
+    assert "recent_turns" in facts, "a bare follow-up must carry the previous exchange"
+    assert facts["recent_turns"][-1]["content"].startswith("Ocean Park")
+    assert facts.get("item", {}).get("id") == item.id

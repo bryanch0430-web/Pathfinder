@@ -25,6 +25,13 @@ QUALITY_WORDS = (
     r"\b(good|great|worth|best|recommend|recommended|review|reviews|rating|rated|"
     r"famous|known for|why|should i|any good|is it|popular|signature|speciality|specialty)\b"
 )
+#: a follow-up that only makes sense against the previous answer
+FOLLOW_UP_WORDS = (
+    r"^\s*(really|why|how come|and|so|hmm|sure|ok|okay|right|go on|continue|"
+    r"more|elaborate|explain|what do you mean|how so|is that true|are you sure)"
+    r"(\b|$)"
+)
+
 #: questions that want more than a lookup — these are allowed to use the slower,
 #: synthesis-capable search when it is switched on
 DEEP_SEARCH_WORDS = (
@@ -321,6 +328,17 @@ def _plan_facts(
 ) -> dict:
     lower = question.lower()
     facts: dict[str, Any] = {}
+    if re.search(FOLLOW_UP_WORDS, lower) or len(lower.strip(" ?!")) <= 8:
+        # "really?" / "why?" has no subject of its own: carry the previous
+        # exchange so the answer continues that topic instead of the itinerary.
+        if history:
+            facts["recent_turns"] = [
+                {"role": getattr(m, "role", ""), "content": str(getattr(m, "content", ""))[:400]}
+                for m in history[-2:]
+            ]
+        scoped = _scoped_item(plan, scope_item_id)
+        if scoped is not None:
+            facts["item"] = scoped.model_dump(mode="json")
     if re.search(WEATHER_WORDS, lower):
         target = _mentioned_date(question, plan)
         days = [day for day in plan.days if target is None or day.date == target]
