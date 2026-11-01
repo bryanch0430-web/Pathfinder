@@ -15,7 +15,10 @@ from app.domain.models import TripContext, TripPlan
 from app.security import fence_user_message
 
 WEATHER_WORDS = r"\b(weather|rain|forecast|temperature|hot|cold|typhoon)\b"
-DISTANCE_WORDS = r"\b(distance|how far|travel time|how long|get to|walk)\b"
+DISTANCE_WORDS = (
+    r"\b(distance|how far|travel time|how long|get to|walk|closest|nearest|"
+    r"near(?:est|by)?|farthest|furthest)\b"
+)
 HOURS_WORDS = r"\b(open|opening|hours|close|closed)\b"
 
 
@@ -57,9 +60,18 @@ class AskPath:
         lower = question.lower()
         needs_live_tool = (
             (re.search(WEATHER_WORDS, lower) and "weather" not in facts)
-            or (re.search(DISTANCE_WORDS, lower) and "route" not in facts)
+            or (
+                re.search(DISTANCE_WORDS, lower)
+                and "distances" not in facts
+                and "route" not in facts
+            )
             or (re.search(HOURS_WORDS, lower) and "item" not in facts)
         )
+        # A question about a section the plan does not have is answered by the
+        # recorded reason, not by the writer guessing around it. A distance
+        # question still gets its numbers, with the missing hotel named.
+        if facts.get("missing") and "distances" not in facts:
+            return _fallback_answer(facts, "plan"), related, "plan"
         if facts and not needs_live_tool:
             text = await self._phrase(question, plan, facts, "plan")
             return text, related, "plan"
@@ -71,9 +83,22 @@ class AskPath:
         if facts:
             text = await self._phrase(question, plan, facts, "plan")
             return text, related, "plan"
+        if plan is not None:
+            # Nothing matched a specific trigger, but the plan itself is context:
+            # let the writer answer from the itinerary and weather rather than
+            # refuse a question it has the material for.
+            fallback = dict(facts)
+            fallback.setdefault("itinerary", _itinerary_rows(plan))
+            weather_rows = [
+                day.weather.model_dump(mode="json") for day in plan.days if day.weather is not None
+            ]
+            if weather_rows:
+                fallback.setdefault("weather", weather_rows)
+            text = await self._phrase(question, plan, fallback, "plan")
+            return text, True, "plan"
         text = (
-            "The current itinerary does not contain that, and no configured source answered it. "
-            "I can look it up if you point me at a place or date."
+            "There is no plan yet, so I have nothing to answer from. "
+            "Tell me where and when you are going and I will build one first."
         )
         return text, related, "none"
 
@@ -182,6 +207,29 @@ def _plan_facts(
     if re.search(r"\b(budget|cost|total|spend|price)\b", lower):
         facts["cost"] = plan.cost.model_dump(mode="json")
 
+    # "how far", "closest", "nearest": answered from coordinates we already hold.
+    distances = _distance_facts(plan, question)
+    if distances:
+        facts["distances"] = distances
+
+    # A question about a section the plan does not have should name the reason
+    # the source failed, not just say "the plan does not contain it".
+    missing: list[str] = []
+    if re.search(r"\b(hotel|stay|room|check[- ]?in)\b", lower) and not plan.hotels:
+        missing.append("hotel")
+    if re.search(r"\b(flight|fly|ticket|train|depart|arrive)\b", lower) and not plan.tickets:
+        missing.append("tickets")
+    if missing:
+        wanted = {section.rstrip("s") for section in missing}
+        facts["missing"] = {
+            "sections": missing,
+            "reasons": [
+                gap.message
+                for gap in plan.data_quality.gaps
+                if gap.section.rstrip("s") in wanted
+            ],
+        }
+
     # An explicit item name wins, but collection questions ("what museums",
     # "list all attractions", "what did you change") get the whole itinerary so
     # the writer can answer from all current items rather than one guess.
@@ -210,27 +258,7 @@ def _plan_facts(
         lower,
     )
     if plan_words:
-        facts["itinerary"] = [
-            {
-                "day": index + 1,
-                "date": day.date.isoformat(),
-                "title": day.title,
-                "weather": day.weather.model_dump(mode="json") if day.weather else None,
-                "items": [
-                    {
-                        "name": entry.name,
-                        "type": entry.type.value,
-                        "start": entry.start,
-                        "end": entry.end,
-                        "notes": entry.notes[:240],
-                        "status": entry.data_status.value,
-                        "tags": entry.tags,
-                    }
-                    for entry in day.items
-                ],
-            }
-            for index, day in enumerate(plan.days)
-        ]
+        facts["itinerary"] = _itinerary_rows(plan)
         matches = _matching_items(plan, lower)
         if matches is not None:
             facts["matching_items"] = matches
@@ -374,7 +402,104 @@ def _two_points(plan: TripPlan | None, question: str):
     return None
 
 
+def _itinerary_rows(plan: TripPlan) -> list[dict[str, Any]]:
+    """The whole plan, shaped for the writer: every day, every stop."""
+    return [
+        {
+            "day": index + 1,
+            "date": day.date.isoformat(),
+            "title": day.title,
+            "weather": day.weather.model_dump(mode="json") if day.weather else None,
+            "items": [
+                {
+                    "name": entry.name,
+                    "type": entry.type.value,
+                    "start": entry.start,
+                    "end": entry.end,
+                    "notes": entry.notes[:240],
+                    "status": entry.data_status.value,
+                    "tags": entry.tags,
+                }
+                for entry in day.items
+            ],
+        }
+        for index, day in enumerate(plan.days)
+    ]
+
+
+def _reference_point(plan: TripPlan, lower: str):
+    """Where a "how far / closest" question measures from.
+
+    The hotel when the plan has one, otherwise the destination centre. The
+    answer is labelled with whatever was used, so a straight-line estimate is
+    never presented as a hotel-to-door distance.
+    """
+    if plan.hotels and plan.hotels[0].geo:
+        return f"the hotel ({plan.hotels[0].name})", plan.hotels[0].geo
+    if re.search(r"\bairport\b", lower):
+        return f"the {plan.destination.name} city centre (airport distance is not stored)", plan.destination.geo
+    return f"the {plan.destination.name} city centre", plan.destination.geo
+
+
+def _distance_facts(plan: TripPlan, question: str) -> dict | None:
+    """Straight-line distances from a reference point to every stop with a coordinate."""
+    from app.infrastructure.http import haversine_km
+
+    lower = question.lower()
+    if not re.search(DISTANCE_WORDS, lower):
+        return None
+    reference_name, reference = _reference_point(plan, lower)
+    if reference is None or reference.lat is None or reference.lng is None:
+        return None
+    # Say plainly when the reference is a stand-in, so a city-centre figure is
+    # never read as a hotel-to-door walking distance.
+    if plan.hotels and plan.hotels[0].geo:
+        reference_name = f"the hotel ({plan.hotels[0].name})"
+    else:
+        reference_name = f"{reference_name} (no hotel in the plan yet)"
+
+    rows: list[dict[str, Any]] = []
+    for day_index, day in enumerate(plan.days, start=1):
+        for item in day.items:
+            if not item.geo or item.geo.lat is None or item.geo.lng is None:
+                continue
+            rows.append(
+                {
+                    "day": day_index,
+                    "name": item.name,
+                    "type": item.type.value,
+                    "km": round(haversine_km(reference.lat, reference.lng, item.geo.lat, item.geo.lng), 1),
+                }
+            )
+    if not rows:
+        return None
+    rows.sort(key=lambda row: row["km"])
+    named = [row for row in rows if row["name"].lower() in lower]
+    return {
+        "reference": reference_name,
+        "method": "straight-line estimate",
+        "closest": rows[:3],
+        "named": named,
+    }
+
+
 def _fallback_answer(facts: dict, source: str) -> str:
+    if "missing" in facts:
+        missing = facts["missing"]
+        sections = ", ".join(missing.get("sections") or [])
+        reasons = " ".join(missing.get("reasons") or [])
+        if reasons:
+            return f"The plan has no {sections} because the source did not answer: {reasons}"
+        return f"The plan has no {sections} yet."
+    if "distances" in facts:
+        block = facts["distances"]
+        rows = block.get("named") or block.get("closest") or []
+        if rows:
+            head = rows[0]
+            return (
+                f"{head['name']} is about {head['km']} km from {block['reference']} "
+                f"({block.get('method', 'straight-line estimate')})."
+            )
     if "weather" in facts:
         rows = facts["weather"]
         parts = []
