@@ -26,6 +26,7 @@ from app.domain.models import (
     DayPlan,
     GeoLocation,
     HotelStay,
+    ItemType,
     Money,
     PlanItem,
     PriceKind,
@@ -37,6 +38,7 @@ from app.domain.models import (
     utcnow,
 )
 from app.domain.ports import Tracer
+from app.infrastructure.http import haversine_km
 from app.security import fence_user_message
 
 AGENT_SECTION: dict[AgentName, str] = {
@@ -235,7 +237,9 @@ class ModifyPath:
 
         if AgentName.ATTRACTION in agent_names:
             attraction_result = results.get("attraction")
-            places = (attraction_result.payload.get("places") if attraction_result else []) or []
+            payload = attraction_result.payload if attraction_result else {}
+            places = payload.get("places") or []
+            meals = payload.get("meals") or []
             lower_message = message.lower()
             add_requested = bool(re.search(r"\b(add|include|insert|append|one more|another|also)\b", lower_message))
             remove_requested = bool(re.search(r"\b(remove|delete|drop|take out|without)\b", lower_message))
@@ -262,16 +266,36 @@ class ModifyPath:
                         )
                     )
             else:
-                target = _target_item(updated, draft, message)
-                replaced = _replace_attractions(updated, places, target, draft.target_day)
-                if not replaced:
-                    detail = f"a verified replacement for {target!r}" if target else "a verified alternative stop"
+                resolved = _resolve_target(updated, draft, message)
+                if resolved is None:
                     updated.data_quality.gaps.append(
                         _gap(
                             "attractions",
-                            f"I could not find {detail} from the configured sources; the current stops were kept.",
+                            "I could not tell which stop you meant. Name it or give its number in the day "
+                            "(for example \"3. Ho Lee Fook\"), or select it first; the itinerary stayed as it was.",
                         )
                     )
+                else:
+                    day, target_item = resolved
+                    before = target_item.name
+                    replaced = _replace_target(
+                        updated,
+                        places,
+                        meals,
+                        (day, target_item),
+                        message,
+                        distance_aware=_FAR_MOTION.search(message) is not None,
+                    )
+                    if replaced:
+                        draft.description = f"Replaced {before} with {target_item.name}."
+                    else:
+                        updated.data_quality.gaps.append(
+                            _gap(
+                                "attractions",
+                                f"No verified alternative for {before!r} came back from the configured "
+                                "sources, so that stop stayed as it was.",
+                            )
+                        )
 
         if AgentName.TICKET in agent_names:
             ticket_result = results.get("ticket")
@@ -318,7 +342,6 @@ class ModifyPath:
             updated.tickets,
             updated.cost,
         )
-        updated.version = plan.version + 1
         updated.updated_at = utcnow()
         updated.change_summary = draft.description or "Applied a local change."
         updated.data_quality.notes = _merge_notes(updated.data_quality.notes, draft.description)
@@ -328,7 +351,20 @@ class ModifyPath:
             emit("progress", {"phase": "repair", "message": "Repairing the edited itinerary.", "progress": 85})
             updated = await repair_plan(updated, errors, self.gateway, self.settings)
         updated = tidy_data_gaps(updated)
-        return updated, diff_plans(old_plan, updated)
+
+        diff = diff_plans(old_plan, updated)
+        if diff:
+            updated.version = plan.version + 1
+        else:
+            # Nothing actually moved. Keeping the version and naming the reason is
+            # better than shipping "v2" and telling the traveller nothing changed.
+            updated.version = plan.version
+            updated.change_summary = (
+                updated.data_quality.gaps[-1].message
+                if updated.data_quality.gaps
+                else "Nothing in the plan matched that request, so it is unchanged."
+            )
+        return updated, diff
 
     async def _extract(
         self,
@@ -391,49 +427,143 @@ def _rule_day(message: str) -> int | None:
     return None
 
 
-def _target_item(plan: TripPlan, draft: ChangeDraft, message: str) -> str | None:
+#: wording that asks for a *closer* stop rather than a like-for-like swap
+_FAR_MOTION = re.compile(
+    r"\b(too far|far away|farther|further away|closer|nearer|near by|nearby|walking distance)\b",
+    re.IGNORECASE,
+)
+
+
+def _items_in_order(plan: TripPlan):
+    for day in plan.days:
+        for item in day.items:
+            yield day, item
+
+
+def _resolve_target(plan: TripPlan, draft: ChangeDraft, message: str) -> tuple[DayPlan, PlanItem] | None:
+    """Find the stop the traveller pointed at.
+
+    Accepts, in order: the console's selected item, a leading index ("3." / "#3" /
+    "item 3"), a quoted name, a name mentioned anywhere in the sentence, or a
+    fuzzy token match. Before this, only a quoted name or "swap X for Y" resolved,
+    so "3. Ho Lee Fook too far away" pointed at nothing.
+    """
     if draft.target_item_id:
         found = plan.find_item(draft.target_item_id)
         if found:
-            return found[1].name
+            return found[0], found[1]
+
+    lowered = message.lower()
+    match = re.match(r"\s*#?(\d{1,2})\s*[.)\]:\-\s]", lowered) or re.search(
+        r"\b(?:item|stop|number|no\.?)\s*#?(\d{1,2})\b", lowered
+    )
+    if match:
+        index = int(match.group(1))
+        for day_index, day in enumerate(plan.days, start=1):
+            if draft.target_day and draft.target_day != day_index:
+                continue
+            if 1 <= index <= len(day.items):
+                return day, day.items[index - 1]
+
     quoted = re.search(r"[\"“']([^\"”']{3,60})[\"”']", message)
     if quoted:
-        return quoted.group(1)
-    match = re.search(r"\b(?:swap|replace|change|remove)\s+(.+?)\s+(?:for|to|with)\b", message, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
+        needle = quoted.group(1).lower()
+        for day, item in _items_in_order(plan):
+            if needle in item.name.lower():
+                return day, item
+
+    # the longest plan item whose name appears verbatim in the sentence
+    best: tuple[DayPlan, PlanItem] | None = None
+    for day, item in _items_in_order(plan):
+        name = item.name.lower()
+        if name and name in lowered:
+            if best is None or len(name) > len(best[1].name):
+                best = (day, item)
+    if best is not None:
+        return best
+
+    # token overlap, so a truncated or re-ordered name still resolves: either two
+    # shared words, or one distinctive word of four or more characters
+    words = {w for w in re.findall(r"[a-z0-9]{3,}", lowered)}
+    scored: list[tuple[int, DayPlan, PlanItem]] = []
+    for day, item in _items_in_order(plan):
+        item_words = {w for w in re.findall(r"[a-z0-9]{3,}", item.name.lower())}
+        shared = words & item_words
+        if len(shared) >= 2 or any(len(word) >= 4 for word in shared):
+            scored.append((len(shared), day, item))
+    if scored:
+        scored.sort(key=lambda row: -row[0])
+        return scored[0][1], scored[0][2]
     return None
 
 
-def _replace_attractions(plan: TripPlan, places: list[dict], target: str | None, target_day: int | None) -> bool:
-    existing_names = {item.name for day in plan.days for item in day.items if item.type.value == "attraction"}
-    pool = [row for row in places if row.get("name") not in existing_names]
+def _anchor_geo(plan: TripPlan, day: DayPlan, target: PlanItem):
+    """Where "too far away" is measured from: the hotel, else the previous stop."""
+    if plan.hotels and plan.hotels[0].geo:
+        return plan.hotels[0].geo
+    previous = None
+    for item in day.items:
+        if item is target:
+            break
+        if item.geo:
+            previous = item.geo
+    if previous is not None:
+        return previous
+    for item in day.items:
+        if item is not target and item.geo:
+            return item.geo
+    return plan.destination.geo
+
+
+def _candidate_pool(item: PlanItem, places: list[dict], meals: list[dict], used: set[str]) -> list[dict]:
+    """Meals are replaced from the meal pool, everything else from the place pool."""
+    source = meals if item.type is ItemType.MEAL else places
+    return [row for row in source if row.get("name") and row["name"] not in used]
+
+
+def _apply_candidate(item: PlanItem, row: dict) -> None:
+    item.name = row["name"]
+    item.geo = row.get("geo") or item.geo
+    item.address = row.get("address", "")
+    item.notes = (row.get("description") or "")[:700]
+    refs = row.get("source_refs") or []
+    if refs:
+        item.source_refs = [SourceRef.model_validate(ref) for ref in refs]
+    item.data_status = DataStatus.OK
+    item.fetched_at = utcnow()
+    item.tags = (row.get("tags") or [])[:4]
+
+
+def _replace_target(
+    plan: TripPlan,
+    places: list[dict],
+    meals: list[dict],
+    target: tuple[DayPlan, PlanItem],
+    message: str,
+    *,
+    distance_aware: bool,
+) -> bool:
+    day, item = target
+    if item.locked or item.confirmed:
+        return False
+    used = {other.name for _, other in _items_in_order(plan)}
+    pool = _candidate_pool(item, places, meals, used)
     if not pool:
         return False
-    replaced = False
-    used: set[str] = set()
-    for day in plan.days:
-        if target_day and day.date.day != target_day and (day.date - plan.dates.start).days + 1 != target_day:
-            continue
-        for item in day.items:
-            if item.type.value != "attraction" or item.locked or item.confirmed:
-                continue
-            if target and target.lower() not in item.name.lower():
-                continue
-            candidate = next((row for row in pool if row["name"] not in used), None)
-            if not candidate:
-                break
-            used.add(candidate["name"])
-            item.name = candidate["name"]
-            item.geo = candidate.get("geo") or item.geo
-            item.address = candidate.get("address", "")
-            item.notes = (candidate.get("description") or "")[:700]
-            item.source_refs = [SourceRef.model_validate(ref) for ref in candidate.get("source_refs", [])]
-            item.data_status = DataStatus.OK
-            item.fetched_at = utcnow()
-            item.tags = (candidate.get("tags") or [])[:4]
-            replaced = True
-    return replaced
+    if distance_aware:
+        anchor = _anchor_geo(plan, day, item)
+        if anchor is not None:
+
+            def distance(row: dict) -> float:
+                geo = row.get("geo") or {}
+                lat, lng = geo.get("lat"), geo.get("lng")
+                if lat is None or lng is None:
+                    return float("inf")
+                return haversine_km(anchor.lat, anchor.lng, float(lat), float(lng))
+
+            pool.sort(key=distance)
+    _apply_candidate(item, pool[0])
+    return True
 
 
 def _places_query(message: str) -> str | None:
@@ -582,17 +712,22 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str) -> list[s
 
 
 def _remove_attraction(plan: TripPlan, draft: ChangeDraft, message: str) -> str | None:
-    target = _target_item(plan, draft, message)
+    resolved = _resolve_target(plan, draft, message)
+    if resolved is not None:
+        day, item = resolved
+        if item.locked or item.confirmed:
+            return None
+        day.items.remove(item)
+        return item.name
+    # No specific stop was named: fall back to the keyword the traveller used.
     wanted = [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
     for day in plan.days:
-        for item in day.items:
+        for item in list(day.items):
             # A selected stop can be a meal as well as an attraction; the scope
             # chip is about the row the traveller tapped.
             if item.locked or item.confirmed:
                 continue
-            if target and target.lower() not in item.name.lower():
-                continue
-            if not target and wanted and not any(word in item.name.lower() for word in wanted):
+            if not wanted or not any(word in item.name.lower() for word in wanted):
                 continue
             day.items.remove(item)
             return item.name
