@@ -130,7 +130,7 @@ const DICTIONARIES: Record<Locale, Dictionary> = {
   "zh-Hant": ZH_HANT,
 };
 
-const KEY = "pathfinder30.locale";
+const KEY = "pathfinder.locale";
 
 export function useI18n() {
   const [locale, setLocaleState] = useState<Locale>(() => {

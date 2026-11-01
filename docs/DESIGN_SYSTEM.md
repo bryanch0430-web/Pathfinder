@@ -152,8 +152,8 @@ App.tsx
 - A tab strip above the centre card lists open sessions (`1 Hong Kong`, `2 Untitled trip`).
   Switching loads that session without regenerating it; **New trip** adds another tab.
   Trending → Try this trip creates a new tab instead of overwriting the current plan.
-- Tabs are stored in `pathfinder30.trips`; the active pointer stays in
-  `pathfinder30.session`. The trash tab button scraps only the active plan.
+- Tabs are stored in `pathfinder.trips`; the active pointer stays in
+  `pathfinder.session`. The trash tab button scraps only the active plan.
 
 ### Local guide citations
 - `GuideNotes` is a separate soft-context card in the right column. Each note has a section,

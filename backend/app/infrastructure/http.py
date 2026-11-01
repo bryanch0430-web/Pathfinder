@@ -39,7 +39,7 @@ async def request_json(
     payload: dict[str, Any] | None = None,
     timeout: float = 15.0,
     retries: int = 2,
-    user_agent: str = "Pathfinder30/1.0",
+    user_agent: str = "Pathfinder/1.0",
 ) -> dict[str, Any]:
     last: ProviderError | None = None
     merged_headers = {"User-Agent": user_agent, "Accept": "application/json"}

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Pathfinder 30 — tokens
+   Pathfinder — tokens
    Primitive tokens are defined here and owned by this design system.
    Components consume the semantic --pf-* aliases, which point only at these
    primitives; no component introduces a raw hex value.

@@ -57,7 +57,7 @@ export function postFeedback(
   sessionId: string,
   useful: boolean,
   stars: number | null,
-  clientToken = localStorage.getItem("pathfinder30.client") || "",
+  clientToken = localStorage.getItem("pathfinder.client") || "",
 ): Promise<{ feedback: { id: string }; preferences_added: string[] }> {
   return request(`/api/journeys/${sessionId}/feedback`, {
     method: "POST",
@@ -125,7 +125,7 @@ export interface AuthResponse {
 }
 
 export function authHeader(): Record<string, string> {
-  const token = localStorage.getItem("pathfinder30.auth");
+  const token = localStorage.getItem("pathfinder.auth");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

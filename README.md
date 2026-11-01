@@ -449,7 +449,7 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   accounts are optional and merge the guest preferences on first login. Clearing memory
   removes saved trips and preferences; clearing chat removes messages but keeps the current
   plan. **New trip** deletes the current session row and local pointer, so a stale
-  `pathfinder30.session` cannot pin the console to an old plan.
+  `pathfinder.session` cannot pin the console to an old plan.
 - **Export** writes Markdown from structured fields and sources, not a model transcript.
 - **Local-guide RAG is a lexical baseline.** It is destination-filtered and cited, and the
   eval set reports Top1/MRR/noise; an embedding/cross-encoder reranker (including Jev) is

@@ -60,7 +60,7 @@ export default function App() {
   const [guidesLoading, setGuidesLoading] = useState(false);
   const [trips, setTrips] = useState<{ id: string; label: string }[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem("pathfinder30.trips") || "[]") as { id: string; label: string }[];
+      return JSON.parse(localStorage.getItem("pathfinder.trips") || "[]") as { id: string; label: string }[];
     } catch {
       return [];
     }
@@ -71,7 +71,7 @@ export default function App() {
     setTrendingError(null);
     try {
       const data = await getTrending(trendingQuery, {
-        clientToken: localStorage.getItem("pathfinder30.client") || "",
+        clientToken: localStorage.getItem("pathfinder.client") || "",
         destination: pf.context.destination || "",
       });
       setTrending(data.items ?? []);
@@ -113,11 +113,11 @@ export default function App() {
   }, [pf.plan?.destination.name, pf.context.preferences]);
 
   useEffect(() => {
-    if (!localStorage.getItem("pathfinder30.auth")) return;
+    if (!localStorage.getItem("pathfinder.auth")) return;
     void me()
       .then((data) => setAuthUser(data.user))
       .catch(() => {
-        localStorage.removeItem("pathfinder30.auth");
+        localStorage.removeItem("pathfinder.auth");
         setAuthUser(null);
       });
   }, []);
@@ -130,7 +130,7 @@ export default function App() {
       const next = current.some((trip) => trip.id === activeId)
         ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
         : [...current, { id: activeId, label }];
-      localStorage.setItem("pathfinder30.trips", JSON.stringify(next));
+      localStorage.setItem("pathfinder.trips", JSON.stringify(next));
       return next;
     });
   }, [pf.sessionId, pf.plan?.destination.name]);
@@ -145,7 +145,7 @@ export default function App() {
     }
     const remaining = trips.filter((trip) => trip.id !== id);
     setTrips(remaining);
-    localStorage.setItem("pathfinder30.trips", JSON.stringify(remaining));
+    localStorage.setItem("pathfinder.trips", JSON.stringify(remaining));
     if (remaining.length) await pf.openSession(remaining[0].id);
     else await createTripTab();
   };
@@ -155,7 +155,7 @@ export default function App() {
     if (!opened) {
       setTrips((current) => {
         const next = current.filter((trip) => trip.id !== id);
-        localStorage.setItem("pathfinder30.trips", JSON.stringify(next));
+        localStorage.setItem("pathfinder.trips", JSON.stringify(next));
         return next;
       });
     }
@@ -165,7 +165,7 @@ export default function App() {
     const id = await pf.newPlan();
     setTrips((current) => {
       const next = current.some((trip) => trip.id === id) ? current : [...current, { id, label: "Untitled trip" }];
-      localStorage.setItem("pathfinder30.trips", JSON.stringify(next));
+      localStorage.setItem("pathfinder.trips", JSON.stringify(next));
       return next;
     });
     return id;
@@ -177,9 +177,9 @@ export default function App() {
     password: string,
     displayName: string,
   ) => {
-    const guestToken = localStorage.getItem("pathfinder30.client") || "";
-    if (!localStorage.getItem("pathfinder30.guest")) {
-      localStorage.setItem("pathfinder30.guest", guestToken);
+    const guestToken = localStorage.getItem("pathfinder.client") || "";
+    if (!localStorage.getItem("pathfinder.guest")) {
+      localStorage.setItem("pathfinder.guest", guestToken);
     }
     const payload = {
       email,
@@ -189,8 +189,8 @@ export default function App() {
       session_id: pf.sessionId,
     };
     const result = mode === "login" ? await login(payload) : await register(payload);
-    localStorage.setItem("pathfinder30.auth", result.token);
-    localStorage.setItem("pathfinder30.client", result.profile_token);
+    localStorage.setItem("pathfinder.auth", result.token);
+    localStorage.setItem("pathfinder.client", result.profile_token);
     setAuthUser(result.user);
     setAuthOpen(false);
     if (pf.sessionId) {
@@ -220,9 +220,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("pathfinder30.auth");
-    const guest = localStorage.getItem("pathfinder30.guest");
-    if (guest) localStorage.setItem("pathfinder30.client", guest);
+    localStorage.removeItem("pathfinder.auth");
+    const guest = localStorage.getItem("pathfinder.guest");
+    if (guest) localStorage.setItem("pathfinder.client", guest);
     setAuthUser(null);
     void pf.reload();
   };

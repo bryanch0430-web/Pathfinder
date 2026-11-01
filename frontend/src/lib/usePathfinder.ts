@@ -22,8 +22,8 @@ import type {
   TripPlan,
 } from "../design-system/types";
 
-const SESSION_KEY = "pathfinder30.session";
-const TOKEN_KEY = "pathfinder30.client";
+const SESSION_KEY = "pathfinder.session";
+const TOKEN_KEY = "pathfinder.client";
 
 function clientToken(): string {
   let token = localStorage.getItem(TOKEN_KEY);

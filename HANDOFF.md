@@ -37,8 +37,8 @@ Implemented and verified:
   - Account menu (avatar/name) → **My trips**, **Settings**, **Log out**.
 - Multiple plan tabs:
   - `New trip` preserves the old plan and opens another session.
-  - tab labels are persisted in `pathfinder30.trips`.
-  - active session pointer is `pathfinder30.session`.
+  - tab labels are persisted in `pathfinder.trips`.
+  - active session pointer is `pathfinder.session`.
   - trash tab scraps only the active session.
   - Trending → Try this trip creates a new tab.
 - Useful feedback:

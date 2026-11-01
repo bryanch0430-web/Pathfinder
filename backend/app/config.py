@@ -36,9 +36,9 @@ class Settings(BaseSettings):
     admin_token: str = "local-admin"
     auth_secret: str = "local-dev-auth-secret-change-me"
     auth_token_hours: int = 168
-    user_agent: str = "Pathfinder30/1.0 (COMP7608B student project)"
+    user_agent: str = "Pathfinder/1.0 (COMP7608B student project)"
     wikimedia_user_agent: str = (
-        "Pathfinder30/1.0 (https://github.com/bryan0430-web/Pathfinder; educational project) "
+        "Pathfinder/1.0 (https://github.com/bryan0430-web/Pathfinder; educational project) "
         "python-httpx/0.28"
     )
 
@@ -120,7 +120,7 @@ class Settings(BaseSettings):
     attraction_fresh_seconds: int = 30 * 24 * 3600
 
     # --- security ----------------------------------------------------------
-    canary_token: str = "<<CANARY-PF30-7f3a9c>>"
+    canary_token: str = "<<CANARY-PATHFINDER-7f3a9c>>"
     blocklist_enabled: bool = True
     fence_enabled: bool = True
 

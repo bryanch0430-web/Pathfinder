@@ -16,7 +16,7 @@ open http://127.0.0.1:8100        # built app
 open http://localhost:6006        # Storybook, optional
 ```
 
-- Use a fresh browser profile or clear `pathfinder30.session` so the first screen is empty.
+- Use a fresh browser profile or clear `pathfinder.session` so the first screen is empty.
 - Confirm the writer model answers and at least Google Places or Wikivoyage returns data.
 - Keep the Evaluation tab pre-loaded with two `hongkong` runs; if the DB is clean, run them
   from the tab before the demo.
@@ -139,7 +139,7 @@ Scroll the right column below the budget. Point at the cards:
   “soft context only” note.
 - Trash icon in the chat header clears messages only; the plan and versions stay.
 - Header **New trip** confirms, deletes the old session row and local pointer, and opens a
-  fresh context. Use this when an old `pathfinder30.session` appears stuck.
+  fresh context. Use this when an old `pathfinder.session` appears stuck.
 - Header **Export** downloads a Markdown itinerary built from structured fields and sources.
 - Settings → **Traveller profile**: preferences remembered, useful-trip count, recent
   destinations. Edit/Save preferences; **Clear memory** removes saved trips/preferences.

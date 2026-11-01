@@ -133,13 +133,13 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const clientToken = localStorage.getItem("pathfinder30.client") || "anonymous";
+  const clientToken = localStorage.getItem("pathfinder.client") || "anonymous";
 
   useEffect(() => {
     getConfig()
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Configuration is unavailable."));
-    const token = localStorage.getItem("pathfinder30.admin") || "local-admin";
+    const token = localStorage.getItem("pathfinder.admin") || "local-admin";
     getInjections(token)
       .then((data) => setInjections(data.events))
       .catch(() => setInjections([]));
