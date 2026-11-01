@@ -158,3 +158,38 @@ def test_unmatched_request_does_not_invent_a_version(settings: Settings) -> None
     assert diff == []
     assert updated.version == plan.version, "no change must not be published as a new version"
     assert updated.change_summary != "No itinerary items needed to change."
+
+
+def test_requested_alternative_takes_the_last_marker() -> None:
+    from app.application.modification import _requested_alternative_text
+
+    assert (
+        _requested_alternative_text("i want to change oceanpark hong kong the summit to disneyland")
+        == "disneyland"
+    )
+    assert _requested_alternative_text("swap the hotel for something quieter") is None
+    assert _requested_alternative_text("make it cheaper") is None
+
+
+def test_requested_alternative_finds_an_existing_stop(settings: Settings) -> None:
+    from app.application.modification import _requested_alternative
+
+    _, _, _, _, plan = _build(settings)
+    names = [item.name for day in plan.days for item in day.items]
+    assert len(names) >= 2
+
+    found = _requested_alternative(plan, f"change {names[0]} to {names[1]}")
+
+    assert found is not None
+    assert found[1].name == names[1]
+
+
+def test_squashed_name_matching_resolves_joined_words(settings: Settings) -> None:
+    _, _, _, _, plan = _build(settings)
+    draft = ChangeDraft(description="", affected_parts=[])
+    first = plan.days[0].items[0]
+    squashed = first.name.replace(" ", "")
+
+    resolved = _resolve_target(plan, draft, f"i want to change {squashed} please")
+
+    assert resolved is not None and resolved[1].id == first.id

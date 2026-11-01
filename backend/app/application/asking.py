@@ -20,6 +20,11 @@ DISTANCE_WORDS = (
     r"near(?:est|by)?|farthest|furthest)\b"
 )
 HOURS_WORDS = r"\b(open|opening|hours|close|closed)\b"
+#: opinion questions about one place: "what is good about Amber", "is it worth it"
+QUALITY_WORDS = (
+    r"\b(good|great|worth|best|recommend|recommended|review|reviews|rating|rated|"
+    r"famous|known for|why|should i|any good|is it|popular|signature|speciality|specialty)\b"
+)
 
 
 class AskPath:
@@ -66,6 +71,7 @@ class AskPath:
                 and "route" not in facts
             )
             or (re.search(HOURS_WORDS, lower) and "item" not in facts)
+            or (re.search(QUALITY_WORDS, lower) and "place_detail" not in facts)
         )
         # A question about a section the plan does not have is answered by the
         # recorded reason, not by the writer guessing around it. A distance
@@ -153,8 +159,28 @@ class AskPath:
                     "notes": item.notes,
                     "sources": [ref.model_dump(mode="json") for ref in item.source_refs],
                 }, "plan"
+        # "What is good about Amber?" — the plan holds only a one-line summary.
+        # Ask the place source for the rating, review count and editorial summary
+        # it already returns; that is structured and citable, unlike a web result.
+        if plan is not None and self.registry.places and re.search(QUALITY_WORDS, lower):
+            item = _find_item(plan, question)
+            if item is not None:
+                source = self.registry.places[0]
+                category = "restaurant" if item.type.value == "meal" else "attraction"
+                try:
+                    rows = await toolbox.call(
+                        "places.search",
+                        source.search,
+                        destination=plan.destination.name,
+                        geo=plan.destination.geo,
+                        category=category,
+                        limit=5,
+                        query=f"{item.name} {plan.destination.name}",
+                    )
+                    return "place_detail", _place_detail(rows, item.name), source.name
+                except Exception:
+                    return "place_detail", None, "places"
         return "none", None, "none"
-
     async def _phrase(
         self,
         question: str,
@@ -483,7 +509,56 @@ def _distance_facts(plan: TripPlan, question: str) -> dict | None:
     }
 
 
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
+
+
+def _place_detail(rows, name: str) -> dict | None:
+    """The richest row the place source returned for this stop."""
+    wanted = _norm(name)
+    chosen = None
+    for row in rows or []:
+        data = row.model_dump(mode="json") if hasattr(row, "model_dump") else dict(row)
+        if chosen is None:
+            chosen = data
+        actual = _norm(str(data.get("name") or ""))
+        if wanted and actual and (actual == wanted or wanted in actual or actual in wanted):
+            chosen = data
+            break
+    if chosen is None:
+        return None
+    return {
+        "name": chosen.get("name") or name,
+        "rating": chosen.get("rating"),
+        "review_count": chosen.get("review_count"),
+        "summary": str(chosen.get("description") or "")[:600],
+        "address": chosen.get("address") or "",
+        "price_level": chosen.get("price_level") or "",
+        "website": chosen.get("website") or "",
+        "sources": chosen.get("source_refs") or [],
+    }
+
+
 def _fallback_answer(facts: dict, source: str) -> str:
+    if "place_detail" in facts:
+        detail = facts["place_detail"]
+        if not detail:
+            return "The place source did not return any detail for that stop."
+        bits: list[str] = []
+        rating = detail.get("rating")
+        reviews = detail.get("review_count")
+        if rating is not None:
+            bits.append(f"rated {rating}" + (f" from {reviews:,} reviews" if reviews else ""))
+        if detail.get("summary"):
+            bits.append(detail["summary"])
+        if detail.get("price_level"):
+            bits.append(f"price level {detail['price_level']}")
+        if not bits:
+            return (
+                f"{detail.get('name')} is in the plan, but the place source returned "
+                "no rating or summary for it."
+            )
+        return f"{detail.get('name')} — " + " — ".join(bits) + f" ({source})."
     if "missing" in facts:
         missing = facts["missing"]
         sections = ", ".join(missing.get("sections") or [])

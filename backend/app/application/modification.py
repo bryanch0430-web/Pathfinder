@@ -278,24 +278,46 @@ class ModifyPath:
                 else:
                     day, target_item = resolved
                     before = target_item.name
-                    replaced = _replace_target(
-                        updated,
-                        places,
-                        meals,
-                        (day, target_item),
-                        message,
-                        distance_aware=_FAR_MOTION.search(message) is not None,
-                    )
-                    if replaced:
-                        draft.description = f"Replaced {before} with {target_item.name}."
-                    else:
+                    existing = _requested_alternative(updated, message)
+                    if existing is not None and existing[1].id != target_item.id:
+                        # "change Ocean Park to Disneyland" when Disneyland is
+                        # already on another slot: the plan may not hold a place
+                        # twice, so explain instead of "no changes needed".
+                        day_index = updated.days.index(existing[0]) + 1
+                        wanted = existing[1]
                         updated.data_quality.gaps.append(
                             _gap(
                                 "attractions",
-                                f"No verified alternative for {before!r} came back from the configured "
-                                "sources, so that stop stayed as it was.",
+                                f"{wanted.name} is already in the plan on Day {day_index} at "
+                                f"{wanted.start}, so it cannot be added twice. Name a different "
+                                f"replacement, or ask me to remove the existing one first.",
                             )
                         )
+                    else:
+                        wanted_text = _requested_alternative_text(message)
+                        replaced = _replace_target(
+                            updated,
+                            places,
+                            meals,
+                            (day, target_item),
+                            message,
+                            distance_aware=_FAR_MOTION.search(message) is not None,
+                            prefer_name=wanted_text,
+                        )
+                        if replaced:
+                            draft.description = f"Replaced {before} with {target_item.name}."
+                        else:
+                            detail = (
+                                f"I could not find a verified {wanted_text!r} in the configured sources"
+                                if wanted_text
+                                else f"No verified alternative for {before!r} came back from the configured sources"
+                            )
+                            updated.data_quality.gaps.append(
+                                _gap(
+                                    "attractions",
+                                    f"{detail}, so that stop stayed as it was.",
+                                )
+                            )
 
         if AgentName.TICKET in agent_names:
             ticket_result = results.get("ticket")
@@ -433,6 +455,64 @@ _FAR_MOTION = re.compile(
     re.IGNORECASE,
 )
 
+#: "change A to B" / "swap A for B" — B is what the traveller wants instead
+_ALTERNATIVE_TEXT = re.compile(
+    r"\b(?:to|into|with|for)\s+([a-z0-9][a-z0-9 &'\-]{2,60})\s*[.?!]*$",
+    re.IGNORECASE,
+)
+
+
+def _norm(text: str) -> str:
+    """Lowercase and drop everything that is not a letter or digit.
+
+    Lets "oceanpark" resolve to "Ocean Park" and "HK Disneyland" to
+    "Hong Kong Disneyland", which people type all the time.
+    """
+    return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
+
+
+def _requested_alternative_text(message: str) -> str | None:
+    """The place the traveller asked for, taken from the last "to/into/with/for".
+
+    "i want to change oceanpark ... to disneyland" must yield "disneyland", not
+    everything after the first "to".
+    """
+    cleaned = message.strip().rstrip(" .?!")
+    lowered = cleaned.lower()
+    best: tuple[int, int] | None = None
+    for marker in (" to ", " into ", " with ", " for "):
+        index = lowered.rfind(marker)
+        if index != -1 and (best is None or index > best[0]):
+            best = (index, len(marker))
+    if best is None:
+        return None
+    phrase = cleaned[best[0] + best[1] :].strip(" .,?!")
+    if not phrase:
+        return None
+    # "something quieter", "anything else" are preferences, not place names.
+    if phrase.lower().startswith(
+        ("some", "any", "else", "other", "another", "different", "cheap", "better", "nice", "quiet")
+    ):
+        return None
+    return phrase
+
+
+def _requested_alternative(plan: TripPlan, message: str) -> tuple[DayPlan, PlanItem] | None:
+    """The stop the traveller asked to swap *in*, if it is already in the plan."""
+    phrase = _requested_alternative_text(message)
+    if not phrase:
+        return None
+    needle = _norm(phrase)
+    if not needle:
+        return None
+    best: tuple[DayPlan, PlanItem] | None = None
+    for day, item in _items_in_order(plan):
+        name = _norm(item.name)
+        if name and (name in needle or needle in name):
+            if best is None or len(name) > len(_norm(best[1].name)):
+                best = (day, item)
+    return best
+
 
 def _items_in_order(plan: TripPlan):
     for day in plan.days:
@@ -481,6 +561,17 @@ def _resolve_target(plan: TripPlan, draft: ChangeDraft, message: str) -> tuple[D
                 best = (day, item)
     if best is not None:
         return best
+
+    # ignore spacing and punctuation: "oceanpark" must resolve to "Ocean Park"
+    squashed = _norm(message)
+    squashed_best: tuple[DayPlan, PlanItem] | None = None
+    for day, item in _items_in_order(plan):
+        name = _norm(item.name)
+        if name and name in squashed:
+            if squashed_best is None or len(name) > len(_norm(squashed_best[1].name)):
+                squashed_best = (day, item)
+    if squashed_best is not None:
+        return squashed_best
 
     # token overlap, so a truncated or re-ordered name still resolves: either two
     # shared words, or one distinctive word of four or more characters
@@ -542,12 +633,22 @@ def _replace_target(
     message: str,
     *,
     distance_aware: bool,
+    prefer_name: str | None = None,
 ) -> bool:
     day, item = target
     if item.locked or item.confirmed:
         return False
     used = {other.name for _, other in _items_in_order(plan)}
     pool = _candidate_pool(item, places, meals, used)
+    if prefer_name:
+        needle = _norm(prefer_name)
+        preferred = [
+            row
+            for row in pool
+            if needle and (needle in _norm(row["name"]) or _norm(row["name"]) in needle)
+        ]
+        if preferred:
+            pool = preferred
     if not pool:
         return False
     if distance_aware:

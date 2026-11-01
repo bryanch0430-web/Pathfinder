@@ -365,13 +365,12 @@ class TurnService:
         updated, diff = await task
         self.store.save_plan(updated, updated.change_summary)
         description = _describe_diff(diff, updated)
-        if not diff:
-            gap = next((item for item in updated.data_quality.gaps if item.section == "budget"), None)
-            if gap is not None:
-                description = gap.message
-        prose = f"Updated to version {updated.version}. " + description + (
-            " Everything else is unchanged." if diff else ""
-        )
+        if diff:
+            prose = f"Updated to version {updated.version}. " + description + " Everything else is unchanged."
+        else:
+            # Nothing changed. Do not claim a version: say why, using the reason
+            # the edit recorded (a data gap, an unmatched stop, a duplicate).
+            prose = updated.change_summary or description or "Nothing in the plan matched that request."
         self.store.add_message(
             Message(
                 session_id=session_id,

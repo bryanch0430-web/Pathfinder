@@ -86,3 +86,40 @@ def test_plan_facts_carry_the_itinerary_for_general_questions(settings: Settings
     # Either a plan-derived fact set, or an empty one the caller fills in; the
     # answer path must never fall through to a blanket refusal while a plan exists.
     assert isinstance(facts, dict)
+
+
+def test_place_detail_picks_the_matching_row_and_keeps_quality_signals() -> None:
+    from app.application.asking import _place_detail
+
+    rows = [
+        {"name": "Somewhere Else", "rating": 3.9, "review_count": 10, "description": "nope"},
+        {
+            "name": "Amber",
+            "rating": 4.5,
+            "review_count": 699,
+            "description": "Upscale French restaurant in the Landmark Mandarin Oriental.",
+            "price_level": "expensive",
+        },
+    ]
+
+    detail = _place_detail(rows, "amber")
+
+    assert detail is not None
+    assert detail["name"] == "Amber"
+    assert detail["rating"] == 4.5 and detail["review_count"] == 699
+    assert "French" in detail["summary"]
+    assert detail["price_level"] == "expensive"
+
+
+def test_place_detail_answer_states_rating_and_review_count() -> None:
+    facts = {
+        "place_detail": {
+            "name": "Amber",
+            "rating": 4.5,
+            "review_count": 699,
+            "summary": "Upscale French restaurant.",
+            "price_level": "expensive",
+        }
+    }
+    answer = _fallback_answer(facts, "google-places")
+    assert "4.5" in answer and "699" in answer and "Amber" in answer
