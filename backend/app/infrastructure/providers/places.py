@@ -23,6 +23,7 @@ GOOGLE_FIELD_MASK = ",".join(
         "places.googleMapsUri",
         "places.editorialSummary",
         "places.priceLevel",
+        "places.reviews",
         "places.types",
     ]
 )
@@ -120,6 +121,15 @@ class GooglePlacesSource:
                     opening_hours=[str(hour) for hour in hours],
                     price_level=str(row.get("priceLevel") or ""),
                     website=str(row.get("websiteUri") or ""),
+                    reviews=[
+                        {
+                            "text": str(((review.get("text") or {}).get("text")) or "")[:600],
+                            "rating": review.get("rating"),
+                            "author": ((review.get("authorAttribution") or {}).get("displayName") or ""),
+                        }
+                        for review in (row.get("reviews") or [])[:5]
+                        if (review.get("text") or {}).get("text")
+                    ],
                     source_refs=refs,
                     tags=types[:6],
                 )

@@ -636,10 +636,20 @@ def _place_detail(rows, name: str) -> dict | None:
             break
     if chosen is None:
         return None
+    reviews = [
+        {
+            "rating": review.get("rating"),
+            "text": str(review.get("text") or "")[:240],
+        }
+        for review in (chosen.get("reviews") or [])
+        if len(str(review.get("text") or "")) >= 40
+    ][:3]
     return {
         "name": chosen.get("name") or name,
         "rating": chosen.get("rating"),
         "review_count": chosen.get("review_count"),
+        # what visitors actually wrote, so an opinion question has evidence
+        "reviews": reviews,
         "summary": str(chosen.get("description") or "")[:600],
         "address": chosen.get("address") or "",
         "price_level": chosen.get("price_level") or "",

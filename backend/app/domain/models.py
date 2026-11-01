@@ -554,6 +554,9 @@ class PlaceCandidate(BaseModel):
     opening_hours: list[str] = Field(default_factory=list)
     price_level: str = ""
     website: str = ""
+    #: a few real reviews: what visitors praise or complain about. Without these
+    #: an opinion question ("is it fun?") can only restate the editorial summary.
+    reviews: list[dict[str, Any]] = Field(default_factory=list)
     source_refs: list[SourceRef] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
 
