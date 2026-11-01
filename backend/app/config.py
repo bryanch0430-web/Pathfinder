@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     decision_path: str = "/v1/systemone"
     decision_timeout_seconds: float = 8.0
 
+    # --- web search --------------------------------------------------------
+    # DeepSeek Search is the interactive default (sub-second, $0.75 per 1k
+    # successful calls). Grok's Agent Tools search is a model call with a ~20 s
+    # round trip, so it is opt-in and only used for synthesis questions.
+    web_search_enabled: bool = True
+    deepseek_search_base_url: str = "https://api.deepseek.com"
+    deepseek_search_api_key: str = ""  # falls back to judge_api_key
+    grok_search_enabled: bool = False
+    grok_search_timeout_seconds: float = 90.0
+
     # --- judge (evaluation only) ------------------------------------------
     # Optional LLM-as-a-judge. Leave judge_api_key empty to keep the
     # deterministic scorer; a set key enables an advisory score per case.

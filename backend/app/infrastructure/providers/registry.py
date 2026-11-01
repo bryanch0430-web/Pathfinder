@@ -30,6 +30,7 @@ from app.infrastructure.providers.places import (
 from app.infrastructure.providers.routes import GoogleRoutesSource
 from app.infrastructure.providers.timezone import GoogleTimeZone
 from app.infrastructure.providers.weather import OpenMeteoArchiveWeather, OpenMeteoWeather
+from app.infrastructure.providers.websearch import DeepSeekSearchSource, GrokSearchSource
 
 
 @dataclass
@@ -41,6 +42,8 @@ class ProviderRegistry:
     hotels: list = field(default_factory=list)
     flights: list = field(default_factory=list)
     notes: list = field(default_factory=list)
+    web: list = field(default_factory=list)
+    web_deep: list = field(default_factory=list)
     routes: list = field(default_factory=list)
     timezone: object | None = None
     elevation: object | None = None
@@ -67,6 +70,8 @@ class ProviderRegistry:
             notes.append(YouTubeNotesSource(settings))
             notes.append(BilibiliNotesSource(settings))
         routes = [GoogleRoutesSource(settings)]
+        web = [DeepSeekSearchSource(settings)] if settings.web_search_enabled else []
+        web_deep = [GrokSearchSource(settings)] if settings.grok_search_enabled else []
         timezone = GoogleTimeZone(settings) if settings.enable_timezone else None
         elevation = GoogleElevation(settings) if settings.enable_elevation else None
         autocomplete = GooglePlacesAutocomplete(settings)
@@ -79,6 +84,8 @@ class ProviderRegistry:
             flights=flights,
             notes=notes,
             routes=routes,
+            web=web,
+            web_deep=web_deep,
             timezone=timezone,
             elevation=elevation,
             autocomplete=autocomplete,
@@ -96,6 +103,8 @@ class ProviderRegistry:
             "hotels": names(self.hotels),
             "flights": names(self.flights),
             "notes": names(self.notes),
+            "web": names(self.web),
+            "web_deep": names(self.web_deep),
             "routes": names(self.routes),
             "timezone": names([self.timezone]) if self.timezone is not None else [],
             "elevation": names([self.elevation]) if self.elevation is not None else [],

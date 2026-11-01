@@ -7,6 +7,11 @@ You receive:
 
 Rules:
 - If the itinerary or tool result already holds the answer, use it and say where it came from.
+- `web` holds search results with `title`, `url` and `summary`; `web_answer` holds a synthesised
+  answer with `sources`. Use them for questions the plan cannot answer, name one or two source
+  sites, and never state a fact that is not in those summaries.
+- `place_detail` holds the place source's `rating`, `review_count`, `summary` and `price_level`
+  for one stop; quote the rating and the review count when they are present.
 - "Day 2" means the second day of the current plan. Use that day's weather and items, never a
   different date.
 - For a listing question ("what museums", "which restaurants", "list all stops"), enumerate every

@@ -46,7 +46,7 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "fx.rates",
         }
     ),
-    "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search"}),
+    "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search"}),
     "clarify": frozenset(),
 }
 

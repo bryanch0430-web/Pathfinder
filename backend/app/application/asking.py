@@ -25,6 +25,13 @@ QUALITY_WORDS = (
     r"\b(good|great|worth|best|recommend|recommended|review|reviews|rating|rated|"
     r"famous|known for|why|should i|any good|is it|popular|signature|speciality|specialty)\b"
 )
+#: questions that want more than a lookup — these are allowed to use the slower,
+#: synthesis-capable search when it is switched on
+DEEP_SEARCH_WORDS = (
+    r"\b(research|in depth|compare|comparison|overview|guide|worth visiting|"
+    r"best time|best area|nightlife|food scene|safety|safe|vibe|atmosphere|"
+    r"local tips|hidden gems?)\b"
+)
 
 
 class AskPath:
@@ -72,6 +79,11 @@ class AskPath:
             )
             or (re.search(HOURS_WORDS, lower) and "item" not in facts)
             or (re.search(QUALITY_WORDS, lower) and "place_detail" not in facts)
+            or (
+                re.search(DEEP_SEARCH_WORDS, lower)
+                and "web" not in facts
+                and getattr(self.registry, "web", None)
+            )
         )
         # A question about a section the plan does not have is answered by the
         # recorded reason, not by the writer guessing around it. A distance
@@ -84,7 +96,11 @@ class AskPath:
 
         tool_name, tool_result, source = await self._one_tool(question, plan, context, toolbox)
         if tool_result is not None:
-            text = await self._phrase(question, plan, {"tool": tool_result}, source or tool_name)
+            # Keep the fact key meaningful: the writer has instructions for
+            # web results and place detail, but not for an anonymous "tool" blob.
+            named = {"web", "web_answer", "place_detail"}
+            key = tool_name if tool_name in named else "tool"
+            text = await self._phrase(question, plan, {key: tool_result}, source or tool_name)
             return text, related, source or tool_name
         if facts:
             text = await self._phrase(question, plan, facts, "plan")
@@ -163,7 +179,7 @@ class AskPath:
         # Ask the place source for the rating, review count and editorial summary
         # it already returns; that is structured and citable, unlike a web result.
         if plan is not None and self.registry.places and re.search(QUALITY_WORDS, lower):
-            item = _find_item(plan, question)
+            item = _find_item_strict(plan, question)
             if item is not None:
                 source = self.registry.places[0]
                 category = "restaurant" if item.type.value == "meal" else "attraction"
@@ -177,9 +193,47 @@ class AskPath:
                         limit=5,
                         query=f"{item.name} {plan.destination.name}",
                     )
-                    return "place_detail", _place_detail(rows, item.name), source.name
+                    detail = _place_detail(rows, item.name)
+                    if detail is not None and (detail.get("rating") is not None or detail.get("summary")):
+                        return "place_detail", detail, source.name
                 except Exception:
-                    return "place_detail", None, "places"
+                    pass
+                # The place source had nothing useful: fall through to web search.
+
+        # Open questions the plan cannot answer. DeepSeek Search is sub-second and
+        # returns structured, citable results, so it is the default. Grok's Agent
+        # Tools search synthesises across sources but takes ~20 s, so it is only
+        # used for synthesis questions and only when explicitly enabled.
+        if plan is not None and getattr(self.registry, "web", None):
+            item = _find_item_strict(plan, question)
+            subject = item.name if item is not None else ""
+            if subject or re.search(QUALITY_WORDS, lower) or re.search(DEEP_SEARCH_WORDS, lower):
+                destination = plan.destination.name
+                if subject:
+                    query = f"{subject} {destination} review"
+                else:
+                    query = _keyword_query(question, destination)
+                deep = bool(
+                    self.settings.grok_search_enabled
+                    and getattr(self.registry, "web_deep", None)
+                    and re.search(DEEP_SEARCH_WORDS, lower)
+                )
+                try:
+                    if deep:
+                        answer = await toolbox.call(
+                            "web.search", self.registry.web_deep[0].answer, query=query
+                        )
+                        return "web_answer", answer.as_dict(), answer.source_name
+                    rows = await toolbox.call(
+                        "web.search",
+                        self.registry.web[0].search,
+                        query=query[:128],
+                        count=4,
+                        ori_question=question[:128],
+                    )
+                    return "web", [row.as_dict() for row in rows][:4], self.registry.web[0].name
+                except Exception:
+                    return "web", [], "web"
         return "none", None, "none"
     async def _phrase(
         self,
@@ -206,6 +260,35 @@ class AskPath:
             except Exception:
                 pass
         return _fallback_answer(facts, source)
+
+
+def _find_item_strict(plan: TripPlan | None, question: str):
+    """Like _find_item, but never matches on the destination name alone.
+
+    "what is the nightlife like in Hong Kong?" shares "hong"/"kong" with every
+    stop, which made the loose matcher hand "Hong Kong Disneyland" to a
+    nightlife question and then search the wrong thing.
+    """
+    if not plan:
+        return None
+    lower = question.lower()
+    for day in plan.days:
+        for item in day.items:
+            if item.name.lower() in lower:
+                return item
+    destination_words = {w for w in re.findall(r"[a-z]{4,}", plan.destination.name.lower())}
+    words = {w for w in re.findall(r"[a-z]{4,}", lower)} - destination_words
+    if not words:
+        return None
+    best = None
+    best_score = 0
+    for day in plan.days:
+        for item in day.items:
+            item_words = {w for w in re.findall(r"[a-z]{4,}", item.name.lower())} - destination_words
+            score = len(words & item_words)
+            if score > best_score:
+                best, best_score = item, score
+    return best if best_score >= 1 else None
 
 
 def _plan_facts(
@@ -539,7 +622,46 @@ def _place_detail(rows, name: str) -> dict | None:
     }
 
 
+#: function words that add nothing to a keyword search
+_QUERY_STOPWORDS = {
+    "what", "whats", "where", "when", "which", "who", "why", "how", "is", "are", "was",
+    "the", "like", "in", "on", "at", "for", "of", "to", "a", "an", "does", "do", "can",
+    "i", "me", "my", "tell", "about", "with", "and", "or", "it", "its", "that", "this",
+    "there", "any", "good", "great", "best", "please", "would", "should", "could",
+}
+
+
+def _keyword_query(question: str, destination: str) -> str:
+    """Turn a sentence into the keywords a search engine expects.
+
+    "what's the nightlife like in Hong Kong?" becomes "nightlife hong kong";
+    feeding the sentence back verbatim returned unrelated pages.
+    """
+    words = re.sub(r"[^a-z0-9\s]", " ", (question or "").lower()).split()
+    keep = [word for word in words if word not in _QUERY_STOPWORDS and len(word) > 2]
+    query = " ".join(keep) or re.sub(r"\s+", " ", question or "").strip()
+    if destination and destination.lower() not in query.lower():
+        query = f"{query} {destination}".strip()
+    return query
+
+
 def _fallback_answer(facts: dict, source: str) -> str:
+    if "web_answer" in facts:
+        block = facts["web_answer"] or {}
+        text = str(block.get("text") or "").strip()
+        sources = block.get("sources") or []
+        if text:
+            return text + (f" Sources: {', '.join(sources[:4])}" if sources else "")
+        return "The synthesis search returned no answer."
+    if "web" in facts:
+        rows = facts["web"] or []
+        if not rows:
+            return "No web result came back for that question."
+        lines = []
+        for row in rows[:3]:
+            body = (row.get("summary") or row.get("snippet") or "").strip()
+            lines.append(f"{row.get('title')} — {body[:180]}".strip())
+        return "Web results — " + " | ".join(lines) + f" ({source})."
     if "place_detail" in facts:
         detail = facts["place_detail"]
         if not detail:
