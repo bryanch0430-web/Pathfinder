@@ -835,6 +835,13 @@
   border-bottom-left-radius: var(--p30-round-xs);
 }
 
+.pf-bubble__above {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
 .pf-bubble__meta {
   display: flex;
   align-items: center;

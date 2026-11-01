@@ -88,6 +88,7 @@ export function ChatBubble({
   intent,
   time,
   meta,
+  above,
   streaming = false,
 }: {
   role: "user" | "assistant";
@@ -95,10 +96,13 @@ export function ChatBubble({
   intent?: Intent | null;
   time?: string;
   meta?: ReactNode;
+  /** rendered above the bubble body, e.g. the stop a question is about */
+  above?: ReactNode;
   streaming?: boolean;
 }) {
   return (
     <div className="pf-bubble" data-role={role}>
+      {above ? <div className="pf-bubble__above">{above}</div> : null}
       <div className="pf-bubble__body">
         {children}
         {streaming ? <span className="pf-muted" aria-label="Still writing">▍</span> : null}
