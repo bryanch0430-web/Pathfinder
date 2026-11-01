@@ -15,6 +15,28 @@ functional specification. The architecture, API and design system are documented
 under [`docs/`](docs/); the AI-use declaration is in
 [`docs/AI_USE.md`](docs/AI_USE.md).
 
+## Version notes
+
+**v1.2.0 — 1 November 2026, 23:57 HKT.** The console no longer produces answers that look
+like actions but are not: "who are you / are you a real person / which model" are answered
+instantly and honestly without a model call, a clarify about intent offers four concrete
+next steps instead of a Continue button that could only loop, and the source/freshness row
+is styled as a label rather than body text.
+
+Recent releases, newest first (full detail in [`docs/CHANGELOG.md`](docs/CHANGELOG.md)):
+
+| Version | When (HKT) | Headline |
+|---|---|---|
+| v1.2.0 | 2026-11-01 23:57 | Identity answers, useful clarify choices, label rows |
+| v1.1.0 | 2026-11-01 23:28 | Web search (DeepSeek, Grok opt-in), follow-ups, reviews, scoped stop |
+| v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
+| v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
+| v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+Known gaps at v1.2.0: flight and hotel sources are unavailable while the SerpApi account is
+out of searches, so budget figures are provisional; price estimates are deliberately not
+implemented (see `docs/SPEC.md`); rail is not connected.
+
 ![Planner with a live itinerary](docs/screenshots/app_plan.png)
 
 | Selected stop and map | Evaluation | Storybook Pathfinder |

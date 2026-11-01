@@ -88,3 +88,8 @@ names remain as the source returned them. Adding a locale is one dictionary entr
 - `npm run build` clean
 - `npm run build-storybook` clean
 - Live plan/ask/modify flow exercised with Playwright; no console or page errors
+
+---
+
+**Version note.** Tracks the repository release described in [CHANGELOG](../docs/CHANGELOG.md);
+current release **v1.2.0 (2026-11-01 23:57 HKT)**.
