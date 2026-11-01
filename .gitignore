@@ -1,0 +1,44 @@
+# secrets and runtime state
+.env
+backend/.env
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.pip-cache/
+
+# local tooling
+.tmp/
+.refs/
+.cache/
+*.log
+
+# node
+node_modules/
+frontend/dist/
+frontend/storybook-static/
+frontend/.storybook-static/
+.npm-cache/
+*.tsbuildinfo
+
+# editor / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# test/pip scratch (created when TMPDIR is not writable)
+pytest-of-*/
+pip-build-tracker-*/
+pip-install-*/
+pip-metadata-*/
+pip-unpack-*/
+
+# local uvicorn logs
+backend/uvicorn.*.log

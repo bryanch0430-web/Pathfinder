@@ -1,0 +1,1219 @@
+{
+  "$defs": {
+    "ConstraintCheck": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ConstraintStatus",
+          "default": "unknown"
+        },
+        "evidence": {
+          "default": "",
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ConstraintCheck",
+      "type": "object"
+    },
+    "ConstraintStatus": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown"
+      ],
+      "title": "ConstraintStatus",
+      "type": "string"
+    },
+    "CostBreakdown": {
+      "properties": {
+        "currency": {
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "total": {
+          "default": 0.0,
+          "title": "Total",
+          "type": "number"
+        },
+        "budget": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Budget"
+        },
+        "remaining": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remaining"
+        },
+        "status": {
+          "default": "unknown",
+          "enum": [
+            "within",
+            "over",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "title": "CostBreakdown",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "amount": {
+          "title": "Amount",
+          "type": "number"
+        },
+        "kind": {
+          "default": "estimate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "amount"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
+    "DataGap": {
+      "properties": {
+        "section": {
+          "title": "Section",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/FailureKind"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "section",
+        "kind",
+        "message"
+      ],
+      "title": "DataGap",
+      "type": "object"
+    },
+    "DataQuality": {
+      "properties": {
+        "sources_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources Used",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "$ref": "#/$defs/DataGap"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "search_window_months": {
+          "default": 24,
+          "title": "Search Window Months",
+          "type": "integer"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        }
+      },
+      "title": "DataQuality",
+      "type": "object"
+    },
+    "DataStatus": {
+      "enum": [
+        "ok",
+        "stale",
+        "unavailable"
+      ],
+      "title": "DataStatus",
+      "type": "string"
+    },
+    "DateRange": {
+      "properties": {
+        "start": {
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "format": "date",
+          "title": "End",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "DateRange",
+      "type": "object"
+    },
+    "DayPlan": {
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "weather": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WeatherDay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PlanItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "elevation_gain_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elevation Gain M"
+        }
+      },
+      "required": [
+        "date"
+      ],
+      "title": "DayPlan",
+      "type": "object"
+    },
+    "Destination": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "country_code": {
+          "default": "",
+          "title": "Country Code",
+          "type": "string"
+        },
+        "geo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeoPoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timezone": {
+          "default": "",
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Destination",
+      "type": "object"
+    },
+    "Disruption": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "affected_item_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Item Ids",
+          "type": "array"
+        },
+        "resolution": {
+          "default": "",
+          "title": "Resolution",
+          "type": "string"
+        },
+        "resolved": {
+          "default": false,
+          "title": "Resolved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "summary"
+      ],
+      "title": "Disruption",
+      "type": "object"
+    },
+    "FailureKind": {
+      "enum": [
+        "no_data",
+        "timeout",
+        "rate_limit",
+        "server_error",
+        "invalid_request",
+        "auth",
+        "blocked",
+        "network",
+        "parse"
+      ],
+      "title": "FailureKind",
+      "type": "string"
+    },
+    "GeoPoint": {
+      "properties": {
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lng",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lat",
+        "lng"
+      ],
+      "title": "GeoPoint",
+      "type": "object"
+    },
+    "HotelStay": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "area": {
+          "default": "",
+          "title": "Area",
+          "type": "string"
+        },
+        "geo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeoPoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "check_in": {
+          "format": "date",
+          "title": "Check In",
+          "type": "string"
+        },
+        "check_out": {
+          "format": "date",
+          "title": "Check Out",
+          "type": "string"
+        },
+        "price_per_night": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "price_kind": {
+          "$ref": "#/$defs/PriceKind",
+          "default": "none"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "review_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Count"
+        },
+        "distance_to_centre_km": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance To Centre Km"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "data_status": {
+          "$ref": "#/$defs/DataStatus",
+          "default": "ok"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "booking_url": {
+          "default": "",
+          "title": "Booking Url",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "confirmed": {
+          "default": false,
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "locked": {
+          "default": false,
+          "title": "Locked",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "check_in",
+        "check_out"
+      ],
+      "title": "HotelStay",
+      "type": "object"
+    },
+    "ItemType": {
+      "enum": [
+        "attraction",
+        "hotel",
+        "meal",
+        "transit",
+        "ticket"
+      ],
+      "title": "ItemType",
+      "type": "string"
+    },
+    "Money": {
+      "properties": {
+        "amount": {
+          "minimum": 0,
+          "title": "Amount",
+          "type": "number"
+        },
+        "currency": {
+          "maxLength": 3,
+          "minLength": 3,
+          "title": "Currency",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "NoteItem": {
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "snippet": {
+          "default": "",
+          "title": "Snippet",
+          "type": "string"
+        },
+        "video_id": {
+          "default": "",
+          "title": "Video Id",
+          "type": "string"
+        },
+        "thumbnail_url": {
+          "default": "",
+          "title": "Thumbnail Url",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url",
+        "source"
+      ],
+      "title": "NoteItem",
+      "type": "object"
+    },
+    "PlanItem": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ItemType"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "start": {
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "End",
+          "type": "string"
+        },
+        "geo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeoPoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "address": {
+          "default": "",
+          "title": "Address",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "data_status": {
+          "$ref": "#/$defs/DataStatus",
+          "default": "ok"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "price_kind": {
+          "$ref": "#/$defs/PriceKind",
+          "default": "none"
+        },
+        "booking_url": {
+          "default": "",
+          "title": "Booking Url",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "title": "Locked",
+          "type": "boolean"
+        },
+        "confirmed": {
+          "default": false,
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "name",
+        "start",
+        "end"
+      ],
+      "title": "PlanItem",
+      "type": "object"
+    },
+    "PriceKind": {
+      "enum": [
+        "live",
+        "reference",
+        "estimate",
+        "none"
+      ],
+      "title": "PriceKind",
+      "type": "string"
+    },
+    "Reservation": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "title": "Url",
+          "type": "string"
+        },
+        "needed_by": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Needed By"
+        },
+        "status": {
+          "default": "to_book",
+          "enum": [
+            "to_book",
+            "optional",
+            "booked"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "reason"
+      ],
+      "title": "Reservation",
+      "type": "object"
+    },
+    "SourceRef": {
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "title": "Url",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        }
+      },
+      "required": [
+        "title",
+        "source"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "TicketOption": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "flight",
+            "train",
+            "ticket",
+            "ferry",
+            "bus"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "origin": {
+          "default": "",
+          "title": "Origin",
+          "type": "string"
+        },
+        "destination": {
+          "default": "",
+          "title": "Destination",
+          "type": "string"
+        },
+        "depart_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depart At"
+        },
+        "arrive_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrive At"
+        },
+        "duration_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Minutes"
+        },
+        "return_origin": {
+          "default": "",
+          "title": "Return Origin",
+          "type": "string"
+        },
+        "return_destination": {
+          "default": "",
+          "title": "Return Destination",
+          "type": "string"
+        },
+        "return_depart_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Return Depart At"
+        },
+        "return_arrive_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Return Arrive At"
+        },
+        "return_duration_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Return Duration Minutes"
+        },
+        "return_airline": {
+          "default": "",
+          "title": "Return Airline",
+          "type": "string"
+        },
+        "return_flight_number": {
+          "default": "",
+          "title": "Return Flight Number",
+          "type": "string"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "price_kind": {
+          "$ref": "#/$defs/PriceKind",
+          "default": "none"
+        },
+        "operator": {
+          "default": "",
+          "title": "Operator",
+          "type": "string"
+        },
+        "booking_url": {
+          "default": "",
+          "title": "Booking Url",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "data_status": {
+          "$ref": "#/$defs/DataStatus",
+          "default": "ok"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "confirmed": {
+          "default": false,
+          "title": "Confirmed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "name"
+      ],
+      "title": "TicketOption",
+      "type": "object"
+    },
+    "WeatherDay": {
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/DataStatus",
+          "default": "ok"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "high_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High C"
+        },
+        "low_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low C"
+        },
+        "precipitation_probability": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Precipitation Probability"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "date"
+      ],
+      "title": "WeatherDay",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trip_id": {
+      "title": "Trip Id",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "version": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "status": {
+      "default": "ready",
+      "enum": [
+        "draft",
+        "ready"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "destination": {
+      "$ref": "#/$defs/Destination"
+    },
+    "origin": {
+      "default": "",
+      "title": "Origin",
+      "type": "string"
+    },
+    "dates": {
+      "$ref": "#/$defs/DateRange"
+    },
+    "party_size": {
+      "default": 1,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Party Size",
+      "type": "integer"
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Money"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    },
+    "days": {
+      "items": {
+        "$ref": "#/$defs/DayPlan"
+      },
+      "title": "Days",
+      "type": "array"
+    },
+    "hotels": {
+      "items": {
+        "$ref": "#/$defs/HotelStay"
+      },
+      "title": "Hotels",
+      "type": "array"
+    },
+    "tickets": {
+      "items": {
+        "$ref": "#/$defs/TicketOption"
+      },
+      "title": "Tickets",
+      "type": "array"
+    },
+    "cost": {
+      "$ref": "#/$defs/CostBreakdown"
+    },
+    "constraints": {
+      "items": {
+        "$ref": "#/$defs/ConstraintCheck"
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "disruptions": {
+      "items": {
+        "$ref": "#/$defs/Disruption"
+      },
+      "title": "Disruptions",
+      "type": "array"
+    },
+    "reservations": {
+      "items": {
+        "$ref": "#/$defs/Reservation"
+      },
+      "title": "Reservations",
+      "type": "array"
+    },
+    "data_quality": {
+      "$ref": "#/$defs/DataQuality"
+    },
+    "video_notes": {
+      "items": {
+        "$ref": "#/$defs/NoteItem"
+      },
+      "title": "Video Notes",
+      "type": "array"
+    },
+    "change_summary": {
+      "default": "",
+      "title": "Change Summary",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "session_id",
+    "destination",
+    "dates"
+  ],
+  "title": "TripPlan",
+  "type": "object"
+}

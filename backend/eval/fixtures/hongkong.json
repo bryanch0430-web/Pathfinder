@@ -1,0 +1,57 @@
+[
+  {
+    "id": "hk01",
+    "input": "Plan a 3-day Hong Kong trip for 2 people starting 2027-03-12, budget 9000 HKD. A typhoon signal is expected on day 2.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Singapore",
+    "days": 3,
+    "party_size": 2,
+    "budget": 9000,
+    "currency": "HKD",
+    "constraints": ["avoid outdoor stops during the typhoon signal", "stay within budget"],
+    "fault": "typhoon",
+    "split": "dev"
+  },
+  {
+    "id": "hk02",
+    "input": "Plan a 2-day Hong Kong trip for 4 people starting 2027-04-02, budget 12000 HKD. The Peak Tram is closed.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Hong Kong",
+    "days": 2,
+    "party_size": 4,
+    "budget": 12000,
+    "currency": "HKD",
+    "constraints": ["do not include the closed Peak Tram"],
+    "fault": "venue_closure",
+    "split": "dev"
+  },
+  {
+    "id": "hk03",
+    "input": "Plan a 3-day Hong Kong trip for 1 person starting 2027-05-10, budget 6000 HKD. MTR service is delayed on the first day.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Taipei",
+    "days": 3,
+    "party_size": 1,
+    "budget": 6000,
+    "currency": "HKD",
+    "constraints": ["keep travel times realistic"],
+    "fault": "transit_delay",
+    "split": "heldout"
+  },
+  {
+    "id": "hk04",
+    "input": "Plan a 2-day Hong Kong trip for 2 people starting 2027-06-01 with a hard budget of 5000 HKD.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Shenzhen",
+    "days": 2,
+    "party_size": 2,
+    "budget": 5000,
+    "currency": "HKD",
+    "constraints": ["stay within budget"],
+    "split": "heldout"
+  }
+]

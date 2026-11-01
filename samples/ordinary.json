@@ -1,0 +1,31 @@
+{
+  "name": "ordinary-plan",
+  "description": "A complete request: the form supplies the slots, the chat asks for the plan.",
+  "session": {
+    "client_token": "sample-ordinary"
+  },
+  "context": {
+    "destination": "Kyoto",
+    "origin": "Hong Kong",
+    "start_date": "2026-11-10",
+    "end_date": "2026-11-13",
+    "party_size": 2,
+    "budget": 400000,
+    "currency": "JPY",
+    "hotel_style": "midrange",
+    "preferences": ["slow pace", "food"],
+    "hard_constraints": ["must include Fushimi Inari"]
+  },
+  "turns": ["Plan my trip."],
+  "expected": {
+    "route": "plan",
+    "version": 1,
+    "shape": "4 days, sourced attractions and meals, hotel, optional flights, visible gaps",
+    "checks": [
+      "every attraction has at least one source",
+      "weather is for 2026-11-10..13 or unavailable with a reason",
+      "cost lines and budget status are present",
+      "the four agent chips appear and finish"
+    ]
+  }
+}

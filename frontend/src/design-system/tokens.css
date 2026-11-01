@@ -1,0 +1,212 @@
+/* ==========================================================================
+   Pathfinder 30 — tokens
+   Primitive tokens are defined here and owned by this design system.
+   Components consume the semantic --pf-* aliases, which point only at these
+   primitives; no component introduces a raw hex value.
+   ========================================================================== */
+
+:root {
+  /* colour · brand */
+  --p30-tone-brand-primary: #cc0d0d;
+  --p30-tone-brand-secondary: #a30a0a;
+  --p30-tone-brand-tertiary: #8a0909;
+  --p30-tone-brand-muted: #e8a5a5;
+  --p30-tone-brand-light: rgba(204, 13, 13, 0.06);
+  --p30-tone-brand-border: rgba(204, 13, 13, 0.2);
+  --p30-tone-brand-glow: rgba(204, 13, 13, 0.25);
+
+  /* colour · neutral */
+  --p30-tone-neutral-white: #ffffff;
+  --p30-tone-neutral-black: #000000;
+  --p30-tone-neutral-gray50: #f7f5f2;
+  --p30-tone-neutral-gray100: #f4f2ee;
+  --p30-tone-neutral-gray200: #eae7e0;
+  --p30-tone-neutral-gray300: #dcd8cf;
+  --p30-tone-neutral-gray400: #b8b2a6;
+  --p30-tone-neutral-gray500: #8f897a;
+  --p30-tone-neutral-gray600: #5c574d;
+  --p30-tone-neutral-gray700: #403c34;
+  --p30-tone-neutral-gray800: #2b2822;
+  --p30-tone-neutral-gray900: #1b1915;
+  --p30-tone-neutral-bgLayout: #f4f2ee;
+  --p30-tone-neutral-bgContainer: #ffffff;
+  --p30-tone-neutral-bgElevated: #f4f2ee;
+  --p30-tone-neutral-border: rgba(0, 0, 0, 0.06);
+  --p30-tone-neutral-fillSecondary: #f4f2ee;
+  --p30-tone-neutral-fillTertiary: #eae7e0;
+  --p30-tone-neutral-fillQuaternary: #dcd8cf;
+  --p30-tone-neutral-text-body: #2b2822;
+  --p30-tone-neutral-text-secondary: #5c574d;
+  --p30-tone-neutral-text-tertiary: #8f897a;
+  --p30-tone-neutral-text-placeholder: #b8b2a6;
+  --p30-tone-neutral-text-disabled: #b8b2a6;
+  --p30-tone-neutral-text-onPrimary: #ffffff;
+  --p30-tone-neutral-text-onDanger: #ffffff;
+  --p30-tone-neutral-text-onSuccess: #ffffff;
+
+  /* colour · feedback */
+  --p30-tone-feedback-success: #2a9d5c;
+  --p30-tone-feedback-successBg: rgba(42, 157, 92, 0.1);
+  --p30-tone-feedback-successBorder: rgba(42, 157, 92, 0.24);
+  --p30-tone-feedback-warning: #e08e2b;
+  --p30-tone-feedback-warningBg: rgba(224, 142, 43, 0.1);
+  --p30-tone-feedback-warningBorder: rgba(224, 142, 43, 0.24);
+  --p30-tone-feedback-danger: #d93a49;
+  --p30-tone-feedback-dangerBg: rgba(217, 58, 73, 0.1);
+  --p30-tone-feedback-dangerBorder: rgba(217, 58, 73, 0.24);
+  --p30-tone-feedback-info: #0099cc;
+  --p30-tone-feedback-infoBg: rgba(0, 153, 204, 0.1);
+  --p30-tone-feedback-infoBorder: rgba(0, 153, 204, 0.24);
+  --p30-tone-feedback-busy: #7048c4;
+  --p30-tone-feedback-busyBg: rgba(112, 72, 196, 0.1);
+  --p30-tone-feedback-busyBorder: rgba(112, 72, 196, 0.24);
+
+  /* typography */
+  --p30-type-family-sans: "LINE Seed Sans", "LINE Seed TW", -apple-system, BlinkMacSystemFont,
+    "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --p30-type-family-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    Courier, monospace;
+  --p30-type-size-body-xxs: 10px;
+  --p30-type-size-body-xs: 12px;
+  --p30-type-size-body-sm: 12px;
+  --p30-type-size-body-md: 14px;
+  --p30-type-size-body-lg: 16px;
+  --p30-type-size-body-xl: 20px;
+  --p30-type-size-button-sm: 12px;
+  --p30-type-size-button-md: 14px;
+  --p30-type-size-button-lg: 16px;
+  --p30-type-size-heading-h1: 38px;
+  --p30-type-size-heading-h2: 30px;
+  --p30-type-size-heading-h3: 24px;
+  --p30-type-size-heading-h4: 20px;
+  --p30-type-size-heading-h5: 16px;
+  --p30-type-size-heading-h6: 14px;
+  --p30-type-weight-light: 300;
+  --p30-type-weight-regular: 400;
+  --p30-type-weight-medium: 500;
+  --p30-type-weight-semibold: 600;
+  --p30-type-weight-bold: 700;
+  --p30-type-leading-tight: 1.2;
+  --p30-type-leading-normal: 1.5;
+  --p30-type-leading-relaxed: 1.8;
+  --p30-type-tracking-normal: 0;
+  --p30-type-tracking-tight: -0.02em;
+  --p30-type-tracking-wide: 0.08em;
+
+  /* spacing */
+  --p30-gap-xxs: 2px;
+  --p30-gap-xs: 4px;
+  --p30-gap-sm: 8px;
+  --p30-gap-md: 16px;
+  --p30-gap-lg: 24px;
+  --p30-gap-xl: 32px;
+  --p30-gap-xxl: 48px;
+  --p30-gap-xxxl: 64px;
+
+  /* radius */
+  --p30-round-none: 0;
+  --p30-round-xs: 4px;
+  --p30-round-sm: 8px;
+  --p30-round-md: 12px;
+  --p30-round-lg: 16px;
+  --p30-round-xl: 20px;
+  --p30-round-pill: 9999px;
+  --p30-round-circle: 9999px;
+
+  /* border */
+  --p30-stroke-none: 0;
+  --p30-stroke-thin: 1px;
+  --p30-stroke-default: 1px;
+  --p30-stroke-thick: 2px;
+
+  /* shadow · neumorphic */
+  --p30-depth-none: none;
+  --p30-depth-xs: 2px 2px 4px rgba(163, 158, 148, 0.35), -2px -2px 4px rgba(255, 255, 255, 0.7);
+  --p30-depth-sm: 4px 4px 8px rgba(163, 158, 148, 0.4), -4px -4px 8px rgba(255, 255, 255, 0.8);
+  --p30-depth-md: 6px 6px 12px rgba(163, 158, 148, 0.4), -6px -6px 12px rgba(255, 255, 255, 0.8);
+  --p30-depth-lg: 8px 8px 16px rgba(163, 158, 148, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.8);
+  --p30-depth-xl: 12px 12px 24px rgba(163, 158, 148, 0.45), -12px -12px 24px rgba(255, 255, 255, 0.85);
+  --p30-depth-raised: 3px 3px 6px rgba(163, 158, 148, 0.4), -3px -3px 6px rgba(255, 255, 255, 0.8);
+  --p30-depth-inset: inset 3px 3px 6px rgba(163, 158, 148, 0.4), inset -3px -3px 6px rgba(255, 255, 255, 0.8);
+  --p30-depth-pressed: inset 2px 2px 4px rgba(163, 158, 148, 0.4), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+  --p30-depth-glow: 0 4px 12px rgba(204, 13, 13, 0.25);
+
+  /* motion */
+  --p30-dur-instant: 0ms;
+  --p30-dur-fast: 0.1s;
+  --p30-dur-base: 0.2s;
+  --p30-dur-slow: 0.3s;
+  --p30-dur-slower: 0.5s;
+  --p30-dur-slowest: 0.8s;
+  --p30-ease-easeIn: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+  --p30-ease-easeOut: cubic-bezier(0.23, 1, 0.32, 1);
+  --p30-ease-easeInOut: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --p30-ease-easeOutBack: cubic-bezier(0.12, 0.8, 0.4, 1);
+  --p30-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* opacity */
+  --p30-alpha-fullyTransparent: 0;
+  --p30-alpha-subtle: 0.15;
+  --p30-alpha-dim: 0.35;
+  --p30-alpha-disabled: 0.5;
+  --p30-alpha-secondary: 0.65;
+  --p30-alpha-normal: 0.8;
+  --p30-alpha-emphasized: 0.9;
+  --p30-alpha-fullyOpaque: 1;
+
+  /* breakpoints (documentation; media queries are literal) */
+  --p30-bp-xs: 360px;
+  --p30-bp-sm: 576px;
+  --p30-bp-md: 768px;
+  --p30-bp-lg: 992px;
+  --p30-bp-xl: 1200px;
+  --p30-bp-xxl: 1600px;
+
+  /* layout */
+  --p30-frame-max: 1400px;
+  --p30-frame-header: 56px;
+  --p30-frame-side-sm: 72px;
+  --p30-frame-side-lg: 240px;
+  --p30-frame-side-xl: 272px;
+
+  /* z-index */
+  --p30-layer-base: 0;
+  --p30-layer-affix: 10;
+  --p30-layer-header: 1400;
+  --p30-layer-dropdown: 1050;
+  --p30-layer-sticky: 1300;
+  --p30-layer-modal: 2000;
+  --p30-layer-drawer: 2500;
+  --p30-layer-popover: 2600;
+  --p30-layer-tooltip: 2700;
+  --p30-layer-notification: 2800;
+
+  /* ------------------------------------------------------------------
+     Pathfinder semantic layer. Every value is an alias of a primitive.
+     ------------------------------------------------------------------ */
+  --pf-bg: var(--p30-tone-neutral-bgLayout);
+  --pf-surface: var(--p30-tone-neutral-bgContainer);
+  --pf-surface-sunken: var(--p30-tone-neutral-fillSecondary);
+  --pf-surface-raised: var(--p30-tone-neutral-gray50);
+  --pf-ink: var(--p30-tone-neutral-text-body);
+  --pf-ink-secondary: var(--p30-tone-neutral-text-secondary);
+  --pf-ink-tertiary: var(--p30-tone-neutral-text-tertiary);
+  --pf-line: var(--p30-tone-neutral-border);
+  --pf-line-strong: var(--p30-tone-neutral-gray300);
+  --pf-accent: var(--p30-tone-brand-primary);
+  --pf-accent-soft: var(--p30-tone-brand-light);
+  --pf-route: var(--p30-tone-feedback-info);
+  --pf-route-soft: var(--p30-tone-feedback-infoBg);
+  --pf-attraction: var(--p30-tone-feedback-info);
+  --pf-hotel: var(--p30-tone-brand-primary);
+  --pf-meal: var(--p30-tone-feedback-success);
+  --pf-transit: var(--p30-tone-feedback-busy);
+  --pf-ticket: var(--p30-tone-feedback-warning);
+  --pf-ok: var(--p30-tone-feedback-success);
+  --pf-warn: var(--p30-tone-feedback-warning);
+  --pf-bad: var(--p30-tone-feedback-danger);
+  --pf-radius-card: var(--p30-round-xl);
+  --pf-radius-control: var(--p30-round-sm);
+  --pf-shadow-card: var(--p30-depth-raised);
+  --pf-gap: var(--p30-gap-md);
+}
