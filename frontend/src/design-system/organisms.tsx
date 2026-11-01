@@ -392,7 +392,9 @@ export function ChatPanel({
               intent={message.intent ?? undefined}
               time={new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
               meta={
-                message.meta && typeof message.meta.version === "number" ? (
+                message.role === "user" && typeof message.meta?.scope === "string" ? (
+                  <span className="pf-scope-chip">{String(message.meta.scope)}</span>
+                ) : message.meta && typeof message.meta.version === "number" ? (
                   <span>v{String(message.meta.version)}</span>
                 ) : null
               }

@@ -123,3 +123,28 @@ def test_place_detail_answer_states_rating_and_review_count() -> None:
     }
     answer = _fallback_answer(facts, "google-places")
     assert "4.5" in answer and "699" in answer and "Amber" in answer
+
+
+def test_scoped_item_is_used_for_questions_about_it(settings: Settings) -> None:
+    from app.application.asking import _scoped_item
+
+    plan = _plan(settings)
+    item = plan.days[0].items[0]
+
+    assert _scoped_item(plan, item.id) is item
+    assert _scoped_item(plan, "missing-id") is None
+    assert _scoped_item(plan, None) is None
+
+
+def test_distance_facts_focus_on_the_selected_stop(settings: Settings) -> None:
+    from app.application.asking import _distance_facts
+
+    plan = _plan(settings)
+    item = plan.days[0].items[0]
+
+    facts = _distance_facts(plan, "how far is it from the hotel?", focus_item=item)
+
+    assert facts is not None
+    assert facts["focus"] is not None
+    assert facts["focus"]["name"] == item.name
+    assert facts["named"], "the focused stop must also appear in named results"

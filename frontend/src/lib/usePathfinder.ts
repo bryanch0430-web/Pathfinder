@@ -265,11 +265,22 @@ export function usePathfinder(locale: string): PathfinderHook {
       setProgress(0);
       setProgressMessage("Understanding your message");
       setRoute(null);
+      const scopeLabel = selectedItem
+        ? (() => {
+            const day = plan?.days.find((entry) =>
+              entry.items.some((candidate) => candidate.id === selectedItem.id),
+            );
+            const index = day && plan ? plan.days.indexOf(day) + 1 : 0;
+            return day ? `Day ${index} · ${selectedItem.name}` : selectedItem.name;
+          })()
+        : "";
       const optimistic: ChatMessage = {
         id: `local-${Date.now()}`,
         role: "user",
         content: message,
         created_at: new Date().toISOString(),
+        // Show which stop the message was about, so the transcript keeps the context.
+        meta: scopeLabel ? { scope: scopeLabel } : undefined,
       };
       setMessages((current) => [...current, optimistic]);
       let streamingId: string | null = null;
@@ -346,7 +357,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         await refresh();
       }
     },
-    [busy, locale, refresh, selectedItem?.id],
+    [busy, locale, plan, refresh, selectedItem?.id, selectedItem?.name],
   );
 
   const generate = useCallback(async () => {

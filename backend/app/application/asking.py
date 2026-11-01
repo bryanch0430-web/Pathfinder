@@ -85,6 +85,16 @@ class AskPath:
                 and getattr(self.registry, "web", None)
             )
         )
+        # A numeric distance for the selected stop is answered from the numbers
+        # themselves; a writer that opens with "the plan does not contain the
+        # hotel" would bury the one figure the traveller asked for.
+        focus = (facts.get("distances") or {}).get("focus")
+        if focus:
+            block = facts["distances"]
+            return (
+                f"{focus['name']} is about {focus['km']} km from {block['reference']} "
+                f"({block.get('method', 'straight-line estimate')})."
+            ), related, "plan"
         # A question about a section the plan does not have is answered by the
         # recorded reason, not by the writer guessing around it. A distance
         # question still gets its numbers, with the missing hotel named.
@@ -94,7 +104,9 @@ class AskPath:
             text = await self._phrase(question, plan, facts, "plan")
             return text, related, "plan"
 
-        tool_name, tool_result, source = await self._one_tool(question, plan, context, toolbox)
+        tool_name, tool_result, source = await self._one_tool(
+            question, plan, context, toolbox, scope_item_id=scope_item_id
+        )
         if tool_result is not None:
             # Keep the fact key meaningful: the writer has instructions for
             # web results and place detail, but not for an anonymous "tool" blob.
@@ -130,6 +142,7 @@ class AskPath:
         plan: TripPlan | None,
         context: TripContext,
         toolbox: Toolbox,
+        scope_item_id: str | None = None,
     ) -> tuple[str, Any, str]:
         lower = question.lower()
         if re.search(WEATHER_WORDS, lower) and self.registry.weather:
@@ -158,7 +171,8 @@ class AskPath:
                     return "weather", [row.model_dump(mode="json") for row in result], source.name
                 except Exception:
                     return "weather", None, "weather"
-        if re.search(DISTANCE_WORDS, lower) and self.registry.routes:
+        scoped_dist = _scoped_item(plan, scope_item_id)
+        if re.search(DISTANCE_WORDS, lower) and self.registry.routes and scoped_dist is None:
             points = _two_points(plan, question)
             if points:
                 source = self.registry.routes[0]
@@ -179,7 +193,7 @@ class AskPath:
         # Ask the place source for the rating, review count and editorial summary
         # it already returns; that is structured and citable, unlike a web result.
         if plan is not None and self.registry.places and re.search(QUALITY_WORDS, lower):
-            item = _find_item_strict(plan, question)
+            item = _scoped_item(plan, scope_item_id) or _find_item_strict(plan, question)
             if item is not None:
                 source = self.registry.places[0]
                 category = "restaurant" if item.type.value == "meal" else "attraction"
@@ -205,7 +219,7 @@ class AskPath:
         # Tools search synthesises across sources but takes ~20 s, so it is only
         # used for synthesis questions and only when explicitly enabled.
         if plan is not None and getattr(self.registry, "web", None):
-            item = _find_item_strict(plan, question)
+            item = _scoped_item(plan, scope_item_id) or _find_item_strict(plan, question)
             subject = item.name if item is not None else ""
             if subject or re.search(QUALITY_WORDS, lower) or re.search(DEEP_SEARCH_WORDS, lower):
                 destination = plan.destination.name
@@ -260,6 +274,14 @@ class AskPath:
             except Exception:
                 pass
         return _fallback_answer(facts, source)
+
+
+def _scoped_item(plan: TripPlan | None, scope_item_id: str | None):
+    """The stop the traveller selected before typing, if it is still in the plan."""
+    if not plan or not scope_item_id:
+        return None
+    found = plan.find_item(scope_item_id)
+    return found[1] if found else None
 
 
 def _find_item_strict(plan: TripPlan | None, question: str):
@@ -317,7 +339,7 @@ def _plan_facts(
         facts["cost"] = plan.cost.model_dump(mode="json")
 
     # "how far", "closest", "nearest": answered from coordinates we already hold.
-    distances = _distance_facts(plan, question)
+    distances = _distance_facts(plan, question, focus_item=_scoped_item(plan, scope_item_id))
     if distances:
         facts["distances"] = distances
 
@@ -550,7 +572,7 @@ def _reference_point(plan: TripPlan, lower: str):
     return f"the {plan.destination.name} city centre", plan.destination.geo
 
 
-def _distance_facts(plan: TripPlan, question: str) -> dict | None:
+def _distance_facts(plan: TripPlan, question: str, focus_item=None) -> dict | None:
     """Straight-line distances from a reference point to every stop with a coordinate."""
     from app.infrastructure.http import haversine_km
 
@@ -584,11 +606,15 @@ def _distance_facts(plan: TripPlan, question: str) -> dict | None:
         return None
     rows.sort(key=lambda row: row["km"])
     named = [row for row in rows if row["name"].lower() in lower]
+    focus = None
+    if focus_item is not None:
+        focus = next((row for row in rows if row["name"] == focus_item.name), None)
     return {
         "reference": reference_name,
         "method": "straight-line estimate",
         "closest": rows[:3],
-        "named": named,
+        "named": named or ([focus] if focus else []),
+        "focus": focus,
     }
 
 
@@ -695,6 +721,12 @@ def _fallback_answer(facts: dict, source: str) -> str:
             head = rows[0]
             return (
                 f"{head['name']} is about {head['km']} km from {block['reference']} "
+                f"({block.get('method', 'straight-line estimate')})."
+            )
+        focus = block.get("focus")
+        if focus:
+            return (
+                f"{focus['name']} is about {focus['km']} km from {block['reference']} "
                 f"({block.get('method', 'straight-line estimate')})."
             )
     if "weather" in facts:
