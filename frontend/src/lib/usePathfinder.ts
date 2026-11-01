@@ -288,7 +288,13 @@ export function usePathfinder(locale: string): PathfinderHook {
       abortRef.current = controller;
       try {
         await streamChat(
-          { session_id: id, message, locale, scope_item_id: selectedItem?.id ?? null },
+          {
+            session_id: id,
+            message,
+            locale,
+            scope_item_id: selectedItem?.id ?? null,
+            scope_label: scopeLabel || null,
+          },
           {
             onEvent: (event, data) => {
               if (event === "route") setRoute(data as unknown as RoutePayload);

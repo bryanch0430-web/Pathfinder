@@ -64,6 +64,9 @@ class ChatRequest(BaseModel):
     locale: str = "en"
     client_token: str = ""
     scope_item_id: str | None = None
+    #: human-readable label for the selected stop ("Day 1 Â· HK City Sightseeing"),
+    #: stored with the message so the transcript keeps the context
+    scope_label: str | None = None
 
 
 class ProfilePatch(BaseModel):
@@ -613,6 +616,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                     message=payload.message,
                     locale=payload.locale,
                     scope_item_id=payload.scope_item_id,
+                    scope_label=payload.scope_label,
                 ):
                     data = json.dumps(event.data, ensure_ascii=False, default=str)
                     yield f"event: {event.event}\ndata: {data}\n\n"

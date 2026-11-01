@@ -249,7 +249,13 @@ export interface StreamHandlers {
 }
 
 export async function streamChat(
-  payload: { session_id: string; message: string; locale: string; scope_item_id?: string | null },
+  payload: {
+    session_id: string;
+    message: string;
+    locale: string;
+    scope_item_id?: string | null;
+    scope_label?: string | null;
+  },
   handlers: StreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {

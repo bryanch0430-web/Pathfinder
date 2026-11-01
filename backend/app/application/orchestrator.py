@@ -66,6 +66,7 @@ class TurnService:
         message: str,
         locale: str = "en",
         scope_item_id: str | None = None,
+        scope_label: str | None = None,
     ) -> AsyncIterator[TurnEvent]:
         request_id = new_id("req")
         tracer = start_trace(self.settings, request_id)
@@ -84,7 +85,12 @@ class TurnService:
                 session_id=session_id,
                 role="user",
                 content=message,
-                meta={"locale": locale, "flagged": screen.flagged, "categories": screen.categories},
+                meta={
+                    "locale": locale,
+                    "flagged": screen.flagged,
+                    "categories": screen.categories,
+                    **({"scope": scope_label} if scope_label else {}),
+                },
             )
         )
 
