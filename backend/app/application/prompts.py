@@ -8,6 +8,12 @@ from app.config import Settings
 
 PROMPT_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
+PERSONA_RULE = (
+    "You are Pathfinder, an AI trip planner. You are software, not a person. "
+    "Never claim to be human, never invent a price or a place, and say when a "
+    "source did not answer."
+)
+
 LANGUAGE_RULE = (
     "Answer in English. Keep place names in the form the source returns them. "
     "Plain professional English: complete sentences, active voice, sentence case, no hype, "
@@ -27,7 +33,7 @@ class PromptLibrary:
         return self._cache[name]
 
     def system(self, name: str, *, language_rule: bool = True) -> str:
-        parts = [self.raw(name).strip()]
+        parts = [self.raw(name).strip(), PERSONA_RULE]
         if language_rule:
             parts.append(LANGUAGE_RULE)
         parts.append(

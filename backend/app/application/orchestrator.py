@@ -9,6 +9,7 @@ import re
 from typing import Any, AsyncIterator
 
 from app.application.asking import AskPath
+from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
@@ -113,6 +114,34 @@ class TurnService:
             yield TurnEvent(
                 event="done",
                 data={"request_id": request_id, "intent": "unclear", "session_id": session_id, "blocked": True},
+            )
+            return
+
+        # Identity and small-talk questions are static facts about the assistant:
+        # answer them here, with no model call, no web search and no latency.
+        identity = identity_reply(message)
+        if identity:
+            self.store.add_message(
+                Message(session_id=session_id, role="assistant", content=identity, intent=Intent.ASK)
+            )
+            yield TurnEvent(
+                event="route",
+                data={
+                    "intent": "ask",
+                    "confidence": 1.0,
+                    "threshold": 0.0,
+                    "need_clarification": False,
+                    "reason_code": "identity",
+                    "related_to_plan": False,
+                },
+            )
+            for chunk in _chunks(identity):
+                yield TurnEvent(event="token", data={"text": chunk})
+            self.store.touch_session(session_id)
+            tracer.finish(status="ok")
+            yield TurnEvent(
+                event="done",
+                data={"request_id": request_id, "intent": "ask", "session_id": session_id},
             )
             return
 
