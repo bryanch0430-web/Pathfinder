@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Pathfinder 30",
-    "description": "Pathfinder 30 — agentic trip planner. English first.",
+    "title": "Pathfinder",
+    "description": "Pathfinder — agentic trip planner. English first.",
     "version": "1.0.0"
   },
   "paths": {

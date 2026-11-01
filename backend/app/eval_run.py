@@ -51,7 +51,7 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run a Pathfinder 30 evaluation dataset.")
+    parser = argparse.ArgumentParser(description="Run a Pathfinder evaluation dataset.")
     parser.add_argument("--dataset", default="hongkong", help="routing | injection | hongkong | japan | travelplanner")
     parser.add_argument("--tag", default="baseline-v1", help="experiment label")
     parser.add_argument("--split", default="all", choices=["all", "dev", "heldout"])

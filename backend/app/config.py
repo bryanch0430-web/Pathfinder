@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     # --- application -------------------------------------------------------
-    app_name: str = "Pathfinder 30"
+    app_name: str = "Pathfinder"
     environment: str = "development"
     debug: bool = False
     base_dir: Path = BASE_DIR

@@ -2,7 +2,7 @@
 
 **Scope.** This is a product and engineering comparison, not a code import. I read public
 READMEs and feature lists from four representative open-source travel planners, then
-mapped them against Pathfinder 30. Links are at the bottom. No source code from those
+mapped them against Pathfinder. Links are at the bottom. No source code from those
 repositories was copied.
 
 ## 1. What comparable projects do well
@@ -14,7 +14,7 @@ repositories was copied.
 | **Agentic AI Trip Planner** ([GitHub](https://github.com/Ratnesh-181998/Agentic-AI-Trip-Planner-CrewAI)) | CrewAI multi-agent split, 5-tier LLM failover, history, favorites, flight/hotel/train/bus search, PDF export | Breadth of **trip surfaces** and visible fallback states. Its roadmap still lists auth and saved favorites, which confirms those are expected product features. |
 | **Traveling** ([GitHub](https://github.com/ivyfan-toowell/Traveling)) | End-to-end planning + editing UI, itinerary persistence | The demo bar now includes **edit, save, reopen** — not one-shot generation. |
 
-## 2. Where Pathfinder 30 already leads
+## 2. Where Pathfinder already leads
 
 - **Typed turn pipeline with exactly one path** (plan / modify / ask / clarify), not an
   unconstrained loop of tool calls. Easier to test and explain.
@@ -103,7 +103,7 @@ not “we added a vector database”.
 
 ## 6. Feature matrix
 
-| Capability | Pathfinder 30 | Roam | Zhilv | CrewAI planner |
+| Capability | Pathfinder | Roam | Zhilv | CrewAI planner |
 |---|---|---|---|---|
 | Multi-agent / typed orchestration | ✅ four evidence agents + one path | pipeline stages | linear pipeline | ✅ CrewAI |
 | Live evidence + provenance | ✅ source + freshness + gaps | ✅ OSM + fallbacks | ✅ Amap + weather | ✅ web search |

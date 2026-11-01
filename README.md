@@ -1,4 +1,4 @@
-# Pathfinder 30
+# Pathfinder
 
 **Group 1 · COMP7608B Final Project**  
 Chan Yuk Ming · Lai Helen · Ng Tsan Fung · Wong Man Kit
@@ -10,7 +10,7 @@ Four specialist agents gather live travel data in parallel; a grounded planner t
 verified candidates into a day-by-day itinerary where every item carries a source and a
 freshness status.
 
-This repository is the group's implementation of the Pathfinder 30 proposal and
+This repository is the group's implementation of the Pathfinder proposal and
 functional specification. The architecture, API and design system are documented
 under [`docs/`](docs/); the AI-use declaration is in
 [`docs/AI_USE.md`](docs/AI_USE.md).

@@ -106,9 +106,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     app = FastAPI(
-        title="Pathfinder 30",
+        title="Pathfinder",
         version="1.0.0",
-        description="Pathfinder 30 — agentic trip planner. English first.",
+        description="Pathfinder — agentic trip planner. English first.",
         lifespan=lifespan,
     )
     app.add_middleware(

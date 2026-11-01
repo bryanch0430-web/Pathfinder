@@ -1,4 +1,4 @@
-"""Domain model for Pathfinder 30.
+"""Domain model for Pathfinder.
 
 The domain owns the vocabulary of the product: a trip, its days, items,
 sources, freshness and constraint checks. It deliberately has no knowledge of

@@ -1,4 +1,4 @@
-# Pathfinder 30 — handoff for the next agent
+# Pathfinder — handoff for the next agent
 
 **Date:** 2026-10-30  
 **Repository:** <https://github.com/Me0wX-LR/Pathfinder_v1>  
@@ -14,7 +14,7 @@ must not be imported, built, or pushed here.
 
 ## What this project is
 
-Pathfinder 30 is an agentic trip planner:
+Pathfinder is an agentic trip planner:
 
 - FastAPI + Pydantic + SQLite/WAL + SSE backend.
 - React 18 + TypeScript + Vite + Storybook frontend.
