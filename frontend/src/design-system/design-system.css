@@ -586,9 +586,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* a label, not prose: a tinted pill so the status reads as a badge */
+  padding: 1px 8px 1px 7px;
+  border-radius: 999px;
   font-size: var(--p30-type-size-body-xs);
   font-weight: var(--p30-type-weight-semibold);
   color: var(--pf-ink-tertiary);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent);
 }
 
 .pf-status[data-status="ok"] {
