@@ -441,6 +441,10 @@ class TurnService:
                 "slots": slots,
                 "labels": [SLOT_LABELS.get(slot, slot) for slot in slots],
                 "options": _slot_options(slots, context.currency),
+                # With no missing slots the question is about *intent*, so offer
+                # real messages instead of a Continue button that re-sends the
+                # same unclear request.
+                "choices": _clarify_choices(context, slots),
                 "reason_code": decision.reason_code,
             },
         )
@@ -518,6 +522,26 @@ def _route_data(decision: RouteDecision, settings: Settings) -> dict[str, Any]:
         "missing_slots": decision.missing_slots,
         "related_to_plan": decision.related_to_plan,
     }
+
+
+def _clarify_choices(context, slots: list[str]) -> list[dict[str, str]]:
+    """Concrete next steps when the clarify is about intent, not missing data."""
+    if slots:
+        return []
+    destination = (getattr(context, "destination", "") or "").strip()
+    origin = (getattr(context, "origin", "") or "").strip()
+    if destination and origin:
+        plan_message = f"Plan a {getattr(context, 'days', None) or 3}-day trip to {destination} from {origin}."
+    elif destination:
+        plan_message = f"Plan a trip to {destination} with the details I already gave."
+    else:
+        plan_message = "Plan a 3-day trip to Kyoto from Hong Kong for 2 people, budget 400000 JPY."
+    return [
+        {"label": "Plan my trip", "message": plan_message},
+        {"label": "Make it cheaper", "message": "Make it cheaper."},
+        {"label": "What is on day 1?", "message": "What is on day 1?"},
+        {"label": "What changed?", "message": "What changed so far?"},
+    ]
 
 
 def _slot_options(slots: list[str], currency: str) -> dict[str, list[str]]:

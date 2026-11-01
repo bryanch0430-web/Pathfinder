@@ -310,6 +310,8 @@ export interface ClarifyPayload {
   slots: string[];
   labels: string[];
   options: Record<string, string[]>;
+  /** concrete follow-ups when the question is about intent, not missing data */
+  choices?: { label: string; message: string }[];
   reason_code: string;
 }
 

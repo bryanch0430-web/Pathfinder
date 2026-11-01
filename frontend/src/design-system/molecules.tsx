@@ -375,9 +375,11 @@ export function ClarifyCard({
   payload: ClarifyPayload;
   values: Record<string, string>;
   onChange: (slot: string, value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (message?: string) => void;
   submitting?: boolean;
 }) {
+  const choices = payload.choices ?? [];
+  const slotsOnly = payload.slots.length > 0;
   return (
     <div className="pf-clarify">
       <div className="pf-row">
@@ -420,13 +422,34 @@ export function ClarifyCard({
           );
         })}
       </div>
+      {!slotsOnly && choices.length ? (
+        <div className="pf-clarify__options">
+          {choices.map((choice) => (
+            <button
+              key={choice.label}
+              type="button"
+              className="pf-chip"
+              disabled={submitting}
+              onClick={() => onSubmit(choice.message)}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="pf-row pf-row--between">
         <Text size="xs" tone="tertiary">
-          The plan will not start until these are known.
+          {slotsOnly
+            ? "The plan will not start until these are known."
+            : choices.length
+              ? "Pick one, or type your own request below."
+              : "Type what you want to plan or change."}
         </Text>
-        <Button variant="primary" size="sm" onClick={onSubmit} loading={submitting} iconRight="send">
-          Continue
-        </Button>
+        {slotsOnly ? (
+          <Button variant="primary" size="sm" onClick={() => onSubmit()} loading={submitting} iconRight="send">
+            Continue
+          </Button>
+        ) : null}
       </div>
     </div>
   );

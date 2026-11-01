@@ -325,7 +325,7 @@ export function ChatPanel({
   clarify: ClarifyPayload | null;
   clarifyValues: Record<string, string>;
   onClarifyChange: (slot: string, value: string) => void;
-  onClarifySubmit: () => void;
+  onClarifySubmit: (message?: string) => void;
   scope: string | null;
   onClearScope: () => void;
   error: string | null;

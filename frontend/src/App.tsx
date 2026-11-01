@@ -334,7 +334,7 @@ export default function App() {
                   clarify={pf.clarify}
                   clarifyValues={pf.clarifyValues}
                   onClarifyChange={pf.setClarifyValue}
-                  onClarifySubmit={() => void pf.submitClarify()}
+                  onClarifySubmit={(message) => void pf.submitClarify(message)}
                   onSend={(message) => void pf.send(message)}
                   scope={scope}
                   onClearScope={() => pf.selectItem(null)}

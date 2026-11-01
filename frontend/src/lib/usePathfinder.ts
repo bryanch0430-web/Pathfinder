@@ -80,7 +80,7 @@ export interface PathfinderHook {
   generate: () => Promise<void>;
   send: (message: string) => Promise<void>;
   setClarifyValue: (slot: string, value: string) => void;
-  submitClarify: () => Promise<void>;
+  submitClarify: (message?: string) => Promise<void>;
   selectItem: (item: PlanItem | null) => void;
   selectVersion: (version: number) => Promise<void>;
   feedback: (useful: boolean, starsOverride?: number | null) => Promise<void>;
@@ -375,10 +375,17 @@ export function usePathfinder(locale: string): PathfinderHook {
     await send(plan ? "Re-plan with the updated details." : "Plan my trip.");
   }, [plan, saveContext, send]);
 
-  const submitClarify = useCallback(async () => {
+  const submitClarify = useCallback(async (message?: string) => {
+    if (message && message.trim()) {
+      setClarify(null);
+      setClarifyValues({});
+      await send(message.trim());
+      return;
+    }
     const entries = Object.entries(clarifyValues).filter(([, value]) => value.trim());
     if (!entries.length) {
-      await send("Please continue with the current details.");
+      // Nothing to send: an empty "please continue" just re-asks the same
+      // question. Leave the card in place and let the traveller pick or type.
       return;
     }
     const sentence = entries.map(([slot, value]) => `${slot.replaceAll("_", " ")}: ${value}`).join("; ");
