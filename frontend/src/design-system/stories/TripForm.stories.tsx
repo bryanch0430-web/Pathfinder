@@ -1,0 +1,41 @@
+import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
+import { TripContextForm } from "../molecules";
+import { sampleContext } from "../fixtures";
+import type { TripContext } from "../types";
+
+const meta: Meta = { title: "Molecules/Trip Context Form" };
+export default meta;
+type Story = StoryObj;
+
+export const Playground: Story = {
+  render: () => {
+    const [values, setValues] = useState<Partial<TripContext>>(sampleContext);
+    return (
+      <div className="pf-card" style={{ padding: 24, maxWidth: 560 }}>
+        <TripContextForm
+          values={values}
+          onChange={(patch) => setValues((current) => ({ ...current, ...patch }))}
+          onSubmit={() => undefined}
+          onSave={() => undefined}
+        />
+      </div>
+    );
+  },
+};
+
+export const Compact: Story = {
+  render: () => {
+    const [values, setValues] = useState<Partial<TripContext>>(sampleContext);
+    return (
+      <div className="pf-card" style={{ padding: 24, maxWidth: 420 }}>
+        <TripContextForm
+          compact
+          values={values}
+          onChange={(patch) => setValues((current) => ({ ...current, ...patch }))}
+          onSubmit={() => undefined}
+        />
+      </div>
+    );
+  },
+};

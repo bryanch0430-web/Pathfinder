@@ -1,0 +1,237 @@
+"""The new-trip path: geocode, four agents in parallel, grounded planner."""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from typing import Any, Callable
+
+from app.application.agents import (
+    AgentContext,
+    AttractionAgent,
+    HotelAgent,
+    TicketAgent,
+    WeatherAgent,
+)
+from app.application.planner import Planner
+from app.application.toolbox import Toolbox
+from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
+from app.config import Settings
+from app.domain.errors import PlanInvalidError, ProviderError
+from app.domain.models import (
+    AgentName,
+    AgentResult,
+    AgentStatus,
+    DataGap,
+    FailureKind,
+    GeoPoint,
+    TripContext,
+    TripPlan,
+)
+from app.domain.ports import Tracer
+
+AGENT_FACTORIES = {
+    AgentName.ATTRACTION: AttractionAgent,
+    AgentName.HOTEL: HotelAgent,
+    AgentName.WEATHER: WeatherAgent,
+    AgentName.TICKET: TicketAgent,
+}
+
+
+class PlanPath:
+    def __init__(self, *, planner: Planner, registry: Any, settings: Settings):
+        self.planner = planner
+        self.registry = registry
+        self.settings = settings
+
+    async def run(
+        self,
+        *,
+        context: TripContext,
+        session_id: str,
+        toolbox: Toolbox,
+        tracer: Tracer,
+        emit: Callable[[str, dict[str, Any]], None],
+        memory_summaries: list[str] | None = None,
+        version: int = 1,
+        trip_id: str | None = None,
+        change_summary: str = "",
+    ) -> TripPlan:
+        fx = getattr(self.registry, "fx", None)
+        if fx is not None:
+            try:
+                with tracer.span("fx.refresh"):
+                    await fx.refresh()
+            except Exception:
+                pass
+
+        date_range = context.date_range()
+        if not date_range:
+            raise PlanInvalidError("The trip dates are incomplete.")
+        if len(date_range.dates) > self.settings.max_days:
+            raise PlanInvalidError(f"Trips longer than {self.settings.max_days} days are out of scope.")
+
+        with tracer.span("geocode") as span:
+            try:
+                destination = await toolbox.call(
+                    "geocode",
+                    self.registry.geocoder.geocode,
+                    name=context.destination,
+                )
+            except ProviderError as exc:
+                raise PlanInvalidError(
+                    f"I could not locate {context.destination!r} with the configured map sources. "
+                    "Try the city and country together."
+                ) from exc
+            if not destination:
+                raise PlanInvalidError(
+                    f"I could not locate {context.destination!r}. Try the city and country together."
+                )
+            span.attrs["destination"] = destination.name
+
+        timezone_resolver = getattr(self.registry, "timezone", None)
+        if (
+            self.settings.enable_timezone
+            and timezone_resolver is not None
+            and not destination.timezone
+        ):
+            try:
+                zone = await toolbox.call(
+                    "timezone.resolve", timezone_resolver.resolve, geo=destination.geo
+                )
+                if zone:
+                    destination = destination.model_copy(update={"timezone": zone})
+            except Exception:
+                pass
+
+        emit("progress", {"phase": "agents", "message": "Four agents are gathering live data.", "progress": 15})
+        agent_results = await self.run_agents(
+            context=context,
+            destination=destination,
+            date_range=date_range,
+            toolbox=toolbox,
+            emit=emit,
+        )
+
+        emit("progress", {"phase": "planner", "message": "Composing the itinerary from verified facts.", "progress": 70})
+        plan = await self.planner.compose(
+            session_id=session_id,
+            context=context,
+            destination=destination,
+            date_range=date_range,
+            results=agent_results,
+            memory_summaries=memory_summaries or [],
+            version=version,
+            trip_id=trip_id,
+            change_summary=change_summary,
+            toolbox=toolbox,
+        )
+        errors = validate_plan(plan, self.settings)
+        if errors:
+            emit("progress", {"phase": "repair", "message": "Repairing the itinerary.", "progress": 85})
+            plan = await repair_plan(plan, errors, self.planner.gateway, self.settings)
+        plan = tidy_data_gaps(plan)
+        elevation_source = getattr(self.registry, "elevation", None)
+        if self.settings.enable_elevation and elevation_source is not None:
+            for day in plan.days:
+                points = [
+                    GeoPoint(lat=item.geo.lat, lng=item.geo.lng)
+                    for item in day.items
+                    if item.geo is not None and item.type.value != "meal"
+                ]
+                if len(points) < 2:
+                    continue
+                try:
+                    gain = await toolbox.call(
+                        "elevation.gain", elevation_source.gain, points=points
+                    )
+                except Exception:
+                    continue
+                if gain is not None:
+                    day.elevation_gain_m = gain
+        emit("progress", {"phase": "ready", "message": "Itinerary ready.", "progress": 100})
+        return plan
+
+    async def run_agents(
+        self,
+        *,
+        context: TripContext,
+        destination: Any,
+        date_range: Any,
+        toolbox: Toolbox,
+        emit: Callable[[str, dict[str, Any]], None],
+        names: set[AgentName] | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, AgentResult]:
+        request = AgentContext(
+            context=context,
+            destination=destination,
+            date_range=date_range,
+            request_id=toolbox.request_id,
+            toolbox=toolbox,
+            settings=self.settings,
+            emit=emit,
+            extra=extra or {},
+        )
+        selected = names or set(AGENT_FACTORIES)
+        tasks: dict[asyncio.Task, AgentName] = {}
+        for agent_name in selected:
+            factory = AGENT_FACTORIES[agent_name]
+            agent = factory(self.registry, self.settings)
+            emit("agent", {"agent": agent_name.value, "phase": "start"})
+            tasks[asyncio.create_task(agent.run(request))] = agent_name
+
+        results: dict[str, AgentResult] = {}
+        started = time.perf_counter()
+        done, pending = await asyncio.wait(
+            tasks.keys(),
+            timeout=self.settings.preplan_budget_seconds,
+            return_when=asyncio.ALL_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        for task, agent_name in tasks.items():
+            if task in pending:
+                result = _unavailable(agent_name, "agent exceeded the pre-planning time budget")
+            else:
+                try:
+                    result = task.result()
+                except asyncio.CancelledError:
+                    result = _unavailable(agent_name, "agent was cancelled")
+                except Exception as exc:
+                    result = _unavailable(agent_name, str(exc)[:200])
+            results[agent_name.value] = result
+            emit(
+                "agent",
+                {
+                    "agent": agent_name.value,
+                    "phase": "done",
+                    "status": result.status.value,
+                    "elapsed_ms": result.elapsed_ms,
+                    "summary": result.notes[0] if result.notes else "",
+                    "failures": len(result.failures),
+                },
+            )
+        # A mutable payload needs a stable copy: the planner only reads.
+        for result in results.values():
+            places = result.payload.get("places")
+            if isinstance(places, list):
+                result.payload["places"] = [
+                    row for row in places if row.get("source_refs") and row.get("geo")
+                ]
+            meals = result.payload.get("meals")
+            if isinstance(meals, list):
+                result.payload["meals"] = [row for row in meals if row.get("geo")]
+        return results
+
+
+def _unavailable(agent_name: AgentName, message: str) -> AgentResult:
+    return AgentResult(
+        agent=agent_name,
+        status=AgentStatus.UNAVAILABLE,
+        payload={},
+        notes=[message],
+        failures=[DataGap(section=agent_name.value, kind=FailureKind.TIMEOUT, message=message, retryable=True)],
+    )

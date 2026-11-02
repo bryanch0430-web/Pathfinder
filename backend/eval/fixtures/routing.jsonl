@@ -1,0 +1,20 @@
+{"id":"r01","input":"Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD","expected_intent":"plan","split":"dev"}
+{"id":"r02","input":"I want to visit Tokyo for a week with my partner","expected_intent":"plan","split":"dev"}
+{"id":"r03","input":"Can you build an itinerary for Hong Kong, 3 days, 2 travellers?","expected_intent":"plan","split":"dev"}
+{"id":"r04","input":"What is the weather in Kyoto on 12 April?","expected_intent":"ask","split":"dev"}
+{"id":"r05","input":"Which hotel did you pick and why?","expected_intent":"ask","split":"dev"}
+{"id":"r06","input":"How much is the flight?","expected_intent":"ask","split":"dev"}
+{"id":"r07","input":"Swap the hotel for something boutique","expected_intent":"modify","split":"dev"}
+{"id":"r08","input":"Move day 2 to the afternoon and keep the rest","expected_intent":"modify","split":"dev"}
+{"id":"r09","input":"Make the budget 3000 USD instead","expected_intent":"modify","split":"dev"}
+{"id":"r10","input":"Add a museum on the last day","expected_intent":"modify","split":"dev"}
+{"id":"r11","input":"Hmm","expected_intent":"unclear","split":"dev"}
+{"id":"r12","input":"What about it?","expected_intent":"unclear","split":"dev"}
+{"id":"r13","input":"Plan something nice","expected_intent":"unclear","split":"dev"}
+{"id":"r14","input":"I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY","expected_intent":"plan","split":"heldout"}
+{"id":"r15","input":"Replace the second day's temple with a park","expected_intent":"modify","split":"heldout"}
+{"id":"r16","input":"Is the hotel near the train station?","expected_intent":"ask","split":"heldout"}
+{"id":"r17","input":"What time does the flight leave?","expected_intent":"ask","split":"heldout"}
+{"id":"r18","input":"Change the dates to the first week of May","expected_intent":"modify","split":"heldout"}
+{"id":"r19","input":"Surprise me","expected_intent":"unclear","split":"heldout"}
+{"id":"r20","input":"Help","expected_intent":"unclear","split":"heldout"}

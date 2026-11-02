@@ -1,0 +1,712 @@
+"""Domain model for Pathfinder.
+
+The domain owns the vocabulary of the product: a trip, its days, items,
+sources, freshness and constraint checks. It deliberately has no knowledge of
+FastAPI, HTTP, SQLite or any model vendor.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+from enum import StrEnum
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, Field, StringConstraints, model_validator
+
+TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def new_id(prefix: str = "id") -> str:
+    import uuid
+
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
+class Intent(StrEnum):
+    PLAN = "plan"
+    MODIFY = "modify"
+    ASK = "ask"
+    UNCLEAR = "unclear"
+
+
+class DataStatus(StrEnum):
+    OK = "ok"
+    STALE = "stale"
+    UNAVAILABLE = "unavailable"
+
+
+class ItemType(StrEnum):
+    ATTRACTION = "attraction"
+    HOTEL = "hotel"
+    MEAL = "meal"
+    TRANSIT = "transit"
+    TICKET = "ticket"
+
+
+class AgentName(StrEnum):
+    ATTRACTION = "attraction"
+    HOTEL = "hotel"
+    WEATHER = "weather"
+    TICKET = "ticket"
+
+
+class AgentStatus(StrEnum):
+    OK = "ok"
+    PARTIAL = "partial"
+    UNAVAILABLE = "unavailable"
+    TIMEOUT = "timeout"
+    FAILED = "failed"
+
+
+class FailureKind(StrEnum):
+    NO_DATA = "no_data"
+    TIMEOUT = "timeout"
+    RATE_LIMIT = "rate_limit"
+    SERVER_ERROR = "server_error"
+    INVALID_REQUEST = "invalid_request"
+    AUTH = "auth"
+    BLOCKED = "blocked"
+    NETWORK = "network"
+    PARSE = "parse"
+
+
+class PriceKind(StrEnum):
+    LIVE = "live"
+    REFERENCE = "reference"
+    ESTIMATE = "estimate"
+    NONE = "none"
+
+
+class ConstraintStatus(StrEnum):
+    PASS = "pass"
+    FAIL = "fail"
+    UNKNOWN = "unknown"
+
+
+class Severity(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class GeoPoint(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+class Money(BaseModel):
+    amount: float = Field(ge=0)
+    currency: str = Field(min_length=3, max_length=3)
+
+    @model_validator(mode="after")
+    def _upper(self) -> "Money":
+        self.currency = self.currency.upper()
+        return self
+
+
+class DateRange(BaseModel):
+    start: date
+    end: date
+
+    @model_validator(mode="after")
+    def _order(self) -> "DateRange":
+        if self.end < self.start:
+            raise ValueError("trip end date must not precede start date")
+        if (self.end - self.start).days > 60:
+            raise ValueError("trip is too long")
+        return self
+
+    @property
+    def night_count(self) -> int:
+        return max((self.end - self.start).days, 0)
+
+    @property
+    def dates(self) -> list[date]:
+        return [date.fromordinal(self.start.toordinal() + i) for i in range((self.end - self.start).days + 1)]
+
+
+class SourceRef(BaseModel):
+    title: str
+    url: str = ""
+    source: str
+    fetched_at: datetime = Field(default_factory=utcnow)
+    published_at: datetime | None = None
+
+
+class WeatherDay(BaseModel):
+    date: date
+    status: DataStatus = DataStatus.OK
+    summary: str = ""
+    high_c: float | None = None
+    low_c: float | None = None
+    precipitation_probability: int | None = Field(default=None, ge=0, le=100)
+    source: str = ""
+    fetched_at: datetime = Field(default_factory=utcnow)
+    note: str = ""
+
+    @property
+    def is_available(self) -> bool:
+        return self.status == DataStatus.OK and self.high_c is not None
+
+
+class PlanItem(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("item"))
+    type: ItemType
+    name: str
+    start: TimeStr
+    end: TimeStr
+    geo: GeoPoint | None = None
+    address: str = ""
+    notes: str = ""
+    source_refs: list[SourceRef] = Field(default_factory=list)
+    data_status: DataStatus = DataStatus.OK
+    fetched_at: datetime = Field(default_factory=utcnow)
+    price: Money | None = None
+    price_kind: PriceKind = PriceKind.NONE
+    booking_url: str = ""
+    locked: bool = False
+    confirmed: bool = False
+    tags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _times(self) -> "PlanItem":
+        if self.end <= self.start:
+            raise ValueError(f"item {self.name!r} ends before it starts")
+        if self.type == ItemType.ATTRACTION and not self.source_refs:
+            raise ValueError(f"attraction {self.name!r} needs at least one source")
+        return self
+
+
+class DayPlan(BaseModel):
+    date: date
+    title: str = ""
+    weather: WeatherDay | None = None
+    items: list[PlanItem] = Field(default_factory=list)
+    note: str = ""
+    # Positive ascent in metres between the day's stops (Google Elevation).
+    elevation_gain_m: float | None = None
+
+    @model_validator(mode="after")
+    def _no_overlap(self) -> "DayPlan":
+        ordered = sorted(self.items, key=lambda item: item.start)
+        for previous, current in zip(ordered, ordered[1:]):
+            if current.start < previous.end:
+                raise ValueError(f"items overlap on {self.date}: {previous.name} / {current.name}")
+        return self
+
+
+class HotelStay(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("hotel"))
+    name: str
+    area: str = ""
+    geo: GeoPoint | None = None
+    check_in: date
+    check_out: date
+    price_per_night: Money | None = None
+    price_kind: PriceKind = PriceKind.NONE
+    rating: float | None = None
+    review_count: int | None = None
+    distance_to_centre_km: float | None = None
+    source_refs: list[SourceRef] = Field(default_factory=list)
+    data_status: DataStatus = DataStatus.OK
+    fetched_at: datetime = Field(default_factory=utcnow)
+    booking_url: str = ""
+    notes: str = ""
+    confirmed: bool = False
+    locked: bool = False
+
+
+class TicketOption(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("ticket"))
+    mode: Literal["flight", "train", "ticket", "ferry", "bus"]
+    name: str
+    origin: str = ""
+    destination: str = ""
+    depart_at: datetime | None = None
+    arrive_at: datetime | None = None
+    duration_minutes: int | None = None
+    # Round-trip flights carry the inbound leg on the same option so the fare is
+    # never split or double-counted.
+    return_origin: str = ""
+    return_destination: str = ""
+    return_depart_at: datetime | None = None
+    return_arrive_at: datetime | None = None
+    return_duration_minutes: int | None = None
+    return_airline: str = ""
+    return_flight_number: str = ""
+    price: Money | None = None
+    price_kind: PriceKind = PriceKind.NONE
+    operator: str = ""
+    booking_url: str = ""
+    notes: str = ""
+    source_refs: list[SourceRef] = Field(default_factory=list)
+    data_status: DataStatus = DataStatus.OK
+    fetched_at: datetime = Field(default_factory=utcnow)
+    confirmed: bool = False
+
+
+class CostLine(BaseModel):
+    label: str
+    amount: float
+    kind: str = "estimate"
+    note: str = ""
+
+
+class CostBreakdown(BaseModel):
+    currency: str = "USD"
+    lines: list[CostLine] = Field(default_factory=list)
+    total: float = 0.0
+    budget: float | None = None
+    remaining: float | None = None
+    status: Literal["within", "over", "unknown"] = "unknown"
+    notes: list[str] = Field(default_factory=list)
+
+
+class ConstraintCheck(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("check"))
+    text: str
+    status: ConstraintStatus = ConstraintStatus.UNKNOWN
+    evidence: str = ""
+
+
+class Disruption(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("disruption"))
+    kind: str
+    summary: str
+    affected_item_ids: list[str] = Field(default_factory=list)
+    resolution: str = ""
+    resolved: bool = False
+
+
+class Reservation(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("reservation"))
+    name: str
+    reason: str
+    url: str = ""
+    needed_by: date | None = None
+    status: Literal["to_book", "optional", "booked"] = "to_book"
+
+
+class DataGap(BaseModel):
+    section: str
+    kind: FailureKind
+    message: str
+    retryable: bool = False
+
+
+class DataQuality(BaseModel):
+    sources_used: list[str] = Field(default_factory=list)
+    gaps: list[DataGap] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    search_window_months: int = 24
+    generated_at: datetime = Field(default_factory=utcnow)
+
+
+class Destination(BaseModel):
+    name: str
+    country_code: str = ""
+    geo: GeoPoint | None = None
+    timezone: str = ""
+
+
+class TripPlan(BaseModel):
+    schema_version: str = "1.0"
+    trip_id: str = Field(default_factory=lambda: new_id("trip"))
+    session_id: str
+    version: int = Field(default=1, ge=1)
+    status: Literal["draft", "ready"] = "ready"
+    destination: Destination
+    origin: str = ""
+    dates: DateRange
+    party_size: int = Field(default=1, ge=1, le=20)
+    budget: Money | None = None
+    summary: str = ""
+    days: list[DayPlan] = Field(default_factory=list)
+    hotels: list[HotelStay] = Field(default_factory=list)
+    tickets: list[TicketOption] = Field(default_factory=list)
+    cost: CostBreakdown = Field(default_factory=CostBreakdown)
+    constraints: list[ConstraintCheck] = Field(default_factory=list)
+    disruptions: list[Disruption] = Field(default_factory=list)
+    reservations: list[Reservation] = Field(default_factory=list)
+    data_quality: DataQuality = Field(default_factory=DataQuality)
+    # Short public videos that ground the destination (YouTube / Bilibili).
+    video_notes: list["NoteItem"] = Field(default_factory=list)
+    change_summary: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def _shape(self) -> "TripPlan":
+        dates = [day.date for day in self.days]
+        if dates and dates != self.dates.dates:
+            raise ValueError("days must cover the trip date range exactly and in order")
+        ids = [item.id for day in self.days for item in day.items]
+        ids += [hotel.id for hotel in self.hotels]
+        ids += [ticket.id for ticket in self.tickets]
+        if len(ids) != len(set(ids)):
+            raise ValueError("plan item ids must be unique")
+        if self.cost.total < 0:
+            raise ValueError("cost total cannot be negative")
+        return self
+
+    @property
+    def item_count(self) -> int:
+        return sum(len(day.items) for day in self.days)
+
+    def iter_items(self):
+        for day in self.days:
+            for item in day.items:
+                yield day, item
+
+    def find_item(self, item_id: str) -> tuple[DayPlan, PlanItem] | None:
+        for day, item in self.iter_items():
+            if item.id == item_id:
+                return day, item
+        return None
+
+    def find_hotel(self, hotel_id: str) -> HotelStay | None:
+        for hotel in self.hotels:
+            if hotel.id == hotel_id:
+                return hotel
+        return None
+
+    def scope_name(self, scope_id: str) -> str | None:
+        """Human label for a selected scope id (day item or stay)."""
+        found = self.find_item(scope_id)
+        if found:
+            return found[1].name
+        hotel = self.find_hotel(scope_id)
+        return hotel.name if hotel else None
+
+    def summary_for_prompt(self) -> dict[str, Any]:
+        """Small, stable projection used in router/planner prompts."""
+        return {
+            "trip_id": self.trip_id,
+            "destination": self.destination.name,
+            "dates": [self.dates.start.isoformat(), self.dates.end.isoformat()],
+            "party_size": self.party_size,
+            "budget": self.budget.model_dump() if self.budget else None,
+            "version": self.version,
+            "days": [
+                {
+                    "date": day.date.isoformat(),
+                    "title": day.title,
+                    "items": [
+                        {
+                            "id": item.id,
+                            "type": item.type.value,
+                            "name": item.name,
+                            "start": item.start,
+                            "end": item.end,
+                            "data_status": item.data_status.value,
+                            "locked": item.locked,
+                            "confirmed": item.confirmed,
+                        }
+                        for item in day.items
+                    ],
+                }
+                for day in self.days
+            ],
+        }
+
+
+# ---------------------------------------------------------------------------
+# Conversation, context, memory
+# ---------------------------------------------------------------------------
+
+
+class TripContext(BaseModel):
+    session_id: str
+    destination: str = ""
+    origin: str = ""
+    start_date: date | None = None
+    end_date: date | None = None
+    days: int | None = Field(default=None, ge=1, le=60)
+    party_size: int | None = Field(default=None, ge=1, le=20)
+    budget: float | None = Field(default=None, ge=0)
+    currency: str = "HKD"
+    hotel_style: str = ""
+    pace: str = "balanced"
+    preferences: list[str] = Field(default_factory=list)
+    hard_constraints: list[str] = Field(default_factory=list)
+    language: str = "en"
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    def missing_slots(self) -> list[str]:
+        missing: list[str] = []
+        if not self.destination.strip():
+            missing.append("destination")
+        if not self.origin.strip():
+            missing.append("origin")
+        if not self.start_date:
+            missing.append("dates")
+        elif not self.end_date and not self.days:
+            missing.append("dates")
+        if not self.party_size:
+            missing.append("party_size")
+        if self.budget is None:
+            missing.append("budget")
+        return missing
+
+    def date_range(self) -> DateRange | None:
+        if self.start_date and self.end_date:
+            return DateRange(start=self.start_date, end=self.end_date)
+        if self.start_date and self.days:
+            return DateRange(
+                start=self.start_date,
+                end=date.fromordinal(self.start_date.toordinal() + self.days - 1),
+            )
+        return None
+
+
+class RouteDecision(BaseModel):
+    intent: Intent
+    confidence: float = Field(ge=0, le=1)
+    need_clarification: bool = False
+    reason_code: str = ""
+    affected_parts: list[str] = Field(default_factory=list)
+    missing_slots: list[str] = Field(default_factory=list)
+    related_to_plan: bool = True
+    rationale: str = ""
+
+
+class Message(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("msg"))
+    session_id: str
+    role: Literal["user", "assistant", "system"]
+    content: str
+    intent: Intent | None = None
+    confidence: float | None = None
+    meta: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("user"))
+    email: str
+    display_name: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Session(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("sess"))
+    client_token: str = ""
+    user_id: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class Feedback(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("fb"))
+    trip_id: str
+    useful: bool
+    stars: int | None = Field(default=None, ge=1, le=5)
+    reason_code: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class SavedTrip(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("saved"))
+    trip_id: str
+    destination: str
+    rating: float = 0.0
+    stars: int | None = None
+    summary: str = ""
+    embedding: list[float] = Field(default_factory=list)
+    plan: TripPlan | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class PreferenceProfile(BaseModel):
+    client_token: str
+    preferences: list[str] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Agent and provider DTOs
+# ---------------------------------------------------------------------------
+
+
+class AgentResult(BaseModel):
+    agent: AgentName
+    status: AgentStatus
+    payload: dict[str, Any] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+    sources: list[SourceRef] = Field(default_factory=list)
+    failures: list[DataGap] = Field(default_factory=list)
+    elapsed_ms: int = 0
+    fetched_at: datetime = Field(default_factory=utcnow)
+
+
+class PlaceCandidate(BaseModel):
+    name: str
+    category: str = "attraction"
+    description: str = ""
+    geo: GeoPoint | None = None
+    address: str = ""
+    rating: float | None = None
+    review_count: int | None = None
+    opening_hours: list[str] = Field(default_factory=list)
+    price_level: str = ""
+    website: str = ""
+    #: a few real reviews: what visitors praise or complain about. Without these
+    #: an opinion question ("is it fun?") can only restate the editorial summary.
+    reviews: list[dict[str, Any]] = Field(default_factory=list)
+    source_refs: list[SourceRef] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+
+class HotelCandidate(BaseModel):
+    name: str
+    area: str = ""
+    geo: GeoPoint | None = None
+    nightly_price: Money | None = None
+    price_kind: PriceKind = PriceKind.NONE
+    rating: float | None = None
+    review_count: int | None = None
+    distance_to_centre_km: float | None = None
+    booking_url: str = ""
+    source_refs: list[SourceRef] = Field(default_factory=list)
+    notes: str = ""
+
+
+class FlightCandidate(BaseModel):
+    airline: str = ""
+    flight_number: str = ""
+    origin: str
+    destination: str
+    depart_at: datetime
+    arrive_at: datetime
+    duration_minutes: int | None = None
+    return_origin: str = ""
+    return_destination: str = ""
+    return_depart_at: datetime | None = None
+    return_arrive_at: datetime | None = None
+    return_duration_minutes: int | None = None
+    return_airline: str = ""
+    return_flight_number: str = ""
+    price: Money | None = None
+    price_kind: PriceKind = PriceKind.REFERENCE
+    booking_url: str = ""
+    source_refs: list[SourceRef] = Field(default_factory=list)
+
+
+class NoteItem(BaseModel):
+    title: str
+    url: str
+    source: str
+    snippet: str = ""
+    video_id: str = ""
+    thumbnail_url: str = ""
+    published_at: datetime | None = None
+    fetched_at: datetime = Field(default_factory=utcnow)
+
+
+class RouteLeg(BaseModel):
+    from_geo: GeoPoint
+    to_geo: GeoPoint
+    duration_minutes: int | None = None
+    distance_km: float | None = None
+    mode: str = "walk"
+    source: str = "estimate"
+    polyline: list[GeoPoint] = Field(default_factory=list)
+
+
+class GeoLocation(BaseModel):
+    name: str
+    country_code: str = ""
+    timezone: str = ""
+    geo: GeoPoint
+    source: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Evaluation
+# ---------------------------------------------------------------------------
+
+
+class EvalCase(BaseModel):
+    id: str
+    dataset: str
+    split: Literal["dev", "heldout"] = "dev"
+    kind: Literal["routing", "planning", "injection", "disruption", "edit"] = "planning"
+    input: str
+    expected_intent: Intent | None = None
+    destination: str = ""
+    origin: str = ""
+    days: int | None = None
+    party_size: int | None = None
+    budget: float | None = None
+    currency: str = "USD"
+    constraints: list[str] = Field(default_factory=list)
+    expected_facts: list[str] = Field(default_factory=list)
+    fault: str = ""
+
+
+class DatasetMeta(BaseModel):
+    id: str
+    name: str
+    version: str = "1.0"
+    split: Literal["dev", "heldout"] = "dev"
+    frozen: bool = False
+    item_count: int = 0
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class EvalMetric(BaseModel):
+    key: str
+    label: str
+    value: float
+    unit: str = "%"
+    baseline: float | None = None
+    delta: float | None = None
+    direction: Literal["up", "down", "flat"] = "flat"
+
+
+class EvalCaseResult(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("case"))
+    case_id: str
+    dataset: str
+    split: str
+    passed: bool
+    score: float = 0.0
+    failure_class: str = ""
+    input: str = ""
+    output_summary: str = ""
+    judge_reason: str = ""
+    judge_score: float | None = None
+    judge_flags: list[str] = Field(default_factory=list)
+    tool_summary: list[str] = Field(default_factory=list)
+    scores: dict[str, float] = Field(default_factory=dict)
+    trace_id: str = ""
+
+
+class EvaluationRun(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("run"))
+    experiment_tag: str
+    dataset_id: str
+    dataset_version: str = "1.0"
+    status: Literal["running", "completed", "failed"] = "completed"
+    metrics: list[EvalMetric] = Field(default_factory=list)
+    cases: list[EvalCaseResult] = Field(default_factory=list)
+    model_snapshot: dict[str, Any] = Field(default_factory=dict)
+    token_usage: int = 0
+    latency_ms: int = 0
+    created_at: datetime = Field(default_factory=utcnow)
+    finished_at: datetime | None = None
+
+
+class TurnEvent(BaseModel):
+    """One SSE event. `data` is JSON-serialisable."""
+
+    event: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+# TripPlan references NoteItem, which is declared later in this module.
+TripPlan.model_rebuild()

@@ -1,0 +1,175 @@
+"""Route geometry and duration. Google Routes when configured, haversine otherwise."""
+
+from __future__ import annotations
+
+from app.config import Settings
+from app.domain.models import GeoPoint, RouteLeg
+from app.infrastructure.http import haversine_km, request_json
+
+
+class GoogleRoutesSource:
+    name = "google-routes"
+
+    def __init__(self, settings: Settings):
+        self.settings = settings
+        self._key = settings.google_maps_api_key or settings.google_places_api_key
+        self.available = bool(self._key and settings.enable_routes)
+
+    async def leg(self, origin: GeoPoint, destination: GeoPoint, *, mode: str = "walk") -> RouteLeg:
+        travel_mode = {"walk": "WALK", "drive": "DRIVE", "transit": "TRANSIT"}.get(mode, "WALK")
+        data = await request_json(
+            "POST",
+            "https://routes.googleapis.com/directions/v2:computeRoutes",
+            source=self.name,
+            headers={
+                "X-Goog-Api-Key": self._key,
+                "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+                "Content-Type": "application/json",
+            },
+            payload={
+                "origin": {"location": {"latLng": {"latitude": origin.lat, "longitude": origin.lng}}},
+                "destination": {
+                    "location": {"latLng": {"latitude": destination.lat, "longitude": destination.lng}}
+                },
+                "travelMode": travel_mode,
+                "languageCode": "en",
+                "units": "METRIC",
+            },
+            timeout=self.settings.http_timeout_seconds,
+            retries=1,
+            user_agent=self.settings.user_agent,
+        )
+        routes = data.get("routes") or []
+        if not routes:
+            if mode == "transit":
+                # This key/region returns no transit geometry. Keep the transit
+                # estimate (walking + waiting) but follow the real road path so the
+                # map vehicle does not cut across buildings.
+                try:
+                    road = await self.leg(origin, destination, mode="drive")
+                    estimate = estimate_leg(origin, destination, "transit")
+                    if road.polyline:
+                        return estimate.model_copy(
+                            update={
+                                "distance_km": road.distance_km,
+                                "polyline": road.polyline,
+                                "source": "google-routes/road",
+                            }
+                        )
+                except Exception:
+                    pass
+            return estimate_leg(origin, destination, mode)
+        route = routes[0]
+        duration = str(route.get("duration") or "")
+        minutes = None
+        if duration.endswith("s"):
+            try:
+                minutes = max(1, round(float(duration[:-1]) / 60))
+            except ValueError:
+                minutes = None
+        polyline = decode_polyline(str((route.get("polyline") or {}).get("encodedPolyline") or ""))
+        return RouteLeg(
+            from_geo=origin,
+            to_geo=destination,
+            duration_minutes=minutes,
+            distance_km=(route.get("distanceMeters") or 0) / 1000 if route.get("distanceMeters") else None,
+            mode=mode,
+            source=self.name,
+            polyline=polyline,
+        )
+
+
+    async def matrix(self, points: list[GeoPoint], *, mode: str = "walk") -> list[list[float]] | None:
+        """N×N travel minutes between a day's stops (Route Matrix)."""
+        if not self.available or len(points) < 2 or len(points) > 10:
+            return None
+        travel_mode = {"walk": "WALK", "drive": "DRIVE", "transit": "TRANSIT"}.get(mode, "WALK")
+        waypoints = [
+            {"waypoint": {"location": {"latLng": {"latitude": point.lat, "longitude": point.lng}}}}
+            for point in points
+        ]
+        try:
+            data = await request_json(
+                "POST",
+                "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix",
+                source=self.name,
+                headers={
+                    "X-Goog-Api-Key": self._key,
+                    "X-Goog-FieldMask": "originIndex,destinationIndex,duration,status,condition",
+                    "Content-Type": "application/json",
+                },
+                payload={
+                    "origins": waypoints,
+                    "destinations": waypoints,
+                    "travelMode": travel_mode,
+                    "languageCode": "en",
+                    "units": "METRIC",
+                },
+                timeout=max(self.settings.http_timeout_seconds, 20),
+                retries=1,
+                user_agent=self.settings.user_agent,
+            )
+        except Exception:
+            return None
+        rows = data.get("data") if isinstance(data.get("data"), list) else data.get("rows")
+        if not isinstance(rows, list) or not rows:
+            return None
+        size = len(points)
+        table = [[float("inf")] * size for _ in range(size)]
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            origin_index = row.get("originIndex")
+            destination_index = row.get("destinationIndex")
+            duration = str(row.get("duration") or "")
+            if origin_index is None or destination_index is None or not duration.endswith("s"):
+                continue
+            try:
+                minutes = max(1.0, float(duration[:-1]) / 60)
+            except ValueError:
+                continue
+            table[int(origin_index)][int(destination_index)] = minutes
+        for index in range(size):
+            table[index][index] = 0.0
+        usable = any(
+            table[i][j] != float("inf") for i in range(size) for j in range(size) if i != j
+        )
+        return table if usable else None
+
+
+def estimate_leg(origin: GeoPoint, destination: GeoPoint, mode: str = "walk") -> RouteLeg:
+    distance = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng) * 1.25
+    speed = {"walk": 4.5, "transit": 18.0, "drive": 28.0}.get(mode, 4.5)
+    return RouteLeg(
+        from_geo=origin,
+        to_geo=destination,
+        duration_minutes=max(1, round((distance / speed) * 60)),
+        distance_km=round(distance, 2),
+        mode=mode,
+        source="estimate",
+        polyline=[origin, destination],
+    )
+
+
+def decode_polyline(encoded: str) -> list[GeoPoint]:
+    if not encoded:
+        return []
+    points: list[GeoPoint] = []
+    index = lat = lng = 0
+    while index < len(encoded):
+        for target in ("lat", "lng"):
+            shift = result = 0
+            while True:
+                byte = ord(encoded[index]) - 63
+                index += 1
+                result |= (byte & 0x1F) << shift
+                shift += 5
+                if byte < 0x20:
+                    break
+            delta = ~(result >> 1) if result & 1 else result >> 1
+            if target == "lat":
+                lat += delta
+            else:
+                lng += delta
+        points.append(GeoPoint(lat=lat / 1e5, lng=lng / 1e5))
+    return points

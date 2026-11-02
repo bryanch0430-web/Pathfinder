@@ -1,257 +1,541 @@
-# Pathfinder: Agentic Trip Planner
+# Pathfinder
 
-A state-aware agentic trip planner. A **System 1 router** sends every chat message down exactly
-one path (new trip / modify / quick question / clarify). **Four pre-planning agents**
-(attraction, hotel, weather, ticket) run in parallel inside a time budget. A **planner** merges
-their outputs and similar saved trips into a schema-validated **TripPlan**. Edits re-run only the
-affected agents and preserve confirmed items.
+**Group 1 · COMP7608B Final Project**  
+Chan Yuk Ming · Lai Helen · Ng Tsan Fung · Wong Man Kit
 
-There is no agent framework (no LangChain / LlamaIndex / CrewAI): every prompt, tool call and
-model response is built, sent and logged by our own code. Model vendors and third-party APIs are
-**provisional**; mock implementations make the whole system run offline with no API key.
+Pathfinder is a conversational, state-aware agentic trip planner. A traveller describes
+a trip in plain language. A typed System 1 router sends the turn down exactly one path —
+**plan**, **modify** or **ask** — and anything unclear is clarified instead of guessed.
+Four specialist agents gather live travel data in parallel; a grounded planner turns
+verified candidates into a day-by-day itinerary where every item carries a source and a
+freshness status.
 
-- Design choices not fixed by the proposal: [DECISIONS.md](DECISIONS.md)
-- Backend ↔ frontend contract: [contracts/openapi.json](contracts/openapi.json), [contracts/trip_plan.schema.json](contracts/trip_plan.schema.json)
+This repository is the group's implementation of the Pathfinder proposal and
+functional specification. The architecture, API and design system are documented
+under [`docs/`](docs/); the AI-use declaration is in
+[`docs/AI_USE.md`](docs/AI_USE.md).
+
+## Version notes
+
+**v1.2.0 — 1 November 2026, 23:57 HKT.** The console no longer produces answers that look
+like actions but are not: "who are you / are you a real person / which model" are answered
+instantly and honestly without a model call, a clarify about intent offers four concrete
+next steps instead of a Continue button that could only loop, and the source/freshness row
+is styled as a label rather than body text.
+
+Recent releases, newest first (full detail in [`docs/CHANGELOG.md`](docs/CHANGELOG.md)):
+
+| Version | When (HKT) | Headline |
+|---|---|---|
+| v1.2.0 | 2026-11-01 23:57 | Identity answers, useful clarify choices, label rows |
+| v1.1.0 | 2026-11-01 23:28 | Web search (DeepSeek, Grok opt-in), follow-ups, reviews, scoped stop |
+| v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
+| v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
+| v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+Known gaps at v1.2.0: flight and hotel sources are unavailable while the SerpApi account is
+out of searches, so budget figures are provisional; price estimates are deliberately not
+implemented (see `docs/SPEC.md`); rail is not connected.
+
+![Planner with a live itinerary](docs/screenshots/app_plan.png)
+
+| Selected stop and map | Evaluation | Storybook Pathfinder |
+|---|---|---|
+| ![Selected stop](docs/screenshots/app_selected.png) | ![Evaluation dashboard](docs/screenshots/app_evaluation.png) | ![Storybook planner](docs/screenshots/sb_planner.png) |
+
+| Trip details open as a drawer | Changes called out in green |
+|---|---|
+| ![Trip details drawer](docs/screenshots/app_trip_details.png) | ![Updated itinerary](docs/screenshots/app_updated.png) |
+
+| Trending rail | Traveller token on a walking leg |
+|---|---|
+| ![Trending rail](docs/screenshots/app_trending.png) | ![Walk token](docs/screenshots/map_token_walk.png) |
+
+| Budget FX monitor | Map speed and moving token |
+|---|---|
+| ![FX monitor](docs/screenshots/fx_monitor.png) | ![Map speed](docs/screenshots/map_speed.png) |
+
+| Anonymous profile and tag-style preferences | Elongated middle column, rounded right column |
+|---|---|
+| ![Profile](docs/screenshots/app_profile.png) | ![Fixed layout](docs/screenshots/layout_fixed.png) |
+
+| Signed-in account | Marked useful → saved preferences |
+|---|---|
+| ![Signed in](docs/screenshots/app_auth.png) | ![Useful](docs/screenshots/app_feedback_top.png) |
+
+| Log in / create account | Local guide with citations |
+|---|---|
+| ![Login](docs/screenshots/app_login.png) | ![Local guide](docs/screenshots/app_guides.png) |
+
+| Account menu | Signed-in profile |
+|---|---|
+| ![Account menu](docs/screenshots/app_account_menu.png) | ![Account profile](docs/screenshots/app_profile.png) |
+
+| Multi-plan tabs | Useful/not-useful at top right |
+|---|---|
+| ![Plan tabs](docs/screenshots/app_plan_tabs.png) | ![Feedback](docs/screenshots/app_feedback_top.png) |
 
 ---
 
-## 1. Local setup
+## 1. What is inside
 
-There is no Docker or Kubernetes, by design. Run everything locally.
+| Layer | Stack | What it does |
+|---|---|---|
+| **Storybook Pathfinder** | React 18 + TypeScript + Storybook 8 | The design system built first: tokens, atoms, elements, molecules, organisms, templates. |
+| **Frontend** | React 18 + Vite + TypeScript + Google Maps | The console, composed only from Storybook components. English-first UI with Simplified/Traditional Chinese as supplemental locales. Default currency **HKD**; budget FX monitor with live/static conversion. |
+| **Backend** | FastAPI + Pydantic v2 + SQLite | Typed routing, four concurrent agents, grounded planning, bounded repair, SSE streaming, memory, evaluation. |
+| **Contracts** | `contracts/openapi.json`, `contracts/trip_plan.schema.json` | The only backend ↔ frontend coupling. Regenerate with `python -m app.export_contracts`. |
 
-### Prerequisites
-- Python ≥ 3.11 and [uv](https://docs.astral.sh/uv/)
-- Node ≥ 18 and npm
-- PostgreSQL ≥ 15 with the [pgvector](https://github.com/pgvector/pgvector) extension (optional: set
-  `PATHFINDER_STORAGE_BACKEND=memory` to run without a database)
+There is no agent framework (no LangChain / LlamaIndex / CrewAI). Prompts, tool calls,
+retries, budgets and validation are our own code.
 
-### PostgreSQL + pgvector
-```sql
--- as a superuser, after installing pgvector for your PostgreSQL version
-CREATE ROLE pathfinder LOGIN PASSWORD 'pathfinder';
-CREATE DATABASE pathfinder OWNER pathfinder;
-\c pathfinder
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-The migration also runs `CREATE EXTENSION IF NOT EXISTS vector`, but creating an extension needs
-sufficient privileges, so creating it once as a superuser avoids surprises.
+### The one invariant
 
-### Backend
+> The planner may **select and order** verified candidates. It may never **create** one.
+
+An item without a source URL is rejected by the domain model. A model repair may not
+introduce a new place or a new source URL. If a source is missing, the section is
+`unavailable` and the gap is shown.
+
+---
+
+## 2. Run it
+
+### 2.1 Prerequisites
+
+- Python **3.11+** (developed on 3.13.7)
+- Node **18+** and npm (developed on Node 24.19 / npm 11.17)
+- Reference versions: FastAPI 0.141, Pydantic 2.11, httpx 0.28, uvicorn 0.47,
+  React 18.3, TypeScript 5.6, Vite 5.4, Storybook 8.6.
+
+### 2.2 Configure
+
 ```bash
-uv sync
-cp .env.example .env          # edit PATHFINDER_DATABASE_URL if needed
-uv run alembic -c backend/db/alembic.ini upgrade head
-uv run uvicorn backend.api.main:app --reload --port 8000
+cp .env.example .env
 ```
-Check it with `curl http://127.0.0.1:8000/api/health`. Interactive API docs are at `/docs`.
 
-### Frontend
+Fill the keys you have. Nothing is mandatory: with no keys the backend still starts,
+the four agents mark their sections unavailable and the planner returns an honest,
+source-grounded plan with visible gaps. `.env` is git-ignored and is not part of this
+repository; create it from `.env.example` on each machine.
+
+The writer is OpenAI-compatible. The reference configuration uses xAI
+`grok-4.20-0309-non-reasoning` — the low-latency general model measured for interactive
+turns. DeepSeek, xAI or any chat-completions endpoint works by changing
+`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
+
+`WIKIMEDIA_USER_AGENT` is preset with a contact URL and framework name. Wikimedia refuses
+a generic crawler string with HTTP 403; keep this value descriptive if you fork the
+project.
+
+### 2.3 Backend (port 8100)
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# POSIX:   source .venv/bin/activate
+pip install -r backend/requirements.txt
+# optional local hybrid RAG (BGE-small + optional BGE reranker)
+pip install -r backend/requirements-rag.txt
+
+PYTHONPATH=backend python -m uvicorn app.main:app --port 8100
+```
+
+Windows PowerShell:
+
+```powershell
+$env:PYTHONPATH = "backend"
+python -m uvicorn app.main:app --port 8100
+```
+
+Check: <http://127.0.0.1:8100/api/ready> · Swagger: <http://127.0.0.1:8100/docs>
+
+### 2.4 Frontend (port 5173)
+
 ```bash
 cd frontend
 npm install
-npm run dev                   # http://localhost:5173, proxies /api (and the WebSocket) to :8000
-npm test                      # Vitest component tests (no backend needed)
+npm run dev
 ```
-For a quick look with no keys and no database, start the backend with
-`PATHFINDER_STORAGE_BACKEND=memory uv run uvicorn backend.api.main:app --port 8000`.
-After any backend schema change, regenerate the contract and the frontend types:
+
+Vite proxies `/api` to `http://127.0.0.1:8100`; override with `VITE_API_TARGET`.
+
+For a single-origin build:
+
 ```bash
-uv run python -m backend.api.export_contracts
-cd frontend && npm run gen:types
+cd frontend
+npm run build          # writes frontend/dist
 ```
 
-### Tests
+The backend serves `frontend/dist` automatically when it exists, so
+<http://127.0.0.1:8100> is the whole application.
+
+### 2.5 Storybook Pathfinder (port 6006)
+
 ```bash
-uv run pytest                 # all offline: mock models + mock providers
-PATHFINDER_TEST_DATABASE_URL=postgresql+asyncpg://... uv run pytest -m postgres   # live pgvector tests
+cd frontend
+npm run storybook          # design-system workbench
+npm run build-storybook    # static build in frontend/storybook-static
 ```
 
----
+The Storybook is the contract for the frontend. It was built before any application
+screen; the app imports the same components rather than restyling them.
 
-## 2. Folder guide
+### 2.6 Demo accounts
 
-| Folder | What lives there |
-|---|---|
-| `backend/api/` | FastAPI app (`main.py`), routes and WebSocket (`routes.py`), request/response models (`schemas.py`), dependency injection (`deps.py`), contract export (`export_contracts.py`) |
-| `backend/agents/` | Our own agent runtime (`runtime/`: `ModelCaller`, bounded structured repair, tool-call repair loop, parallel runner under a time budget, model clients incl. the offline mock), the System 1 router (`router.py`), the four agents (`preplanning/`), `planner.py`, the modify path (`modify.py`, `merge.py`), quick questions (`ask.py`), clarification (`clarify.py`), checks (`checks.py`), route ordering (`route_order.py`), the turn orchestrator (`orchestrator.py`), all prompts (`prompts.py`) |
-| `backend/tools/` | `ToolGateway` (parse → allowlist → retry with backoff + jitter → classify → timestamp → log), `ToolRegistry` (incl. maps fallback chain), per-path allowlist, failure classification, retry policy, staleness, provider interfaces, provisional vendor stubs, mock providers + `FaultPlan` |
-| `backend/db/` | SQLAlchemy models, Alembic migrations (`alembic.ini`, `migrations/`), repository protocols (`repositories/base.py`) with pgvector, in-memory and Cosmos-stub implementations; cosine similarity search with the cutoff in SQL |
-| `backend/memory/` | Session store (TripPlan, history, preference profile), preference merging, saved-trip retrieval with similarity cutoff + reranker, embedding client, background writer to the long-term store |
-| `backend/schemas/` | Single source of truth for every shared model: TripPlan, TripContext, routing, tool requests/outcomes, agent results, memory, observability, security, turn results |
-| `backend/security/` | Injection blocklist, data fencing, canary token guard, typed-route parser, aggregate audit log (no personal data) |
-| `backend/observability/` | Trace/call recorder (in-memory + JSONL + Langfuse sink) |
-| `backend/eval/` | Evaluation harness: fixtures, 70/30 split, judge, the Appendix C metrics |
-| `backend/tests/` | Unit tests per area + `integration/` (numbered scenarios end to end) |
-| `backend/settings.py`, `backend/container.py` | All settings in one module; composition root shared by the API and the eval harness |
-| `contracts/` | Exported OpenAPI + TripPlan JSON Schema (the only backend/frontend coupling) |
-| `frontend/` | Vue 3 + TypeScript + Vite + Pinia dashboard; all HTTP/WebSocket access in `src/api/`, design tokens in `src/styles/tokens.css` (see `frontend/README.md`) |
+Local-only accounts created for testing:
 
----
-
-## 3. The paths, mapped to modules
-
-Every turn: `orchestrator.handle_turn` → `security.blocklist.screen_message` (flags only) →
-`router.System1Router.route` (fenced context + TripPlan JSON + history + preferences → typed
-`RouterDecision` via `security.routes.parse_router_output` → gate: threshold 0.8, missing key
-variables, no plan to modify) → one path:
-
-**New trip (`plan`)**
-1. `memory.retrieval.SavedTripRetriever.retrieve`: saved trips above the similarity cutoff only.
-2. `runtime.parallel.run_with_budget`: `preplanning.{Attraction,Hotel,Weather,Ticket}Agent.run` concurrently; unfinished agents are marked unavailable at the deadline.
-   Each agent: the model proposes tool calls → `tools.gateway` (allowlist, validation, retry) → `runtime.tool_use.call_tool_with_repair` (≤ 2 repairs) → typed `AgentResult` with `SourceRef`s.
-3. `planner.Planner.plan`: the model writes TripPlan JSON → `runtime.structured.complete_structured` (schema check, ≤ 2 repairs, else `PlanInvalidError` → error turn) → `finalise`: grounding against fetched records, `route_order.NearestNeighbourOrderer`, `plan_ops` (time slots, sections, cost), `checks.check_plan`.
-
-**Modify (`modify`)**
-1. `modify.ModifyPath.extract_change`: one model call → typed `ChangeRequest`.
-2. `merge.apply_change` + `merge.agents_for_change` + `tools.staleness.sections_needing_refresh` → only the affected agents run (`run_with_budget`), plus the weather-warning cascade to the attraction agent.
-3. `merge.merge_modify`: keep confirmed items, re-select hotel/tickets, enforce closures and warnings, refill and re-order touched days, cost + `check_plan`; version + 1. No planner model call.
-
-**Quick question (`ask`)**
-`ask.AskPath.run`: one model call (`AskDecision`) → `answer_from_plan` when the current plan holds a fresh fact, else exactly one gateway call on the ask allowlist → answer rendered by code with its source; relatedness to the plan is decided by code.
-
-**Unclear / below threshold / missing variables**
-`clarify.ClarifyPath.run`: one model call drafts the question (deterministic fallback); no tools, no planning.
-
-**After a plan:** `POST /plan/confirm` sets confirmed flags; `POST /plan/feedback` (useful + 1–5) → `memory.background.BackgroundWriter` saves, embeds and writes to the long-term store off the request path.
-
----
-
-## 4. Confirmed vs provisional
-
-| Component | Status | Implementation |
+| Email | Password | Name |
 |---|---|---|
-| Routing, gate, clarification, 4 agents, planner, modify path, quick question | Confirmed | Real code in `backend/agents/` |
-| Tool failure classification, retry/backoff/jitter, time budget, unavailable marking, staleness | Confirmed | Real code in `backend/tools/` |
-| Injection defence (blocklist, fencing, typed route, allowlist, canary, aggregate audit) | Confirmed | Real code in `backend/security/`, `backend/tools/allowlist.py` |
-| Session memory, background writer, similarity cutoff | Confirmed | Real code in `backend/memory/` |
-| PostgreSQL + pgvector long-term store | Confirmed (team decision) | `backend/db/repositories/pg.py` + Alembic |
-| Langfuse observability | Confirmed | `backend/observability/langfuse_sink.py` (enabled when keys are set) |
-| Evaluation harness (Appendix C metrics) | Confirmed | `backend/eval/` |
-| Router model (Jev) | **Provisional** | `JevRouterClient` stub; `MockLLMClient` |
-| Agent / planner / chat LLM (Grok 4.7 via xAI) | **Provisional** | `XAIClient` stub; `MockLLMClient` |
-| Judge model (e.g. GPT-4) | **Provisional** | `OpenAIJudgeClient` stub; mock judge |
-| Embeddings (text-embedding-3-large) | **Provisional** | `OpenAIEmbeddingClient` stub; `HashingEmbeddingClient` |
-| Reranker (Jev) | **Provisional** | `JevReranker` stub; `SimilarityReranker` |
-| Maps (Google, AMap fallback), places, weather, tickets, web search APIs | **Provisional** | stubs in `backend/tools/providers/`; mock providers |
-| Azure Cosmos DB | **Provisional** (alternative) | `backend/db/repositories/cosmos.py` stub |
+| `testaccount1@pathfinder.test` | `Pathfinder123!` | Test Account 1 |
+| `testaccount2@pathfinder.test` | `Pathfinder123!` | Test Account 2 |
+| `testaccount3@pathfinder.test` | `Pathfinder123!` | Test Account 3 |
 
-Every provisional item has a typed interface, a config entry (`.env.example`) and a
-`TODO(provisional)` marker. Selecting it raises `NotImplementedError` at startup.
+Any valid email address — including a Gmail address — can register with the normal
+email/password form. **Sign in with Google** is a separate OAuth integration; it needs a
+Google OAuth client ID and is not enabled yet.
+
+They are seeded through the normal registration endpoint. Change `AUTH_SECRET`, use real
+passwords, and remove these rows before any public deployment.
 
 ---
 
-## 5. Scenario → test map
+## 3. The turn pipeline
 
-All scenario tests run offline (`uv run pytest`). End-to-end versions are in
-`backend/tests/integration/`; unit versions are in the per-area folders.
-
-| # | Scenario | Tests |
-|---|---|---|
-| 1 | New trip → 4 agents in parallel → planner → schema check | `integration/test_routing.py::test_s01_*` |
-| 2 | Modify (hotel, dates, budget), only responsible agents, confirmed items kept | `integration/test_routing.py::test_s02_*` |
-| 3 | Quick question: from plan, or exactly one tool call; relatedness | `integration/test_routing.py::test_s03_*` |
-| 4 | Unclear / below threshold → clarification, no planning | `integration/test_routing.py::test_s04_*` |
-| 5 | Missing dates / party size / budget → clarification | `integration/test_routing.py::test_s05_*` |
-| 6 | Time budget exceeded → unavailable, plan still returned | `integration/test_planning.py::test_s06_*` |
-| 7 | Saved trips above / below similarity cutoff | `integration/test_planning.py::test_s07_*`, `memory/test_retrieval.py` |
-| 8 | Schema failure → ≤ 2 repairs → error, never an invalid plan | `integration/test_planning.py::test_s08_*` |
-| 9 | Nearest-neighbour daily route order | `integration/test_planning.py::test_s09_*` |
-| 10 | Validation error → structured error → ≤ 2 model repairs, never resent unchanged | `integration/test_tool_failures.py::test_s10_*`, `tools/test_validation.py` |
-| 11 | Timeout / rate limit / server fault → backoff + jitter in budget | `integration/test_tool_failures.py::test_s11_*`, `tools/test_retry.py` |
-| 12 | Still unusable → unavailable, never filled from model knowledge | `integration/test_tool_failures.py::test_s12_*`, `tools/test_retry.py` |
-| 13 | Timestamps, staleness, only the stale agent re-runs | `integration/test_tool_failures.py::test_s13_*`, `tools/test_staleness.py` |
-| 14 | Blocklist screen, message still treated as data | `integration/test_security.py::test_s14_*`, `security/test_s14_blocklist_fence.py` |
-| 15 | Typed route only | `integration/test_security.py::test_s15_*`, `security/test_s15_typed_route.py` |
-| 16 | Per-path allowlist, blocked + logged | `integration/test_security.py::test_s16_*`, `tools/test_allowlist.py` |
-| 17 | Canary token leakage detection | `integration/test_security.py::test_s17_*`, `security/test_s17_canary.py` |
-| 18 | Aggregate injection logging without personal data | `integration/test_security.py::test_s18_*`, `security/test_s18_audit.py` |
-| 19 | Useful plan → saved, embedded, background write | `integration/test_memory.py::test_s19_*`, `memory/test_background.py` |
-| 20 | Session memory across turns | `integration/test_memory.py::test_s20_*`, `memory/test_session.py` |
-| 21 | Evaluation harness | `backend/tests/eval/test_s21_*` (see §6) |
-
----
-
-## 6. Evaluation harness
-
-`backend/eval/` holds the fixtures and the Appendix C metrics:
-
-- Router labels: 80 utterances, starter set.
-- Injection probes: 25, starter set.
-- Hong Kong scenarios: 15, covering typhoon signal, MTR delay and venue closure.
-- Japan scenarios: 18.
-- TravelPlanner: loader stub only.
-
-The metrics are routing accuracy, constraint satisfaction, error recovery, grounding, system
-efficiency, edit-path efficiency and injection containment. Custom sets are split 70/30 into dev
-and held-out, stratified by city and constraint type, and frozen by a saved seed file.
-
-Run it offline (about 2 s for everything):
-```bash
-uv run python -m backend.eval.run                       # all metrics, held-out split
-uv run python -m backend.eval.run --metric injection --split heldout --out var/eval
-uv run python -m backend.eval.split                     # show the frozen split
 ```
-The split is frozen in `backend/eval/fixtures/splits/` (seed + per-fixture sha256). A changed
-fixture makes the CLI exit with code 2 until it is re-frozen explicitly with `--refreeze`.
-TravelPlanner is loaded but not scored (see `backend/eval/fixtures/travelplanner/README.md`).
-Details, metric definitions and current results: [backend/eval/README.md](backend/eval/README.md).
+POST /api/turn/stream (SSE)
+  screen (injection flags, aggregate log)
+  → understand (rules first; model fills only missing slots)
+  → route (typed: intent, confidence, need_clarification, reason, affected_parts)
+  → gate (threshold 0.8; missing slots; plan required for modify)
+  → ONE path:
+
+  plan    memory recall → 4 agents in parallel under a deadline
+          → planner (selects/orders candidate ids) → validators → ≤2 repairs
+  modify  typed change → only affected agents → merge preserving locked/confirmed
+          → recalculate cost/constraints → version + 1
+  ask     answer from the current plan first → else at most one allowlisted tool
+  clarify one short question about the missing slots; no tools, no planning
+```
+
+### The four agents
+
+| Agent | Owns | Fallback |
+|---|---|---|
+| **Attraction** | Places, coordinates, ratings, hours, dining candidates, community notes | Google Places → Nominatim OSM → Wikivoyage; `unavailable` if none |
+| **Hotel** | Candidates with price, rating, distance to centre | SerpApi Google Hotels → Wikivoyage Sleep; `unavailable` |
+| **Weather** | Daily forecast for the exact trip dates | Open-Meteo; dates beyond the horizon become `unavailable`, never a fabricated temperature |
+| **Ticket** | Flights with reference fares; reservation flags | SerpApi Google Flights; rail is explicitly not connected |
+
+All four run concurrently. A slow or failing agent marks only its section
+`unavailable`; the turn still returns inside `PREPLAN_BUDGET_SECONDS`.
+
+### How a day is laid out
+
+The planner chooses *which* verified stops belong to a day; the scheduler owns the clock:
+
+- **Stops are chronological.** Meals sit at their real time (lunch 12:30, dinner 19:00),
+  never appended after the afternoon.
+- **Transfers are mode-aware.** Each leg is classified by distance — walk under 2.5 km,
+  metro/bus under 35 km, car under 160 km, otherwise flight — and the next stop starts
+  after that ride plus a pace buffer. The itinerary note names the mode, matching the
+  map legend; nothing claims a multi-kilometre walk.
+- **The map follows the real roads.** `GET /api/journeys/{id}/segments` returns the provider's
+  route geometry for every leg of a day — **hotel → first stop, every stop → stop
+  (restaurants included), last stop → hotel** — and the console draws those polylines and
+  moves the traveller along them. A straight dashed line appears only when the provider
+  returns nothing for that pair.
+- **Pace shapes the day.** `slow pace` → at most 3 stops, 2 h each, 15 min of slack;
+  balanced → 4 stops; fast → 5. Empty days are rebalanced so a day is not left with one
+  stop while another has three.
+- **Early slots are data-driven, not site-specific.** The first stop opens the day at
+  08:00 when the traveller named it (`I want Fushimi Inari` → `must-see:` preference), when
+  the source says it opens by 08:30, when its review count marks it as a place crowds
+  build at, or when four stops have to fit. The same rule works in any city.
+- **No repeat stops.** Near-duplicate candidates ("Arashiyama" vs "Arashiyama Bamboo
+  Forest") are collapsed, while genuinely different places ("Kyoto National Museum" vs
+  "Kyoto Railway Museum") are kept.
+
+### Security boundary
+
+- User text is fenced as data; it never becomes an instruction.
+- A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
+  calls. Suspected injections are logged as **category + count only**.
+- Each path has an allowlist (`PATH_ALLOWLIST` in `application/toolbox.py`). `ask` can
+  never run a pre-planning agent.
+- A canary token is planted in every system prompt; any output containing it is blocked.
+- The agent never books, pays, cancels or reads an account.
 
 ---
 
-## 7. Observability
+## 4. Clean architecture
 
-Each turn is one trace. Every model call (exact request, response, token usage, latency) and
-every tool call (raw request, status, failure kind, attempts, provider, payload, fetch time) is
-recorded in memory and written as JSON lines to `var/logs/`. When
-`PATHFINDER_LANGFUSE_PUBLIC_KEY` and `PATHFINDER_LANGFUSE_SECRET_KEY` are set, the same records go
-to Langfuse.
+```
+backend/app/
+├── domain/          entities, enums, errors, provider + repository ports
+├── application/     use cases: understand, route, agents, planner, modify, ask,
+│                    clarify, memory, validation, evaluation, orchestrator
+├── infrastructure/  OpenAI-compatible writer, Jev, data providers, SQLite,
+│                    tracing, FX, prompt loading
+├── interface/       FastAPI routes, SSE, request/response models
+├── security/        blocklist, fence, canary
+└── container.py     composition root; the only place that wires concretes
+```
+
+Rules enforced by the structure:
+
+- `application/` imports `domain/` only; it never imports FastAPI, SQLite or a vendor SDK.
+- `infrastructure/` implements the domain ports; replacing a source is one class plus one
+  registration line in `providers/registry.py`.
+- `interface/` contains no business logic; it maps HTTP/SSE to the orchestrator.
+- Every external call goes through `Toolbox`, which enforces the path allowlist and logs
+  the call.
+- One turn is one trace: JSONL in `data/traces/` and Langfuse when configured.
+
+Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The A-grade gap analysis against
+comparable GitHub projects (RAG, reranking, route optimization, sharing) is in
+[`docs/GAP_ANALYSIS.md`](docs/GAP_ANALYSIS.md).
 
 ---
 
-## 8. Frontend dashboard
+## 5. Data and truthfulness
 
-A three-column dashboard (`frontend/`). Everything below runs against the mock backend with no
-keys and no database. Screenshots, described in text:
+| Fact | Source | Truth label |
+|---|---|---|
+| Attractions, ratings, hours | Google Places (New) | live when key works; `unavailable` otherwise |
+| Attraction fallback | Nominatim OSM → Wikivoyage (compliant Wikimedia User-Agent) | guide/OSM listings; no live hours |
+| Hotels | SerpApi Google Hotels | **reference** nightly rate, availability not confirmed |
+| Hotel fallback | Wikivoyage Sleep | guide listing, reference price |
+| Flights | SerpApi Google Flights | **reference** fare for the travelling party |
+| Weather | Open-Meteo | forecast, 16-day horizon |
+| Weather beyond horizon | Open-Meteo Archive | 3-year seasonal reference, marked `stale`, never a forecast |
+| Notes | YouTube Data API, Bilibili | community, last 24 months, lower trust |
+| FX | open.er-api.com (12 h cache) | live reference + dated static fallback; HKD default |
+| Map base | Google Maps everywhere | browser key served by `/api/runtime`; contextual, not navigation |
+| Map time | plan item `start`/`end` | 06:00–23:00 scrubber, play/pause, 1×/2×/4× speed, current-stop HUD |
+| Map route key | per-leg distance estimate | travelled/ahead line style, mode colours, leg list |
+| New trip / export | session + plan | scrap the old session and local pointer; Markdown export |
+| Map token mode | distance estimate from verified coordinates | walk / metro / drive / flight, labelled `est` |
+| Trending | trips marked useful, retrieved by hybrid BM25 + dense search | destination, days, year and sight names only |
+| Profile / memory | random browser token or email account | preferences, saved-trip count, recent destinations |
+| Auth | email + password + HS256 token | optional; guest mode still works |
+| Plan tabs | localStorage session list | up to several open trips; switch without regenerating |
+| Feedback | top-right of the itinerary | 1–5 stars, useful/not-useful, green saved animation |
+| Shared trip | signed-in or guest plan | read-only page; budget, party size and session id redacted |
+| Local guide RAG | 10 versioned documents (HK, Japan, USA) + citations | never used for price, hours or booking facts |
+| Route order | open-path 2-opt on the chosen day stops | synthetic benchmark: avg 91.7 km → 61.7 km (−32.7%) |
+| Useful → preferences | feedback on a plan | tags derived from structured choices; green save animation |
+| Map route | Google Routes | day route between sights; straight-line estimate fallback |
 
-**Plan tab, wide screen (≥ 1280 px).** Warm off-white page; every block is a white card with
-20 px corners and a faint shadow. The top bar has the round black Pathfinder compass logo on the
-left, a pill tab group in the middle ("Plan" is a solid black pill, "Saved trips" grey text), and
-round search and help buttons plus a peach avatar circle on the right.
-- *Left column (input and chat):* a "Your trip | Chat" switch shows one of the two at a time
-  (the trip form first; a dot on "Chat" means a plan part is selected for the next message, and a
-  question back after Generate switches to the chat by itself). "Your trip" holds the trip form (destination, dates, party size,
-  budget, origin, hotel style, hard constraints) and a black "Generate" button, which saves the
-  form and sends "Plan my trip" through the chat. Once a plan exists it folds to a one-line
-  summary with an Edit button. "Chat" shows the chat card, which opens with "Hello! Where are we going?" and
-  four outlined chips (Hotel, Tickets, Attractions, Weather). User messages are black bubbles on
-  the right; assistant replies are light bubbles on the left, each with a grey status line under
-  it ("Plan · 4 agents", "Modify · hotel agent", "Quick question"). A clarification shows as a
-  peach-edged card with inline inputs and a black "Continue" button. While a turn runs, a live
-  bubble shows the route and the agents as they start and finish. When part of the plan is
-  selected, an "About: Day 1 · Kiyomizu-dera" chip with a ✕ sits above the rounded input.
-- *Centre column (workspace):* the whole plan. The header has the destination, dates, party size
-  and the "Mark as useful" pill; a day-jump strip scrolls to a day. Each day section has a
-  selectable heading (date and forecast) and its stops in time order. Hotel and Tickets cards
-  follow, then collapsible Cost, Constraint checks, Reservations to make, Disruptions and Data
-  sections (with staleness and refresh). Selecting a day, stop, hotel or ticket scopes the next
-  chat message to it ("swap for a museum"); a selected stop also opens an editor for its times,
-  note and day, delete, and lock.
-- *Right column:* a large beige map with numbered pins for the selected day joined by a dashed
-  route from a black "H" hotel marker, round zoom/layers/close buttons, the place card for the
-  selected stop (price, opening hours, the day's weather, a travel-time estimate, "Updated …"
-  captions and "unavailable – refresh" pills), and "Budget Details" with its donut, legend (Food
-  and Other read "not tracked") and the black "Optimise my budget" pill.
+A gap is a **statement about the current plan**, not an append-only log. New versions
+drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The common cases:
 
-**Medium screens (900–1279 px)** use two columns: input and chat on the left; the workspace, then
-the map, place card and budget on the right. **Phones (< 900 px)** stack everything in one column
-(input, chat, workspace, map/details/budget), with the tabs on their own row under the logo.
-There is no horizontal scrolling at 390 px.
+- `weather`: dates outside the 16-day forecast fall back to a three-year archive average,
+  labelled `Seasonal`/`stale`. If the archive also has no rows, the gap names both dates
+  and both windows.
+- `tickets`: a departure city is now a required planning slot, so the assistant asks for
+  it instead of leaving a ticket gap. Same-city trips skip flights with a note, not a gap.
+  A round trip uses SerpApi's two-step flow (`departure_token`): the outbound and the
+  inbound leg are shown on one option with one combined fare, never a departure alone.
+- `attractions`: only a resolver failure that leaves no attraction is a gap. A failed
+  higher-priority source with a working fallback (Google → Nominatim OSM → Wikivoyage)
+  is not surfaced as a gap.
 
-**Saved trips tab:** a placeholder (the API has no list endpoint) showing what this session
-saved.
+What the system deliberately does **not** do: invent a price, an opening hour, a flight
+number or a restaurant. It also does not book. Unavailable sections stay visible.
 
-Keyboard: all controls are buttons or inputs with a visible blue focus ring. The tabs use arrow
-keys. Days, stops, the hotel and tickets select with Enter or Space; Escape (in the workspace or
-the chat input) clears the selection. Dialogs keep focus inside and close on Escape. What the API
-does not expose (popular times, Food/Other costs, travel times, a saved-trips list) is listed in
-[DECISIONS.md §12](DECISIONS.md#12-frontend-dashboard).
+---
+
+## 6. Evaluation
+
+```bash
+cd backend
+PYTHONPATH=. python -m app.eval_run --dataset hongkong --tag baseline-v1
+PYTHONPATH=. python -m app.eval_run --dataset hongkong --tag improved-v2
+PYTHONPATH=. python -m app.eval_run --dataset routing  --tag baseline-v1
+PYTHONPATH=. python -m app.eval_run --dataset injection --tag baseline-v1
+```
+
+The harness runs the **real application pipeline** against a deterministic sandbox
+provider registry, so a scored run needs no network and no model key. Datasets are
+frozen before scoring; an unfrozen dataset is refused.
+
+The soft-guide corpus is ten versioned Markdown documents covering Hong Kong,
+Japan and the USA. Each has a citation, licence, `last_verified` date, content
+hash and corpus version. Details and the quarterly update policy:
+[`docs/RAG_CORPUS.md`](docs/RAG_CORPUS.md).
+
+```bash
+cd backend && PYTHONPATH=. python -m app.guide_eval
+# {'cases': 30, 'top1': 1.0, 'mrr': 1.0, 'cross_destination_noise': 0}
+
+PYTHONPATH=. python -m app.guide_ablation
+# lexical 0.9167 Top1 → BM25/dense/hybrid 1.0;
+# BGE reranker 1.0 but 263.9 ms vs 10.8 ms hybrid — no gain on this corpus
+```
+
+The default guide path is **BM25 + BGE-small hybrid**; the BGE cross-encoder is
+opt-in (`/api/handbook?...&rerank=true`) and stays off until a larger, harder
+corpus shows a gain. Jev is still the System 1 router, not a reranker.
+
+```bash
+cd backend && PYTHONPATH=. python -m app.route_bench
+# avg_before_km 91.681 → avg_after_km 61.696 (−32.71%) on 40 synthetic 6-stop days
+```
+
+The route pass is open-path 2-opt over the day's chosen stops; the benchmark is synthetic,
+not live-traffic evidence. Markdown/CSV export are built into the **Evaluation** tab.
+Reports land in
+`data/eval/<run_id>.md`.
+
+The evaluation tab needs at least one run; after the two `hongkong` commands above it
+shows a real comparison and a trend line. Full method and current results:
+[`docs/EVALUATION.md`](docs/EVALUATION.md).
+
+---
+
+## 7. Tests
+
+```bash
+cd backend
+PYTHONPATH=. python -m pytest
+```
+
+The suite is offline and covers: injection screen/fence/canary, typed routing and the
+confidence gate, grounded planner composition, minimal hotel edit with preserved stops,
+allowlist enforcement, memory cutoff, the evaluation harness, and the HTTP/SSE surface.
+
+```bash
+cd frontend
+npm run typecheck
+npm run build
+npm run build-storybook
+```
+
+Verified in this workspace: **61 backend tests pass**, TypeScript is clean, the app
+builds, and Storybook builds. Live end-to-end turns were exercised against the real
+APIs (plan, ask, hotel swap) and captured in `docs/screenshots/`.
+
+---
+
+## 8. Demo walkthrough
+
+See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
+
+1. **Plan** — fill Kyoto, 10–13 Nov 2026, 2 travellers, 400,000 JPY → Generate.
+   Watch the four agents, then the itinerary, map, sources and budget.
+2. **Select** a stop → the map pin, place card and scope chip follow.
+3. **Ask** “What is the weather on day 2?” → answered from the plan, no re-planning.
+4. **Modify** “Swap the hotel for the other option.” → only the hotel agent reruns;
+   version becomes 2; every stop is preserved.
+5. **Evaluation** → run `hongkong` twice, compare metrics, open a failed case, export.
+6. **Settings** → thresholds, freshness windows, provider chains, aggregate injection log.
+
+---
+
+## 9. Known limitations (declared, not hidden)
+
+- **No booking and no live inventory.** Hotel/flight prices are reference figures. The
+  user completes the purchase.
+- **A budget request is an honest search, not a guarantee.** "Cheaper"/"optimise the
+  budget" re-runs the hotel and flight agents, keeps the cheapest verified combination,
+  and — when it is still over — states the cheapest total, how far over it is, and which
+  line dominates (usually flights). It never deletes confirmed stops or invents a price.
+  A round-trip flight search costs up to four SerpApi calls (one outbound list plus one
+  `departure_token` call per shown option).
+- **Rail is not connected to a live schedule.** The ticket agent says so; it does not
+  estimate a fare.
+- **Weather beyond ~16 days** is not a forecast. It is filled from a three-year
+  archive average, explicitly labelled `Seasonal` and `stale`; if the archive also has
+  nothing, the gap explains the date range and both failed windows.
+- **Long-term memory is SQLite + a deterministic hashed embedding**, not pgvector. It is
+  a deliberate single-node trade-off; weak matches are excluded by the cutoff.
+- **The map is contextual, not a navigation map.** Google Maps is the single base map
+  everywhere, including Hong Kong and mainland China. The day route uses the routes
+  provider's real geometry (plus the hotel legs and restaurant stops) and only falls back
+  to a straight line when no route comes back. Playback follows the vehicle and rolls into
+  the next day on its own. Tile requests need network; if the base fails, pins and route
+  still render on paper. One browser key (`GOOGLE_MAPS_API_KEY`) is served by
+  `/api/runtime`; the backend never calls a map vendor.
+- **Transport modes on the map are estimates** from straight-line distance, not live
+  routing. The token switches walk/metro/drive/flight and every leg labels `est`;
+  flight appears on long intercity legs (>160 km), so a single-city plan normally shows
+  walk, metro and drive.
+- **Trending is workspace-local and retrieval-based.** Only trips marked useful are
+  indexed; a query, the current destination and the caller's own preference tags are run
+  through BM25 + a dense vector, fused with reciprocal rank fusion, then aggregated into
+  cards. It exposes no owner, budget, party size, session id or other traveller's
+  preferences. Seed a platform-sized corpus with
+  `backend/scripts/seed_platform_demo.py`; see `docs/TRENDING_RAG.md`.
+- **Profile works logged-out or logged-in.** Guests use a random browser token; email
+  accounts are optional and merge the guest preferences on first login. Clearing memory
+  removes saved trips and preferences; clearing chat removes messages but keeps the current
+  plan. **New trip** deletes the current session row and local pointer, so a stale
+  `pathfinder.session` cannot pin the console to an old plan.
+- **Export** writes Markdown from structured fields and sources, not a model transcript.
+- **Local-guide RAG is a lexical baseline.** It is destination-filtered and cited, and the
+  eval set reports Top1/MRR/noise; an embedding/cross-encoder reranker (including Jev) is
+  still a measured next step, not a claim.
+- **Share links are public and currently permanent.** Redaction removes budget, party size,
+  session id and client token; link revocation and comments remain roadmap.
+- **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
+  are HS256 JWTs; change `AUTH_SECRET` outside a local demo.
+- **Origin is required for planning.** It is a gate slot, so a plan without a departure
+  city asks for it instead of silently skipping tickets.
+- **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
+  not live providers; live behaviour is captured separately in traces and screenshots.
+- **Chinese locales are supplemental.** The product, prompts, plan narrative and traces
+  are English-first; the Chinese dictionaries cover the console chrome, not every
+  generated sentence.
+- **No authentication.** The first release uses an anonymous browser session. Admin
+  endpoints use a local token; change it before exposing the process.
+- **Policy thresholds are environment-configured.** The Settings screen is intentionally
+  read-only; changing a threshold means editing `.env`, restarting and recording the diff.
+
+---
+
+## 10. Repository map
+
+```
+Pathfinder_v1/
+├── backend/
+│   ├── app/                 layered application (domain → application → infrastructure → interface)
+│   ├── tests/               offline pytest suite
+│   └── eval/fixtures/       routing, injection, HK, Japan, TravelPlanner fixtures
+├── frontend/
+│   ├── src/design-system/   Storybook Pathfinder: tokens, components, stories, fixtures
+│   ├── src/app/             application pages
+│   ├── src/lib/             API client, session hook, i18n
+│   └── .storybook/          Storybook configuration
+├── contracts/               OpenAPI + TripPlan JSON Schema
+├── docs/                    spec, architecture, API, design, evaluation, demo
+├── samples/                 ordinary, changed and failure-case inputs
+├── scripts/                 dev helpers
+├── .env.example
+└── README.md
+```
+
+---
+
+## 11. Non-functional targets
+
+| Target | Value | How it is enforced |
+|---|---|---|
+| Turn latency | interactive: typical live plan 12–20 s | fast writer model; agents parallel; budget 90 s |
+| Agent deadline | 30 s each | `asyncio.wait_for` + overall `asyncio.wait` |
+| Repair bound | 2 | `MAX_REPAIRS`; then a typed error, never a dirty plan |
+| Routing gate | 0.8 | configurable; below it the turn clarifies |
+| Memory cutoff | 0.72 | configurable; weak matches are not injected |
+| Freshness | weather 6 h, tickets 24 h, hotels 7 d, attractions 30 d | timestamps on every item |
+| Privacy | no identity data in long-term memory | schema + aggregate injection log |
+| Observability | one trace per turn | JSONL always; Langfuse when keys are set |
+
+---
+
+## 12. AI use
+
+AI-use declaration: [`docs/AI_USE.md`](docs/AI_USE.md).  
+Functional baseline: [`docs/SPEC.md`](docs/SPEC.md).
+
+Credentials are not part of the submission. `.env` is ignored; `.env.example` documents
+every variable. Regenerate contracts and screenshots rather than committing secrets.

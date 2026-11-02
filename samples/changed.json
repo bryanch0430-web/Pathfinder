@@ -1,0 +1,28 @@
+{
+  "name": "changed-request",
+  "description": "A minimal edit after an accepted plan. Only the hotel agent should rerun.",
+  "session": {
+    "client_token": "sample-changed"
+  },
+  "context": {
+    "destination": "Kyoto",
+    "origin": "Hong Kong",
+    "start_date": "2026-11-10",
+    "end_date": "2026-11-13",
+    "party_size": 2,
+    "budget": 400000,
+    "currency": "JPY"
+  },
+  "turns": ["Plan my trip.", "Swap the hotel for the other option."],
+  "expected": {
+    "route": "modify",
+    "affected_parts": ["hotel"],
+    "version": 2,
+    "checks": [
+      "attraction names are unchanged",
+      "only the hotel is replaced",
+      "cost and remaining budget are recalculated",
+      "the assistant says everything else is unchanged"
+    ]
+  }
+}

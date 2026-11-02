@@ -1,0 +1,41 @@
+[
+  {
+    "id": "jp01",
+    "input": "Plan a 4-day Kyoto trip for 2 people starting 2027-04-10, budget 400000 JPY, must include Fushimi Inari.",
+    "expected_intent": "plan",
+    "destination": "Kyoto",
+    "origin": "Hong Kong",
+    "days": 4,
+    "party_size": 2,
+    "budget": 400000,
+    "currency": "JPY",
+    "constraints": ["must include Fushimi Inari", "stay within budget"],
+    "split": "dev"
+  },
+  {
+    "id": "jp02",
+    "input": "Plan a 5-day Tokyo trip for 3 people starting 2027-05-03, budget 600000 JPY.",
+    "expected_intent": "plan",
+    "destination": "Tokyo",
+    "origin": "Hong Kong",
+    "days": 5,
+    "party_size": 3,
+    "budget": 600000,
+    "currency": "JPY",
+    "constraints": ["stay within budget"],
+    "split": "dev"
+  },
+  {
+    "id": "jp03",
+    "input": "Plan a 3-day Osaka trip for 2 people starting 2027-06-12, budget 250000 JPY, vegetarian food preferred.",
+    "expected_intent": "plan",
+    "destination": "Osaka",
+    "origin": "Taipei",
+    "days": 3,
+    "party_size": 2,
+    "budget": 250000,
+    "currency": "JPY",
+    "constraints": ["stay within budget"],
+    "split": "heldout"
+  }
+]

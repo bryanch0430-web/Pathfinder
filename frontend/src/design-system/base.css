@@ -1,0 +1,111 @@
+/* Base layer: reset + typography + shared primitives. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--pf-bg);
+  color: var(--pf-ink);
+  font-family: var(--p30-type-family-sans);
+  font-size: var(--p30-type-size-body-md);
+  line-height: var(--p30-type-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--pf-accent);
+  text-decoration-color: var(--p30-tone-brand-border);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  text-decoration-color: var(--pf-accent);
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:focus-visible {
+  outline: var(--p30-stroke-thick) solid var(--p30-tone-feedback-info);
+  outline-offset: 2px;
+  border-radius: var(--p30-round-xs);
+}
+
+::selection {
+  background: var(--p30-tone-brand-muted);
+  color: var(--p30-tone-neutral-gray900);
+}
+
+.pf-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pf-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--p30-tone-neutral-gray300) transparent;
+}
+
+.pf-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.pf-scroll::-webkit-scrollbar-thumb {
+  background: var(--p30-tone-neutral-gray300);
+  border-radius: var(--p30-round-pill);
+}
+
+.pf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

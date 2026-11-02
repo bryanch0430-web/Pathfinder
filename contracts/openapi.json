@@ -1,25 +1,24 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Pathfinder API",
-    "description": "State-aware agentic trip planner. The frontend's only coupling is this contract (and the shared TripPlan JSON Schema in contracts/).",
-    "version": "0.1.0"
+    "title": "Pathfinder",
+    "description": "Pathfinder — agentic trip planner. English first.",
+    "version": "1.0.0"
   },
   "paths": {
-    "/api/health": {
+    "/api/ready": {
       "get": {
-        "tags": [
-          "meta"
-        ],
         "summary": "Health",
-        "operationId": "health_api_health_get",
+        "operationId": "health_api_ready_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Api Ready Get"
                 }
               }
             }
@@ -27,13 +26,413 @@
         }
       }
     },
-    "/api/sessions": {
-      "post": {
-        "tags": [
-          "sessions"
+    "/api/runtime": {
+      "get": {
+        "summary": "Config",
+        "operationId": "config_api_runtime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Config Api Runtime Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wallet": {
+      "get": {
+        "summary": "Fx Rates",
+        "operationId": "fx_rates_api_wallet_get",
+        "parameters": [
+          {
+            "name": "base",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3,
+              "default": "HKD",
+              "title": "Base"
+            }
+          }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fx Rates Api Wallet Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wallet/convert": {
+      "get": {
+        "summary": "Fx Convert",
+        "operationId": "fx_convert_api_wallet_convert_get",
+        "parameters": [
+          {
+            "name": "amount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 1.0,
+              "title": "Amount"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3,
+              "default": "HKD",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3,
+              "default": "USD",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fx Convert Api Wallet Convert Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/places/suggest": {
+      "get": {
+        "summary": "Place Suggestions",
+        "description": "Destination autocomplete (Places API New). Public, no secrets returned.",
+        "operationId": "place_suggestions_api_places_suggest_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 80,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Place Suggestions Api Places Suggest Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/handbook": {
+      "get": {
+        "summary": "Guides",
+        "operationId": "guides_api_handbook_get",
+        "parameters": [
+          {
+            "name": "destination",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 80,
+              "title": "Destination"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 6,
+              "minimum": 1,
+              "default": 3,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "rerank",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Rerank"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Guides Api Handbook Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/signup": {
+      "post": {
+        "summary": "Register",
+        "operationId": "register_api_account_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Api Account Signup Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/signin": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_api_account_signin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Login Api Account Signin Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/whoami": {
+      "get": {
+        "summary": "Me",
+        "operationId": "me_api_account_whoami_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Me Api Account Whoami Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/attach": {
+      "post": {
+        "summary": "Claim",
+        "operationId": "claim_api_account_attach_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Claim Api Account Attach Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys": {
+      "post": {
         "summary": "Create Session",
-        "operationId": "create_session_api_sessions_post",
+        "operationId": "create_session_api_journeys_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -45,12 +444,14 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionView"
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Session Api Journeys Post"
                 }
               }
             }
@@ -68,13 +469,10 @@
         }
       }
     },
-    "/api/sessions/{session_id}": {
+    "/api/journeys/{session_id}": {
       "get": {
-        "tags": [
-          "sessions"
-        ],
         "summary": "Get Session",
-        "operationId": "get_session_api_sessions__session_id__get",
+        "operationId": "get_session_api_journeys__session_id__get",
         "parameters": [
           {
             "name": "session_id",
@@ -92,20 +490,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionView"
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Session Api Journeys  Session Id  Get"
                 }
               }
             }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -116,305 +506,104 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/sessions/{session_id}/context": {
-      "put": {
-        "tags": [
-          "sessions"
-        ],
-        "summary": "Update Context",
-        "operationId": "update_context_api_sessions__session_id__context_put",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateContextRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionView"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sessions/{session_id}/messages": {
-      "post": {
-        "tags": [
-          "chat"
-        ],
-        "summary": "Post Message",
-        "description": "409 when `focus` is sent without a plan; 422 when `focus` names a part not in the plan.",
-        "operationId": "post_message_api_sessions__session_id__messages_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChatRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TurnResult"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sessions/{session_id}/plan/confirm": {
-      "post": {
-        "tags": [
-          "plan"
-        ],
-        "summary": "Confirm Items",
-        "operationId": "confirm_items_api_sessions__session_id__plan_confirm_post",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConfirmRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TripPlan"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unprocessable Content"
-          }
-        }
-      }
-    },
-    "/api/sessions/{session_id}/plan/items/{item_id}": {
-      "patch": {
-        "tags": [
-          "plan"
-        ],
-        "summary": "Patch Plan Item",
-        "description": "Edit one stop by hand (no AI): times, note, or move it to another trip day. 409 without a\nplan or when the stop is locked; 422 for an unknown stop, end <= start, or a day outside the\ntrip.",
-        "operationId": "patch_plan_item_api_sessions__session_id__plan_items__item_id__patch",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanItemPatch"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TripPlan"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unprocessable Content"
           }
         }
       },
       "delete": {
-        "tags": [
-          "plan"
+        "summary": "Discard Session",
+        "operationId": "discard_session_api_journeys__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
         ],
-        "summary": "Delete Plan Item",
-        "description": "Delete one stop by hand (no AI). 409 without a plan or when the stop is locked; 422 for an\nunknown stop.",
-        "operationId": "delete_plan_item_api_sessions__session_id__plan_items__item_id__delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Discard Session Api Journeys  Session Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/state": {
+      "patch": {
+        "summary": "Patch Context",
+        "operationId": "patch_context_api_journeys__session_id__state_patch",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContextPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Context Api Journeys  Session Id  State Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/itinerary": {
+      "get": {
+        "summary": "Get Plan",
+        "operationId": "get_plan_api_journeys__session_id__itinerary_get",
         "parameters": [
           {
             "name": "session_id",
@@ -426,12 +615,19 @@
             }
           },
           {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
+            "name": "version",
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Item Id"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
             }
           }
         ],
@@ -441,51 +637,169 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TripPlan"
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Plan Api Journeys  Session Id  Itinerary Get"
                 }
               }
             }
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
           "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Unprocessable Content"
+            }
           }
         }
       }
     },
-    "/api/sessions/{session_id}/plan/feedback": {
-      "post": {
-        "tags": [
-          "plan"
+    "/api/journeys/{session_id}/revisions": {
+      "get": {
+        "summary": "Get Versions",
+        "operationId": "get_versions_api_journeys__session_id__revisions_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
         ],
-        "summary": "Plan Feedback",
-        "operationId": "plan_feedback_api_sessions__session_id__plan_feedback_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Versions Api Journeys  Session Id  Revisions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/geometry": {
+      "get": {
+        "summary": "Get Map",
+        "operationId": "get_map_api_journeys__session_id__geometry_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Map Api Journeys  Session Id  Geometry Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/segments": {
+      "get": {
+        "summary": "Get Legs",
+        "operationId": "get_legs_api_journeys__session_id__segments_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "day",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Legs Api Journeys  Session Id  Segments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/rating": {
+      "post": {
+        "summary": "Feedback",
+        "operationId": "feedback_api_journeys__session_id__rating_post",
         "parameters": [
           {
             "name": "session_id",
@@ -513,30 +827,846 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FeedbackResponse"
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Feedback Api Journeys  Session Id  Rating Post"
                 }
               }
             }
           },
-          "404": {
+          "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Not Found"
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/share": {
+      "post": {
+        "summary": "Share Session",
+        "operationId": "share_session_api_journeys__session_id__share_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Share Session Api Journeys  Session Id  Share Post"
+                }
+              }
+            }
           },
-          "409": {
+          "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Conflict"
+            }
+          }
+        }
+      }
+    },
+    "/api/public/{slug}": {
+      "get": {
+        "summary": "Shared Json",
+        "operationId": "shared_json_api_public__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Shared Json Api Public  Slug  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{slug}": {
+      "get": {
+        "summary": "Shared Page",
+        "operationId": "shared_page_s__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/turns": {
+      "delete": {
+        "summary": "Clear Messages",
+        "operationId": "clear_messages_api_journeys__session_id__turns_delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Clear Messages Api Journeys  Session Id  Turns Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traveller": {
+      "get": {
+        "summary": "Get Profile",
+        "operationId": "get_profile_api_traveller_get",
+        "parameters": [
+          {
+            "name": "client_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 120,
+              "default": "anonymous",
+              "title": "Client Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Profile Api Traveller Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Patch Profile",
+        "operationId": "patch_profile_api_traveller_patch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Profile Api Traveller Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recall/clear": {
+      "post": {
+        "summary": "Clear Memory",
+        "operationId": "clear_memory_api_recall_clear_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Clear Memory Api Recall Clear Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist": {
+      "get": {
+        "summary": "Saved Trips",
+        "operationId": "saved_trips_api_wishlist_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Saved Trips Api Wishlist Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/popular": {
+      "get": {
+        "summary": "Trending",
+        "description": "Hybrid retrieval over useful-marked trips. Public fields only.",
+        "operationId": "trending_api_popular_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "default": 6,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "client_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 120,
+              "default": "",
+              "title": "Client Token"
+            }
+          },
+          {
+            "name": "destination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "default": "",
+              "title": "Destination"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Trending Api Popular Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/turn/stream": {
+      "post": {
+        "summary": "Chat Stream",
+        "operationId": "chat_stream_api_turn_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval/suites": {
+      "get": {
+        "summary": "Eval Datasets",
+        "operationId": "eval_datasets_api_eval_suites_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Eval Datasets Api Eval Suites Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval/suites/{dataset_id}/lock": {
+      "post": {
+        "summary": "Freeze Dataset",
+        "operationId": "freeze_dataset_api_eval_suites__dataset_id__lock_post",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Freeze Dataset Api Eval Suites  Dataset Id  Lock Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval/trials": {
+      "get": {
+        "summary": "Eval Runs",
+        "operationId": "eval_runs_api_eval_trials_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Eval Runs Api Eval Trials Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Run Eval",
+        "operationId": "run_eval_api_eval_trials_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Eval Api Eval Trials Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval/trials/{run_id}": {
+      "get": {
+        "summary": "Eval Run",
+        "operationId": "eval_run_api_eval_trials__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Eval Run Api Eval Trials  Run Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval/trials/{run_id}/export": {
+      "get": {
+        "summary": "Eval Export",
+        "operationId": "eval_export_api_eval_trials__run_id__export_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eval/contrast": {
+      "get": {
+        "summary": "Eval Compare",
+        "operationId": "eval_compare_api_eval_contrast_get",
+        "parameters": [
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "A"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "B"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Eval Compare Api Eval Contrast Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/threats": {
+      "get": {
+        "summary": "Injections",
+        "operationId": "injections_api_admin_threats_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Injections Api Admin Threats Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/spans/{request_id}": {
+      "get": {
+        "summary": "Trace",
+        "operationId": "trace_api_admin_spans__request_id__get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Trace Api Admin Spans  Request Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{full_path}": {
+      "get": {
+        "summary": "Spa",
+        "operationId": "spa__full_path__get",
+        "parameters": [
+          {
+            "name": "full_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Full Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -554,1436 +1684,139 @@
   },
   "components": {
     "schemas": {
-      "AgentName": {
-        "type": "string",
-        "enum": [
-          "attraction",
-          "hotel",
-          "weather",
-          "ticket"
-        ],
-        "title": "AgentName",
-        "description": "The four pre-planning agents. Each owns one section of the TripPlan."
-      },
-      "ChatRequest": {
+      "AuthRequest": {
         "properties": {
-          "message": {
+          "email": {
             "type": "string",
-            "maxLength": 4000,
-            "minLength": 1,
-            "title": "Message"
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email"
           },
-          "focus": {
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Display Name",
+            "default": ""
+          },
+          "client_token": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Client Token",
+            "default": ""
+          },
+          "session_id": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/PlanFocus"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "The part of the current plan this message is about (plan workspace selection)"
+            "title": "Session Id"
           }
         },
-        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "AuthRequest"
+      },
+      "ChatRequest": {
+        "properties": {
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale",
+            "default": "en"
+          },
+          "client_token": {
+            "type": "string",
+            "title": "Client Token",
+            "default": ""
+          },
+          "scope_item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Item Id"
+          }
+        },
         "type": "object",
         "required": [
           "message"
         ],
         "title": "ChatRequest"
       },
-      "CheckName": {
-        "type": "string",
-        "enum": [
-          "dates",
-          "budget",
-          "route",
-          "tickets"
-        ],
-        "title": "CheckName",
-        "description": "The check-and-merge checks named in Appendix A: dates, budget, route, tickets."
-      },
-      "Clarification": {
-        "properties": {
-          "text": {
-            "type": "string",
-            "title": "Text"
-          },
-          "reason": {
-            "$ref": "#/components/schemas/GateReason"
-          },
-          "missing_fields": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Fields"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "text",
-          "reason"
-        ],
-        "title": "Clarification"
-      },
-      "ConfirmRequest": {
-        "properties": {
-          "item_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Item Ids"
-          },
-          "ticket_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Ticket Ids"
-          },
-          "hotel": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hotel"
-          },
-          "confirmed": {
-            "type": "boolean",
-            "title": "Confirmed",
-            "default": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "ConfirmRequest"
-      },
-      "ConstraintKind": {
-        "type": "string",
-        "enum": [
-          "budget",
-          "must_visit",
-          "avoid",
-          "dates",
-          "party",
-          "free_text"
-        ],
-        "title": "ConstraintKind",
-        "description": "Hard-constraint classes; also the stratification key for the 70/30 eval split."
-      },
-      "ConstraintViolation": {
-        "properties": {
-          "check": {
-            "$ref": "#/components/schemas/CheckName"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          },
-          "item_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Item Ids"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "check",
-          "message"
-        ],
-        "title": "ConstraintViolation"
-      },
-      "ConversationTurn": {
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": [
-              "user",
-              "assistant"
-            ],
-            "title": "Role"
-          },
-          "content": {
-            "type": "string",
-            "title": "Content"
-          },
-          "route": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Route"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "role",
-          "content"
-        ],
-        "title": "ConversationTurn"
-      },
-      "CostBreakdown": {
-        "properties": {
-          "currency": {
-            "type": "string",
-            "maxLength": 3,
-            "minLength": 3,
-            "title": "Currency"
-          },
-          "hotel": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Hotel"
-          },
-          "tickets": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Tickets"
-          },
-          "attractions": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Attractions"
-          },
-          "total": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Total"
-          },
-          "complete": {
-            "type": "boolean",
-            "title": "Complete",
-            "description": "False when a priced section is unavailable"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "currency",
-          "hotel",
-          "tickets",
-          "attractions",
-          "total",
-          "complete"
-        ],
-        "title": "CostBreakdown"
-      },
-      "CreateSessionRequest": {
-        "properties": {
-          "context": {
-            "$ref": "#/components/schemas/TripContext"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "CreateSessionRequest"
-      },
-      "DailyForecast": {
-        "properties": {
-          "date": {
-            "type": "string",
-            "format": "date",
-            "title": "Date"
-          },
-          "summary": {
-            "type": "string",
-            "title": "Summary"
-          },
-          "temp_min_c": {
-            "type": "number",
-            "title": "Temp Min C"
-          },
-          "temp_max_c": {
-            "type": "number",
-            "title": "Temp Max C"
-          },
-          "precipitation_chance": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Precipitation Chance"
-          },
-          "warning_signal": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Warning Signal"
-          },
-          "source": {
-            "$ref": "#/components/schemas/SourceRef"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "date",
-          "summary",
-          "temp_min_c",
-          "temp_max_c",
-          "precipitation_chance",
-          "source"
-        ],
-        "title": "DailyForecast"
-      },
-      "DayPlan": {
-        "properties": {
-          "date": {
-            "type": "string",
-            "format": "date",
-            "title": "Date"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ItineraryItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "forecast": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DailyForecast"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "date"
-        ],
-        "title": "DayPlan"
-      },
-      "Disruption": {
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/DisruptionKind"
-          },
-          "detail": {
-            "type": "string",
-            "title": "Detail"
-          },
-          "date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
-          },
-          "affected_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Affected Ids"
-          },
-          "detected_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Detected At"
-          },
-          "resolved": {
-            "type": "boolean",
-            "title": "Resolved",
-            "default": false
-          },
-          "resolution": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolution"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "detail"
-        ],
-        "title": "Disruption"
-      },
-      "DisruptionKind": {
-        "type": "string",
-        "enum": [
-          "venue_closed",
-          "weather_warning",
-          "transit_delay"
-        ],
-        "title": "DisruptionKind"
-      },
-      "ErrorResponse": {
-        "properties": {
-          "detail": {
-            "type": "string",
-            "title": "Detail"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "detail"
-        ],
-        "title": "ErrorResponse"
-      },
-      "FeedbackRequest": {
-        "properties": {
-          "useful": {
-            "type": "boolean",
-            "title": "Useful"
-          },
-          "rating": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Rating"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "useful",
-          "rating"
-        ],
-        "title": "FeedbackRequest"
-      },
-      "FeedbackResponse": {
-        "properties": {
-          "queued": {
-            "type": "boolean",
-            "title": "Queued"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "queued"
-        ],
-        "title": "FeedbackResponse"
-      },
-      "FocusKind": {
-        "type": "string",
-        "enum": [
-          "day",
-          "item",
-          "hotel",
-          "ticket"
-        ],
-        "title": "FocusKind",
-        "description": "The plan parts a chat message can be scoped to (plan workspace selection)."
-      },
-      "GateReason": {
-        "type": "string",
-        "enum": [
-          "accepted",
-          "below_threshold",
-          "model_flagged",
-          "unclear_route",
-          "missing_fields",
-          "untyped_output",
-          "no_plan_to_modify"
-        ],
-        "title": "GateReason"
-      },
-      "GateResult": {
-        "properties": {
-          "route": {
-            "$ref": "#/components/schemas/Route"
-          },
-          "reason": {
-            "$ref": "#/components/schemas/GateReason"
-          },
-          "decision": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RouterDecision"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "missing_fields": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Fields"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "route",
-          "reason"
-        ],
-        "title": "GateResult",
-        "description": "Final routing outcome after the clarification gate. `route` is the path actually taken:\nanything not accepted becomes `Route.UNCLEAR` (clarify and return the turn to the user)."
-      },
-      "GeoPoint": {
-        "properties": {
-          "lat": {
-            "type": "number",
-            "maximum": 90.0,
-            "minimum": -90.0,
-            "title": "Lat"
-          },
-          "lng": {
-            "type": "number",
-            "maximum": 180.0,
-            "minimum": -180.0,
-            "title": "Lng"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "lat",
-          "lng"
-        ],
-        "title": "GeoPoint"
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "HardConstraint": {
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/ConstraintKind"
-          },
-          "value": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Value",
-            "description": "Place name, category or text"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "value"
-        ],
-        "title": "HardConstraint"
-      },
-      "HealthResponse": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "const": "ok",
-            "title": "Status",
-            "default": "ok"
-          },
-          "storage_backend": {
-            "type": "string",
-            "title": "Storage Backend"
-          },
-          "router_provider": {
-            "type": "string",
-            "title": "Router Provider"
-          },
-          "agent_llm_provider": {
-            "type": "string",
-            "title": "Agent Llm Provider"
-          },
-          "langfuse_enabled": {
-            "type": "boolean",
-            "title": "Langfuse Enabled"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "storage_backend",
-          "router_provider",
-          "agent_llm_provider",
-          "langfuse_enabled"
-        ],
-        "title": "HealthResponse"
-      },
-      "Hotel": {
-        "properties": {
-          "hotel_id": {
-            "type": "string",
-            "title": "Hotel Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "location": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GeoPoint"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "nightly_price": {
-            "$ref": "#/components/schemas/Money"
-          },
-          "rating": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 5.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rating"
-          },
-          "style": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Style"
-          },
-          "distance_km": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Distance Km",
-            "description": "To the destination centre"
-          },
-          "source": {
-            "$ref": "#/components/schemas/SourceRef"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "hotel_id",
-          "name",
-          "nightly_price",
-          "source"
-        ],
-        "title": "Hotel"
-      },
-      "HotelStay": {
-        "properties": {
-          "hotel": {
-            "$ref": "#/components/schemas/Hotel"
-          },
-          "check_in": {
-            "type": "string",
-            "format": "date",
-            "title": "Check In"
-          },
-          "check_out": {
-            "type": "string",
-            "format": "date",
-            "title": "Check Out"
-          },
-          "confirmed": {
-            "type": "boolean",
-            "title": "Confirmed",
-            "default": false
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "hotel",
-          "check_in",
-          "check_out"
-        ],
-        "title": "HotelStay"
-      },
-      "ItineraryItem": {
-        "properties": {
-          "item_id": {
-            "type": "string",
-            "title": "Item Id"
-          },
-          "place_id": {
-            "type": "string",
-            "title": "Place Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "start_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start Time"
-          },
-          "end_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Time"
-          },
-          "confirmed": {
-            "type": "boolean",
-            "title": "Confirmed",
-            "description": "Confirmed items survive modify turns",
-            "default": false
-          },
-          "needs_reservation": {
-            "type": "boolean",
-            "title": "Needs Reservation",
-            "default": false
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "item_id",
-          "place_id",
-          "title"
-        ],
-        "title": "ItineraryItem"
-      },
-      "Money": {
-        "properties": {
-          "amount": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Amount"
-          },
-          "currency": {
-            "type": "string",
-            "maxLength": 3,
-            "minLength": 3,
-            "title": "Currency",
-            "description": "ISO 4217 code"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "amount",
-          "currency"
-        ],
-        "title": "Money"
-      },
-      "Place": {
-        "properties": {
-          "place_id": {
-            "type": "string",
-            "title": "Place Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "category": {
-            "type": "string",
-            "title": "Category"
-          },
-          "location": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GeoPoint"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "rating": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 5.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rating"
-          },
-          "indoor": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Indoor"
-          },
-          "price": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Money"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Per person admission"
-          },
-          "needs_reservation": {
-            "type": "boolean",
-            "title": "Needs Reservation",
-            "default": false
-          },
-          "closed_dates": {
-            "items": {
-              "type": "string",
-              "format": "date"
-            },
-            "type": "array",
-            "title": "Closed Dates"
-          },
-          "opening_hours": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Opening Hours"
-          },
-          "source": {
-            "$ref": "#/components/schemas/SourceRef"
-          },
-          "geocode_source": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SourceRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "place_id",
-          "name",
-          "category",
-          "source"
-        ],
-        "title": "Place"
-      },
-      "PlanFocus": {
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/FocusKind"
-          },
-          "id": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "id"
-        ],
-        "title": "PlanFocus",
-        "description": "The one part of the current plan a chat message is about."
-      },
-      "PlanItemPatch": {
-        "properties": {
-          "start_time": {
-            "type": "string",
-            "format": "time",
-            "title": "Start Time",
-            "description": "Local time, HH:MM"
-          },
-          "end_time": {
-            "type": "string",
-            "format": "time",
-            "title": "End Time",
-            "description": "Local time, HH:MM"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "day": {
-            "type": "string",
-            "format": "date",
-            "title": "Day",
-            "description": "Move the stop to this trip date"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "PlanItemPatch",
-        "description": "Body of PATCH /api/sessions/{session_id}/plan/items/{item_id}. Only the fields sent\nchange: `note: null` clears the note; times and day cannot be null. At least one field."
-      },
-      "PreferenceProfile": {
-        "properties": {
-          "hotel_style": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hotel Style"
-          },
-          "liked_categories": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Liked Categories"
-          },
-          "avoided_categories": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Avoided Categories"
-          },
-          "budget_hint": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Money"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "party_size_hint": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Party Size Hint"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "PreferenceProfile",
-        "description": "What the user liked, kept as session memory and persisted by the background writer."
-      },
-      "QuickAnswer": {
-        "properties": {
-          "text": {
-            "type": "string",
-            "title": "Text"
-          },
-          "from_plan": {
-            "type": "boolean",
-            "title": "From Plan",
-            "description": "True when the current TripPlan already held the fact"
-          },
-          "related_to_plan": {
-            "type": "boolean",
-            "title": "Related To Plan"
-          },
-          "tool_called": {
-            "type": "boolean",
-            "title": "Tool Called"
-          },
-          "unavailable": {
-            "type": "boolean",
-            "title": "Unavailable",
-            "description": "The one tool call failed",
-            "default": false
-          },
-          "sources": {
-            "items": {
-              "$ref": "#/components/schemas/SourceRef"
-            },
-            "type": "array",
-            "title": "Sources"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "text",
-          "from_plan",
-          "related_to_plan",
-          "tool_called"
-        ],
-        "title": "QuickAnswer"
-      },
-      "Reservation": {
-        "properties": {
-          "place_name": {
-            "type": "string",
-            "title": "Place Name"
-          },
-          "place_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Place Id"
-          },
-          "lead_time_days": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Lead Time Days"
-          },
-          "booking_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Booking Url"
-          },
-          "source": {
-            "$ref": "#/components/schemas/SourceRef"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "place_name",
-          "lead_time_days",
-          "source"
-        ],
-        "title": "Reservation"
-      },
-      "Route": {
-        "type": "string",
-        "enum": [
-          "plan",
-          "modify",
-          "ask",
-          "unclear"
-        ],
-        "title": "Route",
-        "description": "The only outputs the System 1 router may produce (proposal: typed intent)."
-      },
-      "RouterDecision": {
-        "properties": {
-          "route": {
-            "$ref": "#/components/schemas/Route"
-          },
-          "confidence": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Confidence",
-            "description": "Route probability"
-          },
-          "clarity": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Clarity",
-            "description": "How fully specified the request is"
-          },
-          "needs_clarification": {
-            "type": "boolean",
-            "title": "Needs Clarification"
-          },
-          "affected_parts": {
-            "items": {
-              "$ref": "#/components/schemas/AgentName"
-            },
-            "type": "array",
-            "title": "Affected Parts",
-            "description": "For 'modify': the parts System 1 names as changed"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "route",
-          "confidence",
-          "clarity",
-          "needs_clarification"
-        ],
-        "title": "RouterDecision"
-      },
-      "SectionState": {
-        "properties": {
-          "agent": {
-            "$ref": "#/components/schemas/AgentName"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SectionStatus"
-          },
-          "fetched_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fetched At"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "tool_call_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tool Call Ids"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "agent",
-          "status"
-        ],
-        "title": "SectionState"
-      },
-      "SectionStatus": {
-        "type": "string",
-        "enum": [
-          "ok",
-          "unavailable",
-          "stale"
-        ],
-        "title": "SectionStatus",
-        "description": "State of one agent-owned section of a plan.\n\n`unavailable` means the source could not be used; the section is left empty rather than\nfilled from model knowledge. `stale` means the data is older than the configured limit and\nis marked for refresh on the next modify turn."
-      },
-      "SessionView": {
+      "ClaimRequest": {
         "properties": {
           "session_id": {
             "type": "string",
             "title": "Session Id"
           },
-          "context": {
-            "$ref": "#/components/schemas/TripContext"
-          },
-          "plan": {
+          "client_token": {
+            "type": "string",
+            "title": "Client Token",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "ClaimRequest"
+      },
+      "ContextPatch": {
+        "properties": {
+          "destination": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/TripPlan"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
-          },
-          "history": {
-            "items": {
-              "$ref": "#/components/schemas/ConversationTurn"
-            },
-            "type": "array",
-            "title": "History"
-          },
-          "preferences": {
-            "$ref": "#/components/schemas/PreferenceProfile"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "session_id",
-          "context",
-          "plan",
-          "history",
-          "preferences"
-        ],
-        "title": "SessionView"
-      },
-      "SourceRef": {
-        "properties": {
-          "tool": {
-            "$ref": "#/components/schemas/ToolName"
-          },
-          "call_id": {
-            "type": "string",
-            "title": "Call Id"
-          },
-          "provider": {
-            "type": "string",
-            "title": "Provider"
-          },
-          "fetched_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Fetched At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "tool",
-          "call_id",
-          "provider",
-          "fetched_at"
-        ],
-        "title": "SourceRef"
-      },
-      "TicketOption": {
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "title": "Ticket Id"
-          },
-          "direction": {
-            "type": "string",
-            "enum": [
-              "outbound",
-              "return"
             ],
-            "title": "Direction"
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "train",
-              "flight"
-            ],
-            "title": "Mode"
-          },
-          "carrier": {
-            "type": "string",
-            "title": "Carrier"
+            "title": "Destination"
           },
           "origin": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Origin"
-          },
-          "destination": {
-            "type": "string",
-            "title": "Destination"
-          },
-          "depart_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Depart At"
-          },
-          "arrive_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Arrive At"
-          },
-          "price": {
-            "$ref": "#/components/schemas/Money",
-            "description": "Per person"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "scheduled",
-              "delayed",
-              "cancelled"
-            ],
-            "title": "Status",
-            "default": "scheduled"
-          },
-          "delay_minutes": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Delay Minutes",
-            "default": 0
-          },
-          "confirmed": {
-            "type": "boolean",
-            "title": "Confirmed",
-            "default": false
-          },
-          "source": {
-            "$ref": "#/components/schemas/SourceRef"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "direction",
-          "mode",
-          "carrier",
-          "origin",
-          "destination",
-          "depart_at",
-          "arrive_at",
-          "price",
-          "source"
-        ],
-        "title": "TicketOption"
-      },
-      "ToolName": {
-        "type": "string",
-        "enum": [
-          "web_search",
-          "maps",
-          "weather",
-          "places",
-          "tickets"
-        ],
-        "title": "ToolName",
-        "description": "Tool families from Appendix A (\"Tools the steps call\")."
-      },
-      "TripContext": {
-        "properties": {
-          "destination": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Destination"
-          },
-          "origin": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Origin",
-            "description": "Departure city for train/flight tickets"
           },
           "start_date": {
             "anyOf": [
@@ -2026,7 +1859,7 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 50.0,
+                "maximum": 20.0,
                 "minimum": 1.0
               },
               {
@@ -2038,62 +1871,16 @@
           "budget": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Money"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "hotel_style": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
+                "type": "number",
+                "minimum": 0.0
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Hotel Style"
+            "title": "Budget"
           },
-          "hard_constraints": {
-            "items": {
-              "$ref": "#/components/schemas/HardConstraint"
-            },
-            "type": "array",
-            "title": "Hard Constraints"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "TripContext"
-      },
-      "TripPlan": {
-        "properties": {
-          "schema_version": {
-            "type": "string",
-            "const": "1.0",
-            "title": "Schema Version",
-            "default": "1.0"
-          },
-          "plan_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Plan Id"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Version",
-            "default": 1
-          },
-          "destination": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Destination"
-          },
-          "origin": {
+          "currency": {
             "anyOf": [
               {
                 "type": "string"
@@ -2102,302 +1889,178 @@
                 "type": "null"
               }
             ],
-            "title": "Origin"
+            "title": "Currency"
           },
-          "start_date": {
+          "hotel_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hotel Style"
+          },
+          "pace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pace"
+          },
+          "preferences": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferences"
+          },
+          "hard_constraints": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hard Constraints"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "title": "ContextPatch"
+      },
+      "CreateSessionRequest": {
+        "properties": {
+          "client_token": {
             "type": "string",
-            "format": "date",
-            "title": "Start Date"
-          },
-          "end_date": {
+            "title": "Client Token",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "CreateSessionRequest"
+      },
+      "EvalRunRequest": {
+        "properties": {
+          "dataset_id": {
             "type": "string",
-            "format": "date",
-            "title": "End Date"
+            "title": "Dataset Id"
           },
-          "party_size": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Party Size"
+          "experiment_tag": {
+            "type": "string",
+            "title": "Experiment Tag",
+            "default": "baseline-v1"
           },
-          "budget": {
+          "split": {
+            "type": "string",
+            "title": "Split",
+            "default": "all"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_id"
+        ],
+        "title": "EvalRunRequest"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "useful": {
+            "type": "boolean",
+            "title": "Useful"
+          },
+          "stars": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Money"
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Stars"
           },
-          "days": {
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code",
+            "default": ""
+          },
+          "client_token": {
+            "type": "string",
+            "title": "Client Token",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "useful"
+        ],
+        "title": "FeedbackRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
             "items": {
-              "$ref": "#/components/schemas/DayPlan"
+              "$ref": "#/components/schemas/ValidationError"
             },
             "type": "array",
-            "minItems": 1,
-            "title": "Days"
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ProfilePatch": {
+        "properties": {
+          "client_token": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Client Token"
           },
-          "places": {
-            "items": {
-              "$ref": "#/components/schemas/Place"
-            },
-            "type": "array",
-            "title": "Places"
-          },
-          "hotel": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/HotelStay"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "tickets": {
-            "items": {
-              "$ref": "#/components/schemas/TicketOption"
-            },
-            "type": "array",
-            "title": "Tickets"
-          },
-          "reservations": {
-            "items": {
-              "$ref": "#/components/schemas/Reservation"
-            },
-            "type": "array",
-            "title": "Reservations"
-          },
-          "sections": {
-            "items": {
-              "$ref": "#/components/schemas/SectionState"
-            },
-            "type": "array",
-            "title": "Sections"
-          },
-          "cost": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CostBreakdown"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "violations": {
-            "items": {
-              "$ref": "#/components/schemas/ConstraintViolation"
-            },
-            "type": "array",
-            "title": "Violations"
-          },
-          "disruptions": {
-            "items": {
-              "$ref": "#/components/schemas/Disruption"
-            },
-            "type": "array",
-            "title": "Disruptions"
-          },
-          "saved_trip_refs": {
+          "preferences": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Saved Trip Refs"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
+            "maxItems": 30,
+            "title": "Preferences"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "required": [
-          "plan_id",
-          "destination",
-          "start_date",
-          "end_date",
-          "party_size",
-          "days"
+          "client_token"
         ],
-        "title": "TripPlan"
-      },
-      "TurnError": {
-        "properties": {
-          "code": {
-            "$ref": "#/components/schemas/TurnErrorCode"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
-        "title": "TurnError"
-      },
-      "TurnErrorCode": {
-        "type": "string",
-        "enum": [
-          "plan_invalid",
-          "internal"
-        ],
-        "title": "TurnErrorCode"
-      },
-      "TurnMetrics": {
-        "properties": {
-          "llm_calls": {
-            "type": "integer",
-            "title": "Llm Calls",
-            "default": 0
-          },
-          "tool_calls": {
-            "type": "integer",
-            "title": "Tool Calls",
-            "default": 0
-          },
-          "input_tokens": {
-            "type": "integer",
-            "title": "Input Tokens",
-            "default": 0
-          },
-          "output_tokens": {
-            "type": "integer",
-            "title": "Output Tokens",
-            "default": 0
-          },
-          "latency_ms": {
-            "type": "number",
-            "title": "Latency Ms",
-            "default": 0.0
-          },
-          "agents_run": {
-            "items": {
-              "$ref": "#/components/schemas/AgentName"
-            },
-            "type": "array",
-            "title": "Agents Run"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "TurnMetrics"
-      },
-      "TurnResult": {
-        "properties": {
-          "session_id": {
-            "type": "string",
-            "title": "Session Id"
-          },
-          "trace_id": {
-            "type": "string",
-            "title": "Trace Id"
-          },
-          "route": {
-            "$ref": "#/components/schemas/Route"
-          },
-          "gate": {
-            "$ref": "#/components/schemas/GateResult"
-          },
-          "reply": {
-            "type": "string",
-            "title": "Reply"
-          },
-          "plan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TripPlan"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "plan_changed": {
-            "type": "boolean",
-            "title": "Plan Changed",
-            "default": false
-          },
-          "answer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QuickAnswer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "clarification": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Clarification"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TurnError"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "input_flagged": {
-            "type": "boolean",
-            "title": "Input Flagged",
-            "default": false
-          },
-          "agents_run": {
-            "items": {
-              "$ref": "#/components/schemas/AgentName"
-            },
-            "type": "array",
-            "title": "Agents Run"
-          },
-          "metrics": {
-            "$ref": "#/components/schemas/TurnMetrics"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "session_id",
-          "trace_id",
-          "route",
-          "gate",
-          "reply"
-        ],
-        "title": "TurnResult"
-      },
-      "UpdateContextRequest": {
-        "properties": {
-          "context": {
-            "$ref": "#/components/schemas/TripContext"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "context"
-        ],
-        "title": "UpdateContextRequest"
+        "title": "ProfilePatch"
       },
       "ValidationError": {
         "properties": {
@@ -2438,100 +2101,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "TurnEventType": {
-        "enum": [
-          "route",
-          "agent_started",
-          "agent_finished",
-          "plan",
-          "answer",
-          "clarification",
-          "error",
-          "done"
-        ],
-        "title": "TurnEventType",
-        "type": "string"
-      },
-      "TurnEvent": {
-        "additionalProperties": false,
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/TurnEventType"
-          },
-          "trace_id": {
-            "title": "Trace Id",
-            "type": "string"
-          },
-          "at": {
-            "format": "date-time",
-            "title": "At",
-            "type": "string"
-          },
-          "route": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Route"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "agent": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AgentName"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "status": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SectionStatus"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Message"
-          },
-          "result": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TurnResult"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Set on the final 'done' event"
-          }
-        },
-        "required": [
-          "type",
-          "trace_id"
-        ],
-        "title": "TurnEvent",
-        "type": "object"
       }
     }
   }

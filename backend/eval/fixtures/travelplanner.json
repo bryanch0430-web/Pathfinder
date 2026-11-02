@@ -1,0 +1,28 @@
+[
+  {
+    "id": "tp01",
+    "input": "Plan a 3-day trip to New York for 2 people, budget 2500 USD, must include the Metropolitan Museum of Art.",
+    "expected_intent": "plan",
+    "destination": "New York",
+    "origin": "London",
+    "days": 3,
+    "party_size": 2,
+    "budget": 2500,
+    "currency": "USD",
+    "constraints": ["must include the Metropolitan Museum of Art", "stay within budget"],
+    "split": "dev"
+  },
+  {
+    "id": "tp02",
+    "input": "Plan a 4-day trip to San Francisco for 1 person, budget 1800 USD.",
+    "expected_intent": "plan",
+    "destination": "San Francisco",
+    "origin": "Tokyo",
+    "days": 4,
+    "party_size": 1,
+    "budget": 1800,
+    "currency": "USD",
+    "constraints": ["stay within budget"],
+    "split": "heldout"
+  }
+]
