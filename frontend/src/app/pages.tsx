@@ -20,6 +20,7 @@ import {
   runEval,
   saveProfilePreferences,
 } from "../lib/api";
+import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
 
 export function SavedPage() {
@@ -28,7 +29,7 @@ export function SavedPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSavedTrips()
+    getSavedTrips(ensureClientToken())
       .then((data) => setTrips(data.trips))
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load saved trips."))
       .finally(() => setLoading(false));
@@ -133,7 +134,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const clientToken = localStorage.getItem("pathfinder.client") || "anonymous";
+  const clientToken = ensureClientToken();
 
   useEffect(() => {
     getConfig()
@@ -156,7 +157,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
 
   const handleClearMemory = () => {
     if (!window.confirm("Clear saved trips and remembered preferences? Your current itinerary and chat stay.")) return;
-    void clearMemory()
+    void clearMemory(clientToken)
       .then(() => getProfile(clientToken))
       .then(setProfile)
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Memory could not be cleared."));

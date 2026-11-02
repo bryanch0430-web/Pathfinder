@@ -182,8 +182,9 @@ export function saveProfilePreferences(clientToken: string, preferences: string[
   });
 }
 
-export function clearMemory(): Promise<{ cleared: boolean; saved_trips: number; preferences: number }> {
-  return request("/api/recall/clear", { method: "POST" });
+/** Clears only the caller's saved trips and preferences (guest token, or the signed-in bearer). */
+export function clearMemory(clientToken: string): Promise<{ cleared: boolean; saved_trips: number; preferences: number }> {
+  return request("/api/recall/clear", { method: "POST", body: JSON.stringify({ client_token: clientToken }) });
 }
 
 export function getGuides(destination: string, q = ""): Promise<{ items: GuideChunk[]; note: string; retrieval?: { mode: string; reranked: boolean } }> {
@@ -210,10 +211,11 @@ export async function getTrending(
   return request(`/api/popular${suffix ? `?${suffix}` : ""}`);
 }
 
-export async function getSavedTrips(): Promise<{
+/** The caller's own saved trips (guest token, or the signed-in bearer). */
+export async function getSavedTrips(clientToken: string): Promise<{
   trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
 }> {
-  return request("/api/wishlist");
+  return request(`/api/wishlist?client_token=${encodeURIComponent(clientToken)}`);
 }
 
 export async function getEvalDatasets(): Promise<{ datasets: EvalDataset[] }> {

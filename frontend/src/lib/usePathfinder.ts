@@ -25,7 +25,8 @@ import type {
 const SESSION_KEY = "pathfinder.session";
 const TOKEN_KEY = "pathfinder.client";
 
-function clientToken(): string {
+/** The profile token the API resolves with the bearer: a guest UUID, or `user:<id>` once signed in. */
+export function clientToken(): string {
   let token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
     token = crypto.randomUUID();

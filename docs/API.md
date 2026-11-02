@@ -109,10 +109,16 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | POST | `/api/journeys/{id}/share` | — | `{slug,url}`; public read-only redacted trip |
 | GET | `/s/{slug}` | — | public HTML trip |
 | GET | `/api/public/{slug}` | — | public JSON trip |
-| GET | `/api/traveller?client_token=` | — | anonymous preferences, counts, destinations |
-| PATCH | `/api/traveller` | `{client_token, preferences}` | `{profile}` |
-| POST | `/api/recall/clear` | — | deletes saved trips and remembered preferences |
-| GET | `/api/wishlist?limit=` | — | saved-trip summaries |
+| GET | `/api/traveller?client_token=` | — | the caller's preferences, counts, destinations |
+| PATCH | `/api/traveller` | `{client_token?, preferences}` | `{profile}` |
+| POST | `/api/recall/clear` | `{client_token?}` | `{cleared, saved_trips, preferences}`: deletes only the caller's saved trips and preferences |
+| GET | `/api/wishlist?limit=&client_token=` | — | the caller's saved-trip summaries |
+
+**Caller identity** (traveller, recall/clear, wishlist, rating preferences): a valid
+`Authorization: Bearer` token is `user:<id>`; otherwise the guest `client_token`. A
+`client_token` of `user:<id>` without that user's bearer, or no identity at all, is `401`.
+A useful rating saves the trip for the journey's owner; signing in moves the guest's saved
+trips and preferences to the account.
 | GET | `/api/popular?q=&limit=&client_token=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`) |
 
 A `useful` feedback saves the plan in a background task with its embedding. The feedback
@@ -120,9 +126,9 @@ endpoint never blocks the response on the write. Trending prefers those **marked
 plans; until one exists it falls back to anonymous workspace plans.
 
 Clearing chat removes only `messages` for that session. The context and current plan stay,
-so the traveller can keep working. Clearing memory removes saved trips and preferences;
-the current chat/plan stay. Profile data is keyed by a random token in localStorage, not an
-account.
+so the traveller can keep working. Clearing memory removes the caller's saved trips and
+preferences; the current chat/plan stay. Guest profile data is keyed by a random token in
+localStorage; a signed-in profile is keyed by `user:<id>` and needs the bearer.
 
 ### Trending
 

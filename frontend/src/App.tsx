@@ -118,6 +118,10 @@ export default function App() {
       .then((data) => setAuthUser(data.user))
       .catch(() => {
         localStorage.removeItem("pathfinder.auth");
+        // A `user:` profile token is refused without its bearer, so fall back
+        // to the guest token, as signing out does.
+        const guest = localStorage.getItem("pathfinder.guest");
+        if (guest) localStorage.setItem("pathfinder.client", guest);
         setAuthUser(null);
       });
   }, []);

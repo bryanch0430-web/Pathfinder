@@ -67,7 +67,10 @@ class MemoryService:
             limit=3,
         )
 
-    def save_useful_trip(self, plan: TripPlan, *, stars: int | None = None) -> SavedTrip:
+    def save_useful_trip(
+        self, plan: TripPlan, *, stars: int | None = None, owner: str | None = None
+    ) -> SavedTrip:
+        """Remember a useful trip for `owner` (`user:<id>` or a guest token)."""
         text = " ".join(
             [
                 plan.destination.name,
@@ -87,10 +90,18 @@ class MemoryService:
             plan=plan,
             created_at=utcnow(),
         )
-        self.store.save_saved_trip(saved)
+        self.store.save_saved_trip(saved, owner=owner)
         return saved
 
-    def record_feedback(self, plan: TripPlan, *, useful: bool, stars: int | None, reason_code: str) -> Feedback:
+    def record_feedback(
+        self,
+        plan: TripPlan,
+        *,
+        useful: bool,
+        stars: int | None,
+        reason_code: str,
+        owner: str | None = None,
+    ) -> Feedback:
         feedback = Feedback(
             trip_id=plan.trip_id,
             useful=useful,
@@ -99,7 +110,7 @@ class MemoryService:
         )
         self.store.add_feedback(feedback)
         if useful:
-            self.save_useful_trip(plan, stars=stars)
+            self.save_useful_trip(plan, stars=stars, owner=owner)
         return feedback
 
     def remember_preferences(self, client_token: str, context: TripContext) -> PreferenceProfile:

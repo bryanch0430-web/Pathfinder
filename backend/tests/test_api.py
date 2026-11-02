@@ -97,7 +97,10 @@ def test_register_login_and_owned_sessions(client: TestClient) -> None:
     )
     assert merged.status_code == 200
     profile_token = merged.json()["profile_token"]
-    profile = client.get("/api/traveller", params={"client_token": profile_token})
+    # A signed-in profile is read with that account's bearer, never by token alone.
+    assert client.get("/api/traveller", params={"client_token": profile_token}).status_code == 401
+    merged_headers = {"Authorization": f"Bearer {merged.json()['token']}"}
+    profile = client.get("/api/traveller", params={"client_token": profile_token}, headers=merged_headers)
     assert "museums" in profile.json()["preferences"]
 
 
@@ -136,9 +139,14 @@ def test_anonymous_profile_and_clear_memory(client: TestClient) -> None:
     )
     assert saved.status_code == 200
     assert saved.json()["profile"]["preferences"] == ["museums", "slow pace"]
-    cleared = client.post("/api/recall/clear")
+    # Clearing needs an identity and only clears that caller's memory.
+    assert client.post("/api/recall/clear").status_code == 401
+    cleared = client.post("/api/recall/clear", json={"client_token": "profile-test"})
     assert cleared.status_code == 200
     assert cleared.json()["cleared"] is True
+    assert cleared.json()["preferences"] == 1
+    after = client.get("/api/traveller", params={"client_token": "profile-test"})
+    assert after.json()["preferences"] == []
 
 
 def test_trending_exposes_only_public_aggregate_fields(client: TestClient) -> None:

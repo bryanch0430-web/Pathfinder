@@ -70,8 +70,13 @@ class ChatRequest(BaseModel):
 
 
 class ProfilePatch(BaseModel):
-    client_token: str = Field(min_length=1, max_length=120)
+    #: guest token; may be empty when a bearer identifies the caller
+    client_token: str = Field(default="", max_length=120)
     preferences: list[str] = Field(default_factory=list, max_length=30)
+
+
+class ClearMemoryRequest(BaseModel):
+    client_token: str = Field(default="", max_length=120)
 
 
 class AuthRequest(BaseModel):
@@ -98,6 +103,9 @@ class EvalRunRequest(BaseModel):
     dataset_id: str
     experiment_tag: str = "baseline-v1"
     split: str = "all"
+
+
+USER_PREFIX = "user:"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -222,6 +230,48 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return None
         return c.store.get_user(str(payload.get("sub", "")))
 
+    def checked_user(request: Request, c, client_token: str) -> User | None:
+        """The bearer's user, refusing a `user:` token that is not the bearer's own."""
+        user = current_user(request, c)
+        if client_token.strip().startswith(USER_PREFIX):
+            if user is None or client_token.strip() != f"{USER_PREFIX}{user.id}":
+                raise HTTPException(status_code=401, detail="Sign in to use this profile.")
+        return user
+
+    def resolve_identity(request: Request, c, client_token: str = "") -> str:
+        """The one identity that owns a caller's profile, saved trips and memory.
+
+        A valid bearer is `user:<id>`; otherwise the guest `client_token`. A
+        `user:` token without that user's bearer, or no identity at all, is 401.
+        """
+        token = (client_token or "").strip()
+        user = checked_user(request, c, token)
+        if user is not None:
+            return f"{USER_PREFIX}{user.id}"
+        if token:
+            return token
+        raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+
+    def session_owner(session) -> str:
+        """Identity that owns a session: its account, else its guest token."""
+        if session.user_id:
+            return f"{USER_PREFIX}{session.user_id}"
+        token = (session.client_token or "").strip()
+        # A user: token on an unowned session was never proven with a bearer.
+        return "" if token.startswith(USER_PREFIX) else token
+
+    def adopt_guest_memory(c, client_token: str, profile_token: str) -> None:
+        """On sign-in, move a guest's preferences and saved trips to the account.
+
+        Only guest tokens are adopted: a `user:` token here would let one
+        account absorb another account's memory.
+        """
+        guest = (client_token or "").strip()
+        if not guest or guest == profile_token or guest.startswith(USER_PREFIX):
+            return
+        c.store.merge_preferences(guest, profile_token)
+        c.store.reassign_saved_trips(guest, profile_token)
+
     def auth_response(c, user: User) -> dict[str, Any]:
         token = create_token(user.id, user.email, settings.auth_secret, settings.auth_token_hours)
         profile_token = f"user:{user.id}"
@@ -274,9 +324,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=409, detail="An account with that email already exists.")
         user = User(email=email, display_name=payload.display_name.strip() or email.split("@")[0])
         c.store.create_user(user, hash_password(payload.password))
-        profile_token = f"user:{user.id}"
-        if payload.client_token:
-            c.store.merge_preferences(payload.client_token, profile_token)
+        profile_token = f"{USER_PREFIX}{user.id}"
+        adopt_guest_memory(c, payload.client_token, profile_token)
         if payload.session_id:
             session = c.store.get_session(payload.session_id)
             if session and not session.user_id:
@@ -291,9 +340,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not found or not verify_password(payload.password, found[1]):
             raise HTTPException(status_code=401, detail="Email or password is incorrect.")
         user = found[0]
-        profile_token = f"user:{user.id}"
-        if payload.client_token and payload.client_token != profile_token:
-            c.store.merge_preferences(payload.client_token, profile_token)
+        profile_token = f"{USER_PREFIX}{user.id}"
+        adopt_guest_memory(c, payload.client_token, profile_token)
         if payload.session_id:
             session = c.store.get_session(payload.session_id)
             if session and not session.user_id:
@@ -337,7 +385,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/journeys")
     async def create_session(payload: CreateSessionRequest, request: Request) -> dict[str, Any]:
         c = container(request)
-        user = current_user(request, c)
+        user = checked_user(request, c, payload.client_token)
         session = c.store.create_session(payload.client_token, user.id if user else "")
         context = TripContext(
             session_id=session.id,
@@ -432,10 +480,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         background: BackgroundTasks,
     ) -> dict[str, Any]:
         c = container(request)
-        require_session(c, request, session_id)
+        session = require_session(c, request, session_id)
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
+        token = (payload.client_token or session.client_token).strip()
+        if token and payload.useful:
+            # Derived preferences go to the caller's own profile only.
+            token = resolve_identity(request, c, token)
         record = Feedback(
             trip_id=plan.trip_id,
             useful=payload.useful,
@@ -445,8 +497,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c.store.add_feedback(record)
         added: list[str] = []
         if payload.useful:
-            background.add_task(c.memory.save_useful_trip, plan, stars=payload.stars)
-            token = (payload.client_token or c.store.get_session(session_id).client_token).strip()
+            background.add_task(
+                c.memory.save_useful_trip,
+                plan,
+                stars=payload.stars,
+                owner=session_owner(session) or None,
+            )
             if token:
                 context = c.store.get_context(session_id)
                 derived = derive_preferences(plan, context)
@@ -525,29 +581,37 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
     @app.get("/api/traveller")
     async def get_profile(
         request: Request,
-        client_token: str = Query(default="anonymous", max_length=120),
+        client_token: str = Query(default="", max_length=120),
     ) -> dict[str, Any]:
-        return container(request).store.client_profile(client_token)
+        c = container(request)
+        return c.store.client_profile(resolve_identity(request, c, client_token))
 
     @app.patch("/api/traveller")
     async def patch_profile(payload: ProfilePatch, request: Request) -> dict[str, Any]:
         c = container(request)
+        identity = resolve_identity(request, c, payload.client_token)
         profile = PreferenceProfile(
-            client_token=payload.client_token,
+            client_token=identity,
             preferences=[value.strip() for value in payload.preferences if value.strip()][:20],
         )
         c.store.upsert_preferences(profile)
-        return {"profile": c.store.client_profile(payload.client_token)}
+        return {"profile": c.store.client_profile(identity)}
 
     @app.post("/api/recall/clear")
-    async def clear_memory(request: Request) -> dict[str, Any]:
-        cleared = container(request).store.clear_memory()
+    async def clear_memory(request: Request, payload: ClearMemoryRequest | None = None) -> dict[str, Any]:
+        c = container(request)
+        identity = resolve_identity(request, c, payload.client_token if payload else "")
+        cleared = c.store.clear_memory(identity)
         return {"cleared": True, **cleared}
 
     @app.get("/api/wishlist")
-    async def saved_trips(request: Request, limit: int = Query(default=20, ge=1, le=100)) -> dict[str, Any]:
+    async def saved_trips(
+        request: Request,
+        limit: int = Query(default=20, ge=1, le=100),
+        client_token: str = Query(default="", max_length=120),
+    ) -> dict[str, Any]:
         c = container(request)
-        trips = c.store.list_saved_trips(limit)
+        trips = c.store.list_saved_trips_for_owner(resolve_identity(request, c, client_token), limit)
         return {
             "trips": [
                 {
@@ -595,7 +659,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         c = container(request)
         session_id = payload.session_id
         if not session_id:
-            user = current_user(request, c)
+            user = checked_user(request, c, payload.client_token)
             session = c.store.create_session(payload.client_token, user.id if user else "")
             session_id = session.id
             c.store.save_context(

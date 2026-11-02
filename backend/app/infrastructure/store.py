@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS kept_journeys (
   summary TEXT NOT NULL DEFAULT '',
   embedding TEXT NOT NULL,
   data TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  owner TEXT
 );
 CREATE TABLE IF NOT EXISTS share_links (
   slug TEXT PRIMARY KEY,
@@ -165,6 +166,16 @@ class SQLiteStore:
             columns = {row["name"] for row in conn.execute("PRAGMA table_info(journeys)")}
             if "user_id" not in columns:
                 conn.execute("ALTER TABLE journeys ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
+            # Saved trips belong to one identity (`user:<id>` or a guest token).
+            # Legacy rows keep a NULL owner and are never listed per user.
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(kept_journeys)")}
+            if "owner" not in columns:
+                conn.execute("ALTER TABLE kept_journeys ADD COLUMN owner TEXT")
+            # One row per owner and trip: saving the same trip again replaces it.
+            # NULL owners never collide, so legacy rows migrate untouched.
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_kept_owner_trip ON kept_journeys(owner, trip_id)"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=20, check_same_thread=False)
@@ -306,10 +317,13 @@ class SQLiteStore:
             cursor = conn.execute("DELETE FROM turns WHERE session_id=?", (session_id,))
             return int(cursor.rowcount or 0)
 
-    def clear_memory(self) -> dict[str, int]:
+    def clear_memory(self, owner: str) -> dict[str, int]:
+        """Delete one identity's saved trips and preference profile, nobody else's."""
+        if not owner:
+            return {"saved_trips": 0, "preferences": 0}
         with self._lock, self._connect() as conn:
-            saved = conn.execute("DELETE FROM kept_journeys").rowcount or 0
-            prefs = conn.execute("DELETE FROM taste_profiles").rowcount or 0
+            saved = conn.execute("DELETE FROM kept_journeys WHERE owner=?", (owner,)).rowcount or 0
+            prefs = conn.execute("DELETE FROM taste_profiles WHERE client_token=?", (owner,)).rowcount or 0
         return {"saved_trips": int(saved), "preferences": int(prefs)}
 
     def client_profile(self, client_token: str) -> dict[str, Any]:
@@ -322,7 +336,9 @@ class SQLiteStore:
                 "WHERE s.client_token=? ORDER BY s.updated_at DESC LIMIT 20",
                 (client_token,),
             ).fetchall()
-            saved = conn.execute("SELECT COUNT(*) AS n FROM kept_journeys").fetchone()["n"]
+            saved = conn.execute(
+                "SELECT COUNT(*) AS n FROM kept_journeys WHERE owner=?", (client_token,)
+            ).fetchone()["n"]
         destinations: list[str] = []
         for row in rows:
             try:
@@ -447,11 +463,12 @@ class SQLiteStore:
             for row in rows
         ]
 
-    def save_saved_trip(self, trip: SavedTrip) -> None:
+    def save_saved_trip(self, trip: SavedTrip, owner: str | None = None) -> None:
+        """Store a useful trip for `owner`; the same owner and trip keep one row."""
         with self._lock, self._connect() as conn:
             conn.execute(
-                "INSERT OR REPLACE INTO kept_journeys (id, trip_id, destination, rating, stars, summary, embedding, data, created_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO kept_journeys (id, trip_id, destination, rating, stars, summary, embedding, data, created_at, owner) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     trip.id,
                     trip.trip_id,
@@ -462,8 +479,23 @@ class SQLiteStore:
                     _dump(trip.embedding),
                     trip.model_dump_json(),
                     trip.created_at.isoformat(),
+                    owner or None,
                 ),
             )
+
+    def reassign_saved_trips(self, from_owner: str, to_owner: str) -> int:
+        """Move one identity's saved trips to another (guest -> account on sign-in).
+
+        A trip the target already saved is replaced by the moved copy, so the
+        owner+trip key stays unique.
+        """
+        if not from_owner or not to_owner or from_owner == to_owner:
+            return 0
+        with self._lock, self._connect() as conn:
+            cursor = conn.execute(
+                "UPDATE OR REPLACE kept_journeys SET owner=? WHERE owner=?", (to_owner, from_owner)
+            )
+            return int(cursor.rowcount or 0)
 
     def list_latest_plans(self, limit: int = 300) -> list[TripPlan]:
         """Newest version of each saved trip, used only for aggregate trending."""
@@ -477,10 +509,24 @@ class SQLiteStore:
         return [TripPlan.model_validate_json(row["data"]) for row in rows]
 
     def list_saved_trips(self, limit: int = 20) -> list[SavedTrip]:
+        """Every owner's saved trips, for aggregate trending and seeding only.
+
+        Never return this to a caller directly; use `list_saved_trips_for_owner`.
+        """
         # Sort in Python: a large SQL LIMIT can push SQLite into a temp-file
         # sort, which fails on hosts where the temp directory is restricted.
         with self._connect() as conn:
             rows = conn.execute("SELECT data FROM kept_journeys").fetchall()
+        trips = [SavedTrip.model_validate_json(row["data"]) for row in rows]
+        trips.sort(key=lambda trip: trip.created_at, reverse=True)
+        return trips[:limit]
+
+    def list_saved_trips_for_owner(self, owner: str, limit: int = 20) -> list[SavedTrip]:
+        """One identity's saved trips, newest first. Ownerless rows never match."""
+        if not owner:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute("SELECT data FROM kept_journeys WHERE owner=?", (owner,)).fetchall()
         trips = [SavedTrip.model_validate_json(row["data"]) for row in rows]
         trips.sort(key=lambda trip: trip.created_at, reverse=True)
         return trips[:limit]
