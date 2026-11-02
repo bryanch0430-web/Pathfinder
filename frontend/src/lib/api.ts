@@ -44,13 +44,16 @@ export function getSession(sessionId: string): Promise<SessionState> {
   return request(`/api/journeys/${sessionId}`);
 }
 
-export function patchContext(sessionId: string, patch: Partial<TripContext>): Promise<{ context: TripContext }> {
-  return request(`/api/journeys/${sessionId}/context`, { method: "PATCH", body: JSON.stringify(patch) });
+/** Body of PATCH /state (backend `ContextPatch`): every field optional; a null leaves the value unchanged. */
+export type ContextPatch = Partial<Omit<TripContext, "session_id">>;
+
+export function patchContext(sessionId: string, patch: ContextPatch): Promise<{ context: TripContext }> {
+  return request(`/api/journeys/${sessionId}/state`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 export function getPlan(sessionId: string, version?: number): Promise<{ plan: TripPlan }> {
   const query = version ? `?version=${version}` : "";
-  return request(`/api/journeys/${sessionId}/plan${query}`);
+  return request(`/api/journeys/${sessionId}/itinerary${query}`);
 }
 
 export function postFeedback(
@@ -59,7 +62,7 @@ export function postFeedback(
   stars: number | null,
   clientToken = localStorage.getItem("pathfinder.client") || "",
 ): Promise<{ feedback: { id: string }; preferences_added: string[] }> {
-  return request(`/api/journeys/${sessionId}/feedback`, {
+  return request(`/api/journeys/${sessionId}/rating`, {
     method: "POST",
     body: JSON.stringify({ useful, stars, client_token: clientToken }),
   });
@@ -83,7 +86,7 @@ export interface MapLeg {
 /** Real route geometry per leg, including the legs to restaurants. */
 export async function getLegs(sessionId: string, day?: string): Promise<MapLeg[]> {
   const query = day ? `?day=${encodeURIComponent(day)}` : "";
-  const data = (await request(`/api/journeys/${sessionId}/legs${query}`)) as { legs?: MapLeg[] };
+  const data = (await request(`/api/journeys/${sessionId}/segments${query}`)) as { legs?: MapLeg[] };
   return data.legs ?? [];
 }
 

@@ -8,6 +8,7 @@ import {
   patchContext,
   postFeedback,
   streamChat,
+  type ContextPatch,
   type SessionState,
 } from "../lib/api";
 import type {
@@ -231,7 +232,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     const id = sessionRef.current;
     if (!id) return;
     try {
-      const patch: Partial<TripContext> = {
+      const patch: ContextPatch = {
         destination: context.destination,
         origin: context.origin,
         start_date: context.start_date,
