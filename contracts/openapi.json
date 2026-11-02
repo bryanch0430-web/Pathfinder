@@ -1021,7 +1021,7 @@
             "schema": {
               "type": "string",
               "maxLength": 120,
-              "default": "anonymous",
+              "default": "",
               "title": "Client Token"
             }
           }
@@ -1094,6 +1094,23 @@
       "post": {
         "summary": "Clear Memory",
         "operationId": "clear_memory_api_recall_clear_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ClearMemoryRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1103,6 +1120,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Clear Memory Api Recall Clear Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1125,6 +1152,17 @@
               "minimum": 1,
               "default": 20,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "client_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 120,
+              "default": "",
+              "title": "Client Token"
             }
           }
         ],
@@ -1157,7 +1195,7 @@
     "/api/popular": {
       "get": {
         "summary": "Trending",
-        "description": "Hybrid retrieval over useful-marked trips. Public fields only.",
+        "description": "Hybrid retrieval over useful-marked trips. Public fields only.\n\nPublic without an identity. Personal matching uses the caller's own\npreferences only: a `user:` token needs that user's bearer (401).",
         "operationId": "trending_api_popular_get",
         "parameters": [
           {
@@ -1768,6 +1806,17 @@
               }
             ],
             "title": "Scope Item Id"
+          },
+          "scope_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Label"
           }
         },
         "type": "object",
@@ -1793,6 +1842,18 @@
           "session_id"
         ],
         "title": "ClaimRequest"
+      },
+      "ClearMemoryRequest": {
+        "properties": {
+          "client_token": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Client Token",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ClearMemoryRequest"
       },
       "ContextPatch": {
         "properties": {
@@ -2044,8 +2105,8 @@
           "client_token": {
             "type": "string",
             "maxLength": 120,
-            "minLength": 1,
-            "title": "Client Token"
+            "title": "Client Token",
+            "default": ""
           },
           "preferences": {
             "items": {
@@ -2057,9 +2118,6 @@
           }
         },
         "type": "object",
-        "required": [
-          "client_token"
-        ],
         "title": "ProfilePatch"
       },
       "ValidationError": {

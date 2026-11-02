@@ -30,7 +30,7 @@ a `data_quality.gap` on the plan, not a failed health check.
 | POST | `/api/account/attach` | `{session_id}` | `{claimed}` |
 | POST | `/api/journeys` | `{client_token}` | `{session, context}` |
 | GET | `/api/journeys/{id}` | — | `{session, context, plan, versions, messages}` |
-| PATCH | `/api/journeys/{id}/state` | any `TripContext` fields | `{context}` |
+| PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id`; `null` leaves a field unchanged | `{context}` |
 | GET | `/api/journeys/{id}/itinerary` | `?version=` optional | `{plan}` |
 | GET | `/api/journeys/{id}/revisions` | — | `{versions}` |
 | GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
@@ -113,13 +113,15 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | PATCH | `/api/traveller` | `{client_token?, preferences}` | `{profile}` |
 | POST | `/api/recall/clear` | `{client_token?}` | `{cleared, saved_trips, preferences}`: deletes only the caller's saved trips and preferences |
 | GET | `/api/wishlist?limit=&client_token=` | — | the caller's saved-trip summaries |
+| GET | `/api/popular?q=&limit=&client_token=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`); public, `match` uses only the caller's own preferences |
 
-**Caller identity** (traveller, recall/clear, wishlist, rating preferences): a valid
-`Authorization: Bearer` token is `user:<id>`; otherwise the guest `client_token`. A
-`client_token` of `user:<id>` without that user's bearer, or no identity at all, is `401`.
-A useful rating saves the trip for the journey's owner; signing in moves the guest's saved
-trips and preferences to the account.
-| GET | `/api/popular?q=&limit=&client_token=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`) |
+**Caller identity** (traveller, recall/clear, wishlist, rating preferences, popular
+matching): a valid `Authorization: Bearer` token is `user:<id>`; otherwise the guest
+`client_token`. A `client_token` of `user:<id>` without that user's bearer is `401`, here
+and on `POST /api/journeys` / `POST /api/turn/stream`. No identity at all is `401`, except
+on `/api/popular`, which then ranks without personal matching. A useful rating saves the
+trip for the journey's owner; planner recall reads only that owner's saved trips; signing
+in moves the guest's saved trips and preferences to the account.
 
 A `useful` feedback saves the plan in a background task with its embedding. The feedback
 endpoint never blocks the response on the write. Trending prefers those **marked-useful**

@@ -468,9 +468,10 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   preferences. Seed a platform-sized corpus with
   `backend/scripts/seed_platform_demo.py`; see `docs/TRENDING_RAG.md`.
 - **Profile works logged-out or logged-in.** Guests use a random browser token; email
-  accounts are optional and merge the guest preferences on first login. Clearing memory
-  removes saved trips and preferences; clearing chat removes messages but keeps the current
-  plan. **New trip** deletes the current session row and local pointer, so a stale
+  accounts are optional and take over the guest's preferences and saved trips on first
+  login. Saved trips, preferences and planner recall are per profile: nobody sees or
+  recalls another traveller's. Clearing memory removes only the caller's saved trips and
+  preferences; clearing chat removes messages but keeps the current plan. **New trip** deletes the current session row and local pointer, so a stale
   `pathfinder.session` cannot pin the console to an old plan.
 - **Export** writes Markdown from structured fields and sources, not a model transcript.
 - **Local-guide RAG is a lexical baseline.** It is destination-filtered and cited, and the
