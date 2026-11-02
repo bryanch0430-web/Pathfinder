@@ -551,10 +551,14 @@ class SQLiteStore:
         embedding: Sequence[float],
         destination: str,
         cutoff: float,
+        owner: str,
         limit: int = 3,
     ) -> list[tuple[float, SavedTrip]]:
+        """Similar saved trips of one owner only; no owner recalls nothing."""
+        if not owner:
+            return []
         with self._connect() as conn:
-            rows = conn.execute("SELECT data FROM kept_journeys").fetchall()
+            rows = conn.execute("SELECT data FROM kept_journeys WHERE owner=?", (owner,)).fetchall()
         scored: list[tuple[float, SavedTrip]] = []
         for row in rows:
             trip = SavedTrip.model_validate_json(row["data"])

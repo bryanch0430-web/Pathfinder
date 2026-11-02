@@ -15,7 +15,7 @@ def test_memory_recall_applies_the_destination_and_similarity(settings: Settings
         summary="Three days of temples and food for two travellers.",
         embedding=embed("Kyoto temples food three days two travellers slow pace"),
     )
-    container.store.save_saved_trip(trip)
+    container.store.save_saved_trip(trip, owner="guest-m")
     context = TripContext(
         session_id="s",
         destination="Kyoto",
@@ -24,22 +24,23 @@ def test_memory_recall_applies_the_destination_and_similarity(settings: Settings
         party_size=2,
         preferences=["slow pace", "food"],
     )
-    matches = memory.recall(context)
+    matches = memory.recall(context, owner="guest-m")
     assert matches
     assert matches[0][0] >= settings.memory_similarity_cutoff
 
     context.destination = "Bangkok"
-    assert memory.recall(context) == []
+    assert memory.recall(context, owner="guest-m") == []
 
 
 def test_memory_cutoff_can_exclude_everything(settings: Settings, container) -> None:
     strict = settings.model_copy(update={"memory_similarity_cutoff": 1.01})
     memory = MemoryService(container.store, strict)
     container.store.save_saved_trip(
-        SavedTrip(trip_id="t2", destination="Kyoto", rating=1.0, summary="Anything", embedding=embed("unrelated words"))
+        SavedTrip(trip_id="t2", destination="Kyoto", rating=1.0, summary="Anything", embedding=embed("unrelated words")),
+        owner="guest-m",
     )
     context = TripContext(session_id="s", destination="Kyoto", preferences=["temples"])
-    assert memory.recall(context) == []
+    assert memory.recall(context, owner="guest-m") == []
 
 
 def test_embedding_is_stable_and_normalised() -> None:

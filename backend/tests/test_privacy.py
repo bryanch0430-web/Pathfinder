@@ -7,18 +7,24 @@ at all, is refused with 401.
 
 from __future__ import annotations
 
+import asyncio
 import random
 import sqlite3
+from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.application import trending_rag
+from app.application.memory import MemoryService, embed
 from app.config import Settings
-from app.domain.models import SavedTrip
+from app.domain.models import SavedTrip, TripContext
+from app.infrastructure.observability import start_trace
 from app.infrastructure.store import SQLiteStore
 from app.interface.api import create_app
-from scripts.seed_platform_demo import DESTINATIONS, _plan
+from scripts.seed_platform_demo import DESTINATIONS, _plan, _saved_trip
 
 PASSWORD = "correct-horse"
 
@@ -330,3 +336,174 @@ def test_migration_adds_owner_to_an_existing_database(tmp_path: Path) -> None:
     # New rows carry their owner.
     store.save_saved_trip(SavedTrip(trip_id="trip_new", destination="Kyoto", embedding=[0.0]), owner="guest-new")
     assert [trip.trip_id for trip in store.list_saved_trips_for_owner("guest-new", 20)] == ["trip_new"]
+
+
+# -- planner recall ---------------------------------------------------------------
+
+PRIVATE_SUMMARY = "Kyoto for Grandma Lee's 80th, call +852 5555 0000 about the ryokan"
+
+
+def _kyoto_context(session_id: str) -> TripContext:
+    start = date.today() + timedelta(days=30)
+    return TripContext(
+        session_id=session_id,
+        destination="Kyoto",
+        start_date=start,
+        end_date=start + timedelta(days=2),
+        party_size=2,
+        preferences=["slow pace", "food"],
+    )
+
+
+def _save_private_trip(store: SQLiteStore, owner: str) -> None:
+    store.save_saved_trip(
+        SavedTrip(
+            trip_id="trip_private",
+            destination="Kyoto",
+            rating=1.0,
+            stars=5,
+            summary=PRIVATE_SUMMARY,
+            embedding=embed("Kyoto temples food three days two travellers slow pace"),
+        ),
+        owner=owner,
+    )
+
+
+def test_recall_returns_only_the_owners_trips(settings: Settings, container) -> None:
+    _save_private_trip(container.store, "user:ua")
+    memory = MemoryService(container.store, settings)
+    context = _kyoto_context("s")
+
+    assert [trip.summary for _, trip in memory.recall(context, owner="user:ua")] == [PRIVATE_SUMMARY]
+    assert memory.recall(context, owner="user:ub") == []
+    assert memory.recall(context, owner="guest-g") == []
+    assert memory.recall(context, owner="") == []
+
+
+def _planner_memory(settings: Settings, container, monkeypatch: pytest.MonkeyPatch, session_id: str) -> list[str]:
+    """The saved_trip_summaries the plan path would put in the planner prompt."""
+    orchestrator = container.turn_service
+    captured: list[list[str]] = []
+
+    async def fake_run(**kwargs):
+        captured.append(kwargs["memory_summaries"])
+        raise RuntimeError("stop after capturing the prompt inputs")
+
+    monkeypatch.setattr(orchestrator.plan_path, "run", fake_run)
+
+    async def drive() -> None:
+        with pytest.raises(RuntimeError, match="stop after"):
+            async for _ in orchestrator._plan(
+                context=_kyoto_context(session_id),
+                session_id=session_id,
+                tracer=start_trace(settings, "req_recall"),
+                request_id="req_recall",
+            ):
+                pass
+
+    asyncio.run(drive())
+    return captured[-1]
+
+
+def test_planner_prompt_never_sees_another_travellers_trip(
+    settings: Settings, container, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = container.store
+    _save_private_trip(store, "user:ua")
+    a_session = store.create_session("guest-a", user_id="ua")
+    b_session = store.create_session("guest-b", user_id="ub")
+    guest_session = store.create_session("guest-g")
+    unowned_session = store.create_session("")
+    spoofed_session = store.create_session("user:ua")  # a user: token never proven with a bearer
+
+    own = _planner_memory(settings, container, monkeypatch, a_session.id)
+    assert len(own) == 1 and "Grandma Lee" in own[0]
+    for session in (b_session, guest_session, unowned_session, spoofed_session):
+        assert _planner_memory(settings, container, monkeypatch, session.id) == []
+
+
+def test_guest_recall_uses_the_guest_token(settings: Settings, container, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = container.store
+    _save_private_trip(store, "guest-g")
+    assert len(_planner_memory(settings, container, monkeypatch, store.create_session("guest-g").id)) == 1
+    assert _planner_memory(settings, container, monkeypatch, store.create_session("guest-h").id) == []
+
+
+def test_modify_prompt_never_sees_another_travellers_trip(
+    settings: Settings, container, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = container.store
+    _save_private_trip(store, "user:ua")
+    orchestrator = container.turn_service
+    captured: list[list[str]] = []
+
+    async def fake_run(**kwargs):
+        captured.append(kwargs["memory_summaries"])
+        raise RuntimeError("stop after capturing the prompt inputs")
+
+    monkeypatch.setattr(orchestrator.modify_path, "run", fake_run)
+
+    def modify_memory(session_id: str) -> list[str]:
+        async def drive() -> None:
+            with pytest.raises(RuntimeError, match="stop after"):
+                async for _ in orchestrator._modify(
+                    plan=SimpleNamespace(trip_id="t"),
+                    context=_kyoto_context(session_id),
+                    message="Swap the hotel",
+                    decision=SimpleNamespace(affected_parts=["hotel"]),
+                    session_id=session_id,
+                    tracer=start_trace(settings, "req_modify"),
+                    request_id="req_modify",
+                ):
+                    pass
+
+        asyncio.run(drive())
+        return captured[-1]
+
+    assert len(modify_memory(store.create_session("", user_id="ua").id)) == 1
+    assert modify_memory(store.create_session("", user_id="ub").id) == []
+
+
+# -- /api/popular -------------------------------------------------------------------
+
+
+def _seed_trending(client: TestClient) -> None:
+    store = _store(client)
+    place = next(item for item in DESTINATIONS if item["name"] == "Kyoto")
+    rng = random.Random(11)
+    for index in range(10):
+        store.save_saved_trip(_saved_trip(rng, _plan(rng, place, 100 + index)))
+    trending_rag.invalidate()
+
+
+def _matches(response) -> list[str]:
+    return [tag for item in response.json()["items"] for tag in item.get("match", [])]
+
+
+def test_popular_cannot_probe_another_users_preferences(client: TestClient) -> None:
+    a_headers, a_token = _signup(client, "a@example.com")
+    b_headers, _ = _signup(client, "b@example.com")
+    client.patch("/api/traveller", json={"client_token": a_token, "preferences": ["food"]}, headers=a_headers)
+    _seed_trending(client)
+
+    for headers in ({}, {"Authorization": "Bearer not.a.token"}, b_headers):
+        assert client.get("/api/popular", params={"client_token": a_token}, headers=headers).status_code == 401
+
+    own = client.get("/api/popular", params={"client_token": a_token}, headers=a_headers)
+    assert own.status_code == 200
+    assert "food" in _matches(own)
+    assert "food" in _matches(client.get("/api/popular", headers=a_headers))
+
+
+def test_popular_stays_public_and_matches_guests(client: TestClient) -> None:
+    client.patch("/api/traveller", json={"client_token": "guest-pop", "preferences": ["food"]})
+    _seed_trending(client)
+
+    public = client.get("/api/popular")
+    assert public.status_code == 200
+    assert public.json()["items"]
+    assert _matches(public) == []
+
+    guest = client.get("/api/popular", params={"client_token": "guest-pop"})
+    assert guest.status_code == 200
+    assert "food" in _matches(guest)

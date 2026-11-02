@@ -24,6 +24,17 @@ export interface SessionState {
   messages: ChatMessage[];
 }
 
+/** A non-2xx API response; `status` lets a caller tell a refused identity (401) apart. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     ...init,
@@ -31,7 +42,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(detail || `${response.status} ${response.statusText}`);
+    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status);
   }
   return (await response.json()) as T;
 }
@@ -206,12 +217,22 @@ export async function getTrending(
   items: TrendingPlace[];
   trace: TrendingTrace;
 }> {
-  const params = new URLSearchParams();
-  if (query.trim()) params.set("q", query.trim());
-  if (options.clientToken) params.set("client_token", options.clientToken);
-  if (options.destination) params.set("destination", options.destination);
-  const suffix = params.toString();
-  return request(`/api/popular${suffix ? `?${suffix}` : ""}`);
+  const load = (clientToken?: string) => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (clientToken) params.set("client_token", clientToken);
+    if (options.destination) params.set("destination", options.destination);
+    const suffix = params.toString();
+    return request<{ items: TrendingPlace[]; trace: TrendingTrace }>(`/api/popular${suffix ? `?${suffix}` : ""}`);
+  };
+  try {
+    return await load(options.clientToken);
+  } catch (error) {
+    // The list is public: a `user:` token whose sign-in expired is refused with
+    // 401, so load it again without personal matching.
+    if (error instanceof ApiError && error.status === 401 && options.clientToken) return load();
+    throw error;
+  }
 }
 
 /** The caller's own saved trips (guest token, or the signed-in bearer). */

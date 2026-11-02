@@ -492,12 +492,28 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+#: Profile token prefix of a signed-in account: `user:<id>`.
+USER_PREFIX = "user:"
+
+
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: new_id("sess"))
     client_token: str = ""
     user_id: str = ""
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+    @property
+    def owner(self) -> str:
+        """Identity that owns this session's memory: `user:<id>`, else its guest token.
+
+        A `user:` client token on a session with no account was never proven
+        with a bearer, so it owns nothing (empty string).
+        """
+        if self.user_id:
+            return f"{USER_PREFIX}{self.user_id}"
+        token = (self.client_token or "").strip()
+        return "" if token.startswith(USER_PREFIX) else token
 
 
 class Feedback(BaseModel):

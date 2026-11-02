@@ -329,8 +329,13 @@ class TurnService:
                 },
             )
 
+    def _memory_owner(self, session_id: str) -> str:
+        """Whose saved trips the planner may recall: the session's owner only."""
+        session = self.store.get_session(session_id)
+        return session.owner if session else ""
+
     async def _plan(self, *, context, session_id, tracer, request_id) -> AsyncIterator[TurnEvent]:
-        matches = self.memory.recall(context)
+        matches = self.memory.recall(context, owner=self._memory_owner(session_id))
         if matches:
             tracer.metadata["memory_matches"] = [round(score, 3) for score, _ in matches]
         queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
@@ -391,7 +396,9 @@ class TurnService:
                 toolbox=toolbox,
                 tracer=tracer,
                 emit=emit,
-                memory_summaries=self.memory.memory_summaries(self.memory.recall(context)),
+                memory_summaries=self.memory.memory_summaries(
+                    self.memory.recall(context, owner=self._memory_owner(session_id))
+                ),
                 scope_item_id=scope_item_id,
             )
         )

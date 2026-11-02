@@ -35,6 +35,7 @@ from app.domain.models import (
     TripContext,
     TripPlan,
     User,
+    USER_PREFIX,
 )
 from app.evaluation import export_markdown
 
@@ -104,9 +105,6 @@ class EvalRunRequest(BaseModel):
     dataset_id: str
     experiment_tag: str = "baseline-v1"
     split: str = "all"
-
-
-USER_PREFIX = "user:"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -257,14 +255,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if token:
             return token
         raise HTTPException(status_code=401, detail="Sign in or send a client token.")
-
-    def session_owner(session) -> str:
-        """Identity that owns a session: its account, else its guest token."""
-        if session.user_id:
-            return f"{USER_PREFIX}{session.user_id}"
-        token = (session.client_token or "").strip()
-        # A user: token on an unowned session was never proven with a bearer.
-        return "" if token.startswith(USER_PREFIX) else token
 
     def adopt_guest_memory(c, client_token: str, profile_token: str) -> None:
         """On sign-in, move a guest's preferences and saved trips to the account.
@@ -507,7 +497,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 c.memory.save_useful_trip,
                 plan,
                 stars=payload.stars,
-                owner=session_owner(session) or None,
+                owner=session.owner or None,
             )
             if token:
                 context = c.store.get_context(session_id)
@@ -642,12 +632,18 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         client_token: str = Query(default="", max_length=120),
         destination: str = Query(default="", max_length=80),
     ) -> dict[str, Any]:
-        """Hybrid retrieval over useful-marked trips. Public fields only."""
+        """Hybrid retrieval over useful-marked trips. Public fields only.
+
+        Public without an identity. Personal matching uses the caller's own
+        preferences only: a `user:` token needs that user's bearer (401).
+        """
         c = container(request)
         preferences: list[str] = []
         token = client_token.strip()
-        if token:
-            profile = c.store.get_preferences(token)
+        user = checked_user(request, c, token)
+        identity = f"{USER_PREFIX}{user.id}" if user is not None else token
+        if identity:
+            profile = c.store.get_preferences(identity)
             if profile is not None:
                 preferences = list(profile.preferences)
         return trending_report(

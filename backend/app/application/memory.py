@@ -48,7 +48,9 @@ class MemoryService:
         self.store = store
         self.settings = settings
 
-    def recall(self, context: TripContext) -> list[tuple[float, SavedTrip]]:
+    def recall(self, context: TripContext, *, owner: str) -> list[tuple[float, SavedTrip]]:
+        """The owner's own similar saved trips. Another traveller's trip, and
+        anything at all for an empty owner, is never recalled."""
         query = " ".join(
             [
                 context.destination,
@@ -64,6 +66,7 @@ class MemoryService:
             embedding=embed(query),
             destination=context.destination,
             cutoff=self.settings.memory_similarity_cutoff,
+            owner=owner,
             limit=3,
         )
 
