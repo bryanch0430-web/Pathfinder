@@ -1,10 +1,20 @@
-# secrets and runtime state
+# secrets and runtime state (any .env file in any folder, except the committed templates)
 .env
+.env.*
+!.env.example
 backend/.env
 data/
 *.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.pem
+*.key
 
 # python
 .venv/
@@ -12,6 +22,12 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .pip-cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
 
 # local tooling
 .tmp/
@@ -26,6 +42,8 @@ frontend/storybook-static/
 frontend/.storybook-static/
 .npm-cache/
 *.tsbuildinfo
+frontend/coverage/
+.vite/
 
 # editor / os
 .DS_Store
@@ -42,3 +60,7 @@ pip-unpack-*/
 
 # local uvicorn logs
 backend/uvicorn.*.log
+
+# local runtime output and private task notes (never published)
+var/
+docs/tasks/
