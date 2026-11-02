@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import html
 import json
 import re
@@ -110,6 +111,7 @@ USER_PREFIX = "user:"
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    settings.check_secrets()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -134,7 +136,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return request.app.state.container
 
     def require_admin(x_admin_token: str = Header(default="")) -> None:
-        if x_admin_token != settings.admin_token:
+        expected = settings.admin_token
+        # An empty setting disables the admin endpoints instead of matching "".
+        if not expected or not x_admin_token or not hmac.compare_digest(
+            x_admin_token.encode("utf-8"), expected.encode("utf-8")
+        ):
             raise HTTPException(status_code=401, detail="Admin token required")
 
     # -- meta -------------------------------------------------------------

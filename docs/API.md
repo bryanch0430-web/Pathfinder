@@ -177,8 +177,9 @@ deterministic and sandboxed; see `docs/EVALUATION.md`.
 | GET | `/api/admin/threats` | `X-Admin-Token` | aggregate injection counts |
 | GET | `/api/admin/spans/{request_id}` | `X-Admin-Token` | one JSON trace |
 
-The local default token is `local-admin`; change `ADMIN_TOKEN` before exposing the
-process. Trace ids must match `req_[0-9a-f]{12}`.
+The local default token is `local-admin`. With `ENVIRONMENT` other than `development` or
+`test`, the app refuses to start until `ADMIN_TOKEN` and `AUTH_SECRET` (32+ characters) are
+set to real secrets. Trace ids must match `req_[0-9a-f]{12}`.
 
 ## 7. Contracts
 

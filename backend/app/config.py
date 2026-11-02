@@ -13,6 +13,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
 
+#: Local-only defaults. Anyone who reads the repository knows them, so
+#: `Settings.check_secrets` refuses them outside development and test.
+DEFAULT_ADMIN_TOKEN = "local-admin"
+DEFAULT_AUTH_SECRET = "local-dev-auth-secret-change-me"
+#: Admin tokens that are only ever placeholders (the default, .env.example).
+PLACEHOLDER_ADMIN_TOKENS = frozenset({DEFAULT_ADMIN_TOKEN, "REPLACE_ME"})
+MIN_AUTH_SECRET_LENGTH = 32
+DEV_ENVIRONMENTS = frozenset({"development", "test"})
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -33,8 +42,8 @@ class Settings(BaseSettings):
     eval_dir: Path = DATA_DIR / "eval"
     frontend_dist: Path = BASE_DIR / "frontend" / "dist"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
-    admin_token: str = "local-admin"
-    auth_secret: str = "local-dev-auth-secret-change-me"
+    admin_token: str = DEFAULT_ADMIN_TOKEN
+    auth_secret: str = DEFAULT_AUTH_SECRET
     auth_token_hours: int = 168
     user_agent: str = "Pathfinder/1.0 (COMP7608B student project)"
     wikimedia_user_agent: str = (
@@ -209,6 +218,26 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    def check_secrets(self) -> None:
+        """Refuse to run outside development/test with secrets from the repo.
+
+        The bearer tokens are HS256-signed with ``auth_secret``, so a known
+        secret lets anyone forge a sign-in; the admin token guards the admin
+        endpoints. Raises ``RuntimeError`` naming every variable to set.
+        """
+        if self.environment.strip().lower() in DEV_ENVIRONMENTS:
+            return
+        missing: list[str] = []
+        if self.auth_secret == DEFAULT_AUTH_SECRET or len(self.auth_secret) < MIN_AUTH_SECRET_LENGTH:
+            missing.append(f"AUTH_SECRET (a random value of at least {MIN_AUTH_SECRET_LENGTH} characters)")
+        if self.admin_token in PLACEHOLDER_ADMIN_TOKENS:
+            missing.append("ADMIN_TOKEN (a random value, not the default or placeholder)")
+        if missing:
+            raise RuntimeError(
+                f"Refusing to start with ENVIRONMENT={self.environment!r} and insecure defaults. "
+                f"Set {' and '.join(missing)}, or use ENVIRONMENT=development for local work."
+            )
 
     def ensure_directories(self) -> None:
         for path in (self.data_dir, self.trace_dir, self.eval_dir):

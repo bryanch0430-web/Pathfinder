@@ -20,6 +20,25 @@ KV = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 
 PLACEHOLDER = "REPLACE_ME"
 
+#: Keys the template must always carry: (name, value, anchor key, comment lines).
+#: A missing key is inserted after its anchor (or at the end) with its comment.
+#: Outside ENVIRONMENT=development/test the backend refuses to start with the
+#: default AUTH_SECRET / ADMIN_TOKEN, so both must be documented here.
+REQUIRED: list[tuple[str, str, str, list[str]]] = [
+    ("ENVIRONMENT", "development", "", []),
+    (
+        "AUTH_SECRET",
+        PLACEHOLDER,
+        "ADMIN_TOKEN",
+        [
+            "# Signs the HS256 bearer tokens. Outside ENVIRONMENT=development/test the app",
+            "# refuses to start unless AUTH_SECRET is a random value of at least 32 characters",
+            "# and ADMIN_TOKEN is a real secret (not local-admin / REPLACE_ME).",
+            '# Generate one: python -c "import secrets; print(secrets.token_urlsafe(48))"',
+        ],
+    ),
+]
+
 
 def parse(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines() if path.exists() else []
@@ -74,12 +93,23 @@ def main() -> None:
         out.append(f"{name}={value}")
         added.append(name)
 
+    # insert any required key that neither file has, next to its anchor
+    required: list[str] = []
+    for name, value, anchor, comment in REQUIRED:
+        if name in seen:
+            continue
+        seen.add(name)
+        at = next((i + 1 for i, line in enumerate(out) if anchor and key_of(line) == anchor), len(out))
+        out[at:at] = [*comment, f"{name}={value}"]
+        required.append(name)
+
     EXAMPLE.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
 
     print(f"wrote {EXAMPLE.name}: {len(seen)} keys")
     print(f"  placeholders  : {kept_secret_named + len(added)}")
     print(f"  masked keys   : {', '.join(sorted(set(masked))) or '(none)'}")
     print(f"  appended from .env: {', '.join(added) or '(none)'}")
+    print(f"  required keys added: {', '.join(required) or '(none)'}")
 
 
 if __name__ == "__main__":

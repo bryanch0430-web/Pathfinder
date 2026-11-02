@@ -140,10 +140,15 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
     getConfig()
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Configuration is unavailable."));
-    const token = localStorage.getItem("pathfinder.admin") || "local-admin";
-    getInjections(token)
-      .then((data) => setInjections(data.events))
-      .catch(() => setInjections([]));
+    // No built-in admin token: the admin request is only sent when one is stored.
+    const adminToken = localStorage.getItem("pathfinder.admin") || "";
+    if (adminToken) {
+      getInjections(adminToken)
+        .then((data) => setInjections(data.events))
+        .catch(() => setInjections([]));
+    } else {
+      setInjections([]);
+    }
     getProfile(clientToken)
       .then(setProfile)
       .catch(() => setProfile(null));
