@@ -61,8 +61,10 @@ def _live_rates(data: object) -> dict[str, float] | None:
 
 
 class FxService:
-    def __init__(self, timeout: float = 8.0, clock: Callable[[], float] = time.time):
+    def __init__(self, timeout: float = 8.0, clock: Callable[[], float] = time.monotonic):
         self.timeout = timeout
+        # Monotonic: a wall clock can step back (a VM resume, the first clock sync), which would keep live
+        # rates past their TTL, or hold the service back from a recovered upstream, for as long as the step.
         self._clock = clock
         self._rates: dict[str, float] = dict(STATIC_USD_RATES)
         self._fetched_at: float = 0.0
