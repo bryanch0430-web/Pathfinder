@@ -5,6 +5,10 @@
 #   .\scripts\dev.ps1 storybook
 #   .\scripts\dev.ps1 test
 #   .\scripts\dev.ps1 eval hongkong baseline-v1
+#
+# The backend, its tests and the evaluation run in backend\.venv, never in whichever python
+# is first on PATH. Create it once:
+#   python -m venv backend/.venv && backend/.venv/Scripts/pip install -r backend/requirements.txt
 
 param(
   [Parameter(Position = 0)]
@@ -18,14 +22,23 @@ param(
 
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
+$Py = Join-Path $Root "backend\.venv\Scripts\python.exe"
 
 # The backend treats an unset ENVIRONMENT as production and refuses the built-in secrets.
 if (-not $env:ENVIRONMENT) { $env:ENVIRONMENT = "development" }
 
+function Assert-Venv {
+  if (-not (Test-Path $Py)) {
+    Write-Host "Create the venv first: python -m venv backend/.venv && backend/.venv/Scripts/pip install -r backend/requirements.txt"
+    exit 1
+  }
+}
+
 switch ($Task) {
   "backend" {
+    Assert-Venv
     $env:PYTHONPATH = "backend"
-    python -m uvicorn app.main:app --port 8100 --host 127.0.0.1
+    & $Py -m uvicorn app.main:app --port 8100 --host 127.0.0.1
   }
   "frontend" {
     Set-Location "$Root\frontend"
@@ -36,13 +49,15 @@ switch ($Task) {
     npm run storybook
   }
   "test" {
+    Assert-Venv
     Set-Location "$Root\backend"
     $env:PYTHONPATH = "."
-    python -m pytest
+    & $Py -m pytest
   }
   "eval" {
+    Assert-Venv
     Set-Location "$Root\backend"
     $env:PYTHONPATH = "."
-    python -m app.eval_run --dataset $Dataset --tag $Tag --out "$Root\data\eval"
+    & $Py -m app.eval_run --dataset $Dataset --tag $Tag --out "$Root\data\eval"
   }
 }

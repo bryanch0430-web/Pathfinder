@@ -157,8 +157,8 @@ introduce a new place or a new source URL. If a source is missing, the section i
 
 ### 2.1 Prerequisites
 
-- Python **3.11+** (developed on 3.13.7)
-- Node **18+** and npm (developed on Node 24.19 / npm 11.17)
+- Python 3.13 in `backend/.venv` (`backend/.python-version`; the code needs 3.11+)
+- Node 20.19+ (CI uses 22, see `.nvmrc`) and npm
 - Reference versions: FastAPI 0.141, Pydantic 2.11, httpx 0.28, uvicorn 0.47,
   React 18.3, TypeScript 5.6, Vite 5.4, Storybook 8.6.
 
@@ -193,15 +193,18 @@ project.
 ### 2.3 Backend (port 8100)
 
 ```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# POSIX:   source .venv/bin/activate
+python -m venv backend/.venv
+# Windows: backend\.venv\Scripts\activate
+# POSIX:   source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
 # optional local hybrid RAG (BGE-small + optional BGE reranker)
 pip install -r backend/requirements-rag.txt
 
 PYTHONPATH=backend python -m uvicorn app.main:app --port 8100
 ```
+
+`scripts/dev.sh` and `scripts/dev.ps1` run the backend, the tests and the evaluation with
+`backend/.venv` and stop with the line above if it does not exist yet.
 
 Windows PowerShell:
 
