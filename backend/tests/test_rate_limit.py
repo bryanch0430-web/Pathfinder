@@ -144,12 +144,13 @@ def test_ai_routes_share_one_budget(settings: Settings) -> None:
     with TestClient(create_app(settings.model_copy(update={"rate_limit_ai_per_minute": 3}))) as scoped:
         scoped.app.state.container.turn_service = QuickTurns()
         turn = {"message": "Plan Kyoto", "locale": "en", "client_token": "guest-rl"}
+        admin = {"X-Admin-Token": settings.admin_token}
 
         first = scoped.post("/api/turn/stream", json=turn)
         second = scoped.post("/api/turn/stream", json=turn)
-        evaluation = scoped.post("/api/eval/trials", json={"dataset_id": "missing"})
+        evaluation = scoped.post("/api/eval/trials", json={"dataset_id": "missing"}, headers=admin)
         refused_turn = scoped.post("/api/turn/stream", json=turn)
-        refused_eval = scoped.post("/api/eval/trials", json={"dataset_id": "missing"})
+        refused_eval = scoped.post("/api/eval/trials", json={"dataset_id": "missing"}, headers=admin)
 
     assert first.status_code == 200 and "event: done" in first.text
     assert second.status_code == 200

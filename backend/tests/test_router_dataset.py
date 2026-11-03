@@ -21,6 +21,7 @@ RULE_ROUTER_FLOOR = 75.0
 def routing_run(settings: Settings) -> dict:
     """One routing trial through POST /api/eval/trials, the code path the Evaluation page uses."""
     with TestClient(create_app(settings)) as client:
+        client.headers["X-Admin-Token"] = settings.admin_token
         response = client.post("/api/eval/trials", json={"dataset_id": "routing", "experiment_tag": "tc04"})
         suites = client.get("/api/eval/suites").json()["datasets"]
     assert response.status_code == 200

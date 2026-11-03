@@ -163,6 +163,12 @@ export function authHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** The operator's admin token, kept in this browser under the key the Settings page reads; empty when none. */
+export function adminHeader(): Record<string, string> {
+  const token = localStorage.getItem("pathfinder.admin");
+  return token ? { "X-Admin-Token": token } : {};
+}
+
 /** A guest trip answers only to the token its browser created it with, so every call presents it. */
 export function clientTokenHeader(): Record<string, string> {
   return { "X-Client-Token": localStorage.getItem("pathfinder.client") ?? "" };
@@ -280,27 +286,35 @@ export async function getSavedTrips(clientToken: string): Promise<{
   return request(`/api/wishlist?client_token=${encodeURIComponent(clientToken)}`);
 }
 
+// Every /api/eval route needs the admin token (X-Admin-Token).
 export async function getEvalDatasets(): Promise<{ datasets: EvalDataset[] }> {
-  return request("/api/eval/suites");
+  return request("/api/eval/suites", { headers: adminHeader() });
 }
 
 export async function getEvalRuns(): Promise<{ runs: EvalRunSummary[] }> {
-  return request("/api/eval/trials");
+  return request("/api/eval/trials", { headers: adminHeader() });
 }
 
 export async function getEvalRun(runId: string): Promise<{ run: EvalRun }> {
-  return request(`/api/eval/trials/${runId}`);
+  return request(`/api/eval/trials/${runId}`, { headers: adminHeader() });
 }
 
 export async function runEval(datasetId: string, tag: string): Promise<{ run: EvalRun }> {
   return request("/api/eval/trials", {
     method: "POST",
+    headers: adminHeader(),
     body: JSON.stringify({ dataset_id: datasetId, experiment_tag: tag, split: "all" }),
   });
 }
 
-export function evalExportUrl(runId: string): string {
-  return `${BASE}/api/eval/trials/${runId}/export`;
+/** The run report as text. A plain link cannot send the admin header, so the page fetches it. */
+export async function getEvalExport(runId: string): Promise<string> {
+  const response = await fetch(`${BASE}/api/eval/trials/${runId}/export`, { headers: adminHeader() });
+  if (!response.ok) {
+    const detail = await errorText(response);
+    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status);
+  }
+  return response.text();
 }
 
 export async function getInjections(adminToken: string): Promise<{ events: { category: string; severity: string; count: number }[] }> {
