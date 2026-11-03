@@ -15,12 +15,13 @@ export function isImeKey(event: { nativeEvent: KeyboardEvent }): boolean {
 /**
  * `current` followed by the tags in `text`, without repeats. Text typed or pasted into a tag field may hold
  * several tags: "," from a keyboard and "，" or "、" from a Chinese or Japanese input method all separate them.
+ * A tag is cut to `maxLength` characters, and no more than `limit` tags are kept in all.
  */
-export function addTags(current: string[], text: string): string[] {
+export function addTags(current: string[], text: string, limit = Infinity, maxLength = Infinity): string[] {
   const next = [...current];
   for (const tag of text.split(/[,，、]/)) {
-    const clean = tag.trim();
-    if (clean && !next.includes(clean)) next.push(clean);
+    const clean = Array.from(tag.trim()).slice(0, maxLength).join("").trim();
+    if (clean && !next.includes(clean) && next.length < limit) next.push(clean);
   }
   return next;
 }

@@ -2282,10 +2282,11 @@
           },
           "preferences": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 80
             },
             "type": "array",
-            "maxItems": 30,
+            "maxItems": 20,
             "title": "Preferences"
           }
         },
