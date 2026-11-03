@@ -495,6 +495,10 @@ class ModifyPath:
                     built = _cheapest_first(built, updated.tickets)
                 if built:
                     updated.tickets = built
+            if date_changed and old_plan.tickets and not updated.tickets:
+                updated.data_quality.gaps.append(
+                    _gap("tickets", "The earlier flight no longer fits the new dates and no flight for them came back.")
+                )
 
         if referred:
             keep_only(old_plan, updated, referred)
@@ -1707,9 +1711,11 @@ def _carry_protected(old: TripPlan, new: TripPlan, blocked: Collection[date] = (
 
 
 def _ticket_within(ticket: TicketOption, date_range) -> bool:
+    """A flight still suits a trip that moved when it leaves on the trip's new first day: a flight of the old
+    dates can fall inside the new range (a day earlier) without being a flight for the new trip."""
     if not ticket.depart_at:
         return True
-    return date_range.start <= ticket.depart_at.date() <= date_range.end
+    return ticket.depart_at.date() == date_range.start
 
 
 def _gap(section: str, message: str):
