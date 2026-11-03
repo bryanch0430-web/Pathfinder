@@ -324,12 +324,28 @@ class DataGap(BaseModel):
     retryable: bool = False
 
 
+class FreshnessMark(BaseModel):
+    """A time-sensitive section checked against its freshness window (Proposal DB-13).
+
+    ``outdated``: older than the window and not yet re-fetched. ``refreshed``: its
+    own agent fetched it again at ``checked_at``; ``fetched_at`` is the old stamp.
+    """
+
+    section: Literal["weather", "tickets", "hotels"]
+    status: Literal["outdated", "refreshed"]
+    fetched_at: datetime
+    checked_at: datetime
+    window_seconds: int
+    note: str = ""
+
+
 class DataQuality(BaseModel):
     sources_used: list[str] = Field(default_factory=list)
     gaps: list[DataGap] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     search_window_months: int = 24
     generated_at: datetime = Field(default_factory=utcnow)
+    freshness: list[FreshnessMark] = Field(default_factory=list)
 
 
 class Destination(BaseModel):

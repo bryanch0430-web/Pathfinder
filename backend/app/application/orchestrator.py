@@ -12,6 +12,7 @@ from typing import Any, AsyncIterator
 from app.application.asking import AskPath
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
+from app.application.freshness import FreshnessService
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
 from app.application.modification import ModifyPath, plan_shape
@@ -51,6 +52,7 @@ class TurnService:
         gateway: LLMGateway,
         settings: Settings,
         tracer_proxy: Any | None = None,
+        freshness: FreshnessService | None = None,
     ):
         self.store = store
         self.memory = memory
@@ -63,6 +65,9 @@ class TurnService:
         self.settings = settings
         self.tracer_proxy = tracer_proxy
         self._background: set[asyncio.Future] = set()
+        self.freshness = freshness or FreshnessService(
+            registry=plan_path.registry, planner=plan_path.planner, settings=settings, store=store
+        )
 
     def _remember_in_background(self, client_token: str, context: TripContext) -> None:
         """Session preferences go to long-term memory off the turn's critical path."""
@@ -260,6 +265,15 @@ class TurnService:
                 self.store.touch_session(session_id)
                 return
 
+            if plan is not None and decision.intent in (Intent.ASK, Intent.MODIFY):
+                # Proposal DB-13: an outdated forecast, fare or hotel price is fetched
+                # again by its own agent before the turn reads the plan.
+                refreshed = await self._refresh_outdated(plan, context, tracer, request_id)
+                if refreshed is not None:
+                    plan = refreshed
+                    if decision.intent == Intent.ASK:
+                        yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
+
             if decision.intent == Intent.PLAN:
                 async for event in self._plan(
                     context=context,
@@ -362,6 +376,14 @@ class TurnService:
                     "session_id": session_id,
                 },
             )
+
+    async def _refresh_outdated(self, plan, context, tracer, request_id):
+        try:
+            outcome = await self.freshness.check(plan, context=context, tracer=tracer, request_id=request_id)
+        except Exception:  # a failed refresh never stops the turn
+            logger.exception("refreshing an outdated plan failed")
+            return None
+        return outcome.plan if outcome is not None else None
 
     def _memory_owner(self, session_id: str) -> str:
         """Whose saved trips the planner may recall: the session's owner only."""

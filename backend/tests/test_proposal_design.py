@@ -11,8 +11,10 @@ import threading
 from datetime import timedelta
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
+from app.application.freshness import FreshnessService
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
 from app.application.planning import PlanPath
@@ -36,6 +38,7 @@ from app.eval_metering import MeteredLLM, RunLedger
 from app.evaluation import BASE, _ref
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
+from app.interface.api import create_app
 
 PREFERENCE_MESSAGE = "We are vegetarian and love museums."
 
@@ -206,14 +209,6 @@ def test_db13_time_sensitive_data_carry_timestamps(settings: Settings) -> None:
     assert all(stamp.tzinfo is not None and before <= stamp <= after for stamp in stamps)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Proposal DB-13: nothing compares a forecast's or fare's fetched_at with the configured "
-        "freshness windows (Settings.weather_fresh_seconds, ticket_fresh_seconds and "
-        "hotel_fresh_seconds are never read), so outdated data is neither flagged nor re-fetched."
-    ),
-)
 def test_db13_outdated_forecast_is_flagged_and_only_the_weather_tool_is_called_again(settings: Settings) -> None:
     """Proposal DB-13 (p3 l.125-128): an outdated forecast is refreshed by its own agent only."""
     ledger = RunLedger()
@@ -231,9 +226,153 @@ def test_db13_outdated_forecast_is_flagged_and_only_the_weather_tool_is_called_a
             if event.event == "trace":
                 trace = event.data
         called = ledger.logged_tools(trace["request_id"])
+        stored = ledger.store.get_plan(session_id)
     finally:
         ledger.close()
     assert called == {"weather.forecast": 1}
+    assert [(mark.section, mark.status, mark.fetched_at) for mark in stored.data_quality.freshness] == [
+        ("weather", "refreshed", aged)
+    ]
+    assert all(day.weather.fetched_at > aged for day in stored.days)
+
+
+ASK_WEATHER = "What will the weather be like on day 1?"
+
+
+def _ask_on_saved_plan(settings: Settings, age, *, clock=None):
+    """One ask turn on an accepted Kyoto plan that ``age`` edited before it was saved."""
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Kyoto", ledger)
+        if clock is not None:
+            rig.turns.freshness.clock = clock
+        session_id = _session(ledger, "guest-db13")
+        plan = asyncio.run(accepted_plan(settings, ledger.store.get_context(session_id)))
+        age(plan)
+        ledger.store.save_plan(plan, "Accepted plan")
+        rig.llm.route = {"intent": "ask", "confidence": 0.95}
+        events = asyncio.run(_events(rig, session_id, ASK_WEATHER))
+        trace = next(event.data for event in events if event.event == "trace")
+        called = ledger.logged_tools(trace["request_id"])
+        stored = ledger.store.get_plan(session_id)
+    finally:
+        ledger.close()
+    return plan, stored, called, events
+
+
+def _dump(rows) -> list:
+    return [row.model_dump(mode="json") for row in rows]
+
+
+def test_db13_outdated_fares_are_refreshed_by_the_flight_tool_only(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): an outdated fare is re-fetched; forecast and stay are untouched."""
+    aged = utcnow() - timedelta(seconds=settings.ticket_fresh_seconds + 600)
+
+    def age(plan) -> None:
+        for ticket in plan.tickets:
+            ticket.fetched_at = aged
+
+    before, after, called, events = _ask_on_saved_plan(settings, age)
+    assert called == {"flights.search": 1}
+    assert after.version == before.version + 1
+    assert [(mark.section, mark.status) for mark in after.data_quality.freshness] == [("tickets", "refreshed")]
+    assert after.tickets and all(ticket.fetched_at > aged for ticket in after.tickets)
+    assert [ticket.price for ticket in after.tickets] == [ticket.price for ticket in before.tickets]
+    assert _dump(day.weather for day in after.days) == _dump(day.weather for day in before.days)
+    assert _dump(after.hotels) == _dump(before.hotels)
+    assert _dump(item for _, item in after.iter_items()) == _dump(item for _, item in before.iter_items())
+    shown = next(event.data["plan"] for event in events if event.event == "plan")
+    assert shown["version"] == after.version and shown["data_quality"]["freshness"][0]["section"] == "tickets"
+
+
+def test_db13_outdated_hotel_prices_are_refreshed_by_the_hotel_tool_only(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): an outdated nightly price is replaced by the source's current one."""
+    aged = utcnow() - timedelta(seconds=settings.hotel_fresh_seconds + 600)
+    quoted: list = []
+
+    def age(plan) -> None:
+        for hotel in plan.hotels:
+            quoted.append(hotel.price_per_night)
+            hotel.price_per_night = Money(amount=1.0, currency=hotel.price_per_night.currency)
+            hotel.fetched_at = aged
+
+    before, after, called, _ = _ask_on_saved_plan(settings, age)
+    assert called == {"hotels.search": 1}
+    assert [(mark.section, mark.status) for mark in after.data_quality.freshness] == [("hotels", "refreshed")]
+    assert [hotel.price_per_night for hotel in after.hotels] == quoted
+    assert all(hotel.fetched_at > aged for hotel in after.hotels)
+    assert [hotel.id for hotel in after.hotels] == [hotel.id for hotel in before.hotels]
+    # The cost follows the re-fetched price (the accepted plan's cost was built from it).
+    assert after.cost.model_dump() == before.cost.model_dump()
+    assert _dump(after.tickets) == _dump(before.tickets)
+    assert _dump(day.weather for day in after.days) == _dump(day.weather for day in before.days)
+
+
+def test_db13_fresh_data_is_not_fetched_again(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): inside every window nothing is re-fetched or re-versioned."""
+    assert settings.weather_fresh_seconds < settings.ticket_fresh_seconds < settings.hotel_fresh_seconds
+    almost = timedelta(seconds=settings.weather_fresh_seconds - 60)
+    before, after, called, events = _ask_on_saved_plan(settings, lambda plan: None, clock=lambda: utcnow() + almost)
+    assert called == {}
+    assert after.model_dump(mode="json") == before.model_dump(mode="json")
+    assert not any(event.event == "plan" for event in events)
+
+
+def test_db13_the_injected_clock_decides_which_section_is_outdated(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): just past the forecast window only the forecast is re-fetched."""
+    later = timedelta(seconds=settings.weather_fresh_seconds + 60)
+    before, after, called, _ = _ask_on_saved_plan(settings, lambda plan: None, clock=lambda: utcnow() + later)
+    assert called == {"weather.forecast": 1}
+    assert [(mark.section, mark.status) for mark in after.data_quality.freshness] == [("weather", "refreshed")]
+    assert _dump(after.tickets) == _dump(before.tickets) and _dump(after.hotels) == _dump(before.hotels)
+
+
+class _DownWeather:
+    name = "down-weather"
+
+    async def forecast(self, geo, start, end):
+        raise ProviderError("forecast source unavailable", kind=FailureKind.SERVER_ERROR, source=self.name)
+
+
+def test_db13_a_section_its_source_cannot_refresh_stays_flagged_outdated(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): a failed refresh keeps the earlier forecast and flags it."""
+    plan = asyncio.run(accepted_plan(settings, _kyoto_context()))
+    aged = utcnow() - timedelta(seconds=settings.weather_fresh_seconds + 600)
+    for day in plan.days:
+        day.weather.fetched_at = aged
+    registry = cost_sandbox(settings, "Kyoto")
+    registry.weather = [_DownWeather()]
+    gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
+    service = FreshnessService(registry=registry, planner=Planner(gateway, settings, registry.fx), settings=settings)
+    outcome = asyncio.run(service.check(plan, context=None, tracer=NoopTracer(), request_id="req_db13"))
+    assert outcome.outdated == ["weather"] and outcome.refreshed == []
+    [mark] = outcome.plan.data_quality.freshness
+    assert (mark.section, mark.status, mark.fetched_at) == ("weather", "outdated", aged)
+    assert "earlier forecast is kept" in mark.note
+    assert outcome.plan.version == plan.version
+    assert _dump(day.weather for day in outcome.plan.days) == _dump(day.weather for day in plan.days)
+
+
+def test_db13_a_reopened_plan_has_its_outdated_hotel_prices_refreshed(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): opening a saved plan re-fetches its outdated section, once."""
+    aged = utcnow() - timedelta(seconds=settings.hotel_fresh_seconds + 600)
+    with TestClient(create_app(settings)) as client:
+        container = client.app.state.container
+        container.turn_service.freshness.registry = cost_sandbox(settings, "Kyoto")
+        session_id = client.post("/api/journeys", json={"client_token": "guest-db13-reopen"}).json()["session"]["id"]
+        context = _kyoto_context(session_id)
+        container.store.save_context(context)
+        plan = asyncio.run(accepted_plan(settings, context))
+        for hotel in plan.hotels:
+            hotel.fetched_at = aged
+        container.store.save_plan(plan, "Accepted plan")
+        opened = client.get(f"/api/journeys/{session_id}").json()
+        again = client.get(f"/api/journeys/{session_id}/itinerary").json()["plan"]
+        tools = [row["tool"] for row in container.store.tool_calls()]
+    assert tools == ["hotels.search"]
+    assert opened["plan"]["version"] == again["version"] == plan.version + 1
+    assert [(mark["section"], mark["status"]) for mark in again["data_quality"]["freshness"]] == [("hotels", "refreshed")]
+    assert sorted(version["version"] for version in opened["versions"]) == [1, 2]
 
 
 # ---------------------------------------------------------------------------

@@ -62,6 +62,9 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
     ),
     "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search"}),
     "clarify": frozenset(),
+    # Re-fetching an outdated section of a saved plan (Proposal DB-13): each
+    # section's own source only, never a web search or a place lookup.
+    "refresh": frozenset({"weather.forecast", "flights.search", "hotels.search"}),
 }
 
 

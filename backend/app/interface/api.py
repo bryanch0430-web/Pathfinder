@@ -407,6 +407,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session = require_session(c, request, session_id)
         plan = c.store.get_plan(session_id)
         if plan is not None:
+            # Proposal DB-13: a reopened plan has its outdated sections re-fetched.
+            plan = await c.turn_service.freshness.on_reopen(plan)
             plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {
             "session": session.model_dump(mode="json"),
@@ -445,6 +447,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plan = c.store.get_plan(session_id, version)
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
+        if version is None:
+            plan = await c.turn_service.freshness.on_reopen(plan)
         plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {"plan": plan.model_dump(mode="json")}
 
