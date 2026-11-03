@@ -362,10 +362,16 @@ export async function streamChat(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  // A line ends with LF, CR or CRLF. After a CR at the end of a chunk, an LF opening the next chunk is the other half of a CRLF.
+  let afterCR = false;
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    let text = decoder.decode(value, { stream: true });
+    if (!text) continue;
+    if (afterCR && text.startsWith("\n")) text = text.slice(1);
+    afterCR = text.endsWith("\r");
+    buffer += text.replace(/\r\n?/g, "\n");
     const frames = buffer.split("\n\n");
     buffer = frames.pop() ?? "";
     for (const frame of frames) {
