@@ -35,6 +35,7 @@ import {
   getFx,
   getGuides,
   getTrending,
+  getVersions,
   login,
   me,
   register,
@@ -200,25 +201,48 @@ export default function App() {
       });
   }, []);
 
+  // The open trip whose tab this window has seen: if the tab then goes missing, another window may have scrapped the trip.
+  const seenTab = useRef<string | null>(null);
+
   useEffect(() => {
     const activeId = pf.sessionId;
     if (!activeId) return;
     const known = trips.find((trip) => trip.id === activeId);
     const label = pf.plan?.destination.name || known?.label || UNTITLED_TRIP;
+    if (known) seenTab.current = activeId;
     // The open trip always has its tab, with its destination as the label. This runs again whenever the list
     // changes, so a tab that another window's write or a cleared store took away comes back.
     if (known?.label === label) return;
-    writeTrips((current) => {
-      const stored = current.find((trip) => trip.id === activeId);
-      return stored
-        ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
-        : [...current, { id: activeId, label }];
+    const register = () =>
+      writeTrips((current) => {
+        const stored = current.find((trip) => trip.id === activeId);
+        return stored
+          ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
+          : [...current, { id: activeId, label }];
+      });
+    if (known || seenTab.current !== activeId) {
+      register();
+      return;
+    }
+    // The tab was there and is gone. A trip that another window scrapped is left for the next tab instead of
+    // coming back as a tab; when the trip is still there, only the list lost it, and the tab is put back.
+    let cancelled = false;
+    getVersions(activeId).then(
+      () => false,
+      (cause) => cause instanceof ApiError && cause.status === 404,
+    ).then((gone) => {
+      if (cancelled) return;
+      if (gone) void scrapActiveTrip(false);
+      else register();
     });
+    return () => {
+      cancelled = true;
+    };
   }, [pf.sessionId, pf.plan?.destination.name, trips]);
 
-  const scrapActiveTrip = async () => {
+  const scrapActiveTrip = async (ask = true) => {
     const id = pf.sessionId;
-    if (!id || !window.confirm(t("plan.scrapConfirm"))) return;
+    if (!id || (ask && !window.confirm(t("plan.scrapConfirm")))) return;
     // The trip is deleted first: when the server refuses, it keeps its tab and the page says so.
     const outcome = await pf.scrapTrip();
     if (outcome === "kept") return;
