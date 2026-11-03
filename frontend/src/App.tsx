@@ -32,7 +32,6 @@ import { Icon } from "./design-system/icons";
 import {
   ApiError,
   claimSession,
-  discardSession,
   getFx,
   getGuides,
   getTrending,
