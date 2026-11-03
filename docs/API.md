@@ -53,7 +53,10 @@ and `POST /api/turn/stream` without a `session_id` take it from `client_token`, 
 `X-Client-Token` header, and answer `422` for any other token, because the session could not be
 opened again. A bearer needs no guest token. A turn that would start a trip with neither is `401`.
 `POST /api/journeys` with neither still answers `200` for compatibility, but the session it stores
-can never be opened again: always send a token.
+can never be opened again: always send a token. The server does not issue guest tokens and cannot
+tell a strong one from a weak one: whoever sends the same string opens the same trips, so use a
+random value (the page uses a UUID), never `undefined` or a name. A trip made with a valid bearer
+belongs to the account and is stored under its `user:<id>` token, whatever guest token the request names.
 
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.
