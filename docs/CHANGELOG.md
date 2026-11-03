@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **A deployment that forgets `ENVIRONMENT` is refused, not left open.** An unset `ENVIRONMENT` now means production, so the backend will not start on the repository's public signing secret and admin token. Local work sets `ENVIRONMENT=development` (the dev scripts do it) and the tests set `test`. (`f5bb22f`)
 - **A trip opens only in the browser that made it.** Knowing a trip's id is no longer enough. The page sends its guest token with every request, a guest trip answers only to the token it was created with, and that token is never sent back to the page. Signing up or in takes over only the trip the traveller's own browser created. (`1ccd596`)
 - **"Korea" is South Korea again.** Without a Google key, the first keyless geocoder (Open-Meteo, which indexes towns, not countries) answered a bare "Korea" with Koréa in Côte d'Ivoire, so the trip was planned in West Africa with no stops. A plain village is now only a last resort: the next geocoder is asked first.
 - **Chat dates are read as written.** "18 to 23 November", "Nov 18-23", "18 Nov to 23 Nov", "18/11 to 23/11" and "18-23/11" give both ends, with short month names, written years and ranges across the new year. Numbers are read day first (18/11), month first only when that is impossible (11/18). The earliest date in a message is the trip's start, so a later constraint ("19/11 must be a free day") never moves the trip; fractions, counts and 24/7 are not dates.
