@@ -32,6 +32,7 @@ import { clearStoredValue } from "./storage";
 
 const SESSION_KEY = "pathfinder.session";
 const TOKEN_KEY = "pathfinder.client";
+const AUTH_KEY = "pathfinder.auth";
 
 /** The profile token the API resolves with the bearer: a guest UUID, or `user:<id>` once signed in. */
 export function clientToken(): string {
@@ -59,6 +60,13 @@ const emptyContext = (sessionId = ""): TripContext => ({
   hard_constraints: [],
   language: "en",
 });
+
+/**
+ * What opening a trip came to. `missing`: the server has no such trip for this identity, and the
+ * traveller is signed in, so it is gone. `needs-sign-in`: the same answer while signed out, when the
+ * trip may belong to an account. `unavailable`: the server could not be reached.
+ */
+export type OpenOutcome = "opened" | "missing" | "needs-sign-in" | "unavailable";
 
 export interface PathfinderHook {
   ready: boolean;
@@ -112,7 +120,7 @@ export interface PathfinderHook {
   scrapTrip: () => Promise<void>;
   /** Stops the reply being streamed, if there is one. */
   abort: () => void;
-  openSession: (id: string) => Promise<boolean>;
+  openSession: (id: string) => Promise<OpenOutcome>;
   newPlan: () => Promise<string>;
 }
 
@@ -250,18 +258,30 @@ export function usePathfinder(locale: string): PathfinderHook {
     setFeedbackVerdict(null);
   }, [plan?.trip_id, plan?.version]);
 
-  const openSession = useCallback(async (id: string) => {
+  const openSession = useCallback(async (id: string): Promise<OpenOutcome> => {
     // The stream of the trip being left stops with it, so its late events cannot land in this one.
     abortRef.current?.abort();
+    setError(null);
     setReady(false);
     try {
       await loadSession(id);
       localStorage.setItem(SESSION_KEY, id);
       setReady(true);
-      return true;
-    } catch {
+      return "opened";
+    } catch (cause) {
       setReady(true);
-      return false;
+      if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
+        // The server answers 404 both for a trip that is gone and for one that is not this
+        // identity's. Signed out, it may be an account's trip: say so and keep it.
+        if (!localStorage.getItem(AUTH_KEY)) {
+          setError(tRef.current("errors.signInToOpen"));
+          return "needs-sign-in";
+        }
+        return "missing";
+      }
+      // The server is down or slow: the trip is not gone.
+      setError(tRef.current("errors.reconnect"));
+      return "unavailable";
     }
   }, [loadSession]);
 

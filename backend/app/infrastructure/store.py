@@ -469,6 +469,20 @@ class SQLiteStore:
         with self._lock, self._connect() as conn:
             conn.execute("UPDATE journeys SET user_id=? WHERE id=?", (user_id, session_id))
 
+    def adopt_sessions(self, client_token: str, user_id: str) -> int:
+        """Give the account every guest session made with ``client_token``; returns how many moved.
+
+        Only sessions nobody owns yet are moved, so a second account signing in from the same
+        browser cannot take what the first one already holds.
+        """
+        if not client_token or not user_id:
+            return 0
+        with self._lock, self._connect() as conn:
+            moved = conn.execute(
+                "UPDATE journeys SET user_id=? WHERE client_token=? AND user_id=''", (user_id, client_token)
+            )
+            return moved.rowcount
+
     def merge_preferences(self, from_token: str, to_token: str) -> PreferenceProfile:
         source = self.get_preferences(from_token)
         target = self.get_preferences(to_token)

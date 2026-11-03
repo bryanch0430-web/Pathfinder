@@ -40,8 +40,10 @@ a `data_quality.gap` on the plan, not a failed health check.
 Auth is optional. A guest session answers only to the guest token it was created with, sent as
 the `X-Client-Token` header on every request (the token is never returned by the API); any other
 caller gets 404, not 403. Once a session is claimed by a user, requests without the matching
-Bearer token return 404 too. Sign-up, sign-in and `attach` move a guest session to the account
-only when they present the token it was created with. `PATCH` recomputes `days`
+Bearer token return 404 too. Sign-up and sign-in move every guest session made with the guest
+token they present (`client_token`) to the account, so the trips of the browser follow the
+traveller; `session_id` in the request is no longer needed. `attach` moves one session and needs the
+token it was created with. A `user:` token and an empty token move nothing. `PATCH` recomputes `days`
 from the date range (or `end_date` from `days`).
 
 Shared trips are redacted before storage: no budget, party size, session id or client token

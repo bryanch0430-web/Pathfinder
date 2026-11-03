@@ -222,8 +222,10 @@ export default function App() {
   };
 
   const openTrip = async (id: string) => {
-    const opened = await pf.openSession(id);
-    if (!opened) writeTrips((current) => current.filter((trip) => trip.id !== id));
+    // Only a trip the server has no record of for a signed-in traveller is dropped from the tabs. One
+    // that could not be reached, or that may belong to an account, stays for the next try.
+    const outcome = await pf.openSession(id);
+    if (outcome === "missing") writeTrips((current) => current.filter((trip) => trip.id !== id));
   };
 
   const createTripTab = async () => {
