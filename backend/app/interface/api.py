@@ -256,13 +256,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(status_code=401, detail="Sign in to use this profile.")
         return user
 
+    def presented_token(request: Request, client_token: str = "") -> str:
+        """The guest token a caller presents: an explicit `client_token` (older clients), else `X-Client-Token`.
+
+        The header is the way to send it: a query string is written to server and proxy logs.
+        """
+        return (client_token or "").strip() or request.headers.get("x-client-token", "").strip()
+
     def resolve_identity(request: Request, c, client_token: str = "") -> str:
         """The one identity that owns a caller's profile, saved trips and memory.
 
-        A valid bearer is `user:<id>`; otherwise the guest `client_token`. A
+        A valid bearer is `user:<id>`; otherwise the guest token (see `presented_token`). A
         `user:` token without that user's bearer, or no identity at all, is 401.
         """
-        token = (client_token or "").strip()
+        token = presented_token(request, client_token)
         user = checked_user(request, c, token)
         if user is not None:
             return f"{USER_PREFIX}{user.id}"
@@ -717,7 +724,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         """
         c = container(request)
         preferences: list[str] = []
-        token = client_token.strip()
+        token = presented_token(request, client_token)
         user = checked_user(request, c, token)
         identity = f"{USER_PREFIX}{user.id}" if user is not None else token
         if identity:
