@@ -776,7 +776,10 @@ class TurnService:
         outcomes = [gap for gap in updated.data_quality.gaps if is_edit_outcome(gap)]
         told = [gap.message for gap in outcomes if gap not in plan.data_quality.gaps]
         updated.data_quality.gaps = [gap for gap in updated.data_quality.gaps if gap not in outcomes]
-        self.store.save_plan(updated, updated.change_summary, replace=updated.version == plan.version)
+        # An edit that changed nothing rewrites the version it read; the reason is the reply, and the version's
+        # own summary (what that version was) is left as it is.
+        unchanged = updated.version == plan.version
+        self.store.save_plan(updated, None if unchanged else updated.change_summary, replace=unchanged)
         description = _describe_diff(diff, updated)
         if diff:
             # A trip that moved takes its stay, flights and forecast along: not everything else is unchanged.
