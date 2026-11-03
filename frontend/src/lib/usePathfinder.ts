@@ -316,11 +316,14 @@ export function usePathfinder(locale: string): PathfinderHook {
       const id = readStoredValue("session");
       const signedIn = Boolean(readStoredValue("auth"));
       let lost: string | null = null;
+      // The stored sign-in had ended and was dropped here: the page says so once the trip is on screen.
+      let signInLost = false;
       for (let attempt = 0; id && attempt < 2; attempt += 1) {
         try {
           const data = await withTimeout((signal) => getSession(id, signal));
           if (ticket !== navRef.current) return;
           showTrip(id, data);
+          if (signInLost) setError("errors.signInEnded");
           setReady(true);
           return;
         } catch (cause) {
@@ -332,7 +335,10 @@ export function usePathfinder(locale: string): PathfinderHook {
             return;
           }
           // An expired sign-in makes every trip look gone: drop it and ask again, as the guest.
-          if (attempt === 0 && signedIn && (await signInEnded())) continue;
+          if (attempt === 0 && signedIn && (await signInEnded())) {
+            signInLost = true;
+            continue;
+          }
           // The server says this trip is gone or is not this browser's: forget it.
           clearStoredValue("session");
           lost = id;
@@ -349,6 +355,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         writeTrips((current) => current.filter((trip) => trip.id !== gone));
         setNotice("errors.tripGone");
       }
+      if (signInLost) setError("errors.signInEnded");
       setReady(true);
     } catch (cause) {
       if (ticket !== navRef.current) return;
