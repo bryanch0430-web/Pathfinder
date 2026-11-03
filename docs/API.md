@@ -43,7 +43,9 @@ forecast, fare or stay again and saves the result as the next version. While a m
 is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
 `plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first. A
 `PATCH` made while a message is being understood is kept: the turn saves only what the message changed,
-on top of the form as it is stored then.
+on top of the form as it is stored then. A `PATCH` stores the form and leaves the plan alone; the page's
+`Re-plan with the updated details.` is what moves the trip to the dates the form then holds. That is an
+edit of the same trip, a new version that keeps the stops and the hotel, not a new trip.
 
 Auth is optional. A guest session answers only to the guest token it was created with, sent as
 the `X-Client-Token` header on every request. No session response carries the token; `GET` and

@@ -9,12 +9,14 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Callable
 
 from app.application.orchestrator import _describe_diff
+from app.application.router import REPLAN_MESSAGE
 from app.application.validation import diff_plans
 from app.config import Settings
-from app.domain.models import EvalCase, TripPlan, WeatherDay
+from app.domain.models import EvalCase, Intent, RouteDecision, TripPlan, WeatherDay
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
 from tests.test_modify_targets import _modify
@@ -43,10 +45,13 @@ class Trip:
         context.start_date, context.end_date, context.days = start, end, (end - start).days + 1
         self.store.save_context(context)
 
-    async def turn(self, message: str, *, route: dict[str, Any] | None = None) -> list:
-        if route is not None:
-            self.rig.llm.route = route
-        return [event async for event in self.rig.turns.handle_turn(session_id=self.session_id, message=message)]
+    async def turn(self, message: str, *, scope_item_id: str | None = None) -> list:
+        return [
+            event
+            async for event in self.rig.turns.handle_turn(
+                session_id=self.session_id, message=message, scope_item_id=scope_item_id
+            )
+        ]
 
 
 def run_trip(
@@ -187,3 +192,88 @@ def test_the_diff_sees_a_forecast_that_changed_but_not_one_that_was_only_fetched
     assert _kinds(plan, fetched_again) == []
     assert _kinds(plan, colder) == ["weather"]
     assert _describe_diff(diff_plans(plan, colder), colder) == "The forecast was updated."
+
+
+# -- G2: the page's "generate again" reaches the edit ----------------------------------------------
+
+PAGE_HOOK = Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "usePathfinder.ts"
+
+
+def test_the_page_sends_the_message_the_backend_reads_as_a_request_to_move_the_trip() -> None:
+    sent = PAGE_HOOK.read_text(encoding="utf-8")
+
+    assert f'await send(plan ? "{REPLAN_MESSAGE}" : "Plan my trip.");' in sent
+
+
+def test_the_edit_reads_the_page_message_as_a_request_for_the_dates_the_form_holds(settings: Settings) -> None:
+    plan, updated, diff = _modify(settings, REPLAN_MESSAGE, [], new_range=WEEK_LATER)
+
+    assert (updated.dates.start, updated.dates.end) == WEEK_LATER
+    assert updated.version == plan.version + 1 and [change["kind"] for change in diff][:1] == ["dates"]
+    assert not any("could not tell which stop" in gap.message for gap in updated.data_quality.gaps)
+
+
+def test_saving_the_form_and_generating_again_moves_the_trip(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        trip.save_form(*WEEK_LATER)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event == "error"]
+        route = next(event.data for event in events if event.event == "route")
+        assert (route["intent"], route["affected_parts"]) == ("modify", ["dates"])
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.dates.start, latest.dates.end) == WEEK_LATER and latest.version == 2
+        assert latest.trip_id == trip.plan.trip_id
+        assert latest.hotels[0].name == trip.plan.hotels[0].name
+        assert reply_of(events).startswith("Updated to version 2. The trip dates changed from ")
+        assert "could not tell which stop" not in reply_of(events)
+
+    run_trip(settings, scenario)
+
+
+def test_a_model_that_reads_the_page_message_as_a_new_trip_does_not_start_one(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        async def new_trip(**_: Any) -> RouteDecision:
+            return RouteDecision(intent=Intent.PLAN, confidence=0.95, reason_code="model_route")
+
+        trip.rig.turns.router.route = new_trip
+        trip.save_form(*WEEK_LATER)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert next(event.data for event in events if event.event == "route")["intent"] == "modify"
+        latest = trip.store.get_plan(trip.session_id)
+        assert latest.trip_id == trip.plan.trip_id and latest.version == 2
+        assert (latest.dates.start, latest.dates.end) == WEEK_LATER
+
+    run_trip(settings, scenario)
+
+
+def test_generating_again_with_a_stop_selected_still_moves_the_trip(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        trip.save_form(*WEEK_LATER)
+        selected = trip.plan.days[0].items[0].id
+
+        events = await trip.turn(REPLAN_MESSAGE, scope_item_id=selected)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.dates.start, latest.dates.end) == WEEK_LATER and latest.version == 2
+        assert [item.name for day in latest.days for item in day.items] == [
+            item.name for day in trip.plan.days for item in day.items
+        ]
+        assert reply_of(events).startswith("Updated to version 2.")
+
+    run_trip(settings, scenario)
+
+
+def test_generating_again_with_the_form_unchanged_moves_nothing(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event == "error"]
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.dates.start, latest.dates.end) == (trip.plan.dates.start, trip.plan.dates.end)
+        assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
+
+    run_trip(settings, scenario)
