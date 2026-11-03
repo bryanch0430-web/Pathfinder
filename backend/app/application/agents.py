@@ -164,16 +164,21 @@ class Located:
 
     #: Asked, and answered with nothing or with a place too far from the destination.
     unplaced: list[str] = field(default_factory=list)
-    #: Not asked: the geocoder call failed, or it had failed too often in a row to be asked again.
-    unchecked: list[str] = field(default_factory=list)
-    #: The first of those failures, classified.
-    failure: ProviderError | None = None
-    #: Lookups that failed since the geocoder last answered.
+    #: Not asked, each with the failure that explains it: the geocoder call failed, or it had
+    #: failed too often in a row to be asked again.
+    unchecked: dict[str, ProviderError] = field(default_factory=dict)
+    #: Lookups that failed since the geocoder last answered, and the latest of those failures.
     streak: int = 0
+    latest: ProviderError | None = None
 
     @property
-    def down(self) -> bool:
-        return self.streak >= GEOCODER_FAILURE_LIMIT
+    def failure(self) -> ProviderError | None:
+        """The first failure."""
+        return next(iter(self.unchecked.values()), None)
+
+    def stopped(self) -> ProviderError | None:
+        """The failure that made the agent stop asking, once the geocoder failed too often in a row."""
+        return self.latest if self.streak >= GEOCODER_FAILURE_LIMIT else None
 
 
 class AttractionAgent(BaseAgent):
@@ -268,9 +273,14 @@ class AttractionAgent(BaseAgent):
         # A place the traveller named is searched by name, so a generic
         # "attractions in X" list that misses it cannot drop it.
         wishes: dict[str, str | None] = {}
+        #: Why a wish is None when the cause is a failed lookup, not a place nobody knows: the plan's
+        #: check for it says so. `lookups` are the ones the place sources failed on (the gap below);
+        #: a place found but not placed is already a geocoder gap.
+        wish_failures: dict[str, str] = {}
+        lookups: dict[str, ProviderError] = {}
         wished: list[PlaceCandidate] = []
         for wish in place_wishes(request.context):
-            match = await self._find_wish(request, wish)
+            match, failure = await self._find_wish(request, wish)
             if match is not None and match.geo is None:
                 # A place already located above is not geocoded a second time.
                 known = next((place for place in places if _same_place(place, match)), None)
@@ -278,8 +288,13 @@ class AttractionAgent(BaseAgent):
             if match is not None:
                 await self._locate(request, [match], located)
                 if match.geo is None:
+                    failure = located.unchecked.get(match.name)
                     match = None
+            elif failure is not None:
+                lookups[wish] = failure
             wishes[wish] = match.name if match else None
+            if match is None and failure is not None:
+                wish_failures[wish] = _lookup_evidence(failure)
             if match:
                 match.tags = ["requested", *match.tags]
                 wished.append(match)
@@ -312,6 +327,7 @@ class AttractionAgent(BaseAgent):
             "centre": request.destination.geo.model_dump(),
             "web_references": web_references,
             "wishes": wishes,
+            "wish_failures": wish_failures,
         }
         if places:
             # A working fallback is not a degraded plan: do not surface the
@@ -352,7 +368,7 @@ class AttractionAgent(BaseAgent):
             # The geocoder did not say these places are unknown; it could not be asked.
             note_text.append(
                 f"Left out {len(located.unchecked)} guide places that could not be checked: "
-                + ", ".join(located.unchecked[:5])
+                + ", ".join(list(located.unchecked)[:5])
             )
             failures.append(
                 DataGap(
@@ -362,6 +378,7 @@ class AttractionAgent(BaseAgent):
                     retryable=located.failure.retryable,
                 )
             )
+        failures.extend(_failure_gaps(lookups, _lookup_message))
         return self._result(
             request,
             status=status,
@@ -384,8 +401,9 @@ class AttractionAgent(BaseAgent):
         for place in places:
             if place.geo is not None:
                 continue
-            if found.down:
-                found.unchecked.append(place.name)
+            stopped = found.stopped()
+            if stopped is not None:
+                found.unchecked.setdefault(place.name, stopped)
                 continue
             try:
                 location = await self._call(
@@ -398,8 +416,8 @@ class AttractionAgent(BaseAgent):
             except Exception as exc:
                 error = classify_exception(exc, "geocoder")
                 if error.kind is not FailureKind.NO_DATA:
-                    found.unchecked.append(place.name)
-                    found.failure = found.failure or error
+                    found.unchecked.setdefault(place.name, error)
+                    found.latest = error
                     found.streak += 1
                     continue
                 location = None  # a no-result answer: the geocoder knows no such place. It did not fail.
@@ -449,8 +467,15 @@ class AttractionAgent(BaseAgent):
             partial=True,
         )
 
-    async def _find_wish(self, request: AgentContext, wish: str) -> PlaceCandidate | None:
-        """The place a traveller named, or None when no source answers with that name."""
+    async def _find_wish(
+        self, request: AgentContext, wish: str
+    ) -> tuple[PlaceCandidate | None, ProviderError | None]:
+        """The place a traveller named, or None when no source answers with that name.
+
+        When none does and a source failed, the first failure comes with the None: the place
+        may exist, and the plan must not say that no source knows it.
+        """
+        failure: ProviderError | None = None
         for source in self.registry.places:
             if not getattr(source, "available", True):
                 continue
@@ -465,13 +490,16 @@ class AttractionAgent(BaseAgent):
                     limit=3,
                     query=wish,
                 )
-            except (ProviderError, asyncio.TimeoutError, Exception):
+            except Exception as exc:
+                error = classify_exception(exc, getattr(source, "name", "places"))
+                if error.kind is not FailureKind.NO_DATA:  # a no-result answer is not a failure
+                    failure = failure or error
                 continue
             trusted = getattr(source, "ranks_by_relevance", False)
             for index, place in enumerate(results or []):
                 if wish_matches(place, wish) or (trusted and index == 0):
-                    return place
-        return None
+                    return place, None
+        return None, failure
 
 
 class HotelAgent(BaseAgent):
@@ -779,6 +807,37 @@ def _gap(section: str, exc: Exception) -> DataGap:
         return DataGap(section=section, kind=FailureKind.TIMEOUT, message="source exceeded its deadline", retryable=True)
     # An unexpected exception's own text can hold anything; the gap says only that the source failed.
     return DataGap(section=section, kind=FailureKind.SERVER_ERROR, message="source failed unexpectedly")
+
+
+def _lookup_evidence(failure: ProviderError) -> str:
+    """What the plan's check for a named place says when the lookup failed rather than found nothing."""
+    if failure.kind is FailureKind.BLOCKED:
+        return "This turn reached its limit on data lookups, so this place was not checked."
+    text = f"The place lookup failed ({failure.kind.value}), so this place was not checked."
+    return f"{text} Ask again to retry." if failure.retryable else text
+
+
+def _lookup_message(names: list[str], failure: ProviderError) -> str:
+    """Why places the traveller named could not be looked up, and whether asking again could help."""
+    subject = f"{', '.join(names[:4])} (you named {'it' if len(names) == 1 else 'them'})"
+    if failure.kind is FailureKind.BLOCKED:
+        return f"{subject} could not be looked up because this turn reached its limit on data lookups."
+    cause = f"{subject} could not be looked up because a place source failed ({failure.kind.value})"
+    return f"{cause}; ask again to retry." if failure.retryable else f"{cause}."
+
+
+def _failure_gaps(failed: dict[str, ProviderError], describe: Callable[[list[str], ProviderError], str]) -> list[DataGap]:
+    """One gap for each distinct failure among `failed`, worded by `describe` for the names it hit."""
+    groups: dict[tuple[FailureKind, bool], list[str]] = {}
+    first: dict[tuple[FailureKind, bool], ProviderError] = {}
+    for name, error in failed.items():
+        key = (error.kind, error.retryable)
+        groups.setdefault(key, []).append(name)
+        first.setdefault(key, error)
+    return [
+        DataGap(section="attractions", kind=kind, message=describe(names, first[(kind, retryable)]), retryable=retryable)
+        for (kind, retryable), names in groups.items()
+    ]
 
 
 def _unchecked_message(count: int, failure: ProviderError) -> str:
