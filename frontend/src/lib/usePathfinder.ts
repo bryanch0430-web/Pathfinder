@@ -180,7 +180,10 @@ export function usePathfinder(locale: string): PathfinderHook {
   // What the Retry button does for an error that is not a failed turn: ask for the trip again.
   const retryRef = useRef<(() => Promise<unknown>) | null>(null);
 
-  /** Follow the session's plan locale: zh-Hant shows the interface in 繁; English leaves 繁 for EN, and EN/简 as they are. */
+  /**
+   * Follow a language the traveller asked for in chat: zh-Hant shows the interface in 繁; English leaves 繁 for
+   * EN, and EN/简 as they are. Opening a trip only sets the language its plan is shown in, not the interface.
+   */
   const adoptPlanLocale = useCallback(
     (value: unknown) => {
       if (!isPlanLocale(value)) return;
@@ -227,7 +230,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       forgetTripView();
     }
     setContextState(trip.context);
-    adoptPlanLocale(trip.context.plan_locale);
+    if (isPlanLocale(trip.context.plan_locale)) setPlanLocaleState(trip.context.plan_locale);
     if (trip.plan) {
       setPlan(trip.plan);
       setActiveVersion(trip.plan.version);
@@ -242,7 +245,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     localStorage.setItem(SESSION_KEY, id);
     sessionRef.current = id;
     setSessionId(id);
-  }, [adoptPlanLocale, forgetTripView]);
+  }, [forgetTripView]);
 
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
