@@ -194,8 +194,25 @@ export function usePathfinder(locale: string): PathfinderHook {
     }
   }, []);
 
+  /**
+   * Forgets what the page shows of the trip being left besides its plan and messages: a failed turn's
+   * banner and the text Retry would send again, a clarifying question, the last turn's trace and steps.
+   */
+  const forgetTripView = useCallback(() => {
+    lastMessage.current = "";
+    setError(null);
+    setClarify(null);
+    setClarifyValues({});
+    setTrace(null);
+    setRoute(null);
+    setLive([]);
+    setSelectedItem(null);
+    setFeedbackStars(null);
+  }, []);
+
   const loadSession = useCallback(async (id: string, fresh = false) => {
     const data = await getSession(id);
+    if (sessionRef.current !== id) forgetTripView();
     if (fresh) setContextState(await carryPlanLocale(id, data.context));
     else {
       setContextState(data.context);
@@ -214,7 +231,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setMessages(data.messages);
     sessionRef.current = id;
     setSessionId(id);
-  }, [adoptPlanLocale, carryPlanLocale]);
+  }, [adoptPlanLocale, carryPlanLocale, forgetTripView]);
 
   const bootstrap = useCallback(async () => {
     setError(null);
@@ -240,6 +257,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const created = await createSession(clientToken());
       id = created.session.id;
       localStorage.setItem(SESSION_KEY, id);
+      forgetTripView();
       setContextState(await carryPlanLocale(id, created.context));
       sessionRef.current = id;
       setSessionId(id);
@@ -248,7 +266,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setError(failureOf(cause, "errors.backend"));
       setReady(true);
     }
-  }, [carryPlanLocale, loadSession]);
+  }, [carryPlanLocale, forgetTripView, loadSession]);
 
   useEffect(() => {
     void bootstrap();
