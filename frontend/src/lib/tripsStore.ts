@@ -10,7 +10,8 @@
  * - A second window kept its own copy and wrote it over the first one's tabs. Here every
  *   write starts from what is stored right now, and the `storage` event tells the other
  *   windows to read it again. There is no lock: two windows that change the tabs at the very
- *   same moment can still lose one of the two changes.
+ *   same moment can still lose one of the two changes. The page makes up for it by putting
+ *   the open trip's own tab back whenever the list changes without it.
  * - A browser that refuses the write (quota, a blocked store) lost every tab but the newest, because
  *   each write started again from the old stored list. Here the tabs the browser would not keep are held
  *   in this window and stand in for the stored list until a write goes through, so they still work,
