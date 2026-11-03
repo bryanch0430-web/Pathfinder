@@ -5,7 +5,7 @@ export function planMarkdown(plan: TripPlan, disclaimer = ""): string {
     `# ${plan.destination.name} — ${plan.days.length}-day trip`,
     "",
     ...(disclaimer ? [`> ${disclaimer}`, ""] : []),
-    `${plan.dates.start} to ${plan.dates.end} · ${plan.party_size} travellers · budget ${plan.cost.budget ?? "not set"} ${plan.cost.currency}`,
+    `${plan.dates.start} to ${plan.dates.end} · ${plan.party_size} ${plan.party_size === 1 ? "traveller" : "travellers"} · budget ${plan.cost.budget ?? "not set"} ${plan.cost.currency}`,
     "",
     "## Overview",
     "",

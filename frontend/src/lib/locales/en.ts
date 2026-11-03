@@ -28,6 +28,7 @@ export const EN = {
   "trip.noDates": "Dates not set",
   "trip.noBudget": "No budget",
   "trip.kicker": "Trip details · tap to edit",
+  "trip.travellersOne": "{count} traveller",
   "trip.travellers": "{count} travellers",
   "trip.noParty": "party not set",
   "trip.edit": "Edit",
