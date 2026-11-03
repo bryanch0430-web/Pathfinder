@@ -153,6 +153,44 @@ def test_closing_a_turn_while_its_edit_path_works_stops_the_path(quick_settings:
     _run(quick_settings, scenario)
 
 
+# -- RB-B-3: a turn closed by another task than the one that read it ---------------
+
+
+def test_closing_a_turn_from_another_task_stops_its_path_and_stores_no_failure(quick_settings: Settings) -> None:
+    async def scenario(scene: Scene) -> None:
+        turns = scene.rig.turns
+        started, stopped = asyncio.Event(), asyncio.Event()
+
+        async def working(**kwargs: Any):
+            kwargs["emit"]("think", {"text": "working on it"})
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                stopped.set()
+                raise
+
+        turns.modify_path.run = working
+        turn = turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL)
+
+        async def reader() -> None:
+            async for event in turn:
+                if event.event == "think":
+                    return  # stop reading and leave the turn suspended
+
+        await asyncio.create_task(reader())
+        assert started.is_set()
+
+        await turn.aclose()  # closed by this task, not by the one that read it
+
+        assert stopped.is_set(), "the path went on working after the turn was closed"
+        assert not turns.session_busy(scene.session_id)
+        roles = [message.role for message in scene.ledger.store.list_messages(scene.session_id, limit=20)]
+        assert roles == ["user"], "closing a turn is not a failure to tell the traveller about"
+
+    _run(quick_settings, scenario)
+
+
 # -- CONC-G11: a path that will not stop -------------------------------------
 
 
