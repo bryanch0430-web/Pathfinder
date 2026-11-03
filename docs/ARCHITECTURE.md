@@ -92,8 +92,11 @@ start/finish frames reach the browser before the plan is ready.
 5. `diff_plans` reports added/removed/changed items, a trip that moved (`dates`), the hotel's nights
    and rate (`stay`, `hotel_price`), a different hotel or flight, a changed forecast and the cost.
 
-A guard restores the plan's dates if the context drifted but the message was not a date
-request. This prevents a hotel swap from silently rewriting the trip.
+A guard keeps the plan's dates when the trip form holds other dates (it was saved, not generated)
+and the message does not ask for other dates. This prevents a hotel swap, or `add a temple on day 2`,
+from silently moving the trip; the form keeps the dates until the page's `Re-plan with the updated
+details.` or a request such as `change the dates` applies them. Naming a hotel or a stop, or having
+one selected, in such a request does not turn it into a single-row edit.
 
 ### Ask path
 

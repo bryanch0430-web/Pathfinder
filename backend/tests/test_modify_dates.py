@@ -560,3 +560,81 @@ def test_which_hotel_words_ask_for_another_hotel() -> None:
     }
     for message, expected in asks.items():
         assert _asks_for_another_hotel(message, affected_parts_for(message)) is expected, message
+
+
+# -- G8: dates the form holds are not applied by a message that does not ask for them -----------------
+
+
+def _rows(plan: TripPlan) -> list[tuple]:
+    return [(item.id, item.name, item.start, item.end) for day in plan.days for item in day.items]
+
+
+def test_an_edit_that_does_not_ask_for_other_dates_leaves_the_trip_where_it_is(settings: Settings) -> None:
+    """The form holds other dates (it was saved, not generated); "add a temple on day 2" is not a request for them."""
+    for message in ("add a temple on day 2", "remove Gion from day 3", "swap the hotel for the last two nights"):
+        plan, updated, diff, context = _edit(settings, message)
+
+        assert (updated.dates.start, updated.dates.end) == (plan.dates.start, plan.dates.end), message
+        assert [day.date for day in updated.days] == [day.date for day in plan.days], message
+        assert not any(change["kind"] in {"dates", "stay", "weather"} for change in diff), message
+        assert [ticket.depart_at for ticket in updated.tickets] == [ticket.depart_at for ticket in plan.tickets]
+        assert (context.start_date, context.end_date) == (plan.dates.start, plan.dates.end), (
+            "the edit reads the plan's own dates, whatever the form holds"
+        )
+
+
+def test_the_dates_a_form_holds_wait_for_the_message_that_asks_for_them(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        trip.save_form(*WEEK_LATER)
+        stop = trip.plan.days[1].items[0].name
+
+        await trip.turn(f"move {stop} later in the afternoon")
+        unrelated = await trip.turn("add a temple on day 2")
+
+        assert not [event for event in unrelated if event.event == "error"]
+        stored = trip.store.get_context(trip.session_id)
+        assert (stored.start_date, stored.end_date) == WEEK_LATER, "the form keeps what the traveller saved"
+        assert (trip.store.get_plan(trip.session_id).dates.start) == trip.plan.dates.start
+        assert "dates" not in {change["kind"] for change in plan_event(unrelated)["diff"]}
+
+        moved = await trip.turn(REPLAN_MESSAGE)
+
+        assert (trip.store.get_plan(trip.session_id).dates.start) == WEEK_LATER[0]
+        assert reply_of(moved).startswith("Updated to version ")
+
+    run_trip(settings, scenario)
+
+
+# -- G6: naming the hotel, or selecting a row, does not cancel a request for other dates ------------------
+
+
+def test_naming_the_hotel_in_a_request_for_other_dates_still_moves_the_trip(settings: Settings) -> None:
+    for message in (
+        "keep The Kyoto Grand but move the trip a week later",
+        "move the trip a week later, The Kyoto Grand is fine",
+    ):
+        plan, updated, diff, _ = _edit(settings, message)
+
+        assert (updated.dates.start, updated.dates.end) == WEEK_LATER, message
+        assert updated.hotels[0].name == plan.hotels[0].name == "The Kyoto Grand", message
+        assert updated.version == plan.version + 1 and diff[0]["kind"] == "dates", message
+        assert "Nothing in the plan matched" not in updated.change_summary
+
+
+def test_a_selected_row_does_not_cancel_a_request_for_other_dates(settings: Settings) -> None:
+    for chip in ("item_p1", "hotel_h1"):
+        plan, updated, diff, _ = _edit(settings, "move the trip a week later", scope_item_id=chip)
+
+        assert (updated.dates.start, updated.dates.end) == WEEK_LATER, chip
+        assert [row[:2] for row in _rows(updated)] == [row[:2] for row in _rows(plan)], "no stop was replaced"
+        assert diff[0]["kind"] == "dates", chip
+
+
+def test_a_hotel_swap_while_the_form_holds_other_dates_changes_the_hotel_and_not_the_dates(
+    settings: Settings,
+) -> None:
+    plan, updated, diff, _ = _edit(settings, "swap the hotel for another one")
+
+    assert updated.hotels[0].name == "Kyoto Garden Inn"
+    assert (updated.dates.start, updated.dates.end) == (plan.dates.start, plan.dates.end)
+    assert [change["kind"] for change in diff] == ["hotel", "cost"]

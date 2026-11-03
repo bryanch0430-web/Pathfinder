@@ -99,9 +99,17 @@ class ModifyPath:
         scope_item_id: str | None = None,
     ) -> tuple[TripPlan, list[dict[str, Any]]]:
         draft = await self._extract(message, plan, context, route_parts)
-        if is_replan_message(message):
-            # The page's "generate again" is about the whole trip, not the stop the traveller has selected.
+        shape = interpret_plan(message, draft.new_values)
+        # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
+        # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
+        # two nights" or "a later flight" name a part of the trip (Proposal DB-09), not new dates.
+        new_range = context.date_range()
+        date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
+        dates_move = bool(new_range and new_range != plan.dates) and date_requested
+        if dates_move or is_replan_message(message):
+            # A request for the whole trip is not about the stop the traveller has selected.
             scope_item_id = None
+            draft.is_question = False if dates_move else draft.is_question
         if scope_item_id and not draft.target_item_id and plan.find_item(scope_item_id):
             # The console's "About: Day 3 · X" chip is a real context signal.
             # "remove this" / "swap it" must resolve to that stop, and a real
@@ -125,15 +133,12 @@ class ModifyPath:
             narrowed = [part for part in affected if part in route_parts or part.startswith("day_")]
             affected = narrowed or route_parts
         if not affected:
-            affected = ["dates"] if is_replan_message(message) else ["attraction"]
+            affected = ["dates"] if dates_move else ["attraction"]
         if re.search(r"\b(hours?|minutes?)\b", message.lower()) and not re.search(
             r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
         ):
             affected = [part for part in affected if part != "budget"]
-        # "day 2", "the last two nights" or "a later flight" name a part of the
-        # trip, not new dates. Weather, hotel and flights rerun for "dates" only
-        # when the trip's dates actually move (Proposal DB-09).
-        dates_move = bool(context.date_range() and context.date_range() != plan.dates)
+        # Weather, hotel and flights rerun for "dates" only when the trip's dates actually move (Proposal DB-09).
         agent_names: set[AgentName] = set()
         for part in affected:
             if part == "dates" and not dates_move:
@@ -153,8 +158,12 @@ class ModifyPath:
             message,
             scope_item_id,
         )
-        referred = resolve_referred(plan, message, scope_item_id)
-        shape = interpret_plan(message, draft.new_values)
+        if dates_move:
+            agent_names |= PART_AGENTS["dates"]
+            if "attraction" not in affected:
+                agent_names.discard(AgentName.ATTRACTION)
+        # Naming a hotel or a stop in a request for other dates does not turn it into a single-row edit.
+        referred = None if dates_move else resolve_referred(plan, message, scope_item_id)
         # A pace or meal rule is about the whole plan. A selected chip must
         # not turn it into a question about one stop.
         if shape.requested and _name_mentioned(plan, message) is None:
@@ -192,23 +201,14 @@ class ModifyPath:
             return unchanged, []
 
         old_plan = plan
-        new_range = context.date_range()
-        date_requested = not shape.requested and (
-            "dates" in affected
-            # Saving the form and generating again is the traveller asking for the dates the form holds.
-            or is_replan_message(message)
-            or bool(
-                re.search(r"\b(date|dates|day|days|night|nights|extend|shorten|earlier|later|move)\b", message.lower())
-            )
-        )
-        if new_range and new_range != plan.dates and not date_requested:
+        if new_range and new_range != plan.dates and not dates_move:
             # The conversation must not drift: only an explicit date change may
             # move the trip. Restore the plan's dates into the context.
             context.start_date = plan.dates.start
             context.end_date = plan.dates.end
             context.days = len(plan.dates.dates)
             new_range = plan.dates
-        date_changed = bool(new_range and new_range != plan.dates) and not referred
+        date_changed = dates_move
         # Only an edit that asks for another hotel or the budget may change which hotel it is. When the
         # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
         hotel_requested = (
