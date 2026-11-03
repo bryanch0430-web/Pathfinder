@@ -283,7 +283,7 @@ POST /api/turn/stream (SSE)
 
 | Agent | Owns | Fallback |
 |---|---|---|
-| **Attraction** | Places, coordinates, ratings, hours, dining candidates, community notes | Google Places → Nominatim OSM → Wikivoyage; `unavailable` if none |
+| **Attraction** | Places, coordinates, ratings, hours, dining candidates, community notes | Google Places → AMap (mainland China, only with `AMAP_KEY`) → Nominatim OSM → Wikivoyage; `unavailable` if none |
 | **Hotel** | Candidates with price, rating, distance to centre | SerpApi Google Hotels → Wikivoyage Sleep; `unavailable` |
 | **Weather** | Daily forecast for the exact trip dates | Open-Meteo; dates beyond the horizon become `unavailable`, never a fabricated temperature |
 | **Ticket** | Flights with reference fares; reservation flags | SerpApi Google Flights; rail is explicitly not connected |
@@ -364,7 +364,7 @@ comparable GitHub projects (RAG, reranking, route optimization, sharing) is in
 | Fact | Source | Truth label |
 |---|---|---|
 | Attractions, ratings, hours | Google Places (New) | live when key works; `unavailable` otherwise |
-| Attraction fallback | Nominatim OSM → Wikivoyage (compliant Wikimedia User-Agent) | guide/OSM listings; no live hours |
+| Attraction fallback | AMap in mainland China (`AMAP_KEY`, off by default; GCJ-02 converted to WGS-84) → Nominatim OSM → Wikivoyage (compliant Wikimedia User-Agent) | guide/OSM listings; no live hours |
 | Hotels | SerpApi Google Hotels | **reference** nightly rate, availability not confirmed |
 | Hotel fallback | Wikivoyage Sleep | guide listing, reference price |
 | Flights | SerpApi Google Flights | **reference** fare for the travelling party |
@@ -372,7 +372,7 @@ comparable GitHub projects (RAG, reranking, route optimization, sharing) is in
 | Weather beyond horizon | Open-Meteo Archive | 3-year seasonal reference, marked `stale`, never a forecast |
 | Notes | YouTube Data API, Bilibili | community, last 24 months, lower trust |
 | FX | open.er-api.com (12 h cache) | live reference + dated static fallback; HKD default |
-| Map base | Google Maps everywhere | browser key served by `/api/runtime`; contextual, not navigation |
+| Map base | Google Maps everywhere; geocoding and place search fall back to AMap in mainland China when `AMAP_KEY` is set | browser key served by `/api/runtime`; contextual, not navigation |
 | Map time | plan item `start`/`end` | 06:00–23:00 scrubber, play/pause, 1×/2×/4× speed, current-stop HUD |
 | Map route key | per-leg distance estimate | travelled/ahead line style, mode colours, leg list |
 | New trip / export | session + plan | scrap the old session and local pointer; Markdown export |
