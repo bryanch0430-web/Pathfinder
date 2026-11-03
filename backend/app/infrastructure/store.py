@@ -620,16 +620,18 @@ class SQLiteStore:
 
     # -- plans ------------------------------------------------------------
 
-    def save_plan(self, plan: TripPlan, change_summary: str, *, replace: bool = False) -> None:
+    def save_plan(self, plan: TripPlan, change_summary: str | None, *, replace: bool = False) -> None:
         """Store one plan version. A version that is already stored is refused (`PlanConflict`),
         not overwritten: another turn saved it first. `replace=True` rewrites the same version in
         place, for an edit that changed nothing but its own notes. The version keeps its row and
-        its creation time, so rewriting an older version never makes it the latest."""
+        its creation time, so rewriting an older version never makes it the latest. No summary
+        (`None`) leaves a rewritten version's summary as it is, and is the plan's own on a new row."""
         try:
             with self._lock, self._connect() as conn:
                 if replace:
                     rewritten = conn.execute(
-                        "UPDATE itineraries SET data=?, change_summary=? WHERE session_id=? AND trip_id=? AND version=?",
+                        "UPDATE itineraries SET data=?, change_summary=COALESCE(?, change_summary) "
+                        "WHERE session_id=? AND trip_id=? AND version=?",
                         (plan.model_dump_json(), change_summary, plan.session_id, plan.trip_id, plan.version),
                     )
                     if rewritten.rowcount:
@@ -642,7 +644,7 @@ class SQLiteStore:
                         plan.session_id,
                         plan.version,
                         plan.model_dump_json(),
-                        change_summary,
+                        plan.change_summary if change_summary is None else change_summary,
                         plan.updated_at.isoformat(),
                     ),
                 )
