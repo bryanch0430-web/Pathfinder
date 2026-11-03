@@ -20,7 +20,7 @@ from app.application.prompts import PromptLibrary
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
 from app.domain.errors import PlanInvalidError
-from app.domain.models import DataGap, EvalCase, FailureKind, TripPlan, WeatherDay, utcnow
+from app.domain.models import DataGap, DateRange, EvalCase, FailureKind, TripPlan, WeatherDay, utcnow
 from app.eval_efficiency import accepted_plan, case_context
 from app.eval_metering import MeteredLLM
 from app.infrastructure.observability import NoopTracer
@@ -140,6 +140,34 @@ def test_a_repair_cannot_change_a_forecast_it_was_given(settings: Settings) -> N
     repaired = _accepted(settings, plan, reply)
 
     assert repaired.days[0].weather == plan.days[0].weather
+
+
+def test_a_repair_that_adds_a_missing_day_brings_no_forecast_or_ascent_for_it(settings: Settings) -> None:
+    plan = _plan(settings)
+    extended = plan.model_copy(deep=True)
+    extended.dates = DateRange(start=plan.dates.start, end=plan.dates.end + timedelta(days=1))
+    assert validate_plan(extended, settings) == ["day count does not match the trip date range", "days are not continuous or ordered"]
+    new_date = extended.dates.end
+    reply = _payload(extended)
+    reply["days"].append(
+        {
+            "date": new_date.isoformat(),
+            "title": "A free day",
+            "items": [],
+            "note": "",
+            "elevation_gain_m": 640.0,
+            "weather": WeatherDay(
+                date=new_date, summary="Sunny, 31C, no rain all day", high_c=31.0, low_c=22.0, source="writer", fetched_at=utcnow()
+            ).model_dump(mode="json"),
+        }
+    )
+
+    repaired = _accepted(settings, extended, reply)
+
+    added = repaired.days[-1]
+    assert added.date == new_date and added.title == "A free day", "the day the repair added is kept"
+    assert added.weather is None and added.elevation_gain_m is None, "the writer cannot supply its forecast or ascent"
+    assert [day.weather for day in repaired.days[:-1]] == [day.weather for day in plan.days]
 
 
 @pytest.mark.parametrize("part", ["meals", "hotel", "ticket"])

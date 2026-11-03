@@ -229,6 +229,10 @@ def _restore_facts(original: TripPlan, candidate: TripPlan) -> None:
     for day in candidate.days:
         if day.date in days:
             _keep(days[day.date], day)
+        else:
+            # A day the original did not have has no forecast or ascent: the writer cannot supply one.
+            day.weather = None
+            day.elevation_gain_m = None
     for old_rows, new_rows in (
         ([item for day in original.days for item in day.items], [item for day in candidate.days for item in day.items]),
         (original.hotels, candidate.hotels),
