@@ -125,6 +125,24 @@ def test_forwarded_for_does_not_buy_a_new_budget(client: TestClient) -> None:
     assert statuses == [401] * 10 + [429]
 
 
+def test_behind_uvicorns_proxy_handling_only_a_trusted_peer_chooses_its_key(settings: Settings) -> None:
+    """The app never reads X-Forwarded-For, but uvicorn rewrites the client of a peer it trusts (README, rate limits)."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    def forwarded_logins(peer: str) -> list[int]:
+        app = ProxyHeadersMiddleware(create_app(settings), trusted_hosts="127.0.0.1")
+        with TestClient(app, client=(peer, 50000)) as peer_client:
+            return [
+                peer_client.post(
+                    "/api/account/signin", json=BAD_LOGIN, headers={"X-Forwarded-For": f"198.51.100.{n}"}
+                ).status_code
+                for n in range(11)
+            ]
+
+    assert forwarded_logins("127.0.0.1") == [401] * 11  # a trusted proxy's header names the caller
+    assert forwarded_logins("203.0.113.9") == [401] * 10 + [429]  # anyone else's is ignored
+
+
 def test_each_app_starts_with_empty_counters(settings: Settings) -> None:
     with TestClient(create_app(settings)) as first:
         assert _logins(first, 11)[-1] == 429
