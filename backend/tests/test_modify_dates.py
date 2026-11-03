@@ -638,3 +638,42 @@ def test_a_hotel_swap_while_the_form_holds_other_dates_changes_the_hotel_and_not
     assert updated.hotels[0].name == "Kyoto Garden Inn"
     assert (updated.dates.start, updated.dates.end) == (plan.dates.start, plan.dates.end)
     assert [change["kind"] for change in diff] == ["hotel", "cost"]
+
+
+# -- G16: a flight that does not leave on the new first day is not kept -----------------------------------
+
+
+class _NoFlights:
+    name = "no-flights"
+    available = True
+
+    async def search(self, **_: Any):
+        raise TimeoutError("the flight source timed out")
+
+
+def no_flights(registry: Any) -> None:
+    registry.flights = [_NoFlights()]
+
+
+def test_a_flight_of_the_old_dates_is_not_kept_when_no_new_flight_came_back(settings: Settings) -> None:
+    for shift in (-1, 1, 7):
+        new_range = (START + timedelta(days=shift), START + timedelta(days=shift + 2))
+        plan, updated, _ = _modify(
+            settings, "move the trip to other dates", ["dates"], new_range=new_range, break_registry=no_flights
+        )
+
+        assert plan.tickets, "the plan had a flight"
+        assert updated.tickets == [], shift
+        assert not [line for line in updated.cost.lines if line.label.startswith("Flights")], shift
+        assert any(
+            gap.section == "tickets" and "no longer fits the new dates" in gap.message
+            for gap in updated.data_quality.gaps
+        ), shift
+
+
+def test_a_flight_that_came_back_for_the_new_dates_replaces_the_old_one(settings: Settings) -> None:
+    new_range = (START - timedelta(days=1), START + timedelta(days=1))
+    _, updated, _ = _modify(settings, "move the trip a day earlier", ["dates"], new_range=new_range)
+
+    assert [ticket.depart_at.date() for ticket in updated.tickets] == [new_range[0]]
+    assert not any("no longer fits the new dates" in gap.message for gap in updated.data_quality.gaps)
