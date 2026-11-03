@@ -12,12 +12,14 @@ from typing import Any, AsyncIterator
 from app.application.asking import AskPath
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
+from app.application.freshness import LABELS as FRESHNESS_LABELS
 from app.application.freshness import FreshnessService
+from app.application.language import chinese_input_reply, refresh_reply, set_language_reply, unsupported_reply
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
 from app.application.modification import ModifyPath, plan_shape
 from app.application.planning import PlanPath
-from app.application.router import MODIFY_VERBS, System1Router, looks_like_question
+from app.application.router import MODIFY_VERBS, System1Router, language_route, looks_like_question
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.config import Settings
@@ -177,6 +179,23 @@ class TurnService:
         plan = self.store.get_plan(session_id)
         intent: Intent = Intent.UNCLEAR
         try:
+            # Display language, refresh and Chinese input are decided first: before
+            # the selected stop, the understanding step and any model or tool.
+            display = language_route(message, has_plan=plan is not None)
+            if display is not None:
+                intent = display.intent
+                async for event in self._display_turn(
+                    decision=display.model_copy(update={"missing_slots": context.missing_slots()}),
+                    plan=plan,
+                    context=context,
+                    session_id=session_id,
+                    tracer=tracer,
+                    request_id=request_id,
+                ):
+                    yield event
+                self.store.touch_session(session_id)
+                return
+
             with tracer.span("understand"):
                 try:
                     context = await understand(message, context, self.gateway)
@@ -376,6 +395,51 @@ class TurnService:
                     "session_id": session_id,
                 },
             )
+
+    async def _display_turn(
+        self, *, decision: RouteDecision, plan, context: TripContext, session_id, tracer, request_id
+    ) -> AsyncIterator[TurnEvent]:
+        """set_language, unsupported, refresh and Chinese input: fixed replies, no planner.
+
+        set_language saves only the context's ``plan_locale`` (never a plan
+        version); refresh runs the freshness check the reopen and turn hooks use.
+        """
+        yield TurnEvent(event="route", data=_route_data(decision, self.settings))
+        locale = context.plan_locale
+        if decision.intent == Intent.SET_LANGUAGE:
+            target = decision.slots.get("language", "en")
+            changed = target != context.plan_locale
+            context.plan_locale = target  # type: ignore[assignment]
+            self.store.save_context(context)
+            yield TurnEvent(event="locale", data={"plan_locale": target})
+            reply = set_language_reply(target, changed=changed)
+        elif decision.intent == Intent.UNSUPPORTED:
+            reply = unsupported_reply(decision.slots.get("language_name", "that language"), locale)
+        elif decision.intent == Intent.REFRESH:
+            refreshed: list[str] = []
+            outdated: list[str] = []
+            if plan is not None:
+                try:
+                    outcome = await self.freshness.check(
+                        plan, context=context, tracer=tracer, request_id=request_id
+                    )
+                except Exception:  # a failed refresh keeps the earlier data
+                    logger.exception("refreshing an outdated plan failed")
+                    outcome = None
+                if outcome is not None:
+                    refreshed, outdated = outcome.refreshed, outcome.outdated
+                    if refreshed:
+                        yield TurnEvent(event="plan", data={"plan": outcome.plan.model_dump(mode="json"), "diff": []})
+            reply = refresh_reply(
+                locale, has_plan=plan is not None, refreshed=refreshed, outdated=outdated, labels=FRESHNESS_LABELS
+            )
+        else:
+            reply = chinese_input_reply(locale)
+        self.store.add_message(
+            Message(session_id=session_id, role="assistant", content=reply, intent=decision.intent)
+        )
+        for chunk in _chunks(reply):
+            yield TurnEvent(event="token", data={"text": chunk})
 
     async def _refresh_outdated(self, plan, context, tracer, request_id):
         try:
@@ -636,6 +700,7 @@ def _route_data(decision: RouteDecision, settings: Settings) -> dict[str, Any]:
         "affected_parts": decision.affected_parts,
         "missing_slots": decision.missing_slots,
         "related_to_plan": decision.related_to_plan,
+        **({"slots": decision.slots} if decision.slots else {}),
     }
 
 

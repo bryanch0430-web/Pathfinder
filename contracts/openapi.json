@@ -2125,6 +2125,21 @@
               }
             ],
             "title": "Language"
+          },
+          "plan_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "zh-Hant"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Locale"
           }
         },
         "type": "object",

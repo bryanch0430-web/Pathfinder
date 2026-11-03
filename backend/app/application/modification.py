@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.application.language import cuisine_slot
 from app.application.opening_hours import lines_for
 from app.application.planning import PlanPath
 from app.application.planner import PACE_BUFFER_MINUTES, Planner, _constraints, _pace
@@ -346,8 +347,8 @@ class ModifyPath:
                     updated.data_quality.gaps.append(
                         _gap(
                             "attractions",
-                            "I could not tell which stop you meant. Name it or give its number in the day "
-                            "(for example \"3. Ho Lee Fook\"), or select it first; the itinerary stayed as it was.",
+                            "I could not tell which stop you meant. Name it or give its number in the day"
+                            f"{_stop_example(updated)}, or select it first; the itinerary stayed as it was.",
                         )
                     )
                 else:
@@ -652,6 +653,15 @@ def _items_in_order(plan: TripPlan):
             yield day, item
 
 
+def _stop_example(plan: TripPlan) -> str:
+    """' (for example "2. <a real stop>")' from the current plan, or '' when it has no stops."""
+    for day in plan.days:
+        for index, item in enumerate(day.items, start=1):
+            if item.name.strip():
+                return f' (for example "{index}. {item.name.strip()}")'
+    return ""
+
+
 def _resolve_target(plan: TripPlan, draft: ChangeDraft, message: str) -> tuple[DayPlan, PlanItem] | None:
     """Find the stop the traveller pointed at.
 
@@ -843,12 +853,8 @@ _CUISINE_HINTS = {
 
 
 def _cuisine(message: str) -> str | None:
-    match = re.search(
-        r"\b(japanese|sushi|ramen|chinese|korean|thai|italian|indian|french|vietnamese)\b",
-        message,
-        re.IGNORECASE,
-    )
-    return match.group(1).lower() if match else None
+    # The cuisine slot; a language phrase ("in Traditional Chinese") never fills it.
+    return cuisine_slot(message)
 
 
 def _search_extra(message: str) -> dict[str, str] | None:

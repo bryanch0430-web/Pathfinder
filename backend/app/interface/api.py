@@ -10,7 +10,7 @@ import re
 from contextlib import aclosing, asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,6 +61,7 @@ class ContextPatch(BaseModel):
     preferences: list[str] | None = None
     hard_constraints: list[str] | None = None
     language: str | None = None
+    plan_locale: Literal["en", "zh-Hant"] | None = None
 
 
 class ChatRequest(BaseModel):

@@ -15,6 +15,7 @@ import re
 from datetime import date
 from typing import Any, Sequence
 
+from app.application.language import cuisine_slot, is_refresh_request, language_slot, mainly_chinese
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import plan_outline, recent_turns, trip_slots
 from app.config import Settings
@@ -77,6 +78,10 @@ class RuleRouter:
         has_plan = plan_summary is not None
         missing = context.missing_slots()
 
+        display = language_route(message, has_plan=has_plan)
+        if display is not None:
+            return display.model_copy(update={"missing_slots": missing})
+
         affected = _affected_parts(lower)
         is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
         modify_hit = bool(re.search(MODIFY_VERBS, lower))
@@ -110,6 +115,7 @@ class RuleRouter:
             need_clarification = True
             reason = "missing_" + "_".join(missing[:2])
 
+        cuisine = cuisine_slot(message) if intent == Intent.MODIFY else None
         return RouteDecision(
             intent=intent,
             confidence=confidence,
@@ -119,7 +125,53 @@ class RuleRouter:
             missing_slots=missing,
             related_to_plan=has_plan,
             rationale="rule-based fallback",
+            slots={"cuisine": cuisine} if cuisine else {},
         )
+
+
+#: rationale on a display-language, refresh or Chinese-input decision
+LANGUAGE_RULES = "language rules: decided before the selection and any model"
+
+
+def language_route(message: str, *, has_plan: bool) -> RouteDecision | None:
+    """The turns no planner, tool or model may see, decided by rules alone.
+
+    ``set_language`` / ``unsupported``: a display-language request (the
+    ``language`` slot is en, zh-Hant or other). ``refresh``: re-fetch the
+    outdated data. A message written mainly in Chinese that is neither is
+    ``unclear`` with reason ``chinese_input`` (a fixed reply). Anything else
+    returns None and takes the normal path.
+    """
+    request = language_slot(message)
+    if request is not None:
+        return RouteDecision(
+            intent=Intent.SET_LANGUAGE if request.supported else Intent.UNSUPPORTED,
+            confidence=0.97,
+            need_clarification=False,
+            reason_code="set_language" if request.supported else "unsupported_language",
+            related_to_plan=has_plan,
+            rationale=LANGUAGE_RULES,
+            slots={"language": request.language, "language_name": request.name},
+        )
+    if is_refresh_request(message):
+        return RouteDecision(
+            intent=Intent.REFRESH,
+            confidence=0.95,
+            need_clarification=False,
+            reason_code="refresh_outdated",
+            related_to_plan=has_plan,
+            rationale=LANGUAGE_RULES,
+        )
+    if mainly_chinese(message):
+        return RouteDecision(
+            intent=Intent.UNCLEAR,
+            confidence=0.45,
+            need_clarification=False,
+            reason_code="chinese_input",
+            related_to_plan=has_plan,
+            rationale=LANGUAGE_RULES,
+        )
+    return None
 
 
 class LLMRouter:
@@ -140,6 +192,13 @@ class LLMRouter:
         data = await self.gateway.json("router", user=router_prompt(message, context, plan_summary, history), purpose="router")
         intent = str(data.get("intent", "unclear")).lower()
         if intent == "clarify":
+            intent = "unclear"
+        if intent in {"set_language", "unsupported", "refresh"}:
+            # The slots come from the rules, never from the model: a display-language
+            # or refresh label the rules cannot back up is treated as unclear.
+            backed = language_route(message, has_plan=plan_summary is not None)
+            if backed is not None and backed.intent != Intent.UNCLEAR:
+                return backed.model_copy(update={"missing_slots": context.missing_slots()})
             intent = "unclear"
         if intent not in {"plan", "modify", "ask", "unclear"}:
             intent = "unclear"
@@ -208,6 +267,9 @@ class System1Router:
         history: Sequence[Message],
     ) -> RouteDecision:
         ruled = self.rules.route(message=message, context=context, plan_summary=plan_summary, history=history)
+        if ruled.rationale == LANGUAGE_RULES:
+            # Display language, refresh and Chinese input never reach Jev or the writer.
+            return ruled
         if self.use_model and rules_first_applies(
             message, ruled, context=context, plan_summary=plan_summary, settings=self.settings
         ):

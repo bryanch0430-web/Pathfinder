@@ -31,6 +31,12 @@ class Intent(StrEnum):
     MODIFY = "modify"
     ASK = "ask"
     UNCLEAR = "unclear"
+    #: show the plan in another display language; never edits the plan
+    SET_LANGUAGE = "set_language"
+    #: a display language that is not supported (fixed reply)
+    UNSUPPORTED = "unsupported"
+    #: re-fetch the outdated sections through the freshness check, nothing else
+    REFRESH = "refresh"
 
 
 class DataStatus(StrEnum):
@@ -479,6 +485,8 @@ class TripContext(BaseModel):
     preferences: list[str] = Field(default_factory=list)
     hard_constraints: list[str] = Field(default_factory=list)
     language: str = "en"
+    #: the plan's display language; the English plan stays the source of truth
+    plan_locale: Literal["en", "zh-Hant"] = "en"
     updated_at: datetime = Field(default_factory=utcnow)
 
     def missing_slots(self) -> list[str]:
@@ -517,6 +525,9 @@ class RouteDecision(BaseModel):
     missing_slots: list[str] = Field(default_factory=list)
     related_to_plan: bool = True
     rationale: str = ""
+    #: separate enum slots read by the rules: ``language`` (en | zh-Hant | other)
+    #: and ``cuisine``; a language phrase never fills the cuisine slot
+    slots: dict[str, str] = Field(default_factory=dict)
 
 
 class Message(BaseModel):
