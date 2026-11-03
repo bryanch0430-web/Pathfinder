@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
@@ -104,7 +105,7 @@ class ModifyPath:
             # calls the terseness a question.
             draft.target_item_id = scope_item_id
             if re.search(
-                r"\b(remove|delete|drop|swap|replace|change|make|add|include|move)\b",
+                r"\b(remove|delete|drop|swap|replace|change|switch|make|add|include|move|eat|dinner|lunch|restaurant)\b",
                 message.lower(),
             ):
                 draft.is_question = False
@@ -121,6 +122,10 @@ class ModifyPath:
             affected = narrowed or route_parts
         if not affected:
             affected = ["attraction"]
+        if re.search(r"\b(hours?|minutes?)\b", message.lower()) and not re.search(
+            r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
+        ):
+            affected = [part for part in affected if part != "budget"]
         agent_names: set[AgentName] = set()
         for part in affected:
             agent_names |= PART_AGENTS.get(part, {AgentName.ATTRACTION})
@@ -130,7 +135,29 @@ class ModifyPath:
                 message.lower(),
             )
         )
-        if budget_mode and context.budget is not None:
+        agent_names = lock_scope(
+            agent_names,
+            plan,
+            message,
+            scope_item_id,
+        )
+        referred = resolve_referred(plan, message, scope_item_id)
+        shape = interpret_plan(message, draft.new_values)
+        # A pace or meal rule is about the whole plan. A selected chip must
+        # not turn it into a question about one stop.
+        if shape.requested and _name_mentioned(plan, message) is None:
+            referred = None
+            draft.is_question = False
+            agent_names = set()
+        if referred:
+            # The traveller pointed at one row. No other row, hotel, or flight
+            # may change, even if the router named a whole section.
+            draft.target_item_id = referred
+            draft.is_question = False
+            agent_names = (
+                {AgentName.HOTEL} if plan.find_hotel(referred) else {AgentName.ATTRACTION}
+            )
+        if budget_mode and context.budget is not None and not referred:
             # A budget request is not only a hotel request: the flight is often
             # the largest line, so both priced sections are re-run.
             agent_names.add(AgentName.HOTEL)
@@ -154,8 +181,10 @@ class ModifyPath:
 
         old_plan = plan
         new_range = context.date_range()
-        date_requested = "dates" in affected or bool(
-            re.search(r"\b(date|dates|day|days|night|nights|extend|shorten|earlier|later|move)\b", message.lower())
+        date_requested = not shape.requested and (
+            "dates" in affected or bool(
+                re.search(r"\b(date|dates|day|days|night|nights|extend|shorten|earlier|later|move)\b", message.lower())
+            )
         )
         if new_range and new_range != plan.dates and not date_requested:
             # The conversation must not drift: only an explicit date change may
@@ -164,7 +193,7 @@ class ModifyPath:
             context.end_date = plan.dates.end
             context.days = len(plan.dates.dates)
             new_range = plan.dates
-        date_changed = bool(new_range and new_range != plan.dates)
+        date_changed = bool(new_range and new_range != plan.dates) and not referred
         if date_changed and len(new_range.dates) != len(plan.days):
             # A different length is a different shape; rebuild with the same id and version + 1.
             rebuilt = await self.plan_path.run(
@@ -192,16 +221,19 @@ class ModifyPath:
             source="current plan",
         )
         date_range = new_range or plan.dates
-        with tracer.span("modify.agents", parts=",".join(sorted(agent_names))):
-            results = await self.plan_path.run_agents(
-                context=context,
-                destination=destination,
-                date_range=date_range,
-                toolbox=toolbox,
-                emit=emit,
-                names=agent_names,
-                extra={"places_query": _places_query(message)} if AgentName.ATTRACTION in agent_names else None,
-            )
+        if shape.requested and referred is None:
+            results = {}
+        else:
+            with tracer.span("modify.agents", parts=",".join(sorted(agent_names))):
+                results = await self.plan_path.run_agents(
+                    context=context,
+                    destination=destination,
+                    date_range=date_range,
+                    toolbox=toolbox,
+                    emit=emit,
+                    names=agent_names,
+                    extra=_search_extra(message) if AgentName.ATTRACTION in agent_names else None,
+                )
 
         updated = plan.model_copy(deep=True)
         # A section that is rerun gets a fresh gap verdict. Without this, an old
@@ -219,7 +251,7 @@ class ModifyPath:
                 updated.hotels[0].check_out = new_range.end
             updated.tickets = [ticket for ticket in updated.tickets if _ticket_within(ticket, new_range)]
 
-        if AgentName.HOTEL in agent_names:
+        if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
             candidates = (hotels.payload.get("hotels") if hotels else []) or []
             current = updated.hotels[0].name if updated.hotels else ""
@@ -229,7 +261,7 @@ class ModifyPath:
                 else None
             )
             cheaper = budget_mode or bool(re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower()))
-            pool = [row for row in candidates if row.get("name") != current]
+            pool = [row for row in candidates if row.get("name") != current and _hotel_near(updated, row)]
             if cheaper:
                 pool.sort(key=lambda row: _hotel_price(row) if _hotel_price(row) is not None else float("inf"))
                 if current_price is not None:
@@ -242,7 +274,7 @@ class ModifyPath:
                     _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
                 )
 
-        if AgentName.WEATHER in agent_names:
+        if AgentName.WEATHER in agent_names and referred is None:
             weather_result = results.get("weather")
             rows = (weather_result.payload.get("days") if weather_result else []) or []
             weather_by_date = {row.get("date"): row for row in rows}
@@ -251,7 +283,9 @@ class ModifyPath:
                 if row:
                     day.weather = WeatherDay.model_validate(row)
 
-        if AgentName.ATTRACTION in agent_names:
+        if shape.requested and referred is None:
+            draft.description = shape.reason or apply_plan_shape(updated, shape)
+        elif AgentName.ATTRACTION in agent_names:
             attraction_result = results.get("attraction")
             payload = attraction_result.payload if attraction_result else {}
             places = payload.get("places") or []
@@ -311,6 +345,7 @@ class ModifyPath:
                         )
                     else:
                         wanted_text = _requested_alternative_text(message)
+                        cuisine = _cuisine(message)
                         replaced = _replace_target(
                             updated,
                             places,
@@ -319,14 +354,19 @@ class ModifyPath:
                             message,
                             distance_aware=_FAR_MOTION.search(message) is not None,
                             prefer_name=wanted_text,
+                            cuisine=cuisine,
                         )
                         if replaced:
                             draft.description = f"Replaced {before} with {target_item.name}."
                         else:
                             detail = (
-                                f"I could not find a verified {wanted_text!r} in the configured sources"
-                                if wanted_text
-                                else f"No verified alternative for {before!r} came back from the configured sources"
+                                f"No verified {cuisine} restaurant came back, so {before} stayed as it was"
+                                if cuisine
+                                else (
+                                    f"I could not find a verified {wanted_text!r} in the configured sources"
+                                    if wanted_text
+                                    else f"No verified alternative for {before!r} came back from the configured sources"
+                                )
                             )
                             updated.data_quality.gaps.append(
                                 _gap(
@@ -335,7 +375,7 @@ class ModifyPath:
                                 )
                             )
 
-        if AgentName.TICKET in agent_names:
+        if AgentName.TICKET in agent_names and referred is None:
             ticket_result = results.get("ticket")
             flights = (ticket_result.payload.get("flights") if ticket_result else []) or []
             if flights:
@@ -345,6 +385,9 @@ class ModifyPath:
                 if built:
                     updated.tickets = built
 
+        if referred:
+            keep_only(old_plan, updated, referred)
+            draft.description = _one_item_summary(old_plan, updated, referred)
         # Budget and cost are always recalculated after a change.
         if context.budget is not None:
             updated.budget = Money(amount=context.budget, currency=context.currency)
@@ -666,6 +709,7 @@ def _replace_target(
     *,
     distance_aware: bool,
     prefer_name: str | None = None,
+    cuisine: str | None = None,
 ) -> bool:
     day, item = target
     if item.locked or item.confirmed:
@@ -683,6 +727,22 @@ def _replace_target(
             pool = preferred
     if not pool:
         return False
+    anchor_geo = item.geo or plan.destination.geo
+    if anchor_geo is not None:
+        local = [row for row in pool if _row_near(anchor_geo, row, 30)]
+        if not local:
+            return False
+        pool = local
+    if cuisine:
+        hints = _CUISINE_HINTS.get(cuisine, (cuisine,))
+        matched = [
+            row
+            for row in pool
+            if any(hint in f"{row.get('name', '')} {row.get('description', '')}".lower() for hint in hints)
+        ]
+        if not matched:
+            return False
+        pool = matched
     if distance_aware:
         anchor = _anchor_geo(plan, day, item)
         if anchor is not None:
@@ -699,9 +759,436 @@ def _replace_target(
     return True
 
 
+_CUISINE_HINTS = {
+    "japanese": ("japanese", "sushi", "ramen", "izakaya", "yakitori", "tempura", "udon"),
+    "sushi": ("sushi", "japanese"),
+    "ramen": ("ramen", "japanese"),
+    "chinese": ("chinese", "cantonese", "dim sum", "sichuan"),
+    "korean": ("korean", "barbecue"),
+    "thai": ("thai",),
+    "italian": ("italian", "pizza", "pasta"),
+    "indian": ("indian", "curry"),
+}
+
+
+def _cuisine(message: str) -> str | None:
+    match = re.search(
+        r"\b(japanese|sushi|ramen|chinese|korean|thai|italian|indian|french|vietnamese)\b",
+        message,
+        re.IGNORECASE,
+    )
+    return match.group(1).lower() if match else None
+
+
+def _search_extra(message: str) -> dict[str, str] | None:
+    extra: dict[str, str] = {}
+    cuisine = _cuisine(message)
+    if cuisine:
+        extra["meals_query"] = f"{cuisine} restaurant"
+    places = _places_query(message)
+    if places:
+        extra["places_query"] = places
+    return extra or None
+
+
 def _places_query(message: str) -> str | None:
     wanted = [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
     return " ".join(f"{word}s" for word in wanted) if wanted else None
+
+
+_MEAL_WORDS = re.compile(
+    r"\b(eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe|café)\b",
+    re.IGNORECASE,
+)
+_HOTEL_WORDS = re.compile(
+    r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b",
+    re.IGNORECASE,
+)
+_CHANGE_WORDS = re.compile(
+    r"\b(switch|swap|replace|change|another|different|instead)\b",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class PlanAdjust:
+    """A pace change. Numbers outside 1–4 places a day are refused."""
+
+    requested: bool = False
+    places_per_day: int | None = None
+    meals: str | None = None
+    earliest: str | None = None
+    min_hours: float | None = None
+    reason: str = ""
+
+
+_COUNT_WORDS = {
+    "zero": 0, "none": 0, "no": 0,
+    "one": 1, "single": 1, "a": 1, "an": 1,
+    "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+}
+_PLACE_WORD = r"(?:place|stop|sight|attraction|visit)"
+_MEAL_WORD = r"(?:meal|lunch|dinner|breakfast|dining|restaurant|eat)"
+_MAX_PLACES_A_DAY = 4
+
+
+def plan_shape(message: str) -> bool:
+    """True when the sentence asks to reshape the plan rather than one stop."""
+    return interpret_plan(message).requested
+
+
+def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
+    """Read a pace or meal rule from any wording, then refuse the extremes.
+
+    The model may also pass places_per_day and meals in new_values. Those are
+    clamped the same way. Hotel, flights and named stops are not touched here.
+    """
+    lower = message.lower()
+    found = PlanAdjust()
+    if re.search(r"\b(no places|no stops|no sights|empty itinerary|delete the trip|erase the trip)\b", lower):
+        return PlanAdjust(
+            requested=True,
+            reason="That would remove the trip itself. I can thin a day, not erase it, so nothing was changed.",
+        )
+    count = re.search(
+        rf"\b(\d+|zero|none|no|one|single|two|three|four|five|six)\b.{{0,30}}\b{_PLACE_WORD}s?\b",
+        lower,
+    )
+    about_days = bool(re.search(r"\b(each day|every day|per day|a day)\b", lower))
+    if count and (about_days or re.search(r"\b(only|just)\b", lower)):
+        raw = count.group(1)
+        number = int(raw) if raw.isdigit() else _COUNT_WORDS.get(raw)
+        found.requested = True
+        if number is None or number < 1 or number > _MAX_PLACES_A_DAY:
+            shown = raw if number is None else str(number)
+            found.reason = (
+                f"I can keep 1 to {_MAX_PLACES_A_DAY} places a day. "
+                f"{shown} is outside that, so the plan was not changed."
+            )
+        else:
+            found.places_per_day = number
+    if re.search(rf"\b{_MEAL_WORD}", lower):
+        drop = bool(re.search(r"\b(no|without|skip|not required|don't need|do not need|drop|remove)\b", lower))
+        if drop:
+            found.requested = True
+            found.meals = "drop"
+    hinted = hinted or {}
+    if isinstance(hinted.get("places_per_day"), int):
+        number = hinted["places_per_day"]
+        found.requested = True
+        if number < 1 or number > _MAX_PLACES_A_DAY:
+            found.places_per_day = None
+            found.reason = (
+                f"I can keep 1 to {_MAX_PLACES_A_DAY} places a day. "
+                f"{number} is outside that, so the plan was not changed."
+            )
+        elif not found.reason:
+            found.places_per_day = number
+    if hinted.get("meals") in {"drop", "keep"} and not found.reason:
+        found.requested = True
+        found.meals = str(hinted["meals"])
+    _read_schedule(lower, found)
+    if isinstance(hinted.get("min_hours"), (int, float)) and not found.reason:
+        hours = float(hinted["min_hours"])
+        found.requested = True
+        if hours < 1 or hours > 6:
+            found.reason = "I can give a place 1 to 6 hours. Longer than that does not fit a day, so nothing was changed."
+            found.min_hours = None
+        else:
+            found.min_hours = hours
+    if isinstance(hinted.get("earliest"), str) and re.fullmatch(r"\d{2}:\d{2}", hinted["earliest"]) and not found.reason:
+        found.requested = True
+        found.earliest = hinted["earliest"]
+    if found.earliest and found.min_hours and not found.reason:
+        start = _clock_minutes(found.earliest)
+        if start + int(found.min_hours * 60) > _DAY_END:
+            found.reason = (
+                f"A day ends at 21:30, so a {found.min_hours:g}-hour visit cannot start at {found.earliest}. "
+                "Nothing was changed."
+            )
+            found.earliest = None
+            found.min_hours = None
+    return found
+
+
+def apply_plan_shape(plan: TripPlan, shape: PlanAdjust) -> str:
+    """Apply a pace rule that already passed the bounds check."""
+    kept: list[str] = []
+    dropped_places: list[str] = []
+    dropped_meals: list[str] = []
+    for index, day in enumerate(plan.days, start=1):
+        if shape.meals == "drop":
+            meals = [item for item in day.items if item.type == ItemType.MEAL]
+            dropped_meals.extend(item.name for item in meals)
+            day.items = [item for item in day.items if item.type != ItemType.MEAL]
+        if shape.places_per_day is not None:
+            sights = [item for item in day.items if item.type == ItemType.ATTRACTION]
+            if len(sights) > shape.places_per_day:
+                drop = sights[shape.places_per_day:]
+                drop_ids = {item.id for item in drop}
+                dropped_places.extend(item.name for item in drop)
+                day.items = [item for item in day.items if item.id not in drop_ids]
+                sights = sights[: shape.places_per_day]
+            if sights:
+                kept.append(f"Day {index}: " + ", ".join(item.name for item in sights))
+    parts: list[str] = []
+    if shape.places_per_day is not None:
+        parts.append(
+            f"Each day now has at most {shape.places_per_day} "
+            + ("place" if shape.places_per_day == 1 else "places")
+            + (f" ({'; '.join(kept)})" if kept else "")
+            + "."
+        )
+        if dropped_places:
+            parts.append("Removed " + ", ".join(dropped_places) + ".")
+    if shape.meals == "drop":
+        parts.append(
+            "Removed meals: " + ", ".join(dropped_meals) + "."
+            if dropped_meals
+            else "No meals were on the plan."
+        )
+    if shape.earliest or shape.min_hours:
+        moved, dropped = _retime(plan, shape)
+        if moved:
+            parts.append("Visits now start at " + ", ".join(moved) + ".")
+        if dropped:
+            parts.append(
+                "Could not fit "
+                + ", ".join(dropped)
+                + " after that start without running past 21:30, so those stops were removed."
+            )
+        if not moved and not dropped:
+            parts.append("No visit needed a new time.")
+    if not parts:
+        parts.append("The plan already matched that pace.")
+    parts.append("Hotel and flights are unchanged.")
+    return " ".join(parts)
+
+
+_DAY_END = 21 * 60 + 30
+_MIN_START = 8 * 60
+_MAX_START = 18 * 60
+
+
+def _clock_minutes(value: str) -> int:
+    hour, minute = value.split(":")
+    return int(hour) * 60 + int(minute)
+
+
+def _hhmm(minutes: int) -> str:
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _read_schedule(lower: str, found: PlanAdjust) -> None:
+    """A start time or a dwell, in whatever form the sentence uses."""
+    if found.reason:
+        return
+    clock = re.search(
+        r"\b(?:after|from|past|at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b",
+        lower,
+    )
+    compact = re.search(r"\b(?:after|from|past|at)\s+(\d{3,4})\b", lower)
+    earliest: int | None = None
+    if compact:
+        raw = compact.group(1).zfill(4)
+        earliest = int(raw[:2]) * 60 + int(raw[2:])
+    elif clock:
+        hour = int(clock.group(1))
+        minute = int(clock.group(2) or 0)
+        meridiem = clock.group(3)
+        if meridiem == "pm" and hour < 12:
+            hour += 12
+        if meridiem == "am" and hour == 12:
+            hour = 0
+        earliest = hour * 60 + minute
+    elif re.search(r"\b(can'?t|cannot|not)\b.{0,24}\b(morning|wake)\b", lower):
+        earliest = 11 * 60
+    hours = re.search(r"\b(\d+(?:\.\d+)?)\s+hours?\b", lower)
+    if hours and re.search(r"\b(spend|least|minimum|stay|at a|single|spot|place)\b", lower):
+        found.requested = True
+        amount = float(hours.group(1))
+        if amount < 1 or amount > 6:
+            found.reason = (
+                "I can give a place 1 to 6 hours. Longer than that does not fit a day, "
+                "so nothing was changed."
+            )
+            return
+        found.min_hours = amount
+    if earliest is None:
+        return
+    found.requested = True
+    if earliest < _MIN_START or earliest > _MAX_START:
+        found.reason = (
+            f"I can start the day between 08:00 and 18:00. {_hhmm(earliest)} is outside that, "
+            "so nothing was changed."
+        )
+        return
+    found.earliest = _hhmm(earliest)
+
+
+def _retime(plan: TripPlan, shape: PlanAdjust) -> tuple[list[str], list[str]]:
+    """Move sights to the requested start and length. Flights stay where they are."""
+    earliest = _clock_minutes(shape.earliest) if shape.earliest else None
+    moved: list[str] = []
+    dropped: list[str] = []
+    for index, day in enumerate(plan.days, start=1):
+        cursor = earliest if earliest is not None else None
+        remove: set[str] = set()
+        for item in list(day.items):
+            if item.type is not ItemType.ATTRACTION:
+                continue
+            try:
+                current = _clock_minutes(item.start)
+                end = _clock_minutes(item.end)
+            except (ValueError, AttributeError):
+                current, end = 9 * 60, 10 * 60 + 30
+            duration = max(30, end - current)
+            if shape.min_hours:
+                duration = max(duration, int(shape.min_hours * 60))
+            start = current if cursor is None else max(cursor, earliest or current)
+            if start + duration > _DAY_END:
+                remove.add(item.id)
+                dropped.append(f"Day {index} {item.name}")
+                continue
+            item.start = _hhmm(start)
+            item.end = _hhmm(start + duration)
+            moved.append(f"Day {index} {item.name} {_hhmm(start)}–{_hhmm(start + duration)}")
+            cursor = start + duration + 20
+        if remove:
+            day.items = [item for item in day.items if item.id not in remove]
+    return moved, dropped
+
+
+def resolve_referred(plan: TripPlan, message: str, scope_item_id: str | None) -> str | None:
+    """The one item this message is about, or None when the edit is section-wide.
+
+    A name in the sentence wins. Otherwise the selected chip ("this") is the item.
+    """
+    named = _name_mentioned(plan, message)
+    if named:
+        return named
+    if scope_item_id and (plan.find_item(scope_item_id) or plan.find_hotel(scope_item_id)):
+        return scope_item_id
+    return None
+
+
+def _name_mentioned(plan: TripPlan, message: str) -> str | None:
+    lowered = message.lower()
+    found: list[tuple[int, str]] = []
+    for _, item in plan.iter_items():
+        if len(item.name) >= 4 and item.name.lower() in lowered:
+            found.append((len(item.name), item.id))
+    for hotel in plan.hotels:
+        if len(hotel.name) >= 4 and hotel.name.lower() in lowered:
+            found.append((len(hotel.name), hotel.id))
+    if not found:
+        return None
+    found.sort(reverse=True)
+    return found[0][1]
+
+
+def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
+    """Put back every row except the one the traveller referred to."""
+    changed_item = None
+    for day in updated.days:
+        for item in day.items:
+            if item.id == item_id:
+                changed_item = item.model_copy(deep=True)
+    changed_hotel = next((hotel.model_copy(deep=True) for hotel in updated.hotels if hotel.id == item_id), None)
+    fresh_gaps = [
+        gap for gap in updated.data_quality.gaps if gap not in original.data_quality.gaps
+    ]
+
+    updated.hotels = [hotel.model_copy(deep=True) for hotel in original.hotels]
+    updated.tickets = [ticket.model_copy(deep=True) for ticket in original.tickets]
+    updated.dates = original.dates.model_copy(deep=True)
+    updated.days = [day.model_copy(deep=True) for day in original.days]
+    updated.data_quality = original.data_quality.model_copy(deep=True)
+
+    if changed_item is not None:
+        for day in updated.days:
+            for index, item in enumerate(day.items):
+                if item.id != item_id:
+                    continue
+                same = changed_item.name == item.name
+                day.items[index] = item.model_copy(
+                    update={
+                        "name": changed_item.name,
+                        "geo": changed_item.geo,
+                        "address": changed_item.address,
+                        "notes": changed_item.notes,
+                        "source_refs": changed_item.source_refs,
+                        "tags": changed_item.tags,
+                        "data_status": changed_item.data_status,
+                        "fetched_at": changed_item.fetched_at,
+                    }
+                )
+                if same and fresh_gaps:
+                    updated.data_quality.gaps.append(fresh_gaps[-1])
+                return
+    if changed_hotel is not None:
+        for index, hotel in enumerate(updated.hotels):
+            if hotel.id == item_id:
+                updated.hotels[index] = changed_hotel
+                return
+    if fresh_gaps:
+        updated.data_quality.gaps.append(fresh_gaps[-1])
+
+
+def _one_item_summary(original: TripPlan, updated: TripPlan, item_id: str) -> str:
+    before = original.find_item(item_id)
+    after = updated.find_item(item_id)
+    if before and after:
+        if before[1].name == after[1].name:
+            return f"{before[1].name} stayed as it was. Nothing else was changed."
+        return f"Replaced {before[1].name} with {after[1].name}. Everything else is unchanged."
+    old_hotel = original.find_hotel(item_id)
+    new_hotel = updated.find_hotel(item_id)
+    if old_hotel and new_hotel:
+        if old_hotel.name == new_hotel.name:
+            return f"{old_hotel.name} stayed as it was. Nothing else was changed."
+        return f"Replaced {old_hotel.name} with {new_hotel.name}. Everything else is unchanged."
+    return "Nothing else was changed."
+
+
+def lock_scope(
+    agent_names: set[AgentName],
+    plan: TripPlan,
+    message: str,
+    scope_item_id: str | None,
+) -> set[AgentName]:
+    """A selected meal is a meal change. It must not rewrite the hotel.
+
+    "switch this, I don't want to eat here" was replacing the hotel, including
+    once with a stay 11,000 km away. Eating words, or a change aimed at the
+    selected stop, stay on that stop unless the message names a hotel.
+    """
+    names = set(agent_names)
+    if _HOTEL_WORDS.search(message):
+        return names
+    scoped = plan.find_item(scope_item_id) if scope_item_id else None
+    about_meal = _MEAL_WORDS.search(message) is not None
+    about_change = _CHANGE_WORDS.search(message) is not None
+    if about_meal or (scoped is not None and about_change):
+        names.discard(AgentName.HOTEL)
+        names.discard(AgentName.TICKET)
+        names.add(AgentName.ATTRACTION)
+    return names
+
+
+def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:
+    """A stay in another country is not a candidate for this city."""
+    return _row_near(plan.destination.geo, row, km)
+
+
+def _row_near(anchor, row: dict, km: float) -> bool:
+    if anchor is None:
+        return True
+    geo = row.get("geo") or {}
+    lat, lng = geo.get("lat"), geo.get("lng")
+    if lat is None or lng is None:
+        return True
+    return haversine_km(anchor.lat, anchor.lng, float(lat), float(lng)) <= km
 
 
 def _hotel_price(row: dict) -> float | None:

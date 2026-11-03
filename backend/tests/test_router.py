@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from app.application.llm_gateway import LLMGateway
 from app.application.prompts import PromptLibrary
-from app.application.router import RuleRouter, System1Router
+from app.application.router import RuleRouter, System1Router, looks_like_question
 from app.config import Settings
 from app.domain.models import Intent, TripContext
 from app.infrastructure.llm import NullLLM
@@ -62,3 +62,7 @@ def test_gate_forces_clarification_below_threshold(settings: Settings) -> None:
     )
     assert decision.need_clarification is True
     assert decision.confidence < settings.router_threshold
+
+
+def test_a_restaurant_question_is_a_question_even_without_a_question_word() -> None:
+    assert looks_like_question("Café Bohème TKO is for eating japanese food??") is True

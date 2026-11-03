@@ -91,6 +91,11 @@ class AskPath:
                 and "web" not in facts
                 and getattr(self.registry, "web", None)
             )
+            or (
+                re.search(r"\b(japanese|sushi|ramen|chinese|korean|thai|italian|cuisine|serves)\b", lower)
+                and "web" not in facts
+                and getattr(self.registry, "web", None)
+            )
         )
         # A numeric distance for the selected stop is answered from the numbers
         # themselves; a writer that opens with "the plan does not contain the
@@ -114,6 +119,12 @@ class AskPath:
         tool_name, tool_result, source = await self._one_tool(
             question, plan, context, toolbox, scope_item_id=scope_item_id
         )
+        if tool_name == "web" and _cuisine_word(question):
+            subject = ""
+            if plan is not None:
+                picked = _scoped_item(plan, scope_item_id) or _find_item_strict(plan, question)
+                subject = picked.name if picked is not None else ""
+            return _cuisine_from_pages(question, tool_result or [], subject), True, source or "web"
         if tool_result is not None:
             # Keep the fact key meaningful: the writer has instructions for
             # web results and place detail, but not for an anonymous "tool" blob.
@@ -231,7 +242,7 @@ class AskPath:
             if subject or re.search(QUALITY_WORDS, lower) or re.search(DEEP_SEARCH_WORDS, lower):
                 destination = plan.destination.name
                 if subject:
-                    query = f"{subject} {destination} review"
+                    query = f"{subject} {destination} {_keyword_query(question, '')}".strip()
                 else:
                     query = _keyword_query(question, destination)
                 deep = bool(
@@ -252,7 +263,10 @@ class AskPath:
                         count=4,
                         ori_question=question[:128],
                     )
-                    return "web", [row.as_dict() for row in rows][:4], self.registry.web[0].name
+                    rows = [row.as_dict() for row in rows][:4]
+                    if _cuisine_word(question):
+                        return "web", rows, self.registry.web[0].name
+                    return "web", rows, self.registry.web[0].name
                 except Exception:
                     return "web", [], "web"
         return "none", None, "none"
@@ -683,6 +697,32 @@ _QUERY_STOPWORDS = {
     "i", "me", "my", "tell", "about", "with", "and", "or", "it", "its", "that", "this",
     "there", "any", "good", "great", "best", "please", "would", "should", "could",
 }
+
+
+def _cuisine_word(question: str) -> str | None:
+    match = re.search(
+        r"\b(japanese|sushi|ramen|chinese|korean|thai|italian)\b",
+        question or "",
+        re.IGNORECASE,
+    )
+    return match.group(1).lower() if match else None
+
+
+def _cuisine_from_pages(question: str, rows: list, name: str) -> str:
+    """Say only what the pages state. A missing cuisine is not a yes."""
+    word = _cuisine_word(question) or "that cuisine"
+    place = name or "that restaurant"
+    hints = (word, "sushi", "ramen", "izakaya") if word == "japanese" else (word,)
+    blob_of = lambda row: f"{row.get('title', '')} {row.get('summary', '')} {row.get('snippet', '')}".lower()
+    hit = next((row for row in rows if any(hint in blob_of(row) for hint in hints)), None)
+    if hit is None:
+        return (
+            f"I checked public pages for {place}. None of them state that it serves {word} food. "
+            "I will not guess."
+        )
+    body = (hit.get("summary") or hit.get("snippet") or "").strip()
+    url = hit.get("url") or ""
+    return f"A public page mentions {word} food in connection with {place}: {hit.get('title')} — {body[:220]} {url}".strip()
 
 
 def _keyword_query(question: str, destination: str) -> str:
