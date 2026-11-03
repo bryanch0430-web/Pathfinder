@@ -9,7 +9,8 @@ a gate in the edit path to hold a turn open.
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+import sqlite3
+from contextlib import asynccontextmanager, closing
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, AsyncIterator, Awaitable, Callable
@@ -293,6 +294,113 @@ def test_deleting_a_trip_through_the_api_while_its_turn_runs_leaves_nothing_behi
             assert (await client.get(f"/api/journeys/{session_id}")).status_code == 404
 
     asyncio.run(scenario())
+
+
+# -- RB-B-1: a message that waited for a trip that was deleted meanwhile ------
+
+PLAN_MESSAGE = "Plan a 3 day trip to Tokyo from Hong Kong for 2 people with a budget of 3000 USD next month."
+NOTHING_STORED = {"journeys": 0, "turns": 0, "itineraries": 0, "journey_state": 0}
+
+
+def _stored(path) -> dict[str, int]:
+    """How many rows the database holds in the tables of a trip, whoever owns them."""
+    with closing(sqlite3.connect(path)) as conn:
+        return {table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in NOTHING_STORED}
+
+
+@pytest.mark.parametrize(
+    ("message", "route"),
+    [
+        (SWAP_HOTEL, {"intent": "modify", "confidence": 0.95, "affected_parts": ["hotel"]}),
+        (PLAN_MESSAGE, {"intent": "plan", "confidence": 0.95}),
+    ],
+    ids=["an edit", "a new plan"],
+)
+def test_a_message_that_waited_for_a_trip_deleted_meanwhile_ends_with_an_error_and_makes_no_trip(
+    quick_settings: Settings, message: str, route: dict[str, Any]
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        scene.hold_the_edit_path()
+        running = asyncio.create_task(scene.turn())
+        await asyncio.wait_for(scene.entered.wait(), 30)
+        scene.rig.llm.route = route  # the message that waits is routed after the delete
+        waiting = asyncio.Event()
+        queued = asyncio.create_task(
+            _collect(
+                scene.rig.turns.handle_turn(session_id=scene.session_id, message=message, on_wait=waiting.set)
+            )
+        )
+        await asyncio.wait_for(waiting.wait(), 30)
+
+        scene.store.delete_session(scene.session_id)  # what DELETE /api/journeys/{id} runs
+        scene.gate.set()
+        await asyncio.wait_for(running, 60)
+        events = await asyncio.wait_for(queued, 60)
+
+        assert _stored(scene.store.path) == NOTHING_STORED, "the waiting message made a trip nobody can open"
+        assert [event.event for event in events] == ["error"]
+        assert events[0].data["code"] == "session_not_found" and events[0].data["retryable"] is False
+        assert "no longer exists" in events[0].data["message"] and "nothing was changed" in events[0].data["message"]
+
+    _run(quick_settings, scenario)
+
+
+@pytest.mark.parametrize("session_id", ["sess_never_there", ""])
+def test_a_turn_on_a_trip_that_does_not_exist_ends_with_an_error_and_writes_nothing(
+    quick_settings: Settings, session_id: str
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        before = _stored(scene.store.path)
+        assert before == {"journeys": 1, "turns": 0, "itineraries": 1, "journey_state": 1}
+
+        events = await _collect(scene.rig.turns.handle_turn(session_id=session_id, message=SWAP_HOTEL))
+
+        assert _stored(scene.store.path) == before
+        assert [event.event for event in events] == ["error"]
+        assert events[0].data["code"] == "session_not_found"
+        assert not scene.rig.turns.session_busy(session_id)
+
+    _run(quick_settings, scenario)
+
+
+def test_a_second_message_on_a_trip_that_is_deleted_while_it_waits_gets_an_error_through_the_api(
+    quick_settings: Settings,
+) -> None:
+    async def scenario() -> None:
+        async with _api(quick_settings) as (container, client, session_id):
+            entered, gate, waiting = asyncio.Event(), asyncio.Event(), asyncio.Event()
+            _edit_that_waits(container, entered, gate)
+            turns = container.turn_service
+            handle = turns.handle_turn
+
+            def watching(**kwargs: Any):
+                given = kwargs["on_wait"]
+                return handle(**{**kwargs, "on_wait": lambda: (waiting.set(), given())})
+
+            turns.handle_turn = watching
+            body = {"session_id": session_id, "message": SWAP_HOTEL, "client_token": "guest-writers"}
+            first = asyncio.create_task(client.post("/api/turn/stream", json=body))
+            await asyncio.wait_for(entered.wait(), 30)
+            second = asyncio.create_task(client.post("/api/turn/stream", json=body))
+            await asyncio.wait_for(waiting.wait(), 30)
+
+            deleted = await client.delete(f"/api/journeys/{session_id}")
+            gate.set()
+            await asyncio.wait_for(first, 60)
+            response = await asyncio.wait_for(second, 60)
+
+            assert deleted.status_code == 200 and deleted.json()["deleted"]["sessions"] == 1
+            assert _stored(container.store.path) == NOTHING_STORED
+            assert response.status_code == 200
+            assert "event: error" in response.text and "session_not_found" in response.text
+            assert "event: done" not in response.text and "event: plan" not in response.text
+            assert (await client.get(f"/api/journeys/{session_id}")).status_code == 404
+
+    asyncio.run(scenario())
+
+
+async def _collect(stream: Any) -> list:
+    return [event async for event in stream]
 
 
 # -- CONC-G9: the trip form saved while the message is being understood -------
