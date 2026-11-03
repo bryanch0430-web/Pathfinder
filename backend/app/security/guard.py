@@ -97,6 +97,17 @@ def strip_fence_tags(text: str) -> str:
         text = stripped
 
 
+def strip_fence_tags_deep(value: Any) -> Any:
+    """`strip_fence_tags` on every string inside a structure of dicts and lists: a stored trip, a prompt's JSON."""
+    if isinstance(value, str):
+        return strip_fence_tags(value)
+    if isinstance(value, dict):
+        return {key: strip_fence_tags_deep(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strip_fence_tags_deep(item) for item in value]
+    return value
+
+
 def replayable(history: Iterable[Any]) -> list[Any]:
     """The earlier turns a prompt may repeat: not the ones the injection screen flagged."""
     return [row for row in history if not (getattr(row, "meta", None) or {}).get("flagged")]

@@ -15,14 +15,20 @@ import json
 from typing import Any, Sequence
 
 from app.domain.models import Message, TripContext
-from app.security import replayable, strip_fence_tags
+from app.security import replayable, strip_fence_tags, strip_fence_tags_deep
+
+
+def trip_state(context: TripContext) -> str:
+    """The stored trip as the JSON a prompt carries. The traveller's own words in it, the lines kept
+    from earlier turns included, lose any fence tag, as every replayed text does."""
+    return json.dumps(strip_fence_tags_deep(context.model_dump(mode="json")), separators=(",", ":"), ensure_ascii=False)
 
 
 def trip_slots(context: TripContext, *, preferences: bool = False) -> str:
     """The slots a router or an edit reads, e.g. ``Kyoto from Hong Kong, 2026-12-03..2026-12-05``."""
     parts: list[str] = []
     if context.destination:
-        parts.append(context.destination + (f" from {context.origin}" if context.origin else ""))
+        parts.append(strip_fence_tags(context.destination + (f" from {context.origin}" if context.origin else "")))
     if context.start_date or context.end_date:
         start = context.start_date.isoformat() if context.start_date else "?"
         end = context.end_date.isoformat() if context.end_date else "?"
@@ -35,13 +41,13 @@ def trip_slots(context: TripContext, *, preferences: bool = False) -> str:
         parts.append(f"budget {context.budget:g} {context.currency}".rstrip())
     if preferences:
         if context.hotel_style:
-            parts.append(f"hotel style {context.hotel_style}")
+            parts.append(f"hotel style {strip_fence_tags(context.hotel_style)}")
         if context.pace and context.pace != "balanced":
-            parts.append(f"pace {context.pace}")
+            parts.append(f"pace {strip_fence_tags(context.pace)}")
         if context.preferences:
-            parts.append("likes " + "; ".join(context.preferences[:8]))
+            parts.append("likes " + "; ".join(strip_fence_tags(line) for line in context.preferences[:8]))
         if context.hard_constraints:
-            parts.append("must " + "; ".join(context.hard_constraints[:8]))
+            parts.append("must " + "; ".join(strip_fence_tags(line) for line in context.hard_constraints[:8]))
     missing = context.missing_slots()
     if missing:
         parts.append("missing " + ", ".join(missing))

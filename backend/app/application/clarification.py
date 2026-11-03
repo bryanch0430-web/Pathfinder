@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from app.application.llm_gateway import LLMGateway
+from app.application.prompt_context import trip_state
 from app.domain.errors import CanaryLeak
 from app.domain.models import RouteDecision, TripContext
 from app.security import fence_user_message
@@ -52,7 +53,7 @@ class Clarifier:
             return "I have the trip details. Could you say what you want me to plan or change?", []
         if self.gateway.available:
             user = (
-                f"Known context: {context.model_dump_json()}\n"
+                f"Known context: {trip_state(context)}\n"
                 f"Missing slots: {missing}\n"
                 f"Router reason: {decision.reason_code}\n\n"
                 + fence_user_message(message)

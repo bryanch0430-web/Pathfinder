@@ -69,6 +69,7 @@ from app.infrastructure.providers.routes import (  # noqa: F401  (re-exported fo
     TRANSPORT_SPEED_KMH,
     model_travel,
 )
+from app.security import strip_fence_tags_deep
 
 
 class PlannerAssignment(BaseModel):
@@ -422,7 +423,7 @@ class Planner:
         try:
             data = await self.gateway.json(
                 "planner",
-                user=json.dumps(payload, ensure_ascii=False, default=str),
+                user=json.dumps(strip_fence_tags_deep(payload), ensure_ascii=False, default=str),
                 purpose="planner",
             )
             return PlannerDraft.model_validate(data)

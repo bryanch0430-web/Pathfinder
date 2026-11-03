@@ -9,6 +9,7 @@ from app.security.guard import (
     replayable,
     screen_message,
     strip_fence_tags,
+    strip_fence_tags_deep,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "replayable",
     "screen_message",
     "strip_fence_tags",
+    "strip_fence_tags_deep",
 ]
