@@ -243,7 +243,8 @@ def test_a_restored_stop_takes_its_transfer_from_its_new_neighbour(settings: Set
     for item in day.items:
         assert item.transfer is None or item.transfer.from_item_id in ids, (item.name, item.transfer)
     restored = next(item for item in day.items if item.name == "Philosopher's Path")
-    previous = sorted(day.items, key=lambda item: item.start)[sorted(day.items, key=lambda item: item.start).index(restored) - 1]
+    in_order = sorted(day.items, key=lambda item: item.start)
+    previous = in_order[in_order.index(restored) - 1]
     assert restored.transfer is not None and restored.transfer.from_item_id == previous.id
     assert "from the previous stop" in restored.notes
 
