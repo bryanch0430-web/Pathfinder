@@ -280,17 +280,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         The token is `client_token`, else the `X-Client-Token` header. One that could not be presented
         again is 422: the session would stay in the database and open for nobody. A signed-in caller's
-        trip carries the account's own profile token, whatever guest token it names, so it cannot add
-        to another guest's profile.
+        trip carries the account's own profile token, whatever guest token it names (so it cannot add
+        to another guest's profile), and that token is not checked: it is not the one that is stored.
         """
         token = client_token or request.headers.get("x-client-token", "").strip()
+        user = checked_user(request, c, token)
+        if user is not None:
+            return f"{USER_PREFIX}{user.id}", user
         if token and not TOKEN_FORMAT.fullmatch(token):
             raise HTTPException(
                 status_code=422,
                 detail=f"The guest token must be 1 to {TOKEN_MAX_LENGTH} printable ASCII characters without spaces.",
             )
-        user = checked_user(request, c, token)
-        return (f"{USER_PREFIX}{user.id}" if user else token), user
+        return token, None
 
     def presented_token(request: Request, client_token: str = "") -> str:
         """The guest token a caller presents: an explicit `client_token` (older clients), else `X-Client-Token`.
