@@ -66,13 +66,20 @@ def operator_text(exc: BaseException) -> str:
     return f"{exc} | {detail}" if detail else str(exc)
 
 
+#: What a traveller reads when a lookup was refused by the per-turn cap (`ToolBudgetExceeded`).
+TOOL_LIMIT_MESSAGE = "Not looked up: this request reached its limit of data lookups."
+
+
 class ToolBudgetExceeded(ProviderError):
-    """A turn tried to make more tool calls than `max_tool_calls_per_turn` allows."""
+    """A turn tried to make more tool calls than `max_tool_calls_per_turn` allows.
+
+    ``str(error)`` is for the traveller; which tool was refused and the counters are in ``detail``.
+    """
 
     code = "tool_budget_exceeded"
 
-    def __init__(self, message: str):
-        super().__init__(message, kind=FailureKind.BLOCKED, source="toolbox", retryable=False)
+    def __init__(self, message: str = TOOL_LIMIT_MESSAGE, *, detail: str = ""):
+        super().__init__(message, kind=FailureKind.BLOCKED, source="toolbox", retryable=False, detail=detail)
 
 
 class ProviderNoData(ProviderError):

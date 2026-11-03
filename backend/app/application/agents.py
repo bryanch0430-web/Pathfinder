@@ -18,7 +18,7 @@ from typing import Any, Awaitable, Callable
 from app.application.toolbox import LoggedWebSource, Toolbox
 from app.application.trip_rules import place_wishes, wish_matches
 from app.config import Settings
-from app.domain.errors import ProviderError
+from app.domain.errors import ProviderError, ToolBudgetExceeded
 from app.domain.models import (
     AgentName,
     AgentResult,
@@ -750,6 +750,9 @@ class TicketAgent(BaseAgent):
 
 
 def _gap(section: str, exc: Exception) -> DataGap:
+    if isinstance(exc, ToolBudgetExceeded):
+        # Our own limit, not a source's failure: there is no source to name.
+        return DataGap(section=section, kind=exc.kind, message=str(exc), retryable=False)
     if isinstance(exc, ProviderError):
         return DataGap(
             section=section,

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from app.application.llm_gateway import LLMGateway
 from app.application.opening_hours import DAY_MINUTES, lines_for, windows_on
 from app.application.transfers import (
+    TRANSFER_TOOL,
     TRANSPORT_NOTE,
     Legs,
     fetch_legs,
@@ -281,6 +282,17 @@ class Planner:
             context, days, hotel_stay, tickets, cost, blocked=blocked, windows=windows, wishes=wishes
         )
         gaps = _gaps(results)
+        if TRANSFER_TOOL in getattr(toolbox, "refused", ()):
+            gaps.append(
+                DataGap(
+                    section="transfers",
+                    kind=FailureKind.BLOCKED,
+                    message=(
+                        "Transfer times are estimates: this request reached its limit of data lookups "
+                        "before they could be looked up."
+                    ),
+                )
+            )
         if diet and not meals:
             gaps.append(
                 DataGap(

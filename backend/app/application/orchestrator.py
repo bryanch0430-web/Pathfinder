@@ -26,7 +26,15 @@ from app.application.router import MODIFY_VERBS, System1Router, language_route, 
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.config import Settings
-from app.domain.errors import CanaryLeak, PathfinderError, PlanInvalidError, ProviderError, operator_text
+from app.domain.errors import (
+    CanaryLeak,
+    PathfinderError,
+    PlanInvalidError,
+    ProviderError,
+    SecurityBlocked,
+    ToolBudgetExceeded,
+    operator_text,
+)
 from app.domain.models import (
     Intent,
     Message,
@@ -47,12 +55,19 @@ logger = logging.getLogger(__name__)
 SOURCE_FAILED = "A data source failed. Your plan was not changed."
 TURN_FAILED = "Something went wrong while handling this turn. You can retry."
 PLAN_CONFLICT = "Another change to this trip was still running. Please retry."
+TOOL_LIMIT = "This request reached its limit of data lookups and was stopped. Please ask for a smaller change."
+BLOCKED = "This request was stopped by a safety check."
 
 
 def user_facing_error(exc: BaseException) -> str:
     """The only error text a traveller is shown for a failed turn."""
     if isinstance(exc, PlanConflict):
         return PLAN_CONFLICT
+    # Neither is a source failing: one is our own cap, the other names a tool and a path.
+    if isinstance(exc, ToolBudgetExceeded):
+        return TOOL_LIMIT
+    if isinstance(exc, SecurityBlocked):
+        return BLOCKED
     if isinstance(exc, (ProviderError, httpx.HTTPError, asyncio.TimeoutError)):
         return SOURCE_FAILED
     if isinstance(exc, PathfinderError):
@@ -430,7 +445,7 @@ class TurnService:
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=str(exc), intent=intent)
             )
-            yield TurnEvent(event="error", data={"code": exc.code, "message": str(exc), "retryable": True})
+            yield TurnEvent(event="error", data={"code": exc.code, "message": str(exc), "retryable": exc.retryable})
             tracer.finish(status="error")
         except PlanConflict as exc:
             _note_failure(tracer, exc)

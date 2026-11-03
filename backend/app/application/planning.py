@@ -20,7 +20,7 @@ from app.application.planner import Planner
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
-from app.domain.errors import PlanInvalidError, ProviderError, operator_text
+from app.domain.errors import PlanInvalidError, ProviderError, ToolBudgetExceeded, operator_text
 from app.domain.models import (
     AgentName,
     AgentResult,
@@ -98,6 +98,12 @@ class PlanPath:
                     self.registry.geocoder.geocode,
                     name=context.destination,
                 )
+            except ToolBudgetExceeded as exc:
+                # Not an unknown place, and asking again runs into the same limit.
+                raise PlanInvalidError(
+                    f"I could not look up {context.destination!r}: this request reached its limit of data lookups.",
+                    retryable=False,
+                ) from exc
             except ProviderError as exc:
                 raise PlanInvalidError(
                     f"I could not locate {context.destination!r} with the configured map sources. "

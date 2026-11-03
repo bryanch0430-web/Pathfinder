@@ -90,6 +90,8 @@ class Toolbox:
         self.calls = 0
         #: The most tool calls this toolbox lets through (None: no cap).
         self.max_calls = max_calls
+        #: The tools the cap refused, in order, so a caller that carries on without one can say so.
+        self.refused: list[str] = []
 
     async def call(self, tool: str, fn: Callable[..., Awaitable[T]], /, **kwargs: Any) -> T:
         if tool not in self.allowed:
@@ -137,8 +139,12 @@ class Toolbox:
                     error_class="budget",
                     source="toolbox",
                 )
+            self.refused.append(tool)
             raise ToolBudgetExceeded(
-                f"{tool} was not called: this turn already made {self.calls} tool calls (the limit is {self.max_calls})"
+                detail=(
+                    f"{tool} was not called: this turn already made {self.calls} tool calls "
+                    f"(the limit is {self.max_calls})"
+                )
             )
         started = time.perf_counter()
         self.calls += 1

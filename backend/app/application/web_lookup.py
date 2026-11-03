@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
-from app.domain.errors import ProviderError
+from app.domain.errors import ProviderError, ToolBudgetExceeded
 from app.domain.models import DataGap, FailureKind
 from app.infrastructure.providers.websearch import WebAnswer, WebResult
 
@@ -160,6 +160,9 @@ async def lookup_web_references(
             found = await deepseek.search(query=query, count=5, retries=0)
             rows = list(found or [])
         except (ProviderError, asyncio.TimeoutError) as exc:
+            if isinstance(exc, ToolBudgetExceeded):
+                # The cap refused the search: say that, not that the search found nothing.
+                return WebLookup(gap=DataGap(section=_gap_section(section), kind=exc.kind, message=str(exc)))
             deepseek_failed_open = _retryable(exc)
             rows = []
 
