@@ -42,6 +42,7 @@ from app.domain.errors import ProviderError
 from app.domain.models import (
     AgentResult,
     DataGap,
+    DataStatus,
     DayPlan,
     Destination,
     Disruption,
@@ -54,9 +55,9 @@ from app.domain.models import (
     TripPlan,
     WeatherAlert,
     WeatherDay,
-    DataStatus,
 )
 from app.infrastructure.http import haversine_km
+from app.infrastructure.providers.hong_kong import MTR_LINES
 
 # Place types that keep a visitor indoors (Google place types, as the sources tag them).
 INDOOR_TYPES = frozenset(
@@ -157,18 +158,7 @@ MTR_STATIONS: dict[str, tuple[float, float, tuple[str, ...]]] = {
     "TUC": (22.2893, 113.9415, ("TCL",)),
     "AIR": (22.3159, 113.9365, ("AEL",)),
 }
-LINE_NAMES = {
-    "AEL": "Airport Express",
-    "TCL": "Tung Chung Line",
-    "TML": "Tuen Ma Line",
-    "TKL": "Tseung Kwan O Line",
-    "EAL": "East Rail Line",
-    "SIL": "South Island Line",
-    "TWL": "Tsuen Wan Line",
-    "ISL": "Island Line",
-    "KTL": "Kwun Tong Line",
-    "DRL": "Disneyland Resort Line",
-}
+LINE_NAMES = {code: name for code, (name, _station) in MTR_LINES.items()}
 
 
 def line_code(name: str) -> str:
@@ -233,7 +223,7 @@ def retime_day(day: DayPlan, *, delay: int = 0) -> tuple[list[str], list[str]]:
     """Move stops later where a transfer is shorter than the transport model needs.
 
     Returns the ids of moved items and the names of items dropped because they
-    would end after 23:00. A locked item is never moved or dropped.
+    would end after 23:00 or run into a locked stop. A locked item never moves.
     """
     moved: list[str] = []
     dropped: list[str] = []
@@ -251,9 +241,13 @@ def retime_day(day: DayPlan, *, delay: int = 0) -> tuple[list[str], list[str]]:
                     continue
                 item.start, item.end = _hhmm(earliest), _hhmm(earliest + length)
                 moved.append(item.id)
+        # A stop pushed into a locked one comes off the day: the schedule must not overlap.
+        while item.locked and kept and not kept[-1].locked and item.start < kept[-1].end:
+            dropped.append(kept.pop().name)
         kept.append(item)
     day.items = kept
-    return moved, dropped
+    remaining = {item.id for item in kept}
+    return [item_id for item_id in moved if item_id in remaining], dropped
 
 
 def _when(day: date) -> str:

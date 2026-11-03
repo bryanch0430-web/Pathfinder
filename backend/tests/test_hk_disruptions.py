@@ -15,7 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from app.application.hk_disruptions import DEFAULT_DELAY_MINUTES, INDOOR_TYPES, is_hong_kong, lines_serving
+from app.application.hk_disruptions import (
+    DEFAULT_DELAY_MINUTES,
+    INDOOR_TYPES,
+    is_hong_kong,
+    lines_serving,
+    retime_day,
+)
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
 from app.application.planning import PlanPath
@@ -24,13 +30,16 @@ from app.application.toolbox import PATH_ALLOWLIST, Toolbox
 from app.config import Settings
 from app.domain.errors import ProviderError
 from app.domain.models import (
+    DayPlan,
     Destination,
     FailureKind,
     GeoPoint,
     ItemType,
     PlaceCandidate,
+    PlanItem,
     TransitStatus,
     TripContext,
+    TripPlan,
     WeatherAlert,
 )
 from app.eval_checks import RecordingToolbox, ToolLog, alert_dates, short_transfers
@@ -242,6 +251,32 @@ def test_signal_from_the_warnings_source_alone_moves_outdoor_stops(settings: Set
     assert "sandbox-warnings" in plan.data_quality.sources_used
     assert ("weather.warnings", "ok") in _calls(log)
     assert alert_dates(log) == {START.isoformat()}
+    assert TripPlan.model_validate(plan.model_dump(mode="json")).disruptions  # the stored plan reloads
+
+
+def test_retiming_never_moves_a_locked_stop() -> None:
+    """A delay pushes unlocked stops back; one that would run into a locked stop comes off the day."""
+    ref = [_ref("x")]
+    central, tst, mong_kok = GeoPoint(lat=22.2820, lng=114.1582), GeoPoint(lat=22.2973, lng=114.1722), GeoPoint(lat=22.3193, lng=114.1694)
+
+    def day_with(locked: bool) -> DayPlan:
+        return DayPlan(
+            date=START,
+            items=[
+                PlanItem(id="a", type="attraction", name="A", start="09:00", end="10:30", geo=central, source_refs=ref),
+                PlanItem(id="b", type="attraction", name="B", start="10:45", end="12:15", geo=mong_kok, source_refs=ref),
+                PlanItem(id="c", type="attraction", name="C", start="12:30", end="14:00", geo=tst, source_refs=ref, locked=locked),
+            ],
+        )
+
+    day = day_with(locked=True)
+    moved, dropped = retime_day(day, delay=40)  # Central -> Mong Kok needs 57 min with the delay
+    assert (moved, dropped) == ([], ["B"])
+    assert [(item.id, item.start) for item in day.items] == [("a", "09:00"), ("c", "12:30")]
+    free = day_with(locked=False)
+    moved, dropped = retime_day(free, delay=40)
+    assert (moved, dropped) == (["b", "c"], [])
+    assert [(item.id, item.start) for item in free.items] == [("a", "09:00"), ("b", "11:30"), ("c", "13:35")]
 
 
 def test_a_requested_outdoor_stop_stays_and_the_disruption_stays_open(settings: Settings) -> None:
@@ -314,6 +349,7 @@ def test_delay_from_the_status_source_alone_is_added_to_that_days_transfers(sett
     assert "Each metro transfer that day allows 40 extra minutes" in entry.resolution
     assert "MTR delay on the Tsuen Wan Line" in plan.days[0].note and entry.summary in plan.summary
     assert _schedule(plan)[1:] == _schedule(baseline)[1:], "other days are as the planner made them"
+    assert TripPlan.model_validate(plan.model_dump(mode="json")).days[0].items  # still a valid, non-overlapping plan
     [status_call] = [row for row in log.entries if row["tool"] == "routes.status"]
     assert status_call["status"] == "ok"
     fact = {"kind": "transit", "date": day1, "line": "TWL", "delayed": True, "minutes": 40, "source": "sandbox-transit"}
