@@ -427,11 +427,14 @@ class SQLiteStore:
             messages = conn.execute("DELETE FROM turns WHERE session_id=?", (session_id,)).rowcount or 0
             plans = conn.execute("DELETE FROM itineraries WHERE session_id=?", (session_id,)).rowcount or 0
             contexts = conn.execute("DELETE FROM journey_state WHERE session_id=?", (session_id,)).rowcount or 0
+            # A deleted trip must not stay readable through a link shared earlier.
+            shares = conn.execute("DELETE FROM share_links WHERE session_id=?", (session_id,)).rowcount or 0
             sessions = conn.execute("DELETE FROM journeys WHERE id=?", (session_id,)).rowcount or 0
         return {
             "messages": int(messages),
             "plans": int(plans),
             "contexts": int(contexts),
+            "shares": int(shares),
             "sessions": int(sessions),
         }
 

@@ -120,6 +120,18 @@ def test_owner_revokes_every_link_of_the_session(client: TestClient) -> None:
     assert client.delete(f"/api/journeys/{session_id}/share", headers=headers).json() == {"revoked": 0}
 
 
+def test_deleting_a_session_turns_off_its_links(client: TestClient) -> None:
+    headers = _signup(client, "deleter@example.com")
+    session_id = _session_with_plan(client, headers)
+    slug = _share(client, session_id, headers)["slug"]
+
+    deleted = client.delete(f"/api/journeys/{session_id}", headers=headers)
+
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["deleted"]["shares"] == 1
+    assert _public(client, slug) == _not_found(client)
+
+
 def test_a_different_identity_cannot_revoke(client: TestClient) -> None:
     owner = _signup(client, "owner@example.com")
     stranger = _signup(client, "stranger@example.com")
