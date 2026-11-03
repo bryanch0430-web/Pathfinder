@@ -16,6 +16,14 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.application.llm_gateway import LLMGateway
+from app.application.opening_hours import DAY_MINUTES, lines_for, windows_on
+from app.application.transfers import (
+    TRANSPORT_NOTE,
+    Legs,
+    fetch_legs,
+    transfer_from,
+    transfer_sentence,
+)
 from app.application.trip_rules import DayWindow, blocked_dates, travel_windows
 from app.application.trip_rules import must_include as _must_include
 from app.config import Settings
@@ -43,8 +51,10 @@ from app.domain.models import (
     PlanItem,
     PriceKind,
     Reservation,
+    RouteLeg,
     SourceRef,
     TicketOption,
+    TransferLeg,
     TripContext,
     TripPlan,
     WeatherDay,
@@ -52,6 +62,11 @@ from app.domain.models import (
 )
 from app.infrastructure.http import haversine_km
 from app.infrastructure.providers.fx import FxService
+from app.infrastructure.providers.routes import (  # noqa: F401  (re-exported for the TC-07 check)
+    TRANSPORT_OVERHEAD_MIN,
+    TRANSPORT_SPEED_KMH,
+    model_travel,
+)
 
 
 class PlannerAssignment(BaseModel):
@@ -69,16 +84,10 @@ class PlannerDraft(BaseModel):
 
 
 # --- local transport -------------------------------------------------------
-# Mirrors the mode thresholds of the console map (2.5 / 35 / 160 km) so the
-# itinerary text, the map legend and the schedule never disagree.
-TRANSPORT_SPEED_KMH = {"walk": 4.5, "metro": 22.0, "drive": 32.0, "flight": 620.0}
-TRANSPORT_OVERHEAD_MIN = {"walk": 0, "metro": 8, "drive": 5, "flight": 90}
-TRANSPORT_NOTE = {
-    "walk": "on foot",
-    "metro": "by metro or bus",
-    "drive": "by car or taxi",
-    "flight": "by plane",
-}
+# The transport model lives with the routes sources (it is served as the
+# routes.segments tool); it mirrors the console map's thresholds (2.5 / 35 /
+# 160 km) so the itinerary text, the map legend and the schedule never disagree.
+_travel = model_travel
 
 # Dwell time per stop and the earliest start, by pace. A slow trip sees fewer
 # places for longer; a packed one starts earlier and moves faster.
@@ -98,6 +107,20 @@ DINNER_START, DINNER_END = 19 * 60, 20 * 60 + 15
 DAY_END = 21 * 60
 # Transfer and buffer allowance per stop when sizing a shortened day.
 SLOT_OVERHEAD_MINUTES = 30
+# Meals start at their usual time or after the transfer from the previous stop,
+# whichever is later. A stop may keep lunch waiting LUNCH_SLACK minutes at most;
+# otherwise lunch comes first. A meal that cannot start by its latest time (or
+# inside the restaurant's stated hours) is left out rather than squeezed in.
+LUNCH_SLACK = 15
+LUNCH_LATEST = 14 * 60
+DINNER_LATEST = 21 * 60
+# Nothing is scheduled to end after this time.
+DAY_LAST_END = 22 * 60 + 30
+# A stop near closing time may be shortened to this, but not below it.
+MIN_DWELL_MINUTES = 45
+# A stop that opens more than this long after the traveller could arrive is
+# tried again after the remaining stops instead of leaving an idle gap.
+OPENING_WAIT_LIMIT = 60
 
 
 class Planner:
@@ -120,6 +143,7 @@ class Planner:
         trip_id: str | None = None,
         change_summary: str = "",
         toolbox=None,
+        transfers=None,
     ) -> TripPlan:
         places = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("places", []))
         meals = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("meals", []))
@@ -170,19 +194,56 @@ class Planner:
         assignment = self._assign_places(places, day_count, draft, pace=pace, limits=limits)
         if self.settings.enable_route_matrix and self.matrix is not None and toolbox is not None:
             assignment = await self._matrix_order(assignment, toolbox)
+        cap = min(self.settings.max_attractions_per_day, PACE_ATTRACTION_CAP.get(pace, 4))
+        caps = [cap if limit is None else min(cap, limit) for limit in limits]
+        _move_closed_stops(assignment, dates, caps)
         meal_days = {index: rows for index, rows in assignment.items() if dates[index] not in blocked}
         meal_plan = self._assign_meals(meals, meal_days, destination)
         hotel = self._choose_hotel(hotels, draft)
+
+        async def day_schedule(index: int, day_places: list[dict]) -> tuple[list[PlanItem], list[str]]:
+            lunch = meal_plan.get(index, {}).get("lunch")
+            dinner = meal_plan.get(index, {}).get("dinner")
+            # Transfer times come from one logged routes.segments call per day
+            # (Proposal TC-09), covering every pair the schedule may need.
+            stops = [row for row in [*day_places, lunch, dinner] if row and _geo_point(row) is not None]
+            legs, tool = await fetch_legs(
+                [(_item_id(row), _geo_point(row)) for row in stops], toolbox=toolbox, source=transfers
+            )
+            return _schedule(
+                dates[index], day_places, lunch, dinner, pace=pace, must_see=must_see,
+                window=windows.get(dates[index]), legs=legs, tool=tool,
+            )
+
+        schedules: list[dict[str, Any]] = []
+        for index in range(len(dates)):
+            day_places = [row for row in assignment.get(index, [])]
+            items, left_out = await day_schedule(index, day_places)
+            schedules.append({"places": day_places, "items": items, "left_out": left_out})
+        # A stop that did not fit its day moves to another day with room, when it
+        # fits there without pushing anything else out.
+        for index, entry in enumerate(schedules):
+            for row in [row for row in entry["places"] if row["name"] in entry["left_out"]]:
+                for other_index, other in enumerate(schedules):
+                    if other_index == index or len(other["places"]) >= caps[other_index]:
+                        continue
+                    start = other["places"][0].get("geo") if other["places"] else None
+                    trial = _nearest_order([*other["places"], row], start)
+                    items, left_out = await day_schedule(other_index, trial)
+                    if row["name"] in left_out or not set(left_out) <= set(other["left_out"]):
+                        continue
+                    other.update(places=trial, items=items, left_out=left_out)
+                    entry["places"].remove(row)
+                    entry["left_out"].remove(row["name"])
+                    break
 
         days: list[DayPlan] = []
         for index, day_date in enumerate(dates):
             weather_row = weather_by_date.get(day_date.isoformat())
             weather = WeatherDay.model_validate(weather_row) if weather_row else None
-            day_places = [row for row in assignment.get(index, [])]
-            lunch = meal_plan.get(index, {}).get("lunch")
-            dinner = meal_plan.get(index, {}).get("dinner")
+            day_places = schedules[index]["places"]
+            items, left_out = schedules[index]["items"], schedules[index]["left_out"]
             window = windows.get(day_date)
-            items = _schedule_day(day_date, day_places, lunch, dinner, pace=pace, must_see=must_see, window=window)
             title = ""
             if day_date in blocked:
                 title = f"Free day in {context.destination}"
@@ -203,6 +264,11 @@ class Planner:
                 note = "Travel day: no time for stops around your flight."
             else:
                 note = "No verified stops were available for this day."
+            if left_out:
+                note = (
+                    f"{note} Not scheduled, for lack of time inside the day or the stated "
+                    f"opening hours: {', '.join(left_out)}."
+                ).strip()
             days.append(DayPlan(date=day_date, title=title, weather=weather, items=items, note=note))
 
         hotel_stay = self._build_hotel(hotel, date_range)
@@ -789,19 +855,6 @@ def _starts_early(row: dict) -> bool:
     return (row.get("review_count") or 0) >= POPULAR_REVIEW_COUNT
 
 
-def _travel(km: float) -> tuple[str, int]:
-    """Mode and minutes for a leg, using the same thresholds as the console map."""
-    if km < 2.5:
-        mode = "walk"
-    elif km < 35:
-        mode = "metro"
-    elif km < 160:
-        mode = "drive"
-    else:
-        mode = "flight"
-    minutes = max(2, round(km / TRANSPORT_SPEED_KMH[mode] * 60 + TRANSPORT_OVERHEAD_MIN[mode]))
-    return mode, minutes
-
 
 def _normalise_name(name: str) -> str:
     return re.sub(r"[^a-z0-9 ]+", " ", name.lower()).strip()
@@ -860,6 +913,40 @@ def _round5(minutes: int) -> int:
     return -(-minutes // 5) * 5
 
 
+def _item_id(row: dict) -> str:
+    return f"item_{row['id']}"
+
+
+def _geo_point(row: dict | None) -> GeoPoint | None:
+    geo = (row or {}).get("geo") or {}
+    if geo.get("lat") is None or geo.get("lng") is None:
+        return None
+    return GeoPoint(lat=float(geo["lat"]), lng=float(geo["lng"]))
+
+
+def _hours(row: dict, day_date: date) -> tuple[list[str], list[tuple[int, int]] | None]:
+    """The source's hours lines for the day, and the windows read from them."""
+    stated = [str(line) for line in (row.get("opening_hours") or []) if str(line).strip()]
+    return lines_for(stated, day_date), windows_on(stated, day_date)
+
+
+def _move_closed_stops(assignment: dict[int, list[dict]], dates: list[date], caps: list[int]) -> None:
+    """A stop the source says is closed on its day moves to a day it is open, if one has room."""
+    for index in sorted(assignment):
+        if index >= len(dates):
+            continue
+        for row in list(assignment[index]):
+            if windows_on(row.get("opening_hours") or [], dates[index]) != []:
+                continue
+            for other in sorted(assignment):
+                if other == index or other >= len(dates) or len(assignment[other]) >= caps[other]:
+                    continue
+                if windows_on(row.get("opening_hours") or [], dates[other]) != []:
+                    assignment[index].remove(row)
+                    assignment[other].append(row)
+                    break
+
+
 def _schedule_day(
     day_date: date,
     places: list[dict],
@@ -869,14 +956,38 @@ def _schedule_day(
     pace: str = "balanced",
     must_see: list[str] | None = None,
     window: DayWindow | None = None,
+    legs: Legs | None = None,
+    tool: str = "",
 ) -> list[PlanItem]:
+    return _schedule(
+        day_date, places, lunch, dinner, pace=pace, must_see=must_see, window=window, legs=legs, tool=tool
+    )[0]
+
+
+def _schedule(
+    day_date: date,
+    places: list[dict],
+    lunch: dict | None,
+    dinner: dict | None,
+    *,
+    pace: str = "balanced",
+    must_see: list[str] | None = None,
+    window: DayWindow | None = None,
+    legs: Legs | None = None,
+    tool: str = "",
+) -> tuple[list[PlanItem], list[str]]:
     """Lay the day out chronologically with realistic transfer time.
 
-    Times are derived, not slotted: each stop follows the previous one after the
-    transfer that the distance actually needs (walk / metro / drive), and lunch
-    holds its window. A named must-see, or a crowd-sensitive marquee site, takes
-    the 08:00 slot before the crowds. On a flight day nothing starts before the
-    traveller is in town or ends after they must leave for the airport.
+    Times are derived, not slotted. Every stop, meals included, starts no earlier
+    than the previous stop's end plus the transfer (Proposal TC-07): the leg comes
+    from the day's routes.segments result, plus the pace buffer. Lunch starts at
+    12:30 or after its transfer; a stop that would keep lunch waiting more than
+    LUNCH_SLACK minutes goes after it. Dinner starts at 19:00 or after its
+    transfer. A stop is placed inside the opening hours its source states for
+    that date. A named must-see, or a crowd-sensitive marquee site, takes the
+    08:00 slot before the crowds when its hours allow. On a flight day nothing
+    starts before the traveller is in town or ends after they must leave for the
+    airport. Returns the items and the names of stops that did not fit.
     """
     open_from = window.start if window and window.start is not None else None
     open_until = window.end if window and window.end is not None else None
@@ -887,11 +998,13 @@ def _schedule_day(
     ):
         dinner = None
     must_see = must_see or []
+    legs = legs or {}
     ordered = list(places)
     if must_see:
         ordered.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), must_see) else 1)
 
     dwell = PACE_DWELL_MINUTES.get(pace, 90)
+    buffer = PACE_BUFFER_MINUTES.get(pace, 5)
     start_at = PACE_FIRST_START.get(pace, 9 * 60)
     first = ordered[0] if ordered else None
     if first:
@@ -903,60 +1016,120 @@ def _schedule_day(
     if open_from is not None:
         start_at = max(start_at, open_from)
 
-    items: list[PlanItem] = []
-    previous_geo: dict | None = None
-    previous_end: int | None = None
-
-    for row in ordered:
-        geo = row.get("geo")
-        transfer = 0
-        transfer_note = ""
-        if previous_geo and geo:
-            km = haversine_km(
-                previous_geo["lat"], previous_geo["lng"], geo["lat"], geo["lng"]
+    def leg(previous: dict | None, row: dict) -> RouteLeg | None:
+        if previous is None:
+            return None
+        origin, destination = _geo_point(previous), _geo_point(row)
+        if origin is None or destination is None:
+            return None
+        found = legs.get((_item_id(previous), _item_id(row)))
+        if found is None:
+            # Not in the tool result (no toolbox, or the call failed): the same
+            # model, computed here, and recorded as not logged.
+            km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
+            mode, minutes = model_travel(km)
+            found = RouteLeg(
+                from_geo=origin, to_geo=destination, duration_minutes=minutes,
+                distance_km=round(km, 3), mode=mode, source="transport-model",
             )
-            mode, transfer = _travel(km)
-            transfer_note = f" About {transfer} min {TRANSPORT_NOTE[mode]} from the previous stop (estimate)."
-            transfer += PACE_BUFFER_MINUTES.get(pace, 5)
+        return found
 
-        earliest = start_at if previous_end is None else previous_end + transfer
-        # Never straddle lunch: move the stop to the afternoon instead. Only when
-        # a lunch candidate exists for this day.
-        if lunch and earliest < LUNCH_END and earliest + dwell > LUNCH_START:
-            earliest = LUNCH_END + 15
-        start = _round5(earliest)
-        end = start + dwell
-        if open_until is not None and end > open_until:
-            break
+    def arrival(previous: dict | None, previous_end: int | None, row: dict, default: int) -> int:
+        if previous is None or previous_end is None:
+            return default
+        found = leg(previous, row)
+        return previous_end + ((found.duration_minutes or 0) + buffer if found else 0)
 
+    def fit(row: dict, earliest: int, minutes: int, shortest: int) -> tuple[int, int] | None:
+        windows = _hours(row, day_date)[1]
+        if windows is None:
+            windows = [(0, DAY_MINUTES)]
+        for opens, closes in windows:
+            # A flight day also ends when the traveller must leave for the airport.
+            closes = min(closes, DAY_LAST_END, DAY_MINUTES if open_until is None else open_until)
+            start = _round5(max(earliest, opens))
+            if start + shortest <= closes:
+                return start, min(start + minutes, closes)
+        return None
+
+    def transfer(previous: dict | None, row: dict) -> TransferLeg | None:
+        found = leg(previous, row)
+        return transfer_from(found, _item_id(previous), tool) if found and previous else None
+
+    items: list[PlanItem] = []
+    left_out: list[str] = []
+    state: dict[str, Any] = {"row": None, "end": None}
+
+    def place_meal(row: dict, label: str, usual: int, latest: int, minutes: int) -> None:
+        earliest = max(usual, arrival(state["row"], state["end"], row, usual))
+        slot = fit(row, earliest, minutes, minutes)
+        if slot is None or slot[0] > latest:
+            left_out.append(f"{label.lower()} at {row['name']}")
+            return
+        items.append(
+            _meal_item(label, _hhmm(slot[0]), _hhmm(slot[1]), row, day_date=day_date, transfer=transfer(state["row"], row))
+        )
+        state["row"], state["end"] = row, slot[1]
+
+    lunch_due = lunch is not None
+    queue = list(ordered)
+    deferred: set[int] = set()
+    while queue:
+        row = queue.pop(0)
+        earliest = arrival(state["row"], state["end"], row, start_at)
+        slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell))
+        if slot and slot[0] - earliest > OPENING_WAIT_LIMIT and queue and id(row) not in deferred:
+            deferred.add(id(row))
+            queue.append(row)
+            continue
+        if slot and lunch_due and lunch is not None:
+            to_lunch = leg(row, lunch)
+            ready = slot[1] + ((to_lunch.duration_minutes or 0) + buffer if to_lunch else 0)
+            if ready > LUNCH_START + LUNCH_SLACK:
+                lunch_due = False
+                place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
+                earliest = arrival(state["row"], state["end"], row, start_at)
+                slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell))
+        if slot and dinner is not None:
+            to_dinner = leg(row, dinner)
+            if slot[1] + ((to_dinner.duration_minutes or 0) + buffer if to_dinner else 0) > DINNER_LATEST:
+                slot = None
+        if slot is None:
+            left_out.append(row["name"])
+            continue
+        start, end = slot
+        hours_lines = _hours(row, day_date)[0]
+        moved_in = transfer(state["row"], row)
         note = (row.get("description") or "").strip()
-        note = (note + transfer_note).strip()
+        note = f"{note} {transfer_sentence(moved_in)}".strip()
         items.append(
             PlanItem(
-                id=f"item_{row['id']}",
+                id=_item_id(row),
                 type="attraction",
                 name=row["name"],
                 start=_hhmm(start),
                 end=_hhmm(end),
-                geo=geo,
+                geo=row.get("geo"),
                 address=row.get("address", ""),
                 notes=note[:700],
                 source_refs=[SourceRef.model_validate(ref) for ref in row.get("source_refs", [])],
                 data_status=DataStatus(row.get("data_status", "ok")),
                 fetched_at=utcnow(),
                 tags=(row.get("tags") or [])[:4],
+                opening_hours=hours_lines,
+                hours_status="stated" if hours_lines else "unknown",
+                transfer=moved_in,
             )
         )
-        previous_geo = geo
-        previous_end = end
+        state["row"], state["end"] = row, end
 
-    if lunch:
-        items.append(_meal_item("Lunch", _hhmm(LUNCH_START), _hhmm(LUNCH_END), lunch))
-    if dinner:
-        items.append(_meal_item("Dinner", _hhmm(DINNER_START), _hhmm(DINNER_END), dinner))
+    if lunch_due and lunch is not None:
+        place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
+    if dinner is not None:
+        place_meal(dinner, "Dinner", DINNER_START, DINNER_LATEST, DINNER_END - DINNER_START)
     # Chronological order is the contract; meals are not "after all sights".
     items.sort(key=lambda item: (_minutes_of(item.start), 0 if item.type == "attraction" else 1))
-    return items
+    return items, left_out
 
 
 def _window_limit(window: DayWindow | None, pace: str) -> int | None:
@@ -969,20 +1142,34 @@ def _window_limit(window: DayWindow | None, pace: str) -> int | None:
     return max(0, (open_until - open_from) // slot)
 
 
-def _meal_item(label: str, start: str, end: str, row: dict) -> PlanItem:
+def _meal_item(
+    label: str,
+    start: str,
+    end: str,
+    row: dict,
+    *,
+    day_date: date | None = None,
+    transfer: TransferLeg | None = None,
+) -> PlanItem:
+    hours_lines = _hours(row, day_date)[0] if day_date else []
+    # The meal's transfer is on the item (``transfer``); its note stays short.
+    note = f"{label} candidate from {', '.join(ref.get('source', 'source') for ref in row.get('source_refs', [])) or 'a travel source'}."
     return PlanItem(
-        id=f"item_{row['id']}",
+        id=_item_id(row),
         type="meal",
         name=row["name"],
         start=start,
         end=end,
         geo=row.get("geo"),
         address=row.get("address", ""),
-        notes=f"{label} candidate from {', '.join(ref.get('source', 'source') for ref in row.get('source_refs', [])) or 'a travel source'}.",
+        notes=note,
         source_refs=[SourceRef.model_validate(ref) for ref in row.get("source_refs", [])],
         data_status=DataStatus.OK,
         fetched_at=utcnow(),
         tags=["meal"],
+        opening_hours=hours_lines,
+        hours_status="stated" if hours_lines else "unknown",
+        transfer=transfer,
     )
 
 

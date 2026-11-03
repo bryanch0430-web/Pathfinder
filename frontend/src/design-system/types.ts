@@ -49,6 +49,21 @@ export interface PlanItem {
   locked: boolean;
   confirmed: boolean;
   tags: string[];
+  /** The place source's own hours for the visit day; "unknown" when it gave none. */
+  opening_hours?: string[];
+  hours_status?: "stated" | "unknown";
+  /** The trip from the previous stop, as the routes tool returned it. */
+  transfer?: TransferLeg | null;
+}
+
+export interface TransferLeg {
+  from_item_id: string;
+  minutes: number;
+  mode: string;
+  distance_km?: number | null;
+  source: string;
+  tool: string;
+  result_id: string;
 }
 
 export interface DayPlan {

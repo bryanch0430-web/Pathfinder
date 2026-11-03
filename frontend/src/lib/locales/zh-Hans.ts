@@ -324,6 +324,8 @@ export const ZH_HANS: Messages = {
   "day.number": "第 {n} 天",
 
   "item.locked": "已锁定",
+  "item.hours": "营业时间：{hours}",
+  "item.hoursUnknown": "营业时间未知",
 
   "weather.none": "暂无预报",
   "weather.seasonal": "季节平均",

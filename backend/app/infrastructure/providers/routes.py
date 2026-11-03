@@ -2,9 +2,77 @@
 
 from __future__ import annotations
 
+import uuid
+
 from app.config import Settings
 from app.domain.models import GeoPoint, RouteLeg
 from app.infrastructure.http import haversine_km, request_json
+
+# --- the published transport model -------------------------------------------
+# One model for the schedule, the itinerary text, the console map and the TC-07
+# check: walk under 2.5 km, metro or bus under 35 km, car under 160 km, then a
+# flight. The console map mirrors these numbers (frontend maps/geo.ts and
+# modeMinutes in organisms.tsx).
+TRANSPORT_SPEED_KMH = {"walk": 4.5, "metro": 22.0, "drive": 32.0, "flight": 620.0}
+TRANSPORT_OVERHEAD_MIN = {"walk": 0, "metro": 8, "drive": 5, "flight": 90}
+
+
+def transport_mode(km: float) -> str:
+    if km < 2.5:
+        return "walk"
+    if km < 35:
+        return "metro"
+    if km < 160:
+        return "drive"
+    return "flight"
+
+
+def model_travel(km: float) -> tuple[str, int]:
+    """Mode and minutes for a leg of ``km`` straight-line kilometres."""
+    mode = transport_mode(km)
+    minutes = max(2, round(km / TRANSPORT_SPEED_KMH[mode] * 60 + TRANSPORT_OVERHEAD_MIN[mode]))
+    return mode, minutes
+
+
+class TransportModelRoutes:
+    """The transport model as a routes tool, so every transfer time is a logged result.
+
+    The planner calls ``segments`` once per day through the Toolbox
+    (``routes.segments``). Each returned leg carries an id, and the plan item
+    records that id, so a transfer time on the plan can be traced to the tool
+    result it came from (Proposal TC-09).
+    """
+
+    name = "transport-model"
+    available = True
+
+    async def segments(self, *, points: list[GeoPoint], ids: list[str]) -> list[RouteLeg]:
+        """Legs between every ordered pair of the given stops."""
+        if len(points) != len(ids):
+            raise ValueError("points and ids must have the same length")
+        call = uuid.uuid4().hex[:10]
+        legs: list[RouteLeg] = []
+        for i, origin in enumerate(points):
+            for j, destination in enumerate(points):
+                if i == j:
+                    continue
+                km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
+                mode, minutes = model_travel(km)
+                legs.append(
+                    RouteLeg(
+                        id=f"{call}:{i}-{j}",
+                        from_id=ids[i],
+                        to_id=ids[j],
+                        from_geo=origin,
+                        to_geo=destination,
+                        duration_minutes=minutes,
+                        distance_km=round(km, 3),
+                        mode=mode,
+                        source=self.name,
+                        polyline=[origin, destination],
+                    )
+                )
+        return legs
 
 
 class GoogleRoutesSource:

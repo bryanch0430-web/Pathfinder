@@ -326,6 +326,8 @@ export const ZH_HANT: Messages = {
   "day.number": "第 {n} 天",
 
   "item.locked": "已鎖定",
+  "item.hours": "營業時間：{hours}",
+  "item.hoursUnknown": "營業時間未知",
 
   "weather.none": "暫無預報",
   "weather.seasonal": "季節平均",

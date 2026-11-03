@@ -153,6 +153,27 @@ class WeatherDay(BaseModel):
         return self.status == DataStatus.OK and self.high_c is not None
 
 
+class TransferLeg(BaseModel):
+    """The trip from the previous stop, as a routes tool returned it (Proposal TC-09)."""
+
+    from_item_id: str
+    minutes: int = Field(ge=0)
+    mode: str
+    distance_km: float | None = None
+    # Provider name ("transport-model"), the Toolbox tool that returned the leg
+    # ("routes.segments", empty when the leg was not logged) and the leg's id in
+    # that tool's result.
+    source: str = ""
+    tool: str = ""
+    result_id: str = ""
+    # Extra minutes allowed for a reported rail delay that day (Hong Kong MTR), on
+    # top of ``minutes``. ``delay_tool`` is the status tool that reported it
+    # ("routes.status"); ``delay_source`` is "assumed" when the feed gave no length.
+    delay_minutes: int = Field(default=0, ge=0)
+    delay_tool: str = ""
+    delay_source: str = ""
+
+
 class PlanItem(BaseModel):
     id: str = Field(default_factory=lambda: new_id("item"))
     type: ItemType
@@ -171,6 +192,11 @@ class PlanItem(BaseModel):
     locked: bool = False
     confirmed: bool = False
     tags: list[str] = Field(default_factory=list)
+    # Opening hours exactly as the place source stated them for the visit day.
+    # "unknown" means the source gave none; the planner never fills them in.
+    opening_hours: list[str] = Field(default_factory=list)
+    hours_status: Literal["stated", "unknown"] = "unknown"
+    transfer: TransferLeg | None = None
 
     @model_validator(mode="after")
     def _times(self) -> "PlanItem":
@@ -634,6 +660,12 @@ class RouteLeg(BaseModel):
     mode: str = "walk"
     source: str = "estimate"
     polyline: list[GeoPoint] = Field(default_factory=list)
+    # Set by a source that returns many legs in one result (routes.segments), so
+    # a plan can name the exact leg it used. Read as attributes only: they are
+    # left out of JSON dumps, so prompts and API payloads keep their shape.
+    id: str = Field(default="", exclude=True)
+    from_id: str = Field(default="", exclude=True)
+    to_id: str = Field(default="", exclude=True)
 
 
 class WeatherAlert(BaseModel):

@@ -90,9 +90,13 @@ export const samplePlan: TripPlan = {
         fetched_at: now,
       },
       items: [
-        item("item_p1", "attraction", "Kiyomizu-dera", "09:00", "10:30", 34.9949, 135.785, "Hilltop temple with a wooden stage over the city. About 22 min on foot from the previous stop (estimate).", [ref("Kiyomizu-dera", "google-places", "https://maps.google.com")]),
+        {
+          ...item("item_p1", "attraction", "Kiyomizu-dera", "09:00", "10:30", 34.9949, 135.785, "Hilltop temple with a wooden stage over the city. About 22 min on foot from the previous stop (estimate).", [ref("Kiyomizu-dera", "google-places", "https://maps.google.com")]),
+          opening_hours: ["Saturday: 6:00 AM – 6:00 PM"],
+          hours_status: "stated",
+        },
         item("item_p2", "attraction", "Sannenzaka and Ninenzaka", "10:50", "12:10", 34.9965, 135.7808, "Stone lanes preserved from the Edo period; good for a slow walk.", [ref("Higashiyama walk", "wikivoyage")]),
-        item("item_m1", "meal", "Okutan Kiyomizu", "12:30", "13:30", 34.9941, 135.7831, "Lunch candidate from Google Places.", [ref("Okutan Kiyomizu", "google-places")]),
+        { ...item("item_m1", "meal", "Okutan Kiyomizu", "12:30", "13:30", 34.9941, 135.7831, "Lunch candidate from Google Places.", [ref("Okutan Kiyomizu", "google-places")]), hours_status: "unknown" },
         item("item_p3", "attraction", "Yasaka Shrine", "14:00", "15:00", 35.0037, 135.7787, "Shrine at the head of Gion, open in the evening.", [ref("Yasaka Shrine", "google-places")]),
         item("item_p4", "attraction", "Gion", "15:20", "17:00", 35.0037, 135.7752, "Machiya streets and tea houses; keep quiet in the side lanes.", [ref("Gion", "wikivoyage")]),
       ],

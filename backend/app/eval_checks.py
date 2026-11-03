@@ -19,6 +19,7 @@ from typing import Any
 
 from app.application.planner import TRANSPORT_SPEED_KMH, _travel
 from app.application.toolbox import Toolbox
+from app.application.transfers import delay_allowance
 from app.config import Settings
 from app.domain.models import (
     EvalCase,
@@ -122,6 +123,7 @@ def extract_facts(result: Any) -> list[dict[str, Any]]:
                     "urls": [ref.url for ref in row.source_refs],
                     "tags": list(row.tags),
                     "text": f"{row.category} {row.description}",
+                    "hours": list(row.opening_hours),
                 }
             )
         elif isinstance(row, HotelCandidate):
@@ -157,7 +159,17 @@ def extract_facts(result: Any) -> list[dict[str, Any]]:
         elif isinstance(row, GeoLocation):
             out.append({"kind": "geo", "name": row.name})
         elif isinstance(row, RouteLeg):
-            out.append({"kind": "leg", "minutes": row.duration_minutes, "mode": row.mode, "source": row.source})
+            out.append(
+                {
+                    "kind": "leg",
+                    "id": row.id,
+                    "minutes": row.duration_minutes,
+                    "mode": row.mode,
+                    "source": row.source,
+                    "from": [row.from_geo.lat, row.from_geo.lng],
+                    "to": [row.to_geo.lat, row.to_geo.lng],
+                }
+            )
         elif isinstance(row, WeatherAlert):
             # An official warning (HKO), kept apart from forecast rows so grounding
             # still compares each day's forecast with the forecast tool.
@@ -317,10 +329,10 @@ def outdoor_on_alert_days(plan: TripPlan, log: ToolLog) -> list[str]:
 def transit_minutes(origin: GeoPoint, destination: GeoPoint, delay: int = 0) -> int:
     """Minutes a transfer needs under the app's published transport model.
 
-    The model is the planner's (the one the console map uses): walk under 2.5 km,
-    metro under 35 km, then car. A metro delay is added to metro legs, unless
-    walking is then faster. The planner never times the walk to a meal, so meal
-    transfers are checked against the same model too.
+    The model is the planner's (the one the console map uses, served to the
+    planner as the routes.segments tool): walk under 2.5 km, metro under 35 km,
+    then car. A metro delay is added to metro legs, unless walking is then faster.
+    Meal transfers are checked against the same model as every other stop.
     """
     km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
     mode, minutes = _travel(km)
@@ -409,53 +421,163 @@ def _refs_match(refs, fact: dict[str, Any]) -> bool:
     return bool(refs) and all(ref.url and ref.url in urls for ref in refs)
 
 
+def _same_point(point: GeoPoint | None, pair: Any) -> bool:
+    if point is None or not isinstance(pair, (list, tuple)) or len(pair) != 2:
+        return False
+    return abs(point.lat - float(pair[0])) < 1e-6 and abs(point.lng - float(pair[1])) < 1e-6
+
+
+def _leg_label(index: int, previous, item) -> str:
+    return f"transfer: day {index + 1} {previous.name} -> {item.name}"
+
+
+def _delay_grounded(previous, item, day: str, delays: dict[str, list[dict[str, Any]]]) -> bool:
+    """A delay on a transfer needs a logged delayed-line report for that day.
+
+    A stated length must be the logged one (or less, when walking is faster); an
+    assumed length is accepted only as labelled ("assumed") and only on a day a
+    status tool reported a delay.
+    """
+    transfer = item.transfer
+    reports = delays.get(day, [])
+    if not reports:
+        return False
+    if not transfer.delay_tool:
+        return transfer.delay_source == "assumed"
+    return any(
+        fact["tool"] == transfer.delay_tool
+        and fact.get("minutes")
+        and transfer.delay_minutes == delay_allowance(previous.geo, item.geo, transfer.minutes, int(fact["minutes"]))
+        for fact in reports
+    )
+
+
+def _transfer_grounded(
+    previous, item, legs: dict[str, list[dict[str, Any]]], day: str = "", delays: dict[str, list[dict[str, Any]]] | None = None
+) -> bool:
+    """The item's transfer is the logged leg from the actual previous stop, plus any logged delay."""
+    transfer = item.transfer
+    if transfer is None or transfer.from_item_id != previous.id or not transfer.tool or not transfer.result_id:
+        return False
+    if transfer.delay_minutes and not _delay_grounded(previous, item, day, delays or {}):
+        return False
+    for fact in legs.get(transfer.result_id, []):
+        if (
+            fact.get("tool") == transfer.tool
+            and fact.get("minutes") == transfer.minutes
+            and fact.get("mode") == transfer.mode
+            and fact.get("source") == transfer.source
+            and _same_point(previous.geo, fact.get("from"))
+            and _same_point(item.geo, fact.get("to"))
+        ):
+            return True
+    return False
+
+
+def _hours_grounded(item, places: list[dict[str, Any]]) -> bool:
+    """Every stated hours line appears in a place result for this stop (by name or source URL)."""
+    if item.hours_status != "stated" or not item.opening_hours:
+        return False
+    urls = {ref.url for ref in item.source_refs if ref.url}
+    key = item.name.strip().lower()
+    for fact in places:
+        if fact["name"].strip().lower() != key and not urls & set(fact.get("urls") or []):
+            continue
+        if set(item.opening_hours) <= set(fact.get("hours") or []):
+            return True
+    return False
+
+
 def grounding(plan: TripPlan, log: ToolLog) -> dict[str, Any]:
-    """Cross-check each factual item in the plan against the run's tool results."""
+    """Cross-check each fact in the plan against the run's tool results (Proposal TC-09).
+
+    Checked: each stop's name and sources, each hotel's name and nightly price,
+    each fare, each day's forecast, each transfer time between consecutive stops
+    (the leg must be the logged routes result for exactly those two places), and
+    each stop's stated opening hours. A stop whose source gave no hours carries
+    "hours unknown" and no hours fact; it is counted, not checked.
+    """
     places = log.facts("place")
     hotels = log.facts("hotel")
     flights = log.facts("flight")
     weather = {fact["date"]: fact for fact in log.facts("weather")}
-    total = 0
-    ungrounded: list[str] = []
+    legs: dict[str, list[dict[str, Any]]] = {}
+    delays: dict[str, list[dict[str, Any]]] = {}
+    for entry in log.entries:
+        if entry["status"] != "ok":
+            continue
+        for fact in entry["facts"]:
+            if fact["kind"] == "leg" and fact.get("id"):
+                legs.setdefault(fact["id"], []).append({**fact, "tool": entry["tool"]})
+            elif fact["kind"] == "transit" and fact.get("delayed"):
+                delays.setdefault(fact["date"], []).append({**fact, "tool": entry["tool"]})
+    kinds = ("place", "hotel", "ticket", "weather", "transfer", "opening_hours")
+    checked = {kind: 0 for kind in kinds}
+    missed: dict[str, list[str]] = {kind: [] for kind in kinds}
+    hours_unknown: list[str] = []
+
+    def record(kind: str, ok: bool, label: str) -> None:
+        checked[kind] += 1
+        if not ok:
+            missed[kind].append(label)
 
     def by_name(facts: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
         return [fact for fact in facts if fact["name"].strip().lower() == name.strip().lower()]
 
     for _, item in plan.iter_items():
-        total += 1
         matches = by_name(places, item.name)
-        if item.data_status.value == "unavailable" or not any(_refs_match(item.source_refs, fact) for fact in matches):
-            ungrounded.append(f"{item.type.value}: {item.name}")
+        ok = item.data_status.value != "unavailable" and any(_refs_match(item.source_refs, fact) for fact in matches)
+        record("place", ok, f"{item.type.value}: {item.name}")
+        if item.opening_hours or item.hours_status == "stated":
+            record("opening_hours", _hours_grounded(item, places), f"hours: {item.name}")
+        else:
+            hours_unknown.append(item.name)
+    for index, day in enumerate(plan.days):
+        ordered = sorted(day.items, key=lambda entry: entry.start)
+        for position, item in enumerate(ordered):
+            previous = ordered[position - 1] if position else None
+            if previous is not None and previous.geo is not None and item.geo is not None:
+                ok = _transfer_grounded(previous, item, legs, day.date.isoformat(), delays)
+                record("transfer", ok, _leg_label(index, previous, item))
+            elif item.transfer is not None:
+                # A transfer with no previous stop to come from is not a tool fact.
+                record("transfer", False, f"transfer: day {index + 1} -> {item.name}")
     for hotel in plan.hotels:
-        total += 1
         ok = any(
             _refs_match(hotel.source_refs, fact) and fact.get("price") == _price(hotel.price_per_night)
             for fact in by_name(hotels, hotel.name)
         )
-        if not ok:
-            ungrounded.append(f"hotel: {hotel.name}")
+        record("hotel", ok, f"hotel: {hotel.name}")
     for ticket in plan.tickets:
-        total += 1
         ok = any(
             _refs_match(ticket.source_refs, fact) and fact.get("price") == _price(ticket.price)
             for fact in by_name(flights, ticket.name)
         )
-        if not ok:
-            ungrounded.append(f"ticket: {ticket.name}")
+        record("ticket", ok, f"ticket: {ticket.name}")
     for day in plan.days:
         if day.weather is None or not day.weather.is_available:
             continue
-        total += 1
         fact = weather.get(day.date.isoformat())
-        if not fact or fact.get("high") != day.weather.high_c or fact.get("low") != day.weather.low_c:
-            ungrounded.append(f"weather: {day.date.isoformat()}")
+        ok = bool(fact) and fact.get("high") == day.weather.high_c and fact.get("low") == day.weather.low_c
+        record("weather", ok, f"weather: {day.date.isoformat()}")
+    total = sum(checked.values())
+    ungrounded = [label for kind in kinds for label in missed[kind]]
     grounded = total - len(ungrounded)
     return {
         "items": total,
         "grounded": grounded,
         "ungrounded": ungrounded[:12],
         "score": round(grounded / total, 3) if total else 0.0,
-        "not_checked": "Transfer times are the planner's labelled estimates, not tool results.",
+        "by_kind": {
+            kind: {"checked": checked[kind], "grounded": checked[kind] - len(missed[kind]), "ungrounded": missed[kind][:6]}
+            for kind in kinds
+        },
+        "hours_unknown": len(hours_unknown),
+        "not_checked": (
+            f"{len(hours_unknown)} stop(s) carry no opening hours because their source gave none."
+            if hours_unknown
+            else ""
+        ),
     }
 
 
@@ -739,6 +861,25 @@ def planning_metrics(results: list[EvalCaseResult]) -> list[EvalMetric]:
         values = mean(key)
         if values:
             metrics.append(EvalMetric(key=key, label=label, value=round(100.0 * sum(values) / len(values), 1)))
+    # Proposal TC-09 (p4): transit times and opening hours, each against the tool log.
+    grounds = [result.plan_checks.get("grounding") or {} for result in results]
+    for kind, key, label in (
+        ("transfer", "grounding_transfers", "Transfer times grounded"),
+        ("opening_hours", "grounding_hours", "Opening hours grounded"),
+    ):
+        rows = [ground.get("by_kind", {}).get(kind) for ground in grounds]
+        checked = sum(row["checked"] for row in rows if row)
+        if checked:
+            grounded = sum(row["grounded"] for row in rows if row)
+            metrics.append(
+                EvalMetric(key=key, label=f"{label} ({grounded}/{checked})", value=round(100.0 * grounded / checked, 1))
+            )
+    stops = sum(ground.get("by_kind", {}).get("place", {}).get("checked", 0) for ground in grounds)
+    if stops:
+        unknown = sum(int(ground.get("hours_unknown", 0)) for ground in grounds)
+        metrics.append(
+            EvalMetric(key="hours_unknown", label=f"Stops with hours unknown (of {stops})", value=float(unknown), unit="")
+        )
     return metrics
 
 
@@ -815,7 +956,13 @@ def render_markdown(cases: list[EvalCaseResult]) -> list[str]:
     rows = [case for case in cases if case.plan_checks]
     if not rows:
         return []
-    lines = ["", "## Plan checks", "", "| Case | Constraints | Disruption | Grounding |", "|---|---:|---|---:|"]
+    lines = [
+        "",
+        "## Plan checks",
+        "",
+        "| Case | Constraints | Disruption | Grounding | Transfers | Opening hours |",
+        "|---|---:|---|---:|---:|---:|",
+    ]
     for case in rows:
         checks = case.plan_checks
         disruption = checks.get("disruption") or {}
@@ -823,8 +970,17 @@ def render_markdown(cases: list[EvalCaseResult]) -> list[str]:
             f"{disruption['kind']}: {'handled' if disruption['handled'] else 'not handled'}" if disruption else "—"
         )
         ground = checks.get("grounding") or {}
+        kinds = ground.get("by_kind") or {}
+
+        def share(kind: str) -> str:
+            row = kinds.get(kind) or {}
+            return f"{row.get('grounded', 0)}/{row.get('checked', 0)}" if row else "—"
+
+        hours = share("opening_hours")
+        if ground.get("hours_unknown"):
+            hours += f" ({ground['hours_unknown']} unknown)"
         lines.append(
             f"| {case.case_id} | {checks.get('constraints_met', 0)}/{checks.get('constraints_total', 0)} | "
-            f"{outcome} | {ground.get('grounded', 0)}/{ground.get('items', 0)} |"
+            f"{outcome} | {ground.get('grounded', 0)}/{ground.get('items', 0)} | {share('transfer')} | {hours} |"
         )
     return lines

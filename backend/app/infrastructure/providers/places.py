@@ -301,6 +301,9 @@ class NominatimPlacesSource:
                 else f"https://www.openstreetmap.org/search?query={name}"
             )
             cuisine = str(row.get("type") or "place").replace("_", " ")
+            extratags = row.get("extratags") or {}
+            # OSM's opening_hours tag, verbatim ("Mo-Fr 09:00-17:00; Sa 10:00-14:00").
+            hours = str(extratags.get("opening_hours") or "").strip()
             out.append(
                 PlaceCandidate(
                     name=name,
@@ -308,7 +311,8 @@ class NominatimPlacesSource:
                     description=str(row.get("display_name") or "")[:400],
                     geo=GeoPoint(lat=lat, lng=lng),
                     address=str(row.get("display_name") or ""),
-                    website=str((row.get("extratags") or {}).get("website") or ""),
+                    opening_hours=[hours] if hours else [],
+                    website=str(extratags.get("website") or ""),
                     source_refs=[
                         SourceRef(
                             title=f"OpenStreetMap: {name}",

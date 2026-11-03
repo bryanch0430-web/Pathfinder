@@ -291,7 +291,6 @@ def test_tc03_every_disruption_reports_its_own_outcomes(trials: dict) -> None:
         assert set(disruption["evidence"]) <= set(disruption["outcomes"])
 
 
-MEALS_GAP = "Proposal TC-07: the planner fixes lunch and dinner times without the transfer from the previous stop"
 
 
 @pytest.mark.parametrize(
@@ -302,9 +301,7 @@ MEALS_GAP = "Proposal TC-07: the planner fixes lunch and dinner times without th
         "hk03",
         "hk04",
         "hk05",
-        # The MTR delay is handled (see the test below); day 1's lunch still leaves
-        # 5 min for a 21-min transfer, which is the TC-07 meal gap.
-        pytest.param("hk06", marks=pytest.mark.xfail(strict=True, reason=MEALS_GAP)),
+        "hk06",
         "hk07",
         "hk08",
     ],
@@ -328,16 +325,14 @@ def test_tc03_failing_cases_name_the_unhandled_disruption(unhandled: dict) -> No
         assert not outcomes["outdoor_stops_moved"]
         assert case["failure_class"] == "unmet_weather"
         assert "Outdoor stops on an alert day" in case["judge_reason"]
-    for case_id in ("hk03", "hk06"):
+    # hk03: the 40-minute delay makes day-1 metro transfers too short. hk06: the
+    # delay day has only walking legs, so travel times hold, but the delay is
+    # neither detected nor recorded.
+    for case_id, failure in (("hk03", "unmet_travel_times"), ("hk06", "transit_delay_not_handled")):
         case = _case(unhandled, "hongkong", case_id)
         outcomes = case["plan_checks"]["disruption"]["outcomes"]
         assert not outcomes["delay_detected"] and not outcomes["delay_recorded"]
-        if case_id == "hk03":
-            assert case["failure_class"] == "unmet_travel_times"
-        else:
-            # hk06's delay day is a walk, so once the TC-07 meal gap is closed its
-            # only failure is the unhandled delay itself.
-            assert case["failure_class"] in {"unmet_travel_times", "transit_delay_not_handled"}
+        assert case["failure_class"] == failure
     assert not _case(unhandled, "hongkong", "hk03")["plan_checks"]["disruption"]["outcomes"]["transfers_absorb_delay"]
     metrics = _metrics(unhandled, "hongkong")
     assert metrics["recovery_typhoon"]["value"] == metrics["recovery_transit_delay"]["value"] == 0.0
@@ -421,7 +416,6 @@ def test_tc07_travel_time_check_uses_the_transport_model(settings: Settings) -> 
     assert len(short_transfers(plan, delay_dates={first}, delay=40)) > len(short_transfers(plan))
 
 
-@pytest.mark.xfail(strict=True, reason=MEALS_GAP)
 def test_tc07_meal_stops_leave_time_for_the_transfer(settings: Settings) -> None:
     """Proposal TC-07 (p4): lunch and dinner leave time to get there from the previous stop."""
     plan, *_ = _sandbox_plan(settings, "Hong Kong", days=2)
@@ -576,3 +570,231 @@ def test_tc09_items_without_a_matching_tool_result_are_ungrounded(settings: Sett
     assert result["score"] < 1.0
     case = EvalCase(id="x", dataset="japan", input="", days=2)
     assert score_plan(case, plan=plan, initial=plan, log=log, start=plan.dates.start).failure_class() == "ungrounded_items"
+
+
+# --- TC-09: transit times and opening hours ---------------------------------
+
+
+def _legs(plan) -> list[tuple[int, PlanItem, PlanItem]]:
+    """(day index, previous stop, stop) for every consecutive pair that has coordinates."""
+    out = []
+    for index, day in enumerate(plan.days):
+        ordered = sorted(day.items, key=lambda item: item.start)
+        out += [(index, a, b) for a, b in zip(ordered, ordered[1:]) if a.geo is not None and b.geo is not None]
+    return out
+
+
+def test_tc09_transfer_times_come_from_a_logged_routes_call(settings: Settings) -> None:
+    """Proposal TC-09 (p4): every transit time on the plan is a routes result in this trip's tool log."""
+    plan, log, *_ = _sandbox_plan(settings, "Hong Kong", days=2)
+    calls = [entry for entry in log.entries if entry["tool"] == "routes.segments"]
+    assert len(calls) == len(plan.days) and all(entry["status"] == "ok" for entry in calls)
+    logged = {fact["id"]: fact for entry in calls for fact in entry["facts"]}
+    pairs = _legs(plan)
+    assert pairs
+    for _, previous, item in pairs:
+        transfer = item.transfer
+        assert transfer is not None and transfer.from_item_id == previous.id
+        assert (transfer.tool, transfer.source) == ("routes.segments", "transport-model")
+        fact = logged[transfer.result_id]
+        assert (fact["minutes"], fact["mode"]) == (transfer.minutes, transfer.mode)
+        if item.type.value == "attraction":  # the stop's text quotes the same leg
+            assert f"About {transfer.minutes} min" in item.notes
+    legs = grounding(plan, log)["by_kind"]["transfer"]
+    assert legs == {"checked": len(pairs), "grounded": len(pairs), "ungrounded": []}
+
+
+def test_tc09_ungrounded_transfer_times_are_caught(settings: Settings) -> None:
+    """Proposal TC-09 (p4): a transit time the routes tool did not return for those two stops is ungrounded."""
+    plan, log, *_ = _sandbox_plan(settings, "Hong Kong", days=2)
+    pairs = _legs(plan)
+    assert len(pairs) >= 4
+    (d1, a1, b1), (d2, a2, b2), (d3, a3, b3), (d4, a4, b4) = pairs[:4]
+    b1.transfer.minutes += 7  # a time no tool returned
+    b2.transfer.result_id = "invented"  # a leg id that is not in the log
+    b3.transfer = None  # a transfer the planner never looked up
+    b4.transfer = b1.transfer.model_copy(update={"minutes": b1.transfer.minutes - 7})  # a real leg, other stops
+    result = grounding(plan, log)
+    flagged = {f"transfer: day {d + 1} {a.name} -> {b.name}" for d, a, b in ((d1, a1, b1), (d2, a2, b2), (d3, a3, b3), (d4, a4, b4))}
+    assert set(result["by_kind"]["transfer"]["ungrounded"]) == flagged
+    assert flagged <= set(result["ungrounded"])
+    assert result["by_kind"]["transfer"]["grounded"] == len(pairs) - 4
+    assert result["score"] < 1.0
+    case = EvalCase(id="x", dataset="hongkong", input="", days=2)
+    assert score_plan(case, plan=plan, initial=plan, log=log, start=plan.dates.start).failure_class() == "ungrounded_items"
+
+
+def test_tc09_a_reported_mtr_delay_on_a_transfer_is_grounded_in_the_status_result(settings: Settings) -> None:
+    """Proposal TC-09 (p4): leg minutes come from routes.segments, the delay from routes.status."""
+    detail = {"day": 1, "line": "Island Line", "delay_minutes": 30}
+    plan, log, *_ = _sandbox_plan(settings, "Hong Kong", days=2, fault="transit_delay", detail=detail)
+    delayed = [item for _, item in plan.iter_items() if item.transfer and item.transfer.delay_minutes]
+    assert delayed, "the delay day has metro transfers"
+    for item in delayed:
+        assert (item.transfer.delay_tool, item.transfer.mode) == ("routes.status", "metro")
+        assert item.transfer.delay_minutes <= 30
+    assert short_transfers(plan, delay_dates={plan.days[0].date.isoformat()}, delay=30) == []
+    assert grounding(plan, log)["by_kind"]["transfer"]["ungrounded"] == []
+    tampered = delayed[0]
+    tampered.transfer.delay_minutes += 5  # longer than the status source said
+    flagged = grounding(plan, log)["by_kind"]["transfer"]["ungrounded"]
+    assert len(flagged) == 1 and flagged[0].endswith(f"-> {tampered.name}")
+
+
+def test_tc09_opening_hours_are_carried_and_scheduled_within(settings: Settings) -> None:
+    """Proposal TC-09 (p4): stated hours reach the stop and bound its time; no hours means "hours unknown"."""
+    plan, log, *_ = _sandbox_plan(settings, "Hong Kong", days=2)
+    attractions = [item for _, item in plan.iter_items() if item.type.value == "attraction"]
+    meals = [item for _, item in plan.iter_items() if item.type.value == "meal"]
+    assert attractions and meals
+    for item in attractions:  # the sandbox place source states 09:00-17:00
+        assert (item.hours_status, item.opening_hours) == ("stated", ["09:00-17:00"])
+        assert "09:00" <= item.start and item.end <= "17:00", item
+    for item in meals:  # the sandbox restaurants state no hours
+        assert (item.hours_status, item.opening_hours) == ("unknown", [])
+    result = grounding(plan, log)
+    hours = result["by_kind"]["opening_hours"]
+    assert hours == {"checked": len(attractions), "grounded": len(attractions), "ungrounded": []}
+    assert result["hours_unknown"] == len(meals)
+
+
+def test_tc09_ungrounded_opening_hours_are_caught(settings: Settings) -> None:
+    """Proposal TC-09 (p4): hours the place source did not state, for that stop, are ungrounded."""
+    plan, log, *_ = _sandbox_plan(settings, "Hong Kong", days=2)
+    attraction = next(item for _, item in plan.iter_items() if item.type.value == "attraction")
+    meal = next(item for _, item in plan.iter_items() if item.type.value == "meal")
+    attraction.opening_hours = ["09:00-21:00"]  # longer than the source said
+    meal.opening_hours, meal.hours_status = ["11:00-22:00"], "stated"  # the source gave none
+    result = grounding(plan, log)
+    assert set(result["by_kind"]["opening_hours"]["ungrounded"]) == {f"hours: {attraction.name}", f"hours: {meal.name}"}
+    assert result["score"] < 1.0
+
+
+def test_tc09_eval_run_reports_transfer_and_hours_grounding(trials: dict) -> None:
+    """Proposal TC-09 (p4): POST /api/eval/trials reports transit-time and opening-hours grounding."""
+    for name in PLANNING_SETS:
+        metrics = _metrics(trials, name)
+        legs, hours = metrics["grounding_transfers"], metrics["grounding_hours"]
+        assert legs["value"] == 100.0 and legs["label"].startswith("Transfer times grounded (")
+        assert hours["value"] == 100.0 and hours["label"].startswith("Opening hours grounded (")
+        unknown = 0
+        for case in trials["runs"][name]["cases"]:
+            ground = case["plan_checks"]["grounding"]
+            assert ground["by_kind"]["transfer"]["checked"] > 0, case["case_id"]
+            assert ground["by_kind"]["opening_hours"]["checked"] > 0, case["case_id"]
+            assert ground["by_kind"]["transfer"]["ungrounded"] == ground["by_kind"]["opening_hours"]["ungrounded"] == []
+            unknown += ground["hours_unknown"]
+        assert metrics["hours_unknown"]["value"] == unknown > 0  # the sandbox restaurants state no hours
+        assert "| Transfers | Opening hours |" in trials["exports"][name]
+
+
+def test_tc09_opening_hours_parser_reads_google_osm_and_plain_formats() -> None:
+    """Proposal TC-09 (p4): hours are read from each source's own format, never guessed."""
+    from app.application.opening_hours import lines_for, windows_on
+
+    monday, tuesday, wednesday, thursday, friday, saturday = (date(2027, 4, 5) + timedelta(days=i) for i in range(6))
+    google = [
+        "Monday: 9:00 AM – 5:00 PM",
+        "Tuesday: Closed",
+        "Wednesday: Open 24 hours",
+        "Thursday: 11:30 AM – 2:30 PM, 5:30 – 10:00 PM",
+        "Friday: 6:00 PM – 2:00 AM",
+    ]
+    assert windows_on(google, monday) == [(540, 1020)]
+    assert windows_on(google, tuesday) == []
+    assert windows_on(google, wednesday) == [(0, 1440)]
+    assert windows_on(google, thursday) == [(690, 870), (1050, 1320)]
+    assert windows_on(google, friday) == [(1080, 1440)]
+    assert windows_on(google, saturday) is None  # no line for Saturday
+    assert lines_for(google, thursday) == [google[3]]
+    osm = ["Mo-Fr 09:00-17:00; Sa 10:00-14:00; Su off"]
+    assert windows_on(osm, friday) == [(540, 1020)]
+    assert windows_on(osm, saturday) == [(600, 840)]
+    assert windows_on(osm, saturday + timedelta(days=1)) == []
+    assert windows_on(["Tu-Su 10:00-18:00; Mo off"], monday) == []
+    assert windows_on(["24/7"], monday) == [(0, 1440)]
+    assert windows_on(["09:00-17:00"], monday) == [(540, 1020)]
+    assert windows_on(["9AM-5PM daily"], monday) == [(540, 1020)]
+    assert windows_on(["10:00-18:00, closed Mondays"], monday) is None  # stated, but not readable
+    assert windows_on(["sunrise-sunset"], monday) is None
+    assert windows_on([], monday) is None
+
+
+def test_tc09_stops_are_scheduled_inside_their_stated_hours() -> None:
+    """Proposal TC-09 (p4): a stop waits for its opening, ends by its closing, and a closed stop is left out."""
+    from app.application.planner import _schedule
+    from app.eval_checks import transit_minutes
+
+    def row(place_id: str, name: str, lat: float, lng: float, hours: list[str] | None = None) -> dict:
+        return {
+            "id": place_id, "name": name, "geo": {"lat": lat, "lng": lng}, "opening_hours": hours or [],
+            "source_refs": [{"title": name, "url": f"https://example.com/{place_id}", "source": "test"}],
+        }
+
+    saturday = date(2027, 4, 10)
+    places = [
+        row("a", "Harbour Walk", 22.300, 114.170),
+        row("b", "Night Market", 22.306, 114.170, ["Mo-Su 14:00-23:00"]),
+        row("c", "Morning Museum", 22.302, 114.172, ["Mo-Su 09:00-12:00"]),
+        row("d", "Weekday Gallery", 22.301, 114.168, ["Mo-Fr 09:00-17:00; Sa,Su off"]),
+    ]
+    lunch = row("m1", "Noodle Bar", 22.303, 114.171, ["Mo-Su 11:00-15:00"])
+    dinner = row("m2", "Dim Sum Hall", 22.304, 114.169)
+    items, left_out = _schedule(saturday, places, lunch, dinner, pace="balanced")
+    by_name = {item.name: item for item in items}
+    assert left_out == ["Weekday Gallery"]
+    assert by_name["Night Market"].start >= "14:00"
+    assert by_name["Morning Museum"].end <= "12:00"
+    assert "11:00" <= by_name["Noodle Bar"].start and by_name["Noodle Bar"].end <= "15:00"
+    assert by_name["Dim Sum Hall"].hours_status == "unknown"
+    for previous, item in zip(items, items[1:]):
+        gap = int(item.start[:2]) * 60 + int(item.start[3:]) - (int(previous.end[:2]) * 60 + int(previous.end[3:]))
+        assert gap >= transit_minutes(previous.geo, item.geo), (previous.name, item.name)
+
+
+def test_tc09_osm_opening_hours_reach_the_place_candidate(settings: Settings, monkeypatch) -> None:
+    """Proposal TC-09 (p4): the OpenStreetMap source passes its opening_hours tag on, verbatim."""
+    from app.infrastructure.providers import places as module
+
+    async def fake_request(*_, **__):  # request_json wraps a JSON list as {"data": [...]}
+        return {"data": [
+            {"name": "Tai Kwun", "lat": "22.2814", "lon": "114.1543", "osm_type": "node", "osm_id": 7,
+             "extratags": {"opening_hours": "Mo-Su 10:00-23:00", "website": "https://www.taikwun.hk"}},
+            {"name": "Unlisted Lane", "lat": "22.2800", "lon": "114.1500", "osm_type": "node", "osm_id": 8, "extratags": {}},
+        ]}
+
+    monkeypatch.setattr(module, "request_json", fake_request)
+    rows = asyncio.run(
+        module.NominatimPlacesSource(settings).search(destination="Hong Kong", geo=None, category="attraction", limit=5)
+    )
+    assert [row.opening_hours for row in rows] == [["Mo-Su 10:00-23:00"], []]
+
+
+def test_tc09_an_edit_refreshes_the_transfers_it_changes(settings: Settings) -> None:
+    """Proposal TC-09 (p4): after a stop is removed, the next stop's transit time is fetched again and logged."""
+    plan, log, _registry, plan_path, gateway, context, _ = _sandbox_plan(settings, "Hong Kong", days=2)
+    day = plan.days[0]
+    ordered = sorted(day.items, key=lambda item: item.start)
+    middle = next(
+        item for index, item in enumerate(ordered[1:-1], start=1)
+        if item.type.value == "attraction" and ordered[index + 1].geo is not None
+    )
+    following = ordered[ordered.index(middle) + 1]
+    log.phase = "edit"
+    updated, _ = asyncio.run(
+        ModifyPath(planner=plan_path.planner, plan_path=plan_path, settings=settings, gateway=gateway).run(
+            plan=plan,
+            context=context,
+            message=f"Remove {middle.name} from the plan.",
+            route_parts=["attraction"],
+            toolbox=RecordingToolbox(log, path="modify"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+    )
+    assert middle.name not in {item.name for _, item in updated.iter_items()}
+    moved = updated.find_item(following.id)[1]
+    assert moved.transfer.from_item_id != middle.id
+    assert [entry["status"] for entry in log.entries if entry["phase"] == "edit" and entry["tool"] == "routes.segments"] == ["ok"]
+    assert grounding(updated, log)["by_kind"]["transfer"]["ungrounded"] == []
+    assert short_transfers(updated) == []

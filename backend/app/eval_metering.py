@@ -47,11 +47,12 @@ PROVIDER_GROUPS = (
     "routes",
     "warnings",
     "transit",
+    "transfers",
     "web",
     "web_deep",
 )
 PROVIDER_METHODS = (
-    "geocode", "search", "forecast", "leg", "matrix", "resolve", "gain", "answer", "refresh", "alerts", "status",
+    "geocode", "search", "forecast", "leg", "matrix", "segments", "resolve", "gain", "answer", "refresh", "alerts", "status",
 )
 # Tool-log statuses of a call that reached the provider.
 INVOKED_STATUSES = frozenset({"ok", "error"})

@@ -3,7 +3,9 @@
 The console draws a day as a chain of legs; a straight line between two pins is a
 guess, not a route. This module asks the configured routes provider for the real
 polyline and duration of each leg, including the legs to restaurants, and falls
-back to a labelled estimate when no provider is available.
+back to a labelled estimate when no provider is available. The estimate is the
+itinerary's own transfer (the transport model the planner's routes.segments call
+returned), so the map and the schedule show the same minutes.
 
 Results are cached per plan version: a plan version is immutable, so the same
 legs never cost a second API call.
@@ -15,23 +17,39 @@ import asyncio
 from typing import Any
 
 from app.config import Settings
-from app.domain.models import GeoPoint, RouteLeg, TripPlan
+from app.domain.models import GeoPoint, RouteLeg, TransferLeg, TripPlan
 from app.infrastructure.http import haversine_km
-from app.infrastructure.providers.routes import estimate_leg
+from app.infrastructure.providers.routes import model_travel, transport_mode
 
 # Legs per day are few (a day has at most ~7 stops), and the cache is bounded so a
 # long session does not grow without limit.
 _CACHE: dict[str, dict[str, Any]] = {}
 _CACHE_LIMIT = 64
+# The routes API vocabulary for the transport model's modes. A local leg is never
+# flown, so the longest legs are driven.
+_API_MODE = {"walk": "walk", "metro": "transit", "drive": "drive", "flight": "drive"}
 
 
 def _travel_mode(km: float) -> str:
-    """Walking for short hops, transit inside a city, driving beyond it."""
-    if km < 1.6:
-        return "walk"
-    if km < 30:
-        return "transit"
-    return "drive"
+    """The transport model's mode (walk under 2.5 km, transit under 35 km, then car)."""
+    return _API_MODE[transport_mode(km)]
+
+
+def _estimate(origin: GeoPoint, destination: GeoPoint, stored: TransferLeg | None) -> RouteLeg:
+    """The itinerary's own leg: the plan's logged transfer, or the same transport model."""
+    km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
+    mode, minutes = model_travel(km)
+    if stored is not None:
+        mode, minutes = stored.mode, stored.minutes
+    return RouteLeg(
+        from_geo=origin,
+        to_geo=destination,
+        duration_minutes=minutes,
+        distance_km=round(km, 2),
+        mode=_API_MODE.get(mode, mode),
+        source="estimate",
+        polyline=[origin, destination],
+    )
 
 
 def _cache_key(plan: TripPlan, day: str | None) -> str:
@@ -64,7 +82,7 @@ async def legs_for_plan(
 
     source = routes[0] if routes and getattr(routes[0], "available", False) else None
     days = [entry for entry in plan.days if day is None or entry.date.isoformat() == day]
-    jobs: list[tuple[str, str, GeoPoint, GeoPoint, str]] = []
+    jobs: list[tuple[str, str, GeoPoint, GeoPoint, str, TransferLeg | None]] = []
     hotel = plan.hotels[0] if plan.hotels else None
     # A day starts and ends at the stay: hotel -> first stop, last stop -> hotel.
     # A stay that is absurdly far away (another city) is left to the long-distance
@@ -83,32 +101,34 @@ async def legs_for_plan(
             first_geo = items[0].geo
             if first_geo is not None and local(stay_geo, first_geo):
                 km = haversine_km(stay_geo.lat, stay_geo.lng, first_geo.lat, first_geo.lng)
-                jobs.append((hotel.id, items[0].id, stay_geo, first_geo, _travel_mode(km)))
+                jobs.append((hotel.id, items[0].id, stay_geo, first_geo, _travel_mode(km), None))
         for first, second in zip(items, items[1:]):
             first_geo = first.geo
             second_geo = second.geo
             if first_geo is None or second_geo is None:
                 continue
             km = haversine_km(first_geo.lat, first_geo.lng, second_geo.lat, second_geo.lng)
-            jobs.append((first.id, second.id, first_geo, second_geo, _travel_mode(km)))
+            # The plan's own transfer for this pair, when it is from this stop.
+            stored = second.transfer if second.transfer and second.transfer.from_item_id == first.id else None
+            jobs.append((first.id, second.id, first_geo, second_geo, _travel_mode(km), stored))
         if hotel and stay_geo is not None and items:
             # The return leg is appended last so the list stays chronological.
             last_geo = items[-1].geo
             if last_geo is not None and local(last_geo, stay_geo):
                 km = haversine_km(last_geo.lat, last_geo.lng, stay_geo.lat, stay_geo.lng)
-                jobs.append((items[-1].id, hotel.id, last_geo, stay_geo, _travel_mode(km)))
+                jobs.append((items[-1].id, hotel.id, last_geo, stay_geo, _travel_mode(km), None))
 
-    async def resolve(job: tuple[str, str, GeoPoint, GeoPoint, str]) -> dict[str, Any]:
-        from_id, to_id, origin, destination, mode = job
+    async def resolve(job: tuple[str, str, GeoPoint, GeoPoint, str, TransferLeg | None]) -> dict[str, Any]:
+        from_id, to_id, origin, destination, mode, stored = job
         if source is None:
-            return _dump(estimate_leg(origin, destination, mode), from_id=from_id, to_id=to_id)
+            return _dump(_estimate(origin, destination, stored), from_id=from_id, to_id=to_id)
         try:
             leg = await asyncio.wait_for(
                 source.leg(origin, destination, mode=mode),
                 timeout=settings.agent_timeout_seconds,
             )
         except Exception:
-            leg = estimate_leg(origin, destination, mode)
+            leg = _estimate(origin, destination, stored)
         return _dump(leg, from_id=from_id, to_id=to_id)
 
     legs = await asyncio.gather(*(resolve(job) for job in jobs))

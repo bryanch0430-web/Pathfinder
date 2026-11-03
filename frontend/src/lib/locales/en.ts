@@ -326,6 +326,8 @@ export const EN = {
   "day.number": "Day {n}",
 
   "item.locked": "Locked",
+  "item.hours": "Hours: {hours}",
+  "item.hoursUnknown": "Hours unknown",
 
   "weather.none": "No forecast",
   "weather.seasonal": "Seasonal",

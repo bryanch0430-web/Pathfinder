@@ -28,7 +28,7 @@ from app.infrastructure.providers.places import (
     NominatimPlacesSource,
     WikivoyagePlacesSource,
 )
-from app.infrastructure.providers.routes import GoogleRoutesSource
+from app.infrastructure.providers.routes import GoogleRoutesSource, TransportModelRoutes
 from app.infrastructure.providers.timezone import GoogleTimeZone
 from app.infrastructure.providers.weather import OpenMeteoArchiveWeather, OpenMeteoWeather
 from app.infrastructure.providers.websearch import DeepSeekSearchSource, GrokSearchSource
@@ -49,6 +49,8 @@ class ProviderRegistry:
     # Hong Kong only: official weather warnings and MTR line status (TC-03).
     warnings: list = field(default_factory=list)
     transit: list = field(default_factory=list)
+    # Transfer times between a day's stops (routes.segments): the transport model.
+    transfers: object | None = field(default_factory=TransportModelRoutes)
     timezone: object | None = None
     elevation: object | None = None
     autocomplete: object | None = None
@@ -92,6 +94,7 @@ class ProviderRegistry:
             routes=routes,
             warnings=warnings,
             transit=transit,
+            transfers=TransportModelRoutes(),
             web=web,
             web_deep=web_deep,
             timezone=timezone,
@@ -116,6 +119,7 @@ class ProviderRegistry:
             "routes": names(self.routes),
             "warnings": names(self.warnings),
             "transit": names(self.transit),
+            "transfers": names([self.transfers]) if self.transfers is not None else [],
             "timezone": names([self.timezone]) if self.timezone is not None else [],
             "elevation": names([self.elevation]) if self.elevation is not None else [],
             "autocomplete": names([self.autocomplete]) if self.autocomplete is not None else [],

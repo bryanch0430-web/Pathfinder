@@ -63,6 +63,7 @@ from app.infrastructure.llm import NullLLM
 from app.infrastructure.judge import Judge
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.providers.fx import FxService
+from app.infrastructure.providers.routes import TransportModelRoutes
 from app.infrastructure.store import SQLiteStore
 from app.security import canary_leaked, screen_message
 
@@ -544,6 +545,8 @@ class SandboxRegistry:
             day = (start or date.today()) + timedelta(days=int(detail.get("day", 1)) - 1)
             delays[day] = (str(detail.get("line") or "Island Line"), delay)
         self.transit = [SandboxTransit(delays)]
+        # Transfer times for the plan (routes.segments): the same transport model as live.
+        self.transfers = TransportModelRoutes()
         self.fx = SandboxFx()
 
     def close_venue(self, name: str) -> None:

@@ -28,6 +28,8 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "flights.search",
             "routes.leg",
             "routes.matrix",
+            # Transfer times between a day's stops (the transport model).
+            "routes.segments",
             "timezone.resolve",
             "elevation.gain",
             "fx.rates",
@@ -48,6 +50,8 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "flights.search",
             "routes.leg",
             "routes.matrix",
+            # Transfer times between a day's stops (the transport model).
+            "routes.segments",
             "timezone.resolve",
             "elevation.gain",
             "fx.rates",

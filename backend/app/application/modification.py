@@ -14,10 +14,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.application.opening_hours import lines_for
 from app.application.planning import PlanPath
-from app.application.planner import Planner, _constraints
+from app.application.planner import PACE_BUFFER_MINUTES, Planner, _constraints, _pace
 from app.application.prompt_context import plan_outline, trip_slots
 from app.application.toolbox import Toolbox
+from app.application.transfers import refresh_transfers
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
@@ -449,6 +451,16 @@ class ModifyPath:
         updated.updated_at = utcnow()
         updated.change_summary = draft.description or "Applied a local change."
         updated.data_quality.notes = _merge_notes(updated.data_quality.notes, draft.description)
+        # A changed day gets transfers that match its new neighbours, from a logged
+        # routes.segments call, and no stop starts before its transfer is done
+        # (Proposal TC-07 and TC-09).
+        await refresh_transfers(
+            old_plan,
+            updated,
+            toolbox=toolbox,
+            source=getattr(self.plan_path.registry, "transfers", None),
+            buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
+        )
 
         errors = validate_plan(updated, self.settings)
         if errors:
@@ -715,7 +727,15 @@ def _candidate_pool(item: PlanItem, places: list[dict], meals: list[dict], used:
 _CLOSURE = re.compile(r"\b(closed|closure|shut|suspended|not operating|cancel+ed)\b", re.IGNORECASE)
 
 
-def _apply_candidate(item: PlanItem, row: dict) -> None:
+def _stated_hours(row: dict, day_date: date | None) -> tuple[list[str], str]:
+    """The new place's own hours lines for the day, or "unknown" when its source gave none."""
+    stated = [str(line) for line in (row.get("opening_hours") or []) if str(line).strip()]
+    lines = lines_for(stated, day_date) if day_date else stated[:7]
+    return lines, ("stated" if lines else "unknown")
+
+
+def _apply_candidate(item: PlanItem, row: dict, day_date: date | None = None) -> None:
+    item.opening_hours, item.hours_status = _stated_hours(row, day_date)  # type: ignore[assignment]
     item.name = row["name"]
     # Assignment is not validated, so a raw dict would stay a dict, not a GeoPoint.
     item.geo = GeoPoint.model_validate(row["geo"]) if row.get("geo") else item.geo
@@ -784,7 +804,7 @@ def _replace_target(
                 return haversine_km(anchor.lat, anchor.lng, float(lat), float(lng))
 
             pool.sort(key=distance)
-    _apply_candidate(item, pool[0])
+    _apply_candidate(item, pool[0], day.date)
     return True
 
 
@@ -1150,6 +1170,8 @@ def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
                         "tags": changed_item.tags,
                         "data_status": changed_item.data_status,
                         "fetched_at": changed_item.fetched_at,
+                        "opening_hours": changed_item.opening_hours,
+                        "hours_status": changed_item.hours_status,
                     }
                 )
                 if same and fresh_gaps:
@@ -1347,7 +1369,10 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str) -> list[s
         existing_ids = {item.id for day_plan in plan.days for item in day_plan.items}
         if item_id in existing_ids:
             item_id = f"item_added_{len(added)}_{row.get('id', 'x')}"
+        hours, hours_status = _stated_hours(row, day.date)
         item = PlanItem(
+            opening_hours=hours,
+            hours_status=hours_status,
             id=item_id,
             type="attraction",
             name=row["name"],

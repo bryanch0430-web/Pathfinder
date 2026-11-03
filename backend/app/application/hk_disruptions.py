@@ -26,6 +26,7 @@ from datetime import date
 from typing import Any
 
 from app.application.planner import (
+    PACE_BUFFER_MINUTES,
     TRANSPORT_SPEED_KMH,
     _hhmm,
     _is_must_see,
@@ -37,6 +38,7 @@ from app.application.planner import (
     _schedule_day,
     _travel,
 )
+from app.application.transfers import apply_delay, refresh_transfers
 from app.config import Settings
 from app.domain.errors import ProviderError
 from app.domain.models import (
@@ -478,6 +480,15 @@ def _apply_delays(plan: TripPlan, statuses: list[TransitStatus]) -> list[str]:
         assumed = "" if stated else f" (the MTR feed does not say how long, so {delay} minutes is assumed)"
         legs = metro_transfers(day)
         moved, dropped = retime_day(day, delay=delay)
+        # Each metro transfer records the delay it allows, and which logged status
+        # result stated it, so grounding can check leg + delay (Proposal TC-09).
+        stating = next((row for row in relevant if row.delay_minutes == delay), None)
+        apply_delay(
+            day,
+            delay,
+            tool="routes.status" if stating else "",
+            source=(stating.source or "routes.status") if stating else "assumed",
+        )
         if not legs:
             resolution = "That day's stops are a walk apart, so no transfer needs the MTR."
         else:
@@ -569,6 +580,11 @@ async def apply_hong_kong_disruptions(
     start, end = plan.dates.start, plan.dates.end
     sentences: list[str] = []
     used_sources: set[str] = set()
+    # Swapped, replaced or dropped stops get transfers that match their new
+    # neighbours, from a logged routes.segments call (Proposal TC-07/TC-09).
+    transfers = getattr(registry, "transfers", None)
+    buffer = PACE_BUFFER_MINUTES.get(_pace(context), 5)
+    before = plan.model_copy(deep=True)
 
     alerts = await _ask(
         warnings_sources,
@@ -585,6 +601,8 @@ async def apply_hong_kong_disruptions(
     if alerts:
         used_sources |= {alert.source for alert in alerts if alert.source}
         sentences += _apply_alerts(plan, alerts, _Pool(results), context)
+        await refresh_transfers(before, plan, toolbox=toolbox, source=transfers, buffer=buffer)
+        before = plan.model_copy(deep=True)
 
     lines = sorted(lines_serving([item.geo for _, item in plan.iter_items() if item.geo is not None]))
     if lines:
@@ -604,6 +622,7 @@ async def apply_hong_kong_disruptions(
         if statuses:
             used_sources |= {status.source for status in statuses if status.source}
             sentences += _apply_delays(plan, statuses)
+            await refresh_transfers(before, plan, toolbox=toolbox, source=transfers, buffer=buffer)
 
     if used_sources:
         plan.data_quality.sources_used = sorted(set(plan.data_quality.sources_used) | used_sources)

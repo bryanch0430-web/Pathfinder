@@ -206,6 +206,8 @@ class AskPath:
                 return "plan_item", {
                     "name": item.name,
                     "notes": item.notes,
+                    # The source's stated hours for the visit day, never filled in.
+                    "opening_hours": item.opening_hours if item.hours_status == "stated" else "unknown",
                     "sources": [ref.model_dump(mode="json") for ref in item.source_refs],
                 }, "plan"
         # "What is good about Amber?" — the plan holds only a one-line summary.
@@ -349,6 +351,11 @@ def _find_item_strict(plan: TripPlan | None, question: str):
     return best if best_score >= 1 else None
 
 
+# Scheduling details on a plan item. An hours question gets the stated hours from
+# its own fact (see the HOURS_WORDS lookup); other item facts keep their old size.
+_ITEM_SCHEDULE_FIELDS = {"opening_hours", "hours_status", "transfer"}
+
+
 def _plan_facts(
     question: str,
     plan: TripPlan,
@@ -367,7 +374,7 @@ def _plan_facts(
             ]
         scoped = _scoped_item(plan, scope_item_id)
         if scoped is not None:
-            facts["item"] = scoped.model_dump(mode="json")
+            facts["item"] = scoped.model_dump(mode="json", exclude=_ITEM_SCHEDULE_FIELDS)
     if re.search(WEATHER_WORDS, lower):
         target = _mentioned_date(question, plan)
         days = [day for day in plan.days if target is None or day.date == target]
@@ -427,7 +434,7 @@ def _plan_facts(
             lower,
         )
     ):
-        facts["item"] = item.model_dump(mode="json")
+        facts["item"] = item.model_dump(mode="json", exclude=_ITEM_SCHEDULE_FIELDS)
 
     plan_words = re.search(
         r"\b(plan|itinerary|trip|day|days|museum|museums|attraction|attractions|"

@@ -126,6 +126,7 @@ class PlanPath:
             trip_id=trip_id,
             change_summary=change_summary,
             toolbox=toolbox,
+            transfers=getattr(self.registry, "transfers", None),
         )
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(

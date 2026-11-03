@@ -119,3 +119,22 @@ def test_estimate_is_used_when_no_route_provider_is_available(settings: Settings
     payload = asyncio.run(legs_for_plan(plan, routes=[], settings=settings, day=None))
     assert payload["legs"]
     assert all(leg["source"] == "estimate" for leg in payload["legs"])
+
+
+def test_map_estimate_uses_the_itinerary_transport_model(settings: Settings) -> None:
+    """Without a live routes source the map shows the plan's own transfer minutes."""
+    from app.domain.models import TransferLeg
+    from app.infrastructure.http import haversine_km
+    from app.infrastructure.providers.routes import model_travel
+
+    plan = _plan(None)
+    first, lunch, second = plan.days[0].items
+    second.transfer = TransferLeg(
+        from_item_id=lunch.id, minutes=17, mode="metro", source="transport-model", tool="routes.segments", result_id="x:1-2"
+    )
+    payload = asyncio.run(legs_for_plan(plan, routes=[], settings=settings, day=None))
+    legs = {(leg["from_id"], leg["to_id"]): leg for leg in payload["legs"]}
+    assert (legs[(lunch.id, second.id)]["minutes"], legs[(lunch.id, second.id)]["mode"]) == (17, "transit")
+    km = haversine_km(first.geo.lat, first.geo.lng, lunch.geo.lat, lunch.geo.lng)
+    mode, minutes = model_travel(km)
+    assert (legs[(first.id, lunch.id)]["minutes"], legs[(first.id, lunch.id)]["mode"], mode) == (minutes, "walk", "walk")

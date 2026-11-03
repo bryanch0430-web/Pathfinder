@@ -550,6 +550,13 @@ export function ItineraryItem({
           {item.name}
         </span>
         {item.notes ? <span className="pf-item__notes">{item.notes}</span> : null}
+        {item.hours_status ? (
+          <span className="pf-item__notes" data-hours={item.hours_status}>
+            {item.hours_status === "stated" && item.opening_hours?.length
+              ? t("item.hours", { hours: item.opening_hours.join("; ") })
+              : t("item.hoursUnknown")}
+          </span>
+        ) : null}
         <span className="pf-item__meta">
           <StatusPill status={item.data_status as DataStatus} />
           {updated ? (
