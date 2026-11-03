@@ -43,6 +43,7 @@ from app.domain.models import (
     USER_PREFIX,
 )
 from app.evaluation import export_markdown
+from app.interface.cache_control import PrivateResponses
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
@@ -141,6 +142,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description="Pathfinder — agentic trip planner. English first.",
         lifespan=lifespan,
     )
+    app.add_middleware(PrivateResponses)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
