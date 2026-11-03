@@ -41,7 +41,7 @@ from app.domain.models import (
 )
 from app.evaluation import export_markdown
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
-from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, paced, sse_frame
+from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
 #: A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is 36). A header carries
 #: nothing else and is trimmed, so a session made with any other token could not be opened again.
@@ -804,6 +804,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             await charge_ai(request)
 
         async def event_stream() -> AsyncIterator[str]:
+            # A message waits for the earlier ones on its trip; the waiting does not count against its deadline.
+            deadline = Deadline(settings.turn_deadline_seconds)
             turn = c.turn_service.handle_turn(
                 session_id=session_id,
                 message=payload.message,
@@ -811,13 +813,15 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 scope_item_id=payload.scope_item_id,
                 scope_label=payload.scope_label,
                 developer=payload.developer,
+                on_wait=deadline.pause,
+                on_start=deadline.restart,
             )
             try:
                 async with aclosing(
                     paced(
                         turn,
                         keepalive_seconds=settings.sse_keepalive_seconds,
-                        deadline_seconds=settings.turn_deadline_seconds,
+                        deadline_seconds=deadline,
                     )
                 ) as events:
                     async for event in events:

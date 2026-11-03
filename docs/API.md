@@ -106,6 +106,10 @@ Response: `text/event-stream`. Each frame is `event: <name>` followed by a singl
 | `trace` | `{request_id, spans, generations, tool_calls}` |
 | `done` | `{request_id, intent, session_id}` |
 
+Messages for one trip run one after another. A message that waits for an earlier one gets
+keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`, `turn_timeout` after that)
+starts when its own turn does, so waiting never counts against it.
+
 A blocked injection returns `route` with `blocked: true`, a `token` safe reply and
 `done`; no planning runs. A schema failure after bounded repair returns `error` with
 `code: plan_invalid`, never a dirty plan.

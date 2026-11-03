@@ -171,7 +171,8 @@ class Settings(BaseSettings):
     # --- streaming ---------------------------------------------------------
     # The chat stream sends an SSE comment after this many quiet seconds so
     # proxies keep the connection open, and ends a turn that runs longer than
-    # turn_deadline_seconds with an `error` event (code turn_timeout).
+    # turn_deadline_seconds with an `error` event (code turn_timeout). The deadline counts the
+    # turn's own work: the wait for an earlier message on the same trip is not part of it.
     sse_keepalive_seconds: float = 15.0
     turn_deadline_seconds: float = 180.0
 

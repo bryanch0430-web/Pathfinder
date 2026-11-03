@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 from typing import Any, AsyncIterator
 
 import anyio
@@ -31,6 +32,24 @@ CANCEL_GRACE_SECONDS = 5.0
 _ITEM, _ERROR, _END = "item", "error", "end"
 
 
+class Deadline:
+    """When a paced stream must end: ``seconds`` after it starts, or after the last ``restart()``.
+
+    A source that has to wait for its turn (behind an earlier message on the same trip) pauses it for
+    the wait and restarts it when its own work begins, so waiting never counts against the work.
+    """
+
+    def __init__(self, seconds: float) -> None:
+        self.seconds = seconds
+        self.at = 0.0
+
+    def restart(self) -> None:
+        self.at = asyncio.get_running_loop().time() + self.seconds
+
+    def pause(self) -> None:
+        self.at = math.inf
+
+
 def sse_frame(event: str, data: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
@@ -39,12 +58,12 @@ async def paced(
     source: AsyncIterator[Any],
     *,
     keepalive_seconds: float,
-    deadline_seconds: float,
+    deadline_seconds: float | Deadline,
 ) -> AsyncIterator[Any]:
     """Yield `source`'s items, KEEPALIVE after each quiet spell, and TIMED_OUT at the deadline.
 
-    An exception from `source` is re-raised here. The deadline counts from the
-    first iteration and covers the whole source.
+    An exception from `source` is re-raised here. The deadline counts from the first iteration and
+    covers the whole source, unless it is given as a `Deadline` that the source restarts.
     """
     queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
 
@@ -58,12 +77,13 @@ async def paced(
             queue.put_nowait((_END, None))
 
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + deadline_seconds
+    deadline = deadline_seconds if isinstance(deadline_seconds, Deadline) else Deadline(deadline_seconds)
+    deadline.restart()
     task = asyncio.create_task(pump())
     getter: asyncio.Future[tuple[str, Any]] | None = None
     try:
         while True:
-            remaining = deadline - loop.time()
+            remaining = deadline.at - loop.time()
             if remaining <= 0:
                 await _stop(task)
                 yield TIMED_OUT
@@ -72,7 +92,7 @@ async def paced(
                 getter = asyncio.ensure_future(queue.get())
             done, _ = await asyncio.wait({getter}, timeout=min(keepalive_seconds, remaining))
             if not done:
-                if loop.time() < deadline:
+                if loop.time() < deadline.at:
                     yield KEEPALIVE
                 continue
             kind, value = getter.result()

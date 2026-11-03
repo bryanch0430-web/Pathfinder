@@ -8,7 +8,7 @@ import asyncio
 import logging
 import re
 from contextlib import aclosing, asynccontextmanager, contextmanager
-from typing import Any, AsyncIterator, Iterator
+from typing import Any, AsyncIterator, Callable, Iterator
 
 import httpx
 
@@ -143,11 +143,15 @@ class TurnService:
         return session_id in self._session_turns
 
     @asynccontextmanager
-    async def _lock_for(self, session_id: str) -> AsyncIterator[None]:
-        """Hold the session's lock; drop it again when no other turn is waiting for it."""
+    async def _lock_for(self, session_id: str, on_wait: Callable[[], None] | None = None) -> AsyncIterator[None]:
+        """Hold the session's lock; drop it again when no other turn is waiting for it.
+
+        ``on_wait`` is called first when another turn holds or awaits the lock, so this one has to wait."""
         lock = self._session_locks.setdefault(session_id, asyncio.Lock())
         self._session_turns[session_id] = self._session_turns.get(session_id, 0) + 1
         try:
+            if on_wait is not None and self._session_turns[session_id] > 1:
+                on_wait()
             async with lock:
                 yield
         finally:
@@ -176,10 +180,15 @@ class TurnService:
         scope_item_id: str | None = None,
         scope_label: str | None = None,
         developer: bool = False,
+        on_wait: Callable[[], None] | None = None,
+        on_start: Callable[[], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         """One turn. Turns on the same session run one after another: the second reads the
-        plan the first saved, so neither overwrites the other's version."""
-        async with self._lock_for(session_id):
+        plan the first saved, so neither overwrites the other's version. ``on_wait`` is called when
+        this turn has to wait for earlier ones, ``on_start`` once it holds the lock and begins."""
+        async with self._lock_for(session_id, on_wait):
+            if on_start is not None:
+                on_start()
             with self._removed_if_deleted(session_id):
                 turn = self._run_turn(
                     session_id=session_id,
