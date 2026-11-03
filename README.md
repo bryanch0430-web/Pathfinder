@@ -148,8 +148,9 @@ retries, budgets and validation are our own code.
 > The planner may **select and order** verified candidates. It may never **create** one.
 
 An item without a source URL is rejected by the domain model. A model repair may not
-introduce a new place or a new source URL. If a source is missing, the section is
-`unavailable` and the gap is shown.
+introduce a new place or a new URL, and may only change times, stay dates and wording: every
+price, coordinate, source, forecast and data gap in a repaired plan is the original's. If a
+source is missing, the section is `unavailable` and the gap is shown.
 
 ---
 

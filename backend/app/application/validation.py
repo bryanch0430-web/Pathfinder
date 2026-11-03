@@ -7,14 +7,17 @@ new source URL that was not in the original document.
 
 from __future__ import annotations
 
+import copy
 import json
+import re
+from collections import Counter
 from datetime import time
-from typing import Any
+from typing import Any, TypeVar
 
 from app.application.llm_gateway import LLMGateway
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
-from app.domain.models import DataStatus, TripPlan
+from app.domain.models import DataStatus, DayPlan, HotelStay, PlanItem, TicketOption, TripPlan
 
 
 def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
@@ -76,13 +79,6 @@ async def repair_plan(
             code="plan_invalid",
         )
     original = plan
-    allowed_names = _names(plan)
-    allowed_urls = {
-        ref.url
-        for day in plan.days
-        for item in day.items
-        for ref in item.source_refs
-    }
     last_errors = errors
     # What the traveller may be told if the repair fails: our own rule messages. The writer's and
     # the validator's text (it quotes the model's output) only goes back to the writer.
@@ -109,15 +105,11 @@ async def repair_plan(
         candidate.version = plan.version
         candidate.created_at = plan.created_at
         candidate.updated_at = plan.updated_at
-        dropped = sorted(allowed_names - _names(candidate))
-        if dropped:
-            # A repair fixes what is wrong; it does not get to take a stop out of the plan.
-            last_errors = shown = ["repair removed from the original plan: " + ", ".join(dropped[:5])]
+        refusal = _refusal(original, candidate)
+        if refusal:
+            last_errors = shown = [refusal]
             continue
-        _restore_provenance(original, candidate)
-        if not _grounded(candidate, allowed_names, allowed_urls):
-            last_errors = shown = ["repair introduced a fact or source that was not in the original plan"]
-            continue
+        _restore_facts(original, candidate)
         remaining = validate_plan(candidate, settings)
         if not remaining:
             return candidate
@@ -128,52 +120,105 @@ async def repair_plan(
     )
 
 
-def _names(plan: TripPlan) -> set[str]:
-    """Every stop, hotel and ticket name in a plan."""
-    names = {item.name for day in plan.days for item in day.items}
-    names |= {hotel.name for hotel in plan.hotels}
-    names |= {ticket.name for ticket in plan.tickets}
+def _names(plan: TripPlan) -> Counter[tuple[str, str]]:
+    """Every stop, hotel and ticket of a plan, counted by kind and name (a plan may repeat a name)."""
+    names = Counter(("stop", item.name) for day in plan.days for item in day.items)
+    names.update(("hotel", hotel.name) for hotel in plan.hotels)
+    names.update(("ticket", ticket.name) for ticket in plan.tickets)
     return names
 
 
-def _restore_provenance(original: TripPlan, candidate: TripPlan) -> None:
-    """A repair re-shapes the plan; it cannot fetch anything. Fetch times come from the original
-    by name (or date, for the forecast), and sources the writer left out are put back."""
-    items = {item.name: item for day in original.days for item in day.items}
-    for day in candidate.days:
-        for item in day.items:
-            before = items.get(item.name)
-            if before is None:
-                continue
-            item.fetched_at = before.fetched_at
-            if "source_refs" not in item.model_fields_set:
-                item.source_refs = list(before.source_refs)
-    for kept, rows in ((original.hotels, candidate.hotels), (original.tickets, candidate.tickets)):
-        by_name = {row.name: row for row in kept}
-        for row in rows:
-            before = by_name.get(row.name)
-            if before is None:
-                continue
-            row.fetched_at = before.fetched_at
-            if "source_refs" not in row.model_fields_set:
-                row.source_refs = list(before.source_refs)
-    weather = {day.date: day.weather for day in original.days if day.weather is not None}
-    for day in candidate.days:
-        before_weather = weather.get(day.date)
-        if day.weather is not None and before_weather is not None:
-            day.weather.fetched_at = before_weather.fetched_at
+_URL = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
 
 
-def _grounded(plan: TripPlan, allowed_names: set[str], allowed_urls: set[str]) -> bool:
-    names = _names(plan)
-    if not names.issubset(allowed_names):
-        return False
-    for day in plan.days:
-        for item in day.items:
-            for ref in item.source_refs:
-                if ref.url and ref.url not in allowed_urls:
-                    return False
-    return True
+def _urls(plan: TripPlan) -> set[str]:
+    """Every URL anywhere in a plan: a source, a booking link, a link in a note."""
+    found: set[str] = set()
+
+    def walk(value: Any) -> None:
+        if isinstance(value, str):
+            found.update(url.rstrip(".,;:)") for url in _URL.findall(value))
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(plan.model_dump(mode="json"))
+    return found
+
+
+def _refusal(original: TripPlan, candidate: TripPlan) -> str | None:
+    """Why a repaired plan is refused outright: it took a stop, hotel or ticket out of the plan, put one
+    in, or brought a URL the original did not have. A repair fixes what is wrong; it adds nothing."""
+    before, after = _names(original), _names(candidate)
+    dropped = sorted((before - after).elements())
+    if dropped:
+        return "repair removed from the original plan: " + ", ".join(name for _, name in dropped[:5])
+    if after - before or _urls(candidate) - _urls(original):
+        return "repair introduced a fact or source that was not in the original plan"
+    return None
+
+
+#: What a repair may change in each part of a plan: times, the dates of a stay or a trip leg, and
+#: wording. Every other value is the original's (see `_restore_facts`).
+_EDITABLE: dict[type, frozenset[str]] = {
+    TripPlan: frozenset({"summary", "change_summary", "days", "hotels", "tickets"}),
+    DayPlan: frozenset({"title", "note", "items"}),
+    PlanItem: frozenset({"start", "end", "notes"}),
+    HotelStay: frozenset({"check_in", "check_out", "notes"}),
+    TicketOption: frozenset(
+        {"depart_at", "arrive_at", "duration_minutes", "return_depart_at", "return_arrive_at", "return_duration_minutes", "notes"}
+    ),
+}
+
+Row = TypeVar("Row", PlanItem, HotelStay, TicketOption)
+
+
+def _keep(before: Any, after: Any) -> None:
+    """Give `after` the original's value for every field of it that a repair may not change."""
+    editable = _EDITABLE[type(after)]
+    for name in type(after).model_fields:
+        if name not in editable:
+            setattr(after, name, copy.deepcopy(getattr(before, name)))
+
+
+def _pairs(before: list[Row], after: list[Row]) -> list[tuple[Row, Row]]:
+    """Each row of a repaired plan with the original row it stands for: the one with its id and name,
+    else the next unmatched one with its name, so a plan that repeats a name keeps each row's own values."""
+    free = list(before)
+    pairs: list[tuple[Row, Row]] = []
+    unmatched: list[Row] = []
+    for row in after:
+        index = next((i for i, old in enumerate(free) if (old.id, old.name) == (row.id, row.name)), None)
+        if index is None:
+            unmatched.append(row)
+        else:
+            pairs.append((free.pop(index), row))
+    for row in unmatched:
+        index = next((i for i, old in enumerate(free) if old.name == row.name), None)
+        if index is not None:
+            pairs.append((free.pop(index), row))
+    return pairs
+
+
+def _restore_facts(original: TripPlan, candidate: TripPlan) -> None:
+    """A repair re-shapes the plan; it cannot fetch, price, locate or rewrite anything. Every value it
+    has no business with is put back from the original, so a fact the writer altered, made up or left
+    out (a fetch time, the sources, a price, a point on the map, the forecast, the data gaps) is as it was."""
+    _keep(original, candidate)
+    days = {day.date: day for day in original.days}
+    for day in candidate.days:
+        if day.date in days:
+            _keep(days[day.date], day)
+    for old_rows, new_rows in (
+        ([item for day in original.days for item in day.items], [item for day in candidate.days for item in day.items]),
+        (original.hotels, candidate.hotels),
+        (original.tickets, candidate.tickets),
+    ):
+        for before, after in _pairs(old_rows, new_rows):
+            _keep(before, after)
 
 
 def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
