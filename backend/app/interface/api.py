@@ -156,6 +156,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ai=SlidingWindowLimiter(settings.rate_limit_ai_per_minute),
         create=SlidingWindowLimiter(settings.rate_limit_create_per_minute),
         lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
+        handbook=SlidingWindowLimiter(settings.rate_limit_handbook_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     charge_ai = rate_limit("ai", "Too many planning requests.")
@@ -163,7 +164,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # A turn, a new trip and a look-up are charged inside the route, once the request is known to do its
     # work, so one that is refused (401, 404, 422) costs nothing and cannot lock out the people it is not from.
     charge_create = rate_limit("create", "Too many new trips or share links.")
-    charge_lookup = rate_limit("lookup", "Too many place or handbook look-ups.")
+    charge_lookup = rate_limit("lookup", "Too many place look-ups.")
+    charge_handbook = rate_limit("handbook", "Too many handbook look-ups.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -390,7 +392,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         limit: int = Query(default=3, ge=1, le=6),
         rerank: bool = Query(default=False),
     ) -> dict[str, Any]:
-        await charge_lookup(request)
+        await charge_handbook(request)
         items, retrieval = await asyncio.to_thread(retrieve_hybrid, destination, q, limit, rerank)
         return {
             "items": items,

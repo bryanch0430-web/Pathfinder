@@ -310,17 +310,41 @@ def test_a_fresh_header_every_call_does_not_reset_the_lookup_budget(settings: Se
     with _lookup_limit(settings, 3) as scoped:
         statuses = []
         for number in range(6):
-            route, params = (
-                ("/api/places/suggest", {"q": f"kyoto{number}"})
-                if number % 2 == 0
-                else ("/api/handbook", {"destination": "Kyoto"})
+            response = scoped.get(
+                "/api/places/suggest", params={"q": f"kyoto{number}"}, headers={"X-Client-Token": f"fresh-{number}"}
             )
-            response = scoped.get(route, params=params, headers={"X-Client-Token": f"fresh-{number}"})
             statuses.append(response.status_code)
             last = response
 
-    assert statuses == [200, 200, 200, 429, 429, 429]  # both routes draw on one budget
+    assert statuses == [200, 200, 200, 429, 429, 429]
     assert int(last.headers["Retry-After"]) >= 1 and set(last.json()) == {"detail"}
+
+
+def test_the_handbook_has_a_budget_of_its_own(settings: Settings) -> None:
+    """The handbook is local retrieval that the page asks for whenever a destination is set: running out of
+    place suggestions must not silence it, and a fresh token on every call must not reset its own budget."""
+    scoped = TestClient(
+        create_app(
+            settings.model_copy(update={"rate_limit_lookup_per_minute": 2, "rate_limit_handbook_per_minute": 3})
+        )
+    )
+    with scoped:
+        suggestions = [
+            scoped.get("/api/places/suggest", params={"q": "kyoto"}, headers={"X-Client-Token": f"s-{n}"}).status_code
+            for n in range(4)
+        ]
+        handbook = [
+            scoped.get("/api/handbook", params={"destination": "Kyoto"}, headers={"X-Client-Token": f"h-{n}"})
+            for n in range(5)
+        ]
+
+    assert suggestions == [200, 200, 429, 429]
+    assert [response.status_code for response in handbook] == [200, 200, 200, 429, 429]
+    assert int(handbook[-1].headers["Retry-After"]) >= 1
+
+
+def test_default_handbook_limit_is_sixty_per_minute(settings: Settings) -> None:
+    assert Settings(_env_file=None).rate_limit_handbook_per_minute == 60
 
 
 def test_calls_without_an_identity_do_not_use_the_lookup_budget(settings: Settings) -> None:
