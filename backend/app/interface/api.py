@@ -149,9 +149,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
-    limit_ai = Depends(rate_limit("ai", "Too many planning requests."))
-    # These two are charged inside the route, once the request is known to do its work, so one that is
-    # refused (401, 404, 422) costs nothing.
+    charge_ai = rate_limit("ai", "Too many planning requests.")
+    limit_ai = Depends(charge_ai)
+    # A turn, a new trip and a look-up are charged inside the route, once the request is known to do its
+    # work, so one that is refused (401, 404, 422) costs nothing and cannot lock out the people it is not from.
     charge_create = rate_limit("create", "Too many new trips or share links.")
     charge_lookup = rate_limit("lookup", "Too many place or handbook look-ups.")
 
@@ -771,7 +772,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     # -- chat -------------------------------------------------------------
 
-    @app.post("/api/turn/stream", dependencies=[limit_ai])
+    @app.post("/api/turn/stream")
     async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
         c = container(request)
         session_id = payload.session_id
@@ -780,6 +781,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             if not token and user is None:
                 # A trip nobody could open again would still cost a whole planning turn.
                 raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+            await charge_ai(request)
             session = c.store.create_session(token, user.id if user else "")
             session_id = session.id
             c.store.save_context(
@@ -792,6 +794,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             )
         else:
             require_session(c, request, session_id)
+            await charge_ai(request)
 
         async def event_stream() -> AsyncIterator[str]:
             turn = c.turn_service.handle_turn(

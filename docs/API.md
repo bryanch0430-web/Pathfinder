@@ -236,6 +236,10 @@ and is not counted. A limit of `0` turns it off.
 | Setting | Default | Routes |
 |---|---|---|
 | `RATE_LIMIT_AUTH_PER_MINUTE` | 10 | `POST /api/account/signup` and `/signin` (one budget, counted before the password is checked) |
-| `RATE_LIMIT_AI_PER_MINUTE` | 30 | `POST /api/turn/stream` and `POST /api/eval/trials` (one budget) |
+| `RATE_LIMIT_AI_PER_MINUTE` | 30 | `POST /api/turn/stream` and `POST /api/eval/trials` (one budget; a turn is counted once the trip is the caller's or a new one is allowed, and a run once the admin token is checked, so a `401`, `404` or `422` never uses it up) |
 | `RATE_LIMIT_CREATE_PER_MINUTE` | 60 | `POST /api/journeys` and `POST /api/journeys/{id}/share` (one budget; a request that is refused with `401`, `404` or `422` makes nothing and is not counted) |
 | `RATE_LIMIT_LOOKUP_PER_MINUTE` | 60 | `GET /api/places/suggest` and `GET /api/handbook` (one budget; the `X-Client-Token` they need is a string the caller makes up, so the budget follows the address and a new token does not reset it) |
+
+The address is the only key. A caller can make up as many guest tokens as it likes, so no limit can
+follow a token, and everyone behind one address (a NAT, or a proxy uvicorn is not told to trust)
+shares its budgets: valid requests from one of them count against all of them.
