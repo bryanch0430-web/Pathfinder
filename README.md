@@ -405,6 +405,10 @@ drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The comm
 - `attractions`: only a resolver failure that leaves no attraction is a gap. A failed
   higher-priority source with a working fallback (Google → Nominatim OSM → Wikivoyage)
   is not surfaced as a gap.
+- any section: a lookup the per-turn cap (`MAX_TOOL_CALLS_PER_TURN`) refused is a `blocked`
+  gap, "Not looked up: this request reached its limit of data lookups.", and transfer times
+  that fell back to estimates for that reason are a `transfers` gap. A destination that cannot
+  be looked up for that reason ends the turn with a not-retryable `plan_invalid`.
 
 What the system deliberately does **not** do: invent a price, an opening hour, a flight
 number or a restaurant. It also does not book. Unavailable sections stay visible.

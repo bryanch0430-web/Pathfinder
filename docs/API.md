@@ -231,7 +231,8 @@ It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to wri
 | `security_blocked` | blocklist hit | no |
 | `canary_leak` | output contained the canary | no |
 | `clarification_required` | missing slots (normally a `clarify` event) | yes |
-| `plan_invalid` | validation failed after repair | yes |
+| `plan_invalid` | validation failed after repair, or the destination could not be located | yes (no when the lookup cap refused the lookup) |
+| `tool_budget_exceeded` | the turn reached the per-turn lookup cap (`MAX_TOOL_CALLS_PER_TURN`) | no |
 | `plan_conflict` | another turn on the same trip saved its version first (turns on one trip otherwise run one after another) | yes |
 | `provider_error` | data source failure (kind attached) | depends |
 | `internal_error` | unexpected failure, no internals leaked to the user | yes |
