@@ -27,6 +27,27 @@ async def _search(url: str, *, source: str, **kwargs: Any) -> dict[str, Any]:
         ) from exc
 
 
+#: What a Google geocoding answer means when its `status` is not a result. Google reports a quota, a billing
+#: or a key problem with HTTP 200 and the problem in the body, so the status decides whether the source
+#: failed or knows no such place. The words are ours; Google's own `error_message` goes in the detail.
+_GOOGLE_FAILURES = {
+    "OVER_QUERY_LIMIT": ("rate limit reached", FailureKind.RATE_LIMIT, True),
+    "OVER_DAILY_LIMIT": ("daily quota reached", FailureKind.RATE_LIMIT, True),
+    "REQUEST_DENIED": ("refused the request", FailureKind.AUTH, False),
+    "UNKNOWN_ERROR": ("had a server error", FailureKind.SERVER_ERROR, True),
+    "INVALID_REQUEST": ("rejected the request as invalid", FailureKind.INVALID_REQUEST, False),
+}
+
+
+def _google_failure(source: str, status: str, said: str) -> ProviderError:
+    words, kind, retryable = _GOOGLE_FAILURES.get(
+        status, ("answered with a status that is not a result", FailureKind.PARSE, False)
+    )
+    return ProviderError(
+        f"{source} {words}", kind=kind, source=source, retryable=retryable, detail=f"status {status or 'missing'}: {said}"
+    )
+
+
 class GoogleGeocoder:
     """Geocoding API: better disambiguation and country filtering than OSM names."""
 
@@ -56,8 +77,11 @@ class GoogleGeocoder:
             retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
-        if str(data.get("status") or "") != "OK":
+        status = str(data.get("status") or "")
+        if status == "ZERO_RESULTS":
             return None
+        if status != "OK":
+            raise _google_failure(self.name, status, str(data.get("error_message") or ""))
         results = data.get("results") or []
         if not results:
             return None

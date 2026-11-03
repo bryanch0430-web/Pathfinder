@@ -415,8 +415,10 @@ drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The comm
 - `attractions`: only a resolver failure that leaves no attraction is a gap. A failed
   higher-priority source with a working fallback (Google → Nominatim OSM → Wikivoyage)
   is not surfaced as a gap. A guide place the geocoder could not be asked about is a gap that
-  names the failure (timeout, network, auth) and says whether asking again could help; after two
-  failed lookups in a row the agent stops asking. A place the traveller named whose lookup
+  names the failure (timeout, network, rate limit, auth) and says whether asking again could help; a
+  geocoder that answers with a quota or key problem (Google does so with HTTP 200 and a `status`)
+  has failed, it has not said the place does not exist; after two failed lookups in a row the agent
+  stops asking. A place the traveller named whose lookup
   failed is a gap too, and its "Include" check says the lookup failed. A map outage at the
   destination itself is a failed data source, not a name to rephrase.
 - any section: a lookup the per-turn cap (`MAX_TOOL_CALLS_PER_TURN`) refused is a `blocked`

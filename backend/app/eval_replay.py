@@ -371,7 +371,10 @@ def _parse_verdict(route_id, result, error, fault, city, centre, live, start, en
             if "not configured" in str(error).lower() or "no deepseek" in str(error).lower():
                 return None, ""
             return False, f"{error.kind.value}: {str(error)[:120]}"
-        expected = int(fault.get("status", 200)) >= 400 or "text" in fault
+        # A geocoder whose body is a failing status (Google's OVER_QUERY_LIMIT, sent with HTTP 200) is a failed source too.
+        expected = int(fault.get("status", 200)) >= 400 or "text" in fault or (
+            route_id.endswith(".geocode") and fault.get("json") is not None
+        )
         return expected, f"classified as {error.kind.value}" + ("" if expected else f" without a fault: {str(error)[:120]}")
     if route_id.endswith(".geocode"):
         if fault.get("json") is not None:
