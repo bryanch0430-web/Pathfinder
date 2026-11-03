@@ -580,27 +580,50 @@ _DAY_RANGE_MONTH = re.compile(rf"\b{_DAY}{_TO}{_DAY}\s+{_MONTH}{_YEAR}")  # 18 t
 _MONTH_DAY_RANGE = re.compile(rf"\b{_MONTH}\s+{_DAY}{_TO}{_DAY}\b{_YEAR}")  # Nov 18-23, 2026
 _DAY_MONTH = re.compile(rf"\b{_DAY}\s+{_MONTH}{_YEAR}")  # 18 November 2026
 _MONTH_DAY = re.compile(rf"\b{_MONTH}\s+{_DAY}\b{_YEAR}")  # November 18, 2026
+_NUMERIC_YEAR = r"(?:/(20\d{2}|\d{2}))?(?![\d/:])"
+#: Fractions, counts and 24/7 are not dates: "a 1/2 day", "2/3 people", "3/4 of the budget".
+_NOT_A_DATE = r"(?!\s*(?:days?|nights?|hours?|hrs?|weeks?|people|persons?|pax|adults?|kids?|children|of)\b)"
+_NUMERIC_DATE = re.compile(
+    rf"(?<![\d/.:])(?!24/7(?![/\d]))(\d{{1,2}})/(\d{{1,2}}){_NUMERIC_YEAR}{_NOT_A_DATE}"
+)  # 18/11, 18/11/2026, 18/11/26
+_NUMERIC_DAY_RANGE = re.compile(
+    rf"(?<![\d/.:])(\d{{1,2}}){_TO}(\d{{1,2}})/(\d{{1,2}}){_NUMERIC_YEAR}{_NOT_A_DATE}"
+)  # 18-23/11
 
 
 def _written_dates(lower: str, today: date) -> tuple[date | None, date | None] | None:
-    """The first written date or date range: "18 to 23 November", "Nov 18-23", "18 Nov to 23 Nov"."""
-    candidates: list[tuple[int, date, date | None]] = []
+    """The first written date or date range: "18 to 23 November", "Nov 18-23", "18/11 to 23/11".
+
+    The earliest one wins, a range over a single date at the same place, so a date in a
+    later constraint ("20 to 21 November must stay free") never replaces the trip's start."""
+    candidates: list[tuple[int, int, date, date | None]] = []  # position, 0 for a range, start, end
     for match in _DAY_RANGE_MONTH.finditer(lower):
         month = _MONTH_WORDS[match.group(3)]
         span = _date_span(int(match.group(1)), month, int(match.group(2)), month, match.group(4), today)
         if span:
-            candidates.append((match.start(), *span))
+            candidates.append((match.start(), 0, *span))
     for match in _MONTH_DAY_RANGE.finditer(lower):
         month = _MONTH_WORDS[match.group(1)]
         span = _date_span(int(match.group(2)), month, int(match.group(3)), month, match.group(4), today)
         if span:
-            candidates.append((match.start(), *span))
+            candidates.append((match.start(), 0, *span))
+    for match in _NUMERIC_DAY_RANGE.finditer(lower):
+        month = int(match.group(3))
+        span = _date_span(
+            int(match.group(1)), month, int(match.group(2)), month, _full_year(match.group(4)), today
+        )
+        if span:
+            candidates.append((match.start(), 0, *span))
 
     mentions: list[tuple[int, int, int, int, str | None]] = []  # start, end, day, month, year
     for match in _DAY_MONTH.finditer(lower):
         mentions.append((match.start(), match.end(), int(match.group(1)), _MONTH_WORDS[match.group(2)], match.group(3)))
     for match in _MONTH_DAY.finditer(lower):
         mentions.append((match.start(), match.end(), int(match.group(2)), _MONTH_WORDS[match.group(1)], match.group(3)))
+    for match in _NUMERIC_DATE.finditer(lower):
+        pair = _numeric_day_month(int(match.group(1)), int(match.group(2)))
+        if pair:
+            mentions.append((match.start(), match.end(), *pair, _full_year(match.group(3))))
     mentions.sort()
     kept: list[tuple[int, int, int, int, str | None]] = []
     for mention in mentions:
@@ -610,15 +633,31 @@ def _written_dates(lower: str, today: date) -> tuple[date | None, date | None] |
         if re.fullmatch(_TO, lower[first[1]:second[0]]):
             span = _date_span(first[2], first[3], second[2], second[3], second[4] or first[4], today)
             if span:
-                candidates.append((first[0], *span))
-    if candidates:
-        _, start, end = min(candidates, key=lambda row: row[0])
-        return start, end
-    for _, _, day, month, year in kept:
+                candidates.append((first[0], 0, *span))
+    for position, _, day, month, year in kept:
         single = _date_span(day, month, None, None, year, today)
         if single:
-            return single
+            candidates.append((position, 1, *single))
+    if not candidates:
+        return None
+    _, _, start, end = min(candidates, key=lambda row: row[:2])
+    return start, end
+
+
+def _numeric_day_month(first: int, second: int) -> tuple[int, int] | None:
+    """Day and month of 18/11, read day first as in Hong Kong; 11/18 only when that is impossible."""
+    if 1 <= second <= 12 and 1 <= first <= 31:
+        return first, second
+    if 1 <= first <= 12 and 1 <= second <= 31:
+        return second, first
     return None
+
+
+def _full_year(text: str | None) -> str | None:
+    """2026 for "26" or "2026"; None when no year was written."""
+    if not text:
+        return None
+    return text if len(text) == 4 else f"20{text}"
 
 
 def _date_span(

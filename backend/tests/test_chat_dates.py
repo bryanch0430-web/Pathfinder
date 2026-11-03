@@ -63,6 +63,45 @@ def test_numbers_that_are_not_dates_are_ignored() -> None:
     assert _find_dates("2 to 3 people, budget 10000", TODAY) == (None, None)
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "18/11 to 23/11",
+        "18/11-23/11",
+        "18/11 - 23/11/2026",
+        "18/11/2026 to 23/11/2026",
+        "18/11/26 to 23/11/26",
+        "18-23/11",
+        "18 to 23/11/2026",
+        "between 18/11 and 23/11",
+        "18/11 to 23 november",
+        "11/18 to 11/23",  # month first when the day/month reading is impossible
+    ],
+)
+def test_a_numeric_date_range_gives_both_ends(text: str) -> None:
+    assert _find_dates(text, TODAY) == NOV_18_23
+
+
+def test_a_numeric_date_is_read_day_first() -> None:
+    assert _find_dates("from 18/11", TODAY) == (date(2026, 11, 18), None)
+    assert _find_dates("from 5/12", TODAY) == (date(2026, 12, 5), None)
+    assert _find_dates("from 1/3", TODAY) == (date(2027, 3, 1), None)  # past this year → next year
+    assert _find_dates("28/12 to 2/1", TODAY) == (date(2026, 12, 28), date(2027, 1, 2))
+
+
+def test_a_numeric_constraint_date_is_not_taken_as_the_trip_end() -> None:
+    assert _find_dates("from 18/11, 6 days. 19/11 cannot have any plan", TODAY) == (date(2026, 11, 18), None)
+    assert _find_dates("from 18 november, 6 days. 20 to 21 november cannot have any plan", TODAY) == (
+        date(2026, 11, 18),
+        None,
+    )
+
+
+def test_fractions_and_hours_are_not_dates() -> None:
+    assert _find_dates("a 1/2 day in disneyland, 2/3 people", TODAY) == (None, None)
+    assert _find_dates("restaurants open 24/7, spend 3/4 of the budget on food", TODAY) == (None, None)
+
+
 def test_the_reported_message_plans_18_to_23_november(settings: Settings) -> None:
     gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
     message = "Plan a 6-day trip to Korea from Hong Kong, 18 to 23 November 2026, 2 people, budget HKD 10000."
