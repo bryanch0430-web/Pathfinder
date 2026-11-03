@@ -181,6 +181,12 @@ class Located:
         """The failure that made the agent stop asking, once the geocoder failed too often in a row."""
         return self.latest if self.streak >= GEOCODER_FAILURE_LIMIT else None
 
+    def forget(self, place: PlaceCandidate) -> None:
+        """`place` is in the plan: a guide entry of the same name that was left unplaced or unchecked no longer stands."""
+        names = _place_names(place)
+        self.unplaced = [name for name in self.unplaced if _norm_name(name) not in names]
+        self.unchecked = {name: error for name, error in self.unchecked.items() if _norm_name(name) not in names}
+
 
 class AttractionAgent(BaseAgent):
     name = AgentName.ATTRACTION
@@ -306,6 +312,10 @@ class AttractionAgent(BaseAgent):
             self._keep_wish(request, wish, match, wish_failures.get(wish))
 
         places = _choose_places(places, wished)
+        # A guide place that came back located another way (the traveller named it, and a place source gave its
+        # coordinates) is in the plan: it was not left out, whatever the geocoder said of the guide's entry.
+        for place in places:
+            located.forget(place)
 
         web_references: list[dict[str, Any]] = []
         if len(places) < 3:
