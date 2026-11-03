@@ -186,6 +186,13 @@
           "format": "date-time",
           "title": "Generated At",
           "type": "string"
+        },
+        "freshness": {
+          "items": {
+            "$ref": "#/$defs/FreshnessMark"
+          },
+          "title": "Freshness",
+          "type": "array"
         }
       },
       "title": "DataQuality",
@@ -361,6 +368,56 @@
       ],
       "title": "FailureKind",
       "type": "string"
+    },
+    "FreshnessMark": {
+      "description": "A time-sensitive section checked against its freshness window (Proposal DB-13).\n\n``outdated``: older than the window and not yet re-fetched. ``refreshed``: its\nown agent fetched it again at ``checked_at``; ``fetched_at`` is the old stamp.",
+      "properties": {
+        "section": {
+          "enum": [
+            "weather",
+            "tickets",
+            "hotels"
+          ],
+          "title": "Section",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "outdated",
+            "refreshed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "window_seconds": {
+          "title": "Window Seconds",
+          "type": "integer"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section",
+        "status",
+        "fetched_at",
+        "checked_at",
+        "window_seconds"
+      ],
+      "title": "FreshnessMark",
+      "type": "object"
     },
     "GeoPoint": {
       "properties": {
@@ -700,6 +757,33 @@
           },
           "title": "Tags",
           "type": "array"
+        },
+        "opening_hours": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Opening Hours",
+          "type": "array"
+        },
+        "hours_status": {
+          "default": "unknown",
+          "enum": [
+            "stated",
+            "unknown"
+          ],
+          "title": "Hours Status",
+          "type": "string"
+        },
+        "transfer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransferLeg"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -996,6 +1080,74 @@
         "name"
       ],
       "title": "TicketOption",
+      "type": "object"
+    },
+    "TransferLeg": {
+      "description": "The trip from the previous stop, as a routes tool returned it (Proposal TC-09).",
+      "properties": {
+        "from_item_id": {
+          "title": "From Item Id",
+          "type": "string"
+        },
+        "minutes": {
+          "minimum": 0,
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "distance_km": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance Km"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        },
+        "tool": {
+          "default": "",
+          "title": "Tool",
+          "type": "string"
+        },
+        "result_id": {
+          "default": "",
+          "title": "Result Id",
+          "type": "string"
+        },
+        "delay_minutes": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Delay Minutes",
+          "type": "integer"
+        },
+        "delay_tool": {
+          "default": "",
+          "title": "Delay Tool",
+          "type": "string"
+        },
+        "delay_source": {
+          "default": "",
+          "title": "Delay Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_item_id",
+        "minutes",
+        "mode"
+      ],
+      "title": "TransferLeg",
       "type": "object"
     },
     "WeatherDay": {
