@@ -194,9 +194,22 @@ def strip_fence_tags_deep(value: Any) -> Any:
     return value
 
 
+#: The severities of a flag that leave a turn fit to be repeated: the blocklist also flags ordinary travel
+#: sentences at medium ("a hotel with no restrictions on pets"), which are processed like any other turn.
+_REPLAYED_SEVERITIES = {Severity.LOW.value, Severity.MEDIUM.value}
+
+
 def replayable(history: Iterable[Any]) -> list[Any]:
-    """The earlier turns a prompt may repeat: not the ones the injection screen flagged."""
-    return [row for row in history if not (getattr(row, "meta", None) or {}).get("flagged")]
+    """The earlier turns a prompt may repeat: not the ones the injection screen blocked or flagged high.
+
+    A flagged row that says nothing about how severe the flag was is an older one, and stays out.
+    """
+    return [row for row in history if not _withheld(row)]
+
+
+def _withheld(row: Any) -> bool:
+    meta = getattr(row, "meta", None) or {}
+    return bool(meta.get("flagged")) and (bool(meta.get("blocked")) or meta.get("severity") not in _REPLAYED_SEVERITIES)
 
 
 def fence_user_message(message: str) -> str:
