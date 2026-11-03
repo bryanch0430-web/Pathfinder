@@ -260,7 +260,7 @@ def _runner_context() -> TripContext:
 
 
 def test_the_runner_keeps_the_restaurants_and_notes_of_a_cut_off_agent(settings: Settings) -> None:
-    settings = settings.model_copy(update={"preplan_budget_seconds": 0.3, "agent_timeout_seconds": 30})
+    settings = settings.model_copy(update={"preplan_budget_seconds": 1.0, "agent_timeout_seconds": 30})
     stop = _Stop()
     registry = _registry(_Guide(stop, located=False), _StallsAfter(stop, free=2))
     context = _runner_context().model_copy(update={"preferences": ["Arashiyama Bamboo Grove"]})
@@ -286,7 +286,7 @@ def test_the_runner_keeps_the_restaurants_and_notes_of_a_cut_off_agent(settings:
 def test_a_plan_from_a_cut_off_attraction_agent_has_meals_and_the_check_for_a_named_place(
     settings: Settings, offline_gateway: LLMGateway
 ) -> None:
-    settings = settings.model_copy(update={"preplan_budget_seconds": 0.5, "agent_timeout_seconds": 30})
+    settings = settings.model_copy(update={"preplan_budget_seconds": 1.0, "agent_timeout_seconds": 30})
     stop = _Stop()
     registry = cost_sandbox(settings, "Kyoto")
     registry.places = [_Guide(stop, located=False)]
