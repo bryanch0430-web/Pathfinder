@@ -47,6 +47,9 @@ class AgentContext:
     settings: Settings
     emit: Callable[[str, dict[str, Any]], None] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+    #: What the agent has found so far (one dict per located place). The runner keeps it, so an
+    #: agent cut off by the pre-planning budget still returns what it had.
+    progress: list[dict[str, Any]] | None = None
 
 
 class BaseAgent:
@@ -178,6 +181,7 @@ class AttractionAgent(BaseAgent):
                 if results:
                     places = _merge_places(results)
                     sources.extend(ref for place in results for ref in place.source_refs)
+                    self._keep(request, [place for place in places if place.geo is not None])
                     break
             except (ProviderError, asyncio.TimeoutError, Exception) as exc:
                 failures.append(_gap("attractions", exc))
@@ -351,9 +355,48 @@ class AttractionAgent(BaseAgent):
             # 80 km: the radius the guide source keeps a listing within.
             if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= 80:
                 place.geo = location.geo
+                self._keep(request, [place])
             else:
                 unplaced.append(place.name)
         return unplaced
+
+    @staticmethod
+    def _keep(request: AgentContext, places: list[PlaceCandidate]) -> None:
+        """Record located places where the runner can find them if the budget cuts this agent off."""
+        if request.progress is not None:
+            request.progress.extend(place.model_dump(mode="json") for place in places)
+
+    def partial_result(self, progress: list[dict[str, Any]], *, centre: Any, elapsed_ms: int) -> AgentResult | None:
+        """The places located before the pre-planning budget ran out; None when there are none."""
+        found = [place for place in _merge_places([PlaceCandidate.model_validate(row) for row in progress]) if place.geo]
+        if not found:
+            return None
+        found.sort(key=lambda place: (place.rating or 0, place.review_count or 0), reverse=True)
+        found = found[:10]
+        return AgentResult(
+            agent=self.name,
+            status=AgentStatus.PARTIAL,
+            payload={
+                "places": [{"id": f"p{index + 1}", **place.model_dump(mode="json")} for index, place in enumerate(found)],
+                "meals": [],
+                "notes": [],
+                "centre": centre.model_dump() if centre is not None else None,
+                "web_references": [],
+                "wishes": {},
+            },
+            notes=[f"{len(found)} attractions were located before the pre-planning time budget ran out."],
+            sources=_dedupe_sources([ref for place in found for ref in place.source_refs]),
+            failures=[
+                DataGap(
+                    section="attractions",
+                    kind=FailureKind.TIMEOUT,
+                    message=f"The attraction search ran out of its time budget; the {len(found)} places located so far are kept.",
+                    retryable=True,
+                )
+            ],
+            elapsed_ms=elapsed_ms,
+            partial=True,
+        )
 
     async def _find_wish(self, request: AgentContext, wish: str) -> PlaceCandidate | None:
         """The place a traveller named, or None when no source answers with that name."""
