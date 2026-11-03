@@ -15,6 +15,7 @@ import json
 from typing import Any, Sequence
 
 from app.domain.models import Message, TripContext
+from app.security import replayable, strip_fence_tags
 
 
 def trip_slots(context: TripContext, *, preferences: bool = False) -> str:
@@ -86,10 +87,10 @@ def plan_outline(summary: dict[str, Any] | None, *, ids: bool = False, times: bo
 
 def recent_turns(history: Sequence[Message], current: str, *, limit: int = 4, chars: int = 200) -> str:
     """Earlier turns only: the current message is sent once, inside its fence."""
-    rows = list(history)
+    rows = replayable(history)
     if rows and rows[-1].role == "user" and rows[-1].content.strip() == (current or "").strip():
         rows = rows[:-1]
-    lines = [f"{row.role}: {' '.join(row.content.split())[:chars]}" for row in rows[-limit:]]
+    lines = [f"{row.role}: {strip_fence_tags(' '.join(row.content.split()))[:chars]}" for row in rows[-limit:]]
     return "\n".join(lines) or "(none)"
 
 
