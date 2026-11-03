@@ -84,7 +84,7 @@ implemented (see `docs/SPEC.md`); rail is not connected.
 | Layer | Stack | What it does |
 |---|---|---|
 | **Storybook Pathfinder** | React 18 + TypeScript + Storybook 8 | The design system built first: tokens, atoms, elements, molecules, organisms, templates. |
-| **Frontend** | React 18 + Vite + TypeScript + Google Maps | The console, composed only from Storybook components. English-first UI with Simplified/Traditional Chinese as supplemental locales. Default currency **HKD**; budget FX monitor with live/static conversion. |
+| **Frontend** | React 18 + Vite + TypeScript + Google Maps | The console, composed only from Storybook components. English, Simplified Chinese and Traditional Chinese UI. Default currency **HKD**; budget FX monitor with live/static conversion. |
 | **Backend** | FastAPI + Pydantic v2 + SQLite | Typed routing, four concurrent agents, grounded planning, bounded repair, SSE streaming, memory, evaluation. |
 | **Contracts** | `contracts/openapi.json`, `contracts/trip_plan.schema.json` | The only backend ↔ frontend coupling. Regenerate with `python -m app.export_contracts`. |
 
@@ -491,17 +491,22 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   needs `backend/requirements-rag.txt`; without it the retriever falls back to lexical
   matching and says so. The BGE reranker is opt-in and showed no gain on this corpus, and
   Jev is not used as a reranker.
-- **Share links are public and currently permanent.** Redaction removes budget, party size,
-  session id and client token; link revocation and comments remain roadmap.
+- **Share links are public until they expire.** Redaction removes budget, party size,
+  session id and client token. A link stops working after `SHARE_TTL_DAYS` (30), when the
+  owner turns it off in the share dialog, or when the trip is deleted; comments remain roadmap.
+- **Rate limits are per process and per IP.** Sign-in and sign-up allow 10 requests a
+  minute, and planning turns and evaluation runs 30 (`RATE_LIMIT_*_PER_MINUTE`). Behind a
+  reverse proxy, start uvicorn with `--forwarded-allow-ips` for that proxy, or every user
+  shares its address.
 - **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
   are HS256 JWTs; change `AUTH_SECRET` outside a local demo.
 - **Origin is required for planning.** It is a gate slot, so a plan without a departure
   city asks for it instead of silently skipping tickets.
 - **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
   not live providers; live behaviour is captured separately in traces and screenshots.
-- **Chinese locales are supplemental.** The product, prompts, plan narrative and traces
-  are English-first; the Chinese dictionaries cover the console chrome, not every
-  generated sentence.
+- **Chinese covers the interface, not the plan text.** The EN/简/繁 switcher translates
+  every label, button and message in the console. Prompts, quick-prompt chips, plan
+  narrative and traces stay English-first, because the planner reads that text.
 - **Admin endpoints use one shared token.** They require an `X-Admin-Token` header equal to
   `ADMIN_TOKEN`. Outside `ENVIRONMENT=development` or `test` the backend refuses to start
   with the default or placeholder token (see section 2.2); set a real one before exposing

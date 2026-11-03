@@ -5,6 +5,20 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## Unreleased — 2026-11-03
+
+Hardening release: limits, expiry and a language switcher that works.
+
+- **Signing out sticks.** Legacy `pathfinder30.*` browser keys are migrated once and then removed, so a reload no longer signs the traveller back in.
+- **Only web links open.** Links from web results, providers and the planner open only when they are http or https; anything else shows as plain text.
+- **Share links expire and can be turned off.** A link lasts `SHARE_TTL_DAYS` (30). The share dialog shows the expiry and a "Turn off link" button (`DELETE /api/journeys/{id}/share`). Deleting a trip turns its links off. Links made before this release get 30 days from the upgrade.
+- **Rate limits.** Sign-in and sign-up allow 10 requests a minute per IP; the chat stream and evaluation runs allow 30. Over the limit is HTTP 429 with `Retry-After`, shown as a plain message in the console.
+- **The chat stream stays open and stops on time.** A keepalive comment goes out after 15 s of silence (`SSE_KEEPALIVE_SECONDS`). A turn that runs past 180 s (`TURN_DEADLINE_SECONDS`) ends with a `turn_timeout` error, and its planner work is cancelled.
+- **Numbered database migrations.** Upgrades run once each, tracked in `PRAGMA user_version`; existing databases upgrade in place and keep their data.
+- **EN / 简 / 繁 translate the whole console.** 394+ type-checked strings in Simplified and Traditional Chinese; a missing translation fails `npm run typecheck`.
+- **Slides export.** The Slides button downloads the plan as a PowerPoint deck.
+- **CI.** GitHub Actions runs the backend tests (Python 3.13) and the frontend typecheck and build (Node 22) on every push and pull request to main.
+
 ## v1.3.0 — 2026-11-03 11:55
 
 Edit release: the assistant changes the thing that was asked for, and leaves the rest.
