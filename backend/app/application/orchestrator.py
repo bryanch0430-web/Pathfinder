@@ -25,6 +25,7 @@ from app.application.planning import PlanPath
 from app.application.router import MODIFY_VERBS, System1Router, language_route, looks_like_question, replans_new_dates
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
+from app.application.validation import is_edit_outcome
 from app.config import Settings
 from app.domain.errors import (
     CanaryLeak,
@@ -770,12 +771,17 @@ class TurnService:
         finally:
             await _settle(task)
             reset_live_emit(live)
+        # What the edit could not do (nothing cheaper came back) is the reply to it, not a fact about the plan's
+        # data: it is told below and not kept as a data gap.
+        outcomes = [gap for gap in updated.data_quality.gaps if is_edit_outcome(gap)]
+        told = [gap.message for gap in outcomes if gap not in plan.data_quality.gaps]
+        updated.data_quality.gaps = [gap for gap in updated.data_quality.gaps if gap not in outcomes]
         self.store.save_plan(updated, updated.change_summary, replace=updated.version == plan.version)
         description = _describe_diff(diff, updated)
         if diff:
             # A trip that moved takes its stay, flights and forecast along: not everything else is unchanged.
             rest = "" if any(entry.get("kind") == "dates" for entry in diff) else " Everything else is unchanged."
-            prose = f"Updated to version {updated.version}. " + description + rest
+            prose = " ".join([f"Updated to version {updated.version}. " + description + rest, *told])
         else:
             # Nothing changed. Do not claim a version: say why, using the reason
             # the edit recorded (a data gap, an unmatched stop, a duplicate).
