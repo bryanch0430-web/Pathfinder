@@ -171,6 +171,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   }, [clientToken]);
 
   const handleSavePreferences = (preferences: string[]) => {
+    setError(null);
     void saveProfilePreferences(clientToken, preferences)
       .then((data) => setProfile(data.profile))
       .catch((cause) => setError(failureText(cause, t, "errors.preferences")));
@@ -178,28 +179,23 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
 
   const handleClearMemory = () => {
     if (!window.confirm(t("settings.clearConfirm"))) return;
+    setError(null);
     void clearMemory(clientToken)
       .then(() => getProfile(clientToken))
       .then(setProfile)
       .catch((cause) => setError(failureText(cause, t, "errors.memory")));
   };
 
+  // A failure shows above the form instead of replacing it, so what was typed stays and Save can be pressed again.
   return (
-    <>
-      {error ? (
-        <main className="pf-settings">
-          <Banner>{error}</Banner>
-        </main>
-      ) : (
-        <SettingsView
-          config={config}
-          injections={injections}
-          profile={profile}
-          signedIn={signedIn}
-          onSavePreferences={handleSavePreferences}
-          onClearMemory={handleClearMemory}
-        />
-      )}
-    </>
+    <SettingsView
+      config={config}
+      injections={injections}
+      profile={profile}
+      signedIn={signedIn}
+      error={error}
+      onSavePreferences={handleSavePreferences}
+      onClearMemory={handleClearMemory}
+    />
   );
 }

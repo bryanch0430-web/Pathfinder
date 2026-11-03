@@ -2187,6 +2187,7 @@ export function SettingsView({
   signedIn = false,
   onClearMemory,
   onSavePreferences,
+  error = null,
 }: {
   config: {
     thresholds: Record<string, number | string>;
@@ -2200,6 +2201,8 @@ export function SettingsView({
   signedIn?: boolean;
   onClearMemory?: () => void;
   onSavePreferences?: (preferences: string[]) => void;
+  /** Why the last load, save or clear failed. It shows above the form, which stays so that nothing typed is lost. */
+  error?: string | null;
 }) {
   const { t } = useI18n();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -2226,6 +2229,7 @@ export function SettingsView({
         description={t("settings.body")}
         action={<Button variant="secondary" size="sm" iconLeft="book" onClick={() => setHelpOpen(true)}>{t("settings.howItWorks")}</Button>}
       />
+      {error ? <Banner>{error}</Banner> : null}
       <div className="pf-card pf-eval__panel">
         <div className="pf-row pf-row--between">
           <Text size="sm" weight="semibold">{t("settings.developer")}</Text>
