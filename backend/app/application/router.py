@@ -93,8 +93,9 @@ _NEW_DATES = [
         r"\b(?:postpon\w*|reschedul\w*)\b",
         # "extend the trip", "extend my stay by two days", "shorten it"
         rf"\b(?:extend|shorten|lengthen)\w*\b.{{0,24}}?\b(?:{_TRIP}|dates?|it|{_SPAN})\b",
-        # "make it 4 days", "make it a 4-day trip"
-        rf"\bmake it\s+(?:an?\s+)?{_NUMBER}[\s-]+(?:days?|nights?)\b",
+        # "make it 4 days", "make it a 4-day trip", "change it to 5 days", "cut it down to 2 days"
+        rf"\b(?:make|turn|change|cut|stretch)\s+(?:it|the trip|the stay|this)\s+(?:(?:in)?to\s+|(?:down|up) to\s+)?"
+        rf"(?:an?\s+)?{_NUMBER}[\s-]+(?:days?|nights?)\b",
         # "a week later", "two days earlier", "back 3 days"
         rf"\b{_SPAN}\s+(?:later|earlier|sooner|longer|shorter|back|forward)\b",
         rf"\b(?:back|forward|ahead)\s+(?:by\s+)?{_SPAN}\b",
