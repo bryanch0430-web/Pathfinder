@@ -118,6 +118,18 @@ def test_a_signed_in_caller_who_still_sends_a_guest_header_gets_the_account(clie
     assert profile.json()["preferences"] == ["account"]
 
 
+def test_the_profile_echoes_only_the_identity_the_caller_presented(client: TestClient) -> None:
+    """docs/API.md: no session response carries the token, the profile answers with the caller's own."""
+    headers, profile_token = _signup(client, "echo@example.com")
+    guest = {"X-Client-Token": "guest-echo"}
+
+    assert client.get("/api/traveller", headers=guest).json()["client_token"] == "guest-echo"
+    assert client.patch("/api/traveller", json={"preferences": ["a"]}, headers=guest).json()["profile"]["client_token"] == "guest-echo"
+    assert client.get("/api/traveller", headers=headers).json()["client_token"] == profile_token
+    created = client.post("/api/journeys", json={"client_token": "guest-echo"}).json()
+    assert "guest-echo" not in str(created)
+
+
 def test_the_frontend_never_puts_the_guest_token_in_a_url() -> None:
     """The page sends the token as a header; a URL is written to server and proxy logs."""
     offenders = [

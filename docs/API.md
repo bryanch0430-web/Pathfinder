@@ -39,7 +39,9 @@ a `data_quality.gap` on the plan, not a failed health check.
 | GET | `/api/journeys/{id}/segments` | `?day=YYYY-MM-DD` optional | `{trip_id, version, day, legs}` — real route geometry per leg |
 
 Auth is optional. A guest session answers only to the guest token it was created with, sent as
-the `X-Client-Token` header on every request (the token is never returned by the API); any other
+the `X-Client-Token` header on every request (no session response carries it; `GET` and `PATCH
+/api/traveller` echo back the identity the caller presented, which is its own guest token or
+`user:<id>`); any other
 caller gets 404, not 403, and so does anyone for a row whose token is a `user:` profile token
 that no account owns (an empty token never matches either). Once a session is claimed by a user, requests without the matching
 Bearer token return 404 too. Sign-up and sign-in move every guest session made with the guest
@@ -127,7 +129,7 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | POST | `/api/journeys/{id}/share` | — | `{slug,url}`; public read-only redacted trip |
 | GET | `/s/{slug}` | — | public HTML trip |
 | GET | `/api/public/{slug}` | — | public JSON trip |
-| GET | `/api/traveller` | — | the caller's preferences, counts, destinations |
+| GET | `/api/traveller` | — | the caller's identity (`client_token`), preferences, counts, destinations |
 | PATCH | `/api/traveller` | `{client_token?, preferences}` | `{profile}` |
 | POST | `/api/recall/clear` | `{client_token?}` | `{cleared, saved_trips, preferences}`: deletes only the caller's saved trips and preferences |
 | GET | `/api/wishlist?limit=` | — | the caller's saved-trip summaries |
