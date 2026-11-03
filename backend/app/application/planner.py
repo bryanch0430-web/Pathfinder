@@ -139,6 +139,20 @@ class Planner:
         day_count = len(date_range.dates)
         pace = _pace(context)
         must_see = _must_see(context)
+        # A named must-include is placed before the rest, so a short trip with
+        # more candidates than slots never drops the stop the traveller asked for.
+        required = must_see + _required_names(context)
+        if required:
+            places.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), required) else 1)
+        diet = _diet(context)
+        diet_note = ""
+        if diet:
+            # A dietary constraint is hard: only restaurants the source labels as
+            # serving it may become a meal stop.
+            suitable = [row for row in meals if _serves_diet(row, diet)]
+            if len(suitable) < len(meals):
+                diet_note = f"Meal stops are limited to the {len(suitable)} {diet} restaurant(s) the sources returned."
+            meals = suitable
         assignment = self._assign_places(places, day_count, draft, pace=pace)
         if self.settings.enable_route_matrix and self.matrix is not None and toolbox is not None:
             assignment = await self._matrix_order(assignment, toolbox)
@@ -177,8 +191,18 @@ class Planner:
         cost = self._cost(context, hotel_stay, tickets, date_range)
         constraints = _constraints(context, days, hotel_stay, tickets, cost)
         gaps = _gaps(results)
+        if diet and not meals:
+            gaps.append(
+                DataGap(
+                    section="meals",
+                    kind=FailureKind.NO_DATA,
+                    message=f"No {diet} restaurant came back from the place sources, so no meal stop is suggested.",
+                )
+            )
         sources_used = sorted({ref.source for result in results.values() for ref in result.sources})
         notes = [note for result in results.values() for note in result.notes]
+        if diet_note:
+            notes.append(diet_note)
         if draft:
             notes.extend(draft.notes)
 
@@ -1004,11 +1028,49 @@ def _constraints(
 
 def _must_include(text: str) -> str | None:
     lower = text.lower()
+    if re.search(r"\b(?:do not|don't|not|never|exclude|without)\s+(?:include|visit)\b", lower):
+        # "do not include the closed Peak Tram" is an exclusion, not a must-include.
+        return None
     for marker in ("must include", "must visit", "need to include", "want to visit", "include"):
         if marker in lower:
             value = text[lower.index(marker) + len(marker) :].strip(" :.-")
+            # "the Ghibli Museum" must match a stop named "Ghibli Museum".
+            value = re.sub(r"^(?:the|a|an)\s+", "", value, flags=re.IGNORECASE)
             return value[:60] or None
     return None
+
+
+def _required_names(context: TripContext) -> list[str]:
+    """Stops named in a must-include hard constraint ("X and Y" counts as two)."""
+    names: list[str] = []
+    for text in context.hard_constraints:
+        needle = _must_include(text)
+        if needle:
+            names.append(needle)
+            names.extend(
+                re.sub(r"^(?:the|a|an)\s+", "", part, flags=re.IGNORECASE)
+                for part in re.split(r"\s*,\s*|\s+and\s+|\s*&\s*", needle)
+                if part and part != needle
+            )
+    return names
+
+
+_DIET = re.compile(r"\b(vegan|vegetarian|halal)\b", re.IGNORECASE)
+
+
+def _diet(context: TripContext) -> str | None:
+    found = {match.lower() for text in [*context.preferences, *context.hard_constraints] for match in _DIET.findall(str(text))}
+    return next((diet for diet in ("vegan", "vegetarian", "halal") if diet in found), None)
+
+
+def _serves_diet(row: dict, diet: str) -> bool:
+    """True when the source labels the restaurant for the diet (type or wording)."""
+    accepted = {f"{diet}_restaurant"} | ({"vegan_restaurant"} if diet == "vegetarian" else set())
+    if accepted & {str(tag) for tag in row.get("tags") or []}:
+        return True
+    words = (diet, "vegan") if diet == "vegetarian" else (diet,)
+    text = f"{row.get('name', '')} {row.get('category', '')} {row.get('description', '')}".lower()
+    return any(re.search(rf"\b{word}\b", text) for word in words)
 
 
 def _gaps(results: dict[str, AgentResult]) -> list[DataGap]:
