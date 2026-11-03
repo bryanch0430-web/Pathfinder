@@ -38,6 +38,7 @@ from app.domain.models import (
     USER_PREFIX,
 )
 from app.evaluation import export_markdown
+from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 
 
 class CreateSessionRequest(BaseModel):
@@ -129,6 +130,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Per app instance, so every app (and every test app) starts with empty counters.
+    app.state.rate_limits = RateLimits(
+        auth=SlidingWindowLimiter(settings.rate_limit_auth_per_minute),
+        ai=SlidingWindowLimiter(settings.rate_limit_ai_per_minute),
+    )
+    limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
+    limit_ai = Depends(rate_limit("ai", "Too many planning requests."))
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -310,7 +318,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "note": "Hybrid BM25 + BGE-small, then BGE reranker. Soft context only; never a price, opening hour or booking claim.",
         }
 
-    @app.post("/api/account/signup")
+    @app.post("/api/account/signup", dependencies=[limit_auth])
     async def register(payload: AuthRequest, request: Request) -> dict[str, Any]:
         c = container(request)
         email = payload.email.strip().lower()
@@ -328,7 +336,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 c.store.set_session_user(session.id, user.id)
         return auth_response(c, user)
 
-    @app.post("/api/account/signin")
+    @app.post("/api/account/signin", dependencies=[limit_auth])
     async def login(payload: AuthRequest, request: Request) -> dict[str, Any]:
         c = container(request)
         email = payload.email.strip().lower()
@@ -664,7 +672,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     # -- chat -------------------------------------------------------------
 
-    @app.post("/api/turn/stream")
+    @app.post("/api/turn/stream", dependencies=[limit_ai])
     async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
         c = container(request)
         session_id = payload.session_id
@@ -752,7 +760,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             ]
         }
 
-    @app.post("/api/eval/trials")
+    # An evaluation run plans every case in a dataset (and may call the judge model).
+    @app.post("/api/eval/trials", dependencies=[limit_ai])
     async def run_eval(payload: EvalRunRequest, request: Request) -> dict[str, Any]:
         c = container(request)
         try:

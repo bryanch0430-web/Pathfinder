@@ -147,6 +147,12 @@ class Settings(BaseSettings):
     # A public share link stops working this many days after it is created.
     share_ttl_days: int = 30
 
+    # --- rate limits -------------------------------------------------------
+    # Requests per client IP per minute, counted in memory per process.
+    # 0 turns a limit off.
+    rate_limit_auth_per_minute: int = 10
+    rate_limit_ai_per_minute: int = 30
+
     @field_validator("llm_provider", mode="before")
     @classmethod
     def _normalise_provider(cls, value: object) -> str:
