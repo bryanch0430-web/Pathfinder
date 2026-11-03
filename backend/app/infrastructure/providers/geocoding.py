@@ -65,6 +65,17 @@ class GoogleGeocoder:
         return location
 
 
+class TentativeLocation(GeoLocation):
+    """A match too obscure to trust for a bare name; the chain keeps it only as a last resort."""
+
+
+#: Open-Meteo indexes populated places, not countries, so a bare "Korea" comes back as
+#: Koréa, Côte d'Ivoire (population 3,012). A small plain village is treated as tentative
+#: unless the caller's country hint picked it.
+_PROMINENT_FEATURES = ("PCL", "ADM", "PPLC", "PPLA")
+_PROMINENT_POPULATION = 15_000
+
+
 class OpenMeteoGeocoder:
     name = "open-meteo-geocoder"
 
@@ -90,16 +101,22 @@ class OpenMeteoGeocoder:
         if not results:
             return None
         chosen = results[0]
+        hinted = False
         if country_hint:
             hint = country_hint.lower()
             for row in results:
                 if hint in str(row.get("country", "")).lower() or hint == str(row.get("country_code", "")).lower():
                     chosen = row
+                    hinted = True
                     break
+        prominent = str(chosen.get("feature_code") or "").startswith(_PROMINENT_FEATURES) or int(
+            chosen.get("population") or 0
+        ) >= _PROMINENT_POPULATION
         label = ", ".join(
             part for part in [chosen.get("name"), chosen.get("admin1"), chosen.get("country")] if part
         )
-        return GeoLocation(
+        location_type = GeoLocation if hinted or prominent else TentativeLocation
+        return location_type(
             name=label or name,
             country_code=str(chosen.get("country_code") or "").upper(),
             timezone=str(chosen.get("timezone") or ""),
@@ -147,15 +164,22 @@ class GeocoderChain:
 
     async def geocode(self, name: str, *, country_hint: str = "") -> GeoLocation | None:
         errors: list[str] = []
+        fallback: GeoLocation | None = None
         for source in self.sources:
             try:
                 result = await source.geocode(name, country_hint=country_hint)
+                if isinstance(result, TentativeLocation):
+                    # Ask the next source first; keep this only if nobody else answers.
+                    fallback = fallback or GeoLocation.model_validate(result.model_dump())
+                    continue
                 if result:
                     return result
             except ProviderNoData:
                 continue
             except ProviderError as exc:
                 errors.append(f"{source.name}: {exc}")
+        if fallback is not None:
+            return fallback
         if errors:
             raise ProviderError(
                 "geocoding failed for all sources: " + "; ".join(errors),
