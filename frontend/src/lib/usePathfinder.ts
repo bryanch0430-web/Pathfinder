@@ -42,6 +42,12 @@ export function clientToken(): string {
   return token;
 }
 
+/**
+ * How long the page waits for the server when it opens or makes a trip before it takes the server for down.
+ * Longer than the 30 s the server gives its own look-ups when it reopens an outdated plan.
+ */
+const LOAD_TIMEOUT_MS = 45_000;
+
 const emptyContext = (sessionId = ""): TripContext => ({
   session_id: sessionId,
   destination: "",
@@ -133,6 +139,19 @@ export function usePathfinder(locale: string): PathfinderHook {
   tRef.current = t;
   const uiLocaleRef = useRef(uiLocale);
   uiLocaleRef.current = uiLocale;
+  /** Runs a request that is cut off after LOAD_TIMEOUT_MS and then fails like a server that cannot be reached. */
+  const withTimeout = useCallback(async <T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+    try {
+      return await run(controller.signal);
+    } catch (cause) {
+      if (controller.signal.aborted) throw new ApiError(tRef.current("errors.reconnect"), 0);
+      throw cause;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }, []);
   const [planLocale, setPlanLocaleState] = useState<PlanLocale>("en");
   const [translation, setTranslation] = useState<PlanTranslation | null>(null);
   const [translationLoading, setTranslationLoading] = useState(false);
@@ -194,12 +213,12 @@ export function usePathfinder(locale: string): PathfinderHook {
   const carryPlanLocale = useCallback(async (id: string, context: TripContext): Promise<TripContext> => {
     if (uiLocaleRef.current !== "zh-Hant" || context.plan_locale === "zh-Hant") return context;
     try {
-      return (await patchContext(id, { plan_locale: "zh-Hant" })).context;
+      return (await withTimeout((signal) => patchContext(id, { plan_locale: "zh-Hant" }, signal))).context;
     } catch {
       // The view still switches; the session keeps its stored locale until the next save.
       return { ...context, plan_locale: "zh-Hant" };
     }
-  }, []);
+  }, [withTimeout]);
 
   /**
    * Forgets what the page shows of the trip being left besides its plan and messages: a failed turn's
@@ -251,7 +270,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const id = readStoredValue("session");
       if (id) {
         try {
-          const data = await getSession(id);
+          const data = await withTimeout((signal) => getSession(id, signal));
           if (ticket !== navRef.current) return;
           showTrip(id, data);
           setReady(true);
@@ -269,7 +288,7 @@ export function usePathfinder(locale: string): PathfinderHook {
           }
         }
       }
-      const created = await createSession(clientToken());
+      const created = await withTimeout((signal) => createSession(clientToken(), signal));
       const context = await carryPlanLocale(created.session.id, created.context);
       if (ticket !== navRef.current) return;
       showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
@@ -279,7 +298,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setError(failureOf(cause, "errors.backend"));
       setReady(true);
     }
-  }, [carryPlanLocale, showTrip]);
+  }, [carryPlanLocale, showTrip, withTimeout]);
 
   useEffect(() => {
     void bootstrap();
@@ -301,7 +320,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setError(null);
     setReady(false);
     try {
-      const data = await getSession(id);
+      const data = await withTimeout((signal) => getSession(id, signal));
       if (ticket !== navRef.current) return "superseded";
       showTrip(id, data);
       setReady(true);
@@ -330,7 +349,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       }
       return "unavailable";
     }
-  }, [showTrip]);
+  }, [showTrip, withTimeout]);
 
   const newPlan = useCallback((): Promise<string | null> => {
     const pending = creatingRef.current;
@@ -344,7 +363,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setReady(false);
     const making = (async () => {
       try {
-        const created = await createSession(clientToken());
+        const created = await withTimeout((signal) => createSession(clientToken(), signal));
         const context = await carryPlanLocale(created.session.id, created.context);
         if (creatingTicket.current === navRef.current) {
           showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
@@ -364,7 +383,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     })();
     creatingRef.current = making;
     return making;
-  }, [carryPlanLocale, showTrip]);
+  }, [carryPlanLocale, showTrip, withTimeout]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();

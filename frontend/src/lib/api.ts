@@ -71,19 +71,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function createSession(clientToken: string): Promise<{ session: { id: string }; context: TripContext }> {
-  return request("/api/journeys", { method: "POST", body: JSON.stringify({ client_token: clientToken }) });
+export function createSession(clientToken: string, signal?: AbortSignal): Promise<{ session: { id: string }; context: TripContext }> {
+  return request("/api/journeys", { method: "POST", body: JSON.stringify({ client_token: clientToken }), signal });
 }
 
-export function getSession(sessionId: string): Promise<SessionState> {
-  return request(`/api/journeys/${sessionId}`);
+export function getSession(sessionId: string, signal?: AbortSignal): Promise<SessionState> {
+  return request(`/api/journeys/${sessionId}`, { signal });
 }
 
 /** Body of PATCH /state (backend `ContextPatch`): every field optional; a null leaves the value unchanged. */
 export type ContextPatch = Partial<Omit<TripContext, "session_id">>;
 
-export function patchContext(sessionId: string, patch: ContextPatch): Promise<{ context: TripContext }> {
-  return request(`/api/journeys/${sessionId}/state`, { method: "PATCH", body: JSON.stringify(patch) });
+export function patchContext(sessionId: string, patch: ContextPatch, signal?: AbortSignal): Promise<{ context: TripContext }> {
+  return request(`/api/journeys/${sessionId}/state`, { method: "PATCH", body: JSON.stringify(patch), signal });
 }
 
 export function getPlan(sessionId: string, version?: number): Promise<{ plan: TripPlan }> {
