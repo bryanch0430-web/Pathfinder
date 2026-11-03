@@ -74,12 +74,19 @@ const emptyContext = (sessionId = ""): TripContext => ({
 });
 
 /**
- * What opening a trip came to. `missing`: the server has no such trip for this identity, and the
- * traveller is signed in, so it is gone. `needs-sign-in`: the same answer while signed out, when the
- * trip may belong to an account. `unavailable`: the server could not be reached. `superseded`: the
- * traveller asked for something else before the answer came, so nothing was shown.
+ * What opening a trip came to. `missing`: the server has no such trip for this identity and it cannot
+ * be an account's, so it is gone. `needs-sign-in`: the same answer while signed out in a browser that has
+ * signed in before, when the trip may belong to an account. `unavailable`: the server could not be reached.
+ * `superseded`: the traveller asked for something else before the answer came, so nothing was shown.
  */
 export type OpenOutcome = "opened" | "missing" | "needs-sign-in" | "unavailable" | "superseded";
+
+/**
+ * What scrapping the open trip came to. `gone`: it is deleted and the page is cleared of it. `kept`: the server
+ * refused, and the trip and the page stay as they were. `left`: it is deleted, but the traveller had already
+ * opened another trip, which stays as it is.
+ */
+export type ScrapOutcome = "gone" | "kept" | "left";
 
 export interface PathfinderHook {
   ready: boolean;
@@ -134,8 +141,8 @@ export interface PathfinderHook {
   retry: () => Promise<void>;
   reload: () => Promise<void>;
   clearChat: () => Promise<void>;
-  /** Deletes the open trip and clears the page of it; false, with the trip left as it was, when the server refused. */
-  scrapTrip: () => Promise<boolean>;
+  /** Deletes the open trip. See `ScrapOutcome`. */
+  scrapTrip: () => Promise<ScrapOutcome>;
   /** Stops the reply being streamed, if there is one. */
   abort: () => void;
   openSession: (id: string) => Promise<OpenOutcome>;
@@ -794,9 +801,11 @@ export function usePathfinder(locale: string): PathfinderHook {
     abortRef.current?.abort();
   }, []);
 
-  const scrapTrip = useCallback(async (): Promise<boolean> => {
+  const scrapTrip = useCallback(async (): Promise<ScrapOutcome> => {
     const id = sessionRef.current;
-    if (!id) return false;
+    if (!id) return "kept";
+    const ticket = ++navRef.current;
+    setOpening(false);
     // The reply being written for this trip stops before the trip is deleted.
     abortRef.current?.abort();
     try {
@@ -804,11 +813,15 @@ export function usePathfinder(locale: string): PathfinderHook {
     } catch (cause) {
       // Only a 404 means the trip is already gone. Any other answer leaves it where it is, and the page says so.
       if (!(cause instanceof ApiError && cause.status === 404)) {
-        setError("errors.scrap");
-        await refresh();
-        return false;
+        if (ticket === navRef.current) {
+          setError("errors.scrap");
+          await refresh();
+        }
+        return "kept";
       }
     }
+    // The traveller opened another trip while the delete was on its way: that trip stays as it is.
+    if (ticket !== navRef.current) return "left";
     forgetTripView();
     clearStoredValue("session");
     sessionRef.current = null;
@@ -820,7 +833,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setChangedIds([]);
     setHotelChanged(false);
     setActiveVersion(1);
-    return true;
+    return "gone";
   }, [forgetTripView, refresh]);
 
   return {
