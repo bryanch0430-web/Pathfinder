@@ -120,7 +120,8 @@ def test_the_reply_to_a_change_of_dates_says_what_moved(settings: Settings) -> N
 
     text = _describe_diff(diff, updated)
 
-    assert f"The trip dates changed from {plan.dates.start} – {plan.dates.end} to {WEEK_LATER[0]} – {WEEK_LATER[1]}." in text
+    was, now = f"{plan.dates.start} – {plan.dates.end}", f"{WEEK_LATER[0]} – {WEEK_LATER[1]}"
+    assert f"The trip dates changed from {was} to {now}." in text
     assert "No itinerary items needed to change" not in text
     # The stay follows the trip: the sentence about the trip says so, and the stay has none of its own.
     assert "The stay at" not in text
@@ -833,7 +834,9 @@ def test_saving_other_dates_and_generating_again_over_http_moves_the_trip_and_ke
             headers=guest,
         )
         first = client.post(
-            "/api/turn/stream", json={"session_id": session_id, "message": "Plan my trip", "locale": "en"}, headers=guest
+            "/api/turn/stream",
+            json={"session_id": session_id, "message": "Plan my trip", "locale": "en"},
+            headers=guest,
         )
         assert [name for name, _ in _events(first.text) if name == "error"] == []
         assert client.get(f"/api/journeys/{session_id}", headers=guest).json()["plan"]["version"] == 1
@@ -909,3 +912,42 @@ def test_the_reply_to_a_request_for_other_dates_in_chat_reaches_the_traveller(se
         assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
 
     run_trip(settings, scenario)
+
+
+def test_generating_again_for_a_longer_trip_keeps_the_accepted_hotel_and_the_locked_stop(settings: Settings) -> None:
+    """The page's flow when the form gets both other dates and more days, on a trip with marks."""
+    held: dict[str, str] = {}
+
+    def prepare(plan: TripPlan) -> None:
+        accept_the_garden_inn(plan)
+        stop = plan.days[1].items[0]
+        stop.locked = True
+        held["name"] = stop.name
+
+    async def scenario(trip: Trip) -> None:
+        longer = (START + timedelta(days=7), START + timedelta(days=11))
+        trip.save_form(*longer)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event == "error"]
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.dates.start, latest.dates.end) == longer and len(latest.days) == 5
+        assert latest.version == 2 and latest.trip_id == trip.plan.trip_id
+        assert (latest.hotels[0].name, latest.hotels[0].confirmed, latest.hotels[0].locked) == (
+            "Kyoto Garden Inn",
+            True,
+            True,
+        )
+        assert (latest.hotels[0].check_in, latest.hotels[0].check_out) == longer
+        locked = [
+            (number, item.locked)
+            for number, day in enumerate(latest.days, start=1)
+            for item in day.items
+            if item.name == held["name"]
+        ]
+        assert locked == [(2, True)]
+        assert sorted(row["version"] for row in trip.store.list_versions(trip.session_id)) == [1, 2]
+        assert "The trip dates changed from" in reply_of(events)
+
+    run_trip(settings, scenario, prepare=prepare)
