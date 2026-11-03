@@ -623,12 +623,19 @@ class SQLiteStore:
     def save_plan(self, plan: TripPlan, change_summary: str, *, replace: bool = False) -> None:
         """Store one plan version. A version that is already stored is refused (`PlanConflict`),
         not overwritten: another turn saved it first. `replace=True` rewrites the same version in
-        place, for an edit that changed nothing but its own notes."""
-        verb = "INSERT OR REPLACE" if replace else "INSERT"
+        place, for an edit that changed nothing but its own notes. The version keeps its row and
+        its creation time, so rewriting an older version never makes it the latest."""
         try:
             with self._lock, self._connect() as conn:
+                if replace:
+                    rewritten = conn.execute(
+                        "UPDATE itineraries SET data=?, change_summary=? WHERE session_id=? AND trip_id=? AND version=?",
+                        (plan.model_dump_json(), change_summary, plan.session_id, plan.trip_id, plan.version),
+                    )
+                    if rewritten.rowcount:
+                        return
                 conn.execute(
-                    f"{verb} INTO itineraries (trip_id, session_id, version, data, change_summary, created_at) "
+                    "INSERT INTO itineraries (trip_id, session_id, version, data, change_summary, created_at) "
                     "VALUES (?,?,?,?,?,?)",
                     (
                         plan.trip_id,
@@ -645,9 +652,13 @@ class SQLiteStore:
     def get_plan(self, session_id: str, version: int | None = None) -> TripPlan | None:
         with self._connect() as conn:
             if version is None:
+                # The newest trip of the session (planning again starts a new one at version 1), and
+                # of that trip the highest version: the number decides, never a timestamp.
                 row = conn.execute(
-                    "SELECT data FROM itineraries WHERE session_id=? ORDER BY created_at DESC, version DESC LIMIT 1",
-                    (session_id,),
+                    "SELECT data FROM itineraries WHERE session_id=? AND trip_id=("
+                    "  SELECT trip_id FROM itineraries WHERE session_id=? ORDER BY created_at DESC, version DESC LIMIT 1"
+                    ") ORDER BY version DESC LIMIT 1",
+                    (session_id, session_id),
                 ).fetchone()
             else:
                 row = conn.execute(
@@ -659,7 +670,9 @@ class SQLiteStore:
     def list_versions(self, session_id: str) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT trip_id, version, change_summary, created_at, data FROM itineraries WHERE session_id=? ORDER BY created_at DESC",
+                "SELECT trip_id, version, change_summary, created_at, data FROM itineraries AS plan WHERE session_id=? "
+                "ORDER BY (SELECT MAX(created_at) FROM itineraries WHERE session_id=plan.session_id AND trip_id=plan.trip_id) DESC, "
+                "trip_id, version DESC",
                 (session_id,),
             ).fetchall()
         out = []
