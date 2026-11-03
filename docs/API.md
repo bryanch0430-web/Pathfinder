@@ -66,7 +66,6 @@ tell a strong one from a weak one: whoever sends the same string opens the same 
 random value (the page uses a UUID), never `undefined` or a name. A trip made with a valid bearer
 belongs to the account and is stored under its `user:<id>` token, whatever guest token the request names.
 
-
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.
 
