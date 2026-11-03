@@ -5,6 +5,7 @@ full sequence: screen -> understand -> route -> gate -> plan/modify/ask/clarify.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from typing import Any, AsyncIterator
 
@@ -33,6 +34,8 @@ from app.infrastructure.observability import start_trace
 from app.infrastructure.store import SQLiteStore
 from app.security import SAFE_REPLY, screen_message
 
+logger = logging.getLogger(__name__)
+
 
 class TurnService:
     def __init__(
@@ -59,6 +62,25 @@ class TurnService:
         self.gateway = gateway
         self.settings = settings
         self.tracer_proxy = tracer_proxy
+        self._background: set[asyncio.Future] = set()
+
+    def _remember_in_background(self, client_token: str, context: TripContext) -> None:
+        """Session preferences go to long-term memory off the turn's critical path."""
+        write = asyncio.ensure_future(
+            asyncio.to_thread(self.memory.remember_preferences, client_token, context.model_copy(deep=True))
+        )
+        self._background.add(write)
+        write.add_done_callback(self._background_done)
+
+    def _background_done(self, write: asyncio.Future) -> None:
+        self._background.discard(write)
+        if not write.cancelled() and write.exception() is not None:
+            logger.warning("background preference write failed: %s", write.exception())
+
+    async def drain_background(self) -> None:
+        """Wait for pending background writes (tests and shutdown)."""
+        if self._background:
+            await asyncio.gather(*list(self._background), return_exceptions=True)
 
     async def handle_turn(
         self,
@@ -159,7 +181,7 @@ class TurnService:
                     pass
                 self.store.save_context(context)
                 if context.preferences:
-                    self.memory.remember_preferences(session.client_token, context)
+                    self._remember_in_background(session.client_token, context)
 
             with tracer.span("route"):
                 decision = await self.router.route(
