@@ -15,12 +15,17 @@ from typing import Any
 import pytest
 
 from app.application.agents import AgentContext, AttractionAgent
+from app.application.llm_gateway import LLMGateway
+from app.application.planner import Planner
+from app.application.planning import PlanPath
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData, operator_text
 from app.domain.models import (
     AgentResult,
+    ConstraintStatus,
     DateRange,
+    EvalCase,
     FailureKind,
     GeoLocation,
     GeoPoint,
@@ -28,6 +33,7 @@ from app.domain.models import (
     SourceRef,
     TripContext,
 )
+from app.eval_efficiency import case_context, cost_sandbox
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.providers.geocoding import GeocoderChain
 
@@ -123,8 +129,9 @@ def _attractions(
     names: tuple[str, ...] = ("Kinkaku-ji", "Nijo Castle"),
     preferences: list[str] | None = None,
     max_calls: int | None = None,
+    guides: list[Any] | None = None,
 ) -> AgentResult:
-    registry = SimpleNamespace(places=[_Guide(names)], notes=[], geocoder=geocoder, web=[], web_deep=[])
+    registry = SimpleNamespace(places=guides or [_Guide(names)], notes=[], geocoder=geocoder, web=[], web_deep=[])
     start = date.today() + timedelta(days=30)
     request = AgentContext(
         context=TripContext(
@@ -284,3 +291,154 @@ def test_a_named_place_is_not_asked_about_once_the_geocoder_is_known_to_be_down(
 
     assert len(geocoder.asked) == 2
     assert result.payload["wishes"] == {"Gion Corner": None}
+
+
+class _Finds:
+    """A geocoder that locates every place, a few kilometres from the last one."""
+
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+
+    async def geocode(self, name: str, **_: Any) -> GeoLocation | None:
+        self.asked.append(name)
+        return _near(len(self.asked))
+
+
+class _WishFails(_Guide):
+    """Lists the guide places; searching for the place the traveller named raises `error`."""
+
+    def __init__(self, error: BaseException, names: tuple[str, ...] = ("Kinkaku-ji", "Nijo Castle")) -> None:
+        super().__init__(names)
+        self.error = error
+
+    async def search(self, **kwargs: Any) -> list[PlaceCandidate]:
+        if kwargs.get("query") == "Gion Corner":
+            raise self.error
+        return await super().search(**kwargs)
+
+
+class _WishFound(_Guide):
+    """Lists the guide places and knows the place the traveller named."""
+
+    async def search(self, **kwargs: Any) -> list[PlaceCandidate]:
+        if kwargs.get("query") == "Gion Corner":
+            ref = SourceRef(title="Gion Corner", url="https://example.com/gion", source="found")
+            return [PlaceCandidate(name="Gion Corner", geo=GeoPoint(lat=KYOTO.lat + 0.2, lng=KYOTO.lng), source_refs=[ref])]
+        return await super().search(**kwargs)
+
+
+def _wish_gaps(result: AgentResult) -> list[tuple[FailureKind, bool, str]]:
+    return [gap for gap in _gaps(result) if "you named" in gap[2]]
+
+
+def test_a_failed_search_for_a_named_place_is_not_reported_as_no_such_place(settings: Settings) -> None:
+    guide = _WishFails(asyncio.TimeoutError())
+
+    result = _attractions(settings, _Finds(), preferences=["Gion Corner"], guides=[guide])
+
+    assert result.payload["wishes"] == {"Gion Corner": None}
+    evidence = result.payload["wish_failures"]["Gion Corner"]
+    assert "timeout" in evidence and "Ask again to retry" in evidence
+    gaps = _wish_gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.TIMEOUT, True)]
+    assert "Gion Corner" in gaps[0][2] and "ask again to retry" in gaps[0][2]
+
+
+def test_a_permanent_failure_of_the_search_for_a_named_place_is_not_told_to_retry(settings: Settings) -> None:
+    error = ProviderError("refused", kind=FailureKind.AUTH, source="places", retryable=False)
+
+    result = _attractions(settings, _Finds(), preferences=["Gion Corner"], guides=[_WishFails(error)])
+
+    gaps = _wish_gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.AUTH, False)]
+    assert "retry" not in gaps[0][2] and "retry" not in result.payload["wish_failures"]["Gion Corner"]
+
+
+def test_a_named_place_a_fallback_source_knows_leaves_no_failure(settings: Settings) -> None:
+    failing = _WishFails(asyncio.TimeoutError())
+    failing.name = "first"
+
+    result = _attractions(settings, _Finds(), preferences=["Gion Corner"], guides=[failing, _WishFound(("Kinkaku-ji",))])
+
+    assert result.payload["wishes"] == {"Gion Corner": "Gion Corner"}
+    assert result.payload["wish_failures"] == {}
+    assert _wish_gaps(result) == []
+
+
+def test_a_source_that_knows_no_such_place_is_not_a_failure(settings: Settings) -> None:
+    result = _attractions(settings, _Finds(), preferences=["Gion Corner"], guides=[_Guide(("Kinkaku-ji",))])
+
+    assert result.payload["wishes"] == {"Gion Corner": None}
+    assert result.payload["wish_failures"] == {}
+    assert _wish_gaps(result) == []
+
+
+def test_a_geocoder_failure_for_a_named_place_is_recorded_as_a_failure(settings: Settings) -> None:
+    class _FoundWithoutCoordinates(_Guide):
+        async def search(self, **kwargs: Any) -> list[PlaceCandidate]:
+            if kwargs.get("query") == "Gion Corner":
+                ref = SourceRef(title="Gion Corner", url="https://example.com/gion", source="found")
+                return [PlaceCandidate(name="Gion Corner", source_refs=[ref])]
+            return await super().search(**kwargs)
+
+    # Every place the geocoder is asked about fails; the named place is found, but cannot be placed.
+    result = _attractions(
+        settings, _Down(asyncio.TimeoutError()), preferences=["Gion Corner"], guides=[_FoundWithoutCoordinates(("Kinkaku-ji",))]
+    )
+
+    assert result.payload["wishes"] == {"Gion Corner": None}
+    assert "timeout" in result.payload["wish_failures"]["Gion Corner"]
+    # The geocoder gap already covers it; it is not reported a second time as a failed lookup.
+    assert _wish_gaps(result) == []
+    assert any("could not be checked" in message for _, _, message in _gaps(result))
+
+
+def _include_check(plan, wish: str):
+    return next(check for check in plan.constraints if check.text == f"Include {wish}")
+
+
+def _plan_with_wish(settings: Settings, offline_gateway: LLMGateway, guide: Any):
+    registry = cost_sandbox(settings, "Kyoto")
+    registry.places = [guide]
+    registry.notes = []
+    context = case_context(EvalCase(id="wish", dataset="design", input="", destination="Kyoto", days=3), "s")
+    context = context.model_copy(update={"preferences": ["Gion Corner"]})
+
+    async def scenario():
+        path = PlanPath(planner=Planner(offline_gateway, settings, registry.fx), registry=registry, settings=settings)
+        return await path.run(
+            context=context,
+            session_id="s",
+            toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="req_wish"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+
+    return asyncio.run(scenario())
+
+
+class _LocatedGuide(_WishFails):
+    """A guide whose places carry coordinates, so only the named place's search can fail."""
+
+    async def search(self, **kwargs: Any) -> list[PlaceCandidate]:
+        found = await super().search(**kwargs)
+        return [place.model_copy(update={"geo": _near(index + 1).geo}) for index, place in enumerate(found)]
+
+
+def test_the_check_for_a_named_place_says_the_lookup_failed(settings: Settings, offline_gateway: LLMGateway) -> None:
+    plan = _plan_with_wish(settings, offline_gateway, _LocatedGuide(asyncio.TimeoutError(), names=("Kinkaku-ji", "Nijo Castle", "Gion")))
+
+    check = _include_check(plan, "Gion Corner")
+
+    assert check.status is ConstraintStatus.UNKNOWN
+    assert "No place source returned" not in check.evidence
+    assert "timeout" in check.evidence and "Ask again to retry" in check.evidence
+
+
+def test_the_check_for_a_named_place_no_source_knows_keeps_its_wording(settings: Settings, offline_gateway: LLMGateway) -> None:
+    plan = _plan_with_wish(settings, offline_gateway, _LocatedGuide(ProviderNoData("no page", source="guide"), names=("Kinkaku-ji",)))
+
+    check = _include_check(plan, "Gion Corner")
+
+    assert check.status is ConstraintStatus.UNKNOWN
+    assert check.evidence == "No place source returned a place with this name."

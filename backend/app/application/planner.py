@@ -177,6 +177,7 @@ class Planner:
         windows = travel_windows(rule_texts, dates)
         attraction_payload = results.get("attraction").payload if results.get("attraction") else {}
         wishes = {str(key): value for key, value in (attraction_payload.get("wishes") or {}).items()}
+        wish_failures = {str(key): str(value) for key, value in (attraction_payload.get("wish_failures") or {}).items()}
         # A named must-include is placed before the rest, so a short trip with
         # more candidates than slots never drops the stop the traveller asked for.
         required = must_see + _required_names(context) + [name for name in wishes.values() if name]
@@ -279,7 +280,8 @@ class Planner:
         reservations = _reservations(places, tickets)
         cost = self._cost(context, hotel_stay, tickets, date_range)
         constraints = _constraints(
-            context, days, hotel_stay, tickets, cost, blocked=blocked, windows=windows, wishes=wishes
+            context, days, hotel_stay, tickets, cost, blocked=blocked, windows=windows, wishes=wishes,
+            wish_failures=wish_failures,
         )
         gaps = _gaps(results)
         if TRANSFER_TOOL in getattr(toolbox, "refused", ()):
@@ -1223,10 +1225,12 @@ def _constraints(
     blocked: dict[date, str] | None = None,
     windows: dict[date, DayWindow] | None = None,
     wishes: dict[str, str | None] | None = None,
+    wish_failures: dict[str, str] | None = None,
 ) -> list[ConstraintCheck]:
     blocked = blocked or {}
     windows = windows or {}
     wishes = wishes or {}
+    wish_failures = wish_failures or {}
     checks: list[ConstraintCheck] = []
     if context.budget is not None:
         checks.append(
@@ -1304,7 +1308,9 @@ def _constraints(
         if wish.lower() in checked_needles:
             continue
         if found_as is None:
-            status, evidence = ConstraintStatus.UNKNOWN, "No place source returned a place with this name."
+            # A lookup that failed is not a place nobody knows.
+            status = ConstraintStatus.UNKNOWN
+            evidence = wish_failures.get(wish) or "No place source returned a place with this name."
         elif planned(wish):
             status, evidence = ConstraintStatus.PASS, f"Planned as {found_as}."
         else:
