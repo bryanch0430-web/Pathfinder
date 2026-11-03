@@ -583,9 +583,11 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   reverse proxy, start uvicorn with `--forwarded-allow-ips` for that proxy, or every user
   shares its address. The application never reads `X-Forwarded-For`, but uvicorn does: for a
   peer in `--forwarded-allow-ips` (default `127.0.0.1,::1`) it takes the right-most address in
-  the header that is not itself trusted, so the proxy must set or append the header, and `*` on a
-  server that clients reach directly lets every caller pick its own address, and so its own
-  budget. `--no-proxy-headers` limits by the socket peer only.
+  the header that is not itself trusted, so the proxy must set or append the header. Never use
+  `*` (or `FORWARDED_ALLOW_IPS=*`) there, behind a proxy or not: uvicorn then trusts every peer
+  and takes the left-most address, which the caller chose, so every caller picks its own address,
+  and so its own budget. List the proxy's address or network instead. `--no-proxy-headers`
+  limits by the socket peer only.
 - **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
   are HS256 JWTs; change `AUTH_SECRET` outside a local demo.
 - **Origin is required for planning.** It is a gate slot, so a plan without a departure

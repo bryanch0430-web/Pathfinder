@@ -6,9 +6,12 @@ never reads `X-Forwarded-For` itself, because any client can set it, but the
 server does before the app runs: uvicorn (proxy headers are on by default)
 replaces the client of a peer listed in `--forwarded-allow-ips` (default
 `127.0.0.1,::1`) with the right-most address in that header that is not itself
-trusted. So list only the reverse proxy there and have it set or append the
-header; with `*` on a server that clients reach directly, every caller picks
-its own key. `--no-proxy-headers` keys by the socket peer only.
+trusted. So list only the reverse proxy there (its address or network) and have
+it set or append the header. Never list `*` (or set `FORWARDED_ALLOW_IPS=*`):
+uvicorn then trusts every peer and takes the LEFT-most address, which the client
+chose, so every caller picks its own key, behind a proxy that appends as much as
+on a server that clients reach directly. `--no-proxy-headers` keys by the socket
+peer only.
 """
 
 from __future__ import annotations

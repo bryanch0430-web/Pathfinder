@@ -143,6 +143,31 @@ def test_behind_uvicorns_proxy_handling_only_a_trusted_peer_chooses_its_key(sett
     assert forwarded_logins("203.0.113.9") == [401] * 10 + [429]  # anyone else's is ignored
 
 
+def test_behind_a_proxy_that_appends_the_proxy_must_be_listed_and_never_starred(settings: Settings) -> None:
+    """Listed, uvicorn keys on the right-most address no trusted proxy added; `*` keys on the left-most, which the client chose.
+
+    The proxy below appends the address it saw (192.0.2.50) to what the client sent first; the client forges
+    a new first address with every request. The README and `rate_limit.py` tell the operator to list the proxy.
+    """
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    def logins_through_the_proxy(trusted_hosts: str) -> list[int]:
+        app = ProxyHeadersMiddleware(create_app(settings), trusted_hosts=trusted_hosts)
+        with TestClient(app, client=("203.0.113.9", 50000)) as proxy:
+            return [
+                proxy.post(
+                    "/api/account/signin",
+                    json=BAD_LOGIN,
+                    headers={"X-Forwarded-For": f"198.51.100.{n}, 192.0.2.50"},
+                ).status_code
+                for n in range(11)
+            ]
+
+    assert logins_through_the_proxy("203.0.113.9") == [401] * 10 + [429]  # one caller, one budget
+    assert logins_through_the_proxy("203.0.113.0/24") == [401] * 10 + [429]  # a network lists it as well
+    assert logins_through_the_proxy("*") == [401] * 11  # every request is a new caller: no limit holds
+
+
 def test_each_app_starts_with_empty_counters(settings: Settings) -> None:
     with TestClient(create_app(settings)) as first:
         assert _logins(first, 11)[-1] == 429
