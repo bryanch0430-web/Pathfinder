@@ -8,6 +8,7 @@ from app.security.guard import (
     redact_canary,
     replayable,
     screen_message,
+    screen_turn,
     strip_fence_tags,
     strip_fence_tags_deep,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "redact_canary",
     "replayable",
     "screen_message",
+    "screen_turn",
     "strip_fence_tags",
     "strip_fence_tags_deep",
 ]

@@ -21,7 +21,7 @@ from app.application.prompt_context import plan_outline, recent_turns, trip_slot
 from app.config import Settings
 from app.domain.errors import CanaryLeak
 from app.domain.models import Intent, Message, RouteDecision, TripContext
-from app.security import fence_user_message, screen_message
+from app.security import fence_user_message, screen_turn
 
 #: rationale on a decision the rules made without asking a model
 RULES_FIRST = "rules-first: one unambiguous signal"
@@ -476,7 +476,7 @@ def rules_first_applies(
         settings.router_rules_first
         and decision.confidence >= settings.router_threshold
         and rules_decide_alone(message, decision, context=context, plan_summary=plan_summary)
-        and not screen_message(message, settings).flagged
+        and not screen_turn(message, settings).flagged
     )
 
 
