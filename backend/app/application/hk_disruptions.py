@@ -58,7 +58,7 @@ from app.domain.models import (
     WeatherAlert,
     WeatherDay,
 )
-from app.domain.place_names import display_name
+from app.domain.place_names import english_name
 from app.infrastructure.http import haversine_km
 from app.infrastructure.providers.hong_kong import MTR_LINES
 
@@ -298,7 +298,7 @@ def _retitle(day: DayPlan, destination: str) -> None:
     if not day.title.endswith(" and nearby stops"):
         return
     first = next((item for item in sorted(day.items, key=lambda row: row.start) if item.type == ItemType.ATTRACTION), None)
-    day.title = f"{display_name(first.name, first.names, 'en')} and nearby stops" if first else f"Open day in {destination}"
+    day.title = f"{english_name(first.name, first.names)} and nearby stops" if first else f"Open day in {destination}"
 
 
 def _move_outdoor_stops(

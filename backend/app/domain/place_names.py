@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.domain.korean_names import english_place_name
+
 #: The display locales a plan item can carry a trusted name for.
 NAME_LOCALES = ("en", "zh-Hant")
 
@@ -82,3 +84,9 @@ def display_name(name: str, names: dict[str, str] | None, locale: str) -> str:
             return f"{chinese} ({name})"
         return chinese or name
     return names.get("en") or name
+
+
+def english_name(name: str, names: dict[str, str] | None) -> str:
+    """A place's name in generated English text such as a day title: the source's own English
+    name, else a Korean name romanized by rule ("Gyeryongmun Gate"), else the name as written."""
+    return (names or {}).get("en") or english_place_name(name)

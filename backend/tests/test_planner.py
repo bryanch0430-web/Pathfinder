@@ -276,3 +276,26 @@ def test_generated_day_title_uses_the_trusted_english_name(settings: Settings, o
     title = plan.days[0].title
     assert title.endswith(" and nearby stops"), title
     assert "환구단" not in title and "(English)" in title
+
+
+def test_a_korean_stop_without_an_english_name_gets_a_romanized_day_title(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    """No English name at the source: the English day title romanizes the Korean one."""
+    start = date.today() + timedelta(days=30)
+    agents = _agents()
+    for place in agents["attraction"].payload["places"]:
+        place["names"] = {}
+        place["name"] = "목척교"
+    context = TripContext(session_id="s", destination="Daejeon", start_date=start, end_date=start, party_size=2)
+    plan = asyncio.run(
+        Planner(offline_gateway, settings, FxService()).compose(
+            session_id="s",
+            context=context,
+            destination=GeoLocation(name="Daejeon", geo=GeoPoint(lat=35.0, lng=135.0)),
+            date_range=DateRange(start=start, end=start),
+            results=agents,
+            memory_summaries=[],
+        )
+    )
+    assert plan.days[0].title == "Mokcheokgyo Bridge and nearby stops"
