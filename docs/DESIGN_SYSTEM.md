@@ -152,6 +152,8 @@ App.tsx
 - A tab strip above the centre card lists open sessions (`1 Hong Kong`, `2 Untitled trip`).
   Switching loads that session without regenerating it; **New trip** adds another tab.
   Trending → Try this trip creates a new tab instead of overwriting the current plan.
+  Opening a trip never changes the interface language: a trip saved in 繁 is shown in 繁
+  whatever the interface language is, and the language menu sets both for the open trip.
 - Tabs are stored in `pathfinder.trips`; the active pointer stays in
   `pathfinder.session`. The trash tab button scraps only the active plan.
   The open trip always has its tab: if another window's write or a cleared store drops it,
