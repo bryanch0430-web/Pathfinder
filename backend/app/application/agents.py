@@ -541,7 +541,8 @@ class WeatherAgent(BaseAgent):
             status = AgentStatus.PARTIAL
         else:
             status = AgentStatus.UNAVAILABLE
-        if not days:
+        if not days and not failures:
+            # A source that failed already said why (a timeout, a rate limit); this explains an empty answer.
             failures = [
                 DataGap(
                     section="weather",

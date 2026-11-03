@@ -320,15 +320,19 @@ def _modify(
     new_days: int | None = None,
     days: int = 3,
     prepare=None,
+    break_registry=None,
 ):
-    """Build a Kyoto plan of `days` days, optionally let `prepare(plan)` edit it, move the context
-    to `new_range` (or to `new_days` days from the start), and apply one edit."""
+    """Build a Kyoto plan of `days` days, optionally let `prepare(plan)` edit it and
+    `break_registry(registry)` change the sources the edit will use, move the context to
+    `new_range` (or to `new_days` days from the start), and apply one edit."""
     from app.application.modification import ModifyPath
     from app.application.toolbox import Toolbox
 
     gateway, planner, plan_path, context, plan = _build(settings, days=days)
     if prepare is not None:
         prepare(plan)
+    if break_registry is not None:
+        break_registry(plan_path.registry)
     if new_days is not None:
         new_range = (context.start_date, context.start_date + timedelta(days=new_days - 1))
     if new_range is not None:
@@ -419,3 +423,32 @@ def test_locked_stop_on_a_removed_day_moves_to_the_last_day(settings: Settings) 
     found = _where(updated, "Philosopher's Path")
     assert [(index, item.locked) for index, item in found] == [(2, True)]
     assert any("Kept your locked stop Philosopher's Path on day 3." in gap.message for gap in updated.data_quality.gaps)
+
+
+class _TimingOutWeather:
+    name = "timing-out-weather"
+
+    async def forecast(self, geo, start, end):
+        raise TimeoutError("the forecast source timed out")
+
+
+def test_date_shift_with_failed_weather_leaves_no_old_forecast(settings: Settings) -> None:
+    from app.domain.models import FailureKind
+
+    start = date.today() + timedelta(days=30)
+    new_range = (start + timedelta(days=9), start + timedelta(days=11))
+
+    plan, updated, _ = _modify(
+        settings,
+        "move the trip 9 days later",
+        ["dates"],
+        new_range=new_range,
+        break_registry=lambda registry: setattr(registry, "weather", [_TimingOutWeather()]),
+    )
+
+    # The change went through, and no day shows the forecast of another date.
+    assert (updated.dates.start, updated.dates.end) == new_range
+    assert plan.days[0].weather is not None
+    assert all(day.weather is None or day.weather.date == day.date for day in updated.days)
+    assert all(day.weather is None or day.weather.date in updated.dates.dates for day in updated.days)
+    assert (FailureKind.TIMEOUT, "weather") in [(gap.kind, gap.section) for gap in updated.data_quality.gaps]

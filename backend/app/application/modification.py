@@ -279,10 +279,18 @@ class ModifyPath:
         updated.data_quality.gaps = [
             gap for gap in updated.data_quality.gaps if gap.section not in refreshed_sections
         ]
+        # What each rerun agent could not fetch belongs on the plan, as it does on a new trip.
+        for result in results.values():
+            for gap in result.failures:
+                if not any(known.section == gap.section and known.message == gap.message for known in updated.data_quality.gaps):
+                    updated.data_quality.gaps.append(gap)
         if date_changed and new_range:
             updated.dates = new_range
             for index, day in enumerate(updated.days):
                 day.date = new_range.dates[index]
+                if day.weather is not None and day.weather.date != day.date:
+                    # That forecast is for the old dates. Without a new one the day shows none.
+                    day.weather = None
             if updated.hotels:
                 updated.hotels[0].check_in = new_range.start
                 updated.hotels[0].check_out = new_range.end
