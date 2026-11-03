@@ -698,3 +698,47 @@ def test_a_trip_without_a_hotel_is_not_told_that_its_current_hotel_stays(setting
     assert [gap.message for gap in longer.data_quality.gaps if gap.section == "hotels"] == [
         "No verified hotel was returned for the new dates."
     ]
+
+
+# -- G18: a forecast for some of the days ----------------------------------------------------------------
+
+
+class _SomeDays:
+    """A forecast source that answers for the first `rows` days only."""
+
+    name = "some-days"
+    available = True
+
+    def __init__(self, rows: int) -> None:
+        self.rows = rows
+
+    async def forecast(self, geo: Any, start: date, end: date):
+        return [
+            WeatherDay(
+                date=start + timedelta(days=offset), summary="Rain", high_c=15, low_c=8, source=self.name
+            )
+            for offset in range(self.rows)
+        ]
+
+
+def test_a_forecast_for_some_of_the_days_leaves_a_gap_for_the_others(settings: Settings) -> None:
+    _, updated, _ = _modify(
+        settings,
+        "move the trip a week later",
+        ["dates"],
+        new_range=WEEK_LATER,
+        break_registry=lambda registry: setattr(registry, "weather", [_SomeDays(1)]),
+    )
+
+    assert [day.weather is not None for day in updated.days] == [True, False, False]
+    assert [gap.message for gap in updated.data_quality.gaps if gap.section == "weather"] == [
+        "The forecast source answered for 1 of 3 days; the other 2 have no forecast."
+    ]
+    full = _modify(
+        settings,
+        "move the trip a week later",
+        ["dates"],
+        new_range=WEEK_LATER,
+        break_registry=lambda registry: setattr(registry, "weather", [_SomeDays(3)]),
+    )[1]
+    assert not [gap for gap in full.data_quality.gaps if gap.section == "weather"]

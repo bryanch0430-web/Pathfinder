@@ -87,7 +87,8 @@ start/finish frames reach the browser before the plan is ready.
    for the new nights and keeps its confirmed and locked marks, and when no new rate comes
    back it keeps its old rate and a data gap says so. Another hotel is chosen only when the
    message asks for one or for a lower budget. A flight that does not leave on the new first
-   day is dropped, with a gap, when no flight for the new dates comes back.
+   day is dropped, with a gap, when no flight for the new dates comes back; a forecast that
+   covers only some of the days leaves a gap for the others.
 3. Only unlocked, unconfirmed items are replaced. When the trip changes length and is built again, each locked or
    confirmed stop comes back as the traveller left it (marks and times), once, on the day it was on (the last
    day when the trip is shorter, never a day kept free). The rebuild's own row for the same place goes, a stop
