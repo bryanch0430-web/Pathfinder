@@ -203,8 +203,8 @@ export function login(payload: {
   return request("/api/account/signin", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function me(): Promise<{ user: AuthUser; profile_token: string }> {
-  return request("/api/account/whoami");
+export function me(signal?: AbortSignal): Promise<{ user: AuthUser; profile_token: string }> {
+  return request("/api/account/whoami", { signal });
 }
 
 /** Moves a guest session to the signed-in account; `clientToken` is the guest token it was created with. */

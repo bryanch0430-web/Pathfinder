@@ -45,7 +45,7 @@ import { failureText } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { useI18n, type Locale } from "./lib/i18n";
 import { planLocaleFor } from "./lib/planLocale";
-import { clearStoredValue, readStoredValue, writeStoredValue } from "./lib/storage";
+import { forgetSignIn, readStoredValue, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
@@ -188,11 +188,8 @@ export default function App() {
         // Only the server saying the sign-in is no longer valid signs the traveller out; an
         // outage or a slow answer keeps the stored sign-in for the next try.
         if (!(cause instanceof ApiError && cause.status === 401)) return;
-        clearStoredValue("auth");
-        // A `user:` profile token is refused without its bearer, so fall back
-        // to the guest token, as signing out does.
-        const guest = readStoredValue("guest");
-        if (guest) writeStoredValue("client", guest);
+        // A `user:` profile token is refused without its bearer, so fall back to the guest token.
+        forgetSignIn();
         setAuthUser(null);
       });
   }, []);
@@ -334,9 +331,7 @@ export default function App() {
 
   const handleLogout = () => {
     // Under both prefixes, so the legacy-key migration cannot sign the user back in.
-    clearStoredValue("auth");
-    const guest = readStoredValue("guest");
-    if (guest) writeStoredValue("client", guest);
+    forgetSignIn();
     setAuthUser(null);
     void pf.reload();
   };

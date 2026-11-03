@@ -113,6 +113,18 @@ export function clearStoredValue(name: StorageKey): void {
 }
 
 /**
+ * Forget the account's sign-in in this browser and go back to the guest token. A browser with no guest token
+ * to go back to drops the `user:` profile token too, so the next trip starts with a fresh guest token
+ * instead of one the server refuses without its bearer.
+ */
+export function forgetSignIn(): void {
+  clearStoredValue("auth");
+  const guest = readStoredValue("guest");
+  if (guest) writeStoredValue("client", guest);
+  else if (readStoredValue("client")?.startsWith("user:")) clearStoredValue("client");
+}
+
+/**
  * Copy any legacy `pathfinder30.*` value to its `pathfinder.*` key, once.
  *
  * Returns the names that were migrated, which is useful in tests and in the
