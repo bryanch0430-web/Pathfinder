@@ -579,8 +579,8 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   session id and client token. A link stops working after `SHARE_TTL_DAYS` (30), when the
   owner turns it off in the share dialog, or when the trip is deleted; comments remain roadmap.
 - **Rate limits are per process and per IP.** Sign-in and sign-up allow 10 requests a
-  minute, planning turns and evaluation runs 30, new trips and share links 60, and place
-  suggestions and handbook look-ups 60 (`RATE_LIMIT_*_PER_MINUTE`). Behind a
+  minute, planning turns and evaluation runs 30, new trips and share links 60, place
+  suggestions 60 and handbook look-ups 60, each with its own budget (`RATE_LIMIT_*_PER_MINUTE`). Behind a
   reverse proxy, start uvicorn with `--forwarded-allow-ips` for that proxy, or every user
   shares its address. The application never reads `X-Forwarded-For`, but uvicorn does: for a
   peer in `--forwarded-allow-ips` (default `127.0.0.1,::1`) it takes the right-most address in

@@ -85,8 +85,11 @@ class RateLimits:
     ai: SlidingWindowLimiter
     #: new trips and share links, which cost the caller nothing and are kept for good
     create: SlidingWindowLimiter
-    #: place suggestions and handbook look-ups, which call a billable provider or a retrieval model
+    #: place suggestions, which call a billable provider
     lookup: SlidingWindowLimiter
+    #: handbook look-ups, which run a local retrieval model; apart from the suggestions because the page
+    #: asks for one whenever a destination is set, and running out of one must not silence the other
+    handbook: SlidingWindowLimiter
 
 
 def client_key(request: Request) -> str:
