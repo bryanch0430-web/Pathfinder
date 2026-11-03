@@ -1292,6 +1292,13 @@ def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
             if item.id == item_id:
                 changed_item = item.model_copy(deep=True)
     changed_hotel = next((hotel.model_copy(deep=True) for hotel in updated.hotels if hotel.id == item_id), None)
+    if changed_hotel is None and original.find_hotel(item_id) is not None:
+        # The hotel search names a stay after the candidate it came from, not after the stay it
+        # replaces: the first stay that is not one of the original's takes the referred one's place.
+        known = {hotel.id for hotel in original.hotels}
+        replacement = next((hotel for hotel in updated.hotels if hotel.id not in known), None)
+        if replacement is not None:
+            changed_hotel = replacement.model_copy(update={"id": item_id}, deep=True)
     fresh_gaps = [
         gap for gap in updated.data_quality.gaps if gap not in original.data_quality.gaps
     ]
