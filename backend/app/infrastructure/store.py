@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 import secrets
 import sqlite3
 import threading
@@ -246,11 +247,100 @@ def _migration_2_share_expiry(conn: sqlite3.Connection, ctx: MigrationContext) -
     conn.execute("CREATE INDEX IF NOT EXISTS idx_share_session ON share_links(session_id)")
 
 
+# -- injection log (Proposal DB-06: totals only, no personal data) -------------
+
+#: Where a suspected injection was seen.
+THREAT_CHANNELS = ("user_message", "tool_result", "model_output")
+_THREAT_SEVERITIES = ("low", "medium", "high")
+_THREAT_CATEGORY = re.compile(r"[a-z][a-z_]{0,39}")
+#: The only columns the injection log has: one counter per category, severity,
+#: channel and UTC hour. No text, excerpt, token, user, session, email or IP.
+THREAT_COLUMNS = ("category", "severity", "channel", "hour", "count")
+_THREAT_TABLE = """
+CREATE TABLE {name} (
+  category TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  hour TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (category, severity, channel, hour)
+)
+"""
+
+
+def _threat_hour(moment: datetime | None = None) -> str:
+    """The UTC hour `moment` falls in (now by default), e.g. 2026-11-03T14:00:00+00:00."""
+    moment = (moment or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return moment.replace(minute=0, second=0, microsecond=0).isoformat()
+
+
+def _threat_key(category: Any, severity: Any, channel: Any) -> tuple[str, str, str]:
+    """Labels a counter may carry. Anything else (free text, ids) becomes "other"."""
+    category = str(category or "").strip().lower()
+    severity = str(severity or "").strip().lower()
+    channel = str(channel or "").strip().lower()
+    return (
+        category if _THREAT_CATEGORY.fullmatch(category) else "other",
+        severity if severity in _THREAT_SEVERITIES else "other",
+        channel if channel in THREAT_CHANNELS else "other",
+    )
+
+
+def _legacy_threat_channel(category: str) -> str:
+    if category == "tool_result_injection":
+        return "tool_result"
+    if category == "canary_leak":
+        return "model_output"
+    return "user_message"
+
+
+def _migration_3_threat_totals(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """The injection log keeps hourly totals per category, severity and channel only.
+
+    Old rows were one counter per category with an exact last-seen instant. Each
+    becomes a counter in the hour of that instant (the run's hour if unreadable),
+    with the channel its category implies. Any other column an old file had,
+    such as message text or an identifier, is not copied.
+    """
+    columns = _columns(conn, "threat_events")
+    if set(columns) == set(THREAT_COLUMNS):
+        return
+    totals: dict[tuple[str, str, str, str], int] = {}
+    if columns:
+        wanted = [name for name in ("category", "severity", "count", "updated_at") if name in columns]
+        for row in conn.execute(f"SELECT {', '.join(wanted)} FROM threat_events"):
+            values = dict(zip(wanted, row))
+            category, severity, _ = _threat_key(values.get("category"), values.get("severity"), "")
+            try:
+                seen = datetime.fromisoformat(str(values.get("updated_at") or ""))
+                if seen.tzinfo is None:
+                    seen = seen.replace(tzinfo=timezone.utc)
+            except ValueError:
+                seen = ctx.now
+            try:
+                count = int(values.get("count") or 0)
+            except (TypeError, ValueError):
+                count = 1
+            if count <= 0:
+                continue
+            key = (category, severity, _legacy_threat_channel(category), _threat_hour(seen))
+            totals[key] = totals.get(key, 0) + count
+    conn.execute("DROP TABLE IF EXISTS threat_events_v3")
+    conn.execute(_THREAT_TABLE.format(name="threat_events_v3"))
+    conn.executemany(
+        "INSERT INTO threat_events_v3 (category, severity, channel, hour, count) VALUES (?,?,?,?,?)",
+        [(*key, count) for key, count in totals.items()],
+    )
+    conn.execute("DROP TABLE IF EXISTS threat_events")
+    conn.execute("ALTER TABLE threat_events_v3 RENAME TO threat_events")
+
+
 #: Ordered schema steps: step N moves a database from user_version N-1 to N.
 #: Append new steps; never edit, reorder or remove a released one.
 MIGRATIONS: list[MigrationStep] = [
     _migration_1_baseline,
     _migration_2_share_expiry,
+    _migration_3_threat_totals,
 ]
 
 
@@ -777,21 +867,40 @@ class SQLiteStore:
             rows = conn.execute(query + " ORDER BY id", params).fetchall()
         return [dict(row) for row in rows]
 
-    def log_injection(self, category: str, severity: str) -> None:
+    def log_injection(self, category: str, severity: str, channel: str = "user_message") -> None:
+        """Count one suspected injection in its category, severity, channel and UTC hour.
+
+        Proposal DB-06: the log holds totals only. Nothing about the message,
+        the traveller or the session is passed in, and labels outside the known
+        shapes are counted as "other" so free text cannot land in a label.
+        """
+        key = _threat_key(category, severity, channel)
         with self._lock, self._connect() as conn:
             conn.execute(
-                "INSERT INTO threat_events (category, severity, count, updated_at) VALUES (?,?,1,?) "
-                "ON CONFLICT(category) DO UPDATE SET count=count+1, updated_at=excluded.updated_at",
-                (category, severity, _now()),
+                "INSERT INTO threat_events (category, severity, channel, hour, count) VALUES (?,?,?,?,1) "
+                "ON CONFLICT(category, severity, channel, hour) DO UPDATE SET count=count+1",
+                (*key, _threat_hour()),
             )
 
     def injection_summary(self) -> list[dict[str, Any]]:
+        """Totals per category, severity and channel; `updated_at` is the latest hour counted."""
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM threat_events ORDER BY count DESC").fetchall()
-        return [
-            {"category": row["category"], "severity": row["severity"], "count": row["count"], "updated_at": row["updated_at"]}
-            for row in rows
-        ]
+            rows = conn.execute(
+                "SELECT category, severity, channel, SUM(count) AS count, MAX(hour) AS updated_at "
+                "FROM threat_events GROUP BY category, severity, channel "
+                "ORDER BY count DESC, category, severity, channel"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def injection_hourly(self, limit: int = 168) -> list[dict[str, Any]]:
+        """The hourly counters, newest hour first (a week of hours by default)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT category, severity, channel, hour, count FROM threat_events "
+                "ORDER BY hour DESC, category, severity, channel LIMIT ?",
+                (max(int(limit), 1),),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     # -- evaluation -------------------------------------------------------
 

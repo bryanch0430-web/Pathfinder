@@ -130,7 +130,7 @@ class Toolbox:
                 if screened:
                     span.attrs["screened"] = sorted(set(screened))
                     if self.store is not None:
-                        self.store.log_injection("tool_result_injection", "high")
+                        self.store.log_injection("tool_result_injection", "high", channel="tool_result")
                 span.attrs["status"] = "ok"
                 latency = int((time.perf_counter() - started) * 1000)
                 if self.store is not None:

@@ -839,7 +839,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     @app.get("/api/admin/threats", dependencies=[Depends(require_admin)])
     async def injections(request: Request) -> dict[str, Any]:
-        return {"events": container(request).store.injection_summary()}
+        store = container(request).store
+        return {"events": store.injection_summary(), "hourly": store.injection_hourly()}
 
     @app.get("/api/admin/spans/{request_id}", dependencies=[Depends(require_admin)])
     async def trace(request_id: str, request: Request) -> dict[str, Any]:

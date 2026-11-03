@@ -195,7 +195,7 @@ class _Store:
     def log_tool_call(self, **_) -> None:
         return None
 
-    def log_injection(self, category: str, severity: str) -> None:
+    def log_injection(self, category: str, severity: str, channel: str = "") -> None:
         self.injections.append(category)
 
 

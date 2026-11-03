@@ -102,7 +102,7 @@ class TurnService:
         screen = screen_message(message, self.settings)
         if screen.flagged:
             for category in screen.categories:
-                self.store.log_injection(category, screen.max_severity.value)
+                self.store.log_injection(category, screen.max_severity.value, channel="user_message")
         self.store.add_message(
             Message(
                 session_id=session_id,
@@ -292,7 +292,7 @@ class TurnService:
                 ):
                     yield event
         except CanaryLeak:
-            self.store.log_injection("canary_leak", "high")
+            self.store.log_injection("canary_leak", "high", channel="model_output")
             message_text = "I cannot return that answer. Ask the question again in your own words."
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=message_text, intent=intent)

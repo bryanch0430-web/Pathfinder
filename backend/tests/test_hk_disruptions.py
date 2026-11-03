@@ -439,7 +439,7 @@ def test_status_text_is_screened_like_any_tool_result(settings: Settings) -> Non
         def log_tool_call(self, **row):
             self.rows.append(row)
 
-        def log_injection(self, category, severity):
+        def log_injection(self, category, severity, channel=""):
             self.injections.append(category)
 
     def poisoned(registry):
