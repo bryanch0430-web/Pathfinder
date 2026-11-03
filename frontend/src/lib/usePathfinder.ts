@@ -213,8 +213,16 @@ export function usePathfinder(locale: string): PathfinderHook {
           await loadSession(id);
           setReady(true);
           return;
-        } catch {
-          clearStoredValue("session");
+        } catch (cause) {
+          if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
+            // The server says this trip is gone or is not this browser's: forget it.
+            clearStoredValue("session");
+          } else {
+            // The server is down or slow, not forgetting the trip: keep the id and say so.
+            setError(tRef.current("errors.reconnect"));
+            setReady(true);
+            return;
+          }
         }
       }
       const created = await createSession(clientToken());

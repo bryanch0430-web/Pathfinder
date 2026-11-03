@@ -445,6 +445,7 @@ export const ZH_HANS: Messages = {
 
   "errors.memory": "无法清除记忆。",
   "errors.backend": "无法连接后端",
+  "errors.reconnect": "无法连接到服务器。你的行程已保留，请刷新页面重新连接。",
   "errors.saveDetails": "无法保存行程信息。",
 
   "chat.understanding": "正在理解你的消息",

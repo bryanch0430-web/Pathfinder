@@ -447,6 +447,7 @@ export const EN = {
 
   "errors.memory": "Memory could not be cleared.",
   "errors.backend": "Backend unreachable",
+  "errors.reconnect": "The server could not be reached. Your trip is kept; reload this page to reconnect.",
   "errors.saveDetails": "Could not save the trip details.",
 
   "chat.understanding": "Understanding your message",
