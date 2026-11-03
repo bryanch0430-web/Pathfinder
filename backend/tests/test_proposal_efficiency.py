@@ -14,14 +14,23 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.application.llm_gateway import LLMGateway
+from app.application.modification import ModifyPath
+from app.application.planner import Planner
+from app.application.planning import PlanPath
+from app.application.prompts import PromptLibrary
+from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.models import EvalCase
-from app.eval_efficiency import accepted_plan, build_rig, case_context, router_turn
+from app.eval_edits import placements
+from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox, router_turn
 from app.eval_metering import RunLedger, estimate_tokens
 from app.evaluation import FIXTURES
+from app.infrastructure.llm import NullLLM
+from app.infrastructure.observability import NoopTracer
 from app.interface.api import create_app
 
-TRIAL_DATASETS = ("efficiency",)
+TRIAL_DATASETS = ("efficiency", "edit_vs_replan")
 
 
 def _settings(root: Path) -> Settings:
@@ -155,3 +164,86 @@ def test_tc10_turn_trace_carries_the_writer_usage(settings: Settings) -> None:
     assert cost.tokens == rig.llm.tokens > 0
     assert rig.gateway.prompt_tokens + rig.gateway.completion_tokens == rig.llm.tokens
     assert estimate_tokens("abcd") == 1 and estimate_tokens("abcde") == 2 and estimate_tokens("") == 0
+
+
+# ---------------------------------------------------------------------------
+# TC-11: local edit vs a full replan of the same accepted plan
+# ---------------------------------------------------------------------------
+
+
+def test_tc11_edit_dataset_is_offered_and_frozen(trials: dict) -> None:
+    """Proposal TC-11 (p4, C1): the Evaluation page lists the edit-vs-replan dataset."""
+    suite = trials["suites"]["edit_vs_replan"]
+    assert suite["frozen"] is True
+    assert suite["item_count"] == len(_fixture("edit_vs_replan.json")) == 5
+
+
+def test_tc11_trial_report_pairs_edit_and_replan(trials: dict) -> None:
+    """Proposal TC-11 (p4, C1): calls, tokens, latency and preservation for both paths."""
+    stored = trials["runs"]["edit_vs_replan"]["stored"]
+    metrics = _metrics(stored)
+    for path in ("modify", "replan"):
+        assert metrics[f"{path}_tool_calls"]["unit"] == "calls"
+        assert metrics[f"{path}_llm_calls"]["unit"] == "calls"
+        assert metrics[f"{path}_tokens"]["unit"] == "tokens"
+        assert metrics[f"{path}_latency"]["unit"] == "ms"
+        assert metrics[f"{path}_latency"]["value"] > 0
+        for key in ("preservation", "constraints", "edit_applied"):
+            assert metrics[f"{path}_{key}"]["unit"] == "%"
+    assert {"edit_api_call_saving", "edit_token_saving"} <= set(metrics)
+    per_case = sum(case["scores"]["modify_tokens"] + case["scores"]["replan_tokens"] for case in stored["cases"])
+    assert stored["token_usage"] == per_case > 0
+
+
+def test_tc11_local_edit_costs_less_and_keeps_accepted_items(trials: dict) -> None:
+    """Proposal TC-11 (p4, C1): cheaper than a full replan, constraints >= replan, other items stay."""
+    run = trials["runs"]["edit_vs_replan"]["run"]
+    assert len(run["cases"]) == 5
+    for case in run["cases"]:
+        scores = case["scores"]
+        assert scores["modify_tool_calls"] < scores["replan_tool_calls"], case["output_summary"]
+        assert (
+            scores["modify_tool_calls"] + scores["modify_llm_calls"]
+            < scores["replan_tool_calls"] + scores["replan_llm_calls"]
+        ), case["output_summary"]
+        assert scores["modify_tokens"] < scores["replan_tokens"], case["output_summary"]
+        assert scores["modify_preservation"] == 1.0, case["output_summary"]
+        assert scores["modify_preservation"] >= scores["replan_preservation"]
+        assert scores["modify_constraints"] >= scores["replan_constraints"]
+        assert scores["modify_edit_applied"] == 1.0, case["output_summary"]
+        assert case["passed"], (case["case_id"], case["failure_class"], case["output_summary"])
+    metrics = _metrics(run)
+    assert metrics["edit_api_call_saving"]["value"] > 0
+    assert metrics["edit_token_saving"]["value"] > 0
+
+
+def test_tc11_named_stop_removal_is_applied_and_nothing_else_moves(settings: Settings) -> None:
+    """Proposal TC-11 (p4): "remove <stop>" removes it; every other accepted item stays on its day."""
+    case = EvalCase(id="t", dataset="edit_vs_replan", input="Remove Shibuya Sky from the plan.", destination="Tokyo")
+    context = case_context(case, "s")
+    plan = asyncio.run(accepted_plan(settings, context))
+    assert "Shibuya Sky" in {name for _, name in placements(plan)}
+    registry = cost_sandbox(settings, "Tokyo")
+    gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
+    planner = Planner(gateway, settings, registry.fx)
+    modify = ModifyPath(
+        planner=planner,
+        plan_path=PlanPath(planner=planner, registry=registry, settings=settings),
+        settings=settings,
+        gateway=gateway,
+    )
+    updated, diff = asyncio.run(
+        modify.run(
+            plan=plan.model_copy(deep=True),
+            context=context,
+            message=case.input,
+            route_parts=[],
+            toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="t"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+    )
+    assert placements(updated) == {pair for pair in placements(plan) if pair[1] != "Shibuya Sky"}
+    assert updated.version == plan.version + 1
+    assert updated.change_summary.startswith("Removed Shibuya Sky")
+    assert any(change["kind"] == "removed" for change in diff), diff

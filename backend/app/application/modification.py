@@ -1153,6 +1153,11 @@ def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
             if hotel.id == item_id:
                 updated.hotels[index] = changed_hotel
                 return
+    if original.find_item(item_id) is not None:
+        # The referred stop is gone from the edited plan: it was removed, so it
+        # must stay out of the restored days (a replacement keeps its id).
+        for day in updated.days:
+            day.items = [item for item in day.items if item.id != item_id]
     if fresh_gaps:
         updated.data_quality.gaps.append(fresh_gaps[-1])
 
@@ -1164,6 +1169,8 @@ def _one_item_summary(original: TripPlan, updated: TripPlan, item_id: str) -> st
         if before[1].name == after[1].name:
             return f"{before[1].name} stayed as it was. Nothing else was changed."
         return f"Replaced {before[1].name} with {after[1].name}. Everything else is unchanged."
+    if before:
+        return f"Removed {before[1].name}. Everything else is unchanged."
     old_hotel = original.find_hotel(item_id)
     new_hotel = updated.find_hotel(item_id)
     if old_hotel and new_hotel:

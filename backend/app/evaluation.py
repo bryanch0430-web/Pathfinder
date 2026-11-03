@@ -70,9 +70,10 @@ DATASETS = {
     "japan": "japan.json",
     "travelplanner": "travelplanner.json",
     "efficiency": "efficiency.json",
+    "edit_vs_replan": "edit_vs_replan.json",
 }
-# Paired cost comparisons (Proposal TC-10), run by app.eval_efficiency.
-COST_DATASETS = frozenset({"efficiency"})
+# Paired cost comparisons (Proposal TC-10, TC-11), run by app.eval_efficiency.
+COST_DATASETS = frozenset({"efficiency", "edit_vs_replan"})
 
 
 class EvalService:

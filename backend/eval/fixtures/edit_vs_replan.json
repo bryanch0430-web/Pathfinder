@@ -1,0 +1,7 @@
+[
+  {"id": "ed01", "kind": "edit", "input": "Swap the hotel for the other option, keep everything else.", "destination": "Kyoto", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ed02", "kind": "edit", "input": "Remove Shibuya Sky from the plan.", "destination": "Tokyo", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ed03", "kind": "edit", "input": "Swap the hotel for a different one.", "destination": "Hong Kong", "origin": "Singapore", "days": 3, "party_size": 2, "budget": 9000, "currency": "HKD", "split": "dev"},
+  {"id": "ed04", "kind": "edit", "input": "Drop The High Line from the itinerary.", "destination": "New York", "origin": "London", "days": 3, "party_size": 2, "budget": 2500, "currency": "USD", "split": "dev"},
+  {"id": "ed05", "kind": "edit", "input": "Remove Alcatraz Island, keep the rest.", "destination": "San Francisco", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "heldout"}
+]

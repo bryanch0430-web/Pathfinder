@@ -97,6 +97,10 @@ async def run_cost_suite(dataset: str, cases: list[EvalCase], settings: Settings
             metrics=_efficiency_metrics([row[1] for row in rows], [row[2] for row in rows]),
             snapshot=SNAPSHOT,
         )
+    if dataset == "edit_vs_replan":
+        from app.eval_edits import run_edit_suite
+
+        return await run_edit_suite(cases, settings, ledger)
     raise KeyError(dataset)
 
 
