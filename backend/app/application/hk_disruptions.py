@@ -520,9 +520,16 @@ async def _ask(
     plan: TripPlan,
     **kwargs: Any,
 ) -> list[Any] | None:
-    """The first source that answers wins; a failure becomes a data gap."""
+    """The first source that answers wins; a failure becomes a data gap.
+
+    A live-status source that cannot speak for the trip's dates (it reports only
+    what is in force today) is not called at all.
+    """
     for source in sources:
         if not getattr(source, "available", True):
+            continue
+        covers = getattr(source, "covers", None)
+        if callable(covers) and not covers(start=kwargs["start"], end=kwargs["end"]):
             continue
         try:
             return list(

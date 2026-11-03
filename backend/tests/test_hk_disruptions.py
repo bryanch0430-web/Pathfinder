@@ -163,6 +163,8 @@ def test_sources_ask_only_for_today_in_hong_kong(settings: Settings, monkeypatch
     hko, mtr = HkoWarningsSource(settings), MtrLineStatusSource(settings)
 
     later = dict(start=START + timedelta(days=5), end=START + timedelta(days=7))
+    assert not hko.covers(**later) and not mtr.covers(**later)
+    assert hko.covers(start=START, end=START) and mtr.covers(start=START - timedelta(days=1), end=START)
     assert asyncio.run(hko.alerts(**later)) == []
     assert asyncio.run(mtr.status(lines=["TWL"], **later)) == []
     assert requests == []
@@ -198,6 +200,11 @@ def test_only_hong_kong_destinations_are_checked(settings: Settings) -> None:
     """A Kyoto plan never calls the Hong Kong feeds; Shenzhen (CN) is not Hong Kong."""
     _, log = _plan(settings, destination="Kyoto")
     assert not {tool for tool, _ in _calls(log)} & {"weather.warnings", "routes.status"}
+    # A feed that cannot speak for the trip's dates is not called either: here the
+    # sandbox feeds have nothing in force, as the live ones have nothing for a later trip.
+    plan, log = _plan(settings)
+    assert not {tool for tool, _ in _calls(log)} & {"weather.warnings", "routes.status"}
+    assert plan.disruptions == [] and not [gap for gap in plan.data_quality.gaps if gap.section in {"warnings", "transit"}]
     assert is_hong_kong(Destination(name="Hong Kong", country_code="HK"))
     assert is_hong_kong(Destination(name="Kowloon", geo=GeoPoint(lat=22.31, lng=114.17)))
     assert not is_hong_kong(Destination(name="Shenzhen", country_code="CN", geo=GeoPoint(lat=22.54, lng=114.06)))

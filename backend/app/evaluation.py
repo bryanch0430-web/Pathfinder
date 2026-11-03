@@ -700,6 +700,10 @@ class SandboxWarnings:
     def __init__(self, signals: dict[date, str] | None = None):
         self.signals = signals or {}
 
+    def covers(self, *, start: date, end: date) -> bool:
+        # The live feed answers only for today; the sandbox's "today" is the fault day.
+        return any(start <= day <= end for day in self.signals)
+
     async def alerts(self, *, start: date, end: date) -> list[WeatherAlert]:
         out = []
         for day, signal in sorted(self.signals.items()):
@@ -722,6 +726,9 @@ class SandboxTransit:
 
     def __init__(self, delays: dict[date, tuple[str, int]] | None = None):
         self.delays = delays or {}
+
+    def covers(self, *, start: date, end: date) -> bool:
+        return any(start <= day <= end for day in self.delays)
 
     async def status(self, *, lines: list[str], start: date, end: date) -> list[TransitStatus]:
         out = []

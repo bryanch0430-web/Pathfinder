@@ -112,10 +112,14 @@ class HkoWarningsSource:
     def __init__(self, settings: Settings):
         self.settings = settings
 
+    def covers(self, *, start: date, end: date) -> bool:
+        """A warning in force now says nothing about another day."""
+        return start <= hong_kong_today() <= end
+
     async def alerts(self, *, start: date, end: date) -> list[WeatherAlert]:
         today = hong_kong_today()
         if not start <= today <= end:
-            return []  # a warning in force now says nothing about another day
+            return []
         data = await request_json(
             "GET",
             HKO_WARNSUM_URL,
@@ -170,11 +174,15 @@ class MtrLineStatusSource:
     def __init__(self, settings: Settings):
         self.settings = settings
 
+    def covers(self, *, start: date, end: date) -> bool:
+        """The feed reports the network as it is now."""
+        return start <= hong_kong_today() <= end
+
     async def status(self, *, lines: list[str], start: date, end: date) -> list[TransitStatus]:
         today = hong_kong_today()
         wanted = [line for line in dict.fromkeys(lines) if line in MTR_LINES]
         if not wanted or not start <= today <= end:
-            return []  # the feed reports the network as it is now
+            return []
         results = await asyncio.gather(*(self._line(line, today) for line in wanted), return_exceptions=True)
         statuses = [row for row in results if isinstance(row, TransitStatus)]
         if not statuses:
