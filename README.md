@@ -121,6 +121,13 @@ the four agents mark their sections unavailable and the planner returns an hones
 source-grounded plan with visible gaps. `.env` is git-ignored and is not part of this
 repository; create it from `.env.example` on each machine.
 
+`ENVIRONMENT` defaults to `development`, which is what local work and the tests
+(`ENVIRONMENT=test`) use; the built-in `AUTH_SECRET` and `ADMIN_TOKEN` defaults are
+accepted there. For any other value, such as `ENVIRONMENT=production`, the backend
+refuses to start until `AUTH_SECRET` (a random value of at least 32 characters) and
+`ADMIN_TOKEN` (not `local-admin` or `REPLACE_ME`) are set to real secrets. Generate one
+with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+
 The writer is OpenAI-compatible. The reference configuration uses xAI
 `grok-4.20-0309-non-reasoning` — the low-latency general model measured for interactive
 turns. DeepSeek, xAI or any chat-completions endpoint works by changing
@@ -403,9 +410,11 @@ cd backend
 PYTHONPATH=. python -m pytest
 ```
 
-The suite is offline and covers: injection screen/fence/canary, typed routing and the
-confidence gate, grounded planner composition, minimal hotel edit with preserved stops,
-allowlist enforcement, memory cutoff, the evaluation harness, and the HTTP/SSE surface.
+The suite needs no network and no API keys. A few tests try the keyless FX lookup and fall
+back to the static rate table when it is unreachable. It covers: injection
+screen/fence/canary, typed routing and the confidence gate, grounded planner composition,
+minimal hotel edit with preserved stops, allowlist enforcement, memory cutoff, the
+evaluation harness, accounts and per-profile privacy, and the HTTP/SSE surface.
 
 ```bash
 cd frontend
@@ -414,8 +423,9 @@ npm run build
 npm run build-storybook
 ```
 
-Verified in this workspace: **61 backend tests pass**, TypeScript is clean, the app
-builds, and Storybook builds. Live end-to-end turns were exercised against the real
+GitHub Actions (`.github/workflows/ci.yml`) runs the backend tests (Python 3.13) and the
+frontend typecheck and build (Node 22) on every push and pull request to `main`; the
+Storybook build is not part of CI. Live end-to-end turns were exercised against the real
 APIs (plan, ask, hotel swap) and captured in `docs/screenshots/`.
 
 ---
@@ -476,9 +486,11 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   preferences; clearing chat removes messages but keeps the current plan. **New trip** deletes the current session row and local pointer, so a stale
   `pathfinder.session` cannot pin the console to an old plan.
 - **Export** writes Markdown from structured fields and sources, not a model transcript.
-- **Local-guide RAG is a lexical baseline.** It is destination-filtered and cited, and the
-  eval set reports Top1/MRR/noise; an embedding/cross-encoder reranker (including Jev) is
-  still a measured next step, not a claim.
+- **Local-guide RAG is small and needs the optional packages.** It is destination-filtered
+  and cited, and the eval set reports Top1/MRR/noise. The default BM25 + BGE-small hybrid
+  needs `backend/requirements-rag.txt`; without it the retriever falls back to lexical
+  matching and says so. The BGE reranker is opt-in and showed no gain on this corpus, and
+  Jev is not used as a reranker.
 - **Share links are public and currently permanent.** Redaction removes budget, party size,
   session id and client token; link revocation and comments remain roadmap.
 - **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
@@ -490,8 +502,10 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
 - **Chinese locales are supplemental.** The product, prompts, plan narrative and traces
   are English-first; the Chinese dictionaries cover the console chrome, not every
   generated sentence.
-- **No authentication.** The first release uses an anonymous browser session. Admin
-  endpoints use a local token; change it before exposing the process.
+- **Admin endpoints use one shared token.** They require an `X-Admin-Token` header equal to
+  `ADMIN_TOKEN`. Outside `ENVIRONMENT=development` or `test` the backend refuses to start
+  with the default or placeholder token (see section 2.2); set a real one before exposing
+  the process.
 - **Policy thresholds are environment-configured.** The Settings screen is intentionally
   read-only; changing a threshold means editing `.env`, restarting and recording the diff.
 
@@ -500,7 +514,8 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
 ## 10. Repository map
 
 ```
-Pathfinder_v1/
+Pathfinder/
+├── .github/workflows/       CI: backend tests, frontend typecheck and build
 ├── backend/
 │   ├── app/                 layered application (domain → application → infrastructure → interface)
 │   ├── tests/               offline pytest suite

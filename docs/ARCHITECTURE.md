@@ -100,13 +100,17 @@ request. This prevents a hotel swap from silently rewriting the trip.
 
 `ProviderRegistry.build(settings)` creates priority-ordered lists:
 
-- geocoder: Open-Meteo → Nominatim
+- geocoder: Google (only when a Places or Maps key is set) → Open-Meteo → Nominatim
 - weather: Open-Meteo forecast → Open-Meteo Archive (3-year seasonal reference, `stale`)
 - places: Google Places → Nominatim OpenStreetMap → Wikivoyage (compliant Wikimedia User-Agent; geosearch dropped as low-precision)
 - hotels: SerpApi Google Hotels → Wikivoyage Sleep
 - flights: SerpApi Google Flights
 - notes: YouTube → Bilibili
+- web search: DeepSeek Search; Grok search is a second, opt-in list (`GROK_SEARCH_ENABLED`)
 - routes: Google Routes
+- timezone, elevation and destination autocomplete: Google Time Zone, Elevation and Places
+  Autocomplete (single sources, each behind its own switch or key)
+- FX: open.er-api.com with a dated static fallback
 
 An agent walks the list; the first usable result wins. `no_data` means “the source
 answered, nothing matched”; a timeout/rate-limit/auth/parse error becomes a `DataGap`
@@ -117,11 +121,15 @@ its credential to `config.py` / `.env.example`. No use case changes.
 
 ## 6. Persistence and memory
 
-SQLite (WAL) tables: sessions, contexts, messages, plans (one row per version), feedback,
-saved_trips, preferences, tool_calls, injection_events, eval_datasets, eval_runs.
+SQLite (WAL) tables: `accounts` (email, scrypt password hash, display name), `journeys`
+(the session; `user_id` is set once an account claims it), `journey_state` (the trip
+context), `turns` (messages), `itineraries` (one row per plan version), `ratings`,
+`kept_journeys` (trips marked useful, with their embedding), `share_links`,
+`taste_profiles` (preferences per profile token), `tool_spans`, `threat_events`,
+`eval_suites` and `eval_trials`.
 `application/trending.py` aggregates the newest plan version per trip into public cards
 (destination, count, days, year, sight names); it never reads an owner, budget or token.
-`plans` is keyed by `(session_id, trip_id, version)`, so history survives edits.
+`itineraries` is keyed by `(session_id, trip_id, version)`, so history survives edits.
 
 Memory recall: a signed hashing embedding (192 dims) over destination, days, party and
 preferences. Cosine similarity + a destination bonus; only matches ≥

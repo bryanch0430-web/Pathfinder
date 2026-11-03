@@ -17,7 +17,7 @@ FX is keyless and cached for 12 hours. `open.er-api` is the live source; if it i
 unreachable the dated static table is used and `source` becomes `static`. The UI labels
 both and converts the known budget total into a chosen display currency.
 
-`/api/ready` never proves every data key. A missing Places/SerpApi/Rakuten key appears as
+`/api/ready` never proves every data key. A missing Places or SerpApi key appears as
 a `data_quality.gap` on the plan, not a failed health check.
 
 ## 2. Auth and sessions
@@ -162,7 +162,7 @@ returns a session id, client token, owner, budget, party size or generated summa
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
 | GET | `/api/eval/suites` | — | seeded and frozen |
-| POST | `/api/eval/suites/{id}/freeze` | header `X-Admin-Token` | freezes a custom dataset |
+| POST | `/api/eval/suites/{id}/lock` | header `X-Admin-Token` | freezes a custom dataset |
 | GET | `/api/eval/trials` | `?limit=` | summaries (metrics, case counts, latency) |
 | POST | `/api/eval/trials` | `{dataset_id, experiment_tag, split}` | returns the full run |
 | GET | `/api/eval/trials/{id}` | — | full run with cases |
@@ -179,9 +179,10 @@ deterministic and sandboxed; see `docs/EVALUATION.md`.
 | GET | `/api/admin/threats` | `X-Admin-Token` | aggregate injection counts |
 | GET | `/api/admin/spans/{request_id}` | `X-Admin-Token` | one JSON trace |
 
-The local default token is `local-admin`. With `ENVIRONMENT` other than `development` or
-`test`, the app refuses to start until `ADMIN_TOKEN` and `AUTH_SECRET` (32+ characters) are
-set to real secrets. Trace ids must match `req_[0-9a-f]{12}`.
+The built-in default token is `local-admin`; `.env.example` ships the placeholder
+`REPLACE_ME`. With `ENVIRONMENT` other than `development` or `test` (for example
+`production`), the app refuses to start until `ADMIN_TOKEN` (neither of those two values)
+and `AUTH_SECRET` (32+ characters) are set to real secrets. Trace ids must match `req_[0-9a-f]{12}`.
 
 ## 7. Contracts
 

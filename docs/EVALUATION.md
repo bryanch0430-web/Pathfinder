@@ -26,7 +26,7 @@ and captured in traces and screenshots, not in these scores.
 | `travelplanner` | 2 | small loader sample in the TravelPlanner style (US destinations) |
 
 Each fixture carries `split: dev|heldout`. Defaults are frozen on first seed
-(`eval_datasets.frozen = 1`); a scored run against an unfrozen dataset is refused with
+(`eval_suites.frozen = 1`); a scored run against an unfrozen dataset is refused with
 `409`. The CLI accepts `--split dev|heldout|all`.
 
 The 70/30 discipline is represented in the fixture split. The shipped sets are small

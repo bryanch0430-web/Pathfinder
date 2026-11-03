@@ -41,7 +41,7 @@ this repository. `.env` is ignored; `.env.example` documents the variables.
 
 | Check | Result |
 |---|---|
-| `PYTHONPATH=. python -m pytest` | 61 passed |
+| `PYTHONPATH=. python -m pytest` (in `backend/`) | passes; CI runs it on every push |
 | `node node_modules/typescript/bin/tsc --noEmit` | clean |
 | `npm run build` | app built |
 | `npm run build-storybook` | Storybook built |

@@ -143,7 +143,8 @@ Scroll the right column below the budget. Point at the cards:
 - Header **Export** downloads a Markdown itinerary built from structured fields and sources.
 - Settings → **Traveller profile**: preferences remembered, useful-trip count, recent
   destinations. Edit/Save preferences; **Clear memory** removes saved trips/preferences.
-- Make clear this is anonymous browser memory, not an account.
+- Make clear that a guest profile is anonymous browser memory keyed by a random token;
+  signing in moves it to the account.
 
 ### 8. Evaluation (1 min)
 

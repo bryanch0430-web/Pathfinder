@@ -73,7 +73,8 @@ All four run concurrently. A slow or failed agent marks only its section
   candidates above a similarity cutoff (default 0.72), rerank, and inject only the
   summary/preferences — never facts without current verification.
 - Preferences expressed in chat are session memory first, then persisted in the
-  background. No personal identity data is stored.
+  background. Memory holds no personal identity data; an optional account stores only an
+  email address, a display name and a password hash.
 
 ## 7. Security
 

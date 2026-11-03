@@ -46,7 +46,7 @@ Scores are 1–5; value is for this course demo and for a credible product story
 | **Export PDF / Markdown / calendar** | 3 | 2 | Markdown export shipped; ICS/PDF still roadmap | ICS is cheap next; PDF can wait. Export the same structured plan, not model prose. |
 | **Auth + cross-device profile** | 3 | 4 | Shipped: optional email/password + HS256 JWT; guest mode retained and merged on first login | Add password reset/email verification later. |
 | **Feedback → reranker training loop** | 3 | 4 | Stars save a useful trip | Do not train yet. Log feedback, build an offline eval, and promote only if NDCG/MRR beats the baseline. |
-| **Fault-injection + latency/contract benchmarks** | 5 | 3 | 47 tests; no fault matrix or p50/p95 stage benchmark | Remaining: faked-upstream fault matrix and per-stage timings. |
+| **Fault-injection + latency/contract benchmarks** | 5 | 3 | Offline pytest suite (`python -m pytest`); no fault matrix or p50/p95 stage benchmark | Remaining: faked-upstream fault matrix and per-stage timings. |
 | **Booking/price alerts** | 2 | 5 | Deliberately out of scope | Stay out; fake booking is a credibility risk. Link out only with a clear “reference” label. |
 | **Mobile app** | 2 | 4 | Responsive web only | Not needed for the course; the responsive console is enough. |
 
@@ -99,7 +99,8 @@ not “we added a vector database”.
    ship it; if not, document the negative result.
 4. **Fault/latency benchmark** (1–2 days): fake each provider, assert status + gap, report
    p50/p95 per stage.
-5. **Optional auth** only after the above. Anonymous profile already demonstrates memory.
+5. **Optional auth** is already shipped (email/password accounts; the guest profile is
+   merged on first sign-in). Password reset and email verification remain open.
 
 ## 6. Feature matrix
 
@@ -114,7 +115,7 @@ not “we added a vector database”.
 | Anonymous memory / profile | ✅ (new) | auth + users | history | ❌ roadmap |
 | Useful-trip social proof | ✅ (new) | share link | ❌ | favorites roadmap |
 | Export | ✅ Markdown (ICS/PDF roadmap) | share | ✅ MD/PDF | ✅ PDF |
-| Fault injection / benchmarks | partial (47 tests) | ✅ 449 tests | RAG eval | fallback alerts |
+| Fault injection / benchmarks | partial (offline pytest suite) | ✅ 449 tests | RAG eval | fallback alerts |
 | Auth / accounts | ✅ optional email account | ✅ users | ❌ | ❌ roadmap |
 | Booking | deliberately no | no | no | links only |
 

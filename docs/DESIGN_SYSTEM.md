@@ -165,8 +165,8 @@ App.tsx
 ### Chat, profile and map playback
 - The chat header has one destructive icon button, **Clear chat**, which confirms and
   removes messages only. The plan, versions and saved memory remain.
-- Settings exposes an **anonymous traveller profile** with remembered preferences, chat
-  count, useful-trip count and recent destinations. **Clear memory** removes saved trips
+- Settings exposes a **traveller profile** (anonymous for a guest, the account's when signed
+  in) with remembered preferences, chat count, useful-trip count and recent destinations. **Clear memory** removes saved trips
   and preferences, not the current itinerary.
 - Map playback uses a segmented `1× / 2× / 4×` control. The token is interpolated with
   `requestAnimationFrame` between stops; it does not teleport at item boundaries.
