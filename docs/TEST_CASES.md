@@ -47,7 +47,7 @@ on the same commit. Latency is wall-clock time on one laptop and varies by machi
 
 ```bash
 cd backend
-PYTHONPATH=. python -m pytest -rs                            # 447 tests: 446 passed, 1 skipped (the live Japan run)
+PYTHONPATH=. python -m pytest -rs                            # 455 tests: 454 passed, 1 skipped (the live Japan run)
 PYTHONPATH=. python -m pytest -k "tc0 or tc1 or db0 or db1"  # only the 225 tests tagged with an ID
 PYTHONPATH=. python -m app.dataset_splits check              # frozen: hongkong, injection, japan, routing
 PYTHONPATH=. python -m app.eval_run --dataset hongkong --tag my-run
@@ -102,7 +102,7 @@ Table A: 9 covered (TC-03, 04, 05, 06, 08, 09, 10, 11, 12), 2 partly covered (TC
 |---|---|---|---|---|---|
 | DB-01 | p2 l.85-89 | The router returns a typed intent with a confidence. Below the 0.8 threshold it asks a clarifying question instead of planning | `test_router.py::test_gate_forces_clarification_below_threshold`, `::test_plan_question_modify_classification`, `::test_modify_without_plan_is_unclear`, `::test_plan_requires_origin`, `test_clarify_flow.py::test_gate_still_clarifies_when_a_slot_is_really_missing` | **Covered** | Pass. Threshold 0.8. |
 | DB-02 | p2 l.70-71; p3 l.108-111 | A question takes one model call, and a tool is called only if the plan does not hold the answer | `test_ask_calls.py::test_db02_*` (5), `test_asking.py::test_day_two_weather_uses_the_second_plan_day`, `test_ask_extras.py::test_plan_facts_*` (2) | **Covered** | Pass. A question takes one answer call. Weather already in the plan takes no tool call; weather missing from it takes one logged tool call. A question unrelated to the plan is flagged and not answered from it. A date outside the trip fetches its own forecast instead of borrowing another day's. |
-| DB-03 | p2 l.71-74 | The four agents run together within a time budget. If they overrun, unfinished results are marked unavailable and the plan is still returned | `test_planner.py::test_planner_builds_a_continuous_grounded_plan`, `test_sse_stream.py::test_cancelled_planning_stops_its_agents`, `test_eval_proposal.py::test_tc08_source_timeout_falls_back_and_is_recorded` | **Partly covered** | No test makes an agent overrun `preplan_budget_seconds` and then checks that the plan comes back with that section marked unavailable. *Update pending.* |
+| DB-03 | p2 l.71-74 | The four agents run together within a time budget. If they overrun, unfinished results are marked unavailable and the plan is still returned | `test_planner.py::test_planner_builds_a_continuous_grounded_plan`, `test_sse_stream.py::test_cancelled_planning_stops_its_agents`, `test_eval_proposal.py::test_tc08_source_timeout_falls_back_and_is_recorded`, `test_proposal_agents.py::test_db03_*` (3) | **Partly covered — known gap** | Pass, with a deliberately slow agent. The four agents start together; one still running when `preplan_budget_seconds` ends is cancelled with a reason and given a 2 s grace period, its section gets a data gap named the way the planner names it, its cut-off tool call is logged as `timeout`, and the plan is still returned. Gap: an overrunning agent loses the results it had already fetched, where the proposal keeps finished results and marks only unfinished ones unavailable. |
 | DB-04 | p2 l.74-75; p3 l.116-117 | A saved trip is recalled only above the similarity cutoff | `test_memory.py::test_memory_recall_applies_the_destination_and_similarity`, `::test_memory_cutoff_can_exclude_everything` | **Covered** | Pass. |
 | DB-05 | p2 l.78-79 | Each path may call only the tools on its allowlist | `test_tool_allowlist.py::test_db05_*` (14), `test_injection_probes.py::test_tc05_disallowed_tool_requested_by_an_obeying_writer_never_runs` | **Covered** | Pass. Allowlisted tools only: 100% over 84 probes. Plan-path web lookups go through the allowlist. |
 | DB-06 | p2 l.79-80 | The blocklist screens prompt overrides, requests for hidden instructions and smuggled tool calls. Suspected injections are logged as totals, without personal data | `test_security.py::test_high_severity_probe_is_blocked`, `::test_medium_probe_is_flagged_but_not_blocked`, `::test_normal_travel_message_is_not_flagged`, `::test_fence_cannot_be_closed_by_the_user`, `test_api.py::test_blocked_message_does_not_reach_planning`, `test_injection_probes.py::test_tc05_toolbox_replaces_instruction_text_in_tool_results`, `test_db06_threat_log.py::test_db06_*` (4), the user-input probes in `injection` | **Covered** | Screening passes, and 33/36 user-input probes are contained. The real injection log keeps only hourly totals per category, severity and channel, after both a blocked message and a screened tool result. Migration 3 turns old rows into those totals. By the owner's decision, a blocked message's text stays in that trip's own chat history. |
@@ -117,10 +117,10 @@ Table A: 9 covered (TC-03, 04, 05, 06, 08, 09, 10, 11, 12), 2 partly covered (TC
 | DB-15 | p3 l.118-119 | Preferences stated in a session are kept as session memory and written to the long-term store by a background process | `test_proposal_design.py::test_db15_*` (3) | **Covered** | Pass. A slow or failed write does not hold up the turn. |
 | DB-16 | p3 l.93, 96 | Hotel candidates are ranked by rating and distance. Maps use Google, with AMap as the fallback | `test_proposal_design.py::test_db16_*` (2), `test_amap_fallback.py::test_db16_*` (29) | **Partly covered — known gap** | Ranking passes. In mainland China, geocoding and place search fall back to AMap when Google is unconfigured, failing or empty (`AMAP_KEY`, off by default). AMap's GCJ-02 points are converted to WGS-84, within 10 m on known points, and AMap errors become data gaps. Distances and the console map do not use AMap (see [Not done](#not-done)). |
 | DB-17 | p3 l.98 | Each day's route is optimised so it does not double back | `test_route_opt.py::test_two_opt_improves_open_path_and_keeps_first_stop`, `::test_two_opt_is_a_noop_for_small_days`, `python -m app.route_bench` | **Covered** | Pass. |
-| DB-18 | p3 l.91-92 | The attraction agent searches notes, cleans them into place records and geocodes each place | `test_sources.py::test_wikivoyage_nested_sections_keep_listings`, `test_websearch.py` (5), `test_web_lookup.py` (7) | **Partly covered** | The parsing steps pass. No end-to-end test checks that every place record is geocoded. *Update pending.* |
+| DB-18 | p3 l.91-92 | The attraction agent searches notes, cleans them into place records and geocodes each place | `test_sources.py::test_wikivoyage_nested_sections_keep_listings`, `test_websearch.py` (5), `test_web_lookup.py` (7), `test_proposal_agents.py::test_db18_*` (2) | **Covered** | Pass, end to end with the real Wikivoyage parser. Every guide place without coordinates gets its own logged geocoder call; an answer more than 80 km from the destination counts as not found; unlocated places are named in the agent's notes, and a data gap is recorded if none can be placed; spellings that meet once located are merged. Before, only the first 3 places were geocoded and the rest were silently dropped. |
 
-Table B: 15 covered (DB-01, 02, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 17), 3 partly
-covered (DB-03, 16, 18; the DB-03 and DB-18 rows are being updated), none not done.
+Table B: 16 covered (DB-01, 02, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 17, 18), 2 partly
+covered (DB-03, 16), none not done.
 
 ## Known gaps
 
@@ -150,7 +150,10 @@ These gaps remain:
 - **TC-09 (minor):** stops whose source gives no opening hours are counted as unknown, not
   checked (16 of 83 in `hongkong`, 14 of 50 in `japan`, 8 of 19 in `travelplanner`).
 - **DB-16:** AMap covers geocoding and place search only. See [Not done](#not-done).
-- **DB-03, DB-18:** see the "Latest result" column in table B.
+- **DB-03:** an agent cut off by the time budget loses the results it had already fetched;
+  keeping each finished result and marking only the unfinished ones unavailable would close
+  this. Restaurants without coordinates are still dropped rather than geocoded (DB-18 covers
+  attractions).
 
 ## Not done
 

@@ -9,6 +9,8 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **"Korea" is South Korea again.** Without a Google key, the first keyless geocoder (Open-Meteo, which indexes towns, not countries) answered a bare "Korea" with Koréa in Côte d'Ivoire, so the trip was planned in West Africa with no stops. A plain village is now only a last resort: the next geocoder is asked first.
+- **Slow agents and guide places.** An agent that overruns the pre-planning budget is cancelled with a reason, its section is marked unavailable and the plan is still returned; every guide place the attraction agent keeps is geocoded or left out, instead of only the first three.
 - **Signing out sticks.** Legacy `pathfinder30.*` browser keys are migrated once and then removed, so a reload no longer signs the traveller back in.
 - **Only web links open.** Links from web results, providers and the planner open only when they are http or https; anything else shows as plain text.
 - **Share links expire and can be turned off.** A link lasts `SHARE_TTL_DAYS` (30). The share dialog shows the expiry and a "Turn off link" button (`DELETE /api/journeys/{id}/share`). Deleting a trip turns its links off. Links made before this release get 30 days from the upgrade.
