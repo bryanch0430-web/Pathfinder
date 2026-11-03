@@ -443,7 +443,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """The caller's own session, or 404 (a session that is not yours looks like one that is not there).
 
         An account's session needs that account's bearer. A guest session needs
-        the guest token it was created with, sent as `X-Client-Token`.
+        the guest token it was created with, sent as `X-Client-Token`; a `user:` token on a
+        row with no account was never proven with a bearer, so it opens nothing (`Session.owner`).
         """
         session = c.store.get_session(session_id)
         if session is None:
@@ -452,7 +453,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             user = current_user(request, c)
             if user is None or user.id != session.user_id:
                 raise HTTPException(status_code=404, detail="Session not found")
-        elif not same_token(request.headers.get("x-client-token", ""), session.client_token):
+        elif not session.owner or not same_token(request.headers.get("x-client-token", ""), session.client_token):
             raise HTTPException(status_code=404, detail="Session not found")
         return session
 

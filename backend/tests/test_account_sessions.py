@@ -107,3 +107,18 @@ def test_a_row_with_no_token_opens_for_nobody_however_the_token_is_left_out(clie
         assert client.post("/api/account/attach", json=body, headers=account["headers"]).status_code == 404
     with closing(sqlite3.connect(client.app.state.container.store.path)) as conn:
         assert conn.execute("SELECT user_id FROM journeys WHERE id=?", (orphan,)).fetchone() == ("",)
+
+
+def test_a_profile_token_on_a_row_with_no_account_opens_it_for_nobody(client: TestClient) -> None:
+    """A `user:` token that no bearer proved owns nothing, so naming it in a header must not open the row."""
+    legacy = client.app.state.container.store.create_session("user:user_legacy000001").id
+    account = _sign_up(client, "legacy@example.com")
+
+    for headers in (
+        {"X-Client-Token": "user:user_legacy000001"},
+        {"X-Client-Token": "user:user_legacy000001", **account["headers"]},
+    ):
+        assert not _opens(client, legacy, headers), headers
+        assert client.delete(f"/api/journeys/{legacy}", headers=headers).status_code == 404
+        assert client.patch(f"/api/journeys/{legacy}/state", json={"destination": "Kyoto"}, headers=headers).status_code == 404
+    assert client.app.state.container.store.get_session(legacy) is not None
