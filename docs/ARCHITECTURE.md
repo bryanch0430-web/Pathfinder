@@ -102,7 +102,9 @@ A guard keeps the plan's dates when the trip form holds other dates (it was save
 and the message does not ask for other dates. This prevents a hotel swap, or `add a temple on day 2`,
 from silently moving the trip; the form keeps the dates until the page's `Re-plan with the updated
 details.` or a request such as `change the dates` applies them. Naming a hotel or a stop, or having
-one selected, in such a request does not turn it into a single-row edit.
+one selected, in such a request does not turn it into a single-row edit. When the form holds the plan's own
+dates there is nothing to move to: a chat message cannot change a stored range, so the reply says that dates
+are changed in the trip details.
 
 ### Ask path
 
