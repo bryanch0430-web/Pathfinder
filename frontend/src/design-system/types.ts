@@ -145,6 +145,16 @@ export interface ConstraintCheck {
   evidence: string;
 }
 
+/** A forecast, fare or hotel price checked against its freshness window (Proposal DB-13). */
+export interface FreshnessMark {
+  section: "weather" | "tickets" | "hotels";
+  status: "outdated" | "refreshed";
+  fetched_at: string;
+  checked_at: string;
+  window_seconds: number;
+  note: string;
+}
+
 export interface DataGap {
   section: string;
   kind: string;
@@ -267,6 +277,7 @@ export interface TripPlan {
     notes: string[];
     search_window_months: number;
     generated_at: string;
+    freshness?: FreshnessMark[];
   };
   change_summary: string;
   created_at: string;

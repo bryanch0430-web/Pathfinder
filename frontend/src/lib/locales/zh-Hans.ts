@@ -89,6 +89,11 @@ export const ZH_HANS: Messages = {
   "workspace.gaps": "有缺口",
   "workspace.complete": "完整",
   "workspace.searchWindow": "搜索范围：最近 {months} 个月。生成于 {generated}。",
+  "workspace.freshness.weather": "天气预报",
+  "workspace.freshness.tickets": "机票价格",
+  "workspace.freshness.hotels": "酒店价格",
+  "workspace.freshness.refreshed": "{section}已刷新；之前的数据获取于 {fetched}。",
+  "workspace.freshness.outdated": "{section}可能已过时（获取于 {fetched}），暂时无法刷新。",
   "workspace.howAiWorked": "AI 如何工作",
   "workspace.localTime": "当地时间 {time} · {zone}",
 

@@ -51,6 +51,12 @@ import { getLegs, type MapLeg } from "../lib/api";
 import { safeHref } from "../lib/safeHref";
 import { useI18n, type MessageKey, type Translate } from "../lib/i18n";
 
+const FRESHNESS_SECTION: Record<"weather" | "tickets" | "hotels", MessageKey> = {
+  weather: "workspace.freshness.weather",
+  tickets: "workspace.freshness.tickets",
+  hotels: "workspace.freshness.hotels",
+};
+
 /* --------------------------------------------------------------- header -- */
 
 export type AppTab = "plan" | "saved" | "evaluation" | "settings";
@@ -770,6 +776,17 @@ export function TripWorkspace({
           </Collapsible>
           <Collapsible title={t("workspace.dataSources", { count: unknownGaps })} icon="info" badge={<Badge tone={unknownGaps ? "warning" : "success"} dot>{unknownGaps ? t("workspace.gaps") : t("workspace.complete")}</Badge>}>
             <GapList gaps={plan.data_quality.gaps} />
+            {(plan.data_quality.freshness ?? []).map((mark) => (
+              <div className="pf-gap" key={mark.section}>
+                <Icon name={mark.status === "outdated" ? "alert" : "info"} size={13} />
+                <span>
+                  {t(mark.status === "outdated" ? "workspace.freshness.outdated" : "workspace.freshness.refreshed", {
+                    section: t(FRESHNESS_SECTION[mark.section]),
+                    fetched: new Date(mark.fetched_at).toLocaleString("en-GB"),
+                  })}
+                </span>
+              </div>
+            ))}
             <Divider />
             <div className="pf-row pf-row--wrap">
               {plan.data_quality.sources_used.map((source) => (

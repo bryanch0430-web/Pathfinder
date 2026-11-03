@@ -91,6 +91,11 @@ export const EN = {
   "workspace.gaps": "gaps",
   "workspace.complete": "complete",
   "workspace.searchWindow": "Search window: last {months} months. Generated {generated}.",
+  "workspace.freshness.weather": "Weather forecast",
+  "workspace.freshness.tickets": "Flight fares",
+  "workspace.freshness.hotels": "Hotel prices",
+  "workspace.freshness.refreshed": "{section} refreshed; the earlier data was fetched {fetched}.",
+  "workspace.freshness.outdated": "{section} may be outdated (fetched {fetched}) and could not be refreshed.",
   "workspace.howAiWorked": "How the AI worked",
   "workspace.localTime": "Local time {time} · {zone}",
 

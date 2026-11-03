@@ -91,6 +91,11 @@ export const ZH_HANT: Messages = {
   "workspace.gaps": "有缺漏",
   "workspace.complete": "完整",
   "workspace.searchWindow": "搜尋範圍：最近 {months} 個月。產生於 {generated}。",
+  "workspace.freshness.weather": "天氣預報",
+  "workspace.freshness.tickets": "機票價格",
+  "workspace.freshness.hotels": "酒店價格",
+  "workspace.freshness.refreshed": "{section}已更新；先前的資料取得於 {fetched}。",
+  "workspace.freshness.outdated": "{section}可能已過時（取得於 {fetched}），暫時無法更新。",
   "workspace.howAiWorked": "AI 如何運作",
   "workspace.localTime": "當地時間 {time} · {zone}",
 
