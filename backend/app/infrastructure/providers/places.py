@@ -43,6 +43,8 @@ TYPE_LABELS = {
 
 class GooglePlacesSource:
     name = "google-places"
+    #: its top text-search hit is the place asked for, even across languages.
+    ranks_by_relevance = True
 
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -254,6 +256,7 @@ class NominatimPlacesSource:
             "limit": max(limit * 2, 12),
             "addressdetails": 1,
             "extratags": 1,
+            "namedetails": 1,
         }
         if geo:
             params["viewbox"] = f"{geo.lng - 0.5},{geo.lat + 0.5},{geo.lng + 0.5},{geo.lat - 0.5}"
@@ -305,6 +308,15 @@ class NominatimPlacesSource:
                         )
                     ],
                     tags=["openstreetmap", cuisine],
+                    aliases=sorted(
+                        {
+                            str(value).strip()
+                            for key, value in (row.get("namedetails") or {}).items()
+                            if key.startswith(("name", "alt_name", "official_name", "int_name"))
+                            and str(value).strip()
+                            and str(value).strip() != name
+                        }
+                    )[:12],
                 )
             )
             if len(out) >= limit:

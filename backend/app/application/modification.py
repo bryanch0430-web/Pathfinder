@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from app.application.planning import PlanPath
 from app.application.planner import Planner, _constraints
 from app.application.toolbox import Toolbox
+from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
@@ -434,12 +435,16 @@ class ModifyPath:
                     "A shorter stay, different dates, or a higher budget is needed.",
                 )
             )
+        rule_texts = [*context.hard_constraints, *context.preferences]
+        plan_dates = [day.date for day in updated.days]
         updated.constraints = _constraints(
             context,
             updated.days,
             updated.hotels[0] if updated.hotels else None,
             updated.tickets,
             updated.cost,
+            blocked=blocked_dates(rule_texts, plan_dates),
+            windows=travel_windows(rule_texts, plan_dates),
         )
         updated.updated_at = utcnow()
         updated.change_summary = draft.description or "Applied a local change."

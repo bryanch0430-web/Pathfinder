@@ -16,6 +16,22 @@ from app.application.llm_gateway import LLMGateway
 from app.domain.errors import CanaryLeak
 from app.domain.models import TripContext
 
+# Interest and style tags the rules recognise. Any other tag is read by the
+# planner as a place the traveller wants to visit.
+PREFERENCE_PATTERNS = {
+    "vegetarian": r"\bvegetarian\b",
+    "vegan": r"\bvegan\b",
+    "halal": r"\bhalal\b",
+    "no spicy food": r"\b(no spicy|not spicy|mild food)\b",
+    "slow pace": r"\b(slow pace|relaxed|not rushed|easy pace)\b",
+    "fast pace": r"\b(fast pace|packed|see as much as possible)\b",
+    "kid friendly": r"\b(kid|child|family)[- ]friendly\b|\bwith (kids|children)\b",
+    "museums": r"\bmuseums?\b",
+    "nature": r"\b(nature|hiking|outdoors?)\b",
+    "shopping": r"\bshopping\b",
+    "food": r"\bfood|restaurant|eat\b",
+}
+
 CITY_HINTS = [
     "Hong Kong",
     "Kyoto",
@@ -253,20 +269,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     elif re.search(r"\b(midrange|mid-range|3[- ]star|comfortable)", lower):
         context.hotel_style = "midrange"
 
-    preference_map = {
-        "vegetarian": r"\bvegetarian\b",
-        "vegan": r"\bvegan\b",
-        "halal": r"\bhalal\b",
-        "no spicy food": r"\b(no spicy|not spicy|mild food)\b",
-        "slow pace": r"\b(slow pace|relaxed|not rushed|easy pace)\b",
-        "fast pace": r"\b(fast pace|packed|see as much as possible)\b",
-        "kid friendly": r"\b(kid|child|family)[- ]friendly\b|\bwith (kids|children)\b",
-        "museums": r"\bmuseums?\b",
-        "nature": r"\b(nature|hiking|outdoors?)\b",
-        "shopping": r"\bshopping\b",
-        "food": r"\bfood|restaurant|eat\b",
-    }
-    for label, pattern in preference_map.items():
+    for label, pattern in PREFERENCE_PATTERNS.items():
         if re.search(pattern, lower) and label not in context.preferences:
             context.preferences.append(label)
 
@@ -580,7 +583,14 @@ def _hard_constraints(text: str) -> list[str]:
     constraints: list[str] = []
     for sentence in re.split(r"(?<=[.!?])\s+|;\s*", text):
         lower = sentence.lower()
-        if re.search(r"\b(must|need to|have to|avoid|cannot|can't|no |without|wheelchair|accessible)\b", lower):
+        # Arrival, departure and free-day sentences are constraints the planner
+        # schedules around ("we land at 18:35", "keep 19/11 free").
+        if re.search(
+            r"\b(must|need to|have to|avoid|cannot|can't|no |without|wheelchair|accessible"
+            r"|arriv\w*|land(?:s|ing)?|depart\w*|flight|free day|rest day|day off)\b"
+            r"|上機|登機|起飛|落機|到達|抵達|出機場|行程",
+            lower,
+        ):
             cleaned = sentence.strip()
             if 4 < len(cleaned) < 180:
                 constraints.append(cleaned)

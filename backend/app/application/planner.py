@@ -16,6 +16,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.application.llm_gateway import LLMGateway
+from app.application.trip_rules import DayWindow, blocked_dates, travel_windows
+from app.application.trip_rules import must_include as _must_include
 from app.config import Settings
 from app.domain.errors import CanaryLeak
 from app.domain.models import (
@@ -92,6 +94,10 @@ POPULAR_REVIEW_COUNT = 5000
 
 LUNCH_START, LUNCH_END = 12 * 60 + 30, 13 * 60 + 30
 DINNER_START, DINNER_END = 19 * 60, 20 * 60 + 15
+# Latest end for a sightseeing stop, used to size a day cut short by a flight.
+DAY_END = 21 * 60
+# Transfer and buffer allowance per stop when sizing a shortened day.
+SLOT_OVERHEAD_MINUTES = 30
 
 
 class Planner:
@@ -136,12 +142,18 @@ class Planner:
             memory_summaries=memory_summaries,
         )
 
-        day_count = len(date_range.dates)
+        dates = list(date_range.dates)
+        day_count = len(dates)
         pace = _pace(context)
         must_see = _must_see(context)
+        rule_texts = [*context.hard_constraints, *context.preferences]
+        blocked = blocked_dates(rule_texts, dates)
+        windows = travel_windows(rule_texts, dates)
+        attraction_payload = results.get("attraction").payload if results.get("attraction") else {}
+        wishes = {str(key): value for key, value in (attraction_payload.get("wishes") or {}).items()}
         # A named must-include is placed before the rest, so a short trip with
         # more candidates than slots never drops the stop the traveller asked for.
-        required = must_see + _required_names(context)
+        required = must_see + _required_names(context) + [name for name in wishes.values() if name]
         if required:
             places.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), required) else 1)
         diet = _diet(context)
@@ -153,43 +165,53 @@ class Planner:
             if len(suitable) < len(meals):
                 diet_note = f"Meal stops are limited to the {len(suitable)} {diet} restaurant(s) the sources returned."
             meals = suitable
-        assignment = self._assign_places(places, day_count, draft, pace=pace)
+        # A blocked day takes no stop; a flight day takes only what fits around it.
+        limits = [0 if day in blocked else _window_limit(windows.get(day), pace) for day in dates]
+        assignment = self._assign_places(places, day_count, draft, pace=pace, limits=limits)
         if self.settings.enable_route_matrix and self.matrix is not None and toolbox is not None:
             assignment = await self._matrix_order(assignment, toolbox)
-        meal_plan = self._assign_meals(meals, assignment, destination)
+        meal_days = {index: rows for index, rows in assignment.items() if dates[index] not in blocked}
+        meal_plan = self._assign_meals(meals, meal_days, destination)
         hotel = self._choose_hotel(hotels, draft)
 
         days: list[DayPlan] = []
-        for index, day_date in enumerate(date_range.dates):
+        for index, day_date in enumerate(dates):
             weather_row = weather_by_date.get(day_date.isoformat())
             weather = WeatherDay.model_validate(weather_row) if weather_row else None
             day_places = [row for row in assignment.get(index, [])]
             lunch = meal_plan.get(index, {}).get("lunch")
             dinner = meal_plan.get(index, {}).get("dinner")
-            items = _schedule_day(day_date, day_places, lunch, dinner, pace=pace, must_see=must_see)
+            window = windows.get(day_date)
+            items = _schedule_day(day_date, day_places, lunch, dinner, pace=pace, must_see=must_see, window=window)
             title = ""
-            if draft and index < len(draft.day_titles):
+            if day_date in blocked:
+                title = f"Free day in {context.destination}"
+            elif draft and index < len(draft.day_titles):
                 title = draft.day_titles[index].strip()
             if not title:
                 if day_places:
                     title = f"{day_places[0]['name']} and nearby stops"
+                elif window is not None:
+                    title = f"Travel day in {context.destination}"
                 else:
                     title = f"Open day in {context.destination}"
-            days.append(
-                DayPlan(
-                    date=day_date,
-                    title=title,
-                    weather=weather,
-                    items=items,
-                    note="" if items else "No verified stops were available for this day.",
-                )
-            )
+            if day_date in blocked:
+                note = "Kept free, as you asked."
+            elif items:
+                note = ""
+            elif window is not None:
+                note = "Travel day: no time for stops around your flight."
+            else:
+                note = "No verified stops were available for this day."
+            days.append(DayPlan(date=day_date, title=title, weather=weather, items=items, note=note))
 
         hotel_stay = self._build_hotel(hotel, date_range)
         tickets = self._build_tickets(flights)
         reservations = _reservations(places, tickets)
         cost = self._cost(context, hotel_stay, tickets, date_range)
-        constraints = _constraints(context, days, hotel_stay, tickets, cost)
+        constraints = _constraints(
+            context, days, hotel_stay, tickets, cost, blocked=blocked, windows=windows, wishes=wishes
+        )
         gaps = _gaps(results)
         if diet and not meals:
             gaps.append(
@@ -334,12 +356,18 @@ class Planner:
         draft: PlannerDraft | None,
         *,
         pace: str = "balanced",
+        limits: list[int | None] | None = None,
     ) -> dict[int, list[dict]]:
         by_id = {row["id"]: row for row in places}
         assignment: dict[int, list[dict]] = {index: [] for index in range(day_count)}
         used: set[str] = set()
         accepted: list[str] = []
         cap = min(self.settings.max_attractions_per_day, PACE_ATTRACTION_CAP.get(pace, 4))
+        # Per-day room: a blocked day has none, a flight day only what fits.
+        caps = [
+            cap if limits is None or index >= len(limits) or limits[index] is None else min(cap, limits[index])
+            for index in range(day_count)
+        ]
         spill: list[dict] = []
 
         def admit(row: dict) -> bool:
@@ -360,7 +388,7 @@ class Planner:
                     row = by_id.get(item_id)
                     if row is None or item_id in used:
                         continue
-                    if len(assignment[item.day_index]) >= cap:
+                    if len(assignment[item.day_index]) >= caps[item.day_index]:
                         spill.append(row)
                     elif admit(row):
                         assignment[item.day_index].append(row)
@@ -369,7 +397,7 @@ class Planner:
         remaining = spill + [row for row in places if row["id"] not in used]
         counters = [len(assignment[index]) for index in range(day_count)]
         for row in remaining:
-            open_days = [i for i in range(day_count) if counters[i] < cap]
+            open_days = [i for i in range(day_count) if counters[i] < caps[i]]
             if not open_days:
                 break
             index = min(open_days, key=lambda i: counters[i])
@@ -381,7 +409,10 @@ class Planner:
         # Move one stop across, but never break a day that already has two.
         counts = [len(assignment[index]) for index in range(day_count)]
         for _ in range(2):
-            low = min(range(day_count), key=lambda i: counts[i])
+            roomy = [i for i in range(day_count) if counts[i] < caps[i]]
+            if not roomy:
+                break
+            low = min(roomy, key=lambda i: counts[i])
             high = max(range(day_count), key=lambda i: counts[i])
             if counts[low] >= 2 or counts[high] <= 2:
                 break
@@ -837,14 +868,24 @@ def _schedule_day(
     *,
     pace: str = "balanced",
     must_see: list[str] | None = None,
+    window: DayWindow | None = None,
 ) -> list[PlanItem]:
     """Lay the day out chronologically with realistic transfer time.
 
     Times are derived, not slotted: each stop follows the previous one after the
     transfer that the distance actually needs (walk / metro / drive), and lunch
     holds its window. A named must-see, or a crowd-sensitive marquee site, takes
-    the 08:00 slot before the crowds.
+    the 08:00 slot before the crowds. On a flight day nothing starts before the
+    traveller is in town or ends after they must leave for the airport.
     """
+    open_from = window.start if window and window.start is not None else None
+    open_until = window.end if window and window.end is not None else None
+    if lunch and ((open_from is not None and open_from > LUNCH_START) or (open_until is not None and open_until < LUNCH_END)):
+        lunch = None
+    if dinner and (
+        (open_from is not None and open_from > DINNER_START) or (open_until is not None and open_until < DINNER_END)
+    ):
+        dinner = None
     must_see = must_see or []
     ordered = list(places)
     if must_see:
@@ -859,6 +900,8 @@ def _schedule_day(
         # popular enough to get busy, or the day simply has a lot to fit in.
         if named or _starts_early(first) or len(ordered) >= 4:
             start_at = min(start_at, 8 * 60)
+    if open_from is not None:
+        start_at = max(start_at, open_from)
 
     items: list[PlanItem] = []
     previous_geo: dict | None = None
@@ -883,6 +926,8 @@ def _schedule_day(
             earliest = LUNCH_END + 15
         start = _round5(earliest)
         end = start + dwell
+        if open_until is not None and end > open_until:
+            break
 
         note = (row.get("description") or "").strip()
         note = (note + transfer_note).strip()
@@ -912,6 +957,16 @@ def _schedule_day(
     # Chronological order is the contract; meals are not "after all sights".
     items.sort(key=lambda item: (_minutes_of(item.start), 0 if item.type == "attraction" else 1))
     return items
+
+
+def _window_limit(window: DayWindow | None, pace: str) -> int | None:
+    """How many stops fit in a flight day's free hours; None when the day is whole."""
+    if window is None:
+        return None
+    open_from = max(window.start if window.start is not None else 0, PACE_FIRST_START.get(pace, 9 * 60))
+    open_until = window.end if window.end is not None else DAY_END
+    slot = PACE_DWELL_MINUTES.get(pace, 90) + SLOT_OVERHEAD_MINUTES
+    return max(0, (open_until - open_from) // slot)
 
 
 def _meal_item(label: str, start: str, end: str, row: dict) -> PlanItem:
@@ -963,7 +1018,14 @@ def _constraints(
     hotel: HotelStay | None,
     tickets: list[TicketOption],
     cost: CostBreakdown,
+    *,
+    blocked: dict[date, str] | None = None,
+    windows: dict[date, DayWindow] | None = None,
+    wishes: dict[str, str | None] | None = None,
 ) -> list[ConstraintCheck]:
+    blocked = blocked or {}
+    windows = windows or {}
+    wishes = wishes or {}
     checks: list[ConstraintCheck] = []
     if context.budget is not None:
         checks.append(
@@ -980,7 +1042,10 @@ def _constraints(
             evidence=f"{len(days)} days cover {context.start_date} to {context.end_date}.",
         )
     )
-    empty_days = [day.date.isoformat() for day in days if not day.items]
+    # A day kept free on purpose, or filled by a flight, is not a missing stop.
+    empty_days = [
+        day.date.isoformat() for day in days if not day.items and day.date not in blocked and day.date not in windows
+    ]
     checks.append(
         ConstraintCheck(
             text="Every day has at least one verified stop",
@@ -1012,10 +1077,20 @@ def _constraints(
                 evidence=tickets[0].name if tickets else "No flight source returned an option.",
             )
         )
+    planned_names = [item.name.lower() for day in days for item in day.items]
+
+    def planned(needle: str) -> bool:
+        # The source may know the place by another name: "Lotte World" was found as 롯데월드.
+        found_as = wishes.get(needle)
+        targets = [needle.lower()] + ([found_as.lower()] if found_as else [])
+        return any(target in name for target in targets for name in planned_names)
+
+    checked_needles: set[str] = set()
     for text in context.hard_constraints:
         needle = _must_include(text)
         if needle:
-            found = any(needle.lower() in item.name.lower() for day in days for item in day.items)
+            checked_needles.add(needle.lower())
+            found = planned(needle)
             checks.append(
                 ConstraintCheck(
                     text=text,
@@ -1023,21 +1098,52 @@ def _constraints(
                     evidence="Matched a planned stop." if found else "No planned stop matches this requirement.",
                 )
             )
+    # A place named only as a tag gets its own check, so a miss is visible.
+    for wish, found_as in wishes.items():
+        if wish.lower() in checked_needles:
+            continue
+        if found_as is None:
+            status, evidence = ConstraintStatus.UNKNOWN, "No place source returned a place with this name."
+        elif planned(wish):
+            status, evidence = ConstraintStatus.PASS, f"Planned as {found_as}."
+        else:
+            status, evidence = ConstraintStatus.FAIL, f"Found as {found_as}, but no day had room for it."
+        checks.append(ConstraintCheck(text=f"Include {wish}", status=status, evidence=evidence))
+
+    by_day = {day.date: day for day in days}
+    for text in _dedupe(list(blocked.values())):
+        free = sorted(when for when, source in blocked.items() if source == text)
+        busy = [when.isoformat() for when in free if by_day.get(when) and by_day[when].items]
+        checks.append(
+            ConstraintCheck(
+                text=text,
+                status=ConstraintStatus.FAIL if busy else ConstraintStatus.PASS,
+                evidence=(
+                    f"Stops were still planned on {', '.join(busy)}."
+                    if busy
+                    else f"Nothing planned on {', '.join(when.isoformat() for when in free)}."
+                ),
+            )
+        )
+    for when, window in sorted(windows.items()):
+        day = by_day.get(when)
+        items = day.items if day else []
+        early = [item for item in items if window.start is not None and _minutes_of(item.start) < window.start]
+        late = [item for item in items if window.end is not None and _minutes_of(item.end) > window.end]
+        parts = []
+        if window.start is not None:
+            parts.append(f"nothing starts before {_hhmm(window.start)}")
+        if window.end is not None:
+            parts.append(f"everything ends by {_hhmm(window.end)}")
+        for text in _dedupe(window.texts):
+            checks.append(
+                ConstraintCheck(
+                    text=text,
+                    status=ConstraintStatus.FAIL if early or late else ConstraintStatus.PASS,
+                    evidence=f"On {when.isoformat()}, {' and '.join(parts)}.",
+                )
+            )
     return checks
-
-
-def _must_include(text: str) -> str | None:
-    lower = text.lower()
-    if re.search(r"\b(?:do not|don't|not|never|exclude|without)\s+(?:include|visit)\b", lower):
-        # "do not include the closed Peak Tram" is an exclusion, not a must-include.
-        return None
-    for marker in ("must include", "must visit", "need to include", "want to visit", "include"):
-        if marker in lower:
-            value = text[lower.index(marker) + len(marker) :].strip(" :.-")
-            # "the Ghibli Museum" must match a stop named "Ghibli Museum".
-            value = re.sub(r"^(?:the|a|an)\s+", "", value, flags=re.IGNORECASE)
-            return value[:60] or None
-    return None
 
 
 def _required_names(context: TripContext) -> list[str]:

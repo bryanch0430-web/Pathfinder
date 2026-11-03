@@ -15,6 +15,7 @@ from difflib import SequenceMatcher
 from typing import Any, Awaitable, Callable
 
 from app.application.toolbox import LoggedWebSource, Toolbox
+from app.application.trip_rules import place_wishes, wish_matches
 from app.config import Settings
 from app.domain.errors import ProviderError
 from app.domain.models import (
@@ -241,8 +242,22 @@ class AttractionAgent(BaseAgent):
             except Exception:
                 continue
 
+        # A place the traveller named is searched by name, so a generic
+        # "attractions in X" list that misses it cannot drop it.
+        wishes: dict[str, str | None] = {}
+        wished: list[PlaceCandidate] = []
+        for wish in place_wishes(request.context):
+            match = await self._find_wish(request, wish)
+            wishes[wish] = match.name if match else None
+            if match:
+                match.tags = ["requested", *match.tags]
+                wished.append(match)
+                sources.extend(match.source_refs)
+
         places.sort(key=lambda p: (p.rating or 0, p.review_count or 0), reverse=True)
         places = [p for p in places if p.geo is not None][:10] or places[:10]
+        if wished:
+            places = _merge_places(wished + places)[: max(10, len(wished))]
         restaurants = [r for r in restaurants if r.geo is not None][:6]
 
         web_references: list[dict[str, Any]] = []
@@ -265,6 +280,7 @@ class AttractionAgent(BaseAgent):
             "notes": notes,
             "centre": request.destination.geo.model_dump(),
             "web_references": web_references,
+            "wishes": wishes,
         }
         if places:
             # A working fallback is not a degraded plan: do not surface the
@@ -290,6 +306,30 @@ class AttractionAgent(BaseAgent):
             failures=failures,
             started=started,
         )
+
+    async def _find_wish(self, request: AgentContext, wish: str) -> PlaceCandidate | None:
+        """The place a traveller named, or None when no source answers with that name."""
+        for source in self.registry.places:
+            if not getattr(source, "available", True):
+                continue
+            try:
+                results = await self._call(
+                    request,
+                    "places.search",
+                    source.search,
+                    destination=request.context.destination,
+                    geo=request.destination.geo,
+                    category="attraction",
+                    limit=3,
+                    query=wish,
+                )
+            except (ProviderError, asyncio.TimeoutError, Exception):
+                continue
+            trusted = getattr(source, "ranks_by_relevance", False)
+            for index, place in enumerate(results or []):
+                if wish_matches(place, wish) or (trusted and index == 0):
+                    return place
+        return None
 
 
 class HotelAgent(BaseAgent):
