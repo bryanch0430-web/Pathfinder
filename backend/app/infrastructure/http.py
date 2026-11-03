@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Iterator
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Any, Awaitable, Callable, Iterator
 
 import httpx
 
@@ -14,6 +18,51 @@ from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
 
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
+
+#: Backoff before retry n (0-based) is BACKOFF_BASE_SECONDS * 2**n plus a jitter
+#: drawn from [0, BACKOFF_JITTER_SECONDS].
+BACKOFF_BASE_SECONDS = 0.35
+BACKOFF_JITTER_SECONDS = 0.25
+#: Without an explicit budget, the attempts and waits of one call together get
+#: twice the per-attempt timeout (Proposal p3: retries stay inside a strict time budget).
+DEFAULT_BUDGET_FACTOR = 2.0
+
+
+@dataclass(frozen=True)
+class RetryTiming:
+    """The clock, sleep and jitter source of the retry loop. Tests pass fakes."""
+
+    clock: Callable[[], float] = time.monotonic
+    sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep
+    jitter: Callable[[float, float], float] = field(default=random.uniform)
+
+
+def backoff_delay(attempt: int, jitter: Callable[[float, float], float] = random.uniform) -> float:
+    """Exponential backoff with additive jitter for retry number ``attempt`` (0-based)."""
+    return BACKOFF_BASE_SECONDS * (2**attempt) + jitter(0.0, BACKOFF_JITTER_SECONDS)
+
+
+def retry_after_seconds(value: str | None, *, now: datetime | None = None) -> float | None:
+    """The wait a Retry-After header asks for, in seconds; None when absent or unreadable.
+
+    The header is either a number of seconds or an HTTP date.
+    """
+    if not value or not value.strip():
+        return None
+    text = value.strip()
+    try:
+        return max(0.0, float(text))
+    except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return max(0.0, (when - (now or datetime.now(timezone.utc))).total_seconds())
 
 #: Transport for every request made in the current context. None is the real
 #: network; the TC-02 replay (app.eval_replay) sets recorded-shape responses.
@@ -40,7 +89,8 @@ def classify_status(status: int, source: str, message: str = "") -> ProviderErro
         return ProviderError(detail, kind=FailureKind.INVALID_REQUEST, source=source, retryable=False)
     if status == 404:
         return ProviderNoData(detail, source=source)
-    if status >= 500:
+    if status >= 500 or status in RETRYABLE_STATUS:
+        # 408 Request Timeout and 425 Too Early are transient like a 5xx.
         return ProviderError(detail, kind=FailureKind.SERVER_ERROR, source=source)
     return ProviderError(detail, kind=FailureKind.SERVER_ERROR, source=source, retryable=False)
 
@@ -55,19 +105,44 @@ async def request_json(
     payload: dict[str, Any] | None = None,
     timeout: float = 15.0,
     retries: int = 2,
+    budget: float | None = None,
     user_agent: str = "Pathfinder/1.0",
+    timing: RetryTiming | None = None,
 ) -> dict[str, Any]:
+    """One JSON request, retried on timeouts, rate limits and 5xx inside a time budget.
+
+    ``budget`` (default: DEFAULT_BUDGET_FACTOR x ``timeout``) bounds every attempt
+    and every wait together. Each attempt gets at most the time left; a wait,
+    whether the backoff or the server's Retry-After, that would not leave time
+    for another attempt ends the loop with the last classified error instead.
+    """
+    timing = timing or RetryTiming()
+    total = budget if budget is not None else timeout * DEFAULT_BUDGET_FACTOR
+    started = timing.clock()
+
+    def remaining() -> float:
+        return total - (timing.clock() - started)
+
     last: ProviderError | None = None
     merged_headers = {"User-Agent": user_agent, "Accept": "application/json"}
     if headers:
         merged_headers.update(headers)
+    transport = _TRANSPORT.get()
     for attempt in range(retries + 1):
+        wait_hint: float | None = None
         try:
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, transport=_TRANSPORT.get()) as client:
-                response = await client.request(
-                    method, url, headers=merged_headers, params=params, json=payload
+            left = remaining()
+            if left <= 0:
+                raise asyncio.TimeoutError()
+            attempt_timeout = min(timeout, left)
+            async with httpx.AsyncClient(timeout=attempt_timeout, follow_redirects=True, transport=transport) as client:
+                response = await asyncio.wait_for(
+                    client.request(method, url, headers=merged_headers, params=params, json=payload),
+                    timeout=attempt_timeout,
                 )
             if response.status_code >= 400:
+                if response.status_code in RETRYABLE_STATUS:
+                    wait_hint = retry_after_seconds(response.headers.get("Retry-After"))
                 raise classify_status(response.status_code, source, response.text[:300])
             try:
                 data = response.json()
@@ -84,7 +159,13 @@ async def request_json(
             raise
         except ProviderError as exc:
             last = exc
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError) as exc:
+        except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
+            last = ProviderError(
+                f"{source} timed out: {exc.__class__.__name__}",
+                kind=FailureKind.TIMEOUT,
+                source=source,
+            )
+        except (httpx.NetworkError, httpx.RemoteProtocolError) as exc:
             last = ProviderError(
                 f"{source} network failure: {exc.__class__.__name__}",
                 kind=FailureKind.NETWORK,
@@ -99,7 +180,11 @@ async def request_json(
             )
         if last is None or not last.retryable or attempt >= retries:
             break
-        await asyncio.sleep((0.35 * (2**attempt)) + random.uniform(0.0, 0.25))
+        delay = wait_hint if wait_hint is not None else backoff_delay(attempt, timing.jitter)
+        if delay >= remaining():
+            # Waiting would spend the rest of the budget: report the failure now.
+            break
+        await timing.sleep(delay)
     assert last is not None
     raise last
 
