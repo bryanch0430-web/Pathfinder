@@ -280,6 +280,13 @@ class ModifyPath:
                 updated.hotels[0].check_out = new_range.end
             updated.tickets = [ticket for ticket in updated.tickets if _ticket_within(ticket, new_range)]
 
+        # Only an edit that names the hotel or the budget may change which hotel it is. When the
+        # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
+        hotel_requested = (
+            bool({"hotel", "budget"} & set(affected))
+            or budget_mode
+            or (referred is not None and plan.find_hotel(referred) is not None)
+        )
         if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
             candidates = (hotels.payload.get("hotels") if hotels else []) or []
@@ -289,19 +296,32 @@ class ModifyPath:
                 if updated.hotels and updated.hotels[0].price_per_night
                 else None
             )
-            cheaper = budget_mode or bool(re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower()))
-            pool = [row for row in candidates if row.get("name") != current and _hotel_near(updated, row)]
-            if cheaper:
-                pool.sort(key=lambda row: _hotel_price(row) if _hotel_price(row) is not None else float("inf"))
-                if current_price is not None:
-                    pool = [row for row in pool if (_hotel_price(row) or current_price) < current_price]
-            choice = pool[0] if pool else None
-            if choice:
-                updated.hotels = [self.planner._build_hotel(choice, updated.dates)]  # type: ignore[list-item]
+            if updated.hotels and not hotel_requested:
+                same = next((row for row in candidates if row.get("name") == current), None)
+                rebuilt = self.planner._build_hotel(same, updated.dates) if same is not None else None
+                if rebuilt is not None:
+                    updated.hotels = [rebuilt]
+                else:
+                    updated.data_quality.gaps.append(
+                        _gap("hotels", "The hotel's price for the new dates could not be refreshed.")
+                    )
             else:
-                updated.data_quality.gaps.append(
-                    _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
+                cheaper = budget_mode or bool(
+                    re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower())
                 )
+                pool = [row for row in candidates if row.get("name") != current and _hotel_near(updated, row)]
+                if cheaper:
+                    pool.sort(key=lambda row: _hotel_price(row) if _hotel_price(row) is not None else float("inf"))
+                    if current_price is not None:
+                        pool = [row for row in pool if (_hotel_price(row) or current_price) < current_price]
+                choice = pool[0] if pool else None
+                swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
+                if swapped is not None:
+                    updated.hotels = [swapped]
+                else:
+                    updated.data_quality.gaps.append(
+                        _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
+                    )
 
         if AgentName.WEATHER in agent_names and referred is None:
             weather_result = results.get("weather")

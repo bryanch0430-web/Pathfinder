@@ -309,3 +309,47 @@ def test_squashed_name_matching_resolves_joined_words(settings: Settings) -> Non
     resolved = _resolve_target(plan, draft, f"i want to change {squashed} please")
 
     assert resolved is not None and resolved[1].id == first.id
+
+
+def _modify(settings: Settings, message: str, route_parts: list[str], *, new_range: tuple[date, date] | None = None):
+    """Build a 3-day Kyoto plan, optionally move the context to `new_range`, and apply one edit."""
+    from app.application.modification import ModifyPath
+    from app.application.toolbox import Toolbox
+
+    gateway, planner, plan_path, context, plan = _build(settings)
+    if new_range is not None:
+        context.start_date, context.end_date = new_range
+        context.days = (new_range[1] - new_range[0]).days + 1
+    modify = ModifyPath(planner=planner, plan_path=plan_path, settings=settings, gateway=gateway)
+    updated, diff = asyncio.run(
+        modify.run(
+            plan=plan,
+            context=context,
+            message=message,
+            route_parts=route_parts,
+            toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="t"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+    )
+    return plan, updated, diff
+
+
+def _next_december(day: int) -> date:
+    today = date.today()
+    year = today.year if today < date(today.year, 12, day) else today.year + 1
+    return date(year, 12, day)
+
+
+def test_date_change_keeps_the_current_hotel(settings: Settings) -> None:
+    from app.application.orchestrator import _describe_diff
+
+    new_range = (_next_december(12), _next_december(14))
+    plan, updated, diff = _modify(settings, "move the trip to 12 to 14 December", ["dates"], new_range=new_range)
+
+    assert (updated.dates.start, updated.dates.end) == new_range
+    # The hotel the traveller accepted stays; only its dates (and so its price) move.
+    assert [hotel.name for hotel in updated.hotels] == [hotel.name for hotel in plan.hotels]
+    assert (updated.hotels[0].check_in, updated.hotels[0].check_out) == new_range
+    assert not any(change["kind"] == "hotel" for change in diff)
+    assert "Hotel changed" not in _describe_diff(diff, updated)
