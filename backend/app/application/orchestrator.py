@@ -691,8 +691,8 @@ class TurnService:
                 yield event
             plan = await task
         finally:
+            await _settle(task)  # first: a path that is not stopped keeps working whatever else goes wrong here
             reset_live_emit(live)
-            await _settle(task)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
         self.store.add_message(
             Message(session_id=session_id, role="assistant", content=plan.summary, intent=Intent.PLAN)
@@ -748,8 +748,8 @@ class TurnService:
                 yield event
             updated, diff = await task
         finally:
-            reset_live_emit(live)
             await _settle(task)
+            reset_live_emit(live)
         self.store.save_plan(updated, updated.change_summary, replace=updated.version == plan.version)
         description = _describe_diff(diff, updated)
         if diff:

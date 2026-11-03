@@ -310,13 +310,22 @@ _live_emit: ContextVar[Any] = ContextVar("pathfinder_live_emit", default=None)
 _developer_view: ContextVar[bool] = ContextVar("pathfinder_developer_view", default=False)
 
 
+def _unbind(variable: ContextVar[Any], token: Any) -> None:
+    """Undo a ``bind_*``. A turn that is closed by another task than the one that read it unwinds in a context
+    where the variable was never changed (the token is refused there): nothing is left to restore."""
+    try:
+        variable.reset(token)
+    except ValueError:
+        return
+
+
 def bind_live_emit(emit: Any) -> Any:
     """Child tasks copy this at creation, so a tool can push an event mid-turn."""
     return _live_emit.set(emit)
 
 
 def reset_live_emit(token: Any) -> None:
-    _live_emit.reset(token)
+    _unbind(_live_emit, token)
 
 
 def bind_developer_view(enabled: bool) -> Any:
@@ -324,7 +333,7 @@ def bind_developer_view(enabled: bool) -> Any:
 
 
 def reset_developer_view(token: Any) -> None:
-    _developer_view.reset(token)
+    _unbind(_developer_view, token)
 
 
 def developer_view() -> bool:
