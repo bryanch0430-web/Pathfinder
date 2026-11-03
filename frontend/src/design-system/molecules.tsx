@@ -11,7 +11,7 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
-import { isImeKey } from "../lib/typing";
+import { addTags, isImeKey } from "../lib/typing";
 import type {
   AgentState,
   ClarifyPayload,
@@ -179,9 +179,7 @@ export function TripContextForm({
   }, [values.destination, onSuggestDestination]);
 
   const addPreference = () => {
-    const next = prefInput.trim().replace(/,+$/, "");
-    if (!next) return;
-    const merged = preferenceTags.includes(next) ? preferenceTags : [...preferenceTags, next];
+    const merged = addTags(preferenceTags, prefInput);
     setPreferenceTags(merged);
     onChange({ preferences: merged });
     setPrefInput("");

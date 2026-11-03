@@ -50,7 +50,7 @@ import { hotelScopeItem } from "./scope";
 import { ApiError, getLegs, type MapLeg } from "../lib/api";
 import { failureText } from "../lib/failure";
 import { safeHref } from "../lib/safeHref";
-import { isImeKey } from "../lib/typing";
+import { addTags, isImeKey } from "../lib/typing";
 import { useI18n, type MessageKey, type Translate } from "../lib/i18n";
 
 const FRESHNESS_SECTION: Record<"weather" | "tickets" | "hotels", MessageKey> = {
@@ -2224,9 +2224,7 @@ export function SettingsView({
   }, [profile]);
 
   const addPreference = () => {
-    const next = prefInput.trim().replace(/,+$/, "");
-    if (!next) return;
-    setPreferences((current) => (current.includes(next) ? current : [...current, next]));
+    setPreferences((current) => addTags(current, prefInput));
     setPrefInput("");
   };
   const removePreference = (value: string) => {
@@ -2309,10 +2307,8 @@ export function SettingsView({
                     size="sm"
                     variant="secondary"
                     onClick={() => {
+                      const next = addTags(preferences, prefInput);
                       addPreference();
-                      const pending = prefInput.trim();
-                      const next =
-                        pending && !preferences.includes(pending) ? [...preferences, pending] : preferences;
                       onSavePreferences(next);
                     }}
                   >
