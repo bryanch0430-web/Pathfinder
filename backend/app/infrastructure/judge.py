@@ -65,7 +65,7 @@ def _case_payload(case: EvalCase, plan: TripPlan, checks: list[str], scores: dic
         {
             "date": day.date.isoformat(),
             "title": day.title,
-            "items": [f"{item.start}-{item.end} {item.title} ({item.data_status.value})" for item in day.items[:6]],
+            "items": [f"{item.start}-{item.end} {item.name} ({item.data_status.value})" for item in day.items[:6]],
         }
         for day in plan.days[:8]
     ]
@@ -85,8 +85,8 @@ def _case_payload(case: EvalCase, plan: TripPlan, checks: list[str], scores: dic
             "summary": plan.summary[:600],
             "days": days,
             "cost": {
-                "total": plan.cost.total.amount,
-                "currency": plan.cost.total.currency,
+                "total": plan.cost.total,
+                "currency": plan.cost.currency,
                 "status": plan.cost.status,
             },
             "gaps": [f"{gap.section}:{gap.kind.value}" for gap in plan.data_quality.gaps][:8],
