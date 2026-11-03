@@ -98,6 +98,34 @@ def classify_status(status: int, source: str, message: str = "") -> ProviderErro
     return ProviderError(detail, kind=FailureKind.SERVER_ERROR, source=source, retryable=False)
 
 
+def classify_exception(exc: BaseException, source: str) -> ProviderError:
+    """The typed failure that an exception raised by a request stands for.
+
+    A timeout and a network failure are transient (retryable); anything else is a server
+    error that retrying would not fix.
+    """
+    if isinstance(exc, ProviderError):
+        return exc
+    if isinstance(exc, (httpx.TimeoutException, asyncio.TimeoutError)):
+        return ProviderError(
+            f"{source} timed out: {exc.__class__.__name__}",
+            kind=FailureKind.TIMEOUT,
+            source=source,
+        )
+    if isinstance(exc, (httpx.NetworkError, httpx.RemoteProtocolError)):
+        return ProviderError(
+            f"{source} network failure: {exc.__class__.__name__}",
+            kind=FailureKind.NETWORK,
+            source=source,
+        )
+    return ProviderError(
+        f"{source} failed: {exc.__class__.__name__}",
+        kind=FailureKind.SERVER_ERROR,
+        source=source,
+        retryable=False,
+    )
+
+
 async def request_json(
     method: str,
     url: str,
@@ -163,27 +191,8 @@ async def request_json(
             return data
         except ProviderNoData:
             raise
-        except ProviderError as exc:
-            last = exc
-        except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
-            last = ProviderError(
-                f"{source} timed out: {exc.__class__.__name__}",
-                kind=FailureKind.TIMEOUT,
-                source=source,
-            )
-        except (httpx.NetworkError, httpx.RemoteProtocolError) as exc:
-            last = ProviderError(
-                f"{source} network failure: {exc.__class__.__name__}",
-                kind=FailureKind.NETWORK,
-                source=source,
-            )
-        except Exception as exc:  # defensive: never leak an SDK exception upward
-            last = ProviderError(
-                f"{source} failed: {exc.__class__.__name__}",
-                kind=FailureKind.SERVER_ERROR,
-                source=source,
-                retryable=False,
-            )
+        except Exception as exc:  # never leak an SDK exception upward: it becomes a typed failure
+            last = classify_exception(exc, source)
         if last is None or not last.retryable or attempt >= retries:
             break
         delay = wait_hint if wait_hint is not None else backoff_delay(attempt, timing.jitter)
