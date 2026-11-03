@@ -613,7 +613,8 @@ class AgentResult(BaseModel):
     failures: list[DataGap] = Field(default_factory=list)
     elapsed_ms: int = 0
     fetched_at: datetime = Field(default_factory=utcnow)
-    #: True when the agent was cut off and this is what it had found so far.
+    #: True when the agent was cut off and this is what it had found so far. Its status is PARTIAL
+    #: as well; the console shows the status and the gap.
     partial: bool = False
 
 
