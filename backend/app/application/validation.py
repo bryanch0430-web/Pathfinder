@@ -75,11 +75,8 @@ async def repair_plan(
             "The plan failed validation and no writer model is available to repair it.",
             code="plan_invalid",
         )
-    allowed_names = {
-        item.name
-        for day in plan.days
-        for item in day.items
-    } | {hotel.name for hotel in plan.hotels} | {ticket.name for ticket in plan.tickets}
+    original = plan
+    allowed_names = _names(plan)
     allowed_urls = {
         ref.url
         for day in plan.days
@@ -108,6 +105,12 @@ async def repair_plan(
         candidate.version = plan.version
         candidate.created_at = plan.created_at
         candidate.updated_at = plan.updated_at
+        dropped = sorted(allowed_names - _names(candidate))
+        if dropped:
+            # A repair fixes what is wrong; it does not get to take a stop out of the plan.
+            last_errors = ["repair removed from the original plan: " + ", ".join(dropped[:5])]
+            continue
+        _restore_provenance(original, candidate)
         if not _grounded(candidate, allowed_names, allowed_urls):
             last_errors = ["repair introduced a fact or source that was not in the original plan"]
             continue
@@ -121,10 +124,44 @@ async def repair_plan(
     )
 
 
-def _grounded(plan: TripPlan, allowed_names: set[str], allowed_urls: set[str]) -> bool:
+def _names(plan: TripPlan) -> set[str]:
+    """Every stop, hotel and ticket name in a plan."""
     names = {item.name for day in plan.days for item in day.items}
     names |= {hotel.name for hotel in plan.hotels}
     names |= {ticket.name for ticket in plan.tickets}
+    return names
+
+
+def _restore_provenance(original: TripPlan, candidate: TripPlan) -> None:
+    """A repair re-shapes the plan; it cannot fetch anything. Fetch times come from the original
+    by name (or date, for the forecast), and sources the writer left out are put back."""
+    items = {item.name: item for day in original.days for item in day.items}
+    for day in candidate.days:
+        for item in day.items:
+            before = items.get(item.name)
+            if before is None:
+                continue
+            item.fetched_at = before.fetched_at
+            if "source_refs" not in item.model_fields_set:
+                item.source_refs = list(before.source_refs)
+    for kept, rows in ((original.hotels, candidate.hotels), (original.tickets, candidate.tickets)):
+        by_name = {row.name: row for row in kept}
+        for row in rows:
+            before = by_name.get(row.name)
+            if before is None:
+                continue
+            row.fetched_at = before.fetched_at
+            if "source_refs" not in row.model_fields_set:
+                row.source_refs = list(before.source_refs)
+    weather = {day.date: day.weather for day in original.days if day.weather is not None}
+    for day in candidate.days:
+        before_weather = weather.get(day.date)
+        if day.weather is not None and before_weather is not None:
+            day.weather.fetched_at = before_weather.fetched_at
+
+
+def _grounded(plan: TripPlan, allowed_names: set[str], allowed_urls: set[str]) -> bool:
+    names = _names(plan)
     if not names.issubset(allowed_names):
         return False
     for day in plan.days:
