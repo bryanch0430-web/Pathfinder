@@ -294,7 +294,9 @@ POST /api/turn/stream (SSE)
 | **Ticket** | Flights with reference fares; reservation flags | SerpApi Google Flights; rail is explicitly not connected |
 
 All four run concurrently. A slow or failing agent marks only its section
-`unavailable`; the turn still returns inside `PREPLAN_BUDGET_SECONDS`.
+`unavailable`; the turn still returns inside `PREPLAN_BUDGET_SECONDS`. An attraction agent
+cut off by that budget keeps what it had already found (located places, restaurants, notes,
+the places the traveller named) and the section reads `partial`.
 
 ### How a day is laid out
 
@@ -408,7 +410,11 @@ drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The comm
   inbound leg are shown on one option with one combined fare, never a departure alone.
 - `attractions`: only a resolver failure that leaves no attraction is a gap. A failed
   higher-priority source with a working fallback (Google → Nominatim OSM → Wikivoyage)
-  is not surfaced as a gap.
+  is not surfaced as a gap. A guide place the geocoder could not be asked about is a gap that
+  names the failure (timeout, network, auth) and says whether asking again could help; after two
+  failed lookups in a row the agent stops asking. A place the traveller named whose lookup
+  failed is a gap too, and its "Include" check says the lookup failed. A map outage at the
+  destination itself is a failed data source, not a name to rephrase.
 - any section: a lookup the per-turn cap (`MAX_TOOL_CALLS_PER_TURN`) refused is a `blocked`
   gap, "Not looked up: this request reached its limit of data lookups.", and transfer times
   that fell back to estimates for that reason are a `transfers` gap. A destination that cannot
