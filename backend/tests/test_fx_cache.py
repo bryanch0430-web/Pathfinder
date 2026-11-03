@@ -161,6 +161,31 @@ def test_the_public_wallet_routes_make_one_outbound_call_while_the_upstream_is_d
     assert upstream.calls == 1
 
 
+def test_rates_that_have_aged_out_give_way_to_the_static_table_when_the_upstream_is_down(upstream: Upstream) -> None:
+    """The label must describe the table in use: old live rates were kept under `static` and a live date."""
+    upstream.answer = LIVE
+    clock = Clock()
+    fx = FxService(clock=clock)
+
+    async def scenario() -> None:
+        await fx.refresh()
+        assert fx.source == "open.er-api" and fx.convert(1, "USD", "JPY") == 160.0
+        clock.now += RATES_TTL_SECONDS + 1
+        upstream.answer = ProviderError("open.er-api is unreachable", kind=FailureKind.NETWORK, source="open.er-api")
+        await _refresh(fx, 3)
+        assert fx.source == "static"
+        clock.now += 3 * 86400  # the outage goes on for days
+        await _refresh(fx, 3)
+
+    asyncio.run(scenario())
+
+    before_any_fetch = FxService()
+    assert fx.source == "static" and fx.as_of == before_any_fetch.as_of
+    assert fx.convert(1, "USD", "JPY") == before_any_fetch.convert(1, "USD", "JPY") != 160.0
+    assert fx.snapshot("USD") == before_any_fetch.snapshot("USD")
+    assert fx.note() == before_any_fetch.note()
+
+
 def test_the_ttl_and_the_backoff_default_to_the_monotonic_clock() -> None:
     """A wall clock can step back (a VM resume, the first clock sync); the timing must not follow it."""
     assert inspect.signature(FxService).parameters["clock"].default is time.monotonic
