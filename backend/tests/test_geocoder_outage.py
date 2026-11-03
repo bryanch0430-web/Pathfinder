@@ -540,3 +540,72 @@ def test_a_weather_failure_that_asking_again_cannot_fix_is_not_told_to_retry(set
     text = _weather_answer(settings, _Down(refused))
 
     assert "failed (auth)" in text and "Asking again" not in text
+
+
+# -- mixed outcomes: each failure is reported, each place counted once -------------------------------
+
+
+def test_a_permanent_failure_is_not_hidden_behind_an_earlier_retryable_one(settings: Settings) -> None:
+    timeout = asyncio.TimeoutError()
+    refused = ProviderError("refused", kind=FailureKind.AUTH, source="geocoder-chain", retryable=False)
+    # Failures with an answer between them, so the agent keeps asking.
+    geocoder = _Script([timeout, _near(1), refused, _near(2)])
+
+    result = _attractions(settings, geocoder, names=("Temple 1", "Temple 2", "Temple 3", "Temple 4"))
+
+    assert len(geocoder.asked) == 4
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.TIMEOUT, True), (FailureKind.AUTH, False)]
+    assert gaps[0][2] == "1 guide place could not be checked on the map because the geocoder failed (timeout); ask again to retry."
+    assert gaps[1][2] == "1 guide place could not be checked on the map because the geocoder failed (auth)."
+
+
+def test_the_none_located_gap_counts_every_place_the_guide_named(settings: Settings) -> None:
+    timeout = asyncio.TimeoutError()
+    # One place the geocoder does not know, then two lookups in a row that fail; the fourth is not asked.
+    geocoder = _Script([None, timeout, timeout])
+
+    result = _attractions(settings, geocoder, names=("Temple 1", "Temple 2", "Temple 3", "Temple 4"))
+
+    assert len(geocoder.asked) == 3
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.NO_DATA, False), (FailureKind.TIMEOUT, True)]
+    assert gaps[0][2] == "The guide named 4 places, but none could be located on the map."
+    assert gaps[1][2].startswith("3 guide places could not be checked")
+
+
+def test_a_named_place_the_guide_list_failed_on_is_counted_once(settings: Settings) -> None:
+    result = _attractions(settings, _Down(asyncio.TimeoutError()), names=("Kinkaku-ji", "Nijo Castle"), preferences=["Kinkaku-ji"])
+
+    gaps = _gaps(result)
+    assert [message[:2] for _, _, message in gaps] == ["2 "], gaps
+    assert sum("Kinkaku-ji" in note for note in result.notes) == 1
+
+
+def test_a_place_the_unknown_answer_was_given_for_twice_is_counted_once(settings: Settings) -> None:
+    result = _attractions(settings, _Script([None]), names=("Gion Corner",), preferences=["Gion Corner"])
+
+    gaps = _gaps(result)
+    assert gaps[0][2] == "The guide named 1 place, but none could be located on the map."
+    assert sum("Gion Corner" in note for note in result.notes) == 1
+
+
+def test_a_place_located_after_it_failed_is_no_longer_reported_as_unchecked(settings: Settings) -> None:
+    # The guide list fails on it once; the lookup for the place the traveller named then answers.
+    geocoder = _Script([asyncio.TimeoutError(), _near(1)])
+
+    result = _attractions(settings, geocoder, names=("Kinkaku-ji",), preferences=["Kinkaku-ji"])
+
+    assert [place["name"] for place in result.payload["places"]] == ["Kinkaku-ji"]
+    assert result.payload["places"][0]["tags"][0] == "requested"
+    assert _gaps(result) == []
+    assert not any("could not be checked" in note for note in result.notes)
+
+
+def test_the_gap_for_a_named_place_reads_naturally(settings: Settings) -> None:
+    result = _attractions(settings, _Finds(), preferences=["Gion Corner"], guides=[_WishFails(asyncio.TimeoutError())])
+
+    gaps = _wish_gaps(result)
+    assert gaps[0][2] == (
+        "The place you named, Gion Corner, could not be looked up because a place source failed (timeout); ask again to retry."
+    )

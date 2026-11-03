@@ -177,11 +177,6 @@ class Located:
     streak: int = 0
     latest: ProviderError | None = None
 
-    @property
-    def failure(self) -> ProviderError | None:
-        """The first failure."""
-        return next(iter(self.unchecked.values()), None)
-
     def stopped(self) -> ProviderError | None:
         """The failure that made the agent stop asking, once the geocoder failed too often in a row."""
         return self.latest if self.streak >= GEOCODER_FAILURE_LIMIT else None
@@ -358,32 +353,26 @@ class AttractionAgent(BaseAgent):
             status = AgentStatus.UNAVAILABLE
             note_text = ["No attraction source returned usable data."]
             if located.unplaced:
+                named = _noun(len(located.unplaced) + len(located.unchecked), "place")
                 failures.append(
                     DataGap(
                         section="attractions",
                         kind=FailureKind.NO_DATA,
-                        message=f"The guide named {len(located.unplaced)} places, but none could be located on the map.",
+                        message=f"The guide named {named}, but none could be located on the map.",
                     )
                 )
         if located.unplaced:
             note_text.append(
-                f"Left out {len(located.unplaced)} guide places the geocoder could not locate: "
+                f"Left out {_noun(len(located.unplaced), 'guide place')} the geocoder could not locate: "
                 + ", ".join(located.unplaced[:5])
             )
-        if located.unchecked and located.failure is not None:
+        if located.unchecked:
             # The geocoder did not say these places are unknown; it could not be asked.
             note_text.append(
-                f"Left out {len(located.unchecked)} guide places that could not be checked: "
+                f"Left out {_noun(len(located.unchecked), 'guide place')} that could not be checked: "
                 + ", ".join(list(located.unchecked)[:5])
             )
-            failures.append(
-                DataGap(
-                    section="attractions",
-                    kind=located.failure.kind,
-                    message=_unchecked_message(len(located.unchecked), located.failure),
-                    retryable=located.failure.retryable,
-                )
-            )
+            failures.extend(_failure_gaps(located.unchecked, lambda names, error: _unchecked_message(len(names), error)))
         failures.extend(_failure_gaps(lookups, _lookup_message))
         return self._result(
             request,
@@ -401,7 +390,8 @@ class AttractionAgent(BaseAgent):
         `unplaced` are the names the geocoder answered for with nothing, or with a place
         farther from the destination than a guide listing may be. `unchecked` are the names
         it could not be asked about because the call failed, or because it had just failed
-        GEOCODER_FAILURE_LIMIT times in a row; `failure` is the first such error.
+        GEOCODER_FAILURE_LIMIT times in a row, each with its error. A name is in one of them
+        once, and in neither after a later lookup locates it.
         """
         centre = request.destination.geo
         for place in places:
@@ -432,8 +422,14 @@ class AttractionAgent(BaseAgent):
             if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= 80:
                 place.geo = location.geo
                 self._keep(request, [place])
+                # Asked about again (a place the traveller named): an earlier miss no longer stands.
+                found.unchecked.pop(place.name, None)
+                if place.name in found.unplaced:
+                    found.unplaced.remove(place.name)
             else:
-                found.unplaced.append(place.name)
+                found.unchecked.pop(place.name, None)
+                if place.name not in found.unplaced:
+                    found.unplaced.append(place.name)
 
     @staticmethod
     def _record(request: AgentContext, rows: list[dict[str, Any]]) -> None:
@@ -874,9 +870,13 @@ def _lookup_evidence(failure: ProviderError) -> str:
     return f"{text} Ask again to retry." if failure.retryable else text
 
 
+def _noun(count: int, noun: str) -> str:
+    return f"{count} {noun}" + ("" if count == 1 else "s")
+
+
 def _lookup_message(names: list[str], failure: ProviderError) -> str:
     """Why places the traveller named could not be looked up, and whether asking again could help."""
-    subject = f"{', '.join(names[:4])} (you named {'it' if len(names) == 1 else 'them'})"
+    subject = f"The place you named, {names[0]}," if len(names) == 1 else f"The places you named, {', '.join(names[:4])},"
     if failure.kind is FailureKind.BLOCKED:
         return f"{subject} could not be looked up because this turn reached its limit on data lookups."
     cause = f"{subject} could not be looked up because a place source failed ({failure.kind.value})"
@@ -899,7 +899,7 @@ def _failure_gaps(failed: dict[str, ProviderError], describe: Callable[[list[str
 
 def _unchecked_message(count: int, failure: ProviderError) -> str:
     """Why `count` guide places could not be checked: what failed, and whether asking again could help."""
-    left = f"{count} guide places could not be checked on the map"
+    left = f"{_noun(count, 'guide place')} could not be checked on the map"
     if failure.kind is FailureKind.BLOCKED:
         # This turn's own cap on lookups was spent; the geocoder was never asked.
         return f"{left} because this turn reached its limit on data lookups."
