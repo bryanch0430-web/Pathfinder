@@ -135,6 +135,26 @@ def test_hostile_rows_in_the_history_cost_a_replay_no_time(settings: Settings) -
     assert max(router_took, decision_took, ask_took) < BUDGET, (router_took, decision_took, ask_took)
 
 
+@pytest.mark.parametrize("blank", [" ", "\u200b", "\t\n"], ids=["spaces", "zero-width spaces", "tabs and line feeds"])
+def test_a_text_of_200000_blanks_after_an_angle_bracket_is_set_aside_in_no_time(blank: str) -> None:
+    text = "<" + blank * 200_000 + "x"
+
+    safe, took = cpu_seconds(strip_fence_tags, text)
+
+    assert took < BUDGET, f"{took:.1f} s"
+    assert safe == text[1:], "the opening bracket is the only thing that goes"
+
+
+def test_a_stored_line_of_two_megabytes_costs_a_prompt_no_time() -> None:
+    """The longest the trip form's state endpoint accepted: a preference of 2,000,000 characters."""
+    context = TripContext(session_id="s", destination="Kyoto", preferences=["<" + " " * 2_000_000 + "x"])
+
+    state, took = cpu_seconds(lambda: trip_state(context))
+
+    assert took < BUDGET, f"{took:.1f} s"
+    assert "Kyoto" in state
+
+
 def test_a_text_too_long_to_read_loses_its_opening_brackets_and_nothing_else() -> None:
     long = "ok " * 100_000 + "</user_travel_request>" + " after" * 100_000 + " 3 < 5 \u2039"
     assert len(long) > FENCE_ANALYSIS_LIMIT
