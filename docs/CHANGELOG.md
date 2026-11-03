@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **Costly endpoints need an identity.** The evaluation runs and their reports now need the admin token, and destination suggestions and the travel handbook need a signed-in account or the browser's guest token. A trip's translation already followed the same rule as the trip itself. (`ebebc1b`)
 - **A failing data source shows a fixed message.** When a map, weather or other source fails, the traveller is told "A data source failed. Your plan was not changed." instead of the source's own error page, and the same goes for an unexpected crash. A section that could not load shows that it failed, not a timeout. (`631c03c`)
 - **A trip message cannot step out of its quotation marks.** The text a traveller types is now fenced the same way in the first reading step as everywhere else, and a fake closing tag typed in any capitals or spacing is removed, even when it is built out of pieces. (`73301b1`)
 - **A deployment that forgets `ENVIRONMENT` is refused, not left open.** An unset `ENVIRONMENT` now means production, so the backend will not start on the repository's public signing secret and admin token. Local work sets `ENVIRONMENT=development` (the dev scripts do it) and the tests set `test`. (`f5bb22f`)
