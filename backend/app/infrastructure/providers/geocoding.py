@@ -37,7 +37,7 @@ class GoogleGeocoder:
             source=self.name,
             params=params,
             timeout=self.settings.http_timeout_seconds,
-            retries=1,
+            retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
         if str(data.get("status") or "") != "OK":
@@ -138,7 +138,7 @@ class NominatimGeocoder:
             source=self.name,
             params={"q": name, "format": "jsonv2", "limit": 3, "addressdetails": 1},
             timeout=self.settings.http_timeout_seconds,
-            retries=0,
+            retries=0,  # deliberate: OpenStreetMap's usage policy asks clients not to repeat requests
             user_agent=f"{self.settings.user_agent} (contact: student project)",
         )
         rows = data.get("data") if isinstance(data.get("data"), list) else data if isinstance(data, list) else []

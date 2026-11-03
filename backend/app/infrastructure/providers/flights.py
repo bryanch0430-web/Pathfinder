@@ -115,7 +115,7 @@ class SerpApiFlightSource:
             source=self.name,
             params=params,
             timeout=max(self.settings.http_timeout_seconds, 25),
-            retries=1,
+            retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
         if data.get("error"):
@@ -149,7 +149,7 @@ class SerpApiFlightSource:
                     source=self.name,
                     params={**params, "departure_token": token},
                     timeout=max(self.settings.http_timeout_seconds, 25),
-                    retries=1,
+                    retries=self.settings.http_retries,
                     user_agent=self.settings.user_agent,
                 )
             except ProviderError:

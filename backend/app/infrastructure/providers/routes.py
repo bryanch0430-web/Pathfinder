@@ -104,7 +104,7 @@ class GoogleRoutesSource:
                 "units": "METRIC",
             },
             timeout=self.settings.http_timeout_seconds,
-            retries=1,
+            retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
         routes = data.get("routes") or []
@@ -174,7 +174,7 @@ class GoogleRoutesSource:
                     "units": "METRIC",
                 },
                 timeout=max(self.settings.http_timeout_seconds, 20),
-                retries=1,
+                retries=self.settings.http_retries,
                 user_agent=self.settings.user_agent,
             )
         except Exception:

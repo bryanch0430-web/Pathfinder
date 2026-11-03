@@ -51,6 +51,15 @@ class ProviderError(PathfinderError):
         return data
 
 
+class ToolBudgetExceeded(ProviderError):
+    """A turn tried to make more tool calls than `max_tool_calls_per_turn` allows."""
+
+    code = "tool_budget_exceeded"
+
+    def __init__(self, message: str):
+        super().__init__(message, kind=FailureKind.BLOCKED, source="toolbox", retryable=False)
+
+
 class ProviderNoData(ProviderError):
     code = "no_data"
     retryable = False

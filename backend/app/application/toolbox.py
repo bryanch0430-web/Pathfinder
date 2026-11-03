@@ -11,7 +11,7 @@ import inspect
 import time
 from typing import Any, Awaitable, Callable, TypeVar
 
-from app.domain.errors import ProviderError, SecurityBlocked
+from app.domain.errors import ProviderError, SecurityBlocked, ToolBudgetExceeded
 from app.domain.models import FailureKind
 from app.domain.ports import Tracer
 from app.infrastructure.observability import developer_view, emit_live
@@ -79,6 +79,7 @@ class Toolbox:
         store: Any | None,
         request_id: str,
         extra_allowed: frozenset[str] | None = None,
+        max_calls: int | None = None,
     ):
         self.path = path
         base = PATH_ALLOWLIST.get(path, frozenset())
@@ -87,6 +88,8 @@ class Toolbox:
         self.store = store
         self.request_id = request_id
         self.calls = 0
+        #: The most tool calls this toolbox lets through (None: no cap).
+        self.max_calls = max_calls
 
     async def call(self, tool: str, fn: Callable[..., Awaitable[T]], /, **kwargs: Any) -> T:
         if tool not in self.allowed:
@@ -123,6 +126,20 @@ class Toolbox:
             ) from exc
         except ValueError:
             pass  # no introspectable signature; the provider validates its own arguments
+        if self.max_calls is not None and self.calls >= self.max_calls:
+            if self.store is not None:
+                self.store.log_tool_call(
+                    request_id=self.request_id,
+                    tool=tool,
+                    args=_safe_args(kwargs),
+                    status="blocked",
+                    latency_ms=0,
+                    error_class="budget",
+                    source="toolbox",
+                )
+            raise ToolBudgetExceeded(
+                f"{tool} was not called: this turn already made {self.calls} tool calls (the limit is {self.max_calls})"
+            )
         started = time.perf_counter()
         self.calls += 1
         try:
