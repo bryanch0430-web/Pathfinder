@@ -26,27 +26,35 @@ export interface SessionState {
   messages: ChatMessage[];
 }
 
-/** A non-2xx API response; `status` lets a caller tell a refused identity (401) apart. */
+/**
+ * A non-2xx API response; `status` lets a caller tell a refused identity (401) apart. `detail` is the
+ * sentence the server wrote for the traveller (FastAPI's {"detail": "..."}); it is empty for any other
+ * body, and `message` is then only the status line, for the console.
+ */
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly detail = "",
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-/** FastAPI answers errors as {"detail": "..."}; show that sentence rather than the raw JSON. */
+/**
+ * The sentence from FastAPI's {"detail": "..."} body, or "" for any other body. A proxy's HTML error
+ * page, a plain-text 500 or a list of field errors is not written for the traveller and is not shown.
+ */
 async function errorText(response: Response): Promise<string> {
   const body = await response.text();
   try {
     const detail = (JSON.parse(body) as { detail?: unknown }).detail;
-    if (typeof detail === "string" && detail) return detail;
+    if (typeof detail === "string") return detail;
   } catch {
-    // Not JSON: the body is already readable text.
+    // Not JSON (or JSON without a detail): there is no sentence to show.
   }
-  return body;
+  return "";
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -56,7 +64,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const detail = await errorText(response);
-    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status);
+    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status, detail);
   }
   return (await response.json()) as T;
 }
@@ -315,7 +323,7 @@ export async function getEvalExport(runId: string): Promise<string> {
   const response = await fetch(`${BASE}/api/eval/trials/${runId}/export`, { headers: adminHeader() });
   if (!response.ok) {
     const detail = await errorText(response);
-    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status);
+    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status, detail);
   }
   return response.text();
 }
@@ -349,7 +357,7 @@ export async function streamChat(
   });
   if (!response.ok || !response.body) {
     const detail = await errorText(response);
-    throw new ApiError(detail || "The chat stream could not be opened.", response.status);
+    throw new ApiError(detail || "The chat stream could not be opened.", response.status, detail);
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

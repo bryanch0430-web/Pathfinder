@@ -47,7 +47,8 @@ import type {
   VideoNote,
 } from "./types";
 import { hotelScopeItem } from "./scope";
-import { getLegs, type MapLeg } from "../lib/api";
+import { ApiError, getLegs, type MapLeg } from "../lib/api";
+import { failureText } from "../lib/failure";
 import { safeHref } from "../lib/safeHref";
 import { isImeKey } from "../lib/typing";
 import { useI18n, type MessageKey, type Translate } from "../lib/i18n";
@@ -2023,23 +2024,18 @@ export function AuthDialog({
       await onSubmit(mode, email.trim(), password, displayName.trim());
       setPassword("");
     } catch (cause) {
-      let message = cause instanceof Error ? cause.message : t("auth.failed");
-      try {
-        const parsed = JSON.parse(message) as { detail?: string };
-        message = parsed.detail || message;
-      } catch {
-        // Plain-text errors stay as they are.
-      }
-      if ((cause as { status?: unknown } | null)?.status === 429) {
-        message = t("errors.rateLimited");
-      } else if (/email or password is incorrect/i.test(message)) {
-        message = t("auth.mismatch");
-      } else if (/already exists/i.test(message)) {
-        message = t("auth.exists");
-      } else if (/valid email|password/i.test(message) && /422|field|least/i.test(message)) {
-        message = t("auth.invalid");
-      }
-      setError(message);
+      // By status, not by the server's wording: its sentences are in English, and an answer about a
+      // field that is too short comes as a list, not a sentence.
+      const status = cause instanceof ApiError ? cause.status : 0;
+      setError(
+        status === 401
+          ? t("auth.mismatch")
+          : status === 409
+            ? t("auth.exists")
+            : status === 422
+              ? t("auth.invalid")
+              : failureText(cause, t, "auth.failed"),
+      );
     } finally {
       setBusy(false);
     }

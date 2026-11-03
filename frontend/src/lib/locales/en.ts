@@ -465,6 +465,8 @@ export const EN = {
   "errors.revoke": "The link could not be turned off.",
   "errors.slides": "The slides could not be created.",
   "errors.rateLimited": "Too many requests from this device. Wait a minute and try again.",
+  "errors.network": "The server could not be reached. Check your connection and try again.",
+  "errors.signInEnded": "Your sign-in has ended. Log in again to continue.",
 
   "plan.stop": "Stop",
   "plan.openTrips": "Open trips",
