@@ -97,7 +97,7 @@ class OpenAICompatibleLLM:
                     if response.status_code in {400, 422} and "response_format" in payload:
                         payload.pop("response_format", None)
                         continue
-                    raise classify_status(response.status_code, "llm", response.text[:300])
+                    raise classify_status(response.status_code, "llm", detail=response.text[:300])
                 data = response.json()
                 return data if isinstance(data, dict) else {"data": data}
             except ProviderError as exc:

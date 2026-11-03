@@ -20,7 +20,7 @@ from app.application.planner import Planner
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
-from app.domain.errors import PlanInvalidError, ProviderError
+from app.domain.errors import PlanInvalidError, ProviderError, operator_text
 from app.domain.models import (
     AgentName,
     AgentResult,
@@ -251,7 +251,7 @@ class PlanPath:
                 except Exception as exc:
                     # The exception's own text stays in the trace; the gap says only that it failed.
                     with toolbox.tracer.span(
-                        f"agent.{agent_name.value}", status="error", error_class=type(exc).__name__, error=str(exc)[:500]
+                        f"agent.{agent_name.value}", status="error", error_class=type(exc).__name__, error=operator_text(exc)[:500]
                     ):
                         pass
                     result = _unavailable(

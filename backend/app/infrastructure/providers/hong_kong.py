@@ -14,6 +14,7 @@ include today it returns nothing without a network request.
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -137,11 +138,15 @@ def parse_line_status(data: dict[str, Any], *, line: str, today: date, source: s
     name = MTR_LINES.get(line, (line, ""))[0]
     if isinstance(data.get("error"), dict) or data.get("resultCode") == 0:
         error = data.get("error") or {}
+        code = str(error.get("errorCode", ""))
+        # The error code is a short identifier (NT-205) and is shown; the message beside it is free text.
+        shown = code if re.fullmatch(r"[A-Za-z0-9._-]{1,16}", code) else ""
         raise ProviderError(
-            f"{source}: {line} {error.get('errorCode', '')} {error.get('errorMsg') or data.get('message', '')}".strip(),
+            f"{source}: {line} returned an error {shown}".strip(),
             kind=FailureKind.NO_DATA,
             source=source,
             retryable=False,
+            detail=f"{code} {error.get('errorMsg') or data.get('message', '')}".strip()[:300],
         )
     delayed = str(data.get("isdelay") or "N").upper() == "Y"
     status = data.get("status")

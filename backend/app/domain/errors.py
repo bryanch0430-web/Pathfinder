@@ -30,6 +30,13 @@ class PlanInvalidError(PathfinderError):
 
 
 class ProviderError(PathfinderError):
+    """A data source or the writer failed.
+
+    ``str(error)`` is written by us and is safe to show a traveller: it never holds the source's own
+    wording, which can be an error page, an address or a key. That wording goes in ``detail``, which
+    only the trace reads (see ``operator_text``).
+    """
+
     code = "provider_error"
     retryable = True
 
@@ -40,15 +47,23 @@ class ProviderError(PathfinderError):
         kind: FailureKind = FailureKind.SERVER_ERROR,
         source: str = "",
         retryable: bool | None = None,
+        detail: str = "",
     ):
         super().__init__(message, retryable=retryable)
         self.kind = kind
         self.source = source
+        self.detail = detail
 
     def as_dict(self) -> dict[str, object]:
         data = super().as_dict()
         data.update({"kind": self.kind.value, "source": self.source})
         return data
+
+
+def operator_text(exc: BaseException) -> str:
+    """An exception's text for the operator's trace: the message, and the source's own words when it has them."""
+    detail = getattr(exc, "detail", "")
+    return f"{exc} | {detail}" if detail else str(exc)
 
 
 class ToolBudgetExceeded(ProviderError):

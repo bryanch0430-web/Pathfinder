@@ -6,6 +6,7 @@ models cannot load, the caller falls back to the lexical retriever and says so.
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 import threading
@@ -13,6 +14,8 @@ from collections import Counter
 from pathlib import Path
 
 from app.application.soft_guides import CORPUS_VERSION, GUIDES, GuideChunk, _matches, _stale
+
+logger = logging.getLogger(__name__)
 
 # Keep the downloaded models inside the project so the demo is reproducible.
 os.environ.setdefault("HF_HOME", str(Path(__file__).resolve().parents[3] / ".cache" / "huggingface"))
@@ -215,8 +218,10 @@ def retrieve_hybrid(destination: str, query: str = "", limit: int = 3, use_reran
     except Exception as exc:
         from app.application.soft_guides import retrieve
 
+        # Why it failed (a missing package, a path) is for the log; the caller is told only that it did.
+        logger.info("hybrid retrieval is unavailable, using the lexical fallback: %s", exc)
         rows = retrieve(destination, query, limit)
-        return rows, {"mode": "lexical-fallback", "reranked": False, "reason": str(exc)[:160]}
+        return rows, {"mode": "lexical-fallback", "reranked": False, "reason": "hybrid retrieval is unavailable"}
 
 
 def chunk_payload(chunk: GuideChunk) -> dict:

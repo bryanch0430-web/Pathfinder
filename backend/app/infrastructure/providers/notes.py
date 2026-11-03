@@ -100,9 +100,11 @@ class BilibiliNotesSource:
             user_agent=self.settings.user_agent,
         )
         if data.get("code") not in (0, None):
+            code = data.get("code")
             raise ProviderError(
-                f"Bilibili returned code {data.get('code')}: {data.get('message', '')}",
+                f"Bilibili returned code {code if isinstance(code, int) else '?'}",
                 source=self.name,
+                detail=str(data.get("message", ""))[:300],
             )
         rows = ((data.get("data") or {}).get("result") or [])
         out: list[NoteItem] = []

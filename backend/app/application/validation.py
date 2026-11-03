@@ -84,6 +84,9 @@ async def repair_plan(
         for ref in item.source_refs
     }
     last_errors = errors
+    # What the traveller may be told if the repair fails: our own rule messages. The writer's and
+    # the validator's text (it quotes the model's output) only goes back to the writer.
+    shown = errors
     for _ in range(settings.max_repairs):
         user = (
             "Validation error:\n"
@@ -99,6 +102,7 @@ async def repair_plan(
             raise
         except Exception as exc:
             last_errors = [f"repair output was not a valid TripPlan: {exc}"]
+            shown = ["repair output was not a valid TripPlan"]
             continue
         candidate.trip_id = plan.trip_id
         candidate.session_id = plan.session_id
@@ -108,19 +112,19 @@ async def repair_plan(
         dropped = sorted(allowed_names - _names(candidate))
         if dropped:
             # A repair fixes what is wrong; it does not get to take a stop out of the plan.
-            last_errors = ["repair removed from the original plan: " + ", ".join(dropped[:5])]
+            last_errors = shown = ["repair removed from the original plan: " + ", ".join(dropped[:5])]
             continue
         _restore_provenance(original, candidate)
         if not _grounded(candidate, allowed_names, allowed_urls):
-            last_errors = ["repair introduced a fact or source that was not in the original plan"]
+            last_errors = shown = ["repair introduced a fact or source that was not in the original plan"]
             continue
         remaining = validate_plan(candidate, settings)
         if not remaining:
             return candidate
-        last_errors = remaining
+        last_errors = shown = remaining
         plan = candidate
     raise PlanInvalidError(
-        "The plan still fails validation after bounded repair: " + "; ".join(last_errors[:3]),
+        "The plan still fails validation after bounded repair: " + "; ".join(shown[:3]),
     )
 
 
