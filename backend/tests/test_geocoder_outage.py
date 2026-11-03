@@ -778,3 +778,61 @@ def test_a_google_key_that_is_refused_is_a_gap_that_asking_again_will_not_fix(se
     gaps = _gaps(result)
     assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.AUTH, False)]
     assert "invalid" not in gaps[0][2]
+
+
+# -- AMap's geocoder answers HTTP 404 like the others ---------------------------------------------------
+
+
+def _amap_chain(settings: Settings) -> GeocoderChain:
+    from app.infrastructure.providers.amap import AmapGeocoder
+    from app.infrastructure.providers.geocoding import NominatimGeocoder, OpenMeteoGeocoder
+
+    keyed = settings.model_copy(update={"amap_key": "test-key", "http_retries": 0})
+    return GeocoderChain([AmapGeocoder(keyed), OpenMeteoGeocoder(keyed), NominatimGeocoder(keyed)])
+
+
+def _routes_answering(statuses: dict[str, int]):
+    """Each host answers its status (200 with no results when not listed)."""
+    import httpx
+
+    from app.infrastructure.http import use_transport
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        status = statuses.get(request.url.host, 200)
+        return httpx.Response(status, json={} if status >= 400 else {"results": []})
+
+    return use_transport(httpx.MockTransport(handler))
+
+
+def test_a_gone_amap_route_is_a_failed_source_not_a_place_that_does_not_exist(settings: Settings) -> None:
+    with _routes_answering({"restapi.amap.com": 404}):
+        with pytest.raises(ProviderError) as failure:
+            asyncio.run(_amap_chain(settings).geocode("北京故宫"))
+
+    assert not isinstance(failure.value, ProviderNoData)
+    assert (failure.value.kind, failure.value.retryable) == (FailureKind.SERVER_ERROR, False)
+    assert "amap-geocoder" in str(failure.value)
+
+
+def test_every_geocoder_route_that_is_gone_is_named_in_the_failure(settings: Settings) -> None:
+    gone = {"restapi.amap.com": 404, "geocoding-api.open-meteo.com": 404, "nominatim.openstreetmap.org": 404}
+    with _routes_answering(gone):
+        with pytest.raises(ProviderError) as failure:
+            asyncio.run(_amap_chain(settings).geocode("北京故宫"))
+
+    for source in ("amap-geocoder", "open-meteo-geocoder", "nominatim"):
+        assert source in str(failure.value)
+
+
+def test_amap_saying_a_place_is_out_of_its_service_is_still_no_such_place(settings: Settings) -> None:
+    import httpx
+
+    from app.infrastructure.http import use_transport
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "restapi.amap.com":
+            return httpx.Response(200, json={"status": "0", "info": "OUT_OF_SERVICE", "infocode": "20800"})
+        return httpx.Response(200, json={"results": []})
+
+    with use_transport(httpx.MockTransport(handler)):
+        assert asyncio.run(_amap_chain(settings).geocode("北京故宫")) is None

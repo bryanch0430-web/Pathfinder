@@ -15,6 +15,7 @@ Without ``AMAP_KEY`` both sources are disabled and never called.
 from __future__ import annotations
 
 import re
+from functools import partial
 from typing import Any
 
 from app.config import Settings
@@ -22,6 +23,7 @@ from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind, GeoLocation, GeoPoint, PlaceCandidate, SourceRef, utcnow
 from app.infrastructure.http import haversine_km, request_json
 from app.infrastructure.providers.gcj02 import gcj02_to_wgs84, in_mainland_china
+from app.infrastructure.providers.geocoding import search_request
 
 AMAP_BASE = "https://restapi.amap.com"
 
@@ -131,11 +133,12 @@ class _AmapBase:
         self._key = (settings.amap_key or "").strip()
         self.available = bool(self._key)
 
-    async def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def _get(self, path: str, params: dict[str, Any], *, geocoding: bool = False) -> dict[str, Any]:
         if not self.available:
             raise ProviderNoData("AMap key (AMAP_KEY) is not configured", source=self.name)
-        data = await request_json(
-            "GET",
+        # A geocoder whose route answers HTTP 404 has failed, like the other geocoders: it has not said no place exists.
+        fetch = search_request if geocoding else partial(request_json, "GET")
+        data = await fetch(
             f"{AMAP_BASE}{path}",
             source=self.name,
             params={"key": self._key, "output": "JSON", **params},
@@ -157,7 +160,7 @@ class AmapGeocoder(_AmapBase):
             raise ProviderNoData("AMap key (AMAP_KEY) is not configured", source=self.name)
         if not mainland_query(name, country_hint):
             return None  # outside AMap's coverage: the next geocoder answers
-        data = await self._get("/v3/geocode/geo", {"address": name})
+        data = await self._get("/v3/geocode/geo", {"address": name}, geocoding=True)
         for row in data.get("geocodes") or []:
             point = parse_location(row.get("location"))
             if point is None:
