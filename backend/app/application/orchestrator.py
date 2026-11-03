@@ -309,12 +309,11 @@ class TurnService:
         plan = self.store.get_plan(session_id)
         intent: Intent = Intent.UNCLEAR
         # How the trace of this turn ends. A handler below sets it before it ends the turn, so a turn that is
-        # closed while it reports a failure still has the failure on record.
+        # closed or cancelled while it reports a failure still has the failure on record.
         status = "ok"
         # The error event of a failed turn. It is sent from the end of this method, not from the handler: nothing
         # is yielded while an exception is being handled, so closing the turn at the error ends it like anywhere else.
         failure: TurnEvent | None = None
-        closed = False
         try:
             # Display language, refresh and Chinese input are decided first: before
             # the selected stop, the understanding step and any model or tool.
@@ -480,7 +479,11 @@ class TurnService:
                     yield event
         except GeneratorExit:
             # The consumer closed the turn: nobody is left to receive the closing events.
-            closed = True
+            status = "closed"
+            raise
+        except asyncio.CancelledError:
+            # The deadline or a disconnect cut the turn off: nobody is left to receive them either.
+            status = "cancelled"
             raise
         except CanaryLeak:
             status = "blocked"
@@ -532,7 +535,7 @@ class TurnService:
         finally:
             reset_developer_view(developer_token)
             tracer.finish(status=status)
-            if not closed:
+            if status not in ("closed", "cancelled"):
                 if failure is not None:
                     yield failure
                 yield TurnEvent(

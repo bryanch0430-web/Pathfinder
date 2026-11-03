@@ -176,6 +176,10 @@ memory match scores). JSONL is always written to `data/traces/<request_id>.json`
 When Langfuse keys exist, a background thread posts trace/span/generation records to the
 ingestion API. Observability failures never break a turn.
 
+The `status` of a trace (the JSONL file, and `pathfinder.status` in Langfuse) says how the turn ended: `ok`,
+`error` (it ended in an error event), `blocked` (a safety check stopped it), `cancelled` (the turn deadline or a
+disconnect cut it off) or `closed` (its consumer closed the stream before the turn ended).
+
 ## 9. Frontend architecture
 
 ```

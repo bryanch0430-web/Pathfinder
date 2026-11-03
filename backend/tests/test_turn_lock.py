@@ -155,7 +155,7 @@ def test_closing_a_turn_while_its_edit_path_works_stops_the_path(quick_settings:
     _run(quick_settings, scenario)
 
 
-# -- RB-B-2: a turn that fails and is closed at its error event ---------------------------------------
+# -- RB-B-2, RB-B-3, RB-B-5: how a turn ends when its consumer closes it, a deadline cuts it off, or it fails -----
 
 
 @pytest.fixture()
@@ -238,9 +238,6 @@ def test_a_turn_that_fails_still_sends_its_error_then_its_trace_and_done(
     _run(quick_settings, scenario)
 
 
-# -- RB-B-3: a turn closed by another task than the one that read it ---------------
-
-
 def test_closing_a_turn_from_another_task_stops_its_path_and_stores_no_failure(quick_settings: Settings) -> None:
     async def scenario(scene: Scene) -> None:
         turns = scene.rig.turns
@@ -272,6 +269,85 @@ def test_closing_a_turn_from_another_task_stops_its_path_and_stores_no_failure(q
         assert not turns.session_busy(scene.session_id)
         roles = [message.role for message in scene.ledger.store.list_messages(scene.session_id, limit=20)]
         assert roles == ["user"], "closing a turn is not a failure to tell the traveller about"
+
+    _run(quick_settings, scenario)
+
+
+def test_the_trace_of_a_turn_that_was_closed_says_closed(quick_settings: Settings, traces: list) -> None:
+    async def scenario(scene: Scene) -> None:
+        turn = scene.rig.turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL)
+        await turn.__anext__()
+
+        await turn.aclose()
+
+        assert _trace_status(traces[0]) == "closed"
+
+    _run(quick_settings, scenario)
+
+
+def test_the_trace_of_a_turn_cut_off_by_its_deadline_says_cancelled(quick_settings: Settings, traces: list) -> None:
+    async def scenario(scene: Scene) -> None:
+        entered = asyncio.Event()
+
+        async def hang(**kwargs: Any):
+            entered.set()
+            await asyncio.Event().wait()
+
+        scene.rig.turns.modify_path.run = hang
+        deadline = Deadline(60)
+        stream = paced(
+            scene.rig.turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL),
+            keepalive_seconds=0.05,
+            deadline_seconds=deadline,
+        )
+        items: list = []
+
+        async def read() -> None:
+            async for item in stream:
+                items.append(item)
+
+        reader = asyncio.create_task(read())
+        await asyncio.wait_for(entered.wait(), 30)
+
+        deadline.at = 0.0  # the deadline passes while the edit path works
+        await asyncio.wait_for(reader, 30)
+
+        assert items[-1] is TIMED_OUT
+        assert _trace_status(traces[0]) == "cancelled"
+
+    _run(quick_settings, scenario)
+
+
+def test_a_turn_that_is_cancelled_sends_nothing_more_and_its_trace_says_cancelled(
+    quick_settings: Settings, traces: list
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        scene.hold_the_edit_path()
+        turn = scene.rig.turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL)
+        seen: list[str] = []
+
+        async def read() -> None:
+            async for event in turn:
+                seen.append(event.event)
+
+        reader = asyncio.create_task(read())
+        await asyncio.wait_for(scene.entered.wait(), 30)
+
+        reader.cancel()
+        await asyncio.gather(reader, return_exceptions=True)
+
+        assert "trace" not in seen and "done" not in seen, seen
+        assert _trace_status(traces[0]) == "cancelled"
+        assert not scene.rig.turns.session_busy(scene.session_id)
+
+    _run(quick_settings, scenario)
+
+
+def test_the_trace_of_a_turn_that_ran_to_its_end_says_ok(quick_settings: Settings, traces: list) -> None:
+    async def scenario(scene: Scene) -> None:
+        assert not _errors(await scene.turn())
+
+        assert _trace_status(traces[0]) == "ok"
 
     _run(quick_settings, scenario)
 
