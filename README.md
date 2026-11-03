@@ -480,7 +480,7 @@ a secret store) from the developer console:
 localStorage.setItem("pathfinder.admin", "<your ADMIN_TOKEN>")
 ```
 
-Without it the tab shows "Admin token required".
+Without it the tab sends no request and shows "Admin token required", in the page's language.
 
 ---
 

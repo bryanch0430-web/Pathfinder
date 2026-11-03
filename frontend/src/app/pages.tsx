@@ -8,6 +8,7 @@ import {
   LoadingScreen,
 } from "../design-system";
 import {
+  adminHeader,
   clearMemory,
   getConfig,
   getEvalDatasets,
@@ -21,7 +22,7 @@ import {
   saveProfilePreferences,
 } from "../lib/api";
 import { failureText } from "../lib/failure";
-import { useI18n } from "../lib/i18n";
+import { useI18n, type MessageKey } from "../lib/i18n";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
 
@@ -58,7 +59,16 @@ export function EvaluationPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // On the evaluation routes a 401 means the admin token, not the traveller's sign-in.
+  const failure = (cause: unknown, key: MessageKey) => failureText(cause, t, key, "eval.adminRequired");
+
   const load = async () => {
+    // Every evaluation route needs the admin token, so without one a request can only be refused.
+    if (!adminHeader()["X-Admin-Token"]) {
+      setError(t("eval.adminRequired"));
+      setLoading(false);
+      return;
+    }
     try {
       const [datasetData, runData] = await Promise.all([getEvalDatasets(), getEvalRuns()]);
       setDatasets(datasetData.datasets);
@@ -70,7 +80,7 @@ export function EvaluationPage() {
       }
       setError(null);
     } catch (cause) {
-      setError(failureText(cause, t, "errors.evalService"));
+      setError(failure(cause, "errors.evalService"));
     } finally {
       setLoading(false);
     }
@@ -89,7 +99,7 @@ export function EvaluationPage() {
       const runData = await getEvalRuns();
       setRuns(runData.runs);
     } catch (cause) {
-      setError(failureText(cause, t, "errors.evalRun"));
+      setError(failure(cause, "errors.evalRun"));
     } finally {
       setRunning(false);
     }
@@ -102,7 +112,7 @@ export function EvaluationPage() {
       window.open(url, "_blank", "noopener");
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (cause) {
-      setError(failureText(cause, t, "errors.evalOpen"));
+      setError(failure(cause, "errors.evalOpen"));
     }
   };
 
@@ -111,7 +121,7 @@ export function EvaluationPage() {
       const detail = await getEvalRun(runId);
       setLatest(detail.run);
     } catch (cause) {
-      setError(failureText(cause, t, "errors.evalOpen"));
+      setError(failure(cause, "errors.evalOpen"));
     }
   };
 
