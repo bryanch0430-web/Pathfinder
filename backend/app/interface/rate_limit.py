@@ -1,9 +1,14 @@
 """In-memory sliding-window rate limiting, one set of counters per app.
 
 Single-node by design, like the SQLite store: counts live in this process and
-start empty on restart. Callers are keyed by the socket peer address
-(`request.client.host`); `X-Forwarded-For` is never read, because any client
-can set it.
+start empty on restart. Callers are keyed by `request.client.host`. This module
+never reads `X-Forwarded-For` itself, because any client can set it, but the
+server does before the app runs: uvicorn (proxy headers are on by default)
+replaces the client of a peer listed in `--forwarded-allow-ips` (default
+`127.0.0.1,::1`) with the right-most address in that header that is not itself
+trusted. So list only the reverse proxy there and have it set or append the
+header; with `*` on a server that clients reach directly, every caller picks
+its own key. `--no-proxy-headers` keys by the socket peer only.
 """
 
 from __future__ import annotations
@@ -82,7 +87,7 @@ class RateLimits:
 
 
 def client_key(request: Request) -> str:
-    """The caller's socket address; proxy headers are deliberately ignored."""
+    """The caller's address as the server reports it: the socket peer, or the client a trusted proxy forwarded."""
     return request.client.host if request.client else "unknown"
 
 
