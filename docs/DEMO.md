@@ -151,8 +151,8 @@ Scroll the right column below the budget. Point at the cards:
 Open **Evaluation**.
 
 - Point at the metric cards and the baseline delta (the latest Hong Kong run).
-- Click the `router-rules-v1` row to switch the view to the routing run: 80% accuracy,
-  four failures in the drill-down.
+- Click the `router-rules-v1` row to switch the view to the routing run: 76.2% accuracy
+  on 84 utterances, 20 failures in the drill-down.
 - Open a failed case → input, output, judge reason, tool summary, trace id.
 - Run `hongkong` with a new tag; the table and trend update.
 - Click **Export report** to show the Markdown.
