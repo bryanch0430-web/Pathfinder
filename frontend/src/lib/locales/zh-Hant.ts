@@ -462,6 +462,7 @@ export const ZH_HANT: Messages = {
   "errors.feedback": "無法儲存意見回饋。",
   "errors.clearChat": "無法清除對話。",
   "errors.scrap": "無法捨棄這份行程，它仍保持開啟，請再試一次。",
+  "errors.crashed": "顯示此頁面時發生問題。你的行程已保留，請重新整理頁面再試一次。",
   "errors.trending": "暫時無法取得熱門行程。",
 
   "plan.scrapConfirm": "要捨棄這份行程嗎？它的對話和行程會被刪除，其他分頁會保留。",

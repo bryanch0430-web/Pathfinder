@@ -20,6 +20,12 @@
  * prefixes, so a cleared value stays cleared even if one of those steps fails.
  * The cost is that a tab still running the pre-rename build loses its state on
  * its next load; that build is long gone, so this is the right trade.
+ *
+ * Every read and write of these values goes through `readStoredValue()` and
+ * `writeStoredValue()`. Some browsers block storage altogether (cookies off,
+ * a sandboxed frame) or refuse writes once it is full; a value the browser
+ * will not keep is held in the page instead, so the guest token, the sign-in
+ * and the open trip still work until the page is closed.
  */
 
 export const STORAGE_PREFIX = "pathfinder";
@@ -37,6 +43,7 @@ export const STORAGE_KEYS = [
   "guest", // guest token remembered across a sign-in
   "admin", // local admin token for the evaluation sandbox
   "locale", // EN / 简 / 繁
+  "developer", // "1" shows each model step in the chat
 ] as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[number];
@@ -55,6 +62,37 @@ function safeLocalStorage(): Storage | null {
   }
 }
 
+/** Values the browser would not keep, held for the life of this page. */
+const held = new Map<string, string>();
+
+/** A stored value, or what this page holds in its place; null when there is none. Never throws. */
+export function readStoredValue(name: StorageKey): string | null {
+  const key = storageKey(name);
+  try {
+    const value = safeLocalStorage()?.getItem(key);
+    if (value !== null && value !== undefined) return value;
+  } catch {
+    // Unreadable: what this page holds is all there is.
+  }
+  return held.get(key) ?? null;
+}
+
+/** Store a value; when the browser will not keep it, this page holds it instead. Never throws. */
+export function writeStoredValue(name: StorageKey, value: string): void {
+  const key = storageKey(name);
+  try {
+    const storage = safeLocalStorage();
+    if (storage) {
+      storage.setItem(key, value);
+      held.delete(key);
+      return;
+    }
+  } catch {
+    // Quota or a blocked write: held in the page below.
+  }
+  held.set(key, value);
+}
+
 /**
  * Remove a value under both the current and the legacy prefix.
  *
@@ -64,10 +102,10 @@ function safeLocalStorage(): Storage | null {
  */
 export function clearStoredValue(name: StorageKey): void {
   const storage = safeLocalStorage();
-  if (!storage) return;
   for (const key of [`${STORAGE_PREFIX}.${name}`, `${LEGACY_PREFIX}.${name}`]) {
+    held.delete(key);
     try {
-      storage.removeItem(key);
+      storage?.removeItem(key);
     } catch {
       // A blocked write: nothing more we can do for this key.
     }

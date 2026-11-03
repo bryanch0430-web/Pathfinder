@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { RootBoundary } from "./app/RootBoundary";
 import { I18nProvider } from "./lib/i18n";
 import { migrateLegacyStorage } from "./lib/storage";
 import "./design-system/tokens.css";
@@ -15,7 +16,9 @@ migrateLegacyStorage();
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <I18nProvider>
-      <App />
+      <RootBoundary>
+        <App />
+      </RootBoundary>
     </I18nProvider>
   </React.StrictMode>,
 );

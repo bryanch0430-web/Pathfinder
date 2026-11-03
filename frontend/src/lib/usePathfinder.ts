@@ -29,19 +29,15 @@ import type {
 import { describeFailure, failureOf, unreachableOf, type Failure } from "./failure";
 import { useI18n } from "./i18n";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
-import { clearStoredValue } from "./storage";
-
-const SESSION_KEY = "pathfinder.session";
-const TOKEN_KEY = "pathfinder.client";
-const AUTH_KEY = "pathfinder.auth";
-const GUEST_KEY = "pathfinder.guest";
+import { clearStoredValue, readStoredValue, writeStoredValue } from "./storage";
 
 /** The profile token the API resolves with the bearer: a guest UUID, or `user:<id>` once signed in. */
 export function clientToken(): string {
-  let token = localStorage.getItem(TOKEN_KEY);
+  let token = readStoredValue("client");
   if (!token) {
     token = crypto.randomUUID();
-    localStorage.setItem(TOKEN_KEY, token);
+    // A browser that will not keep it still has this token for the life of the page.
+    writeStoredValue("client", token);
   }
   return token;
 }
@@ -242,7 +238,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setHotelChanged(false);
     setVersions(trip.versions);
     setMessages(trip.messages);
-    localStorage.setItem(SESSION_KEY, id);
+    writeStoredValue("session", id);
     sessionRef.current = id;
     setSessionId(id);
   }, [forgetTripView]);
@@ -252,7 +248,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     retryRef.current = null;
     setError(null);
     try {
-      const id = localStorage.getItem(SESSION_KEY);
+      const id = readStoredValue("session");
       if (id) {
         try {
           const data = await getSession(id);
@@ -318,9 +314,9 @@ export function usePathfinder(locale: string): PathfinderHook {
         // The server answers 404 both for a trip that is gone and for one that is not this
         // identity's. Signed out in a browser that has signed in before, it may be an account's
         // trip: say so and keep it. In a browser that never has, nobody else can own it.
-        if (!localStorage.getItem(AUTH_KEY) && localStorage.getItem(GUEST_KEY)) {
+        if (!readStoredValue("auth") && readStoredValue("guest")) {
           if (latest) setError("errors.signInToOpen");
-          if (latest && sessionRef.current === null) localStorage.setItem(SESSION_KEY, id);
+          if (latest && sessionRef.current === null) writeStoredValue("session", id);
           return "needs-sign-in";
         }
         return "missing";
@@ -330,7 +326,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       if (latest) {
         setError(unreachableOf(cause));
         retryRef.current = () => openSession(id);
-        if (sessionRef.current === null) localStorage.setItem(SESSION_KEY, id);
+        if (sessionRef.current === null) writeStoredValue("session", id);
       }
       return "unavailable";
     }
@@ -533,7 +529,7 @@ export function usePathfinder(locale: string): PathfinderHook {
             locale,
             scope_item_id: selectedItem?.id ?? null,
             scope_label: scopeLabel || null,
-            developer: localStorage.getItem("pathfinder.developer") === "1",
+            developer: readStoredValue("developer") === "1",
           },
           {
             onEvent: (event, data) => {

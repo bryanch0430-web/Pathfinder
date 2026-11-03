@@ -23,6 +23,7 @@ import {
 } from "../lib/api";
 import { failureText } from "../lib/failure";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { readStoredValue } from "../lib/storage";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
 
@@ -167,7 +168,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
       .catch((cause) => setError(failureText(cause, t, "errors.config")));
     // No built-in admin token: the admin request is only sent when one is stored.
-    const adminToken = localStorage.getItem("pathfinder.admin") || "";
+    const adminToken = readStoredValue("admin") || "";
     if (adminToken) {
       getInjections(adminToken)
         .then((data) => setInjections(data.events))

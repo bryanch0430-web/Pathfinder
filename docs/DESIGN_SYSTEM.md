@@ -139,6 +139,9 @@ App.tsx
   trigger**; clicking the avatar/name opens **My trips**, **Settings** and **Log out**.
   Logging out is never the trigger's direct action.
 - The dialog has login/register modes and keeps guest planning available.
+- If the browser blocks its storage or it is full, the guest token, a sign-in and the open
+  trip are kept in the page until it is closed, and a render error shows a notice with a
+  reload button instead of a blank page.
 - Settings shows an **Account** badge and account-memory copy when signed in, rather than
   the anonymous-browser copy.
 - **Useful / Not useful** sit at the **top-right of the middle itinerary card**. Useful
