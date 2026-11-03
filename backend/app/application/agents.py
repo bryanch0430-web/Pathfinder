@@ -29,6 +29,7 @@ from app.domain.models import (
     FailureKind,
     GeoLocation,
     HotelCandidate,
+    NoteItem,
     PlaceCandidate,
     SourceRef,
     TripContext,
@@ -47,8 +48,9 @@ class AgentContext:
     settings: Settings
     emit: Callable[[str, dict[str, Any]], None] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
-    #: What the agent has found so far (one dict per located place). The runner keeps it, so an
-    #: agent cut off by the pre-planning budget still returns what it had.
+    #: What the agent has found so far. The runner keeps it, so an agent cut off by the
+    #: pre-planning budget still returns what it had. A row is a located place (its JSON), or
+    #: `{"meal": ...}`, `{"note": ...}` or `{"wish": ...}` for what `AttractionAgent` records besides.
     progress: list[dict[str, Any]] | None = None
 
 
@@ -236,6 +238,8 @@ class AttractionAgent(BaseAgent):
                     break
             except (ProviderError, asyncio.TimeoutError, Exception) as exc:
                 failures.append(_gap("meals", exc))
+        restaurants = [r for r in restaurants if r.geo is not None][:6]
+        self._record(request, [{"meal": restaurant.model_dump(mode="json")} for restaurant in restaurants])
 
         for source in self.registry.notes:
             if not getattr(source, "available", True):
@@ -252,6 +256,7 @@ class AttractionAgent(BaseAgent):
                 )
                 for note in results:
                     notes.append(note.model_dump(mode="json"))
+                    self._record(request, [{"note": notes[-1]}])
                 sources.extend(
                     SourceRef(title=note.title, url=note.url, source=note.source, fetched_at=note.fetched_at)
                     for note in results
@@ -299,12 +304,9 @@ class AttractionAgent(BaseAgent):
                 match.tags = ["requested", *match.tags]
                 wished.append(match)
                 sources.extend(match.source_refs)
+            self._keep_wish(request, wish, match, wish_failures.get(wish))
 
-        places.sort(key=lambda p: (p.rating or 0, p.review_count or 0), reverse=True)
-        places = [p for p in places if p.geo is not None][:10] or places[:10]
-        if wished:
-            places = _merge_places(wished + places)[: max(10, len(wished))]
-        restaurants = [r for r in restaurants if r.geo is not None][:6]
+        places = _choose_places(places, wished)
 
         web_references: list[dict[str, Any]] = []
         if len(places) < 3:
@@ -430,31 +432,82 @@ class AttractionAgent(BaseAgent):
                 found.unplaced.append(place.name)
 
     @staticmethod
-    def _keep(request: AgentContext, places: list[PlaceCandidate]) -> None:
-        """Record located places where the runner can find them if the budget cuts this agent off."""
+    def _record(request: AgentContext, rows: list[dict[str, Any]]) -> None:
+        """Add rows to the progress the runner reads if the budget cuts this agent off."""
         if request.progress is not None:
-            request.progress.extend(place.model_dump(mode="json") for place in places)
+            request.progress.extend(rows)
 
-    def partial_result(self, progress: list[dict[str, Any]], *, centre: Any, elapsed_ms: int) -> AgentResult | None:
-        """The places located before the pre-planning budget ran out; None when there are none."""
-        found = [place for place in _merge_places([PlaceCandidate.model_validate(row) for row in progress]) if place.geo]
+    @classmethod
+    def _keep(cls, request: AgentContext, places: list[PlaceCandidate]) -> None:
+        """Record located places where the runner can find them if the budget cuts this agent off."""
+        cls._record(request, [place.model_dump(mode="json") for place in places])
+
+    @classmethod
+    def _keep_wish(cls, request: AgentContext, wish: str, match: PlaceCandidate | None, failure: str | None) -> None:
+        """Record what became of a place the traveller named, and the place itself (tagged) when it was found."""
+        rows: list[dict[str, Any]] = [{"wish": wish, "found_as": match.name if match else None, "failure": failure}]
+        if match is not None:
+            rows.append(match.model_dump(mode="json"))
+        cls._record(request, rows)
+
+    def partial_result(
+        self, progress: list[dict[str, Any]], *, centre: Any, elapsed_ms: int, context: TripContext | None = None
+    ) -> AgentResult | None:
+        """What the agent had found when the pre-planning budget ran out; None when no place was located.
+
+        It is what a run that ended there would have returned: the located places, the dining
+        candidates and community notes already fetched, and an answer for each place the traveller
+        named. A place the agent had not got to is reported as not checked, with the budget as the reason.
+        """
+        located: list[PlaceCandidate] = []
+        meals: list[PlaceCandidate] = []
+        notes: list[dict[str, Any]] = []
+        looked_up: dict[str, dict[str, Any]] = {}
+        for row in progress:
+            if "meal" in row:
+                meals.append(PlaceCandidate.model_validate(row["meal"]))
+            elif "note" in row:
+                notes.append(row["note"])
+            elif "wish" in row:
+                looked_up[row["wish"]] = row
+            else:
+                located.append(PlaceCandidate.model_validate(row))
+        wished = [place for place in located if "requested" in place.tags]
+        rest = _merge_places([place for place in located if place.geo and "requested" not in place.tags])
+        found = [place for place in _choose_places(rest, wished) if place.geo]
         if not found:
             return None
-        found.sort(key=lambda place: (place.rating or 0, place.review_count or 0), reverse=True)
-        found = found[:10]
+        meals = [meal for meal in _merge_places(meals) if meal.geo][:6]
+        wishes: dict[str, str | None] = {}
+        wish_failures: dict[str, str] = {}
+        for wish in place_wishes(context) if context is not None else list(looked_up):
+            row = looked_up.get(wish)
+            if row is None:
+                budget = ProviderError("the pre-planning time budget ran out", kind=FailureKind.TIMEOUT, source=self.name.value)
+                wishes[wish], wish_failures[wish] = None, _lookup_evidence(budget)
+                continue
+            wishes[wish] = row.get("found_as")
+            if row.get("failure"):
+                wish_failures[wish] = row["failure"]
+        kept = f"{len(found)} attractions" + (f" and {len(meals)} dining candidates" if meals else "")
+        note_sources = [NoteItem.model_validate(note) for note in notes]
         return AgentResult(
             agent=self.name,
             status=AgentStatus.PARTIAL,
             payload={
                 "places": [{"id": f"p{index + 1}", **place.model_dump(mode="json")} for index, place in enumerate(found)],
-                "meals": [],
-                "notes": [],
+                "meals": [{"id": f"m{index + 1}", **meal.model_dump(mode="json")} for index, meal in enumerate(meals)],
+                "notes": notes,
                 "centre": centre.model_dump() if centre is not None else None,
                 "web_references": [],
-                "wishes": {},
+                "wishes": wishes,
+                "wish_failures": wish_failures,
             },
-            notes=[f"{len(found)} attractions were located before the pre-planning time budget ran out."],
-            sources=_dedupe_sources([ref for place in found for ref in place.source_refs]),
+            notes=[f"{kept} were located before the pre-planning time budget ran out."],
+            sources=_dedupe_sources(
+                [ref for place in [*found, *meals] for ref in place.source_refs]
+                + [SourceRef(title=n.title, url=n.url, source=n.source, fetched_at=n.fetched_at) for n in note_sources]
+            ),
             failures=[
                 DataGap(
                     section="attractions",
@@ -848,6 +901,15 @@ def _unchecked_message(count: int, failure: ProviderError) -> str:
         return f"{left} because this turn reached its limit on data lookups."
     cause = f"{left} because the geocoder failed ({failure.kind.value})"
     return f"{cause}; ask again to retry." if failure.retryable else f"{cause}."
+
+
+def _choose_places(places: list[PlaceCandidate], wished: list[PlaceCandidate]) -> list[PlaceCandidate]:
+    """The places that go to the planner: the ten best rated with coordinates, the ones the traveller named first."""
+    places = sorted(places, key=lambda p: (p.rating or 0, p.review_count or 0), reverse=True)
+    places = [p for p in places if p.geo is not None][:10] or places[:10]
+    if wished:
+        places = _merge_places(wished + places)[: max(10, len(wished))]
+    return places
 
 
 def _norm_name(name: str) -> str:
