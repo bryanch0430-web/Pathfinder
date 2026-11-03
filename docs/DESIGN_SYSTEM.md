@@ -140,7 +140,8 @@ App.tsx
   Logging out is never the trigger's direct action.
 - The dialog has login/register modes and keeps guest planning available.
 - A stored sign-in the server no longer accepts is dropped when the page opens, and the open
-  trip is then opened as the guest's own instead of being forgotten with an error.
+  trip is then opened as the guest's own instead of being forgotten with an error. The chat
+  says that the sign-in has ended.
 - If the browser blocks its storage or it is full, the guest token, a sign-in and the open
   trip are kept in the page until it is closed, and a render error shows a notice with a
   reload button instead of a blank page.
