@@ -151,6 +151,62 @@ def test_a_reopen_that_loses_the_race_to_a_turn_shows_the_plan_the_turn_saved(qu
     _run(quick_settings, scenario)
 
 
+UNREACHABLE = "The source could not be reached; the earlier data is kept."
+
+
+def test_a_reopen_that_refreshed_nothing_shows_the_plan_a_turn_saved_meanwhile(quick_settings: Settings) -> None:
+    """RB-B-4: the sources were down, so the refresh was empty, and the page still got the old version."""
+
+    async def scenario(scene: Scene) -> None:
+        scene.days_ahead = 10
+        fetching, release = asyncio.Event(), asyncio.Event()
+        freshness = scene.rig.turns.freshness
+
+        async def unreachable(*args: Any, **kwargs: Any):
+            fetching.set()
+            await release.wait()
+            return UNREACHABLE
+
+        freshness._refetch = unreachable
+        reopen = asyncio.create_task(freshness.on_reopen(scene.store.get_plan(scene.session_id)))
+        await asyncio.wait_for(fetching.wait(), 30)
+        scene.days_ahead = 0  # for the turn nothing is outdated, so it does not refresh the plan itself
+
+        events = await asyncio.wait_for(scene.turn(), 60)
+        release.set()
+        shown = await asyncio.wait_for(reopen, 60)
+
+        stored = scene.store.get_plan(scene.session_id)
+        assert not _errors(events)
+        assert stored.version == 2 and scene.versions() == [1, 2]
+        assert shown.version == 2 and shown.model_dump() == stored.model_dump()
+
+    _run(quick_settings, scenario)
+
+
+def test_a_reopen_that_refreshed_nothing_still_flags_the_sections_it_could_not_refresh(
+    quick_settings: Settings,
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        scene.days_ahead = 10
+
+        async def unreachable(*args: Any, **kwargs: Any):
+            return UNREACHABLE
+
+        scene.rig.turns.freshness._refetch = unreachable
+
+        shown = await scene.rig.turns.freshness.on_reopen(scene.store.get_plan(scene.session_id))
+
+        assert shown.version == 1 and scene.versions() == [1]
+        assert {(mark.section, mark.status) for mark in shown.data_quality.freshness} == {
+            ("weather", "outdated"),
+            ("tickets", "outdated"),
+            ("hotels", "outdated"),
+        }
+
+    _run(quick_settings, scenario)
+
+
 def test_a_reopen_does_not_save_when_a_turn_started_while_it_fetched(quick_settings: Settings) -> None:
     async def scenario(scene: Scene) -> None:
         scene.days_ahead = 10

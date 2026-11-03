@@ -42,7 +42,9 @@ a `data_quality.gap` on the plan, not a failed health check.
 Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
 forecast, fare or stay again and saves the result as the next version. While a message for the trip
 is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
-`plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first. A
+`plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first. If a
+message saved a newer version while the refresh was being fetched, the newer version is returned,
+even when the refresh found nothing. A
 `PATCH` made while a message is being understood is kept: the turn saves only what the message changed,
 on top of the form as it is stored then. A `PATCH` stores the form and leaves the plan alone; the page's
 `Re-plan with the updated details.` is what moves the trip to the dates the form then holds. That is an
