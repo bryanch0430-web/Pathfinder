@@ -9,17 +9,20 @@ a gate in the edit path to hold a turn open.
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any, AsyncIterator, Awaitable, Callable
 
+import httpx
 import pytest
 
-import app.application.orchestrator as orchestrator
 from app.config import Settings
-from app.domain.models import EvalCase, TripPlan, utcnow
+from app.container import Container
+from app.domain.models import EvalCase, Intent, RouteDecision, TripPlan, utcnow
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
+from app.interface.api import create_app
 
 SWAP_HOTEL = "Swap the hotel for the other option."
 
@@ -189,3 +192,103 @@ def test_a_reopen_with_no_turn_running_still_refreshes_and_saves_the_plan(quick_
         assert scene.store.get_plan(scene.session_id).model_dump() == shown.model_dump()
 
     _run(quick_settings, scenario)
+
+
+# -- CONC-G3: a trip deleted while a turn runs --------------------------------
+
+
+def test_a_trip_deleted_while_a_turn_runs_is_not_written_back_by_the_turn(quick_settings: Settings) -> None:
+    async def scenario(scene: Scene) -> None:
+        scene.hold_the_edit_path()
+        turn = asyncio.create_task(scene.turn())
+        await asyncio.wait_for(scene.entered.wait(), 30)
+
+        deleted = scene.store.delete_session(scene.session_id)  # what DELETE /api/journeys/{id} runs
+        scene.gate.set()
+        events = await asyncio.wait_for(turn, 60)
+
+        assert deleted["sessions"] == 1 and deleted["plans"] == 1
+        assert not _errors(events)
+        assert scene.store.get_session(scene.session_id) is None
+        assert scene.versions() == []
+        assert scene.store.list_messages(scene.session_id, limit=20) == []
+        assert scene.store.get_context(scene.session_id) is None
+
+    _run(quick_settings, scenario)
+
+
+def test_a_turn_on_a_trip_that_is_still_there_keeps_what_it_wrote(quick_settings: Settings) -> None:
+    async def scenario(scene: Scene) -> None:
+        events = await scene.turn()
+
+        assert not _errors(events)
+        assert scene.versions() == [1, 2]
+        roles = [message.role for message in scene.store.list_messages(scene.session_id, limit=20)]
+        assert roles == ["user", "assistant"]
+
+    _run(quick_settings, scenario)
+
+
+@asynccontextmanager
+async def _api(
+    settings: Settings, token: str = "guest-writers"
+) -> AsyncIterator[tuple[Container, httpx.AsyncClient, str]]:
+    """The real app in this event loop, with one trip that has an accepted plan and a gated edit path.
+
+    The edit path and the router are scripted (no network, no model); everything else is the real
+    service graph behind the real routes.
+    """
+    app = create_app(settings)
+    async with app.router.lifespan_context(app):
+        container: Container = app.state.container
+        transport = httpx.ASGITransport(app=app)
+        headers = {"X-Client-Token": token}
+        async with httpx.AsyncClient(transport=transport, base_url="http://pathfinder.test", headers=headers) as client:
+            created = await client.post("/api/journeys", json={"client_token": token})
+            session_id = created.json()["session"]["id"]
+            context = case_context(EvalCase(id="api", dataset="design", input="", destination="Tokyo"), session_id)
+            container.store.save_context(context)
+            container.store.save_plan(await accepted_plan(settings, context), "Accepted plan")
+
+            async def route(**_: Any) -> RouteDecision:
+                return RouteDecision(intent=Intent.MODIFY, confidence=0.95, reason_code="test", affected_parts=["hotel"])
+
+            container.turn_service.router.route = route
+            yield container, client, session_id
+
+
+def _edit_that_waits(container: Container, entered: asyncio.Event, gate: asyncio.Event) -> None:
+    async def run(**kwargs: Any):
+        entered.set()
+        await gate.wait()
+        updated = kwargs["plan"].model_copy(deep=True)
+        updated.version += 1
+        updated.updated_at = utcnow()
+        updated.change_summary = "Swapped the hotel."
+        return updated, [{"kind": "hotel", "from": "A", "to": "B"}]
+
+    container.turn_service.modify_path.run = run
+
+
+def test_deleting_a_trip_through_the_api_while_its_turn_runs_leaves_nothing_behind(quick_settings: Settings) -> None:
+    async def scenario() -> None:
+        async with _api(quick_settings) as (container, client, session_id):
+            entered, gate = asyncio.Event(), asyncio.Event()
+            _edit_that_waits(container, entered, gate)
+            body = {"session_id": session_id, "message": SWAP_HOTEL, "client_token": "guest-writers"}
+            stream = asyncio.create_task(client.post("/api/turn/stream", json=body))
+            await asyncio.wait_for(entered.wait(), 30)
+
+            deleted = await client.delete(f"/api/journeys/{session_id}")
+            gate.set()
+            response = await asyncio.wait_for(stream, 60)
+
+            assert deleted.status_code == 200 and deleted.json()["deleted"]["sessions"] == 1
+            assert response.status_code == 200 and "event: error" not in response.text
+            store = container.store
+            assert store.get_session(session_id) is None
+            assert store.list_versions(session_id) == []
+            assert store.list_messages(session_id, limit=20) == []
+            assert (await client.get(f"/api/journeys/{session_id}")).status_code == 404
+
+    asyncio.run(scenario())

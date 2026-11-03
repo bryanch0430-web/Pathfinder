@@ -7,8 +7,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from contextlib import aclosing, asynccontextmanager
-from typing import Any, AsyncIterator
+from contextlib import aclosing, asynccontextmanager, contextmanager
+from typing import Any, AsyncIterator, Iterator
 
 import httpx
 
@@ -139,6 +139,17 @@ class TurnService:
                 del self._session_turns[session_id]
                 del self._session_locks[session_id]
 
+    @contextmanager
+    def _removed_if_deleted(self, session_id: str) -> Iterator[None]:
+        """A trip deleted while a turn runs on it must not be written back by that turn: when the turn
+        ends, whatever it saved after the delete (its plan version, its reply) is removed too."""
+        existed = self.store.get_session(session_id) is not None
+        try:
+            yield
+        finally:
+            if existed and self.store.get_session(session_id) is None:
+                self.store.delete_session(session_id)
+
     async def handle_turn(
         self,
         *,
@@ -152,17 +163,18 @@ class TurnService:
         """One turn. Turns on the same session run one after another: the second reads the
         plan the first saved, so neither overwrites the other's version."""
         async with self._lock_for(session_id):
-            turn = self._run_turn(
-                session_id=session_id,
-                message=message,
-                locale=locale,
-                scope_item_id=scope_item_id,
-                scope_label=scope_label,
-                developer=developer,
-            )
-            async with aclosing(turn) as events:
-                async for event in events:
-                    yield event
+            with self._removed_if_deleted(session_id):
+                turn = self._run_turn(
+                    session_id=session_id,
+                    message=message,
+                    locale=locale,
+                    scope_item_id=scope_item_id,
+                    scope_label=scope_label,
+                    developer=developer,
+                )
+                async with aclosing(turn) as events:
+                    async for event in events:
+                        yield event
 
     async def _run_turn(
         self,
