@@ -69,9 +69,20 @@ def screen_message(message: str, settings: Settings) -> ScreenResult:
     return result
 
 
+#: The fence's tags as a model may read them: any case and spacing, such as
+#: `</USER_TRAVEL_REQUEST>`, `</user_travel_request >` or `< / user_travel_request >`.
+FENCE_TAG = re.compile(r"<\s*/?\s*user_travel_request\s*>", re.IGNORECASE)
+
+
 def fence_user_message(message: str) -> str:
     """User text is data. Remove any attempt to close the fence early."""
-    cleaned = message.replace("</user_travel_request>", "").replace("<user_travel_request>", "")
+    cleaned = message
+    # Strip until nothing is left to strip: taking out an inner tag must not rebuild an outer one.
+    while True:
+        stripped = FENCE_TAG.sub("", cleaned)
+        if stripped == cleaned:
+            break
+        cleaned = stripped
     return (
         "<user_travel_request>\n"
         f"{cleaned.strip()}\n"
