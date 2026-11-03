@@ -485,6 +485,9 @@ class SQLiteStore:
             return moved.rowcount
 
     def merge_preferences(self, from_token: str, to_token: str) -> PreferenceProfile:
+        """Move one profile into another (guest -> account on sign-in): the target's preferences first,
+        then the source's. The source's profile is gone afterwards, so clearing the target's memory
+        leaves nothing behind on the old token."""
         source = self.get_preferences(from_token)
         target = self.get_preferences(to_token)
         merged: list[str] = []
@@ -493,6 +496,9 @@ class SQLiteStore:
                 merged.append(value)
         profile = PreferenceProfile(client_token=to_token, preferences=merged)
         self.upsert_preferences(profile)
+        if from_token != to_token:
+            with self._lock, self._connect() as conn:
+                conn.execute("DELETE FROM taste_profiles WHERE client_token=?", (from_token,))
         return profile
 
     def touch_session(self, session_id: str) -> None:
