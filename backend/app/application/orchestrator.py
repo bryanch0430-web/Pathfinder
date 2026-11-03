@@ -55,10 +55,10 @@ logger = logging.getLogger(__name__)
 SOURCE_FAILED = "A data source failed. Your plan was not changed."
 TURN_FAILED = "Something went wrong while handling this turn. You can retry."
 PLAN_CONFLICT = "Another change to this trip was still running. Please retry."
-#: How long a turn waits for a cancelled path to unwind before it goes on without it.
-SETTLE_GRACE_SECONDS = 3.0
 TOOL_LIMIT = "This request reached its limit of data lookups and was stopped. Please ask for a smaller change."
 BLOCKED = "This request was stopped by a safety check."
+#: How long a turn waits for a cancelled path to unwind before it goes on without it.
+SETTLE_GRACE_SECONDS = 3.0
 
 
 def user_facing_error(exc: BaseException) -> str:
@@ -299,7 +299,7 @@ class TurnService:
             return
 
         context = self.store.get_context(session_id) or TripContext(session_id=session_id, language=locale)
-        read = context.model_copy(deep=True)
+        as_read = context.model_copy(deep=True)
         context.language = locale or context.language
         plan = self.store.get_plan(session_id)
         intent: Intent = Intent.UNCLEAR
@@ -329,7 +329,7 @@ class TurnService:
                     raise
                 except Exception:
                     pass
-                context = self._save_changes(read, context)
+                context = self._save_changes(as_read, context)
                 if context.preferences:
                     self._remember_in_background(session.owner, context)
 
@@ -617,13 +617,14 @@ class TurnService:
             return None
         return outcome.plan if outcome is not None else None
 
-    def _save_changes(self, read: TripContext, changed: TripContext) -> TripContext:
+    def _save_changes(self, as_read: TripContext, changed: TripContext) -> TripContext:
         """Save what this turn changed in the trip's form on top of the form as it is stored now, so
-        a field saved while the turn was working (the traveller's own edit of the form) is kept."""
+        a field saved while the turn was working (the traveller's own edit of the form) is kept.
+        ``as_read`` is the form as the turn read it, before it changed anything."""
         current = self.store.get_context(changed.session_id)
         if current is not None:
             for name in TripContext.model_fields:
-                before, after = getattr(read, name), getattr(changed, name)
+                before, after = getattr(as_read, name), getattr(changed, name)
                 if name == "session_id" or after == before:
                     continue
                 if isinstance(after, list):  # a turn only adds preferences and constraints
@@ -881,7 +882,9 @@ async def _settle(task: asyncio.Task) -> None:
         task.cancel()
         await asyncio.wait({task}, timeout=SETTLE_GRACE_SECONDS)
         if not task.done():
-            logger.warning("a path did not stop within %.0f s of cancellation; the turn ends without it", SETTLE_GRACE_SECONDS)
+            logger.warning(
+                "a path did not stop within %.0f s of cancellation; the turn ends without it", SETTLE_GRACE_SECONDS
+            )
             task.add_done_callback(_mark_seen)
             return
     _mark_seen(task)
