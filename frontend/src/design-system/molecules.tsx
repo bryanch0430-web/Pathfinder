@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, Heading, IconButton, Input, Select, Text } from "./atoms";
 import {
   AgentChip,
@@ -156,15 +156,23 @@ export function TripContextForm({
     setPreferenceTags(values.preferences ?? []);
   }, [values.preferences]);
 
+  // The page hands in a new function on every render, and it renders on every keystroke in any field of the
+  // form. Asking the provider depends on the destination text alone, so the latest function is read from a ref:
+  // with the function in the dependency list, typing a budget or a note asked for the same destination again,
+  // and a few minutes of that used up the server's per-minute budget for place suggestions.
+  const suggestRef = useRef(onSuggestDestination);
+  suggestRef.current = onSuggestDestination;
+  const canSuggest = Boolean(onSuggestDestination);
+
   useEffect(() => {
     const query = (values.destination ?? "").trim();
-    if (!onSuggestDestination || query.length < 3) {
+    if (!canSuggest || query.length < 3) {
       setDestinationOptions([]);
       return;
     }
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      onSuggestDestination(query)
+      suggestRef.current?.(query)
         .then((items) => {
           if (!cancelled) setDestinationOptions(items.slice(0, 6));
         })
@@ -176,7 +184,7 @@ export function TripContextForm({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [values.destination, onSuggestDestination]);
+  }, [values.destination, canSuggest]);
 
   const addPreference = () => {
     const merged = addTags(preferenceTags, prefInput);
