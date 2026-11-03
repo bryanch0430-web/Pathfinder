@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import replace
 from typing import Any, Callable
 
 from app.application.agents import (
@@ -199,11 +200,15 @@ class PlanPath:
         )
         selected = names or set(AGENT_FACTORIES)
         tasks: dict[asyncio.Task, AgentName] = {}
+        agents: dict[AgentName, Any] = {}
+        progress: dict[AgentName, list[dict[str, Any]]] = {}
         for agent_name in selected:
             factory = AGENT_FACTORIES[agent_name]
             agent = factory(self.registry, self.settings)
+            agents[agent_name] = agent
+            progress[agent_name] = []
             emit("agent", {"agent": agent_name.value, "phase": "start"})
-            tasks[asyncio.create_task(agent.run(request))] = agent_name
+            tasks[asyncio.create_task(agent.run(replace(request, progress=progress[agent_name])))] = agent_name
 
         results: dict[str, AgentResult] = {}
         started = time.perf_counter()
@@ -231,9 +236,13 @@ class PlanPath:
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         for task, agent_name in tasks.items():
             if task in pending:
-                result = _unavailable(
-                    agent_name, "agent exceeded the pre-planning time budget", elapsed_ms=elapsed_ms
-                )
+                # An agent that can say what it had found keeps that; the others are unavailable.
+                keep = getattr(agents[agent_name], "partial_result", None)
+                result = keep(progress[agent_name], centre=destination.geo, elapsed_ms=elapsed_ms) if keep else None
+                if result is None:
+                    result = _unavailable(
+                        agent_name, "agent exceeded the pre-planning time budget", elapsed_ms=elapsed_ms
+                    )
             else:
                 try:
                     result = task.result()

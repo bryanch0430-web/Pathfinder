@@ -456,3 +456,111 @@ def test_db18_a_guide_whose_places_cannot_be_located_leaves_a_data_gap(settings:
     assert [gap.kind for gap in gaps] == [FailureKind.NO_DATA]
     assert "none could be located" in gaps[0].message
     assert len([row for row in log.rows if row["tool"] == "geocode"]) == len(geocoder.asked) >= 2
+
+
+# -- B5: an attraction agent cut off by the budget keeps the places it already located --
+
+SIX_PLACES = """== See ==
+{{see | name=Kinkaku-ji | content=The golden pavilion.}}
+{{see | name=Fushimi Inari Taisha | content=Thousands of torii gates.}}
+{{see | name=Philosopher's Path | content=A canal-side walk.}}
+{{see | name=Kiyomizu-dera | content=Hilltop temple.}}
+{{see | name=Nijo Castle | content=A shogun's castle.}}
+{{see | name=Arashiyama Bamboo Grove | content=A bamboo path.}}
+"""
+
+SIX_KNOWN = {
+    "Kinkaku-ji, Kyoto": (35.0394, 135.7292),
+    "Fushimi Inari Taisha, Kyoto": (34.9671, 135.7727),
+    "Philosopher's Path, Kyoto": (35.0270, 135.7949),
+    "Kiyomizu-dera, Kyoto": (34.9949, 135.7850),
+    "Nijo Castle, Kyoto": (35.0142, 135.7482),
+    "Arashiyama Bamboo Grove, Kyoto": (35.0170, 135.6713),
+}
+
+
+class StallsAfter(FakeGeocoder):
+    """Answers the first `free` lookups at once, then keeps the next one waiting past the budget."""
+
+    def __init__(self, known: dict[str, tuple[float, float]], free: int) -> None:
+        super().__init__(known)
+        self.free = free
+
+    async def geocode(self, name: str, *, country_hint: str = "") -> GeoLocation | None:
+        if len(self.asked) >= self.free:
+            self.asked.append(name)
+            await asyncio.sleep(30)
+        return await super().geocode(name, country_hint=country_hint)
+
+
+def test_attraction_agent_budget_exceeded_keeps_geocoded_places(settings: Settings) -> None:
+    settings = settings.model_copy(update={"preplan_budget_seconds": 0.3, "agent_timeout_seconds": 30})
+    guide = WikivoyagePlacesSource(settings)
+
+    async def wikitext(destination: str) -> tuple[str, str]:
+        return SIX_PLACES, destination
+
+    guide._wikitext = wikitext
+    geocoder = StallsAfter(SIX_KNOWN, free=3)
+    registry = SimpleNamespace(places=[guide], notes=[], geocoder=geocoder, web=[], web_deep=[])
+
+    async def scenario() -> AgentResult:
+        context = _context()
+        results = await PlanPath(planner=None, registry=registry, settings=settings).run_agents(
+            context=context,
+            destination=GeoLocation(name="Kyoto", geo=KYOTO_CENTRE),
+            date_range=context.date_range(),
+            toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="req_b5"),
+            emit=lambda *_: None,
+            names={AgentName.ATTRACTION},
+        )
+        assert _others() == []
+        return results["attraction"]
+
+    attraction = asyncio.run(scenario())
+
+    assert len(geocoder.asked) == 4, "the fourth place was being located when the budget ran out"
+    places = attraction.payload["places"]
+    assert len(places) >= 3 and all(row["geo"] and row["source_refs"] for row in places)
+    assert {row["name"] for row in places} <= set(name.removesuffix(", Kyoto") for name in SIX_KNOWN)
+    assert attraction.partial is True
+    assert attraction.status is AgentStatus.PARTIAL
+    gaps = [gap for gap in attraction.failures if gap.section == "attractions"]
+    assert [gap.kind for gap in gaps] == [FailureKind.TIMEOUT] and gaps[0].retryable
+    assert "budget" in gaps[0].message
+
+
+def test_planner_uses_a_partial_attraction_result_and_shows_the_gap(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    settings = settings.model_copy(update={"preplan_budget_seconds": 0.3, "agent_timeout_seconds": 30})
+    registry = cost_sandbox(settings, "Kyoto")
+    guide = WikivoyagePlacesSource(settings)
+
+    async def wikitext(destination: str) -> tuple[str, str]:
+        return SIX_PLACES, destination
+
+    guide._wikitext = wikitext
+    registry.places = [guide]
+    registry.notes = []
+    # The trip's own destination is the first lookup; then three places answer and the fourth stalls.
+    registry.geocoder = StallsAfter({**SIX_KNOWN, "Kyoto": KYOTO}, free=4)
+
+    async def scenario():
+        path = PlanPath(planner=Planner(offline_gateway, settings, registry.fx), registry=registry, settings=settings)
+        plan = await path.run(
+            context=_context(),
+            session_id="s",
+            toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="req_b5_plan"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+        assert _others() == []
+        return plan
+
+    plan = asyncio.run(scenario())
+
+    attractions = [item for _, item in plan.iter_items() if item.type.value == "attraction"]
+    assert len(attractions) >= 3 and all(item.geo is not None and item.source_refs for item in attractions)
+    gaps = [(gap.kind, gap.retryable) for gap in plan.data_quality.gaps if gap.section == "attractions" and "budget" in gap.message]
+    assert gaps == [(FailureKind.TIMEOUT, True)]
