@@ -68,10 +68,53 @@ _TRIP_DETAIL = (
 #: with the stored details, so a stored date range that differs from the plan's is a request to move the trip.
 REPLAN_MESSAGE = "Re-plan with the updated details."
 
+_NUMBER = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+_SPAN = rf"(?:{_NUMBER}|an?|a couple of|a few|several)\s+(?:more\s+)?(?:days?|nights?|weeks?|months?)"
+_MONTH = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+    r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+_ORDINAL = r"\d{1,2}(?:st|nd|rd|th)?"
+_WHEN = rf"(?:{_ORDINAL}(?:\s*(?:-|–|to|until|and)\s*{_ORDINAL})?\s+)?{_MONTH}\b|next (?:week|month|year)\b"
+_SHIFT = r"(?:move|shift|push|bring|put|slide)"
+_TRIP = r"(?:trip|holiday|vacation|stay|itinerary|plan|everything|whole)"
+#: Sentences that ask for other dates or another length for the whole trip. A day, a night or "later" on
+#: its own names a part of the trip ("add a temple on day 2", "swap the hotel for the last two nights",
+#: "a later flight") and does not match.
+_NEW_DATES = [
+    re.compile(pattern)
+    for pattern in (
+        # "change the dates", "use the new dates", "move the dates"
+        r"\b(?:change|update|set|use|apply|alter|adjust|edit|pick|choose|new|different|other)\s+"
+        r"(?:\w+\s+){0,2}?dates?\b",
+        r"\b(?:move|shift|push)\b\s+(?:\w+\s+){0,2}?dates?\b",
+        # "move the trip", "shift my stay", "push everything back"
+        rf"\b{_SHIFT}\b\s+(?:\w+\s+){{0,3}}?{_TRIP}\b",
+        r"\b(?:postpon\w*|reschedul\w*)\b",
+        # "extend the trip", "extend my stay by two days", "shorten it"
+        rf"\b(?:extend|shorten|lengthen)\w*\b.{{0,24}}?\b(?:{_TRIP}|dates?|it|{_SPAN})\b",
+        # "make it 4 days", "make it a 4-day trip"
+        rf"\bmake it\s+(?:an?\s+)?{_NUMBER}[\s-]+(?:days?|nights?)\b",
+        # "a week later", "two days earlier", "back 3 days"
+        rf"\b{_SPAN}\s+(?:later|earlier|sooner|longer|shorter|back|forward)\b",
+        rf"\b(?:back|forward|ahead)\s+(?:by\s+)?{_SPAN}\b",
+        r"\b(?:number|length) of (?:the )?(?:days|nights|trip|stay)\b",
+        # "move it to 12-14 December", "go on 20 March instead"
+        rf"\b{_SHIFT}\b.{{0,24}}?\b(?:to|in|on|until|for)\s+(?:{_WHEN})",
+        rf"\b(?:go|travel|leave|fly|switch)\b.{{0,24}}?\b(?:to|in|on|for)\s+(?:{_WHEN}).{{0,12}}\binstead\b",
+    )
+]
+
 
 def is_replan_message(message: str) -> bool:
     """The page's "generate again" message (see REPLAN_MESSAGE)."""
     return (message or "").strip().rstrip(".").casefold() == REPLAN_MESSAGE.rstrip(".").casefold()
+
+
+def asks_for_new_dates(message: str) -> bool:
+    """True when the sentence asks to move the trip or change its length ("shift the trip by a week")."""
+    lower = (message or "").lower()
+    return any(pattern.search(lower) for pattern in _NEW_DATES)
 
 
 def replans_new_dates(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
@@ -105,7 +148,7 @@ class RuleRouter:
 
         affected = ["dates"] if replans_new_dates(text, context, plan_summary) else _affected_parts(lower)
         is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
-        modify_hit = bool(re.search(MODIFY_VERBS, lower)) or is_replan_message(text)
+        modify_hit = bool(re.search(MODIFY_VERBS, lower)) or asks_for_new_dates(lower) or is_replan_message(text)
         plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*(day|night)s?\b", lower))
         travel_hit = bool(re.search(r"\b(trip|travel|holiday|vacation|visit|go to|going to)\b", lower))
 
@@ -387,6 +430,8 @@ def _affected_parts(lower: str) -> list[str]:
         if re.search(pattern, lower):
             parts.append(name)
     day_matches = re.findall(r"\bday\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", lower)
+    if asks_for_new_dates(lower):
+        parts.append("dates")
     for first, second in day_matches:
         value = first or second
         if value:
@@ -458,7 +503,7 @@ def rules_decide_alone(
     is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
     command_question = bool(re.match(_COMMAND_QUESTION, lower))
     plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
-    modify_hit = bool(re.search(_WORD_MODIFY, lower)) or is_replan_message(text)
+    modify_hit = bool(re.search(_WORD_MODIFY, lower)) or asks_for_new_dates(lower) or is_replan_message(text)
     if decision.intent == Intent.ASK:
         return (
             is_question
