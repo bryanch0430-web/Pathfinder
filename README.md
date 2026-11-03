@@ -173,9 +173,10 @@ the four agents mark their sections unavailable and the planner returns an hones
 source-grounded plan with visible gaps. `.env` is git-ignored and is not part of this
 repository; create it from `.env.example` on each machine.
 
-`ENVIRONMENT` defaults to `development`, which is what local work and the tests
-(`ENVIRONMENT=test`) use; the built-in `AUTH_SECRET` and `ADMIN_TOKEN` defaults are
-accepted there. For any other value, such as `ENVIRONMENT=production`, the backend
+`ENVIRONMENT` defaults to `production` when it is not set. Local work uses
+`ENVIRONMENT=development` (`scripts/dev.sh` and `scripts/dev.ps1` set it, and `.env.example`
+has it) and the tests use `ENVIRONMENT=test`; the built-in `AUTH_SECRET` and `ADMIN_TOKEN`
+defaults are accepted only there. For any other value, and when it is not set, the backend
 refuses to start until `AUTH_SECRET` (a random value of at least 32 characters) and
 `ADMIN_TOKEN` (not `local-admin` or `REPLACE_ME`) are set to real secrets. Generate one
 with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.

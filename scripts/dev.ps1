@@ -19,6 +19,9 @@ param(
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+# The backend treats an unset ENVIRONMENT as production and refuses the built-in secrets.
+if (-not $env:ENVIRONMENT) { $env:ENVIRONMENT = "development" }
+
 switch ($Task) {
   "backend" {
     $env:PYTHONPATH = "backend"

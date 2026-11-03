@@ -6,6 +6,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TASK="${1:-backend}"
 DATASET="${2:-hongkong}"
 TAG="${3:-baseline-v1}"
+# The backend treats an unset ENVIRONMENT as production and refuses the built-in secrets.
+export ENVIRONMENT="${ENVIRONMENT:-development}"
 
 case "$TASK" in
   backend)

@@ -181,7 +181,7 @@ deterministic and sandboxed; see `docs/EVALUATION.md`.
 
 The built-in default token is `local-admin`; `.env.example` ships the placeholder
 `REPLACE_ME`. With `ENVIRONMENT` other than `development` or `test` (for example
-`production`), the app refuses to start until `ADMIN_TOKEN` (neither of those two values)
+`production`, which is also what an unset `ENVIRONMENT` means), the app refuses to start until `ADMIN_TOKEN` (neither of those two values)
 and `AUTH_SECRET` (32+ characters) are set to real secrets. Trace ids must match `req_[0-9a-f]{12}`.
 
 ## 7. Contracts
