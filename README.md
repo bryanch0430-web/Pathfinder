@@ -328,7 +328,9 @@ The planner chooses *which* verified stops belong to a day; the scheduler owns t
 
 - User text is fenced as data; it never becomes an instruction. An earlier turn, or a line kept
   from one (a preference, a constraint), that a prompt repeats loses any fence tag the same way,
-  and a turn the blocklist flagged is not repeated.
+  and a turn the blocklist flagged is not repeated. A tag is found however it is spelled (hidden
+  characters, look-alike brackets, pieces of one inside another) in time proportional to the
+  text; a text of more than 50,000 characters loses every opening bracket instead.
 - A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
   calls. Suspected injections are logged as **category + count only**.
 - Each path has an allowlist (`PATH_ALLOWLIST` in `application/toolbox.py`). `ask` can

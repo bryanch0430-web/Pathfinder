@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -70,31 +71,101 @@ def screen_message(message: str, settings: Settings) -> ScreenResult:
     return result
 
 
-#: Characters that show as nothing; a tag can hide some inside its name.
-_HIDDEN = "[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]*"
-#: The fence's tags as a model may read them: any case and spacing, a slash, attributes, hidden
-#: characters inside the name, fullwidth or small angle brackets. For example `</USER_TRAVEL_REQUEST >`,
-#: `< / user_travel_request >`, `<user_travel_request/>`, `</user_travel_request foo>`. It runs to the
-#: next `>`, or to the end of the text when the tag is never closed.
-FENCE_TAG = re.compile(
-    rf"[<\uff1c\ufe64]{_HIDDEN}\s*/?\s*{_HIDDEN}{_HIDDEN.join('user_travel_request')}[^>\uff1e\ufe65]*[>\uff1e\ufe65]?",
+#: The longest text `strip_fence_tags` reads. Stored lines have no length limit, so a longer text is not read
+#: at all: it loses the characters that could open a tag instead, which takes no time worth counting.
+FENCE_ANALYSIS_LIMIT = 50_000
+#: Tags can be built from the pieces of tags around them; each round of taking tags out can complete the next
+#: layer. A text that is still changing after this many rounds is nested on purpose.
+_FENCE_ROUNDS = 32
+
+#: What a reader takes for the `<` that opens a tag: the sign, the angle quotes and angle brackets, and the
+#: characters that fold to one of them (fullwidth and small less-than signs, the not-less-than sign, the
+#: vertical angle bracket). A text without any of them holds no tag.
+_OPENING = "<\u2039\u3008\u2329\u27e8\uff1c\ufe64\u226e\ufe3f"
+_OPENING_ANGLE = re.compile(f"[{_OPENING}]")
+
+#: Characters that show as nothing but are not format, control or combining characters (those are found by
+#: their category): the fillers of Hangul, which are letters that draw no mark.
+_FILLERS = frozenset("\u115f\u1160\u3164\uffa0")
+_SHOWN_AS_NOTHING = frozenset({"Cf", "Cc", "Mn", "Me"})
+
+#: The fence's tags in a text's skeleton (below): any case, any spacing, slashes and backslashes (JSON writes
+#: `</` as `<\/`), attributes. It runs to the next closing bracket, or to the end of the text when the tag is
+#: never closed. Blanks are only matched right after the opening bracket or a slash, so no two parts of the
+#: pattern can take the same character: it has one way to match and takes time in proportion to the text,
+#: however many blanks the text holds.
+_TAG = re.compile(
+    r"[<\u2039\u3008\u27e8]\s*(?:[/\\]\s*)*user_travel_request[^>\u203a\u3009\u27e9]*[>\u203a\u3009\u27e9]?",
     re.IGNORECASE,
 )
+
+
+def _skeleton(text: str) -> tuple[str, list[int]]:
+    """`text` as a reader sees it, and for each of its characters the index in `text` it came from.
+
+    Compatibility forms are folded (a fullwidth less-than sign is `<`), and what shows as nothing is left
+    out: format characters such as zero-width spaces and bidirectional marks, controls other than tab and
+    line feed, combining marks and the Hangul fillers. A tag spelled with any of them is a tag here.
+    """
+    seen: list[str] = []
+    came_from: list[int] = []
+    for index, char in enumerate(text):
+        if char < "\x80":
+            if (char >= " " and char != "\x7f") or char in "\t\n":
+                seen.append(char)
+                came_from.append(index)
+            continue
+        for part in unicodedata.normalize("NFKD", char):
+            if part not in _FILLERS and unicodedata.category(part) not in _SHOWN_AS_NOTHING:
+                seen.append(part)
+                came_from.append(index)
+    return "".join(seen), came_from
 
 
 def strip_fence_tags(text: str) -> str:
     """Text the traveller wrote, as a prompt may carry it again: no fence tag, however spelled, left in it.
 
     Used on the current message by the fence itself and on every earlier turn or stored line that is
-    repeated in a prompt, so no copy of the traveller's words can close the fence early. Nothing else is
-    touched: other markup and every other character stay as they were.
+    repeated in a prompt, so no copy of the traveller's words can close the fence early. The tags are found
+    in the text's skeleton, what a reader sees, and cut out of the text itself: nothing else is touched, and
+    accents, emoji and other markup stay as they were. It takes time in proportion to the length of the
+    text. A text with no opening bracket in it comes back as it was; one longer than FENCE_ANALYSIS_LIMIT, or
+    nested deeper than a few layers, loses every opening bracket instead.
     """
-    # Strip until nothing is left to strip: taking out an inner tag must not rebuild an outer one.
-    while True:
-        stripped = FENCE_TAG.sub("", text)
-        if stripped == text:
-            return text
-        text = stripped
+    if not _OPENING_ANGLE.search(text):
+        return text
+    if len(text) > FENCE_ANALYSIS_LIMIT:
+        return _OPENING_ANGLE.sub("", text)
+    seen, came_from = _skeleton(text)
+    cuts: list[tuple[int, int]] = []
+    # Take tags out until none is left: taking out an inner tag must not rebuild an outer one.
+    for _ in range(_FENCE_ROUNDS):
+        spans = [match.span() for match in _TAG.finditer(seen)]
+        if not spans:
+            break
+        kept: list[str] = []
+        kept_from: list[int] = []
+        end = 0
+        for start, stop in spans:
+            cuts.append((came_from[start], came_from[stop - 1] + 1))
+            kept.append(seen[end:start])
+            kept_from.extend(came_from[end:start])
+            end = stop
+        kept.append(seen[end:])
+        kept_from.extend(came_from[end:])
+        seen, came_from = "".join(kept), kept_from
+    else:
+        # Every round found a tag. If the last one left another, the text is nested on purpose.
+        if _TAG.search(seen):
+            return _OPENING_ANGLE.sub("", text)
+    pieces: list[str] = []
+    end = 0
+    for start, stop in sorted(cuts):
+        if start > end:
+            pieces.append(text[end:start])
+        end = max(end, stop)
+    pieces.append(text[end:])
+    return "".join(pieces)
 
 
 def strip_fence_tags_deep(value: Any) -> Any:
