@@ -7,6 +7,8 @@ that is down costs one attempt a minute (each waiting up to the timeout) instead
 from __future__ import annotations
 
 import asyncio
+import inspect
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -157,3 +159,8 @@ def test_the_public_wallet_routes_make_one_outbound_call_while_the_upstream_is_d
     assert {response.status_code for response in wallet + convert} == {200}
     assert {response.json()["source"] for response in wallet + convert} == {"static"}
     assert upstream.calls == 1
+
+
+def test_the_ttl_and_the_backoff_default_to_the_monotonic_clock() -> None:
+    """A wall clock can step back (a VM resume, the first clock sync); the timing must not follow it."""
+    assert inspect.signature(FxService).parameters["clock"].default is time.monotonic
