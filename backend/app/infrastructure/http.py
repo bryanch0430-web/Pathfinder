@@ -151,6 +151,7 @@ async def request_json(
     for another attempt ends the loop with the last classified error instead.
     """
     timing = timing or RetryTiming()
+    retries = max(retries, 0)  # below zero would leave the loop with no attempt at all
     total = budget if budget is not None else timeout * DEFAULT_BUDGET_FACTOR
     started = timing.clock()
 
