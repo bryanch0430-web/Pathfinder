@@ -231,6 +231,8 @@ export default function App() {
 
   const createTripTab = async () => {
     const id = await pf.newPlan();
+    // None was made: the page has said so, and the trip that was open stays.
+    if (!id) return null;
     writeTrips((current) => (current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }]));
     return id;
   };
@@ -392,7 +394,7 @@ export default function App() {
       onTry={(prompt) => {
         void (async () => {
           changeTab("plan");
-          await createTripTab();
+          if (!(await createTripTab())) return;
           const origin = pf.context.origin?.trim();
           void pf.send(origin ? `${prompt} Start from ${origin}.` : prompt);
         })();
