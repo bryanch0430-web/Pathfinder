@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **Build tools updated for security.** Storybook, Vite and TypeScript moved to the newest release of the same major version, and the Slides export uses a patched image reader. `npm audit` goes from 2 critical, 3 high and 8 moderate findings to 0 critical, 1 high and 9 moderate; what is left in Vite and Storybook needs a major upgrade. The Slides button still downloads a deck. (`9e5bb5a`)
 - **Costly endpoints need an identity.** The evaluation runs and their reports now need the admin token, and destination suggestions and the travel handbook need a signed-in account or the browser's guest token. A trip's translation already followed the same rule as the trip itself. (`ebebc1b`)
 - **A failing data source shows a fixed message.** When a map, weather or other source fails, the traveller is told "A data source failed. Your plan was not changed." instead of the source's own error page, and the same goes for an unexpected crash. A section that could not load shows that it failed, not a timeout. (`631c03c`)
 - **A trip message cannot step out of its quotation marks.** The text a traveller types is now fenced the same way in the first reading step as everywhere else, and a fake closing tag typed in any capitals or spacing is removed, even when it is built out of pieces. (`73301b1`)
