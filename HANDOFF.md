@@ -153,7 +153,6 @@ Set these locally in `.env`:
 - `GOOGLE_MAPS_API_KEY` (map + routes)
 - `SERPAPI_KEY` (hotels/flights)
 - `YOUTUBE_API_KEY` (optional notes)
-- `BAIDU_MAP_AK` (optional mainland provider; not implemented yet)
 - auth secret / demo secrets
 
 Without keys, the agent falls back to gaps or static/seasonal data; never invent
@@ -181,13 +180,9 @@ gain. Jev is still the System 1 route classifier, not a reranker.
 
 ## Remaining work (priority)
 
-1. ~~Google Maps + Baidu map provider switch~~ **Implemented 2026-10-30.**
-   Google Maps JS outside mainland China, Baidu Maps JS inside it (WGS-84 → BD-09 for
-   Baidu), keys served from `/api/runtime`, Leaflet removed.
-   **Blocker to finish:** the configured `BAIDU_MAP_AK` works for server-side APIs but
-   answers `APP服务被禁用了` for the browser JS API, so the console falls back to Google
-   with a notice. Enable 浏览器端 (JavaScript API) on that AK and whitelist
-   `localhost`/`127.0.0.1` in the Baidu console to switch China trips to Baidu.
+1. ~~Google Maps + Baidu map provider switch~~ **Superseded.** The map is Google Maps JS
+   for every destination, with the key served from `/api/runtime`; Leaflet and the Baidu
+   provider are gone (`backend/tests/test_api.py` asserts `/api/runtime` has no Baidu key).
 2. Fault-injection + p50/p95/contract benchmark.
 3. Larger RAG corpus, harder held-out queries, embeddings/cross-encoder/Jev
    ablation with measured gain.

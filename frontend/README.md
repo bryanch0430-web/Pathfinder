@@ -17,10 +17,8 @@ npm run build-storybook  # storybook-static/
 `VITE_API_TARGET` overrides the dev proxy target. In production the backend serves
 `dist/`, so the API base is the same origin.
 
-The map uses Google Maps JS outside mainland China and Baidu Maps JS inside it, chosen
-from the plan's destination country (falling back to a China bounding box). Pins and
-routes are drawn from verified coordinates, with the WGS-84 → BD-09 shift applied for
-Baidu. It uses numbered sight pins plus an offset `H` hotel marker. A 06:00–23:00 clock scrubber
+The map uses Google Maps JS for every destination, with the key served from
+`/api/runtime`. Pins and routes are drawn from verified coordinates. It uses numbered sight pins plus an offset `H` hotel marker. A 06:00–23:00 clock scrubber
 and play button drive the pin states, route progress and a moving traveller token; the
 token changes glyph/colour for walk, metro, drive and flight, and clicking a stop tick
 jumps to that time and opens its place card. If tiles fail, the pins still render on the
