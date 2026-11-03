@@ -347,10 +347,7 @@ class AttractionAgent(BaseAgent):
                 DataGap(
                     section="attractions",
                     kind=geocoder_failure.kind,
-                    message=(
-                        f"{len(unchecked)} guide places could not be checked on the map because the geocoder "
-                        f"failed ({geocoder_failure.kind.value}); ask again to retry."
-                    ),
+                    message=_unchecked_message(len(unchecked), geocoder_failure),
                     retryable=geocoder_failure.retryable,
                 )
             )
@@ -385,8 +382,13 @@ class AttractionAgent(BaseAgent):
                     timeout=10.0,
                 )
             except Exception as exc:
+                error = classify_exception(exc, "geocoder")
+                if error.kind is FailureKind.NO_DATA:
+                    # A no-result answer: the geocoder knows no such place. It did not fail.
+                    found.unplaced.append(place.name)
+                    continue
                 found.unchecked.append(place.name)
-                found.failure = found.failure or classify_exception(exc, "geocoder")
+                found.failure = found.failure or error
                 continue
             # 80 km: the radius the guide source keeps a listing within.
             if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= 80:
@@ -764,6 +766,16 @@ def _gap(section: str, exc: Exception) -> DataGap:
         return DataGap(section=section, kind=FailureKind.TIMEOUT, message="source exceeded its deadline", retryable=True)
     # An unexpected exception's own text can hold anything; the gap says only that the source failed.
     return DataGap(section=section, kind=FailureKind.SERVER_ERROR, message="source failed unexpectedly")
+
+
+def _unchecked_message(count: int, failure: ProviderError) -> str:
+    """Why `count` guide places could not be checked: what failed, and whether asking again could help."""
+    left = f"{count} guide places could not be checked on the map"
+    if failure.kind is FailureKind.BLOCKED:
+        # This turn's own cap on lookups was spent; the geocoder was never asked.
+        return f"{left} because this turn reached its limit on data lookups."
+    cause = f"{left} because the geocoder failed ({failure.kind.value})"
+    return f"{cause}; ask again to retry." if failure.retryable else f"{cause}."
 
 
 def _norm_name(name: str) -> str:

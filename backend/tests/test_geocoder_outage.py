@@ -17,7 +17,7 @@ import pytest
 from app.application.agents import AgentContext, AttractionAgent
 from app.application.toolbox import Toolbox
 from app.config import Settings
-from app.domain.errors import ProviderError, operator_text
+from app.domain.errors import ProviderError, ProviderNoData, operator_text
 from app.domain.models import (
     AgentResult,
     DateRange,
@@ -164,3 +164,65 @@ def test_the_gap_for_a_refused_key_is_not_retryable(settings: Settings) -> None:
     gaps = _gaps(_attractions(settings, chain))
 
     assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.AUTH, False)]
+
+
+class _Down:
+    """A geocoder that raises `error` for every place it is asked about."""
+
+    def __init__(self, error: BaseException) -> None:
+        self.error = error
+        self.asked: list[str] = []
+
+    async def geocode(self, name: str, **_: Any) -> GeoLocation | None:
+        self.asked.append(name)
+        raise self.error
+
+
+def test_a_no_result_answer_is_an_unknown_place_not_a_failed_geocoder(settings: Settings) -> None:
+    geocoder = _Down(ProviderNoData("no result", source="amap-geocoder"))
+
+    result = _attractions(settings, geocoder)
+
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.NO_DATA, False)]
+    assert "none could be located" in gaps[0][2] and "failed" not in gaps[0][2]
+    assert any("could not locate" in note for note in result.notes)
+
+
+def test_a_spent_tool_budget_is_not_reported_as_a_geocoder_failure(settings: Settings) -> None:
+    geocoder = _Down(ValueError("never asked"))
+
+    # The two place searches use up the cap, so every geocoder call is refused.
+    result = _attractions(settings, geocoder, max_calls=2)
+
+    gaps = _gaps(result)
+    assert geocoder.asked == []
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.BLOCKED, False)]
+    assert "geocoder failed" not in gaps[0][2] and "retry" not in gaps[0][2]
+    assert "limit" in gaps[0][2]
+
+
+@pytest.mark.parametrize(
+    ("error", "kind"),
+    [
+        (ProviderError("refused", kind=FailureKind.AUTH, source="g", retryable=False), FailureKind.AUTH),
+        (ValueError("bad payload"), FailureKind.SERVER_ERROR),
+        (KeyError("lat"), FailureKind.SERVER_ERROR),
+    ],
+)
+def test_a_failure_that_asking_again_cannot_fix_is_not_told_to_retry(
+    settings: Settings, error: BaseException, kind: FailureKind
+) -> None:
+    result = _attractions(settings, _Down(error))
+
+    gaps = _gaps(result)
+    assert [(gap_kind, retryable) for gap_kind, retryable, _ in gaps] == [(kind, False)]
+    assert "could not be checked" in gaps[0][2] and "retry" not in gaps[0][2]
+
+
+def test_a_failure_that_asking_again_could_fix_is_told_to_retry(settings: Settings) -> None:
+    result = _attractions(settings, _Down(asyncio.TimeoutError()))
+
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.TIMEOUT, True)]
+    assert "geocoder failed (timeout); ask again to retry" in gaps[0][2]
