@@ -31,6 +31,7 @@ from app.domain.models import (
     Session,
     TripContext,
     TripPlan,
+    USER_PREFIX,
     User,
 )
 
@@ -561,14 +562,18 @@ class SQLiteStore:
         return {"saved_trips": int(saved), "preferences": int(prefs)}
 
     def client_profile(self, client_token: str) -> dict[str, Any]:
+        # An account holds its trips by `user_id`, and an adopted trip keeps the guest token it was made
+        # with; a guest holds the trips made with its token that no account has taken.
+        if client_token.startswith(USER_PREFIX):
+            held, held_args = "s.user_id=?", (client_token[len(USER_PREFIX):],)
+        else:
+            held, held_args = "s.client_token=? AND s.user_id=''", (client_token,)
         with self._connect() as conn:
-            sessions = conn.execute(
-                "SELECT COUNT(*) AS n FROM journeys WHERE client_token=?", (client_token,)
-            ).fetchone()["n"]
+            sessions = conn.execute(f"SELECT COUNT(*) AS n FROM journeys s WHERE {held}", held_args).fetchone()["n"]
             rows = conn.execute(
                 "SELECT c.data FROM journey_state c JOIN journeys s ON s.id=c.session_id "
-                "WHERE s.client_token=? ORDER BY s.updated_at DESC LIMIT 20",
-                (client_token,),
+                f"WHERE {held} ORDER BY s.updated_at DESC LIMIT 20",
+                held_args,
             ).fetchall()
             saved = conn.execute(
                 "SELECT COUNT(*) AS n FROM kept_journeys WHERE owner=?", (client_token,)
