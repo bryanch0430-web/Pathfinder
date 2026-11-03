@@ -249,6 +249,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [plan?.trip_id, plan?.version]);
 
   const openSession = useCallback(async (id: string) => {
+    // The stream of the trip being left stops with it, so its late events cannot land in this one.
+    abortRef.current?.abort();
     setReady(false);
     try {
       await loadSession(id);
@@ -262,6 +264,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [loadSession]);
 
   const newPlan = useCallback(async () => {
+    abortRef.current?.abort();
     setReady(false);
     try {
       const created = await createSession(clientToken());
@@ -283,6 +286,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     if (!id) return;
     try {
       const data = await getSession(id);
+      // The answer came after another trip was opened: it is not for the view that is open now.
+      if (sessionRef.current !== id) return;
       setMessages(data.messages);
       setVersions(data.versions);
       setContextState(data.context);
@@ -437,6 +442,8 @@ export function usePathfinder(locale: string): PathfinderHook {
           },
           {
             onEvent: (event, data) => {
+              // Another trip was opened since this turn began: its events are not for this view.
+              if (sessionRef.current !== id) return;
               if (event === "route") setRoute(data as unknown as RoutePayload);
               if (event === "locale" && isPlanLocale(data.plan_locale)) {
                 // A set_language turn: follow it in the interface and fetch the translation afresh.
@@ -514,10 +521,15 @@ export function usePathfinder(locale: string): PathfinderHook {
           else setError(cause instanceof Error ? cause.message : tRef.current("errors.turn"));
         }
       } finally {
-        abortRef.current = null;
-        setBusy(false);
-        setProgress(100);
-        await refresh();
+        // A newer stream (in the trip opened since) owns the busy state and the controller.
+        const superseded = abortRef.current !== null && abortRef.current !== controller;
+        if (!superseded) {
+          abortRef.current = null;
+          setBusy(false);
+          setProgress(100);
+        }
+        // An aborted stream means the view moved on; there is nothing of this trip to reload.
+        if (!controller.signal.aborted && sessionRef.current === id) await refresh();
       }
     },
     [adoptPlanLocale, busy, locale, plan, refresh, selectedItem?.id, selectedItem?.name],
