@@ -61,7 +61,7 @@ class PlanPath:
         if fx is not None:
             try:
                 with tracer.span("fx.refresh"):
-                    await fx.refresh()
+                    await toolbox.call("fx.rates", fx.refresh)
             except Exception:
                 pass
 

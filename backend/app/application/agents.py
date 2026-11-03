@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any, Awaitable, Callable
 
-from app.application.toolbox import Toolbox
+from app.application.toolbox import LoggedWebSource, Toolbox
 from app.config import Settings
 from app.domain.errors import ProviderError
 from app.domain.models import (
@@ -118,6 +118,7 @@ class BaseAgent:
         city: str,
         query: str,
         official_empty: bool,
+        toolbox: Toolbox | None = None,
     ) -> tuple[list[dict[str, Any]], DataGap | None]:
         """Reference pages for a thin section. Never a price or a temperature."""
         web = list(getattr(self.registry, "web", None) or [])
@@ -125,6 +126,10 @@ class BaseAgent:
         grok = self._grok_source()
         if deepseek is None and grok is None:
             return [], None
+        if toolbox is not None:
+            # A web search is a tool call: it goes through the toolbox and its log.
+            deepseek = LoggedWebSource(deepseek, toolbox) if deepseek is not None else None
+            grok = LoggedWebSource(grok, toolbox) if grok is not None else None
         from app.application.web_lookup import inadequate_gap, lookup_web_references
 
         found = await lookup_web_references(
@@ -247,6 +252,7 @@ class AttractionAgent(BaseAgent):
                 city=request.context.destination,
                 query=f"things to do in {request.context.destination}",
                 official_empty=not places,
+                toolbox=request.toolbox,
             )
             if web_gap is not None:
                 failures.append(web_gap)
@@ -354,6 +360,7 @@ class HotelAgent(BaseAgent):
                 city=request.context.destination,
                 query=f"hotels in {request.context.destination}",
                 official_empty=True,
+                toolbox=request.toolbox,
             )
             if web_gap is not None:
                 failures.append(web_gap)
@@ -480,6 +487,7 @@ class WeatherAgent(BaseAgent):
                 city=request.context.destination,
                 query=f"typical weather in {request.context.destination} in {month}",
                 official_empty=not days,
+                toolbox=request.toolbox,
             )
             if web_gap is not None:
                 failures.append(web_gap)
@@ -545,6 +553,7 @@ class TicketAgent(BaseAgent):
                 city=request.context.destination,
                 query=f"{request.context.origin} to {request.context.destination} flights",
                 official_empty=True,
+                toolbox=request.toolbox,
             )
             if web_gap is not None:
                 failures.append(web_gap)

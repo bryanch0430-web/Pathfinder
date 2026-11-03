@@ -150,14 +150,6 @@ class _SpyWeb:
         return []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Proposal DB-05: plan/modify agents call web search directly "
-        "(agents.py BaseAgent._web_references -> web_lookup.lookup_web_references), bypassing "
-        "the Toolbox allowlist and tool log; web.search is not on the plan/modify allowlists"
-    ),
-)
 def test_db05_plan_path_web_lookups_go_through_the_allowlist(settings: Settings) -> None:
     """Proposal DB-05 (p2): every web search made on the plan path passes the plan allowlist."""
     registry = SandboxRegistry(settings, "Kyoto")

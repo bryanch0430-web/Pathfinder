@@ -30,6 +30,8 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "timezone.resolve",
             "elevation.gain",
             "fx.rates",
+            # Reference pages for a section the official sources left empty.
+            "web.search",
         }
     ),
     "modify": frozenset(
@@ -45,6 +47,7 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "timezone.resolve",
             "elevation.gain",
             "fx.rates",
+            "web.search",
         }
     ),
     "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search"}),
@@ -133,6 +136,23 @@ class Toolbox:
                     error_class=FailureKind.SERVER_ERROR.value,
                 )
             raise
+
+
+class LoggedWebSource:
+    """A web search backend whose calls go through the toolbox, so each is logged."""
+
+    def __init__(self, source: Any, toolbox: Toolbox):
+        self._source = source
+        self._toolbox = toolbox
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._source, name)
+
+    async def search(self, **kwargs: Any) -> Any:
+        return await self._toolbox.call("web.search", self._source.search, **kwargs)
+
+    async def answer(self, **kwargs: Any) -> Any:
+        return await self._toolbox.call("web.search", self._source.answer, **kwargs)
 
 
 def _safe_args(kwargs: dict[str, Any]) -> dict[str, Any]:
