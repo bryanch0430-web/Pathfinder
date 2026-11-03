@@ -17,6 +17,7 @@ from typing import Any, Sequence
 
 import httpx
 
+from app.application.prompt_context import trip_state
 from app.application.prompts import PromptLibrary
 from app.application.router import affected_parts_for
 from app.config import Settings
@@ -59,7 +60,7 @@ class JevDecisionClient:
     ) -> dict[str, Any]:
         history_lines = [f"{item.role}: {strip_fence_tags(item.content)[:280]}" for item in replayable(history)[-6:]]
         state = (
-            f"Trip context: {context.model_dump_json()}\n"
+            f"Trip context: {trip_state(context)}\n"
             f"Current plan: {json.dumps(plan_summary) if plan_summary else 'none'}\n"
             f"Recent history:\n" + ("\n".join(history_lines) or "(none)") + "\n\n"
             + fence_user_message(message)

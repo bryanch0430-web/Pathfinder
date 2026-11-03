@@ -13,6 +13,7 @@ import calendar
 from datetime import date, timedelta
 
 from app.application.llm_gateway import LLMGateway
+from app.application.prompt_context import trip_state
 from app.domain.errors import CanaryLeak
 from app.domain.models import TripContext
 from app.security import fence_user_message
@@ -137,7 +138,7 @@ async def understand(
     if gateway.available and missing:
         prompt = (
             f"Current date: {today.isoformat()}\n"
-            f"Existing context: {updated.model_dump_json()}\n"
+            f"Existing context: {trip_state(updated)}\n"
             f"Still missing: {missing}\n\n"
             "Traveller message:\n" + fence_user_message(message)
         )
@@ -354,6 +355,7 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
 
 
 _GENERIC_PLACES = {
+    "now",
     "a",
     "the",
     "my",
