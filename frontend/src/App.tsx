@@ -267,7 +267,7 @@ export default function App() {
     setAuthOpen(false);
     if (pf.sessionId) {
       try {
-        await claimSession(pf.sessionId);
+        await claimSession(pf.sessionId, guestToken);
       } catch {
         // A new session will be created on the next plan if this one is gone.
       }

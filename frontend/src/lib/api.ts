@@ -19,7 +19,7 @@ import type {
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export interface SessionState {
-  session: { id: string; client_token: string; created_at: string };
+  session: { id: string; created_at: string };
   context: TripContext;
   plan: TripPlan | null;
   versions: { trip_id: string; version: number; change_summary: string; created_at: string; item_count: number; destination: string; days: number }[];
@@ -52,7 +52,7 @@ async function errorText(response: Response): Promise<string> {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...authHeader(), ...(init?.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...authHeader(), ...clientTokenHeader(), ...(init?.headers ?? {}) },
   });
   if (!response.ok) {
     const detail = await errorText(response);
@@ -163,6 +163,11 @@ export function authHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** A guest trip answers only to the token its browser created it with, so every call presents it. */
+export function clientTokenHeader(): Record<string, string> {
+  return { "X-Client-Token": localStorage.getItem("pathfinder.client") ?? "" };
+}
+
 export function register(payload: {
   email: string;
   password: string;
@@ -186,10 +191,11 @@ export function me(): Promise<{ user: AuthUser; profile_token: string }> {
   return request("/api/account/whoami");
 }
 
-export function claimSession(sessionId: string): Promise<{ claimed: boolean }> {
+/** Moves a guest session to the signed-in account; `clientToken` is the guest token it was created with. */
+export function claimSession(sessionId: string, clientToken: string): Promise<{ claimed: boolean }> {
   return request("/api/account/attach", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId }),
+    body: JSON.stringify({ session_id: sessionId, client_token: clientToken }),
   });
 }
 
@@ -320,7 +326,7 @@ export async function streamChat(
 ): Promise<void> {
   const response = await fetch(`${BASE}/api/turn/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json", ...authHeader(), ...clientTokenHeader() },
     body: JSON.stringify(payload),
     signal,
   });

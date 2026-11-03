@@ -102,11 +102,12 @@ def test_db06_repeated_probes_add_up_in_one_counter_per_label_and_hour(
     hour = {"now": "2026-11-03T14:00:00+00:00"}
     monkeypatch.setattr(store_module, "_threat_hour", lambda moment=None: hour["now"])
     with TestClient(create_app(settings)) as client:
+        guest = {"X-Client-Token": TOKEN}
         session_id = client.post("/api/journeys", json={"client_token": TOKEN}).json()["session"]["id"]
         for message in [PROBES[0]] * 3 + [PROBES[1]] * 2:
-            assert "security_blocklist" in _send(client, session_id, message, {})
+            assert "security_blocklist" in _send(client, session_id, message, guest)
         hour["now"] = "2026-11-03T15:00:00+00:00"
-        _send(client, session_id, PROBES[0], {})
+        _send(client, session_id, PROBES[0], guest)
         store = client.app.state.container.store
         store.log_injection("tool_result_injection", "high", channel="tool_result")
         store.log_injection("jailbreak", "medium", channel="user_message")

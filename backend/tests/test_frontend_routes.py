@@ -96,6 +96,8 @@ TS_MAP_LEG = {"from_id", "to_id", "mode", "minutes", "km", "path", "source"}
 def test_renamed_routes_accept_the_frontend_payloads_and_return_its_shapes(settings: Settings) -> None:
     with TestClient(create_app(settings)) as client:
         session_id = client.post("/api/journeys", json={"client_token": "guest-shape"}).json()["session"]["id"]
+        # request() in api.ts sends the guest token on every call.
+        guest = {"X-Client-Token": "guest-shape"}
 
         # patchContext(): the body saveContext() builds in usePathfinder.ts.
         patched = client.patch(
@@ -112,6 +114,7 @@ def test_renamed_routes_accept_the_frontend_payloads_and_return_its_shapes(setti
                 "preferences": ["food"],
                 "hard_constraints": [],
             },
+            headers=guest,
         )
         assert patched.status_code == 200, patched.text
         assert TS_TRIP_CONTEXT <= set(patched.json()["context"])
@@ -124,7 +127,7 @@ def test_renamed_routes_accept_the_frontend_payloads_and_return_its_shapes(setti
         client.app.state.container.store.save_plan(plan, "test plan")
 
         # getPlan(id, version)
-        itinerary = client.get(f"/api/journeys/{session_id}/itinerary", params={"version": plan.version})
+        itinerary = client.get(f"/api/journeys/{session_id}/itinerary", params={"version": plan.version}, headers=guest)
         assert itinerary.status_code == 200, itinerary.text
         assert itinerary.json()["plan"]["trip_id"] == plan.trip_id
 
@@ -132,13 +135,14 @@ def test_renamed_routes_accept_the_frontend_payloads_and_return_its_shapes(setti
         rated = client.post(
             f"/api/journeys/{session_id}/rating",
             json={"useful": True, "stars": 4, "client_token": "guest-shape"},
+            headers=guest,
         )
         assert rated.status_code == 200, rated.text
         assert isinstance(rated.json()["feedback"]["id"], str)
         assert isinstance(rated.json()["preferences_added"], list)
 
         # getLegs(id, day): reads `legs` as MapLeg[]
-        segments = client.get(f"/api/journeys/{session_id}/segments", params={"day": plan.days[0].date.isoformat()})
+        segments = client.get(f"/api/journeys/{session_id}/segments", params={"day": plan.days[0].date.isoformat()}, headers=guest)
         assert segments.status_code == 200, segments.text
         legs = segments.json()["legs"]
         assert legs

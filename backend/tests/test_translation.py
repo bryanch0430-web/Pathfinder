@@ -315,26 +315,27 @@ def test_translation_endpoint_matches_the_contract(settings: Settings) -> None:
 
     with TestClient(create_app(settings)) as client:
         session_id = client.post("/api/journeys", json={"client_token": "translation-test"}).json()["session"]["id"]
+        guest = {"X-Client-Token": "translation-test"}
         container = client.app.state.container
         plan = _plan()
         plan.session_id = session_id
         container.store.save_plan(plan, "test")
 
-        offline = client.get(f"/api/journeys/{session_id}/translation", params={"locale": "zh-Hant"}).json()
+        offline = client.get(f"/api/journeys/{session_id}/translation", params={"locale": "zh-Hant"}, headers=guest).json()
         assert set(offline) == {"locale", "plan_version", "status", "reason", "disclaimer", "fields"}
         assert offline["status"] == "unavailable" and offline["disclaimer"] == DISCLAIMERS["zh-Hant"]
 
-        default = client.get(f"/api/journeys/{session_id}/translation").json()
+        default = client.get(f"/api/journeys/{session_id}/translation", headers=guest).json()
         assert default["locale"] == "en" and default["status"] == "english" and default["disclaimer"] == ""
 
         container.translation = TranslationService(FakeTranslator())
         translated = client.get(
-            f"/api/journeys/{session_id}/translation", params={"version": 1, "locale": "zh-Hant"}
+            f"/api/journeys/{session_id}/translation", params={"version": 1, "locale": "zh-Hant"}, headers=guest
         ).json()
         assert translated["status"] == "translated" and translated["plan_version"] == 1
         assert set(translated["fields"]) == {"summary", "days", "items", "gaps"}
         assert list(translated["fields"]["items"]) == ["item_p1", "item_m1", "item_p2"]
 
-        assert client.get(f"/api/journeys/{session_id}/translation", params={"locale": "ja"}).status_code == 422
-        assert client.get(f"/api/journeys/{session_id}/translation", params={"version": 9}).status_code == 404
-        assert client.get("/api/journeys/nope/translation").status_code == 404
+        assert client.get(f"/api/journeys/{session_id}/translation", params={"locale": "ja"}, headers=guest).status_code == 422
+        assert client.get(f"/api/journeys/{session_id}/translation", params={"version": 9}, headers=guest).status_code == 404
+        assert client.get("/api/journeys/nope/translation", headers=guest).status_code == 404

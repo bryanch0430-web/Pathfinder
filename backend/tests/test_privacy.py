@@ -59,7 +59,8 @@ def _save_useful_trip(
     destination: str = "Kyoto",
 ) -> str:
     """Create a session as the caller, give it a plan and mark the plan useful."""
-    headers = headers or {}
+    # A guest session answers only to the guest token it was created with.
+    headers = {"X-Client-Token": client_token, **(headers or {})}
     created = client.post("/api/journeys", json={"client_token": client_token}, headers=headers)
     assert created.status_code == 200, created.text
     session_id = created.json()["session"]["id"]
@@ -128,6 +129,7 @@ def test_saving_the_same_trip_twice_keeps_one_row_per_owner(client: TestClient) 
         rated = client.post(
             f"/api/journeys/{session_id}/rating",
             json={"useful": True, "stars": 4, "client_token": "guest-dup"},
+            headers={"X-Client-Token": "guest-dup"},
         )
         assert rated.status_code == 200
     assert _wishlist(client, "guest-dup") == [plan.trip_id]
@@ -212,6 +214,7 @@ def test_rating_cannot_write_into_another_users_profile(client: TestClient) -> N
     spoofed = client.post(
         f"/api/journeys/{session_id}/rating",
         json={"useful": True, "stars": 5, "client_token": a_token},
+        headers={"X-Client-Token": "guest-x"},
     )
 
     assert spoofed.status_code == 401
@@ -507,3 +510,70 @@ def test_popular_stays_public_and_matches_guests(client: TestClient) -> None:
     guest = client.get("/api/popular", params={"client_token": "guest-pop"})
     assert guest.status_code == 200
     assert "food" in _matches(guest)
+
+
+# -- guest sessions answer only to the browser that created them ----------------
+
+
+def test_guest_session_needs_its_client_token(client: TestClient) -> None:
+    created = client.post("/api/journeys", json={"client_token": "guest-a"}).json()
+    sid = created["session"]["id"]
+    assert client.get(f"/api/journeys/{sid}").status_code == 404
+    assert client.get(f"/api/journeys/{sid}", headers={"X-Client-Token": "guest-b"}).status_code == 404
+    assert client.get(f"/api/journeys/{sid}", headers={"X-Client-Token": "guest-a"}).status_code == 200
+
+
+def test_session_dump_hides_the_client_token(client: TestClient) -> None:
+    created = client.post("/api/journeys", json={"client_token": "guest-a"}).json()
+    assert "client_token" not in created["session"]
+    sid = created["session"]["id"]
+    body = client.get(f"/api/journeys/{sid}", headers={"X-Client-Token": "guest-a"}).json()
+    assert "client_token" not in body["session"]
+
+
+def test_signup_cannot_claim_a_session_with_a_foreign_token(client: TestClient) -> None:
+    created = client.post("/api/journeys", json={"client_token": "victim"}).json()
+    sid = created["session"]["id"]
+    headers, _ = _signup(client, "attacker@example.com", client_token="attacker")
+    resp = client.post(
+        "/api/account/signup",
+        json={
+            "email": "x@example.com",
+            "password": "Pathfinder123!",
+            "display_name": "x",
+            "client_token": "attacker",
+            "session_id": sid,
+        },
+    )
+    assert resp.status_code == 200
+    assert client.get(f"/api/journeys/{sid}", headers={"X-Client-Token": "victim"}).status_code == 200
+
+
+def test_signup_adopts_the_guests_own_session(client: TestClient) -> None:
+    sid = client.post("/api/journeys", json={"client_token": "guest-own"}).json()["session"]["id"]
+    resp = client.post(
+        "/api/account/signup",
+        json={"email": "owner@example.com", "password": PASSWORD, "client_token": "guest-own", "session_id": sid},
+    )
+    assert resp.status_code == 200
+    bearer = {"Authorization": f"Bearer {resp.json()['token']}"}
+    # The session now belongs to the account: the guest token alone no longer opens it.
+    assert client.get(f"/api/journeys/{sid}", headers={"X-Client-Token": "guest-own"}).status_code == 404
+    assert client.get(f"/api/journeys/{sid}", headers=bearer).status_code == 200
+
+
+def test_attach_cannot_claim_a_session_with_a_foreign_token(client: TestClient) -> None:
+    sid = client.post("/api/journeys", json={"client_token": "victim"}).json()["session"]["id"]
+    attacker, _ = _signup(client, "attacker@example.com", client_token="attacker")
+
+    refused = client.post(
+        "/api/account/attach", json={"session_id": sid, "client_token": "attacker"}, headers=attacker
+    )
+    no_token = client.post("/api/account/attach", json={"session_id": sid}, headers=attacker)
+
+    assert refused.status_code == 404 and no_token.status_code == 404
+    assert client.get(f"/api/journeys/{sid}", headers={"X-Client-Token": "victim"}).status_code == 200
+    # The guest's own token is the proof that lets a signed-in account take the session.
+    claimed = client.post("/api/account/attach", json={"session_id": sid, "client_token": "victim"}, headers=attacker)
+    assert claimed.status_code == 200
+    assert client.get(f"/api/journeys/{sid}", headers=attacker).status_code == 200

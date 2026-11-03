@@ -281,6 +281,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c.store.merge_preferences(guest, profile_token)
         c.store.reassign_saved_trips(guest, profile_token)
 
+    def same_token(presented: str, expected: str) -> bool:
+        """True when both guest tokens are non-empty and equal (constant-time compare)."""
+        if not presented or not expected:
+            return False
+        return hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8"))
+
+    def adopt_guest_session(c, session_id: str | None, client_token: str, user: User) -> None:
+        """On sign-in, move the caller's own open guest session to the account.
+
+        The session is adopted only when `client_token` is the one it was created
+        with: knowing a session id alone must not take it over.
+        """
+        if not session_id:
+            return
+        session = c.store.get_session(session_id)
+        if session and not session.user_id and same_token(client_token, session.client_token):
+            c.store.set_session_user(session.id, user.id)
+
     def auth_response(c, user: User) -> dict[str, Any]:
         token = create_token(user.id, user.email, settings.auth_secret, settings.auth_token_hours)
         profile_token = f"user:{user.id}"
@@ -335,10 +353,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c.store.create_user(user, hash_password(payload.password))
         profile_token = f"{USER_PREFIX}{user.id}"
         adopt_guest_memory(c, payload.client_token, profile_token)
-        if payload.session_id:
-            session = c.store.get_session(payload.session_id)
-            if session and not session.user_id:
-                c.store.set_session_user(session.id, user.id)
+        adopt_guest_session(c, payload.session_id, payload.client_token, user)
         return auth_response(c, user)
 
     @app.post("/api/account/signin", dependencies=[limit_auth])
@@ -351,10 +366,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         user = found[0]
         profile_token = f"{USER_PREFIX}{user.id}"
         adopt_guest_memory(c, payload.client_token, profile_token)
-        if payload.session_id:
-            session = c.store.get_session(payload.session_id)
-            if session and not session.user_id:
-                c.store.set_session_user(session.id, user.id)
+        adopt_guest_session(c, payload.session_id, payload.client_token, user)
         return auth_response(c, user)
 
     @app.get("/api/account/whoami")
@@ -374,12 +386,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session = c.store.get_session(payload.session_id)
         if session is None:
             raise HTTPException(status_code=404, detail="Session not found")
-        if session.user_id and session.user_id != user.id:
+        if session.user_id:
+            if session.user_id != user.id:
+                raise HTTPException(status_code=404, detail="Session not found")
+        elif not same_token(payload.client_token, session.client_token):
+            # Knowing a guest session's id is not enough to take it over.
             raise HTTPException(status_code=404, detail="Session not found")
         c.store.set_session_user(session.id, user.id)
         return {"claimed": True, "session_id": session.id}
 
     def require_session(c, request: Request, session_id: str):
+        """The caller's own session, or 404 (a session that is not yours looks like one that is not there).
+
+        An account's session needs that account's bearer. A guest session needs
+        the guest token it was created with, sent as `X-Client-Token`.
+        """
         session = c.store.get_session(session_id)
         if session is None:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -387,6 +408,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             user = current_user(request, c)
             if user is None or user.id != session.user_id:
                 raise HTTPException(status_code=404, detail="Session not found")
+        elif not same_token(request.headers.get("x-client-token", ""), session.client_token):
+            raise HTTPException(status_code=404, detail="Session not found")
         return session
 
     # -- sessions ---------------------------------------------------------
@@ -403,7 +426,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             currency=settings.default_currency,
         )
         c.store.save_context(context)
-        return {"session": session.model_dump(mode="json"), "context": context.model_dump(mode="json")}
+        return {
+            "session": session.model_dump(mode="json", exclude={"client_token"}),
+            "context": context.model_dump(mode="json"),
+        }
 
     @app.get("/api/journeys/{session_id}")
     async def get_session(session_id: str, request: Request) -> dict[str, Any]:
@@ -415,7 +441,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             plan = await c.turn_service.freshness.on_reopen(plan)
             plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {
-            "session": session.model_dump(mode="json"),
+            "session": session.model_dump(mode="json", exclude={"client_token"}),
             "context": (c.store.get_context(session_id) or TripContext(session_id=session_id)).model_dump(mode="json"),
             "plan": plan.model_dump(mode="json") if plan else None,
             "versions": c.store.list_versions(session_id),
