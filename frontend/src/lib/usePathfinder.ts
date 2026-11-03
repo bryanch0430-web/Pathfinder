@@ -209,6 +209,14 @@ export function usePathfinder(locale: string): PathfinderHook {
   const creatingTicket = useRef(0);
   // What the Retry button does for an error that is not a failed turn: ask for the trip again.
   const retryRef = useRef<(() => Promise<unknown>) | null>(null);
+  // What `send` reads of the trip shown. It is a ref so that a handler made before the trip changed (the trending
+  // list makes a trip and then sends its first message) still sends as the trip shown now, not as the one before.
+  const shownRef = useRef<{ busy: boolean; plan: TripPlan | null; selectedItem: PlanItem | null }>({
+    busy: false,
+    plan: null,
+    selectedItem: null,
+  });
+  shownRef.current = { busy, plan, selectedItem };
 
   /**
    * Follow a language the traveller asked for in chat: zh-Hant shows the interface in 繁; English leaves 繁 for
@@ -240,6 +248,7 @@ export function usePathfinder(locale: string): PathfinderHook {
    * banner and the text Retry would send again, a clarifying question, the last turn's trace and steps.
    */
   const forgetTripView = useCallback(() => {
+    shownRef.current = { busy: false, plan: null, selectedItem: null };
     lastMessage.current = "";
     retryRef.current = null;
     setError(null);
@@ -547,10 +556,12 @@ export function usePathfinder(locale: string): PathfinderHook {
   const send = useCallback(
     async (message: string) => {
       const id = sessionRef.current;
+      const { busy, plan, selectedItem } = shownRef.current;
       if (!id || busy) return;
       lastMessage.current = message;
       retryRef.current = null;
       let failed = false;
+      shownRef.current.busy = true;
       setBusy(true);
       setError(null);
       setNotice(null);
@@ -690,6 +701,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         const superseded = abortRef.current !== null && abortRef.current !== controller;
         if (!superseded) {
           abortRef.current = null;
+          shownRef.current.busy = false;
           setBusy(false);
           setProgress(100);
         }
@@ -697,7 +709,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         if (!controller.signal.aborted && sessionRef.current === id) await refresh();
       }
     },
-    [adoptPlanLocale, busy, locale, plan, refresh, selectedItem?.id, selectedItem?.name],
+    [adoptPlanLocale, locale, refresh],
   );
 
   const generate = useCallback(async () => {
