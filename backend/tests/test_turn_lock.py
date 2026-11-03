@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any, Awaitable, Callable
@@ -295,3 +296,68 @@ def test_the_chat_stream_counts_the_deadline_from_the_start_of_the_turn(settings
     assert [frame.split("\n")[0] for frame in frames] == ["event: progress", "event: done"], body
     assert "turn_timeout" not in body
     assert json.loads(frames[-1].split("data: ", 1)[1])["intent"] == "modify"
+
+
+# -- CONC-G12: two event loops on one trip -------------------------------------
+
+
+def test_a_turn_from_another_event_loop_on_a_busy_trip_is_refused_and_does_not_hang(quick_settings: Settings) -> None:
+    scene = asyncio.run(_scene(quick_settings))  # built in a loop of its own
+    holding, release = threading.Event(), threading.Event()
+    original = scene.rig.modify_path.run
+
+    async def hold(**kwargs: Any):
+        holding.set()
+        while not release.is_set():
+            await asyncio.sleep(0.01)
+        return await original(**kwargs)
+
+    scene.rig.modify_path.run = hold
+    first: dict[str, list] = {}
+    thread = threading.Thread(target=lambda: first.update(events=asyncio.run(scene.turn())))
+    thread.start()
+    try:
+        assert holding.wait(30)
+
+        async def from_this_loop() -> list:
+            return await asyncio.wait_for(scene.turn(), 10)
+
+        with pytest.raises(RuntimeError, match="event loop"):
+            asyncio.run(from_this_loop())
+    finally:
+        release.set()
+        thread.join(60)
+        scene.ledger.close()
+
+    assert not thread.is_alive() and not _errors(first["events"])
+    assert scene.rig.turns.session_busy(scene.session_id) is False
+
+
+def test_turns_on_different_trips_may_run_in_different_event_loops(quick_settings: Settings) -> None:
+    scene = asyncio.run(_scene(quick_settings))
+    store = scene.ledger.store
+    other = store.create_session("guest-lock")
+    store.save_context(store.get_context(scene.session_id).model_copy(update={"session_id": other.id}))
+    store.save_plan(store.get_plan(scene.session_id).model_copy(deep=True, update={"session_id": other.id}), "Accepted plan")
+    holding, release = threading.Event(), threading.Event()
+    original = scene.rig.modify_path.run
+
+    async def hold(**kwargs: Any):
+        if kwargs["plan"].session_id == scene.session_id:
+            holding.set()
+            while not release.is_set():
+                await asyncio.sleep(0.01)
+        return await original(**kwargs)
+
+    scene.rig.modify_path.run = hold
+    thread = threading.Thread(target=lambda: asyncio.run(scene.turn()))
+    thread.start()
+    try:
+        assert holding.wait(30)
+        events = asyncio.run(_collect(scene.rig.turns.handle_turn(session_id=other.id, message=SWAP_HOTEL)))
+    finally:
+        release.set()
+        thread.join(60)
+        scene.ledger.close()
+
+    assert not _errors(events)
