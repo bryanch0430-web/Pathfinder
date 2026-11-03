@@ -125,6 +125,23 @@ def test_a_profile_token_on_a_row_with_no_account_opens_it_for_nobody(client: Te
     assert client.app.state.container.store.get_session(legacy) is not None
 
 
+def test_a_profile_token_cannot_claim_a_row_with_no_account_either(client: TestClient) -> None:
+    """`attach` moves what its token proves, and a `user:` token that no bearer proved proves nothing."""
+    legacy = client.app.state.container.store.create_session("user:user_legacy000001").id
+    claimer = _sign_up(client, "claimer@example.com")
+
+    claimed = client.post(
+        "/api/account/attach",
+        json={"session_id": legacy, "client_token": "user:user_legacy000001"},
+        headers=claimer["headers"],
+    )
+
+    assert claimed.status_code == 404
+    assert not _opens(client, legacy, claimer["headers"])
+    with closing(sqlite3.connect(client.app.state.container.store.path)) as conn:
+        assert conn.execute("SELECT user_id FROM journeys WHERE id=?", (legacy,)).fetchone() == ("",)
+
+
 def test_a_trip_made_by_an_account_does_not_borrow_a_guest_token(client: TestClient) -> None:
     """Naming someone else's guest token must not add a trip to that guest's profile."""
     guest = {"X-Client-Token": "guest-whose-profile"}

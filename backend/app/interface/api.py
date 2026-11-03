@@ -443,8 +443,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if session.user_id:
             if session.user_id != user.id:
                 raise HTTPException(status_code=404, detail="Session not found")
-        elif not same_token(payload.client_token, session.client_token):
-            # Knowing a guest session's id is not enough to take it over.
+        elif not session.owner or not same_token(payload.client_token, session.client_token):
+            # Knowing a guest session's id is not enough to take it over, and a `user:` token that no
+            # bearer proved owns nothing (`Session.owner`), as in `require_session`.
             raise HTTPException(status_code=404, detail="Session not found")
         c.store.set_session_user(session.id, user.id)
         return {"claimed": True, "session_id": session.id}
