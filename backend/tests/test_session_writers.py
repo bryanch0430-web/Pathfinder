@@ -165,7 +165,7 @@ def test_a_reopen_that_refreshed_nothing_shows_the_plan_a_turn_saved_meanwhile(q
         async def unreachable(*args: Any, **kwargs: Any):
             fetching.set()
             await release.wait()
-            return UNREACHABLE
+            return UNREACHABLE, None  # (note, agent result): what _refetch answers
 
         freshness._refetch = unreachable
         reopen = asyncio.create_task(freshness.on_reopen(scene.store.get_plan(scene.session_id)))
@@ -191,7 +191,7 @@ def test_a_reopen_that_refreshed_nothing_still_flags_the_sections_it_could_not_r
         scene.days_ahead = 10
 
         async def unreachable(*args: Any, **kwargs: Any):
-            return UNREACHABLE
+            return UNREACHABLE, None  # (note, agent result): what _refetch answers
 
         scene.rig.turns.freshness._refetch = unreachable
 
