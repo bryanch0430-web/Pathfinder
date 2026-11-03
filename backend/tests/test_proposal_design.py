@@ -360,14 +360,15 @@ def test_db13_a_reopened_plan_has_its_outdated_hotel_prices_refreshed(settings: 
         container = client.app.state.container
         container.turn_service.freshness.registry = cost_sandbox(settings, "Kyoto")
         session_id = client.post("/api/journeys", json={"client_token": "guest-db13-reopen"}).json()["session"]["id"]
+        guest = {"X-Client-Token": "guest-db13-reopen"}
         context = _kyoto_context(session_id)
         container.store.save_context(context)
         plan = asyncio.run(accepted_plan(settings, context))
         for hotel in plan.hotels:
             hotel.fetched_at = aged
         container.store.save_plan(plan, "Accepted plan")
-        opened = client.get(f"/api/journeys/{session_id}").json()
-        again = client.get(f"/api/journeys/{session_id}/itinerary").json()["plan"]
+        opened = client.get(f"/api/journeys/{session_id}", headers=guest).json()
+        again = client.get(f"/api/journeys/{session_id}/itinerary", headers=guest).json()["plan"]
         tools = [row["tool"] for row in container.store.tool_calls()]
     assert tools == ["hotels.search"]
     assert opened["plan"]["version"] == again["version"] == plan.version + 1

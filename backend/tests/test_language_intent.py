@@ -291,14 +291,15 @@ def test_lang_plan_locale_is_settable_through_patch_state(settings: Settings) ->
     from app.interface.api import create_app
 
     with TestClient(create_app(settings)) as client:
+        guest = {"X-Client-Token": "test"}
         created = client.post("/api/journeys", json={"client_token": "test"})
         session_id = created.json()["session"]["id"]
         assert created.json()["context"]["plan_locale"] == "en"
-        patched = client.patch(f"/api/journeys/{session_id}/state", json={"plan_locale": "zh-Hant"})
+        patched = client.patch(f"/api/journeys/{session_id}/state", json={"plan_locale": "zh-Hant"}, headers=guest)
         assert patched.status_code == 200
         assert patched.json()["context"]["plan_locale"] == "zh-Hant"
-        assert client.get(f"/api/journeys/{session_id}").json()["context"]["plan_locale"] == "zh-Hant"
-        rejected = client.patch(f"/api/journeys/{session_id}/state", json={"plan_locale": "ja"})
+        assert client.get(f"/api/journeys/{session_id}", headers=guest).json()["context"]["plan_locale"] == "zh-Hant"
+        rejected = client.patch(f"/api/journeys/{session_id}/state", json={"plan_locale": "ja"}, headers=guest)
         assert rejected.status_code == 422
 
 

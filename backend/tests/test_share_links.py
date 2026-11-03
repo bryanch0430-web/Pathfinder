@@ -16,6 +16,8 @@ from app.interface.api import create_app
 from scripts.seed_platform_demo import DESTINATIONS, _plan
 
 PASSWORD = "correct-horse"
+#: A guest session answers only to the guest token it was created with.
+GUEST = {"X-Client-Token": "guest-share"}
 
 
 @pytest.fixture()
@@ -45,7 +47,7 @@ def _session_with_plan(client: TestClient, headers: dict[str, str] | None = None
 
 
 def _share(client: TestClient, session_id: str, headers: dict[str, str] | None = None) -> dict:
-    response = client.post(f"/api/journeys/{session_id}/share", headers=headers or {})
+    response = client.post(f"/api/journeys/{session_id}/share", headers=headers or GUEST)
     assert response.status_code == 200, response.text
     return response.json()
 
