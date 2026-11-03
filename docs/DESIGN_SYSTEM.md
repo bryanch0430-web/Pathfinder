@@ -154,6 +154,9 @@ App.tsx
   Trending → Try this trip creates a new tab instead of overwriting the current plan.
 - Tabs are stored in `pathfinder.trips`; the active pointer stays in
   `pathfinder.session`. The trash tab button scraps only the active plan.
+  The open trip always has its tab: if another window's write or a cleared store drops it,
+  it comes back. When the browser refuses to store the list the tabs still work in that
+  window, they are just not kept, and a list written by a newer build is left as it is.
 
 ### Local guide citations
 - `GuideNotes` is a separate soft-context card in the right column. Each note has a section,

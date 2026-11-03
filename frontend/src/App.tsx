@@ -200,13 +200,18 @@ export default function App() {
   useEffect(() => {
     const activeId = pf.sessionId;
     if (!activeId) return;
+    const known = trips.find((trip) => trip.id === activeId);
+    const label = pf.plan?.destination.name || known?.label || UNTITLED_TRIP;
+    // The open trip always has its tab, with its destination as the label. This runs again whenever the list
+    // changes, so a tab that another window's write or a cleared store took away comes back.
+    if (known?.label === label) return;
     writeTrips((current) => {
-      const label = pf.plan?.destination.name || current.find((trip) => trip.id === activeId)?.label || UNTITLED_TRIP;
-      return current.some((trip) => trip.id === activeId)
+      const stored = current.find((trip) => trip.id === activeId);
+      return stored
         ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
         : [...current, { id: activeId, label }];
     });
-  }, [pf.sessionId, pf.plan?.destination.name]);
+  }, [pf.sessionId, pf.plan?.destination.name, trips]);
 
   const scrapActiveTrip = async () => {
     const id = pf.sessionId;
