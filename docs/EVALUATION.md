@@ -106,7 +106,7 @@ What these numbers mean:
 - **The router saves calls but not tokens offline.** The routing call and the ask and
   modify prompts are longer than the sandbox planner prompt. This is recorded as an xfail
   and is a decision for the team.
-- **Latency in the sandbox is tens of milliseconds**, because no network or model call is
+- **Sandbox latency is 59-100 ms per planning case**, because no network or model call is
   made. It is wall-clock time on one laptop and varies by machine. Live smoke runs took
   **12–20 s** for a new plan, **5 s** for a question and **12 s** for a hotel swap on the
   reference low-latency writer model. Those numbers come from traces, not from this table.
