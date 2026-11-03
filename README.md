@@ -332,7 +332,8 @@ The planner chooses *which* verified stops belong to a day; the scheduler owns t
   characters, look-alike brackets, pieces of one inside another) in time proportional to the
   text; a text of more than 50,000 characters loses every opening bracket instead.
 - A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
-  calls. Suspected injections are logged as **category + count only**.
+  calls, in the message as typed and as the model will read it (a fence tag typed inside a word
+  is taken out first). Suspected injections are logged as **category + count only**.
 - Each path has an allowlist (`PATH_ALLOWLIST` in `application/toolbox.py`). `ask` can
   never run a pre-planning agent.
 - A canary token is planted in every system prompt; any output containing it is blocked.

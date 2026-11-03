@@ -47,7 +47,7 @@ from app.domain.models import (
 )
 from app.infrastructure.observability import bind_developer_view, bind_live_emit, reset_developer_view, reset_live_emit, start_trace
 from app.infrastructure.store import PlanConflict, SQLiteStore
-from app.security import SAFE_REPLY, screen_message
+from app.security import SAFE_REPLY, screen_turn
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ class TurnService:
         tracer.metadata["session_id"] = session_id
         if self.tracer_proxy is not None:
             self.tracer_proxy.bind(tracer)
-        screen = screen_message(message, self.settings)
+        screen = screen_turn(message, self.settings)
         if screen.flagged:
             for category in screen.categories:
                 self.store.log_injection(category, screen.max_severity.value, channel="user_message")
