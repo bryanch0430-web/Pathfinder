@@ -236,6 +236,33 @@ def test_db13_outdated_forecast_is_flagged_and_only_the_weather_tool_is_called_a
     assert all(day.weather.fetched_at > aged for day in stored.days)
 
 
+def test_db13_a_refresh_that_loses_the_save_race_still_shows_its_result(settings: Settings) -> None:
+    """Two requests refreshing one plan: the first saves the version, the second keeps its own copy."""
+    from app.infrastructure.store import PlanConflict
+
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Kyoto", ledger)
+        session_id = _session(ledger, "guest-db13")
+        plan = asyncio.run(accepted_plan(settings, ledger.store.get_context(session_id)))
+        aged = utcnow() - timedelta(seconds=settings.weather_fresh_seconds + 600)
+        for day in plan.days:
+            day.weather.fetched_at = aged
+        ledger.store.save_plan(plan, "Accepted plan")
+
+        def lost_race(*args, **kwargs):
+            raise PlanConflict("another request saved this version first")
+
+        ledger.store.save_plan = lost_race
+        rig.llm.route = {"intent": "ask", "confidence": 0.95}
+        events = asyncio.run(_events(rig, session_id, "What will the weather be like on day 1?"))
+    finally:
+        ledger.close()
+    assert not any(event.event == "error" for event in events)
+    shown = [event for event in events if event.event == "plan"]
+    assert shown and all(day["weather"]["fetched_at"] > aged.isoformat() for day in shown[0].data["plan"]["days"])
+
+
 ASK_WEATHER = "What will the weather be like on day 1?"
 
 

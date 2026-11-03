@@ -191,6 +191,61 @@ def test_a_failing_data_source_never_shows_its_own_error_text(settings: Settings
     assert all("abc" not in message["content"] for message in saved)
 
 
+def test_save_plan_refuses_a_duplicate_version(tmp_path) -> None:
+    import random
+
+    from app.infrastructure.store import PlanConflict, SQLiteStore
+    from scripts.seed_platform_demo import DESTINATIONS, _plan
+
+    store = SQLiteStore(tmp_path / "plans.db")
+    place = next(item for item in DESTINATIONS if item["name"] == "Kyoto")
+    plan = _plan(random.Random(1), place, 1).model_copy(update={"session_id": "sess_conflict", "version": 2})
+
+    store.save_plan(plan, "first")
+    with pytest.raises(PlanConflict):
+        store.save_plan(plan, "second")
+
+    # The refused save did not overwrite the stored one.
+    assert [(row["version"], row["change_summary"]) for row in store.list_versions("sess_conflict")] == [(2, "first")]
+
+
+def test_two_concurrent_turns_on_one_session_run_in_order(settings: Settings) -> None:
+    from app.domain.models import EvalCase
+    from app.eval_efficiency import accepted_plan, build_rig, case_context
+    from app.eval_metering import RunLedger
+
+    settings = settings.model_copy(update={"preplan_budget_seconds": 15, "agent_timeout_seconds": 8})
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Tokyo", ledger)
+        session = ledger.store.create_session("guest-lock")
+        context = case_context(EvalCase(id="lock", dataset="design", input="", destination="Tokyo"), session.id)
+        ledger.store.save_context(context)
+        ledger.store.save_plan(asyncio.run(accepted_plan(settings, context)), "Accepted plan")
+        rig.llm.route = {"intent": "modify", "confidence": 0.95, "affected_parts": ["hotel"]}
+
+        async def both() -> list[list]:
+            async def turn(message: str) -> list:
+                return [event async for event in rig.turns.handle_turn(session_id=session.id, message=message)]
+
+            return await asyncio.gather(
+                turn("Swap the hotel for the other option."), turn("Swap the hotel for another option.")
+            )
+
+        turns = asyncio.run(both())
+        versions = ledger.store.list_versions(session.id)
+    finally:
+        ledger.close()
+
+    assert all(event.event != "error" for events in turns for event in events), [
+        event.data for events in turns for event in events if event.event == "error"
+    ]
+    # Each turn built on the plan the other one saved: v2 then v3, none lost or overwritten.
+    summaries = {row["version"]: row["change_summary"] for row in versions}
+    assert sorted(summaries) == [1, 2, 3]
+    assert summaries[2] and summaries[3] and "Accepted plan" not in (summaries[2], summaries[3])
+
+
 def test_closing_the_stream_early_cancels_the_source() -> None:
     """What a client disconnect does: the consumer is closed mid-turn."""
     turns = SlowTurns()

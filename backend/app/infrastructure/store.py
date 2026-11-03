@@ -374,6 +374,10 @@ def migrate(conn: sqlite3.Connection, ctx: MigrationContext) -> int:
     return _user_version(conn)
 
 
+class PlanConflict(RuntimeError):
+    """A plan version is already stored: another turn on the same trip saved it first."""
+
+
 class SQLiteStore:
     def __init__(self, path: Path, share_ttl_days: int = DEFAULT_SHARE_TTL_DAYS):
         self.path = Path(path)
@@ -597,20 +601,27 @@ class SQLiteStore:
 
     # -- plans ------------------------------------------------------------
 
-    def save_plan(self, plan: TripPlan, change_summary: str) -> None:
-        with self._lock, self._connect() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO itineraries (trip_id, session_id, version, data, change_summary, created_at) "
-                "VALUES (?,?,?,?,?,?)",
-                (
-                    plan.trip_id,
-                    plan.session_id,
-                    plan.version,
-                    plan.model_dump_json(),
-                    change_summary,
-                    plan.updated_at.isoformat(),
-                ),
-            )
+    def save_plan(self, plan: TripPlan, change_summary: str, *, replace: bool = False) -> None:
+        """Store one plan version. A version that is already stored is refused (`PlanConflict`),
+        not overwritten: another turn saved it first. `replace=True` rewrites the same version in
+        place, for an edit that changed nothing but its own notes."""
+        verb = "INSERT OR REPLACE" if replace else "INSERT"
+        try:
+            with self._lock, self._connect() as conn:
+                conn.execute(
+                    f"{verb} INTO itineraries (trip_id, session_id, version, data, change_summary, created_at) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (
+                        plan.trip_id,
+                        plan.session_id,
+                        plan.version,
+                        plan.model_dump_json(),
+                        change_summary,
+                        plan.updated_at.isoformat(),
+                    ),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise PlanConflict(f"version {plan.version} of this trip is already saved") from exc
 
     def get_plan(self, session_id: str, version: int | None = None) -> TripPlan | None:
         with self._connect() as conn:
