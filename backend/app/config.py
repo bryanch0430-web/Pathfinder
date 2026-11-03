@@ -134,10 +134,16 @@ class Settings(BaseSettings):
     preplan_budget_seconds: float = 90.0
     agent_timeout_seconds: float = 30.0
     http_timeout_seconds: float = 15.0
+    #: Retries of a request to the main data sources: flights, hotels, routes, places, the forecast,
+    #: geocoding and web search. The other sources keep a count of their own, set where they are
+    #: called: one retry for Google elevation and time zones, videos, the Hong Kong Observatory and
+    #: archive weather; none for exchange rates, MTR status and the services whose usage policy asks
+    #: clients not to repeat a request.
     http_retries: int = Field(2, ge=0)
-    #: Tool calls one turn path (plan, edit, question, refresh) may make before the rest are
-    #: refused with a data gap. A guard against a runaway loop; a normal trip makes far fewer.
-    #: 0 turns the cap off.
+    #: Tool calls one tool path (plan, edit, question, or the refresh of an outdated plan) may make
+    #: before the rest are refused with a data gap. Each path counts its own: an edit of an outdated
+    #: plan refreshes it first, so one request can make up to twice this many. A guard against a
+    #: runaway loop; a normal trip makes far fewer. 0 turns the cap off.
     max_tool_calls_per_turn: int = Field(150, ge=0)
     max_days: int = 14
     max_attractions_per_day: int = 4

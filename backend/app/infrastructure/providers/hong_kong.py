@@ -127,7 +127,7 @@ class HkoWarningsSource:
             source=self.name,
             params={"dataType": "warnsum", "lang": "en"},
             timeout=min(self.settings.http_timeout_seconds, 10.0),
-            retries=1,
+            retries=1,  # fixed: a free feed, not covered by HTTP_RETRIES
             user_agent=self.settings.user_agent,
         )
         return parse_warnsum(data, today=today, start=start, end=end, source=self.name)
@@ -204,7 +204,7 @@ class MtrLineStatusSource:
             source=self.name,
             params={"line": line, "sta": MTR_LINES[line][1], "lang": "EN"},
             timeout=min(self.settings.http_timeout_seconds, 8.0),
-            retries=0,
+            retries=0,  # fixed: the lines are asked at once and one that fails is left out
             user_agent=self.settings.user_agent,
         )
         return parse_line_status(data, line=line, today=today, source=self.name)

@@ -43,7 +43,7 @@ class YouTubeNotesSource:
                 "key": self.settings.youtube_api_key,
             },
             timeout=self.settings.http_timeout_seconds,
-            retries=1,
+            retries=1,  # fixed: optional video notes, not covered by HTTP_RETRIES
             user_agent=self.settings.user_agent,
         )
         items = data.get("items") or []
@@ -96,7 +96,7 @@ class BilibiliNotesSource:
                 "Accept": "application/json",
             },
             timeout=self.settings.http_timeout_seconds,
-            retries=1,
+            retries=1,  # fixed: optional video notes, not covered by HTTP_RETRIES
             user_agent=self.settings.user_agent,
         )
         if data.get("code") not in (0, None):
