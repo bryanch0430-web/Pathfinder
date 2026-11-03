@@ -113,6 +113,18 @@ def test_a_turn_cannot_start_a_trip_without_any_identity(client: TestClient) -> 
     assert _rows(client) == []
 
 
+def test_a_trip_cannot_be_made_without_any_identity(client: TestClient) -> None:
+    """The same rule on the other route that makes a trip: with neither token nor bearer nothing is stored."""
+    for body, headers in (
+        ({}, {}),
+        ({"client_token": ""}, {"X-Client-Token": ""}),
+        ({"client_token": ""}, {"X-Client-Token": " "}),
+    ):
+        refused = client.post("/api/journeys", json=body, headers=headers)
+        assert refused.status_code == 401, refused.text
+    assert _rows(client) == []
+
+
 def test_an_account_needs_no_guest_token_to_start_a_trip(client: TestClient) -> None:
     account = _signup(client)
 
