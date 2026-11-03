@@ -13,6 +13,7 @@ import socket
 import ssl
 from typing import Any
 
+import httpcore
 import httpx
 import pytest
 
@@ -128,3 +129,66 @@ def test_a_cancellation_inside_a_request_is_not_swallowed() -> None:
         _request(transport)
 
     assert transport.calls == 1
+
+
+# -- a fault in how this machine is set up is not a network failure -----------------------------------
+
+SETUP_FAULTS = [
+    ssl.SSLCertVerificationError(1, "certificate verify failed"),
+    FileNotFoundError(2, "No such file or directory"),
+    PermissionError(13, "Permission denied"),
+    IsADirectoryError(21, "Is a directory"),
+    NotADirectoryError(20, "Not a directory"),
+]
+
+
+@pytest.mark.parametrize("error", SETUP_FAULTS, ids=lambda error: type(error).__name__)
+def test_an_untrusted_certificate_or_an_unreadable_certificate_file_is_a_failure_asking_again_would_not_fix(
+    error: BaseException,
+) -> None:
+    failure = classify_exception(error, "src")
+
+    assert not failure.retryable
+    assert failure.kind is not FailureKind.NETWORK
+    assert str(failure) == f"src failed: {type(error).__name__}"
+
+
+def _as_httpx_wraps(inner: BaseException) -> httpx.ConnectError:
+    """What httpx raises for a socket error, with the chain it really has: httpcore raises its own error
+    `from None` inside the handler of the socket's, and httpx raises its own from httpcore's."""
+    try:
+        try:
+            raise inner
+        except OSError as socket_error:
+            raise httpcore.ConnectError(str(socket_error)) from None
+    except httpcore.ConnectError as mapped:
+        try:
+            raise httpx.ConnectError(str(mapped)) from mapped
+        except httpx.ConnectError as wrapped:
+            return wrapped
+
+
+def test_a_certificate_error_that_httpx_wrapped_is_just_as_permanent() -> None:
+    wrapped = _as_httpx_wraps(ssl.SSLCertVerificationError(1, "certificate verify failed"))
+    assert type(wrapped) is httpx.ConnectError and not isinstance(wrapped, ssl.SSLError)
+
+    failure = classify_exception(wrapped, "src")
+
+    assert not failure.retryable and failure.kind is not FailureKind.NETWORK
+    assert str(failure) == "src failed: SSLCertVerificationError", "the trace says what the fault was"
+
+
+def test_a_connection_error_that_httpx_wrapped_is_still_transient() -> None:
+    failure = classify_exception(_as_httpx_wraps(ConnectionRefusedError(111, "Connection refused")), "src")
+
+    assert failure.kind is FailureKind.NETWORK and failure.retryable
+
+
+@pytest.mark.parametrize("error", SETUP_FAULTS, ids=lambda error: type(error).__name__)
+def test_such_a_fault_is_one_attempt_in_the_request_loop(error: BaseException) -> None:
+    transport = Raises(error)
+
+    with pytest.raises(ProviderError) as failure:
+        _request(transport, retries=2)
+
+    assert transport.calls == 1 and not failure.value.retryable
