@@ -152,16 +152,28 @@ class BaseAgent:
         return found.references, found.gap
 
 
+#: Lookups in a row that may fail before the agent stops asking the geocoder. Each can take the
+#: whole lookup timeout, so asking a dead service about every guide place would outlast the
+#: pre-planning budget before its failure was ever reported.
+GEOCODER_FAILURE_LIMIT = 2
+
+
 @dataclass
 class Located:
-    """What geocoding a list of places came to."""
+    """What geocoding the places of one run came to."""
 
     #: Asked, and answered with nothing or with a place too far from the destination.
     unplaced: list[str] = field(default_factory=list)
-    #: Not asked: the geocoder call failed.
+    #: Not asked: the geocoder call failed, or it had failed too often in a row to be asked again.
     unchecked: list[str] = field(default_factory=list)
     #: The first of those failures, classified.
     failure: ProviderError | None = None
+    #: Lookups that failed since the geocoder last answered.
+    streak: int = 0
+
+    @property
+    def down(self) -> bool:
+        return self.streak >= GEOCODER_FAILURE_LIMIT
 
 
 class AttractionAgent(BaseAgent):
@@ -247,8 +259,8 @@ class AttractionAgent(BaseAgent):
         # Every guide entry without coordinates is geocoded. One the geocoder
         # cannot place near the destination is left out, never pinned to a guess.
         missing = sum(1 for place in places if place.geo is None)
-        located = await self._locate(request, places)
-        unplaced, unchecked, geocoder_failure = located.unplaced, located.unchecked, located.failure
+        located = Located()
+        await self._locate(request, places, located)
         if missing:
             # Two spellings of one place may only meet once both have coordinates.
             places = _merge_places([place for place in places if place.geo is not None])
@@ -264,13 +276,8 @@ class AttractionAgent(BaseAgent):
                 known = next((place for place in places if _same_place(place, match)), None)
                 match.geo = known.geo if known is not None else None
             if match is not None:
-                asked = await self._locate(request, [match])
-                geocoder_failure = geocoder_failure or asked.failure
-                if asked.unplaced:
-                    unplaced.append(match.name)
-                    match = None
-                elif asked.unchecked:
-                    unchecked.append(match.name)
+                await self._locate(request, [match], located)
+                if match.geo is None:
                     match = None
             wishes[wish] = match.name if match else None
             if match:
@@ -328,27 +335,31 @@ class AttractionAgent(BaseAgent):
         else:
             status = AgentStatus.UNAVAILABLE
             note_text = ["No attraction source returned usable data."]
-            if unplaced:
+            if located.unplaced:
                 failures.append(
                     DataGap(
                         section="attractions",
                         kind=FailureKind.NO_DATA,
-                        message=f"The guide named {len(unplaced)} places, but none could be located on the map.",
+                        message=f"The guide named {len(located.unplaced)} places, but none could be located on the map.",
                     )
                 )
-        if unplaced:
+        if located.unplaced:
             note_text.append(
-                f"Left out {len(unplaced)} guide places the geocoder could not locate: " + ", ".join(unplaced[:5])
+                f"Left out {len(located.unplaced)} guide places the geocoder could not locate: "
+                + ", ".join(located.unplaced[:5])
             )
-        if unchecked and geocoder_failure is not None:
+        if located.unchecked and located.failure is not None:
             # The geocoder did not say these places are unknown; it could not be asked.
-            note_text.append(f"Left out {len(unchecked)} guide places that could not be checked: " + ", ".join(unchecked[:5]))
+            note_text.append(
+                f"Left out {len(located.unchecked)} guide places that could not be checked: "
+                + ", ".join(located.unchecked[:5])
+            )
             failures.append(
                 DataGap(
                     section="attractions",
-                    kind=geocoder_failure.kind,
-                    message=_unchecked_message(len(unchecked), geocoder_failure),
-                    retryable=geocoder_failure.retryable,
+                    kind=located.failure.kind,
+                    message=_unchecked_message(len(located.unchecked), located.failure),
+                    retryable=located.failure.retryable,
                 )
             )
         return self._result(
@@ -361,17 +372,20 @@ class AttractionAgent(BaseAgent):
             started=started,
         )
 
-    async def _locate(self, request: AgentContext, places: list[PlaceCandidate]) -> "Located":
-        """Geocode each place without coordinates (a logged tool call per place).
+    async def _locate(self, request: AgentContext, places: list[PlaceCandidate], found: Located) -> None:
+        """Geocode each place without coordinates (a logged tool call per place), recording the outcome in `found`.
 
         `unplaced` are the names the geocoder answered for with nothing, or with a place
         farther from the destination than a guide listing may be. `unchecked` are the names
-        it could not be asked about because the call failed; `failure` is the first such error.
+        it could not be asked about because the call failed, or because it had just failed
+        GEOCODER_FAILURE_LIMIT times in a row; `failure` is the first such error.
         """
         centre = request.destination.geo
-        found = Located()
         for place in places:
             if place.geo is not None:
+                continue
+            if found.down:
+                found.unchecked.append(place.name)
                 continue
             try:
                 location = await self._call(
@@ -383,20 +397,19 @@ class AttractionAgent(BaseAgent):
                 )
             except Exception as exc:
                 error = classify_exception(exc, "geocoder")
-                if error.kind is FailureKind.NO_DATA:
-                    # A no-result answer: the geocoder knows no such place. It did not fail.
-                    found.unplaced.append(place.name)
+                if error.kind is not FailureKind.NO_DATA:
+                    found.unchecked.append(place.name)
+                    found.failure = found.failure or error
+                    found.streak += 1
                     continue
-                found.unchecked.append(place.name)
-                found.failure = found.failure or error
-                continue
+                location = None  # a no-result answer: the geocoder knows no such place. It did not fail.
+            found.streak = 0
             # 80 km: the radius the guide source keeps a listing within.
             if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= 80:
                 place.geo = location.geo
                 self._keep(request, [place])
             else:
                 found.unplaced.append(place.name)
-        return found
 
     @staticmethod
     def _keep(request: AgentContext, places: list[PlaceCandidate]) -> None:

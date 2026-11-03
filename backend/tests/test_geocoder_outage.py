@@ -226,3 +226,61 @@ def test_a_failure_that_asking_again_could_fix_is_told_to_retry(settings: Settin
     gaps = _gaps(result)
     assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.TIMEOUT, True)]
     assert "geocoder failed (timeout); ask again to retry" in gaps[0][2]
+
+
+class _Script:
+    """A geocoder that follows a script: an exception is raised, anything else is returned."""
+
+    def __init__(self, steps: list[Any]) -> None:
+        self.steps = steps
+        self.asked: list[str] = []
+
+    async def geocode(self, name: str, **_: Any) -> GeoLocation | None:
+        step = self.steps[min(len(self.asked), len(self.steps) - 1)]
+        self.asked.append(name)
+        if isinstance(step, BaseException):
+            raise step
+        return step
+
+
+def _near(number: int) -> GeoLocation:
+    # A few kilometres apart, so places with similar names are not merged into one.
+    return GeoLocation(name=f"place {number}", geo=GeoPoint(lat=KYOTO.lat + 0.03 * number, lng=KYOTO.lng), source="fake")
+
+
+TEMPLES = tuple(f"Temple {number}" for number in range(1, 7))
+
+
+def test_the_agent_stops_asking_a_geocoder_that_keeps_failing(settings: Settings) -> None:
+    geocoder = _Down(asyncio.TimeoutError())
+
+    result = _attractions(settings, geocoder, names=TEMPLES)
+
+    # Two lookups in a row failed: the other four places are not asked about one by one.
+    assert len(geocoder.asked) == 2
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.TIMEOUT, True)]
+    assert gaps[0][2].startswith("6 guide places could not be checked")
+
+
+def test_a_failure_between_answers_does_not_stop_the_agent(settings: Settings) -> None:
+    timeout = asyncio.TimeoutError()
+    geocoder = _Script([timeout, _near(1), timeout, _near(2), timeout, _near(3)])
+
+    result = _attractions(settings, geocoder, names=TEMPLES)
+
+    assert len(geocoder.asked) == 6
+    assert len(result.payload["places"]) == 3
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.TIMEOUT, True)]
+    assert gaps[0][2].startswith("3 guide places could not be checked")
+
+
+def test_a_named_place_is_not_asked_about_once_the_geocoder_is_known_to_be_down(settings: Settings) -> None:
+    geocoder = _Down(asyncio.TimeoutError())
+
+    # "Gion Corner" is both the third guide place and a place the traveller named.
+    result = _attractions(settings, geocoder, names=("Temple 1", "Temple 2", "Gion Corner"), preferences=["Gion Corner"])
+
+    assert len(geocoder.asked) == 2
+    assert result.payload["wishes"] == {"Gion Corner": None}
