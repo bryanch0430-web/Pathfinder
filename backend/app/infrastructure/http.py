@@ -105,17 +105,21 @@ def classify_exception(exc: BaseException, source: str) -> ProviderError:
     """The typed failure that an exception raised by a request stands for.
 
     A timeout and a network failure are transient (retryable); anything else is a server
-    error that retrying would not fix.
+    error that retrying would not fix. A cancellation is no failure: it is raised again.
     """
     if isinstance(exc, ProviderError):
         return exc
-    if isinstance(exc, (httpx.TimeoutException, asyncio.TimeoutError)):
+    if not isinstance(exc, Exception):
+        raise exc  # asyncio.CancelledError, KeyboardInterrupt: never data
+    if isinstance(exc, (httpx.TimeoutException, asyncio.TimeoutError, TimeoutError)):
         return ProviderError(
             f"{source} timed out: {exc.__class__.__name__}",
             kind=FailureKind.TIMEOUT,
             source=source,
         )
-    if isinstance(exc, (httpx.NetworkError, httpx.RemoteProtocolError)):
+    # What httpx maps to NetworkError, and what it leaves unmapped: a refused proxy, and the OS-level
+    # failures (a reset connection, a failed DNS lookup, a broken TLS handshake) that are all OSError.
+    if isinstance(exc, (httpx.NetworkError, httpx.RemoteProtocolError, httpx.ProxyError, OSError)):
         return ProviderError(
             f"{source} network failure: {exc.__class__.__name__}",
             kind=FailureKind.NETWORK,

@@ -675,3 +675,8 @@ def test_a_gone_geocoder_route_reads_as_an_outage_not_as_places_that_do_not_exis
 def test_a_geocoder_that_answers_with_no_results_still_means_no_such_place(settings: Settings) -> None:
     with _answering(200, {"results": []}):
         assert asyncio.run(_real_chain(settings).geocode("Nowhere")) is None
+
+
+def test_a_cancellation_raised_while_geocoding_is_not_turned_into_a_gap(settings: Settings) -> None:
+    with pytest.raises(asyncio.CancelledError):
+        _attractions(settings, _Down(asyncio.CancelledError()))
