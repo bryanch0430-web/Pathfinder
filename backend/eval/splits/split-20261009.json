@@ -1,0 +1,46 @@
+{
+  "seed": 20261009,
+  "dev_share": 0.7,
+  "datasets": {
+    "injection": {
+      "fixture": "injection.jsonl",
+      "sha256": "d68126f20a415a325faaef461aab18b0d34943d6c2ee0cb531a3428f03776c4d",
+      "items": 10,
+      "dev": 7,
+      "heldout": 3,
+      "stratified_by": "attack x channel",
+      "strata": {
+        "none|user": {
+          "dev": 7,
+          "heldout": 3
+        }
+      }
+    },
+    "routing": {
+      "fixture": "routing.jsonl",
+      "sha256": "d02fbcb233dae2b23c1e60cf211e2f25562ef4b9a470bb61a101f89816490726",
+      "items": 20,
+      "dev": 14,
+      "heldout": 6,
+      "stratified_by": "expected_intent x destination",
+      "strata": {
+        "ask|any": {
+          "dev": 4,
+          "heldout": 1
+        },
+        "modify|any": {
+          "dev": 4,
+          "heldout": 2
+        },
+        "plan|any": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "unclear|any": {
+          "dev": 3,
+          "heldout": 2
+        }
+      }
+    }
+  }
+}

@@ -404,6 +404,9 @@ class EvalService:
                     value=pct(sum(result.passed for result in results), len(results)),
                 )
             )
+            from app.dataset_splits import split_metrics  # Proposal TC-06
+
+            metrics.extend(split_metrics("routing"))
         elif dataset == "injection":
             metrics.append(
                 EvalMetric(
@@ -412,6 +415,9 @@ class EvalService:
                     value=pct(sum(result.passed for result in results), len(results)),
                 )
             )
+            from app.dataset_splits import split_metrics  # Proposal TC-06
+
+            metrics.extend(split_metrics("injection"))
         else:
             metrics.extend(planning_metrics(results))
             if self.judge.available:
