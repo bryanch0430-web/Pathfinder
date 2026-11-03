@@ -3453,6 +3453,19 @@
   color: var(--p30-tone-feedback-info);
 }
 
+.pf-banner[data-tone="warning"] {
+  border-color: var(--p30-tone-feedback-warningBorder);
+  background: var(--p30-tone-feedback-warningBg);
+  color: var(--p30-tone-feedback-warning);
+}
+
+.pf-plan-language {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-xs, 4px);
+  margin-top: var(--p30-gap-sm);
+}
+
 /* ------------------------------------------------------------- utilities -- */
 
 .pf-row {

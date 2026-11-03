@@ -550,8 +550,11 @@ export function TripWorkspace({
   onFocusDay,
   updatedIds,
   hotelChanged = false,
+  languageNotice = null,
 }: {
   plan: TripPlan;
+  /** The disclaimer and translation notice shown at the top of a non-English plan view. */
+  languageNotice?: ReactNode;
   versions: { version: number; change_summary: string; created_at: string }[];
   activeVersion: number;
   onVersionChange: (version: number) => void;
@@ -653,6 +656,7 @@ export function TripWorkspace({
             </span>
           </div>
         </div>
+        {languageNotice}
         <div className="pf-workspace__meta">
           <MiniStat icon="calendar" label={t("workspace.dates")} value={t("workspace.days", { count: plan.days.length })} />
           <MiniStat icon="users" label={t("workspace.party")} value={String(plan.party_size)} />

@@ -282,9 +282,18 @@ export const ZH_HANT: Messages = {
 
   "common.loadingApp": "正在載入 Pathfinder",
 
-  "status.ok": "即時",
+  "status.ok": "資料最新",
+  "status.okNoHours": "資料最新，未有營業時間",
   "status.stale": "需要更新",
   "status.unavailable": "無法取得",
+
+  "planLang.label": "行程語言",
+  "planLang.disclaimer": "此繁體中文版本由 AI 模型翻譯，可能有錯誤。英文版本為原文，請以英文版本核對日期、時間及價格等重要資料。",
+  "planLang.translating": "正在把行程翻譯成繁體中文，完成前會先顯示英文原文。",
+  "planLang.fallback": "繁體中文譯本未能通過與英文原文的核對（日期、時間、數字或站點不符），所以顯示英文原文。",
+  "planLang.unavailable": "此伺服器未有設定翻譯服務，所以行程以英文原文顯示。",
+  "planLang.failed": "未能載入譯本，所以顯示英文原文。",
+  "planLang.reason": "詳情：{reason}",
 
   "intent.plan": "規劃",
   "intent.modify": "修改",
@@ -477,5 +486,5 @@ export const ZH_HANT: Messages = {
   "help.paths": "每則訊息只走一條路徑。具型別的 System 1 決策會在規劃、修改或提問之間擇一；不明確的請求會先釐清，而不是用猜的。",
   "help.agents": "新的規劃會並行執行四個代理：景點、酒店、天氣和票務。規劃器只能挑選並排序已查證的候選項目，絕不憑空捏造。每個項目都保留來源和時效狀態。",
   "help.edits": "修改只會重新執行受影響的代理，保留已鎖定和已確認的站點，並遞增版本號。簡短問題會先從目前的行程回答，最多再呼叫一個白名單工具。",
-  "help.languages": "英文是主要語言。簡體中文和繁體中文是輔助介面語言；地名會保留來源回傳的寫法。",
+  "help.languages": "英文是主要語言，亦是行程的原文。「简」只翻譯介面；「繁」亦會以繁體中文顯示行程，由 AI 模型翻譯並與英文原文核對，日期、時間及價格一律取自英文行程。只有可信來源提供中文名稱時，地點才會顯示中文名，並在後面附上原名。",
 };

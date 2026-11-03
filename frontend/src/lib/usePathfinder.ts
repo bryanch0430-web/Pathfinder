@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   clearMessages,
@@ -6,6 +6,7 @@ import {
   discardSession,
   getPlan,
   getSession,
+  getTranslation,
   patchContext,
   postFeedback,
   streamChat,
@@ -18,12 +19,15 @@ import type {
   ClarifyPayload,
   PlanDiffEntry,
   PlanItem,
+  PlanLocale,
+  PlanTranslation,
   RoutePayload,
   RunTrace,
   TripContext,
   TripPlan,
 } from "../design-system/types";
 import { useI18n } from "./i18n";
+import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
 import { clearStoredValue } from "./storage";
 
 const SESSION_KEY = "pathfinder.session";
@@ -60,7 +64,17 @@ export interface PathfinderHook {
   ready: boolean;
   sessionId: string | null;
   context: TripContext;
+  /** The plan as shown: trusted display names, and the translation laid over it when the plan locale is not English. */
   plan: TripPlan | null;
+  /** The English plan as saved; the source of truth for every number, time, id and URL. */
+  englishPlan: TripPlan | null;
+  /** The language the plan is shown in (session `plan_locale`). */
+  planLocale: PlanLocale;
+  /** Sets the plan locale and saves it on the session. */
+  setPlanLocale: (locale: PlanLocale) => Promise<void>;
+  translation: PlanTranslation | null;
+  /** Why the English plan is shown although the plan locale is not English. */
+  languageNotice: PlanLanguageNotice;
   versions: SessionState["versions"];
   messages: ChatMessage[];
   busy: boolean;
@@ -101,9 +115,18 @@ export interface PathfinderHook {
 export function usePathfinder(locale: string): PathfinderHook {
   // Read through a ref so a locale switch does not recreate the callbacks
   // (and with them re-run the bootstrap effect).
-  const { t } = useI18n();
+  const { t, locale: uiLocale, setLocale: setUiLocale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
+  const uiLocaleRef = useRef(uiLocale);
+  uiLocaleRef.current = uiLocale;
+  const [planLocale, setPlanLocaleState] = useState<PlanLocale>("en");
+  const [translation, setTranslation] = useState<PlanTranslation | null>(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [translationFailed, setTranslationFailed] = useState(false);
+  // Bumped (with the cache cleared) to fetch the translation again.
+  const [translationNonce, setTranslationNonce] = useState(0);
+  const translationCache = useRef(new Map<string, PlanTranslation>());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [context, setContextState] = useState<TripContext>(emptyContext());
   const [plan, setPlan] = useState<TripPlan | null>(null);
@@ -131,9 +154,38 @@ export function usePathfinder(locale: string): PathfinderHook {
   const abortRef = useRef<AbortController | null>(null);
   const sessionRef = useRef<string | null>(null);
 
-  const loadSession = useCallback(async (id: string) => {
+  /** Follow the session's plan locale: zh-Hant shows the interface in 繁; English leaves 繁 for EN, and EN/简 as they are. */
+  const adoptPlanLocale = useCallback(
+    (value: unknown) => {
+      if (!isPlanLocale(value)) return;
+      setPlanLocaleState(value);
+      if (value === "zh-Hant") setUiLocale("zh-Hant");
+      else if (uiLocaleRef.current === "zh-Hant") setUiLocale("en");
+    },
+    [setUiLocale],
+  );
+
+  /** A new session starts in English; carry the 繁 choice over to it. */
+  const carryPlanLocale = useCallback(async (id: string, context: TripContext) => {
+    if (uiLocaleRef.current !== "zh-Hant" || context.plan_locale === "zh-Hant") {
+      if (isPlanLocale(context.plan_locale)) setPlanLocaleState(context.plan_locale);
+      return context;
+    }
+    setPlanLocaleState("zh-Hant");
+    try {
+      return (await patchContext(id, { plan_locale: "zh-Hant" })).context;
+    } catch {
+      return context;
+    }
+  }, []);
+
+  const loadSession = useCallback(async (id: string, fresh = false) => {
     const data = await getSession(id);
-    setContextState(data.context);
+    if (fresh) setContextState(await carryPlanLocale(id, data.context));
+    else {
+      setContextState(data.context);
+      adoptPlanLocale(data.context.plan_locale);
+    }
     if (data.plan) {
       setPlan(data.plan);
       setActiveVersion(data.plan.version);
@@ -147,7 +199,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setMessages(data.messages);
     sessionRef.current = id;
     setSessionId(id);
-  }, []);
+  }, [adoptPlanLocale, carryPlanLocale]);
 
   const bootstrap = useCallback(async () => {
     setError(null);
@@ -165,7 +217,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const created = await createSession(clientToken());
       id = created.session.id;
       localStorage.setItem(SESSION_KEY, id);
-      setContextState(created.context);
+      setContextState(await carryPlanLocale(id, created.context));
       sessionRef.current = id;
       setSessionId(id);
       setReady(true);
@@ -173,7 +225,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setError(cause instanceof Error ? cause.message : tRef.current("errors.backend"));
       setReady(true);
     }
-  }, [loadSession]);
+  }, [carryPlanLocale, loadSession]);
 
   useEffect(() => {
     void bootstrap();
@@ -202,7 +254,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setReady(false);
     try {
       const created = await createSession(clientToken());
-      await loadSession(created.session.id);
+      await loadSession(created.session.id, true);
       localStorage.setItem(SESSION_KEY, created.session.id);
       setReady(true);
       return created.session.id;
@@ -223,6 +275,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setMessages(data.messages);
       setVersions(data.versions);
       setContextState(data.context);
+      if (isPlanLocale(data.context.plan_locale)) setPlanLocaleState(data.context.plan_locale);
       if (data.plan) {
         setPlan(data.plan);
         setActiveVersion(data.plan.version);
@@ -231,6 +284,64 @@ export function usePathfinder(locale: string): PathfinderHook {
       // The optimistic state stays visible; the next action will retry.
     }
   }, []);
+
+  const setPlanLocale = useCallback(async (value: PlanLocale) => {
+    setPlanLocaleState(value);
+    const id = sessionRef.current;
+    if (!id) return;
+    try {
+      const data = await patchContext(id, { plan_locale: value });
+      setContextState(data.context);
+    } catch {
+      // The view still switches; the session keeps its stored locale until the next save.
+    }
+  }, []);
+
+  // The translation of the shown plan version, while the plan locale is not English.
+  const planVersion = plan?.version ?? null;
+  useEffect(() => {
+    const id = sessionId;
+    if (!id || planVersion === null || planLocale === "en") {
+      setTranslation(null);
+      setTranslationLoading(false);
+      setTranslationFailed(false);
+      return;
+    }
+    const key = `${id}:${planVersion}:${planLocale}`;
+    const cached = translationCache.current.get(key);
+    if (cached) {
+      setTranslation(cached);
+      setTranslationLoading(false);
+      setTranslationFailed(false);
+      return;
+    }
+    let cancelled = false;
+    setTranslationLoading(true);
+    setTranslationFailed(false);
+    getTranslation(id, planVersion, planLocale)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.status === "translated") translationCache.current.set(key, result);
+        setTranslation(result);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTranslation(null);
+        setTranslationFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setTranslationLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, planVersion, planLocale, translationNonce]);
+
+  const displayPlan = useMemo(
+    () => (plan ? localizePlan(plan, planLocale, translation) : null),
+    [plan, planLocale, translation],
+  );
+  const languageNotice = planLanguageNotice(planLocale, translation, translationLoading, translationFailed);
 
   const setContext = useCallback((patch: Partial<TripContext>) => {
     setContextState((current) => ({ ...current, ...patch }));
@@ -281,8 +392,13 @@ export function usePathfinder(locale: string): PathfinderHook {
               entry.items.some((candidate) => candidate.id === selectedItem.id),
             );
             const index = day && plan ? plan.days.indexOf(day) + 1 : 0;
-            // Sent to the planner as `scope_label`, so it stays in English.
-            return day ? `Day ${index} · ${selectedItem.name}` : selectedItem.name;
+            // Sent to the planner as `scope_label`, so it stays in English and
+            // uses the saved name, not the display name.
+            const english =
+              day?.items.find((candidate) => candidate.id === selectedItem.id) ??
+              plan?.hotels.find((hotel) => hotel.id === selectedItem.id);
+            const name = english?.name ?? selectedItem.name;
+            return day ? `Day ${index} · ${name}` : name;
           })()
         : "";
       const optimistic: ChatMessage = {
@@ -309,6 +425,13 @@ export function usePathfinder(locale: string): PathfinderHook {
           {
             onEvent: (event, data) => {
               if (event === "route") setRoute(data as unknown as RoutePayload);
+              if (event === "locale" && isPlanLocale(data.plan_locale)) {
+                // A set_language turn: follow it in the interface and fetch the translation afresh.
+                adoptPlanLocale(data.plan_locale);
+                setContextState((current) => ({ ...current, plan_locale: data.plan_locale as PlanLocale }));
+                translationCache.current.clear();
+                setTranslationNonce((count) => count + 1);
+              }
               if (event === "progress") {
                 setProgress(Number(data.progress ?? 0));
                 setProgressMessage(String(data.message ?? ""));
@@ -375,7 +498,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         await refresh();
       }
     },
-    [busy, locale, plan, refresh, selectedItem?.id, selectedItem?.name],
+    [adoptPlanLocale, busy, locale, plan, refresh, selectedItem?.id, selectedItem?.name],
   );
 
   const generate = useCallback(async () => {
@@ -491,7 +614,12 @@ export function usePathfinder(locale: string): PathfinderHook {
     ready,
     sessionId,
     context,
-    plan,
+    plan: displayPlan,
+    englishPlan: plan,
+    planLocale,
+    setPlanLocale,
+    translation,
+    languageNotice,
     versions,
     messages,
     busy,

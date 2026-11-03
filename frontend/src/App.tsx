@@ -7,6 +7,7 @@ import {
   GuideNotes,
   LoadingScreen,
   MapPanel,
+  PlanLanguageBanner,
   PlannerTemplate,
   ShareDialog,
   StatusSummary,
@@ -39,7 +40,8 @@ import {
 } from "./lib/api";
 import { downloadPlanMarkdown } from "./lib/export";
 import { downloadPlanSlides } from "./lib/slides";
-import { useI18n } from "./lib/i18n";
+import { useI18n, type Locale } from "./lib/i18n";
+import { planLocaleFor } from "./lib/planLocale";
 import { clearStoredValue } from "./lib/storage";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
@@ -90,6 +92,25 @@ function tabFromHash(): AppTab {
 export default function App() {
   const { locale, setLocale, t } = useI18n();
   const pf = usePathfinder(locale);
+  // EN/简/繁 translate the interface; 繁 also shows the plan in Traditional Chinese.
+  const changeLocale = (value: string) => {
+    setLocale(value);
+    const planLocale = planLocaleFor(value as Locale);
+    if (planLocale !== pf.planLocale) void pf.setPlanLocale(planLocale);
+  };
+  // Exports carry the disclaimer whenever they carry translated text.
+  const planDisclaimer =
+    pf.planLocale !== "en" && pf.translation?.status === "translated"
+      ? pf.translation.disclaimer?.trim() || t("planLang.disclaimer")
+      : "";
+  const languageBanner =
+    pf.planLocale === "en" ? null : (
+      <PlanLanguageBanner
+        disclaimer={pf.translation?.disclaimer}
+        notice={pf.languageNotice}
+        reason={pf.translation?.reason}
+      />
+    );
   const [tab, setTab] = useState<AppTab>(tabFromHash);
   const [mapDay, setMapDay] = useState<string>("");
   const [helpOpen, setHelpOpen] = useState(false);
@@ -257,7 +278,7 @@ export default function App() {
   const handleExportSlides = async () => {
     if (!pf.plan) return;
     try {
-      await downloadPlanSlides(pf.plan);
+      await downloadPlanSlides(pf.plan, planDisclaimer);
     } catch (cause) {
       window.alert(cause instanceof Error ? cause.message : t("errors.slides"));
     }
@@ -393,12 +414,12 @@ export default function App() {
         activeTab={tab}
         onTabChange={changeTab}
         locale={locale}
-        onLocaleChange={setLocale}
+        onLocaleChange={changeLocale}
         onHelp={() => setHelpOpen(true)}
         user={authUser}
         onAuth={() => setAuthOpen(true)}
         onLogout={handleLogout}
-        onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!) : undefined}
+        onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!, planDisclaimer) : undefined}
         onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
         onShare={pf.plan ? () => void handleShare() : undefined}
         onNewTrip={() => void createTripTab()}
@@ -451,6 +472,7 @@ export default function App() {
                 {pf.plan ? (
                 <TripWorkspace
                   plan={pf.plan}
+                  languageNotice={languageBanner}
                   versions={pf.versions}
                   activeVersion={pf.activeVersion}
                   onVersionChange={(version) => void pf.selectVersion(version)}

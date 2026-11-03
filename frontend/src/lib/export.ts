@@ -1,9 +1,10 @@
 import type { TripPlan } from "../design-system/types";
 
-export function planMarkdown(plan: TripPlan): string {
+export function planMarkdown(plan: TripPlan, disclaimer = ""): string {
   const rows: string[] = [
     `# ${plan.destination.name} — ${plan.days.length}-day trip`,
     "",
+    ...(disclaimer ? [`> ${disclaimer}`, ""] : []),
     `${plan.dates.start} to ${plan.dates.end} · ${plan.party_size} travellers · budget ${plan.cost.budget ?? "not set"} ${plan.cost.currency}`,
     "",
     "## Overview",
@@ -48,8 +49,8 @@ export function planFileName(plan: TripPlan, extension: string): string {
   return `${plan.destination.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${plan.dates.start}.${extension}`;
 }
 
-export function downloadPlanMarkdown(plan: TripPlan): void {
-  const blob = new Blob([planMarkdown(plan)], { type: "text/markdown;charset=utf-8" });
+export function downloadPlanMarkdown(plan: TripPlan, disclaimer = ""): void {
+  const blob = new Blob([planMarkdown(plan, disclaimer)],{ type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

@@ -280,9 +280,18 @@ export const ZH_HANS: Messages = {
 
   "common.loadingApp": "正在加载 Pathfinder",
 
-  "status.ok": "实时",
+  "status.ok": "数据最新",
+  "status.okNoHours": "数据最新，缺营业时间",
   "status.stale": "需要刷新",
   "status.unavailable": "不可用",
+
+  "planLang.label": "行程语言",
+  "planLang.disclaimer": "此繁体中文版本由 AI 模型翻译，可能有错误。英文版本为原文，请以英文版本核对日期、时间及价格等重要信息。",
+  "planLang.translating": "正在将行程翻译成繁体中文，完成前先显示英文原文。",
+  "planLang.fallback": "繁体中文译文未通过与英文原文的核对（日期、时间、数字或站点不一致），因此显示英文原文。",
+  "planLang.unavailable": "此服务器未配置翻译服务，因此行程以英文原文显示。",
+  "planLang.failed": "无法加载译文，因此显示英文原文。",
+  "planLang.reason": "详情：{reason}",
 
   "intent.plan": "规划",
   "intent.modify": "修改",
@@ -475,5 +484,5 @@ export const ZH_HANS: Messages = {
   "help.paths": "每条消息只走一条路径。类型化的 System 1 决策会在规划、修改或提问之间选择其一；不明确的请求会先澄清，而不是猜测。",
   "help.agents": "新的规划会并行运行四个智能体：景点、酒店、天气和票务。规划器只能挑选并排序已核实的候选项，绝不凭空编造。每一项都保留来源和新鲜度状态。",
   "help.edits": "修改只会重新运行受影响的智能体，保留已锁定和已确认的站点，并递增版本号。简短问题会先从当前行程中回答，最多再调用一个白名单工具。",
-  "help.languages": "英文是主要语言。简体中文和繁体中文是补充界面语言；地名保持来源返回的写法。",
+  "help.languages": "英文是主要语言，也是行程的原文。“简”只翻译界面；“繁”还会以繁体中文显示行程，由 AI 模型翻译并与英文原文核对，日期、时间和价格始终取自英文行程。只有可信来源提供中文名称时，地点才显示中文名，并在后面附上原名。",
 };

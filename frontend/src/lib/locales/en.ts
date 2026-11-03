@@ -282,9 +282,18 @@ export const EN = {
 
   "common.loadingApp": "Loading Pathfinder",
 
-  "status.ok": "Live",
+  "status.ok": "Fresh",
+  "status.okNoHours": "Fresh, no hours",
   "status.stale": "Needs refresh",
   "status.unavailable": "Unavailable",
+
+  "planLang.label": "Plan language",
+  "planLang.disclaimer": "This Traditional Chinese version was translated by an AI model and may contain errors. The English version is the original. Please check key details such as dates, times and prices against it.",
+  "planLang.translating": "Translating the plan into Traditional Chinese. The English original is shown until it is ready.",
+  "planLang.fallback": "The Traditional Chinese translation did not pass the check against the English (a date, time, number or stop did not match), so the English original is shown.",
+  "planLang.unavailable": "No translation service is set up on this server, so the plan is shown in the English original.",
+  "planLang.failed": "The translation could not be loaded, so the English original is shown.",
+  "planLang.reason": "Details: {reason}",
 
   "intent.plan": "plan",
   "intent.modify": "modify",
@@ -477,7 +486,7 @@ export const EN = {
   "help.paths": "One message takes one path. A typed System 1 decision chooses plan, modify or ask; an unclear request is clarified instead of guessed.",
   "help.agents": "A new plan runs four agents in parallel: attractions, hotels, weather and tickets. The planner may select and order verified candidates, never invent one. Every item keeps a source and a freshness status.",
   "help.edits": "An edit reruns only the affected agents, preserves locked and confirmed stops, and increments the version. A quick question answers from the current plan first, then at most one allowlisted tool.",
-  "help.languages": "English is the primary language. Simplified and Traditional Chinese are supplemental interface locales; place names remain in the form the source returned.",
+  "help.languages": "English is the primary language and the plan's original. 简 translates the interface only. 繁 also shows the plan in Traditional Chinese, translated by an AI model and checked against the English; dates, times and prices always come from the English plan. A place shows a Chinese name only when a trusted source has one, followed by the original.",
 };
 
 export type MessageKey = keyof typeof EN;

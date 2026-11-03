@@ -7,6 +7,8 @@ import type {
   ClientProfile,
   FxSnapshot,
   GuideChunk,
+  PlanLocale,
+  PlanTranslation,
   RunTrace,
   TrendingPlace,
   TrendingTrace,
@@ -77,6 +79,12 @@ export function patchContext(sessionId: string, patch: ContextPatch): Promise<{ 
 export function getPlan(sessionId: string, version?: number): Promise<{ plan: TripPlan }> {
   const query = version ? `?version=${version}` : "";
   return request(`/api/journeys/${sessionId}/itinerary${query}`);
+}
+
+/** Display text for one plan version in `locale`; numbers, times and ids stay on the English plan. */
+export function getTranslation(sessionId: string, version: number, locale: PlanLocale): Promise<PlanTranslation> {
+  const params = new URLSearchParams({ version: String(version), locale });
+  return request(`/api/journeys/${sessionId}/translation?${params.toString()}`);
 }
 
 export function postFeedback(
@@ -345,4 +353,4 @@ export async function streamChat(
   }
 }
 
-export type { ClarifyPayload, EvalRun, RunTrace, TripPlan };
+export type { ClarifyPayload, EvalRun, PlanLocale, PlanTranslation, RunTrace, TripPlan };

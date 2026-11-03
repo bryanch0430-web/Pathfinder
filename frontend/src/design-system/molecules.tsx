@@ -558,7 +558,8 @@ export function ItineraryItem({
           </span>
         ) : null}
         <span className="pf-item__meta">
-          <StatusPill status={item.data_status as DataStatus} />
+          {/* The pill labels the place record: with no stated hours it must not read as complete. */}
+          <StatusPill status={item.data_status as DataStatus} label={placeStatusLabel(item, t)} />
           {updated ? (
             <Badge tone="success" dot>
               {t("common.updated")}
@@ -824,7 +825,7 @@ export function PlaceCard({
         {onClose ? <IconButton icon="close" label={t("place.clear")} onClick={onClose} /> : null}
       </div>
       <div className="pf-row pf-row--wrap">
-        <StatusPill status={item.data_status} />
+        <StatusPill status={item.data_status} label={placeStatusLabel(item, t)} />
         {isStay ? (
           <Text size="xs" tone="tertiary">
             {item.price
@@ -1104,6 +1105,63 @@ export function PageHeader({
     </header>
   );
 }
+/** True when the card shows "Hours unknown": the source gave no hours for the visit day. */
+function hoursMissing(item: PlanItem): boolean {
+  return Boolean(item.hours_status) && !(item.hours_status === "stated" && item.opening_hours?.length);
+}
+
+/**
+ * The freshness pill labels the place record. When the record has no hours it
+ * must not read as complete next to "Hours unknown", so it says what is missing.
+ */
+function placeStatusLabel(item: PlanItem, t: (key: MessageKey) => string): string | undefined {
+  return item.data_status === "ok" && hoursMissing(item) ? t("status.okNoHours") : undefined;
+}
+
+export type PlanLanguageNoticeKind ="translating" | "fallback" | "unavailable" | "failed";
+
+const PLAN_LANGUAGE_NOTICE: Record<PlanLanguageNoticeKind, MessageKey> = {
+  translating: "planLang.translating",
+  fallback: "planLang.fallback",
+  unavailable: "planLang.unavailable",
+  failed: "planLang.failed",
+};
+
+/**
+ * Shown on the plan whenever it is viewed in a language other than English:
+ * the AI-translation disclaimer, and, when the English original is shown
+ * instead, a notice saying why.
+ */
+export function PlanLanguageBanner({
+  disclaimer,
+  notice = null,
+  reason = "",
+}: {
+  /** The translation's own disclaimer; the fixed text is used when empty. */
+  disclaimer?: string;
+  notice?: PlanLanguageNoticeKind | null;
+  reason?: string;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="pf-plan-language" role="note" aria-label={t("planLang.label")}>
+      <div className="pf-banner" data-tone="info">
+        <Icon name="globe" size={14} />
+        <span>{disclaimer?.trim() || t("planLang.disclaimer")}</span>
+      </div>
+      {notice ? (
+        <div className="pf-banner" data-tone={notice === "translating" ? "info" : "warning"} role="status">
+          <Icon name={notice === "translating" ? "info" : "alert"} size={14} />
+          <span>
+            {t(PLAN_LANGUAGE_NOTICE[notice])}
+            {reason && notice !== "translating" ? ` ${t("planLang.reason", { reason })}` : ""}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function StatusSummary({ plan }: { plan: { constraints: ConstraintCheck[]; data_quality: { gaps: DataGap[] } } }) {
   const { t } = useI18n();
   const failing = plan.constraints.filter((check) => check.status === "fail").length;

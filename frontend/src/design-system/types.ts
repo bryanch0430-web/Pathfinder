@@ -54,6 +54,8 @@ export interface PlanItem {
   hours_status?: "stated" | "unknown";
   /** The trip from the previous stop, as the routes tool returned it. */
   transfer?: TransferLeg | null;
+  /** Trusted localized names from the sources ("en", "zh-Hant"); never written by a model. */
+  names?: Record<string, string>;
 }
 
 export interface TransferLeg {
@@ -93,6 +95,7 @@ export interface HotelStay {
   notes: string;
   confirmed: boolean;
   locked: boolean;
+  names?: Record<string, string>;
 }
 
 export interface TicketOption {
@@ -299,6 +302,28 @@ export interface TripContext {
   preferences: string[];
   hard_constraints: string[];
   language: string;
+  /** The language the plan is shown in; the English plan stays the source of truth. */
+  plan_locale?: PlanLocale;
+}
+
+/** Plan display languages. */
+export type PlanLocale = "en" | "zh-Hant";
+
+/** GET /api/journeys/{id}/translation: display text for one plan version. */
+export interface PlanTranslation {
+  locale: PlanLocale;
+  plan_version: number;
+  status: "translated" | "fallback" | "unavailable" | "english";
+  reason: string;
+  disclaimer: string;
+  fields: {
+    summary?: string;
+    days?: Record<string, { title?: string; note?: string }>;
+    /** Keyed by item id; only `notes` is translated. */
+    items?: Record<string, { notes?: string }>;
+    /** Keyed by the gap's index in `data_quality.gaps`. */
+    gaps?: Record<string, string>;
+  };
 }
 
 export interface ChatMessage {

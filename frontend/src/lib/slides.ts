@@ -410,7 +410,7 @@ function addSources(deck: PptxGenJS, plan: TripPlan): void {
 }
 
 /** Builds the deck without touching the DOM, so it can run in a browser or in Node. */
-export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS): PptxGenJS {
+export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS, disclaimer = ""): PptxGenJS {
   const deck = new Pptx();
   deck.layout = "LAYOUT_WIDE";
   deck.author = "Pathfinder";
@@ -424,6 +424,10 @@ export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS): PptxGenJS
       { rect: { x: 0, y: 0, w: W, h: 0.12, fill: { color: BRAND }, line: { color: BRAND } } },
       { line: { x: X, y: 6.95, w: CONTENT_W, h: 0, line: { color: RULE, width: 0.75 } } },
       { text: { text: `Pathfinder · ${plan.destination.name} · ${plan.dates.start} to ${plan.dates.end}`, options: { x: X, y: 7.0, w: 9, h: 0.3, fontFace: FONT, fontSize: 10, color: MUTED } } },
+      // A translated deck says so on every content slide.
+      ...(disclaimer
+        ? [{ text: { text: disclaimer, options: { x: X, y: 6.72, w: CONTENT_W, h: 0.22, fontFace: FONT, fontSize: 8, color: MUTED, fit: "shrink" as const } } }]
+        : []),
     ],
     slideNumber: { x: 12.2, y: 7.0, w: 0.65, h: 0.3, fontFace: FONT, fontSize: 10, color: MUTED, align: "right" },
   });
@@ -440,7 +444,7 @@ export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS): PptxGenJS
 }
 
 /** Loads pptxgenjs on demand so the main bundle stays small, then saves the deck. */
-export async function downloadPlanSlides(plan: TripPlan): Promise<void> {
+export async function downloadPlanSlides(plan: TripPlan, disclaimer = ""): Promise<void> {
   const { default: Pptx } = await import("pptxgenjs");
-  await buildPlanDeck(plan, Pptx).writeFile({ fileName: planFileName(plan, "pptx"), compression: true });
+  await buildPlanDeck(plan, Pptx, disclaimer).writeFile({ fileName: planFileName(plan, "pptx"), compression: true });
 }
