@@ -12,6 +12,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
+import pytest
+
 from app.application.orchestrator import _describe_diff
 from app.application.planner import Planner
 from app.application.router import REPLAN_MESSAGE
@@ -742,3 +744,38 @@ def test_a_forecast_for_some_of_the_days_leaves_a_gap_for_the_others(settings: S
         break_registry=lambda registry: setattr(registry, "weather", [_SomeDays(3)]),
     )[1]
     assert not [gap for gap in full.data_quality.gaps if gap.section == "weather"]
+
+
+# -- G19: the edges of the date range --------------------------------------------------------------------
+
+
+def test_a_form_range_that_is_not_a_trip_is_refused_for_a_date_request_and_ignored_otherwise(
+    settings: Settings,
+) -> None:
+    from app.domain.errors import PlanInvalidError
+
+    broken = (START + timedelta(days=9), START + timedelta(days=6))
+    with pytest.raises(PlanInvalidError) as refused:
+        _modify(settings, "change the dates", ["dates"], new_range=broken)
+    assert "dates" in str(refused.value)
+
+    plan, updated, _ = _modify(settings, "swap the hotel for another one", ["hotel"], new_range=broken)
+    assert (updated.dates.start, updated.dates.end) == (plan.dates.start, plan.dates.end)
+    assert updated.hotels[0].name != plan.hotels[0].name
+
+
+def test_a_move_to_dates_in_the_past_is_made_with_a_warning(settings: Settings) -> None:
+    long_ago = (date.today() - timedelta(days=400), date.today() - timedelta(days=398))
+
+    _, updated, diff = _modify(settings, "change the dates", ["dates"], new_range=long_ago)
+
+    assert (updated.dates.start, updated.dates.end) == long_ago and diff[0]["kind"] == "dates"
+    assert [gap.message for gap in updated.data_quality.gaps if gap.section == "dates"] == [
+        "The new dates are in the past."
+    ]
+    # and the same when the trip also changes length
+    longer = (long_ago[0], long_ago[0] + timedelta(days=4))
+    _, rebuilt, _ = _modify(settings, "make it 5 days", ["dates"], new_range=longer)
+    assert [gap.message for gap in rebuilt.data_quality.gaps if gap.section == "dates"] == [
+        "The new dates are in the past."
+    ]

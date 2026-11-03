@@ -62,6 +62,9 @@ from app.domain.ports import Tracer
 from app.infrastructure.http import haversine_km
 from app.security import fence_user_message
 
+#: said on the plan when the trip is moved to dates that have gone by (the form accepts them)
+PAST_DATES = "The new dates are in the past."
+
 AGENT_SECTION: dict[AgentName, str] = {
     AgentName.ATTRACTION: "attractions",
     AgentName.HOTEL: "hotels",
@@ -114,8 +117,18 @@ class ModifyPath:
         # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
         # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
         # two nights" or "a later flight" name a part of the trip (Proposal DB-09), not new dates.
-        new_range = context.date_range()
+        try:
+            new_range = context.date_range()
+        except ValueError:  # pydantic's ValidationError: the form holds an end before its start, or more than 60 days
+            new_range, form_is_a_trip = None, False
+        else:
+            form_is_a_trip = True
         date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
+        if date_requested and not form_is_a_trip:
+            raise PlanInvalidError(
+                "The dates in the trip details do not make a trip: the end must not be before the start, and a trip "
+                "is at most 60 days long. Correct them in the trip details and ask again."
+            )
         dates_move = bool(new_range and new_range != plan.dates) and date_requested
         if dates_move or is_replan_message(message):
             # A request for the whole trip is not about the stop the traveller has selected.
@@ -245,6 +258,8 @@ class ModifyPath:
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
                 keep_hotel=None if hotel_requested or not plan.hotels else plan.hotels[0],
             )
+            if new_range.start < date.today():
+                rebuilt.data_quality.gaps.append(_gap("dates", PAST_DATES))
             rule_texts = [*context.hard_constraints, *context.preferences]
             plan_dates = [day.date for day in rebuilt.days]
             blocked = blocked_dates(rule_texts, plan_dates)
@@ -323,6 +338,8 @@ class ModifyPath:
                 if not any(known.section == gap.section and known.message == gap.message for known in updated.data_quality.gaps):
                     updated.data_quality.gaps.append(gap)
         if date_changed and new_range:
+            if new_range.start < date.today():
+                updated.data_quality.gaps.append(_gap("dates", PAST_DATES))
             updated.dates = new_range
             for index, day in enumerate(updated.days):
                 day.date = new_range.dates[index]
