@@ -9,9 +9,15 @@
     "party_size": 2,
     "budget": 9000,
     "currency": "HKD",
-    "constraints": ["avoid outdoor stops during the typhoon signal", "stay within budget"],
+    "constraints": [
+      "avoid outdoor stops during the typhoon signal",
+      "stay within budget"
+    ],
     "fault": "typhoon",
-    "fault_detail": {"day": 2, "signal": "Typhoon Signal No. 8"},
+    "fault_detail": {
+      "day": 2,
+      "signal": "Typhoon Signal No. 8"
+    },
     "split": "dev"
   },
   {
@@ -24,13 +30,16 @@
     "party_size": 4,
     "budget": 12000,
     "currency": "HKD",
-    "constraints": ["do not include the closed Peak Tram", "stay within budget"],
+    "constraints": [
+      "do not include the closed Peak Tram",
+      "stay within budget"
+    ],
     "fault": "venue_closure",
     "fault_detail": {
       "venue": "Peak Tram",
       "report": "The Peak Tram is closed today. Please replace the Peak Tram with a different stop."
     },
-    "split": "dev"
+    "split": "heldout"
   },
   {
     "id": "hk03",
@@ -42,9 +51,15 @@
     "party_size": 1,
     "budget": 6000,
     "currency": "HKD",
-    "constraints": ["keep travel times realistic"],
+    "constraints": [
+      "keep travel times realistic"
+    ],
     "fault": "transit_delay",
-    "fault_detail": {"day": 1, "line": "Tsuen Wan Line", "delay_minutes": 40},
+    "fault_detail": {
+      "day": 1,
+      "line": "Tsuen Wan Line",
+      "delay_minutes": 40
+    },
     "split": "heldout"
   },
   {
@@ -57,8 +72,10 @@
     "party_size": 2,
     "budget": 5000,
     "currency": "HKD",
-    "constraints": ["stay within budget"],
-    "split": "heldout"
+    "constraints": [
+      "stay within budget"
+    ],
+    "split": "dev"
   },
   {
     "id": "hk05",
@@ -70,9 +87,13 @@
     "party_size": 3,
     "budget": 10000,
     "currency": "HKD",
-    "constraints": ["stay within budget"],
+    "constraints": [
+      "stay within budget"
+    ],
     "fault": "source_timeout",
-    "fault_detail": {"section": "attractions"},
+    "fault_detail": {
+      "section": "attractions"
+    },
     "split": "dev"
   },
   {
@@ -85,9 +106,16 @@
     "party_size": 6,
     "budget": 30000,
     "currency": "HKD",
-    "constraints": ["must include Tian Tan Buddha", "keep travel times realistic"],
+    "constraints": [
+      "must include Tian Tan Buddha",
+      "keep travel times realistic"
+    ],
     "fault": "transit_delay",
-    "fault_detail": {"day": 2, "line": "Island Line", "delay_minutes": 30},
+    "fault_detail": {
+      "day": 2,
+      "line": "Island Line",
+      "delay_minutes": 30
+    },
     "split": "dev"
   },
   {
@@ -100,7 +128,9 @@
     "party_size": 1,
     "budget": 5000,
     "currency": "HKD",
-    "constraints": ["do not include the closed Tai Kwun"],
+    "constraints": [
+      "do not include the closed Tai Kwun"
+    ],
     "fault": "venue_closure",
     "fault_detail": {
       "venue": "Tai Kwun",
@@ -118,9 +148,14 @@
     "party_size": 1,
     "budget": 5000,
     "currency": "HKD",
-    "constraints": ["avoid outdoor stops during the typhoon signal"],
+    "constraints": [
+      "avoid outdoor stops during the typhoon signal"
+    ],
     "fault": "typhoon",
-    "fault_detail": {"day": 1, "signal": "Typhoon Signal No. 8"},
-    "split": "heldout"
+    "fault_detail": {
+      "day": 1,
+      "signal": "Typhoon Signal No. 8"
+    },
+    "split": "dev"
   }
 ]

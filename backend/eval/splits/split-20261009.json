@@ -2,6 +2,36 @@
   "seed": 20261009,
   "dev_share": 0.7,
   "datasets": {
+    "hongkong": {
+      "fixture": "hongkong.json",
+      "sha256": "d91a65e9200f52af14c7aa1e458402ff923356f108d15f5088df830dd8a4ee0d",
+      "items": 8,
+      "dev": 6,
+      "heldout": 2,
+      "stratified_by": "destination x constraint type (fault, else hard constraints, else baseline)",
+      "strata": {
+        "Hong Kong|hard_constraints": {
+          "dev": 1,
+          "heldout": 0
+        },
+        "Hong Kong|source_timeout": {
+          "dev": 1,
+          "heldout": 0
+        },
+        "Hong Kong|transit_delay": {
+          "dev": 1,
+          "heldout": 1
+        },
+        "Hong Kong|typhoon": {
+          "dev": 2,
+          "heldout": 0
+        },
+        "Hong Kong|venue_closure": {
+          "dev": 1,
+          "heldout": 1
+        }
+      }
+    },
     "injection": {
       "fixture": "injection.jsonl",
       "sha256": "53b00294f80c42fd1a2fa58e03571b472246d3f350d0df8c7c44946747945a0a",
@@ -73,6 +103,28 @@
         "reveal_instructions|web_result": {
           "dev": 2,
           "heldout": 2
+        }
+      }
+    },
+    "japan": {
+      "fixture": "japan.json",
+      "sha256": "a63fc044d9e8bf7d18943ba5d2a71335af27a356794b6d73a3206b52ada8d452",
+      "items": 6,
+      "dev": 4,
+      "heldout": 2,
+      "stratified_by": "destination x constraint type (fault, else hard constraints, else baseline)",
+      "strata": {
+        "Kyoto|hard_constraints": {
+          "dev": 1,
+          "heldout": 1
+        },
+        "Osaka|hard_constraints": {
+          "dev": 1,
+          "heldout": 1
+        },
+        "Tokyo|hard_constraints": {
+          "dev": 2,
+          "heldout": 0
         }
       }
     },

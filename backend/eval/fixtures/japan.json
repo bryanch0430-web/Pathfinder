@@ -9,7 +9,10 @@
     "party_size": 2,
     "budget": 400000,
     "currency": "JPY",
-    "constraints": ["must include Fushimi Inari", "stay within budget"],
+    "constraints": [
+      "must include Fushimi Inari",
+      "stay within budget"
+    ],
     "split": "dev"
   },
   {
@@ -22,7 +25,9 @@
     "party_size": 3,
     "budget": 600000,
     "currency": "JPY",
-    "constraints": ["stay within budget"],
+    "constraints": [
+      "stay within budget"
+    ],
     "split": "dev"
   },
   {
@@ -35,7 +40,10 @@
     "party_size": 2,
     "budget": 250000,
     "currency": "JPY",
-    "constraints": ["vegetarian meals only", "stay within budget"],
+    "constraints": [
+      "vegetarian meals only",
+      "stay within budget"
+    ],
     "split": "heldout"
   },
   {
@@ -48,7 +56,11 @@
     "party_size": 2,
     "budget": 200000,
     "currency": "JPY",
-    "constraints": ["must include the Ghibli Museum", "must include Senso-ji", "stay within budget"],
+    "constraints": [
+      "must include the Ghibli Museum",
+      "must include Senso-ji",
+      "stay within budget"
+    ],
     "split": "dev"
   },
   {
@@ -61,7 +73,11 @@
     "party_size": 1,
     "budget": 120000,
     "currency": "JPY",
-    "constraints": ["vegetarian meals only", "must include Osaka Castle", "stay within budget"],
+    "constraints": [
+      "vegetarian meals only",
+      "must include Osaka Castle",
+      "stay within budget"
+    ],
     "split": "dev"
   },
   {
@@ -74,7 +90,10 @@
     "party_size": 4,
     "budget": 300000,
     "currency": "JPY",
-    "constraints": ["must include Kiyomizu-dera", "stay within budget"],
+    "constraints": [
+      "must include Kiyomizu-dera",
+      "stay within budget"
+    ],
     "split": "heldout"
   }
 ]
