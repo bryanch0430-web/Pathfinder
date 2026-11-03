@@ -154,6 +154,10 @@ class BaseAgent:
         return found.references, found.gap
 
 
+#: The most rows an agent leaves in its progress. A real run records about forty at most; the
+#: bound keeps a runaway agent from making the partial result slow to build.
+MAX_PROGRESS_ROWS = 60
+
 #: Lookups in a row that may fail before the agent stops asking the geocoder. Each can take the
 #: whole lookup timeout, so asking a dead service about every guide place would outlast the
 #: pre-planning budget before its failure was ever reported.
@@ -433,9 +437,9 @@ class AttractionAgent(BaseAgent):
 
     @staticmethod
     def _record(request: AgentContext, rows: list[dict[str, Any]]) -> None:
-        """Add rows to the progress the runner reads if the budget cuts this agent off."""
+        """Add rows to the progress the runner reads if the budget cuts this agent off (up to MAX_PROGRESS_ROWS)."""
         if request.progress is not None:
-            request.progress.extend(rows)
+            request.progress.extend(rows[: max(MAX_PROGRESS_ROWS - len(request.progress), 0)])
 
     @classmethod
     def _keep(cls, request: AgentContext, places: list[PlaceCandidate]) -> None:
