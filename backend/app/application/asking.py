@@ -11,8 +11,9 @@ from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import compact_json, plan_outline
 from app.application.toolbox import Toolbox
 from app.config import Settings
-from app.domain.errors import CanaryLeak
-from app.domain.models import TripContext, TripPlan
+from app.domain.errors import CanaryLeak, ProviderError
+from app.domain.models import FailureKind, TripContext, TripPlan
+from app.infrastructure.http import classify_exception
 from app.security import fence_user_message
 
 WEATHER_WORDS = r"\b(weather|rain|forecast|temperature|hot|cold|typhoon)\b"
@@ -40,6 +41,20 @@ DEEP_SEARCH_WORDS = (
     r"best time|best area|nightlife|food scene|safety|safe|vibe|atmosphere|"
     r"local tips|hidden gems?)\b"
 )
+
+
+#: What a weather question is told when no place or forecast was found: nothing failed.
+_NO_FORECAST = "No forecast could be found for that place and those dates."
+
+
+def _forecast_unavailable(failure: ProviderError) -> str:
+    """Why there is no forecast to give: nothing was found, or a lookup failed (and whether asking again could help)."""
+    if failure.kind is FailureKind.NO_DATA:
+        return _NO_FORECAST
+    if failure.kind is FailureKind.BLOCKED:
+        return "This turn reached its limit on data lookups, so there is no forecast to give."
+    text = f"The weather lookup failed ({failure.kind.value}), so there is no forecast to give."
+    return f"{text} Asking again later may work." if failure.retryable else text
 
 
 class AskPath:
@@ -188,7 +203,7 @@ class AskPath:
                             name=context.destination,
                         )
                     if location is None:
-                        return "weather", None, "weather"
+                        return "weather", {"unavailable": _NO_FORECAST}, "weather"
                     result = await toolbox.call(
                         "weather.forecast",
                         source.forecast,
@@ -197,8 +212,8 @@ class AskPath:
                         end=end,
                     )
                     return "weather", [row.model_dump(mode="json") for row in result], source.name
-                except Exception:
-                    return "weather", None, "weather"
+                except Exception as exc:
+                    return "weather", {"unavailable": _forecast_unavailable(classify_exception(exc, "weather"))}, "weather"
         scoped_dist = _scoped_item(plan, scope_item_id)
         if re.search(DISTANCE_WORDS, lower) and self.registry.routes and scoped_dist is None:
             points = _two_points(plan, question)
@@ -938,5 +953,7 @@ def _fallback_answer(facts: dict, source: str) -> str:
         item = facts["item"]
         return f"{item.get('name')}: {item.get('notes') or 'no further detail was returned.'}"
     if "tool" in facts:
+        if isinstance(facts["tool"], dict) and facts["tool"].get("unavailable"):
+            return str(facts["tool"]["unavailable"])
         return f"The source returned: {json.dumps(facts['tool'], default=str)[:600]}"
     return "The current itinerary does not contain that."

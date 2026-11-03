@@ -20,7 +20,7 @@ from app.application.planner import Planner
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
-from app.domain.errors import PlanInvalidError, ProviderError, ToolBudgetExceeded, operator_text
+from app.domain.errors import PlanInvalidError, ProviderNoData, ToolBudgetExceeded, operator_text
 from app.domain.models import (
     AgentName,
     AgentResult,
@@ -104,11 +104,10 @@ class PlanPath:
                     f"I could not look up {context.destination!r}: this request reached its limit of data lookups.",
                     retryable=False,
                 ) from exc
-            except ProviderError as exc:
-                raise PlanInvalidError(
-                    f"I could not locate {context.destination!r} with the configured map sources. "
-                    "Try the city and country together."
-                ) from exc
+            except ProviderNoData:
+                # A no-result answer: no map source knows the name. Any other failure is an outage
+                # of the sources, which the turn reports as a failed data source, not a bad query.
+                destination = None
             if not destination:
                 raise PlanInvalidError(
                     f"I could not locate {context.destination!r}. Try the city and country together."
