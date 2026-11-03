@@ -101,10 +101,10 @@ class TurnService:
             registry=plan_path.registry, planner=plan_path.planner, settings=settings, store=store
         )
 
-    def _remember_in_background(self, client_token: str, context: TripContext) -> None:
-        """Session preferences go to long-term memory off the turn's critical path."""
+    def _remember_in_background(self, owner: str, context: TripContext) -> None:
+        """Session preferences go to the owner's long-term memory off the turn's critical path."""
         write = asyncio.ensure_future(
-            asyncio.to_thread(self.memory.remember_preferences, client_token, context.model_copy(deep=True))
+            asyncio.to_thread(self.memory.remember_preferences, owner, context.model_copy(deep=True))
         )
         self._background.add(write)
         write.add_done_callback(self._background_done)
@@ -278,7 +278,7 @@ class TurnService:
                     pass
                 self.store.save_context(context)
                 if context.preferences:
-                    self._remember_in_background(session.client_token, context)
+                    self._remember_in_background(session.owner, context)
 
             with tracer.span("route"):
                 decision = await self.router.route(

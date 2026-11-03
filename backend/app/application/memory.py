@@ -116,14 +116,20 @@ class MemoryService:
             self.save_useful_trip(plan, stars=stars, owner=owner)
         return feedback
 
-    def remember_preferences(self, client_token: str, context: TripContext) -> PreferenceProfile:
-        existing = self.store.get_preferences(client_token)
+    def remember_preferences(self, owner: str, context: TripContext) -> PreferenceProfile | None:
+        """Add a session's preferences to `owner`'s profile (`user:<id>` or a guest token).
+
+        No owner has no profile: an empty key would be shared by every session that has none.
+        """
+        if not owner:
+            return None
+        existing = self.store.get_preferences(owner)
         values = list(existing.preferences) if existing else []
         for preference in context.preferences:
             if preference not in values:
                 values.append(preference)
         profile = PreferenceProfile(
-            client_token=client_token,
+            client_token=owner,
             preferences=values[-30:],
             updated_at=utcnow(),
         )

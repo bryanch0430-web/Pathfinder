@@ -135,8 +135,9 @@ still read first, for older clients, but a URL is written to access logs: send t
 token of `user:<id>` without that user's bearer is `401`, here and on `POST /api/journeys` /
 `POST /api/turn/stream`. No identity at all is `401`, except
 on `/api/popular`, which then ranks without personal matching. A useful rating saves the
-trip for the journey's owner; planner recall reads only that owner's saved trips; signing
-in moves the guest's saved trips and preferences to the account.
+trip for the journey's owner, and the preferences a turn learns are remembered for that owner
+too (a trip with no owner remembers none); planner recall reads only that owner's saved trips;
+signing in moves the guest's saved trips and preferences to the account.
 
 A `useful` feedback saves the plan in a background task with its embedding. The feedback
 endpoint never blocks the response on the write. Trending prefers those **marked-useful**
