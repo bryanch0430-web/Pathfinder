@@ -40,7 +40,7 @@ Live mode (opt-in, never in CI or the default test run)
     a 1 km tolerance. Run it with::
 
         cd backend
-        PATHFINDER_JAPAN_LIVE=1 python -m pytest -o addopts="" -q tests/test_eval_proposal.py -k live
+        PATHFINDER_JAPAN_LIVE=1 python -m pytest -o addopts="" -q tests/test_japan_replay.py -k live
 
     or set the variable for the server and start a japan trial from the
     Evaluation page. The run report's ``model_snapshot["japan_replay"]`` says
