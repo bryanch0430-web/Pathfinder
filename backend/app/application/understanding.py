@@ -16,6 +16,7 @@ from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import trip_state
 from app.domain.errors import CanaryLeak
 from app.domain.models import TripContext, fit_preference
+from app.infrastructure.providers.flights import AIRPORTS
 from app.security import fence_user_message
 
 # Interest and style tags the rules recognise. Any other tag is read by the
@@ -233,7 +234,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     # destination / origin. The origin is resolved first: "a Kyoto trip from
     # Hong Kong" must not treat the departure city as the destination.
     previous_destination = context.destination
-    origin = _find_origin(lower)
+    origin = _find_origin(text, context.origin)
     if origin:
         context.origin = origin
     destination = _find_place(lower, ["to", "in", "visit", "explore", "around"], origin)
@@ -407,14 +408,73 @@ def _valid_place(candidate: str) -> bool:
     return True
 
 
-def _find_origin(lower: str) -> str | None:
-    match = re.search(
-        r"\bfrom\s+([a-z][a-z .'-]{2,40}?)(?=\s+(?:to|for|on|in|next|this|with)\b|[,.!?]|$)",
-        lower,
-    )
-    if match:
+#: "from <words>" up to the word that ends a place name.
+_FROM_PHRASE = re.compile(
+    r"\bfrom\s+([a-z][a-z .'-]{2,40}?)(?=\s+(?:to|for|on|in|next|this|with)\b|[,.!?]|$)", re.IGNORECASE
+)
+#: Cities and airports the assistant knows by name, and the airport codes the flight source resolves.
+_KNOWN_CITIES = {city.lower(): city for city in CITY_HINTS}
+_AIRPORT_CODES = frozenset(code for codes in AIRPORTS.values() for code in codes)
+#: Words right before "from" that say where the traveller leaves from ...
+_TRAVEL_WORDS = frozenset(
+    "flight flights fly flying flew flown depart departs departing departure departures leave leaves leaving left "
+    "travel travels travelling traveling commute commutes commuting coming arrive arrives arriving "
+    "originate originates originating".split()
+)
+#: ... that the sentence is about a trip ...
+_TRIP_WORDS = frozenset("trip trips journey holiday vacation getaway honeymoon".split())
+#: ... and that something in the plan is being changed, which "from Kyoto" then describes.
+_EDIT_WORDS = frozenset("change swap switch replace update move shift modify edit redo adjust".split())
+#: A place name does not begin with one of these.
+_NOT_A_NAME_START = frozenset(
+    "the a an my our your this that these those his her their its some any each every".split()
+)
+
+
+def _known_place(candidate: str) -> str | None:
+    """The city or airport at the start of `candidate` that the assistant knows: "Hong Kong airport" is Hong Kong."""
+    words = candidate.split()
+    if len(words) == 1 and words[0] in _AIRPORT_CODES:
+        return words[0]  # an airport code, typed in capitals
+    lowered = [word.lower() for word in words]
+    for size in range(len(lowered), 0, -1):
+        city = _KNOWN_CITIES.get(" ".join(lowered[:size]))
+        if city:
+            return city
+    return None
+
+
+def _find_origin(text: str, stored: str = "") -> str | None:
+    """The departure city, when the sentence says that a "from <place>" phrase names it.
+
+    A word after "from" is not a city because it follows "from": "from scratch", "from then on" and "from the
+    beginning" say other things. The phrase names the departure city when a travel word comes right before it
+    (flying, leaving, departing, travelling from ...); or the sentence is about a trip and the place is a city
+    the assistant knows, or the trip goes on to one ("a 5-day trip from Leeds to Paris"); or the place is a
+    city or airport the assistant knows and the trip has no departure city yet. A word that changes the plan
+    right before it ("swap the hotel from Kyoto") says it does not. A phrase that does not name the departure
+    city never replaces the one a trip has.
+    """
+    for match in _FROM_PHRASE.finditer(text):
         candidate = match.group(1).strip(" .")
-        if _valid_place(candidate):
+        if not _valid_place(candidate):
+            continue
+        clause = re.split(r"[.!?;]", text[: match.start()])[-1]
+        before = [word.strip(",:()\"'").lower() for word in clause.split()]
+        travelling = any(word in _TRAVEL_WORDS for word in before[-3:])
+        if not travelling and any(word in _EDIT_WORDS for word in before[-4:]):
+            continue
+        known = _known_place(candidate)
+        words = candidate.split()
+        if known:
+            if travelling or any(word in _TRIP_WORDS for word in before) or not stored.strip():
+                return known
+            continue
+        if len(words) > 4 or words[0].lower() in _NOT_A_NAME_START:
+            continue
+        onward = re.match(r"\s+to\s+([a-z][a-z .'-]{1,40})", text[match.end() :], re.IGNORECASE)
+        goes_to_a_known_city = bool(onward and _known_place(onward.group(1).strip(" .")))
+        if travelling or (goes_to_a_known_city and any(word in _TRIP_WORDS for word in before[-2:])):
             return candidate.title()
     return None
 

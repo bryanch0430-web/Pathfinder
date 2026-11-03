@@ -597,7 +597,11 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
 - **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
   are HS256 JWTs; change `AUTH_SECRET` outside a local demo.
 - **Origin is required for planning.** It is a gate slot, so a plan without a departure
-  city asks for it instead of silently skipping tickets.
+  city asks for it instead of silently skipping tickets. A message sets it only when it says so:
+  after a travel word ("flying from", "leaving from"), in "a trip from X to Y", or as a city
+  the assistant knows when the trip has none; "from scratch", "from then on" or "from the
+  list above" never do, and such a phrase never replaces the departure city a trip has. Any
+  other city is read by the writer model when one is configured, else asked for.
 - **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
   not live providers; live behaviour is captured separately in traces and screenshots.
 - **Chinese covers the interface, not the plan text.** The EN/简/繁 switcher translates
