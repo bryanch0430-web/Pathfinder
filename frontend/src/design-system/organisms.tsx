@@ -2285,7 +2285,7 @@ export function SettingsView({
                     className="pf-preference-tags__input"
                     value={prefInput}
                     aria-label={t("settings.addPreference")}
-                    disabled={preferences.length >= MAX_PREFERENCES}
+                    readOnly={preferences.length >= MAX_PREFERENCES}
                     placeholder={
                       preferences.length >= MAX_PREFERENCES
                         ? t("settings.preferencesFull")
