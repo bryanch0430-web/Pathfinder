@@ -564,8 +564,9 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
 - **Profile works logged-out or logged-in.** Guests use a random browser token; email
   accounts are optional and take over the guest's preferences and saved trips on first
   login. Saved trips, preferences and planner recall are per profile: nobody sees or
-  recalls another traveller's. A profile keeps its newest 20 preferences, each cut to
-  80 characters, whoever wrote them. Clearing memory removes only the caller's saved trips and
+  recalls another traveller's. A profile keeps at most 20 preferences of at most 80
+  characters: the Settings page refuses more, and what turns, feedback and sign-in learn is
+  cut to fit, keeping the newest. Clearing memory removes only the caller's saved trips and
   preferences; clearing chat removes messages but keeps the current plan. **New trip** deletes the current session row and local pointer, so a stale
   `pathfinder.session` cannot pin the console to an old plan.
 - **Export** writes Markdown from structured fields and sources, not a model transcript.
