@@ -11,10 +11,10 @@ import pytest
 from app import dataset_splits
 from app.dataset_splits import assign, check, content_hash, load_rows, read_manifest, stratum
 
-FROZEN = ["routing", "injection"]
+FROZEN = ["routing", "injection", "hongkong", "japan"]
 
 
-def test_tc06_manifest_freezes_the_router_and_injection_sets() -> None:
+def test_tc06_manifest_freezes_the_custom_sets() -> None:
     """Proposal TC-06 (p4): the split is recorded with its seed and a hash of every frozen fixture."""
     manifest = read_manifest()
     assert manifest["seed"] == dataset_splits.SEED
@@ -94,4 +94,6 @@ def test_tc06_trial_report_shows_the_heldout_share_and_freeze(settings, name: st
     assert response.status_code == 200
     metrics = {metric["key"]: metric for metric in response.json()["run"]["metrics"]}
     assert metrics["split_frozen"]["value"] == 100.0
-    assert 29.0 <= metrics["heldout_share"]["value"] <= 31.0
+    # Small sets cannot hit 30% exactly; the held-out count must be within one item of it.
+    items = len(load_rows(name))
+    assert abs(metrics["heldout_share"]["value"] / 100 * items - 0.3 * items) <= 1

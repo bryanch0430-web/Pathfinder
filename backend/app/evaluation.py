@@ -441,6 +441,10 @@ class EvalService:
             metrics.extend(injection_breakdown(results))
         else:
             metrics.extend(planning_metrics(results))
+            from app.dataset_splits import FIXTURE_FILES, split_metrics  # Proposal TC-06
+
+            if dataset in FIXTURE_FILES:
+                metrics.extend(split_metrics(dataset))
             if self.judge.available:
                 metrics.append(judge_metric(self.judge_check))
             if latencies:
