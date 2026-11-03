@@ -64,6 +64,8 @@ from app.security import fence_user_message
 
 #: said on the plan when the trip is moved to dates that have gone by (the form accepts them)
 PAST_DATES = "The new dates are in the past."
+#: the hotel lookup, as the toolbox names it when the per-turn cap refuses it
+HOTEL_SEARCH = "hotels.search"
 #: the answer to a request for other dates when the form holds the plan's dates: the trip form is where dates change
 CHAT_DATES_REPLY = (
     "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
@@ -393,6 +395,8 @@ class ModifyPath:
                         pool = [row for row in pool if (_hotel_price(row) or current_price) < current_price]
                 choice = pool[0] if pool else None
                 swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
+                # A lookup the cap refused returned nothing because it was never made: its gap says so, once.
+                searched = HOTEL_SEARCH not in getattr(toolbox, "refused", ())
                 if swapped is not None:
                     updated.hotels = [swapped]
                 elif updated.hotels:
@@ -402,10 +406,11 @@ class ModifyPath:
                         updated.hotels = [kept]
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
-                    updated.data_quality.gaps.append(
-                        _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
-                    )
-                elif len(updated.days) > 1:
+                    if searched:
+                        updated.data_quality.gaps.append(
+                            _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
+                        )
+                elif len(updated.days) > 1 and searched:
                     # There is no current hotel to keep: the trip has nights and no stay to put in them.
                     updated.data_quality.gaps.append(
                         _gap("hotels", "No verified hotel was returned for the new dates.")
