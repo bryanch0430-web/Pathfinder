@@ -249,6 +249,7 @@ class TurnService:
                     "locale": locale,
                     "flagged": screen.flagged,
                     "categories": screen.categories,
+                    **({"severity": screen.max_severity.value, "blocked": screen.blocked} if screen.flagged else {}),
                     **({"scope": scope_label} if scope_label else {}),
                 },
             )
