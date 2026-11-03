@@ -617,20 +617,26 @@ class TurnService:
         elif decision.intent == Intent.REFRESH:
             refreshed: list[str] = []
             outdated: list[str] = []
+            missing: list[str] = []
             if plan is not None:
                 try:
                     outcome = await self.freshness.check(
-                        plan, context=context, tracer=tracer, request_id=request_id
+                        plan, context=context, tracer=tracer, request_id=request_id, requested=True
                     )
                 except Exception:  # a failed refresh keeps the earlier data
                     logger.exception("refreshing an outdated plan failed")
                     outcome = None
                 if outcome is not None:
-                    refreshed, outdated = outcome.refreshed, outcome.outdated
+                    refreshed, outdated, missing = outcome.refreshed, outcome.outdated, outcome.missing
                     if refreshed:
                         yield TurnEvent(event="plan", data={"plan": outcome.plan.model_dump(mode="json"), "diff": []})
             reply = refresh_reply(
-                locale, has_plan=plan is not None, refreshed=refreshed, outdated=outdated, labels=FRESHNESS_LABELS
+                locale,
+                has_plan=plan is not None,
+                refreshed=refreshed,
+                outdated=outdated,
+                labels=FRESHNESS_LABELS,
+                missing=missing,
             )
         else:
             reply = chinese_input_reply(locale)
