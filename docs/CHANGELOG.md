@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **Two requests on one trip no longer overwrite each other.** Messages sent to the same trip at the same time are handled one after another, so the second change builds on the first instead of replacing it. If a version of the trip was saved by something else in the meantime, the traveller sees "Another change to this trip was still running. Please retry." rather than losing a version. (`43a06ad`)
 - **A date change never shows the old dates' weather.** When a trip is moved and the forecast for the new dates cannot be fetched, the days show no forecast and the plan lists a weather gap (a timeout is reported as a timeout), instead of the change being refused or the old forecast staying on the new dates. Gaps from every source an edit re-runs now appear on the plan. (`9eddc52`)
 - **A locked stop stays when the trip changes length.** Shortening or lengthening a trip rebuilds the plan, and a stop you locked or confirmed now stays locked, on the same day if that day still exists and on the last day if it does not. The plan says which stop it kept and where. (`1559f1b`)
 - **Moving the dates keeps your hotel.** Changing a trip's dates now prices the hotel you already accepted for the new nights instead of swapping it for another one. A different hotel is chosen only when you ask for one or for a lower budget, and if the hotel's price for the new dates cannot be fetched, the plan says so. (`8668c4a`)
