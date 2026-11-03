@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+from datetime import timedelta
 
 import pytest
 from pydantic import BaseModel
@@ -20,7 +21,16 @@ from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan
 from app.config import Settings
 from app.domain.errors import PlanInvalidError, ProviderError
-from app.domain.models import AgentName, EvalCase, FailureKind, GeoPoint, HotelCandidate, Money, PriceKind
+from app.domain.models import (
+    AgentName,
+    EvalCase,
+    FailureKind,
+    GeoPoint,
+    HotelCandidate,
+    Money,
+    PriceKind,
+    utcnow,
+)
 from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox
 from app.eval_metering import MeteredLLM, RunLedger
 from app.evaluation import BASE, _ref
@@ -176,6 +186,54 @@ def test_db10_request_with_missing_fields_gets_two_repairs(settings: Settings) -
         asyncio.run(_gateway(settings, stuck).json("ask", user="Find temples.", schema=_SearchRequest, purpose="ask.search"))
     assert len(stuck.purposes) == 1 + settings.max_repairs
     assert failure.value.kind == FailureKind.PARSE and "_SearchRequest" in str(failure.value)
+
+
+# ---------------------------------------------------------------------------
+# DB-13: time-sensitive data carry timestamps and are refreshed when outdated
+# ---------------------------------------------------------------------------
+
+
+def test_db13_time_sensitive_data_carry_timestamps(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): forecasts, fares, stays and stops are stamped when fetched."""
+    before = utcnow()
+    plan = asyncio.run(accepted_plan(settings, _kyoto_context()))
+    after = utcnow()
+    stamps = [day.weather.fetched_at for day in plan.days if day.weather is not None]
+    assert len(stamps) == len(plan.days)
+    stamps += [ticket.fetched_at for ticket in plan.tickets] + [hotel.fetched_at for hotel in plan.hotels]
+    stamps += [item.fetched_at for day in plan.days for item in day.items]
+    assert plan.tickets and plan.hotels
+    assert all(stamp.tzinfo is not None and before <= stamp <= after for stamp in stamps)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Proposal DB-13: nothing compares a forecast's or fare's fetched_at with the configured "
+        "freshness windows (Settings.weather_fresh_seconds, ticket_fresh_seconds and "
+        "hotel_fresh_seconds are never read), so outdated data is neither flagged nor re-fetched."
+    ),
+)
+def test_db13_outdated_forecast_is_flagged_and_only_the_weather_tool_is_called_again(settings: Settings) -> None:
+    """Proposal DB-13 (p3 l.125-128): an outdated forecast is refreshed by its own agent only."""
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Kyoto", ledger)
+        session_id = _session(ledger, "guest-db13")
+        plan = asyncio.run(accepted_plan(settings, ledger.store.get_context(session_id)))
+        aged = utcnow() - timedelta(seconds=settings.weather_fresh_seconds + 600)
+        for day in plan.days:
+            day.weather.fetched_at = aged
+        ledger.store.save_plan(plan, "Accepted plan")
+        rig.llm.route = {"intent": "ask", "confidence": 0.95}
+        trace = {}
+        for event in asyncio.run(_events(rig, session_id, "What will the weather be like on day 1?")):
+            if event.event == "trace":
+                trace = event.data
+        called = ledger.logged_tools(trace["request_id"])
+    finally:
+        ledger.close()
+    assert called == {"weather.forecast": 1}
 
 
 # ---------------------------------------------------------------------------
