@@ -237,19 +237,17 @@ class FreshnessService:
                 for mark in updated.data_quality.freshness
                 if not (mark.status == "outdated" and mark.section not in outdated)
             }
-            refreshed: list[str] = []
-            for section, (note, _) in fetched.items():
-                if note is None:
-                    refreshed.append(section)
-                if section in outdated:
-                    marks[section] = FreshnessMark(
-                        section=section,  # type: ignore[arg-type]
-                        status="refreshed" if note is None else "outdated",
-                        fetched_at=outdated[section],
-                        checked_at=now,
-                        window_seconds=window_seconds(section, self.settings),
-                        note=note or "",
-                    )
+            refreshed = [section for section, (note, _) in fetched.items() if note is None]
+            for section in outdated:
+                note = fetched[section][0]
+                marks[section] = FreshnessMark(
+                    section=section,  # type: ignore[arg-type]
+                    status="refreshed" if note is None else "outdated",
+                    fetched_at=outdated[section],
+                    checked_at=now,
+                    window_seconds=window_seconds(section, self.settings),
+                    note=note or "",
+                )
             updated.data_quality.freshness = [marks[section] for section in SECTIONS if section in marks]
             filled = [section for section in absent if section in refreshed]
             for section in filled:
