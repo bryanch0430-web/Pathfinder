@@ -38,6 +38,13 @@ a `data_quality.gap` on the plan, not a failed health check.
 | GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
 | GET | `/api/journeys/{id}/segments` | `?day=YYYY-MM-DD` optional | `{trip_id, version, day, legs}` — real route geometry per leg |
 
+Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
+forecast, fare or stay again and saves the result as the next version. While a message for the trip
+is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
+`plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first. A
+`PATCH` made while a message is being understood is kept: the turn saves only what the message changed,
+on top of the form as it is stored then.
+
 Auth is optional. A guest session answers only to the guest token it was created with, sent as
 the `X-Client-Token` header on every request. No session response carries the token; `GET` and
 `PATCH /api/traveller` echo back the identity the caller presented, which is its own guest token
@@ -48,8 +55,7 @@ sign-in move every guest session made with the guest token they present (`client
 account, so the trips of the browser follow the traveller; `session_id` in the request is no
 longer needed. `attach` moves one session and needs the token it was created with. A `user:`
 token and an empty token move nothing. `PATCH` recomputes `days` from the date range (or
-`end_date` from `days`). A `PATCH` made while a message is being understood is kept: the turn saves only
-what the message changed, on top of the form as it is stored then.
+`end_date` from `days`).
 
 A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is fine). `POST /api/journeys`
 and `POST /api/turn/stream` without a `session_id` take it from `client_token`, else from the
@@ -60,10 +66,6 @@ tell a strong one from a weak one: whoever sends the same string opens the same 
 random value (the page uses a UUID), never `undefined` or a name. A trip made with a valid bearer
 belongs to the account and is stored under its `user:<id>` token, whatever guest token the request names.
 
-Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
-forecast, fare or stay again and saves the result as the next version. While a message for the trip
-is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
-`plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first.
 
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.
