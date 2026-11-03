@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import ssl
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -101,11 +102,27 @@ def classify_status(status: int, source: str, message: str = "", *, detail: str 
     return ProviderError(text, kind=FailureKind.SERVER_ERROR, source=source, retryable=False, detail=detail)
 
 
+#: OS errors that say this machine is set up wrongly, not that the network failed: a certificate it does not
+#: trust, a certificate file that is missing or cannot be read. Asking again cannot fix them.
+_SETUP_FAULTS = (ssl.SSLCertVerificationError, FileNotFoundError, PermissionError, IsADirectoryError, NotADirectoryError)
+
+
+def _setup_fault(exc: BaseException) -> BaseException | None:
+    """`exc`, or what it was raised from, when that is one of them: httpx and httpcore wrap what the socket raised."""
+    seen: BaseException | None = exc
+    for _ in range(5):
+        if seen is None or isinstance(seen, _SETUP_FAULTS):
+            return seen
+        seen = seen.__cause__ or seen.__context__
+    return None
+
+
 def classify_exception(exc: BaseException, source: str) -> ProviderError:
     """The typed failure that an exception raised by a request stands for.
 
-    A timeout and a network failure are transient (retryable); anything else is a server
-    error that retrying would not fix. A cancellation is no failure: it is raised again.
+    A timeout and a network failure are transient (retryable); anything else, a fault in how this
+    machine is set up included, is a server error that retrying would not fix. A cancellation is
+    no failure: it is raised again.
     """
     if isinstance(exc, ProviderError):
         return exc
@@ -116,6 +133,14 @@ def classify_exception(exc: BaseException, source: str) -> ProviderError:
             f"{source} timed out: {exc.__class__.__name__}",
             kind=FailureKind.TIMEOUT,
             source=source,
+        )
+    fault = _setup_fault(exc)
+    if fault is not None:
+        return ProviderError(
+            f"{source} failed: {fault.__class__.__name__}",
+            kind=FailureKind.SERVER_ERROR,
+            source=source,
+            retryable=False,
         )
     # What httpx maps to NetworkError, and what it leaves unmapped: a refused proxy, and the OS-level
     # failures (a reset connection, a failed DNS lookup, a broken TLS handshake) that are all OSError.
