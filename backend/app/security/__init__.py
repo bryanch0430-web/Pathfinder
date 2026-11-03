@@ -6,7 +6,9 @@ from app.security.guard import (
     canary_leaked,
     fence_user_message,
     redact_canary,
+    replayable,
     screen_message,
+    strip_fence_tags,
 )
 
 __all__ = [
@@ -15,5 +17,7 @@ __all__ = [
     "canary_leaked",
     "fence_user_message",
     "redact_canary",
+    "replayable",
     "screen_message",
+    "strip_fence_tags",
 ]

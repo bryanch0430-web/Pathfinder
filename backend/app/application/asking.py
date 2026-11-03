@@ -14,7 +14,7 @@ from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
 from app.domain.models import FailureKind, TripContext, TripPlan
 from app.infrastructure.http import classify_exception
-from app.security import fence_user_message
+from app.security import fence_user_message, replayable, strip_fence_tags
 
 WEATHER_WORDS = r"\b(weather|rain|forecast|temperature|hot|cold|typhoon)\b"
 DISTANCE_WORDS = (
@@ -391,10 +391,11 @@ def _plan_facts(
     if re.search(FOLLOW_UP_WORDS, lower) or len(lower.strip(" ?!")) <= 8:
         # "really?" / "why?" has no subject of its own: carry the previous
         # exchange so the answer continues that topic instead of the itinerary.
-        if history:
+        turns = replayable(history or [])[-2:]
+        if turns:
             facts["recent_turns"] = [
-                {"role": getattr(m, "role", ""), "content": str(getattr(m, "content", ""))[:400]}
-                for m in history[-2:]
+                {"role": getattr(m, "role", ""), "content": strip_fence_tags(str(getattr(m, "content", "")))[:400]}
+                for m in turns
             ]
         scoped = _scoped_item(plan, scope_item_id)
         if scoped is not None:
@@ -479,9 +480,9 @@ def _plan_facts(
     change_words = re.search(r"\b(added|changed|updated|so far|last change|what did you|diff|edit)\b", lower)
     if history and change_words:
         recent = []
-        for message in history[-8:]:
+        for message in replayable(history)[-8:]:
             role = getattr(message, "role", "")
-            content = str(getattr(message, "content", ""))[:500]
+            content = strip_fence_tags(str(getattr(message, "content", "")))[:500]
             meta = getattr(message, "meta", {}) or {}
             recent.append({"role": role, "content": content, "diff": meta.get("diff")})
         facts["recent_changes"] = recent
