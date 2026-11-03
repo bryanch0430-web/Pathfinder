@@ -24,13 +24,13 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements.lock
 
-      # requirements.txt already lists the test tools (pytest, pytest-asyncio, anyio).
-      # The optional RAG packages (torch, transformers) are not installed: the app
-      # falls back to the lexical retriever without them.
+      # requirements.lock pins every package requirements.txt asks for, the test tools
+      # (pytest, pytest-asyncio, anyio) included. The optional RAG packages (torch,
+      # transformers) are not installed: the app falls back to the lexical retriever.
       - name: Install dependencies
-        run: python -m pip install -r backend/requirements.txt
+        run: python -m pip install -r backend/requirements.lock
 
       # ENVIRONMENT=test lets the app start with the repository's default
       # AUTH_SECRET and ADMIN_TOKEN (see Settings.check_secrets).
