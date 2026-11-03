@@ -285,6 +285,7 @@ class TurnService:
         context.language = locale or context.language
         plan = self.store.get_plan(session_id)
         intent: Intent = Intent.UNCLEAR
+        closed = False
         try:
             # Display language, refresh and Chinese input are decided first: before
             # the selected stop, the understanding step and any model or tool.
@@ -400,16 +401,19 @@ class TurnService:
                     if decision.intent == Intent.ASK:
                         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
 
+            # A closed turn closes the path it is running here, in this task, so the path stops.
             if decision.intent == Intent.PLAN:
-                async for event in self._plan(
+                path = self._plan(
                     context=context,
                     session_id=session_id,
                     tracer=tracer,
                     request_id=request_id,
-                ):
-                    yield event
+                )
+                async with aclosing(path) as events:
+                    async for event in events:
+                        yield event
             elif decision.intent == Intent.MODIFY:
-                async for event in self._modify(
+                path = self._modify(
                     plan=plan,
                     context=context,
                     message=message,
@@ -418,8 +422,10 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     scope_item_id=scope_item_id,
-                ):
-                    yield event
+                )
+                async with aclosing(path) as events:
+                    async for event in events:
+                        yield event
             else:
                 async for event in self._ask(
                     message=message,
@@ -431,6 +437,10 @@ class TurnService:
                     scope_item_id=scope_item_id,
                 ):
                     yield event
+        except GeneratorExit:
+            # The consumer closed the turn: nobody is left to receive the closing events.
+            closed = True
+            raise
         except CanaryLeak:
             self.store.log_injection("canary_leak", "high", channel="model_output")
             message_text = "I cannot return that answer. Ask the question again in your own words."
@@ -478,62 +488,63 @@ class TurnService:
         finally:
             reset_developer_view(developer_token)
             tracer.finish(status="ok")
-            yield TurnEvent(
-                event="trace",
-                data={
-                    "request_id": request_id,
-                    "spans": [
-                        {
-                            "name": span.name,
-                            # `duration_ms` is derived from the span timestamps in
-                            # Span.to_dict(); it was never an attr, so reading it from
-                            # attrs shipped null and the UI showed "— ms".
-                            "duration_ms": span.to_dict()["duration_ms"],
-                            "status": span.attrs.get("status"),
-                        }
-                        for span in tracer.spans
-                    ][:40],
-                    "generations": [
-                        {
-                            "purpose": generation["purpose"],
-                            "model": generation["model"],
-                            "prompt_tokens": generation["prompt_tokens"],
-                            "completion_tokens": generation["completion_tokens"],
-                            "latency_ms": generation["latency_ms"],
-                            **(
-                                {
-                                    "reasoning": generation.get("reasoning") or "",
-                                    "output_preview": (generation.get("output_preview") or "")[:4000],
-                                    "user_preview": (generation.get("user_preview") or "")[:240],
-                                }
-                                if developer
-                                else {}
-                            ),
-                        }
-                        for generation in tracer.generations
-                    ],
-                    "why": _why_lines(tracer),
-                    **(
-                        {
-                            "reason": tracer.metadata.get("reason", ""),
-                            "message": tracer.metadata.get("message", ""),
-                            "searches": tracer.searches,
-                            "tools": tracer.tools,
-                        }
-                        if developer
-                        else {}
-                    ),
-                    "tool_calls": len([span for span in tracer.spans if span.name.startswith("tool.")]),
-                },
-            )
-            yield TurnEvent(
-                event="done",
-                data={
-                    "request_id": request_id,
-                    "intent": intent.value,
-                    "session_id": session_id,
-                },
-            )
+            if not closed:
+                yield TurnEvent(
+                    event="trace",
+                    data={
+                        "request_id": request_id,
+                        "spans": [
+                            {
+                                "name": span.name,
+                                # `duration_ms` is derived from the span timestamps in
+                                # Span.to_dict(); it was never an attr, so reading it from
+                                # attrs shipped null and the UI showed "— ms".
+                                "duration_ms": span.to_dict()["duration_ms"],
+                                "status": span.attrs.get("status"),
+                            }
+                            for span in tracer.spans
+                        ][:40],
+                        "generations": [
+                            {
+                                "purpose": generation["purpose"],
+                                "model": generation["model"],
+                                "prompt_tokens": generation["prompt_tokens"],
+                                "completion_tokens": generation["completion_tokens"],
+                                "latency_ms": generation["latency_ms"],
+                                **(
+                                    {
+                                        "reasoning": generation.get("reasoning") or "",
+                                        "output_preview": (generation.get("output_preview") or "")[:4000],
+                                        "user_preview": (generation.get("user_preview") or "")[:240],
+                                    }
+                                    if developer
+                                    else {}
+                                ),
+                            }
+                            for generation in tracer.generations
+                        ],
+                        "why": _why_lines(tracer),
+                        **(
+                            {
+                                "reason": tracer.metadata.get("reason", ""),
+                                "message": tracer.metadata.get("message", ""),
+                                "searches": tracer.searches,
+                                "tools": tracer.tools,
+                            }
+                            if developer
+                            else {}
+                        ),
+                        "tool_calls": len([span for span in tracer.spans if span.name.startswith("tool.")]),
+                    },
+                )
+                yield TurnEvent(
+                    event="done",
+                    data={
+                        "request_id": request_id,
+                        "intent": intent.value,
+                        "session_id": session_id,
+                    },
+                )
 
     async def _display_turn(
         self, *, decision: RouteDecision, plan, context: TripContext, session_id, tracer, request_id
