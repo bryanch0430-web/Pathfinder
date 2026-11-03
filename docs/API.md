@@ -203,8 +203,9 @@ returns a session id, client token, owner, budget, party size or generated summa
 | GET | `/api/eval/contrast?a=&b=` | — | per-metric delta rows |
 
 Every `/api/eval/*` route needs the `X-Admin-Token` header (401 otherwise). The web page sends the
-token it finds in the browser's local storage under the key `pathfinder.admin` (and shows
-"Admin token required" without it); nothing in the page sets it, see the README, section 6.
+token it finds in the browser's local storage under the key `pathfinder.admin` (without one it
+sends no request and shows "Admin token required"); nothing in the page sets it, see the README,
+section 6.
 
 An unfrozen dataset returns `409`. An unknown dataset returns `404`. A planning run is
 deterministic and sandboxed; see `docs/EVALUATION.md`.

@@ -437,6 +437,7 @@ export const ZH_HANS: Messages = {
   "errors.evalService": "评估服务不可用。",
   "errors.evalRun": "评估运行失败。",
   "errors.evalOpen": "无法打开这次运行。",
+  "eval.adminRequired": "需要管理员令牌。评估工具仅供本服务器的运营者使用。",
 
   "eval.loading": "正在加载评估",
   "eval.noDatasets": "没有评估数据集",

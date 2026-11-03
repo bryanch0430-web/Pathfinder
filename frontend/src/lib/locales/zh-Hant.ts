@@ -439,6 +439,7 @@ export const ZH_HANT: Messages = {
   "errors.evalService": "評估服務無法使用。",
   "errors.evalRun": "評估執行失敗。",
   "errors.evalOpen": "無法開啟這次執行。",
+  "eval.adminRequired": "需要管理員權杖。評估工具僅供本伺服器的營運者使用。",
 
   "eval.loading": "正在載入評估",
   "eval.noDatasets": "沒有評估資料集",

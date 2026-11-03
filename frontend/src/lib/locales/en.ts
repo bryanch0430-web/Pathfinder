@@ -439,6 +439,7 @@ export const EN = {
   "errors.evalService": "The evaluation service is unavailable.",
   "errors.evalRun": "The evaluation run failed.",
   "errors.evalOpen": "The run could not be opened.",
+  "eval.adminRequired": "Admin token required. The evaluation tools are for the operator of this server.",
 
   "eval.loading": "Loading evaluation",
   "eval.noDatasets": "No evaluation datasets",
