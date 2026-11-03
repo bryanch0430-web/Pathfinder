@@ -2027,6 +2027,8 @@ export function AuthDialog({
 
   // The dialog stays mounted while it is closed, so it forgets what was typed: the next person to open it
   // on a shared computer must not find the last one's address, name or password, or the register mode.
+  const openRef = useRef(open);
+  openRef.current = open;
   useEffect(() => {
     if (open) return;
     setMode("login");
@@ -2043,6 +2045,8 @@ export function AuthDialog({
       await onSubmit(mode, email.trim(), password, displayName.trim());
       setPassword("");
     } catch (cause) {
+      // A reply that arrives after the dialog was closed has no one to tell, and must not wait for the next opening.
+      if (!openRef.current) return;
       // By status, not by the server's wording: its sentences are in English, and an answer about a
       // field that is too short comes as a list, not a sentence.
       const status = cause instanceof ApiError ? cause.status : 0;
