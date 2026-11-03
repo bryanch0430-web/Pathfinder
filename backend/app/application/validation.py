@@ -13,13 +13,13 @@ import copy
 import json
 import re
 from collections import Counter
-from datetime import time
+from datetime import date, time
 from typing import Any, TypeVar
 
 from app.application.llm_gateway import LLMGateway
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
-from app.domain.models import DataStatus, DayPlan, FailureKind, HotelStay, PlanItem, TicketOption, TripPlan
+from app.domain.models import DataStatus, DayPlan, FailureKind, HotelStay, Money, PlanItem, TicketOption, TripPlan
 
 
 def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
@@ -273,6 +273,19 @@ def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
     return plan
 
 
+def _span(start: date, end: date) -> str:
+    return f"{start.isoformat()} – {end.isoformat()}"
+
+
+def _rate(price: Money | None) -> str:
+    return f"{price.currency} {price.amount:,.2f}".rstrip("0").rstrip(".") if price else "no price"
+
+
+def _forecast(plan: TripPlan) -> list[dict[str, Any] | None]:
+    """Each day's forecast as the traveller sees it: a fetch time alone is not a change."""
+    return [day.weather.model_dump(mode="json", exclude={"fetched_at"}) if day.weather else None for day in plan.days]
+
+
 def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
     if old is None:
         return [{"kind": "created", "detail": f"{new.item_count} items"}]
@@ -294,14 +307,47 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
     for item_id, item in old_items.items():
         if item_id not in new_items:
             changes.append({"kind": "removed", "item_id": item_id, "name": item.name})
+    # The trip itself: its range and the date of each day. Stops keep their ids when a trip moves, so
+    # without this a move to other dates shows no change at all.
+    if (old.dates, [day.date for day in old.days]) != (new.dates, [day.date for day in new.days]):
+        changes.append(
+            {
+                "kind": "dates",
+                "from": _span(old.dates.start, old.dates.end),
+                "to": _span(new.dates.start, new.dates.end),
+            }
+        )
     old_hotel = old.hotels[0].name if old.hotels else ""
     new_hotel = new.hotels[0].name if new.hotels else ""
     if old_hotel != new_hotel:
         changes.append({"kind": "hotel", "from": old_hotel, "to": new_hotel})
+    elif old.hotels and new.hotels:
+        # The same hotel, kept or priced again: its nights and its rate are not a different hotel.
+        before, after = old.hotels[0], new.hotels[0]
+        if (before.check_in, before.check_out) != (after.check_in, after.check_out):
+            changes.append(
+                {
+                    "kind": "stay",
+                    "name": after.name,
+                    "from": _span(before.check_in, before.check_out),
+                    "to": _span(after.check_in, after.check_out),
+                }
+            )
+        if before.price_per_night != after.price_per_night:
+            changes.append(
+                {
+                    "kind": "hotel_price",
+                    "name": after.name,
+                    "from": _rate(before.price_per_night),
+                    "to": _rate(after.price_per_night),
+                }
+            )
     old_flight = old.tickets[0].name if old.tickets else ""
     new_flight = new.tickets[0].name if new.tickets else ""
     if old_flight != new_flight:
         changes.append({"kind": "flight", "from": old_flight, "to": new_flight})
+    if _forecast(old) != _forecast(new):
+        changes.append({"kind": "weather"})
     if (old.cost.total, old.cost.status) != (new.cost.total, new.cost.status):
         changes.append(
             {

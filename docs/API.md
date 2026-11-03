@@ -113,6 +113,12 @@ Response: `text/event-stream`. Each frame is `event: <name>` followed by a singl
 | `trace` | `{request_id, spans, generations, tool_calls}` |
 | `done` | `{request_id, intent, session_id}` |
 
+The `diff` of a `plan` event lists what an edit changed, one entry per change with a `kind`: `added`,
+`changed` and `removed` for stops, `dates` (the trip moved; `from` and `to` are the date ranges), `stay`
+(the hotel's nights), `hotel_price` (the same hotel at another rate), `hotel`, `flight`, `weather` (the
+forecast changed) and `cost`. An edit that only moves the dates is a new version like any other, so the
+version it left stays available.
+
 Messages for one trip run one after another. A message that waits for an earlier one gets
 keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`, `turn_timeout` after that)
 starts when its own turn does, so waiting never counts against it.
