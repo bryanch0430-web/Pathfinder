@@ -27,10 +27,11 @@ from app.domain.models import EvalCase
 from app.eval_edits import placements
 from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox, router_turn
 from app.eval_metering import RunLedger, estimate_tokens
-from app.evaluation import FIXTURES
+from app.evaluation import FIXTURES, EvalService
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.providers.websearch import WebResult
+from app.infrastructure.store import SQLiteStore
 from app.interface.api import create_app
 from app.security.untrusted import REMOVED
 
@@ -168,6 +169,44 @@ def test_tc10_turn_trace_carries_the_writer_usage(settings: Settings) -> None:
     assert cost.tokens == rig.llm.tokens > 0
     assert rig.gateway.prompt_tokens + rig.gateway.completion_tokens == rig.llm.tokens
     assert estimate_tokens("abcd") == 1 and estimate_tokens("abcde") == 2 and estimate_tokens("") == 0
+
+
+class _JudgeResponse:
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        verdict = json.dumps({"score": 4, "reason": "Grounded and within budget.", "flags": []})
+        return {"choices": [{"message": {"content": verdict}}], "usage": {"prompt_tokens": 120, "completion_tokens": 30}}
+
+
+class _JudgeClient:
+    posts = 0
+
+    def __init__(self, *_: object, **__: object):
+        pass
+
+    async def __aenter__(self) -> "_JudgeClient":
+        return self
+
+    async def __aexit__(self, *_: object) -> bool:
+        return False
+
+    async def post(self, *_: object, **__: object) -> _JudgeResponse:
+        type(self).posts += 1
+        return _JudgeResponse()
+
+
+def test_tc10_judge_usage_counts_toward_the_run_token_usage(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Proposal TC-10 (p4): a scored run reports the tokens its judge model used."""
+    monkeypatch.setattr("app.infrastructure.judge.httpx.AsyncClient", _JudgeClient)
+    monkeypatch.setattr("app.infrastructure.judge._CACHE", {})
+    _JudgeClient.posts = 0
+    judged = settings.model_copy(update={"judge_api_key": "offline-test"})
+    service = EvalService(SQLiteStore(judged.database_path), judged)
+    run = asyncio.run(service.run(dataset_id="travelplanner", experiment_tag="judge-tokens"))
+    assert _JudgeClient.posts == len(run.cases) > 0
+    assert run.token_usage == 150 * _JudgeClient.posts
 
 
 # ---------------------------------------------------------------------------

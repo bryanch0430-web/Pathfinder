@@ -151,6 +151,7 @@ class EvalService:
         latencies: list[int] = []
         # Per-run account of provider calls, logged tool spans and writer tokens.
         ledger = RunLedger()
+        judge_tokens = self.judge.tokens
         suite_metrics: list[EvalMetric] = []
         snapshot: dict = {}
 
@@ -175,6 +176,7 @@ class EvalService:
                 suite_metrics.append(ledger.coverage_metric())
         finally:
             ledger.close()
+        ledger.tokens += self.judge.tokens - judge_tokens
 
         metrics = self._metrics(meta.id, results, latencies) + suite_metrics
         previous = self._previous_run(meta.id)

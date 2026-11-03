@@ -102,6 +102,8 @@ class Judge:
         self.base = settings.judge_base_url.rstrip("/")
         self.model = settings.judge_model
         self.available = settings.judge_available
+        # Prompt + completion tokens the judge API reported (cached verdicts cost none).
+        self.tokens = 0
 
     async def score(
         self,
@@ -135,6 +137,8 @@ class Judge:
                     },
                 )
             response.raise_for_status()
+            usage = response.json().get("usage") or {}
+            self.tokens += int(usage.get("prompt_tokens") or 0) + int(usage.get("completion_tokens") or 0)
             content = ((response.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
         except Exception:
             return None
