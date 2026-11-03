@@ -94,14 +94,6 @@ class ModifyPath:
         memory_summaries: list[str] | None = None,
         scope_item_id: str | None = None,
     ) -> tuple[TripPlan, list[dict[str, Any]]]:
-        fx = getattr(self.plan_path.registry, "fx", None)
-        if fx is not None:
-            try:
-                with tracer.span("fx.refresh"):
-                    await toolbox.call("fx.rates", fx.refresh)
-            except Exception:
-                pass
-
         draft = await self._extract(message, plan, context, route_parts)
         if scope_item_id and not draft.target_item_id and plan.find_item(scope_item_id):
             # The console's "About: Day 3 · X" chip is a real context signal.
@@ -131,9 +123,17 @@ class ModifyPath:
             r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
         ):
             affected = [part for part in affected if part != "budget"]
+        # "day 2", "the last two nights" or "a later flight" name a part of the
+        # trip, not new dates. Weather, hotel and flights rerun for "dates" only
+        # when the trip's dates actually move (Proposal DB-09).
+        dates_move = bool(context.date_range() and context.date_range() != plan.dates)
         agent_names: set[AgentName] = set()
         for part in affected:
+            if part == "dates" and not dates_move:
+                continue
             agent_names |= PART_AGENTS.get(part, {AgentName.ATTRACTION})
+        if not agent_names:
+            agent_names = {AgentName.ATTRACTION}
         budget_mode = "budget" in affected or bool(
             re.search(
                 r"\b(cheap|cheaper|optimis|optimiz|reduce|lower|afford|over budget|make it work)\b",
@@ -225,25 +225,47 @@ class ModifyPath:
             geo=plan.destination.geo,
             source="current plan",
         )
+        if date_changed:
+            # The trip moved: its forecast, stay and flights are for other days now.
+            agent_names |= PART_AGENTS["dates"]
         date_range = new_range or plan.dates
+        lower_message = message.lower()
+        add_requested = _ADD_REQUEST.search(lower_message) is not None
+        remove_requested = _REMOVE_REQUEST.search(lower_message) is not None
+        # The agents whose data this edit needs (Proposal DB-09). A pace change
+        # works from the plan alone, and taking a stop out needs no new places.
+        needed = set(agent_names)
         if shape.requested and referred is None:
+            needed = set()
+        elif remove_requested and not add_requested:
+            needed.discard(AgentName.ATTRACTION)
+        fx = getattr(self.plan_path.registry, "fx", None)
+        if fx is not None and (budget_mode or needed & {AgentName.HOTEL, AgentName.TICKET}):
+            # Rates are needed only when a priced line (stay or flight) can change.
+            try:
+                with tracer.span("fx.refresh"):
+                    await toolbox.call("fx.rates", fx.refresh)
+            except Exception:
+                pass
+        if not needed:
+            # run_agents treats an empty selection as "all agents".
             results = {}
         else:
-            with tracer.span("modify.agents", parts=",".join(sorted(agent_names))):
+            with tracer.span("modify.agents", parts=",".join(sorted(needed))):
                 results = await self.plan_path.run_agents(
                     context=context,
                     destination=destination,
                     date_range=date_range,
                     toolbox=toolbox,
                     emit=emit,
-                    names=agent_names,
-                    extra=_search_extra(message) if AgentName.ATTRACTION in agent_names else None,
+                    names=needed,
+                    extra=_search_extra(message) if AgentName.ATTRACTION in needed else None,
                 )
 
         updated = plan.model_copy(deep=True)
         # A section that is rerun gets a fresh gap verdict. Without this, an old
         # Wikimedia/weather/ticket gap survives after the condition is gone.
-        refreshed_sections = {AGENT_SECTION[name] for name in agent_names}
+        refreshed_sections = {AGENT_SECTION[name] for name in needed}
         updated.data_quality.gaps = [
             gap for gap in updated.data_quality.gaps if gap.section not in refreshed_sections
         ]
@@ -295,9 +317,6 @@ class ModifyPath:
             payload = attraction_result.payload if attraction_result else {}
             places = payload.get("places") or []
             meals = payload.get("meals") or []
-            lower_message = message.lower()
-            add_requested = bool(re.search(r"\b(add|include|insert|append|one more|another|also)\b", lower_message))
-            remove_requested = bool(re.search(r"\b(remove|delete|drop|take out|without)\b", lower_message))
             if add_requested:
                 added = _add_attractions(updated, places, message)
                 if not added:
@@ -725,6 +744,8 @@ def _candidate_pool(item: PlanItem, places: list[dict], meals: list[dict], used:
 
 
 _CLOSURE = re.compile(r"\b(closed|closure|shut|suspended|not operating|cancel+ed)\b", re.IGNORECASE)
+_ADD_REQUEST = re.compile(r"\b(add|include|insert|append|one more|another|also)\b")
+_REMOVE_REQUEST = re.compile(r"\b(remove|delete|drop|take out|without)\b")
 
 
 def _stated_hours(row: dict, day_date: date | None) -> tuple[list[str], str]:
@@ -967,17 +988,23 @@ def apply_plan_shape(plan: TripPlan, shape: PlanAdjust) -> str:
     dropped_meals: list[str] = []
     for index, day in enumerate(plan.days, start=1):
         if shape.meals == "drop":
-            meals = [item for item in day.items if item.type == ItemType.MEAL]
+            # A confirmed or locked row stays, whatever the pace (Proposal DB-09).
+            meals = [item for item in day.items if item.type == ItemType.MEAL and not (item.locked or item.confirmed)]
             dropped_meals.extend(item.name for item in meals)
-            day.items = [item for item in day.items if item.type != ItemType.MEAL]
+            meal_ids = {item.id for item in meals}
+            day.items = [item for item in day.items if item.id not in meal_ids]
         if shape.places_per_day is not None:
             sights = [item for item in day.items if item.type == ItemType.ATTRACTION]
             if len(sights) > shape.places_per_day:
-                drop = sights[shape.places_per_day:]
+                protected = [item for item in sights if item.locked or item.confirmed]
+                room = max(shape.places_per_day - len(protected), 0)
+                free = [item for item in sights if not (item.locked or item.confirmed)]
+                keep_ids = {item.id for item in protected} | {item.id for item in free[:room]}
+                drop = [item for item in sights if item.id not in keep_ids]
                 drop_ids = {item.id for item in drop}
                 dropped_places.extend(item.name for item in drop)
                 day.items = [item for item in day.items if item.id not in drop_ids]
-                sights = sights[: shape.places_per_day]
+                sights = [item for item in sights if item.id in keep_ids]
             if sights:
                 kept.append(f"Day {index}: " + ", ".join(item.name for item in sights))
     parts: list[str] = []
