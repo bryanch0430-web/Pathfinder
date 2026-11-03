@@ -42,6 +42,7 @@ from app.domain.models import (
     TripContext,
     TripPlan,
     WeatherDay,
+    new_id,
     utcnow,
 )
 from app.domain.place_names import trusted_names
@@ -214,7 +215,14 @@ class ModifyPath:
                 trip_id=plan.trip_id,
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
             )
-            _carry_confirmed(plan, rebuilt)
+            for name in _carry_protected(plan, rebuilt):
+                day_number = next(
+                    index + 1 for index, day in enumerate(rebuilt.days) if any(item.name == name for item in day.items)
+                )
+                kind = "locked" if any(item.locked and item.name == name for _, item in plan.iter_items()) else "confirmed"
+                rebuilt.data_quality.gaps.append(
+                    _gap("attractions", f"Kept your {kind} stop {name} on day {day_number}.")
+                )
             errors = validate_plan(rebuilt, self.settings)
             if errors:
                 rebuilt = await repair_plan(rebuilt, errors, self.gateway, self.settings)
@@ -1470,14 +1478,39 @@ def _remove_attraction(plan: TripPlan, draft: ChangeDraft, message: str) -> str 
     return None
 
 
-def _carry_confirmed(old: TripPlan, new: TripPlan) -> None:
-    names = {item.name for day in old.days for item in day.items if item.confirmed or item.locked}
-    if not names:
-        return
-    for day in new.days:
-        for item in day.items:
-            if item.name in names:
-                item.confirmed = True
+def _carry_protected(old: TripPlan, new: TripPlan) -> list[str]:
+    """Put the traveller's locked and confirmed stops back after a rebuild; return the names re-inserted.
+
+    A stop the rebuild also planned keeps both flags. One it left out is copied onto the day it was
+    on (the last day when the new trip is shorter), in time order.
+    """
+    protected = {
+        item.name: (day_index, item)
+        for day_index, day in enumerate(old.days)
+        for item in day.items
+        if item.locked or item.confirmed
+    }
+    if not protected or not new.days:
+        return []
+    planned = {item.name: item for day in new.days for item in day.items}
+    used_ids = {item.id for day in new.days for item in day.items}
+    reinserted: list[str] = []
+    for name, (day_index, kept) in protected.items():
+        found = planned.get(name)
+        if found is not None:
+            found.locked = found.locked or kept.locked
+            found.confirmed = found.confirmed or kept.confirmed
+            continue
+        restored = kept.model_copy(deep=True)
+        if restored.id in used_ids:
+            # The rebuild numbers its candidates again, so this id may now mean another place.
+            restored.id = new_id("item")
+        used_ids.add(restored.id)
+        target = new.days[min(day_index, len(new.days) - 1)]
+        target.items.append(restored)
+        target.items.sort(key=lambda item: item.start)
+        reinserted.append(name)
+    return reinserted
 
 
 def _ticket_within(ticket: TicketOption, date_range) -> bool:

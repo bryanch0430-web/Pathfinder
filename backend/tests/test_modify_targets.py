@@ -35,7 +35,7 @@ from app.infrastructure.observability import NoopTracer
 from app.infrastructure.providers.fx import FxService
 
 
-def _build(settings: Settings):
+def _build(settings: Settings, days: int = 3):
     settings = settings.model_copy(update={"preplan_budget_seconds": 15, "agent_timeout_seconds": 8})
     registry = SandboxRegistry(settings, "Kyoto")
     gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
@@ -47,8 +47,8 @@ def _build(settings: Settings):
         destination="Kyoto",
         origin="Hong Kong",
         start_date=start,
-        end_date=start + timedelta(days=2),
-        days=3,
+        end_date=start + timedelta(days=days - 1),
+        days=days,
         party_size=2,
         budget=400000,
         currency="JPY",
@@ -311,12 +311,26 @@ def test_squashed_name_matching_resolves_joined_words(settings: Settings) -> Non
     assert resolved is not None and resolved[1].id == first.id
 
 
-def _modify(settings: Settings, message: str, route_parts: list[str], *, new_range: tuple[date, date] | None = None):
-    """Build a 3-day Kyoto plan, optionally move the context to `new_range`, and apply one edit."""
+def _modify(
+    settings: Settings,
+    message: str,
+    route_parts: list[str],
+    *,
+    new_range: tuple[date, date] | None = None,
+    new_days: int | None = None,
+    days: int = 3,
+    prepare=None,
+):
+    """Build a Kyoto plan of `days` days, optionally let `prepare(plan)` edit it, move the context
+    to `new_range` (or to `new_days` days from the start), and apply one edit."""
     from app.application.modification import ModifyPath
     from app.application.toolbox import Toolbox
 
-    gateway, planner, plan_path, context, plan = _build(settings)
+    gateway, planner, plan_path, context, plan = _build(settings, days=days)
+    if prepare is not None:
+        prepare(plan)
+    if new_days is not None:
+        new_range = (context.start_date, context.start_date + timedelta(days=new_days - 1))
     if new_range is not None:
         context.start_date, context.end_date = new_range
         context.days = (new_range[1] - new_range[0]).days + 1
@@ -353,3 +367,55 @@ def test_date_change_keeps_the_current_hotel(settings: Settings) -> None:
     assert (updated.hotels[0].check_in, updated.hotels[0].check_out) == new_range
     assert not any(change["kind"] == "hotel" for change in diff)
     assert "Hotel changed" not in _describe_diff(diff, updated)
+
+
+def _where(plan, name: str) -> list[tuple[int, object]]:
+    return [(index, item) for index, day in enumerate(plan.days) for item in day.items if item.name == name]
+
+
+def test_locked_stop_survives_a_length_change(settings: Settings) -> None:
+    holder: dict = {}
+
+    def lock_a_day_four_stop(plan) -> None:
+        plan.days[3].items[0].locked = True
+        holder["name"] = plan.days[3].items[0].name
+
+    _, updated, _ = _modify(
+        settings, "make it 4 days", ["dates"], days=5, new_days=4, prepare=lock_a_day_four_stop
+    )
+
+    assert len(updated.days) == 4
+    found = _where(updated, holder["name"])
+    assert len(found) == 1 and found[0][1].locked is True
+    # On the same day if that day still exists, otherwise on the last day.
+    assert found[0][0] == min(3, len(updated.days) - 1)
+
+
+def _lock_a_stop_the_rebuild_will_not_plan(plan) -> None:
+    extra = plan.days[3].items[0].model_copy(deep=True)
+    extra.id, extra.name, extra.start, extra.end, extra.locked = "item_custom", "Philosopher's Path", "14:00", "15:30", True
+    plan.days[3].items.append(extra)
+
+
+def test_locked_stop_missing_from_the_rebuild_is_put_back(settings: Settings) -> None:
+    _, updated, _ = _modify(
+        settings, "make it 4 days", ["dates"], days=5, new_days=4, prepare=_lock_a_stop_the_rebuild_will_not_plan
+    )
+
+    found = _where(updated, "Philosopher's Path")
+    assert [(index, item.locked) for index, item in found] == [(3, True)]
+    day = updated.days[3]
+    assert [item.start for item in day.items] == sorted(item.start for item in day.items)
+    assert len({item.id for plan_day in updated.days for item in plan_day.items}) == updated.item_count
+    assert any("Kept your locked stop Philosopher's Path on day 4." in gap.message for gap in updated.data_quality.gaps)
+
+
+def test_locked_stop_on_a_removed_day_moves_to_the_last_day(settings: Settings) -> None:
+    _, updated, _ = _modify(
+        settings, "make it 3 days", ["dates"], days=5, new_days=3, prepare=_lock_a_stop_the_rebuild_will_not_plan
+    )
+
+    assert len(updated.days) == 3
+    found = _where(updated, "Philosopher's Path")
+    assert [(index, item.locked) for index, item in found] == [(2, True)]
+    assert any("Kept your locked stop Philosopher's Path on day 3." in gap.message for gap in updated.data_quality.gaps)
