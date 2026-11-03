@@ -7,17 +7,21 @@ held open.
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any, Awaitable, Callable
 
 import pytest
+from fastapi.testclient import TestClient
 
 import app.application.orchestrator as orchestrator
 from app.config import Settings
 from app.domain.models import EvalCase
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
-from app.interface.sse import KEEPALIVE, paced
+from app.interface.api import create_app
+from app.interface.sse import KEEPALIVE, TIMED_OUT, Deadline, paced
 
 SWAP_HOTEL = "Swap the hotel for the other option."
 
@@ -191,3 +195,103 @@ def test_a_path_that_ignores_cancellation_does_not_hold_the_trip_after_a_disconn
         await asyncio.sleep(0)
 
     _run(quick_settings, scenario)
+
+
+# -- CONC-G6: the deadline of a turn starts when the turn does ----------------
+
+
+def test_a_turn_reports_that_it_waits_and_when_it_starts(quick_settings: Settings) -> None:
+    async def scenario(scene: Scene) -> None:
+        turns = scene.rig.turns
+        calls: list[str] = []
+        hooks = {"on_wait": lambda: calls.append("wait"), "on_start": lambda: calls.append("start")}
+
+        assert not _errors(await _collect(turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL, **hooks)))
+        assert calls == ["start"], "a turn that does not have to wait does not report waiting"
+
+        calls.clear()
+        scene.hold_the_edit_path()
+        first = asyncio.create_task(scene.turn())
+        await asyncio.wait_for(scene.entered.wait(), 30)
+        second = asyncio.create_task(
+            _collect(turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL, **hooks))
+        )
+        for _ in range(20):  # the second turn can only wait: the first one holds the lock
+            await asyncio.sleep(0)
+        assert calls == ["wait"]
+
+        scene.gate.set()
+        await asyncio.wait_for(first, 60)
+        events = await asyncio.wait_for(second, 60)
+
+        assert calls == ["wait", "start"]
+        assert not _errors(events)
+
+    _run(quick_settings, scenario)
+
+
+async def _collect(stream: Any) -> list:
+    return [event async for event in stream]
+
+
+def test_a_paced_stream_does_not_count_the_time_its_source_waits_for_its_turn() -> None:
+    async def scenario() -> tuple[list, list]:
+        async def queued_then_working(deadline: Deadline):
+            deadline.pause()
+            await asyncio.sleep(0.7)  # waiting for its turn: longer than the deadline
+            deadline.restart()
+            yield "working"
+            await asyncio.sleep(0.2)  # its own work: shorter than the deadline
+            yield "done"
+
+        async def never_restarted():
+            await asyncio.sleep(0.7)
+            yield "late"
+
+        deadline = Deadline(0.5)
+        restarted = [item async for item in paced(queued_then_working(deadline), keepalive_seconds=0.1, deadline_seconds=deadline)]
+        plain = [item async for item in paced(never_restarted(), keepalive_seconds=0.1, deadline_seconds=0.5)]
+        return restarted, plain
+
+    restarted, plain = asyncio.run(scenario())
+
+    assert [item for item in restarted if item is not KEEPALIVE] == ["working", "done"]
+    assert plain[-1] is TIMED_OUT and "late" not in plain
+
+
+class QueuedThenWorking:
+    """A turn service whose turn waits for the trip longer than the deadline, then works for less."""
+
+    def __init__(self) -> None:
+        self.hooks_given = False
+
+    async def handle_turn(
+        self,
+        *,
+        on_wait: Callable[[], None] | None = None,
+        on_start: Callable[[], None] | None = None,
+        **_: object,
+    ):
+        self.hooks_given = on_wait is not None and on_start is not None
+        on_wait()
+        await asyncio.sleep(0.7)
+        on_start()
+        yield SimpleNamespace(event="progress", data={"progress": 5})
+        await asyncio.sleep(0.2)
+        yield SimpleNamespace(event="done", data={"intent": "modify"})
+
+
+def test_the_chat_stream_counts_the_deadline_from_the_start_of_the_turn(settings: Settings) -> None:
+    settings = settings.model_copy(update={"turn_deadline_seconds": 0.5, "sse_keepalive_seconds": 0.1})
+    turns = QueuedThenWorking()
+    with TestClient(create_app(settings)) as client:
+        client.app.state.container.turn_service = turns
+        body = client.post(
+            "/api/turn/stream", json={"message": "Swap the hotel.", "locale": "en", "client_token": "guest-lock"}
+        ).text
+
+    frames = [frame for frame in body.split("\n\n") if frame and not frame.startswith(":")]
+    assert turns.hooks_given
+    assert [frame.split("\n")[0] for frame in frames] == ["event: progress", "event: done"], body
+    assert "turn_timeout" not in body
+    assert json.loads(frames[-1].split("data: ", 1)[1])["intent"] == "modify"
