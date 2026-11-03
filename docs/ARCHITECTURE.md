@@ -80,10 +80,14 @@ start/finish frames reach the browser before the plan is ready.
 1. Typed `ChangeDraft` from the writer, or rules over the router's `affected_parts`.
 2. Map parts to agents; a budget change reruns hotel; a date change reruns
    weather/hotel/ticket. If the date length changes, the plan is rebuilt with the same
-   `trip_id` and version + 1.
+   `trip_id` and version + 1. In both cases the hotel the plan has is kept: it is priced again
+   for the new nights and keeps its confirmed and locked marks, and when no new rate comes
+   back it keeps its old rate and a data gap says so. Another hotel is chosen only when the
+   message asks for one or for a lower budget.
 3. Only unlocked, unconfirmed items are replaced. Confirmed stops are carried by name.
 4. Recalculate cost and constraints; validate/repair; persist version + 1.
-5. `diff_plans` reports added/removed/changed items and hotel changes.
+5. `diff_plans` reports added/removed/changed items, a trip that moved (`dates`), the hotel's nights
+   and rate (`stay`, `hotel_price`), a different hotel or flight, a changed forecast and the cost.
 
 A guard restores the plan's dates if the context drifted but the message was not a date
 request. This prevents a hotel swap from silently rewriting the trip.

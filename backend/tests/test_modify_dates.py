@@ -13,12 +13,15 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.application.orchestrator import _describe_diff
+from app.application.planner import Planner
 from app.application.router import REPLAN_MESSAGE
 from app.application.validation import diff_plans
 from app.config import Settings
-from app.domain.models import EvalCase, Intent, RouteDecision, TripPlan, WeatherDay
+from app.domain.models import EvalCase, FailureKind, Intent, Money, RouteDecision, TripPlan, WeatherDay
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
+from app.evaluation import SandboxHotels
+from app.infrastructure.providers.fx import FxService
 from tests.test_modify_targets import _modify
 
 START = date.today() + timedelta(days=30)
@@ -277,3 +280,118 @@ def test_generating_again_with_the_form_unchanged_moves_nothing(settings: Settin
         assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
 
     run_trip(settings, scenario)
+
+
+# -- G3, G4: the hotel the traveller has is kept, with its marks, when the dates or the length change ------
+
+
+def accept_the_garden_inn(plan: TripPlan, *, confirmed: bool = True, locked: bool = True) -> None:
+    """The traveller swapped to the sandbox's second hotel and accepted it (the planner picks the first)."""
+    row = {
+        "id": "h2",
+        "name": "Kyoto Garden Inn",
+        "area": "Old town",
+        "nightly_price": {"amount": 90, "currency": "USD"},
+        "price_kind": "reference",
+        "source_refs": [],
+    }
+    plan.hotels = [Planner._build_hotel(row, plan.dates)]
+    plan.hotels[0].confirmed, plan.hotels[0].locked = confirmed, locked
+
+
+class _Quote(SandboxHotels):
+    """The hotel source with another rate for the new dates (`factor`), or no rate at all."""
+
+    def __init__(self, destination: str, *, factor: float = 1.0, unpriced: bool = False) -> None:
+        super().__init__(destination)
+        self.factor, self.unpriced = factor, unpriced
+
+    async def search(self, **kwargs: Any):
+        rows = await super().search(**kwargs)
+        for row in rows:
+            row.nightly_price = (
+                None if self.unpriced else Money(amount=row.nightly_price.amount * self.factor, currency="USD")
+            )
+        return rows
+
+
+def quote(**kwargs: Any) -> Callable[[Any], None]:
+    return lambda registry: setattr(registry, "hotels", [_Quote("Kyoto", **kwargs)])
+
+
+def test_a_change_of_length_keeps_the_hotel_the_traveller_accepted(settings: Settings) -> None:
+    for message, days, new_days in (("make it 7 days", 5, 7), ("make it 4 days", 5, 4)):
+        plan, updated, diff = _modify(
+            settings, message, ["dates"], days=days, new_days=new_days, prepare=accept_the_garden_inn
+        )
+
+        assert len(updated.days) == new_days
+        stay = updated.hotels[0]
+        assert (stay.name, stay.confirmed, stay.locked) == ("Kyoto Garden Inn", True, True), message
+        assert (stay.check_in, stay.check_out) == (updated.dates.start, updated.dates.end)
+        assert stay.id == plan.hotels[0].id
+        assert not any(change["kind"] == "hotel" for change in diff)
+        nights = new_days - 1
+        assert [line.label for line in updated.cost.lines][0] == f"Hotel · Kyoto Garden Inn × {nights} nights"
+        assert "Overnight hotel selected" in {check.text for check in updated.constraints}
+        assert next(check for check in updated.constraints if check.text == "Overnight hotel selected").evidence == (
+            "Kyoto Garden Inn"
+        )
+
+
+def test_a_change_of_length_prices_the_kept_hotel_again(settings: Settings) -> None:
+    _, updated, _ = _modify(
+        settings,
+        "make it 7 days",
+        ["dates"],
+        days=5,
+        new_days=7,
+        prepare=accept_the_garden_inn,
+        break_registry=quote(factor=1.5),
+    )
+
+    assert updated.hotels[0].name == "Kyoto Garden Inn"
+    assert updated.hotels[0].price_per_night.amount == 135
+
+
+def test_a_kept_hotel_whose_new_price_is_missing_keeps_the_old_price_and_says_so(settings: Settings) -> None:
+    for message, kwargs in (
+        ("make it 7 days", {"days": 5, "new_days": 7}),
+        ("move the trip a week later", {"new_range": WEEK_LATER}),
+    ):
+        plan, updated, _ = _modify(
+            settings, message, ["dates"], prepare=accept_the_garden_inn, break_registry=quote(unpriced=True), **kwargs
+        )
+
+        stay = updated.hotels[0]
+        assert (stay.name, stay.price_per_night.amount) == ("Kyoto Garden Inn", 90), message
+        assert stay.fetched_at == plan.hotels[0].fetched_at, "the old figure keeps its own fetch time"
+        nights = len(updated.days) - 1
+        assert [line.amount for line in updated.cost.lines if line.label.startswith("Hotel")] == [
+            round(FxService().convert(90, "USD", "JPY") * nights, 2)
+        ], "the old rate still counts, for the new nights"
+        assert any(
+            gap.section == "hotels" and gap.message == "The hotel's price for the new dates could not be refreshed."
+            for gap in updated.data_quality.gaps
+        ), message
+
+
+def test_a_date_shift_keeps_the_marks_of_the_hotel(settings: Settings) -> None:
+    plan, updated, diff = _modify(
+        settings,
+        "move the trip a week later",
+        ["dates"],
+        new_range=WEEK_LATER,
+        prepare=accept_the_garden_inn,
+        break_registry=quote(factor=1.5),
+    )
+
+    stay = updated.hotels[0]
+    assert (stay.confirmed, stay.locked) == (True, True)
+    assert stay.id == plan.hotels[0].id
+    assert stay.price_per_night.amount == 135, "priced again for the new dates"
+    # The same hotel at a new rate for the new nights: never "the hotel changed".
+    assert [change["kind"] for change in diff if change["kind"].startswith(("hotel", "stay"))] == [
+        "stay",
+        "hotel_price",
+    ]

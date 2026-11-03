@@ -72,6 +72,10 @@ from app.infrastructure.providers.routes import (  # noqa: F401  (re-exported fo
 from app.security import strip_fence_tags_deep
 
 
+#: The gap for a kept stay whose rate for the new dates could not be fetched; it keeps its old rate.
+STAY_PRICE_NOT_REFRESHED = "The hotel's price for the new dates could not be refreshed."
+
+
 class PlannerAssignment(BaseModel):
     day_index: int = 0
     item_ids: list[str] = Field(default_factory=list)
@@ -147,6 +151,7 @@ class Planner:
         change_summary: str = "",
         toolbox=None,
         transfers=None,
+        keep_hotel: HotelStay | None = None,
     ) -> TripPlan:
         places = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("places", []))
         meals = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("meals", []))
@@ -277,6 +282,12 @@ class Planner:
             days.append(DayPlan(date=day_date, title=title, weather=weather, items=items, note=note))
 
         hotel_stay = self._build_hotel(hotel, date_range)
+        stay_gap: DataGap | None = None
+        if keep_hotel is not None and day_count > 1:
+            # An edit that changes the trip's length keeps the stay the traveller already has, not a new pick.
+            hotel_stay, refreshed = self.keep_stay(keep_hotel, hotels, date_range)
+            if not refreshed:
+                stay_gap = DataGap(section="hotels", kind=FailureKind.NO_DATA, message=STAY_PRICE_NOT_REFRESHED)
         tickets = self._build_tickets(flights)
         reservations = _reservations(places, tickets)
         cost = self._cost(context, hotel_stay, tickets, date_range)
@@ -285,6 +296,8 @@ class Planner:
             wish_failures=wish_failures,
         )
         gaps = _gaps(results)
+        if stay_gap is not None:
+            gaps.append(stay_gap)
         if TRANSFER_TOOL in getattr(toolbox, "refused", ()):
             gaps.append(
                 DataGap(
@@ -582,6 +595,19 @@ class Planner:
             booking_url=hotel.get("booking_url", ""),
             notes=hotel.get("notes", ""),
         )
+
+    @staticmethod
+    def keep_stay(stay: HotelStay, candidates: list[dict], date_range: DateRange) -> tuple[HotelStay, bool]:
+        """The stay the traveller already has, for other dates: priced again from the candidate of its name.
+
+        It keeps its id and its confirmed and locked marks. When no candidate of that name carries a price,
+        the old rate stays (with its own fetch time) and the second value is False: nothing was refreshed.
+        """
+        row = next((row for row in candidates if row.get("name") == stay.name and row.get("nightly_price")), None)
+        fresh = Planner._build_hotel(row, date_range)
+        if fresh is None:
+            return stay.model_copy(update={"check_in": date_range.start, "check_out": date_range.end}), False
+        return fresh.model_copy(update={"id": stay.id, "confirmed": stay.confirmed, "locked": stay.locked}), True
 
     @staticmethod
     def _build_tickets(flights: list[dict]) -> list[TicketOption]:
