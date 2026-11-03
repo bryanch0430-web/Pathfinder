@@ -81,3 +81,51 @@ export const Empty: Story = {
     </div>
   ),
 };
+
+/** No trip is open (the server could not be reached): the box and the prompts are disabled, and the reason shows beside the trip. */
+export const Disconnected: Story = {
+  render: () => (
+    <div style={{ padding: 24, maxWidth: 440 }}>
+      <ChatPanel
+        messages={[]}
+        busy={false}
+        agents={{}}
+        progress={0}
+        progressMessage=""
+        clarify={null}
+        clarifyValues={{}}
+        onClarifyChange={() => undefined}
+        onClarifySubmit={() => undefined}
+        onSend={() => undefined}
+        scope={null}
+        onClearScope={() => undefined}
+        error={null}
+        disabled
+      />
+    </div>
+  ),
+};
+
+/** A turn failed on an open trip: the message is an alert, once, with Retry. */
+export const TurnFailed: Story = {
+  render: () => (
+    <div style={{ padding: 24, maxWidth: 440 }}>
+      <ChatPanel
+        messages={sampleMessages}
+        busy={false}
+        agents={{}}
+        progress={0}
+        progressMessage=""
+        clarify={null}
+        clarifyValues={{}}
+        onClarifyChange={() => undefined}
+        onClarifySubmit={() => undefined}
+        onSend={() => undefined}
+        scope={null}
+        onClearScope={() => undefined}
+        error="The turn failed."
+        onRetry={() => undefined}
+      />
+    </div>
+  ),
+};
