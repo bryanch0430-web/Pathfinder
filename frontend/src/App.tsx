@@ -44,6 +44,7 @@ import { downloadPlanSlides } from "./lib/slides";
 import { useI18n, type Locale } from "./lib/i18n";
 import { planLocaleFor } from "./lib/planLocale";
 import { clearStoredValue } from "./lib/storage";
+import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
 
@@ -127,13 +128,9 @@ export default function App() {
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);
   const [guidesLoading, setGuidesLoading] = useState(false);
-  const [trips, setTrips] = useState<{ id: string; label: string }[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("pathfinder.trips") || "[]") as { id: string; label: string }[];
-    } catch {
-      return [];
-    }
-  });
+  // The tabs live in the browser store, shared with every other window of this browser.
+  const [trips, setTrips] = useState<Trip[]>(readTrips);
+  useEffect(() => subscribeTrips(setTrips), []);
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true);
@@ -201,49 +198,37 @@ export default function App() {
   useEffect(() => {
     const activeId = pf.sessionId;
     if (!activeId) return;
-    setTrips((current) => {
+    writeTrips((current) => {
       const label = pf.plan?.destination.name || current.find((trip) => trip.id === activeId)?.label || UNTITLED_TRIP;
-      const next = current.some((trip) => trip.id === activeId)
+      return current.some((trip) => trip.id === activeId)
         ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
         : [...current, { id: activeId, label }];
-      localStorage.setItem("pathfinder.trips", JSON.stringify(next));
-      return next;
     });
   }, [pf.sessionId, pf.plan?.destination.name]);
 
   const scrapActiveTrip = async () => {
     const id = pf.sessionId;
     if (!id || !window.confirm(t("plan.scrapConfirm"))) return;
+    // The reply being written for this trip stops before the trip is deleted.
+    pf.abort();
     try {
       await discardSession(id);
     } catch {
       // Already gone; drop it locally.
     }
-    const remaining = trips.filter((trip) => trip.id !== id);
-    setTrips(remaining);
-    localStorage.setItem("pathfinder.trips", JSON.stringify(remaining));
+    const remaining = writeTrips((current) => current.filter((trip) => trip.id !== id));
     if (remaining.length) await pf.openSession(remaining[0].id);
     else await createTripTab();
   };
 
   const openTrip = async (id: string) => {
     const opened = await pf.openSession(id);
-    if (!opened) {
-      setTrips((current) => {
-        const next = current.filter((trip) => trip.id !== id);
-        localStorage.setItem("pathfinder.trips", JSON.stringify(next));
-        return next;
-      });
-    }
+    if (!opened) writeTrips((current) => current.filter((trip) => trip.id !== id));
   };
 
   const createTripTab = async () => {
     const id = await pf.newPlan();
-    setTrips((current) => {
-      const next = current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }];
-      localStorage.setItem("pathfinder.trips", JSON.stringify(next));
-      return next;
-    });
+    writeTrips((current) => (current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }]));
     return id;
   };
 

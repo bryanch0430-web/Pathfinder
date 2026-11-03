@@ -110,6 +110,8 @@ export interface PathfinderHook {
   reload: () => Promise<void>;
   clearChat: () => Promise<void>;
   scrapTrip: () => Promise<void>;
+  /** Stops the reply being streamed, if there is one. */
+  abort: () => void;
   openSession: (id: string) => Promise<boolean>;
   newPlan: () => Promise<string>;
 }
@@ -613,6 +615,10 @@ export function usePathfinder(locale: string): PathfinderHook {
     }
   }, []);
 
+  const abort = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
   const scrapTrip = useCallback(async () => {
     const id = sessionRef.current;
     abortRef.current?.abort();
@@ -691,6 +697,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     reload,
     clearChat,
     scrapTrip,
+    abort,
     openSession,
     newPlan,
   };

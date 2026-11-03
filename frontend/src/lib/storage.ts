@@ -32,7 +32,7 @@ export const MIGRATION_MARKER = `${STORAGE_PREFIX}.migrated`;
 export const STORAGE_KEYS = [
   "client", // guest profile token
   "session", // active session pointer
-  "trips", // open tab labels: [{ id, label }]
+  "trips", // open tab labels: { v: 1, trips: [{ id, label }] } (see tripsStore.ts)
   "auth", // bearer token for a signed-in account
   "guest", // guest token remembered across a sign-in
   "admin", // local admin token for the evaluation sandbox
