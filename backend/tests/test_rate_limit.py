@@ -308,3 +308,37 @@ def test_lookup_limit_zero_turns_it_off(settings: Settings) -> None:
     with _lookup_limit(settings, 0) as scoped:
         guest = {"X-Client-Token": "guest-lookup"}
         assert {scoped.get("/api/places/suggest", params={"q": "kyoto"}, headers=guest).status_code for _ in range(80)} == {200}
+
+
+# -- junk does not use up the budget of the people it is not from ----------------------
+
+
+def test_requests_that_are_refused_do_not_use_the_planning_budget(settings: Settings) -> None:
+    """Anyone can send a turn for a trip that is not theirs. That must not lock the owner (or the admin) out."""
+    owner, other = {"X-Client-Token": "guest-owner"}, {"X-Client-Token": "guest-other"}
+    admin = {"X-Admin-Token": settings.admin_token}
+    with TestClient(create_app(settings.model_copy(update={"rate_limit_ai_per_minute": 3}))) as scoped:
+        scoped.app.state.container.turn_service = QuickTurns()
+        trip = scoped.post("/api/journeys", json={"client_token": "guest-owner"}).json()["session"]["id"]
+
+        def turn(body: dict, headers: dict | None = None) -> int:
+            return scoped.post("/api/turn/stream", json=body, headers=headers or {}).status_code
+
+        unknown_trip = [turn({"session_id": f"sess_nope{n}", "message": "hi"}) for n in range(10)]
+        someone_elses = [turn({"session_id": trip, "message": "hi"}, other) for _ in range(10)]
+        no_token_at_all = [turn({"message": "hi"}) for _ in range(10)]
+        unusable_token = [turn({"message": "hi", "client_token": "bad token"}) for _ in range(10)]
+        invalid_body = [turn({"session_id": trip, "message": ""}, owner) for _ in range(10)]
+        wrong_admin = [
+            scoped.post("/api/eval/trials", json={"dataset_id": "x"}, headers={"X-Admin-Token": "wrong"}).status_code
+            for _ in range(10)
+        ]
+        # Then the people the junk was not from still have their whole budget.
+        admin_run = scoped.post("/api/eval/trials", json={"dataset_id": "x"}, headers=admin).status_code
+        owners = [turn({"session_id": trip, "message": "Plan Kyoto"}, owner) for _ in range(3)]
+
+    assert unknown_trip == [404] * 10 and someone_elses == [404] * 10
+    assert no_token_at_all == [401] * 10 and unusable_token == [422] * 10 and invalid_body == [422] * 10
+    assert wrong_admin == [401] * 10
+    assert admin_run == 404  # not 429: the dataset does not exist, and that run is the one request counted
+    assert owners == [200, 200, 429]  # the admin run used one of the three
