@@ -47,6 +47,7 @@ def test_unfrozen_dataset_refuses_to_run(settings: Settings) -> None:
 def test_planning_sandbox_runs_the_real_pipeline(settings: Settings) -> None:
     service = EvalService(SQLiteStore(settings.database_path), settings)
     run = asyncio.run(service.run(dataset_id="hongkong", experiment_tag="sandbox-v1"))
-    assert len(run.cases) == 4
+    assert len(run.cases) == 8
     assert run.metrics
-    assert any(case.passed for case in run.cases)
+    # Per-case outcomes are asserted in test_eval_proposal.py (Proposal TC-03).
+    assert all(case.plan_checks.get("constraints") for case in run.cases)

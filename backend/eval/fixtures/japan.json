@@ -27,7 +27,7 @@
   },
   {
     "id": "jp03",
-    "input": "Plan a 3-day Osaka trip for 2 people starting 2027-06-12, budget 250000 JPY, vegetarian food preferred.",
+    "input": "Plan a 3-day Osaka trip for 2 people starting 2027-06-12, budget 250000 JPY. We only eat vegetarian food.",
     "expected_intent": "plan",
     "destination": "Osaka",
     "origin": "Taipei",
@@ -35,7 +35,46 @@
     "party_size": 2,
     "budget": 250000,
     "currency": "JPY",
-    "constraints": ["stay within budget"],
+    "constraints": ["vegetarian meals only", "stay within budget"],
+    "split": "heldout"
+  },
+  {
+    "id": "jp04",
+    "input": "Plan a 2-day Tokyo trip for 2 people starting 2027-09-18, budget 200000 JPY. We must include the Ghibli Museum and Senso-ji.",
+    "expected_intent": "plan",
+    "destination": "Tokyo",
+    "origin": "Singapore",
+    "days": 2,
+    "party_size": 2,
+    "budget": 200000,
+    "currency": "JPY",
+    "constraints": ["must include the Ghibli Museum", "must include Senso-ji", "stay within budget"],
+    "split": "dev"
+  },
+  {
+    "id": "jp05",
+    "input": "Plan a 2-day Osaka trip for 1 person starting 2027-11-20, budget 120000 JPY. I am vegetarian and must include Osaka Castle.",
+    "expected_intent": "plan",
+    "destination": "Osaka",
+    "origin": "Seoul",
+    "days": 2,
+    "party_size": 1,
+    "budget": 120000,
+    "currency": "JPY",
+    "constraints": ["vegetarian meals only", "must include Osaka Castle", "stay within budget"],
+    "split": "dev"
+  },
+  {
+    "id": "jp06",
+    "input": "Plan a 3-day Kyoto trip for 4 people starting 2027-10-02, budget 300000 JPY, must include Kiyomizu-dera.",
+    "expected_intent": "plan",
+    "destination": "Kyoto",
+    "origin": "Shanghai",
+    "days": 3,
+    "party_size": 4,
+    "budget": 300000,
+    "currency": "JPY",
+    "constraints": ["must include Kiyomizu-dera", "stay within budget"],
     "split": "heldout"
   }
 ]

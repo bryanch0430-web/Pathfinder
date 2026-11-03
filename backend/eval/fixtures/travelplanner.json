@@ -24,5 +24,18 @@
     "currency": "USD",
     "constraints": ["stay within budget"],
     "split": "heldout"
+  },
+  {
+    "id": "tp03",
+    "input": "Plan a 2-day trip to New York for 2 people, budget 1500 USD. We are vegetarian and must visit Central Park.",
+    "expected_intent": "plan",
+    "destination": "New York",
+    "origin": "Chicago",
+    "days": 2,
+    "party_size": 2,
+    "budget": 1500,
+    "currency": "USD",
+    "constraints": ["vegetarian restaurants only", "must visit Central Park", "stay within budget"],
+    "split": "dev"
   }
 ]

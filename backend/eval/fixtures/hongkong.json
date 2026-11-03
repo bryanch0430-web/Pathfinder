@@ -11,11 +11,12 @@
     "currency": "HKD",
     "constraints": ["avoid outdoor stops during the typhoon signal", "stay within budget"],
     "fault": "typhoon",
+    "fault_detail": {"day": 2, "signal": "Typhoon Signal No. 8"},
     "split": "dev"
   },
   {
     "id": "hk02",
-    "input": "Plan a 2-day Hong Kong trip for 4 people starting 2027-04-02, budget 12000 HKD. The Peak Tram is closed.",
+    "input": "Plan a 2-day Hong Kong trip for 4 people starting 2027-04-02, budget 12000 HKD. After the plan is made, the Peak Tram closes.",
     "expected_intent": "plan",
     "destination": "Hong Kong",
     "origin": "Hong Kong",
@@ -23,8 +24,12 @@
     "party_size": 4,
     "budget": 12000,
     "currency": "HKD",
-    "constraints": ["do not include the closed Peak Tram"],
+    "constraints": ["do not include the closed Peak Tram", "stay within budget"],
     "fault": "venue_closure",
+    "fault_detail": {
+      "venue": "Peak Tram",
+      "report": "The Peak Tram is closed today. Please replace the Peak Tram with a different stop."
+    },
     "split": "dev"
   },
   {
@@ -39,6 +44,7 @@
     "currency": "HKD",
     "constraints": ["keep travel times realistic"],
     "fault": "transit_delay",
+    "fault_detail": {"day": 1, "line": "Tsuen Wan Line", "delay_minutes": 40},
     "split": "heldout"
   },
   {
@@ -52,6 +58,69 @@
     "budget": 5000,
     "currency": "HKD",
     "constraints": ["stay within budget"],
+    "split": "heldout"
+  },
+  {
+    "id": "hk05",
+    "input": "Plan a 2-day Hong Kong trip for 3 people starting 2027-07-08, budget 10000 HKD.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Manila",
+    "days": 2,
+    "party_size": 3,
+    "budget": 10000,
+    "currency": "HKD",
+    "constraints": ["stay within budget"],
+    "fault": "source_timeout",
+    "fault_detail": {"section": "attractions"},
+    "split": "dev"
+  },
+  {
+    "id": "hk06",
+    "input": "Plan a 2-day Hong Kong trip for 6 people starting 2027-10-15, budget 30000 HKD, must include Tian Tan Buddha. The Island Line is delayed by 30 minutes on day 2.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Seoul",
+    "days": 2,
+    "party_size": 6,
+    "budget": 30000,
+    "currency": "HKD",
+    "constraints": ["must include Tian Tan Buddha", "keep travel times realistic"],
+    "fault": "transit_delay",
+    "fault_detail": {"day": 2, "line": "Island Line", "delay_minutes": 30},
+    "split": "dev"
+  },
+  {
+    "id": "hk07",
+    "input": "Plan a 2-day Hong Kong trip for 1 person starting 2027-09-06, budget 5000 HKD. After the plan is made, Tai Kwun closes for the day.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Bangkok",
+    "days": 2,
+    "party_size": 1,
+    "budget": 5000,
+    "currency": "HKD",
+    "constraints": ["do not include the closed Tai Kwun"],
+    "fault": "venue_closure",
+    "fault_detail": {
+      "venue": "Tai Kwun",
+      "report": "Tai Kwun is closed for the day. Please replace Tai Kwun with a different stop."
+    },
+    "split": "dev"
+  },
+  {
+    "id": "hk08",
+    "input": "Plan a 2-day Hong Kong trip for 1 person starting 2027-08-20, budget 5000 HKD. Typhoon Signal No. 8 is forecast for day 1.",
+    "expected_intent": "plan",
+    "destination": "Hong Kong",
+    "origin": "Tokyo",
+    "days": 2,
+    "party_size": 1,
+    "budget": 5000,
+    "currency": "HKD",
+    "constraints": ["avoid outdoor stops during the typhoon signal"],
+    "fault": "typhoon",
+    "fault_detail": {"day": 1, "signal": "Typhoon Signal No. 8"},
     "split": "heldout"
   }
 ]

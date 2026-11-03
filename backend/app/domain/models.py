@@ -662,6 +662,8 @@ class EvalCase(BaseModel):
     constraints: list[str] = Field(default_factory=list)
     expected_facts: list[str] = Field(default_factory=list)
     fault: str = ""
+    # What the sandbox injects for `fault` (day, venue, delay minutes, report text).
+    fault_detail: dict[str, Any] = Field(default_factory=dict)
 
 
 class DatasetMeta(BaseModel):
@@ -699,6 +701,9 @@ class EvalCaseResult(BaseModel):
     judge_flags: list[str] = Field(default_factory=list)
     tool_summary: list[str] = Field(default_factory=list)
     scores: dict[str, float] = Field(default_factory=dict)
+    # Planning cases: per-constraint verdicts, disruption outcomes, recovery and
+    # grounding checks (see app.eval_checks).
+    plan_checks: dict[str, Any] = Field(default_factory=dict)
     trace_id: str = ""
 
 

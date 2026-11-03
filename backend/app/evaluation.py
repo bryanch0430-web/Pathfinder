@@ -45,6 +45,15 @@ from app.domain.models import (
     utcnow,
     WeatherDay,
 )
+from app.eval_checks import (
+    RecordingToolbox,
+    ToolLog,
+    judge_family_check,
+    judge_metric,
+    planning_metrics,
+    render_markdown,
+    score_plan,
+)
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.judge import Judge
 from app.infrastructure.observability import NoopTracer
@@ -67,6 +76,7 @@ class EvalService:
         self.store = store
         self.settings = settings
         self.judge = Judge(settings)
+        self.judge_check = judge_family_check(settings, judge_enabled=self.judge.available)
         self.seed_defaults()
 
     def seed_defaults(self) -> None:
@@ -168,6 +178,7 @@ class EvalService:
                 "writer": "sandbox-offline",
                 "router": "rules",
                 "judge": f"llm:{self.judge.model}" if self.judge.available else "deterministic-scripts",
+                "judge_check": self.judge_check,
                 "settings": {
                     "router_threshold": self.settings.router_threshold,
                     "preplan_budget_seconds": self.settings.preplan_budget_seconds,
@@ -229,11 +240,13 @@ class EvalService:
         settings = self.settings.model_copy(
             update={"preplan_budget_seconds": 20, "agent_timeout_seconds": 10, "enable_flights": True}
         )
-        registry = SandboxRegistry(settings, case.destination or "Kyoto", flaky=bool(case.fault))
+        start = date.today() + timedelta(days=30)
+        registry = SandboxRegistry(
+            settings, case.destination or "Kyoto", fault=case.fault, fault_detail=case.fault_detail, start=start
+        )
         gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
         planner = Planner(gateway, settings, registry.fx)
         plan_path = PlanPath(planner=planner, registry=registry, settings=settings)
-        start = date.today() + timedelta(days=30)
         end = start + timedelta(days=max((case.days or 3) - 1, 0))
         context = TripContext(
             session_id="eval",
@@ -248,7 +261,9 @@ class EvalService:
             preferences=[],
             hard_constraints=case.constraints,
         )
-        toolbox = Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="eval")
+        # The app's Toolbox, logging into this run's tool log (Proposal TC-09, p4).
+        log = ToolLog()
+        toolbox = RecordingToolbox(log, path="plan", request_id="eval")
         errors: list[str] = []
         plan = None
         try:
@@ -273,39 +288,39 @@ class EvalService:
         }
         if case.fault:
             scores["error_recovery"] = 0.0
+        plan_checks: dict = {}
+        summary = ""
         if plan:
+            initial = plan
+            edit_ok = await self._edit_check(plan, context, settings, registry, gateway, plan_path)
+            if case.fault == "venue_closure":
+                plan = await self._reroute_closure(case, plan, context, settings, registry, gateway, plan_path, log)
             checks = validate_plan(plan, settings)
             if checks:
                 passed = False
                 failure_class = "invalid_plan"
-            if case.budget is not None and plan.cost.status == "over":
+            # Proposal TC-07/08/09 (p4): met/total constraints, recovery, grounding.
+            report = score_plan(case, plan=plan, initial=initial, log=log, start=start)
+            plan_checks = report.as_dict()
+            summary = report.summary()
+            if passed and report.failure_class():
                 passed = False
-                failure_class = "over_budget"
-            if case.days and len(plan.days) != case.days:
-                passed = False
-                failure_class = "wrong_length"
-            if case.party_size and plan.party_size != case.party_size:
-                passed = False
-                failure_class = "wrong_party"
-            scores["constraint_satisfaction"] = 1.0 if passed else 0.0
-            items = [item for day in plan.days for item in day.items]
-            grounded = [
-                item for item in items if item.source_refs and item.data_status.value != "unavailable"
-            ]
-            scores["grounding"] = round(len(grounded) / len(items), 3) if items else 0.0
-            if not plan.data_quality.gaps and registry.flaky:
-                # A flaky source must surface as a recorded gap, not silently disappear.
-                checks.append("flaky source failure was not recorded")
-            edit_ok = await self._edit_check(plan, context, settings, registry, gateway, plan_path)
+                failure_class = report.failure_class()
+            scores["constraint_satisfaction"] = report.satisfaction
+            scores["grounding"] = report.grounding["score"]
             scores["edit_efficiency"] = 1.0 if edit_ok else 0.0
             if case.fault:
-                scores["error_recovery"] = 1.0 if passed else 0.0
+                scores["error_recovery"] = 1.0 if report.disruption and report.disruption["handled"] else 0.0
             if not edit_ok:
                 checks.append("edit path did not preserve unaffected items")
 
         verdict = None
         if plan is not None:
             verdict = await self.judge.score(case=case, plan=plan, checks=checks, scores=scores)
+        flags = list(verdict.flags) if verdict else []
+        if verdict and self.judge_check["same_family"]:
+            flags.append("judge shares the writer's model family")
+        deterministic = "; ".join([summary, *checks[:3]]).strip("; ") or "; ".join(errors)
 
         return EvalCaseResult(
             case_id=case.id,
@@ -317,17 +332,44 @@ class EvalService:
             input=case.input,
             output_summary=(plan.summary[:240] if plan else "; ".join(errors)),
             judge_reason=(
-                verdict.reason
-                if verdict and verdict.reason
-                else ("; ".join(checks[:4]) or "Deterministic constraints, grounding and budget checks.")
+                f"{deterministic} Judge: {verdict.reason}" if verdict and verdict.reason else deterministic
             ),
             judge_score=verdict.score if verdict else None,
-            judge_flags=verdict.flags if verdict else [],
+            judge_flags=flags,
             tool_summary=[
                 f"{gap.section}:{gap.kind.value}" for gap in (plan.data_quality.gaps if plan else [])[:6]
             ],
             scores=scores,
+            plan_checks=plan_checks,
         )
+
+    async def _reroute_closure(self, case, plan, context, settings, registry, gateway, plan_path, log):
+        """Proposal TC-08 (p4): close a planned venue and send the report down the edit path.
+
+        The sandbox place source stops listing the venue, and the traveller's report
+        is routed like any chat message. The returned plan is what gets scored.
+        """
+        venue = str(case.fault_detail.get("venue", ""))
+        message = str(case.fault_detail.get("report") or f"{venue} is closed today. Replace {venue} in the plan.")
+        registry.close_venue(venue)
+        log.phase = "disruption"
+        decision = RuleRouter().route(message=message, context=context, plan_summary=plan.summary_for_prompt(), history=[])
+        if decision.intent != Intent.MODIFY:
+            return plan
+        try:
+            modify = ModifyPath(planner=plan_path.planner, plan_path=plan_path, settings=settings, gateway=gateway)
+            updated, _ = await modify.run(
+                plan=plan,
+                context=context,
+                message=message,
+                route_parts=decision.affected_parts,
+                toolbox=RecordingToolbox(log, path="modify", request_id="eval"),
+                tracer=NoopTracer(),
+                emit=lambda *_: None,
+            )
+            return updated
+        except Exception:
+            return plan
 
     async def _edit_check(self, plan, context, settings, registry, gateway, plan_path) -> bool:
         try:
@@ -371,22 +413,9 @@ class EvalService:
                 )
             )
         else:
-            labels = {
-                "constraint_satisfaction": "Constraint adherence",
-                "error_recovery": "Error recovery",
-                "grounding": "Grounding",
-                "edit_efficiency": "Edit preservation",
-            }
-            for key, label in labels.items():
-                values = [result.scores[key] for result in results if key in result.scores]
-                if values:
-                    metrics.append(
-                        EvalMetric(
-                            key=key,
-                            label=label,
-                            value=round(100.0 * sum(values) / len(values), 1),
-                        )
-                    )
+            metrics.extend(planning_metrics(results))
+            if self.judge.available:
+                metrics.append(judge_metric(self.judge_check))
             if latencies:
                 metrics.append(
                     EvalMetric(
@@ -409,38 +438,115 @@ class EvalService:
 
 
 class SandboxRegistry:
-    def __init__(self, settings: Settings, destination: str, *, flaky: bool = False):
+    """Sandbox providers, with one simulation per Hong Kong disruption (Proposal TC-03, p4).
+
+    - ``source_timeout``: the first place source times out once; a fallback answers.
+    - ``typhoon``: the weather source reports a typhoon signal on ``fault_detail["day"]``.
+    - ``venue_closure``: ``close_venue()`` makes the place source stop listing a venue.
+    - ``transit_delay``: the routes source adds ``delay_minutes`` to every transit leg.
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        destination: str,
+        *,
+        flaky: bool = False,
+        fault: str = "",
+        fault_detail: dict | None = None,
+        start: date | None = None,
+    ):
         self.settings = settings
         self.destination = destination
-        self.flaky = flaky
+        detail = fault_detail or {}
+        self.fault = fault or ("source_timeout" if flaky else "")
+        self.flaky = self.fault == "source_timeout"
         self.geocoder = SandboxGeocoder(destination)
         places = SandboxPlaces(destination)
-        self.places = [FlakyPlaceSource(places)] if flaky else []
+        self._places = places
+        self.places = [FlakyPlaceSource(destination)] if self.flaky else []
         self.places.append(places)
-        self.weather = [SandboxWeather()]
+        alerts: dict[date, str] = {}
+        if self.fault == "typhoon":
+            day = (start or date.today()) + timedelta(days=int(detail.get("day", 1)) - 1)
+            alerts[day] = str(detail.get("signal") or "Typhoon Signal No. 8")
+        self.weather = [SandboxWeather(alerts)]
         self.hotels = [SandboxHotels(destination)]
         self.flights = [SandboxFlights()]
         self.notes = [SandboxNotes()]
-        self.routes = [SandboxRoutes()]
-        self.fx = FxService()
+        delay = int(detail.get("delay_minutes", 0)) if self.fault == "transit_delay" else 0
+        self.routes = [SandboxRoutes(delay_minutes=delay, line=str(detail.get("line", "")))]
+        self.fx = SandboxFx()
+
+    def close_venue(self, name: str) -> None:
+        self._places.closed.add(name.lower())
 
 
 BASE = {"Kyoto": (35.0116, 135.7681), "Tokyo": (35.6762, 139.6503), "Osaka": (34.6937, 135.5023),
         "Hong Kong": (22.3193, 114.1694), "New York": (40.7128, -74.0060), "San Francisco": (37.7749, -122.4194)}
 
+# (name, lat, lng, Google-style place types). Rows are listed best-rated first.
 PLACES = {
-    "Kyoto": [("Kiyomizu-dera", 34.9949, 135.7850), ("Fushimi Inari Taisha", 34.9671, 135.7727),
-              ("Arashiyama Bamboo Grove", 35.0094, 135.6668), ("Gion", 35.0037, 135.7752)],
-    "Tokyo": [("Senso-ji", 35.7148, 139.7967), ("Meiji Jingu", 35.6764, 139.6993),
-              ("Shibuya Sky", 35.6580, 139.7016), ("teamLab Planets", 35.6490, 139.7900)],
-    "Osaka": [("Osaka Castle", 34.6873, 135.5259), ("Dotonbori", 34.6687, 135.5013),
-              ("Umeda Sky Building", 34.7055, 135.4902), ("Sumiyoshi Taisha", 34.6123, 135.4930)],
-    "Hong Kong": [("Victoria Peak", 22.2759, 114.1455), ("Star Ferry", 22.2940, 114.1685),
-                  ("Tian Tan Buddha", 22.2540, 113.9050), ("Temple Street Night Market", 22.3060, 114.1700)],
-    "New York": [("Metropolitan Museum of Art", 40.7794, -73.9632), ("Central Park", 40.7829, -73.9654),
-                 ("The High Line", 40.7480, -74.0048), ("Brooklyn Bridge", 40.7061, -73.9969)],
-    "San Francisco": [("Golden Gate Bridge", 37.8199, -122.4783), ("Alcatraz Island", 37.8267, -122.4230),
-                      ("Ferry Building", 37.7955, -122.3937), ("Golden Gate Park", 37.7694, -122.4862)],
+    "Kyoto": [("Kiyomizu-dera", 34.9949, 135.7850, ["place_of_worship"]),
+              ("Fushimi Inari Taisha", 34.9671, 135.7727, ["place_of_worship"]),
+              ("Arashiyama Bamboo Grove", 35.0094, 135.6668, ["park"]),
+              ("Gion", 35.0037, 135.7752, ["tourist_attraction"])],
+    "Tokyo": [("Senso-ji", 35.7148, 139.7967, ["place_of_worship"]),
+              ("Meiji Jingu", 35.6764, 139.6993, ["place_of_worship"]),
+              ("Shibuya Sky", 35.6580, 139.7016, ["observation_deck"]),
+              ("teamLab Planets", 35.6490, 139.7900, ["museum", "art_gallery"]),
+              ("Tokyo National Museum", 35.7188, 139.7765, ["museum"]),
+              ("Shinjuku Gyoen", 35.6852, 139.7101, ["park"]),
+              ("Tsukiji Outer Market", 35.6654, 139.7707, ["market"]),
+              ("Tokyo Skytree", 35.7101, 139.8107, ["observation_deck"]),
+              ("Ueno Park", 35.7156, 139.7745, ["park"]),
+              ("Ghibli Museum", 35.6962, 139.5704, ["museum"])],
+    "Osaka": [("Osaka Castle", 34.6873, 135.5259, ["historical_landmark"]),
+              ("Dotonbori", 34.6687, 135.5013, ["tourist_attraction"]),
+              ("Umeda Sky Building", 34.7055, 135.4902, ["observation_deck"]),
+              ("Sumiyoshi Taisha", 34.6123, 135.4930, ["place_of_worship"]),
+              ("Osaka Aquarium Kaiyukan", 34.6545, 135.4290, ["aquarium"]),
+              ("Kuromon Market", 34.6654, 135.5066, ["market"])],
+    "Hong Kong": [("Victoria Peak", 22.2759, 114.1455, ["natural_feature"]),
+                  ("Peak Tram", 22.2779, 114.1597, ["transit_station"]),
+                  ("Star Ferry", 22.2940, 114.1685, ["ferry_terminal"]),
+                  ("Tian Tan Buddha", 22.2540, 113.9050, ["place_of_worship"]),
+                  ("Temple Street Night Market", 22.3060, 114.1700, ["market"]),
+                  ("Hong Kong Museum of History", 22.3017, 114.1772, ["museum"]),
+                  ("M+", 22.3015, 114.1600, ["museum", "art_gallery"]),
+                  ("Tai Kwun", 22.2814, 114.1543, ["museum", "art_gallery"]),
+                  ("Ocean Park", 22.2467, 114.1757, ["amusement_park"]),
+                  ("K11 Musea", 22.2946, 114.1747, ["shopping_mall"])],
+    "New York": [("Metropolitan Museum of Art", 40.7794, -73.9632, ["museum"]),
+                 ("Central Park", 40.7829, -73.9654, ["park"]),
+                 ("The High Line", 40.7480, -74.0048, ["park"]),
+                 ("Brooklyn Bridge", 40.7061, -73.9969, ["bridge"])],
+    "San Francisco": [("Golden Gate Bridge", 37.8199, -122.4783, ["bridge"]),
+                      ("Alcatraz Island", 37.8267, -122.4230, ["historical_landmark"]),
+                      ("Ferry Building", 37.7955, -122.3937, ["market"]),
+                      ("Golden Gate Park", 37.7694, -122.4862, ["park"])],
+}
+
+# (name, lat offset, lng offset, place types, description) around the city base.
+_DEFAULT_RESTAURANTS = [
+    ("{city} Kitchen", 0.003, 0.002, ["restaurant"], "Neighbourhood restaurant."),
+    ("{city} River Cafe", -0.002, 0.004, ["cafe"], "Cafe by the water."),
+]
+RESTAURANTS = {
+    "Osaka": [
+        ("Paprika Shokudo Vegan", 0.004, -0.006, ["vegan_restaurant", "restaurant"], "Plant-based set meals."),
+        ("Dotonbori Kushikatsu", -0.025, -0.002, ["japanese_restaurant", "restaurant"], "Deep-fried skewers of meat and seafood."),
+        ("Osaka Vegetarian Kitchen", 0.002, 0.003, ["vegetarian_restaurant", "restaurant"], "Vegetarian teishoku and curry."),
+        ("Namba Okonomiyaki", -0.024, 0.001, ["japanese_restaurant", "restaurant"], "Pork and squid okonomiyaki."),
+        ("Shitennoji Shojin Ryori", -0.040, 0.014, ["vegetarian_restaurant", "japanese_restaurant"], "Buddhist temple cuisine."),
+        ("Osaka River Cafe", -0.002, 0.004, ["cafe"], "Cafe by the water."),
+    ],
+    "New York": [
+        ("New York Kitchen", 0.003, 0.002, ["american_restaurant", "restaurant"], "Burgers and steaks."),
+        ("Dirt Candy", 0.004, 0.019, ["vegetarian_restaurant", "restaurant"], "Vegetable tasting menus."),
+        ("New York River Cafe", -0.002, 0.004, ["cafe"], "Cafe by the water."),
+        ("Superiority Burger", 0.016, 0.019, ["vegetarian_restaurant", "restaurant"], "Vegetarian burgers and sides."),
+    ],
 }
 
 
@@ -460,17 +566,28 @@ class SandboxPlaces:
 
     def __init__(self, destination: str):
         self.destination = destination
+        # Venues the source has stopped listing (a simulated closure).
+        self.closed: set[str] = set()
 
     async def search(self, *, destination, geo, category, limit, query=None):
         lat, lng = BASE.get(self.destination, (35.0, 135.0))
         if category in {"restaurant", "meal", "food"}:
+            rows = RESTAURANTS.get(self.destination, _DEFAULT_RESTAURANTS)
             return [
-                PlaceCandidate(name=f"{self.destination} Kitchen", category="Restaurant", description="Neighbourhood restaurant.", geo=GeoPoint(lat=lat + 0.003, lng=lng + 0.002), address="Central", source_refs=[_ref(f"{self.destination} Kitchen")]),
-                PlaceCandidate(name=f"{self.destination} River Cafe", category="Cafe", description="Cafe by the water.", geo=GeoPoint(lat=lat - 0.002, lng=lng + 0.004), address="Riverside", source_refs=[_ref(f"{self.destination} River Cafe")]),
+                PlaceCandidate(
+                    name=name.format(city=self.destination),
+                    category="Cafe" if "cafe" in types else "Restaurant",
+                    description=description,
+                    geo=GeoPoint(lat=lat + dlat, lng=lng + dlng),
+                    address="Central",
+                    source_refs=[_ref(name.format(city=self.destination))],
+                    tags=types,
+                )
+                for name, dlat, dlng, types, description in rows[:limit]
             ]
-        rows = PLACES.get(self.destination, PLACES["Kyoto"])
+        rows = [row for row in PLACES.get(self.destination, PLACES["Kyoto"]) if row[0].lower() not in self.closed]
         out = []
-        for index, (name, plat, plng) in enumerate(rows[:limit]):
+        for index, (name, plat, plng, types) in enumerate(rows[:limit]):
             out.append(
                 PlaceCandidate(
                     name=name,
@@ -482,13 +599,15 @@ class SandboxPlaces:
                     review_count=1000 - index * 100,
                     opening_hours=["09:00-17:00"],
                     source_refs=[_ref(name)],
-                    tags=["sandbox"],
+                    tags=[*types, "sandbox"],
                 )
             )
         return out
 
 
 class FlakyPlaceSource(SandboxPlaces):
+    """Times out on its first call, as a slow primary source would (``source_timeout``)."""
+
     name = "sandbox-flaky-places"
     _failed = False
 
@@ -498,19 +617,34 @@ class FlakyPlaceSource(SandboxPlaces):
             from app.domain.errors import ProviderError
             from app.domain.models import FailureKind
 
-            raise ProviderError("simulated venue timeout", kind=FailureKind.TIMEOUT, source=self.name)
+            raise ProviderError("simulated place-source timeout", kind=FailureKind.TIMEOUT, source=self.name)
         return await super().search(**kwargs)
 
 
 class SandboxWeather:
+    """Partly cloudy every day, except for dates with a simulated alert (``typhoon``)."""
+
     name = "sandbox-weather"
+
+    def __init__(self, alerts: dict[date, str] | None = None):
+        self.alerts = alerts or {}
 
     async def forecast(self, geo, start, end):
         days = [date.fromordinal(start.toordinal() + i) for i in range((end - start).days + 1)]
-        return [
-            WeatherDay(date=day, status=DataStatus.OK, summary="Partly cloudy", high_c=22, low_c=14, precipitation_probability=20, source=self.name)
-            for day in days
-        ]
+        out = []
+        for day in days:
+            signal = self.alerts.get(day)
+            if signal:
+                out.append(
+                    WeatherDay(
+                        date=day, status=DataStatus.OK, summary=f"{signal} in force", high_c=27, low_c=24,
+                        precipitation_probability=95, source=self.name,
+                        note=f"Official warning: {signal}. Outdoor venues and ferry services are suspended.",
+                    )
+                )
+            else:
+                out.append(WeatherDay(date=day, status=DataStatus.OK, summary="Partly cloudy", high_c=22, low_c=14, precipitation_probability=20, source=self.name))
+        return out
 
 
 class SandboxHotels:
@@ -546,12 +680,29 @@ class SandboxNotes:
 
 
 class SandboxRoutes:
+    """Route estimates; with ``transit_delay`` every transit leg carries the delay."""
+
     name = "sandbox-routes"
+
+    def __init__(self, *, delay_minutes: int = 0, line: str = ""):
+        self.delay_minutes = delay_minutes
+        self.line = line
 
     async def leg(self, origin, destination, *, mode="walk"):
         from app.infrastructure.providers.routes import estimate_leg
 
-        return estimate_leg(origin, destination, mode)
+        leg = estimate_leg(origin, destination, mode)
+        if self.delay_minutes and mode in {"transit", "metro"}:
+            leg.duration_minutes = (leg.duration_minutes or 0) + self.delay_minutes
+            leg.source = f"sandbox-routes:delay {self.line} +{self.delay_minutes} min".strip()
+        return leg
+
+
+class SandboxFx(FxService):
+    """The static reference table only: a scored run must not depend on live rates."""
+
+    async def refresh(self) -> None:
+        self.source = "static"
 
 
 def _ref(name: str) -> SourceRef:
@@ -586,4 +737,5 @@ def export_markdown(run: EvaluationRun) -> str:
         )
     passed = sum(1 for case in run.cases if case.passed)
     lines += ["", f"**{passed}/{len(run.cases)} cases passed.** {failures} failures."]
+    lines += render_markdown(run.cases)
     return "\n".join(lines)
