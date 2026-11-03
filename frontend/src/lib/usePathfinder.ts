@@ -34,6 +34,7 @@ import { clearStoredValue } from "./storage";
 const SESSION_KEY = "pathfinder.session";
 const TOKEN_KEY = "pathfinder.client";
 const AUTH_KEY = "pathfinder.auth";
+const GUEST_KEY = "pathfinder.guest";
 
 /** The profile token the API resolves with the bearer: a guest UUID, or `user:<id>` once signed in. */
 export function clientToken(): string {
@@ -119,7 +120,8 @@ export interface PathfinderHook {
   retry: () => Promise<void>;
   reload: () => Promise<void>;
   clearChat: () => Promise<void>;
-  scrapTrip: () => Promise<void>;
+  /** Deletes the open trip and clears the page of it; false, with the trip left as it was, when the server refused. */
+  scrapTrip: () => Promise<boolean>;
   /** Stops the reply being streamed, if there is one. */
   abort: () => void;
   openSession: (id: string) => Promise<OpenOutcome>;
@@ -299,15 +301,18 @@ export function usePathfinder(locale: string): PathfinderHook {
       if (latest) setReady(true);
       if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
         // The server answers 404 both for a trip that is gone and for one that is not this
-        // identity's. Signed out, it may be an account's trip: say so and keep it.
-        if (!localStorage.getItem(AUTH_KEY)) {
+        // identity's. Signed out in a browser that has signed in before, it may be an account's
+        // trip: say so and keep it. In a browser that never has, nobody else can own it.
+        if (!localStorage.getItem(AUTH_KEY) && localStorage.getItem(GUEST_KEY)) {
           if (latest) setError("errors.signInToOpen");
+          if (latest && sessionRef.current === null) localStorage.setItem(SESSION_KEY, id);
           return "needs-sign-in";
         }
         return "missing";
       }
-      // The server is down or slow: the trip is not gone.
+      // The server is down or slow: the trip is not gone. With no trip open, a reload tries it again.
       if (latest) setError(unreachableOf(cause));
+      if (latest && sessionRef.current === null) localStorage.setItem(SESSION_KEY, id);
       return "unavailable";
     }
   }, [showTrip]);
@@ -677,16 +682,22 @@ export function usePathfinder(locale: string): PathfinderHook {
     abortRef.current?.abort();
   }, []);
 
-  const scrapTrip = useCallback(async () => {
+  const scrapTrip = useCallback(async (): Promise<boolean> => {
     const id = sessionRef.current;
+    if (!id) return false;
+    // The reply being written for this trip stops before the trip is deleted.
     abortRef.current?.abort();
-    if (id) {
-      try {
-        await discardSession(id);
-      } catch {
-        // Even if the old row is already gone, drop the local pointer.
+    try {
+      await discardSession(id);
+    } catch (cause) {
+      // Only a 404 means the trip is already gone. Any other answer leaves it where it is, and the page says so.
+      if (!(cause instanceof ApiError && cause.status === 404)) {
+        setError("errors.scrap");
+        await refresh();
+        return false;
       }
     }
+    forgetTripView();
     clearStoredValue("session");
     sessionRef.current = null;
     setSessionId(null);
@@ -694,19 +705,11 @@ export function usePathfinder(locale: string): PathfinderHook {
     setMessages([]);
     setVersions([]);
     setContextState(emptyContext());
-    setClarify(null);
-    setClarifyValues({});
-    setSelectedItem(null);
-    setFeedbackStars(null);
     setChangedIds([]);
     setHotelChanged(false);
-    setTrace(null);
-    setRoute(null);
-    setError(null);
     setActiveVersion(1);
-    setReady(false);
-    await bootstrap();
-  }, [bootstrap]);
+    return true;
+  }, [forgetTripView, refresh]);
 
   return {
     ready,

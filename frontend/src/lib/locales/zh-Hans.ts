@@ -459,6 +459,7 @@ export const ZH_HANS: Messages = {
   "errors.turn": "本轮处理失败。",
   "errors.feedback": "无法保存反馈。",
   "errors.clearChat": "无法清空对话。",
+  "errors.scrap": "无法放弃这个行程，它仍保持打开，请重试。",
   "errors.trending": "热门行程暂不可用。",
 
   "plan.scrapConfirm": "放弃此行程？它的对话和行程会被删除，其他标签页保留。",
