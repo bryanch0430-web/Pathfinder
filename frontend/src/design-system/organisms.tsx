@@ -52,6 +52,7 @@ import { failureText } from "../lib/failure";
 import { safeHref } from "../lib/safeHref";
 import { addTags, isImeKey } from "../lib/typing";
 import { useI18n, type MessageKey, type Translate } from "../lib/i18n";
+import { readStoredValue, writeStoredValue } from "../lib/storage";
 
 const FRESHNESS_SECTION: Record<"weather" | "tickets" | "hotels", MessageKey> = {
   weather: "workspace.freshness.weather",
@@ -319,15 +320,14 @@ export function TripPanel({
 // English phrasing, so these stay in English in every locale.
 const QUICK_PROMPTS = ["Plan my trip", "Make it cheaper", "What is the weather on day 2?", "Add a museum"];
 
-const DEVELOPER_KEY = "pathfinder.developer";
 const DEVELOPER_EVENT = "pathfinder-developer";
 
 function readDeveloperMode() {
-  return typeof localStorage !== "undefined" && localStorage.getItem(DEVELOPER_KEY) === "1";
+  return readStoredValue("developer") === "1";
 }
 
 function writeDeveloperMode(on: boolean) {
-  localStorage.setItem(DEVELOPER_KEY, on ? "1" : "0");
+  writeStoredValue("developer", on ? "1" : "0");
   window.dispatchEvent(new Event(DEVELOPER_EVENT));
 }
 

@@ -16,6 +16,8 @@ import type {
   TripPlan,
 } from "../design-system/types";
 
+import { readStoredValue } from "./storage";
+
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export interface SessionState {
@@ -99,7 +101,7 @@ export function postFeedback(
   sessionId: string,
   useful: boolean,
   stars: number | null,
-  clientToken = localStorage.getItem("pathfinder.client") || "",
+  clientToken = readStoredValue("client") || "",
 ): Promise<{ feedback: { id: string }; preferences_added: string[] }> {
   return request(`/api/journeys/${sessionId}/rating`, {
     method: "POST",
@@ -167,19 +169,19 @@ export interface AuthResponse {
 }
 
 export function authHeader(): Record<string, string> {
-  const token = localStorage.getItem("pathfinder.auth");
+  const token = readStoredValue("auth");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /** The operator's admin token, kept in this browser under the key the Settings page reads; empty when none. */
 export function adminHeader(): Record<string, string> {
-  const token = localStorage.getItem("pathfinder.admin");
+  const token = readStoredValue("admin");
   return token ? { "X-Admin-Token": token } : {};
 }
 
 /** A guest trip answers only to the token its browser created it with, so every call presents it. */
 export function clientTokenHeader(): Record<string, string> {
-  return { "X-Client-Token": localStorage.getItem("pathfinder.client") ?? "" };
+  return { "X-Client-Token": readStoredValue("client") ?? "" };
 }
 
 export function register(payload: {

@@ -45,7 +45,7 @@ import { failureText } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { useI18n, type Locale } from "./lib/i18n";
 import { planLocaleFor } from "./lib/planLocale";
-import { clearStoredValue } from "./lib/storage";
+import { clearStoredValue, readStoredValue, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
@@ -139,7 +139,7 @@ export default function App() {
     setTrendingError(null);
     try {
       const data = await getTrending(trendingQuery, {
-        clientToken: localStorage.getItem("pathfinder.client") || "",
+        clientToken: readStoredValue("client") || "",
         destination: pf.context.destination || "",
       });
       setTrending(data.items ?? []);
@@ -181,7 +181,7 @@ export default function App() {
   }, [pf.plan?.destination.name, pf.context.preferences]);
 
   useEffect(() => {
-    if (!localStorage.getItem("pathfinder.auth")) return;
+    if (!readStoredValue("auth")) return;
     void me()
       .then((data) => setAuthUser(data.user))
       .catch((cause) => {
@@ -191,8 +191,8 @@ export default function App() {
         clearStoredValue("auth");
         // A `user:` profile token is refused without its bearer, so fall back
         // to the guest token, as signing out does.
-        const guest = localStorage.getItem("pathfinder.guest");
-        if (guest) localStorage.setItem("pathfinder.client", guest);
+        const guest = readStoredValue("guest");
+        if (guest) writeStoredValue("client", guest);
         setAuthUser(null);
       });
   }, []);
@@ -248,9 +248,9 @@ export default function App() {
     password: string,
     displayName: string,
   ) => {
-    const guestToken = localStorage.getItem("pathfinder.client") || "";
-    if (!localStorage.getItem("pathfinder.guest")) {
-      localStorage.setItem("pathfinder.guest", guestToken);
+    const guestToken = readStoredValue("client") || "";
+    if (!readStoredValue("guest")) {
+      writeStoredValue("guest", guestToken);
     }
     const payload = {
       email,
@@ -260,8 +260,8 @@ export default function App() {
       session_id: pf.sessionId,
     };
     const result = mode === "login" ? await login(payload) : await register(payload);
-    localStorage.setItem("pathfinder.auth", result.token);
-    localStorage.setItem("pathfinder.client", result.profile_token);
+    writeStoredValue("auth", result.token);
+    writeStoredValue("client", result.profile_token);
     setAuthUser(result.user);
     setAuthOpen(false);
     if (pf.sessionId) {
@@ -335,8 +335,8 @@ export default function App() {
   const handleLogout = () => {
     // Under both prefixes, so the legacy-key migration cannot sign the user back in.
     clearStoredValue("auth");
-    const guest = localStorage.getItem("pathfinder.guest");
-    if (guest) localStorage.setItem("pathfinder.client", guest);
+    const guest = readStoredValue("guest");
+    if (guest) writeStoredValue("client", guest);
     setAuthUser(null);
     void pf.reload();
   };
