@@ -221,9 +221,12 @@ export default function App() {
     const id = pf.sessionId;
     if (!id || !window.confirm(t("plan.scrapConfirm"))) return;
     // The trip is deleted first: when the server refuses, it keeps its tab and the page says so.
-    if (!(await pf.scrapTrip())) return;
+    const outcome = await pf.scrapTrip();
+    if (outcome === "kept") return;
     const remaining = writeTrips((current) => current.filter((trip) => trip.id !== id));
-    // The next tab that still opens takes over; a tab for a trip that is gone is dropped on the way.
+    // Already on another trip, which stays. Otherwise the next tab that still opens takes over, and a tab
+    // for a trip that is gone is dropped on the way.
+    if (outcome === "left") return;
     for (const trip of remaining) {
       if ((await openTrip(trip.id)) !== "missing") return;
     }
