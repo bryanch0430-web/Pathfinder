@@ -421,7 +421,8 @@ drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The comm
   names the failure (timeout, network, rate limit, auth) and says whether asking again could help; a
   geocoder that answers with a quota or key problem (Google does so with HTTP 200 and a `status`)
   has failed, it has not said the place does not exist; after two failed lookups in a row the agent
-  stops asking. A place the traveller named whose lookup
+  stops asking. A guide place that is in the plan after all (the traveller named it and a place
+  source located it) is not reported as left out or unchecked. A place the traveller named whose lookup
   failed is a gap too, and its "Include" check says the lookup failed. A map outage at the
   destination itself is a failed data source, not a name to rephrase.
 - any section: a lookup the per-turn cap (`MAX_TOOL_CALLS_PER_TURN`) refused is a `blocked`
