@@ -20,6 +20,7 @@ import {
   runEval,
   saveProfilePreferences,
 } from "../lib/api";
+import { safeHref } from "../lib/safeHref";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
 
@@ -123,7 +124,10 @@ export function EvaluationPage() {
       running={running}
       error={error}
       onRun={(dataset, tag) => void handleRun(dataset, tag)}
-      onExport={(runId) => window.open(evalExportUrl(runId), "_blank", "noopener")}
+      onExport={(runId) => {
+        const href = safeHref(evalExportUrl(runId));
+        if (href) window.open(href, "_blank", "noopener");
+      }}
       onSelectRun={(runId) => void handleSelectRun(runId)}
     />
   );

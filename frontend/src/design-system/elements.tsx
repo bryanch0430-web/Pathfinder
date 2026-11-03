@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
+import { safeHref } from "../lib/safeHref";
 
 type DataStatus = "ok" | "stale" | "unavailable";
 type Intent = "plan" | "modify" | "ask" | "unclear";
@@ -69,11 +70,12 @@ export function SourceLink({ title, url, source }: { title: string; url?: string
       <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{source ? `${source}: ${title}` : title}</span>
     </>
   );
-  if (!url) {
+  const href = safeHref(url);
+  if (!href) {
     return <span className="pf-source-link">{body}</span>;
   }
   return (
-    <a className="pf-source-link" href={url} target="_blank" rel="noreferrer noopener">
+    <a className="pf-source-link" href={href} target="_blank" rel="noreferrer noopener">
       {body}
     </a>
   );

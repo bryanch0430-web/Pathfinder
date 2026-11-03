@@ -48,6 +48,7 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { getLegs, type MapLeg } from "../lib/api";
+import { safeHref } from "../lib/safeHref";
 
 /* --------------------------------------------------------------- header -- */
 
@@ -553,6 +554,7 @@ export function TripWorkspace({
   const [activeDay, setActiveDay] = useState(plan.days[0]?.date ?? "");
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
   const hotel = plan.hotels[0];
+  const bookingHref = safeHref(hotel?.booking_url);
   const unknownGaps = plan.data_quality.gaps.length;
   const firstUpdated = updatedIds?.[0] ?? "";
 
@@ -686,7 +688,7 @@ export function TripWorkspace({
             </div>
             <div className="pf-stack" style={{ alignItems: "flex-end", gap: 4 }}>
               <StatusPill status={hotel.data_status} />
-              {hotel.booking_url ? <a className="pf-small" href={hotel.booking_url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Check hotel</a> : null}
+              {bookingHref ? <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Check hotel</a> : null}
             </div>
           </div>
         ) : null}
@@ -1679,6 +1681,7 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
   const [active, setActive] = useState<VideoNote | null>(null);
   if (!notes || notes.length === 0) return null;
   const embed = active ? videoEmbedUrl(active) : "";
+  const activeHref = safeHref(active?.url);
   return (
     <section className="pf-card pf-videos" aria-label="Video guides">
       <div className="pf-videos__head">
@@ -1724,9 +1727,11 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
             ) : (
               <Text size="sm">This video does not allow an in-page player.</Text>
             )}
-            <a className="pf-video__open" href={active.url} target="_blank" rel="noreferrer">
-              Open on {active.source}
-            </a>
+            {activeHref ? (
+              <a className="pf-video__open" href={activeHref} target="_blank" rel="noreferrer">
+                Open on {active.source}
+              </a>
+            ) : null}
           </div>
         ) : null}
       </Dialog>
@@ -1754,9 +1759,13 @@ export function GuideNotes({
           <article className="pf-guide" key={item.id}>
             <div className="pf-guide__head">
               <strong>{item.section}</strong>
-              <a href={item.url} target="_blank" rel="noreferrer" className="pf-guide__source">
-                {item.title} <Icon name="external" size={10} />
-              </a>
+              {safeHref(item.url) ? (
+                <a href={safeHref(item.url)} target="_blank" rel="noreferrer" className="pf-guide__source">
+                  {item.title} <Icon name="external" size={10} />
+                </a>
+              ) : (
+                <span className="pf-guide__source">{item.title}</span>
+              )}
             </div>
             <Text size="xs" tone="secondary">{item.text}</Text>
             <span className="pf-guide__meta">
