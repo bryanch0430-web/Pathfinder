@@ -123,6 +123,9 @@ class Replay:
     def __init__(self, routes: list[dict[str, Any]], faults: list[dict[str, Any]] | None = None):
         self.routes = [copy.deepcopy(route) for route in routes]
         by_id = {route["id"]: route for route in self.routes}
+        for route in self.routes:
+            if "json_from" in route:  # a name search answers from the same rows as the list search
+                route["json"] = by_id[route["json_from"]]["json"]
         for fault in faults or []:
             route = by_id[fault["route"]]
             route["fault"] = fault
@@ -145,12 +148,12 @@ class Replay:
             fields = {**(body if isinstance(body, dict) else {}), **params}
             if all(re.search(pattern, str(fields.get(key, "")), re.IGNORECASE) for key, pattern in (route.get("when") or {}).items()):
                 self.hits[route["id"]] += 1
-                return _respond(route, params)
+                return _respond(route, params, fields)
         self.misses.append(f"{request.method} {url}")
         return httpx.Response(404, json={"error": "no recorded response"})
 
 
-def _respond(route: dict[str, Any], params: dict[str, str]) -> httpx.Response:
+def _respond(route: dict[str, Any], params: dict[str, str], fields: dict[str, Any] | None = None) -> httpx.Response:
     fault = route.get("fault") or {}
     status = int(fault.get("status", 200))
     if "text" in fault:
@@ -158,7 +161,29 @@ def _respond(route: dict[str, Any], params: dict[str, str]) -> httpx.Response:
     body = copy.deepcopy(fault["json"] if "json" in fault else route["json"])
     if "daily_template" in route and status < 400:
         body["daily"] = _daily(route["daily_template"], params, fault)
+    if route.get("filter"):
+        body = _named_search(body, str((fields or {}).get(route["filter"], "")))
     return httpx.Response(status, json=body)
+
+
+def _named_search(body: Any, query: str) -> Any:
+    """A search by place name answers with the rows that carry every word of the name
+    ("Ghibli Museum in Tokyo" -> rows naming the Ghibli Museum), as the real APIs do."""
+    words = _norm_name(re.split(r"\s+in\s+", query, maxsplit=1)[0]).split()
+
+    def text(row: dict[str, Any]) -> str:
+        names = [str((row.get("displayName") or {}).get("text") or ""), str(row.get("name") or ""), str(row.get("display_name") or "")]
+        names += [str(value) for value in (row.get("namedetails") or {}).values()]
+        return _norm_name(" ".join(names))
+
+    def keep(rows: list) -> list:
+        return [row for row in rows if isinstance(row, dict) and all(word in text(row) for word in words)]
+
+    if isinstance(body, list):
+        return keep(body)
+    if isinstance(body, dict) and isinstance(body.get("places"), list):
+        body["places"] = keep(body["places"])
+    return body
 
 
 def _daily(template: dict[str, list], params: dict[str, str], fault: dict[str, Any]) -> dict[str, list]:

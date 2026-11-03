@@ -131,6 +131,9 @@
        }
       ],
       "status": "OK"
+     },
+     "when": {
+      "address": "^Kyoto$"
      }
     },
     {
@@ -167,6 +170,9 @@
        }
       ],
       "generationtime_ms": 0.9
+     },
+     "when": {
+      "name": "^Kyoto$"
      }
     },
     {
@@ -214,7 +220,8 @@
      "method": "POST",
      "url": "https://places.googleapis.com/v1/places:searchText",
      "when": {
-      "includedType": "tourist_attraction"
+      "includedType": "tourist_attraction",
+      "textQuery": "^best "
      },
      "json": {
       "places": [
@@ -419,6 +426,16 @@
        }
       ]
      }
+    },
+    {
+     "id": "google.named",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "tourist_attraction"
+     },
+     "filter": "textQuery",
+     "json_from": "google.attractions"
     },
     {
      "id": "google.restaurants",
@@ -996,6 +1013,16 @@
      }
     },
     {
+     "id": "nominatim.named",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "."
+     },
+     "filter": "q",
+     "json_from": "nominatim.attractions"
+    },
+    {
      "id": "fx.rates",
      "method": "GET",
      "url": "https://open.er-api.com/v6/latest/USD",
@@ -1154,6 +1181,9 @@
        }
       ],
       "status": "OK"
+     },
+     "when": {
+      "address": "^Tokyo$"
      }
     },
     {
@@ -1177,6 +1207,9 @@
        }
       ],
       "generationtime_ms": 0.7
+     },
+     "when": {
+      "name": "^Tokyo$"
      }
     },
     {
@@ -1224,7 +1257,8 @@
      "method": "POST",
      "url": "https://places.googleapis.com/v1/places:searchText",
      "when": {
-      "includedType": "tourist_attraction"
+      "includedType": "tourist_attraction",
+      "textQuery": "^best "
      },
      "json": {
       "places": [
@@ -1389,6 +1423,16 @@
        }
       ]
      }
+    },
+    {
+     "id": "google.named",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "tourist_attraction"
+     },
+     "filter": "textQuery",
+     "json_from": "google.attractions"
     },
     {
      "id": "google.restaurants",
@@ -1950,6 +1994,16 @@
      }
     },
     {
+     "id": "nominatim.named",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "."
+     },
+     "filter": "q",
+     "json_from": "nominatim.attractions"
+    },
+    {
      "id": "fx.rates",
      "method": "GET",
      "url": "https://open.er-api.com/v6/latest/USD",
@@ -2110,6 +2164,9 @@
        }
       ],
       "status": "OK"
+     },
+     "when": {
+      "address": "^Osaka$"
      }
     },
     {
@@ -2133,6 +2190,9 @@
        }
       ],
       "generationtime_ms": 0.6
+     },
+     "when": {
+      "name": "^Osaka$"
      }
     },
     {
@@ -2180,7 +2240,8 @@
      "method": "POST",
      "url": "https://places.googleapis.com/v1/places:searchText",
      "when": {
-      "includedType": "tourist_attraction"
+      "includedType": "tourist_attraction",
+      "textQuery": "^best "
      },
      "json": {
       "places": [
@@ -2323,6 +2384,16 @@
        }
       ]
      }
+    },
+    {
+     "id": "google.named",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "tourist_attraction"
+     },
+     "filter": "textQuery",
+     "json_from": "google.attractions"
     },
     {
      "id": "google.restaurants",
@@ -2778,6 +2849,16 @@
      }
     },
     {
+     "id": "nominatim.named",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "."
+     },
+     "filter": "q",
+     "json_from": "nominatim.attractions"
+    },
+    {
      "id": "fx.rates",
      "method": "GET",
      "url": "https://open.er-api.com/v6/latest/USD",
@@ -2816,6 +2897,11 @@
    "faults": [
     {
      "route": "google.attractions",
+     "status": 503,
+     "text": "Service Unavailable"
+    },
+    {
+     "route": "google.named",
      "status": 503,
      "text": "Service Unavailable"
     }
