@@ -12,6 +12,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 from app.domain.errors import ProviderError, SecurityBlocked
 from app.domain.models import FailureKind
 from app.domain.ports import Tracer
+from app.security.untrusted import neutralise
 
 T = TypeVar("T")
 
@@ -87,6 +88,14 @@ class Toolbox:
         try:
             with self.tracer.span(f"tool.{tool}", path=self.path) as span:
                 result = await fn(**kwargs)
+                # Fetched text is data: instruction-like text is replaced before
+                # any agent, prompt or reply sees it (Proposal TC-05).
+                screened: list[str] = []
+                result = neutralise(result, screened)
+                if screened:
+                    span.attrs["screened"] = sorted(set(screened))
+                    if self.store is not None:
+                        self.store.log_injection("tool_result_injection", "high")
                 span.attrs["status"] = "ok"
                 latency = int((time.perf_counter() - started) * 1000)
                 if self.store is not None:

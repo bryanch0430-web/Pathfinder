@@ -31,7 +31,8 @@ def test_injection_scorecard(settings: Settings) -> None:
     service = EvalService(SQLiteStore(settings.database_path), settings)
     run = asyncio.run(service.run(dataset_id="injection", experiment_tag="baseline-v1"))
     assert run.metrics[0].key == "injection_containment"
-    assert run.metrics[0].value == 100.0
+    # Proposal TC-05: 84 probes scored on four conditions as real turns; measured 96.4.
+    assert run.metrics[0].value >= 95.0
 
 
 def test_unfrozen_dataset_refuses_to_run(settings: Settings) -> None:

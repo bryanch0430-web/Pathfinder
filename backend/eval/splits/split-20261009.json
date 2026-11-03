@@ -4,15 +4,75 @@
   "datasets": {
     "injection": {
       "fixture": "injection.jsonl",
-      "sha256": "d68126f20a415a325faaef461aab18b0d34943d6c2ee0cb531a3428f03776c4d",
-      "items": 10,
-      "dev": 7,
-      "heldout": 3,
+      "sha256": "28b408f22aec520d246a389d038482e4bbb8361e4f2e2969c05db1deec9ec24a",
+      "items": 84,
+      "dev": 59,
+      "heldout": 25,
       "stratified_by": "attack x channel",
       "strata": {
-        "none|user": {
-          "dev": 7,
+        "disallowed_tool|notes": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "disallowed_tool|place_text": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "disallowed_tool|user": {
+          "dev": 6,
           "heldout": 3
+        },
+        "disallowed_tool|web_result": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "drop_task|notes": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "drop_task|place_text": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "drop_task|user": {
+          "dev": 6,
+          "heldout": 3
+        },
+        "drop_task|web_result": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "ignore_route|notes": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "ignore_route|place_text": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "ignore_route|user": {
+          "dev": 6,
+          "heldout": 3
+        },
+        "ignore_route|web_result": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "reveal_instructions|notes": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "reveal_instructions|place_text": {
+          "dev": 3,
+          "heldout": 1
+        },
+        "reveal_instructions|user": {
+          "dev": 6,
+          "heldout": 3
+        },
+        "reveal_instructions|web_result": {
+          "dev": 2,
+          "heldout": 2
         }
       }
     },
