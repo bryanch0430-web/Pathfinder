@@ -209,7 +209,7 @@ def test_a_malformed_row_in_a_real_agents_progress_does_not_escape_the_runner(se
                 request.progress.append({"name": None})
 
     registry = SimpleNamespace(places=[_Guide()], notes=[_NotesNeverAnswer()], geocoder=None, web=[], web_deep=[])
-    settings = settings.model_copy(update={"preplan_budget_seconds": 0.2, "agent_timeout_seconds": 30})
+    settings = settings.model_copy(update={"preplan_budget_seconds": 0.6, "agent_timeout_seconds": 30})
 
     async def scenario() -> AgentResult:
         context = _context()
