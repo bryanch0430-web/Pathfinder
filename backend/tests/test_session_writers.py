@@ -17,6 +17,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 import httpx
 import pytest
 
+import app.application.orchestrator as orchestrator
 from app.config import Settings
 from app.container import Container
 from app.domain.models import EvalCase, Intent, RouteDecision, TripPlan, utcnow
@@ -290,5 +291,91 @@ def test_deleting_a_trip_through_the_api_while_its_turn_runs_leaves_nothing_behi
             assert store.list_versions(session_id) == []
             assert store.list_messages(session_id, limit=20) == []
             assert (await client.get(f"/api/journeys/{session_id}")).status_code == 404
+
+    asyncio.run(scenario())
+
+
+# -- CONC-G9: the trip form saved while the message is being understood -------
+
+
+def _understanding_that_waits(monkeypatch: pytest.MonkeyPatch, entered: asyncio.Event, gate: asyncio.Event) -> None:
+    """The model call inside the understand step takes a while."""
+    real = orchestrator.understand
+
+    async def slow_understand(*args: Any, **kwargs: Any):
+        entered.set()
+        await gate.wait()
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(orchestrator, "understand", slow_understand)
+
+
+def test_a_form_saved_while_the_message_is_understood_is_kept_next_to_what_the_message_said(
+    quick_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        entered, gate = asyncio.Event(), asyncio.Event()
+        _understanding_that_waits(monkeypatch, entered, gate)
+        turn = asyncio.create_task(scene.turn("Swap the hotel for the other option for 4 people."))
+        await asyncio.wait_for(entered.wait(), 30)
+
+        # What PATCH /api/journeys/{id}/state does: read the stored form, change a field, save it.
+        form = scene.store.get_context(scene.session_id)
+        form.budget = 777777
+        form.preferences = [*form.preferences, "quiet evenings"]
+        scene.store.save_context(form)
+        gate.set()
+        events = await asyncio.wait_for(turn, 60)
+
+        saved = scene.store.get_context(scene.session_id)
+        assert not _errors(events)
+        assert saved.budget == 777777
+        assert "quiet evenings" in saved.preferences
+        assert saved.party_size == 4
+
+    _run(quick_settings, scenario)
+
+
+def test_a_turn_adds_to_the_preferences_that_were_saved_meanwhile(
+    quick_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        entered, gate = asyncio.Event(), asyncio.Event()
+        _understanding_that_waits(monkeypatch, entered, gate)
+        turn = asyncio.create_task(scene.turn("We are vegetarian. Swap the hotel for the other option."))
+        await asyncio.wait_for(entered.wait(), 30)
+
+        form = scene.store.get_context(scene.session_id)
+        form.preferences = ["quiet evenings"]  # the form replaced the list
+        scene.store.save_context(form)
+        gate.set()
+        await asyncio.wait_for(turn, 60)
+
+        assert scene.store.get_context(scene.session_id).preferences == ["quiet evenings", "vegetarian"]
+
+    _run(quick_settings, scenario)
+
+
+def test_patching_the_form_through_the_api_while_its_turn_is_understood_is_kept(
+    quick_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        async with _api(quick_settings) as (container, client, session_id):
+            edit_may_finish = asyncio.Event()
+            edit_may_finish.set()
+            _edit_that_waits(container, asyncio.Event(), edit_may_finish)
+            entered, gate = asyncio.Event(), asyncio.Event()
+            _understanding_that_waits(monkeypatch, entered, gate)
+            body = {"session_id": session_id, "message": SWAP_HOTEL, "client_token": "guest-writers"}
+            stream = asyncio.create_task(client.post("/api/turn/stream", json=body))
+            await asyncio.wait_for(entered.wait(), 30)
+
+            patched = await client.patch(f"/api/journeys/{session_id}/state", json={"budget": 777777})
+            gate.set()
+            await asyncio.wait_for(stream, 60)
+
+            assert patched.status_code == 200
+            opened = await client.get(f"/api/journeys/{session_id}")
+            assert opened.json()["context"]["budget"] == 777777
 
     asyncio.run(scenario())
