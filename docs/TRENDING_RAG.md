@@ -20,7 +20,7 @@ never enters the corpus.
 ## 2. Read path
 
 ```
-GET /api/popular?q=...&destination=...&client_token=...
+GET /api/popular?q=...&destination=...        (guest token: header X-Client-Token)
   -> query text = q + current destination + the caller's preference tags
   -> BM25 over each journey's document (destination, sights, tags, year, summary)
   -> dense cosine against the stored 192-dim embedding
@@ -60,7 +60,7 @@ PYTHONPATH=. python scripts/seed_platform_demo.py --reset
 - 12 destinations, validated `TripPlan` objects (days, items, hotels, costs).
 - One `kept_journeys` row per journey with its embedding, rating and timestamp.
 - Anonymous `taste_profiles` rows (`demo-user-0001` …) so personalisation can be
-  demoed with `?client_token=demo-user-0001`.
+  demoed with the header `X-Client-Token: demo-user-0001`.
 - Every row is prefixed (`demo:` trips, `demo-user-` tokens) so `--reset` removes
   exactly what the script created.
 
