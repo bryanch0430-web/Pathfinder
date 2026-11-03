@@ -75,6 +75,8 @@ class RateLimits:
     auth: SlidingWindowLimiter
     #: routes that start a model or planner run, against cost and load abuse
     ai: SlidingWindowLimiter
+    #: new trips and share links, which cost the caller nothing and are kept for good
+    create: SlidingWindowLimiter
 
 
 def client_key(request: Request) -> str:

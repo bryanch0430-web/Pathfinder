@@ -165,6 +165,7 @@ class Settings(BaseSettings):
     # 0 turns a limit off.
     rate_limit_auth_per_minute: int = 10
     rate_limit_ai_per_minute: int = 30
+    rate_limit_create_per_minute: int = 60
 
     # --- streaming ---------------------------------------------------------
     # The chat stream sends an SSE comment after this many quiet seconds so

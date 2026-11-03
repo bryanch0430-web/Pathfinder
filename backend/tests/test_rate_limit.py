@@ -169,3 +169,87 @@ def test_default_ai_limit_is_thirty_per_minute(client: TestClient) -> None:
     assert statuses == [200] * 30 + [429]
     # Other routes are not limited.
     assert client.post("/api/journeys", json={"client_token": "guest-rl"}).status_code == 200
+
+
+# -- trips and share links ------------------------------------------------------------
+
+
+def _create_limit(settings: Settings, limit: int):
+    return TestClient(create_app(settings.model_copy(update={"rate_limit_create_per_minute": limit})))
+
+
+def _planned_session(scoped: TestClient, token: str) -> str:
+    """A guest session with a plan, so it can be shared."""
+    import random
+
+    from scripts.seed_platform_demo import DESTINATIONS, _plan
+
+    session_id = scoped.post("/api/journeys", json={"client_token": token}).json()["session"]["id"]
+    place = next(item for item in DESTINATIONS if item["name"] == "Kyoto")
+    plan = _plan(random.Random(3), place, 3).model_copy(update={"session_id": session_id})
+    scoped.app.state.container.store.save_plan(plan, "test plan")
+    return session_id
+
+
+def test_new_trips_and_share_links_share_one_budget_per_address(settings: Settings) -> None:
+    guest = {"X-Client-Token": "guest-create"}
+    with _create_limit(settings, 4) as scoped:
+        session_id = _planned_session(scoped, "guest-create")  # 1 trip
+        shares = [scoped.post(f"/api/journeys/{session_id}/share", headers=guest) for _ in range(3)]
+        refused_trip = scoped.post("/api/journeys", json={"client_token": "guest-create"})
+        refused_share = scoped.post(f"/api/journeys/{session_id}/share", headers=guest)
+        # Reading and revoking are not creation.
+        assert scoped.get(f"/api/journeys/{session_id}", headers=guest).status_code == 200
+        assert scoped.delete(f"/api/journeys/{session_id}/share", headers=guest).status_code == 200
+
+    assert [response.status_code for response in shares] == [200, 200, 200]
+    assert refused_trip.status_code == 429 and int(refused_trip.headers["Retry-After"]) >= 1
+    assert set(refused_trip.json()) == {"detail"}
+    assert refused_share.status_code == 429
+
+
+def test_a_refused_trip_is_not_stored(settings: Settings) -> None:
+    import sqlite3
+    from contextlib import closing
+
+    with _create_limit(settings, 2) as scoped:
+        statuses = [scoped.post("/api/journeys", json={"client_token": f"guest-{n}"}).status_code for n in range(5)]
+        with closing(sqlite3.connect(scoped.app.state.container.store.path)) as conn:
+            stored = conn.execute("SELECT COUNT(*) FROM journeys").fetchone()[0]
+
+    assert statuses == [200, 200, 429, 429, 429]
+    assert stored == 2
+
+
+def test_requests_that_make_nothing_do_not_use_the_creation_budget(settings: Settings) -> None:
+    with _create_limit(settings, 2) as scoped:
+        unusable = [scoped.post("/api/journeys", json={"client_token": "bad token"}).status_code for _ in range(6)]
+        not_yours = [
+            scoped.post("/api/journeys/sess_nope/share", headers={"X-Client-Token": "guest-x"}).status_code
+            for _ in range(6)
+        ]
+        no_plan_yet = scoped.post("/api/journeys", json={"client_token": "guest-noplan"}).json()["session"]["id"]
+        no_plan = [
+            scoped.post(f"/api/journeys/{no_plan_yet}/share", headers={"X-Client-Token": "guest-noplan"}).status_code
+            for _ in range(6)
+        ]
+        # One trip was made above; exactly one more fits.
+        statuses = [scoped.post("/api/journeys", json={"client_token": "guest-ok"}).status_code for _ in range(2)]
+
+    assert unusable == [422] * 6 and not_yours == [404] * 6 and no_plan == [404] * 6
+    assert statuses == [200, 429]
+
+
+def test_default_creation_limit_is_sixty_per_minute(client: TestClient) -> None:
+    statuses = [client.post("/api/journeys", json={"client_token": f"guest-{n}"}).status_code for n in range(61)]
+
+    assert statuses == [200] * 60 + [429]
+    # The planning budget is separate.
+    client.app.state.container.turn_service = QuickTurns()
+    turn = {"message": "Plan Kyoto", "locale": "en", "client_token": "guest-rl"}
+    assert client.post("/api/turn/stream", json=turn).status_code == 200
+
+
+def test_creation_limit_zero_turns_it_off(settings: Settings) -> None:
+    with _create_limit(settings, 0) as scoped:
+        assert {scoped.post("/api/journeys", json={"client_token": f"g-{n}"}).status_code for n in range(80)} == {200}

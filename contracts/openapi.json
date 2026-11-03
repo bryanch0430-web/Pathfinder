@@ -1987,6 +1987,7 @@
           },
           "client_token": {
             "type": "string",
+            "maxLength": 120,
             "title": "Client Token",
             "default": ""
           }
@@ -2247,6 +2248,7 @@
           },
           "client_token": {
             "type": "string",
+            "maxLength": 120,
             "title": "Client Token",
             "default": ""
           }

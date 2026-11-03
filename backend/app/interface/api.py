@@ -85,32 +85,32 @@ class ChatRequest(BaseModel):
 
 class ProfilePatch(BaseModel):
     #: guest token; may be empty when a bearer identifies the caller
-    client_token: str = Field(default="", max_length=120)
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
     preferences: list[str] = Field(default_factory=list, max_length=30)
 
 
 class ClearMemoryRequest(BaseModel):
-    client_token: str = Field(default="", max_length=120)
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
 class AuthRequest(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=8, max_length=200)
     display_name: str = Field(default="", max_length=80)
-    client_token: str = Field(default="", max_length=120)
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
     session_id: str | None = None
 
 
 class ClaimRequest(BaseModel):
     session_id: str
-    client_token: str = ""
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
 class FeedbackRequest(BaseModel):
     useful: bool
     stars: int | None = Field(default=None, ge=1, le=5)
     reason_code: str = ""
-    client_token: str = ""
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
 class EvalRunRequest(BaseModel):
@@ -145,9 +145,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.rate_limits = RateLimits(
         auth=SlidingWindowLimiter(settings.rate_limit_auth_per_minute),
         ai=SlidingWindowLimiter(settings.rate_limit_ai_per_minute),
+        create=SlidingWindowLimiter(settings.rate_limit_create_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     limit_ai = Depends(rate_limit("ai", "Too many planning requests."))
+    # Charged inside the route once the request is known to make something, so a refused one costs nothing.
+    charge_create = rate_limit("create", "Too many new trips or share links.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -452,6 +455,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def create_session(payload: CreateSessionRequest, request: Request) -> dict[str, Any]:
         c = container(request)
         token, user = session_caller(request, c, payload.client_token)
+        await charge_create(request)
         session = c.store.create_session(token, user.id if user else "")
         context = TripContext(
             session_id=session.id,
@@ -619,6 +623,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
+        await charge_create(request)
         slug, expires_at = c.store.create_share(session_id, plan)
         return {"slug": slug, "url": f"/s/{slug}", "expires_at": expires_at}
 
@@ -681,7 +686,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
     @app.get("/api/traveller")
     async def get_profile(
         request: Request,
-        client_token: str = Query(default="", max_length=120),
+        client_token: str = Query(default="", max_length=TOKEN_MAX_LENGTH),
     ) -> dict[str, Any]:
         c = container(request)
         return c.store.client_profile(resolve_identity(request, c, client_token))
@@ -708,7 +713,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
     async def saved_trips(
         request: Request,
         limit: int = Query(default=20, ge=1, le=100),
-        client_token: str = Query(default="", max_length=120),
+        client_token: str = Query(default="", max_length=TOKEN_MAX_LENGTH),
     ) -> dict[str, Any]:
         c = container(request)
         trips = c.store.list_saved_trips_for_owner(resolve_identity(request, c, client_token), limit)
@@ -733,7 +738,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         request: Request,
         q: str = Query(default="", max_length=80),
         limit: int = Query(default=6, ge=1, le=12),
-        client_token: str = Query(default="", max_length=120),
+        client_token: str = Query(default="", max_length=TOKEN_MAX_LENGTH),
         destination: str = Query(default="", max_length=80),
     ) -> dict[str, Any]:
         """Hybrid retrieval over useful-marked trips. Public fields only.

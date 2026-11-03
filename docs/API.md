@@ -226,3 +226,15 @@ It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to wri
 | `plan_conflict` | another turn on the same trip saved its version first (turns on one trip otherwise run one after another) | yes |
 | `provider_error` | data source failure (kind attached) | depends |
 | `internal_error` | unexpected failure, no internals leaked to the user | yes |
+
+## 9. Rate limits
+
+Counted per process and per client address (the socket peer; see the README for proxies) in a
+sliding one-minute window. A request over the limit is answered `429` with a `Retry-After` header
+and is not counted. A limit of `0` turns it off.
+
+| Setting | Default | Routes |
+|---|---|---|
+| `RATE_LIMIT_AUTH_PER_MINUTE` | 10 | `POST /api/account/signup` and `/signin` (one budget, counted before the password is checked) |
+| `RATE_LIMIT_AI_PER_MINUTE` | 30 | `POST /api/turn/stream` and `POST /api/eval/trials` (one budget) |
+| `RATE_LIMIT_CREATE_PER_MINUTE` | 60 | `POST /api/journeys` and `POST /api/journeys/{id}/share` (one budget; a request that is refused with `401`, `404` or `422` makes nothing and is not counted) |

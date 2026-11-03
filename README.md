@@ -551,7 +551,8 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   session id and client token. A link stops working after `SHARE_TTL_DAYS` (30), when the
   owner turns it off in the share dialog, or when the trip is deleted; comments remain roadmap.
 - **Rate limits are per process and per IP.** Sign-in and sign-up allow 10 requests a
-  minute, and planning turns and evaluation runs 30 (`RATE_LIMIT_*_PER_MINUTE`). Behind a
+  minute, planning turns and evaluation runs 30, and new trips and share links 60
+  (`RATE_LIMIT_*_PER_MINUTE`). Behind a
   reverse proxy, start uvicorn with `--forwarded-allow-ips` for that proxy, or every user
   shares its address.
 - **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
