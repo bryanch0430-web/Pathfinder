@@ -302,3 +302,22 @@ def test_a_stop_put_on_an_empty_day_makes_the_day_and_its_check_read_so(settings
     assert updated.days[4].note == ""
     populated = next(check for check in updated.constraints if check.text == "Every day has at least one verified stop")
     assert (populated.status.value, populated.evidence) == ("pass", "All days populated.")
+
+
+def test_a_day_filled_by_locked_stops_says_which_stop_it_had_no_time_for(settings: Settings) -> None:
+    def prepare(plan: TripPlan) -> None:
+        for number, (start, end) in enumerate(
+            (("08:00", "12:00"), ("12:00", "16:00"), ("16:00", "20:00"), ("20:00", "23:30")), start=1
+        ):
+            _custom(plan, 3, f"Long visit {number}", start, end, f"item_long{number}")
+
+    plan, updated, _ = _modify(settings, "make it 3 days", ["dates"], days=5, new_days=3, prepare=prepare)
+
+    day = updated.days[2]
+    assert [item.name for item in day.items] == [f"Long visit {number}" for number in range(1, 5)]
+    assert all(item.locked for item in day.items) and _overlaps(updated) == []
+    left_out = [gap.message for gap in updated.data_quality.gaps if "was left out" in gap.message]
+    assert left_out == [
+        "There was no time left on day 3 for Arashiyama Bamboo Grove around your locked stops, so it was left out."
+    ]
+    assert validate_plan(updated, settings) == []
