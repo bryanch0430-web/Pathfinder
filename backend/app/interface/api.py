@@ -7,7 +7,7 @@ import hmac
 import html
 import json
 import re
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -39,6 +39,7 @@ from app.domain.models import (
 )
 from app.evaluation import export_markdown
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
+from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, paced, sse_frame
 
 
 class CreateSessionRequest(BaseModel):
@@ -692,24 +693,44 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             require_session(c, request, session_id)
 
         async def event_stream() -> AsyncIterator[str]:
+            turn = c.turn_service.handle_turn(
+                session_id=session_id,
+                message=payload.message,
+                locale=payload.locale,
+                scope_item_id=payload.scope_item_id,
+                scope_label=payload.scope_label,
+            )
             try:
-                async for event in c.turn_service.handle_turn(
-                    session_id=session_id,
-                    message=payload.message,
-                    locale=payload.locale,
-                    scope_item_id=payload.scope_item_id,
-                    scope_label=payload.scope_label,
-                ):
-                    data = json.dumps(event.data, ensure_ascii=False, default=str)
-                    yield f"event: {event.event}\ndata: {data}\n\n"
+                async with aclosing(
+                    paced(
+                        turn,
+                        keepalive_seconds=settings.sse_keepalive_seconds,
+                        deadline_seconds=settings.turn_deadline_seconds,
+                    )
+                ) as events:
+                    async for event in events:
+                        if event is KEEPALIVE:
+                            yield KEEPALIVE_FRAME
+                        elif event is TIMED_OUT:
+                            # The turn task is already cancelled; this is the last frame.
+                            yield sse_frame(
+                                "error",
+                                {
+                                    "code": "turn_timeout",
+                                    "message": "This took too long and was stopped. Please try again.",
+                                    "detail": f"No result within {settings.turn_deadline_seconds:g} seconds.",
+                                },
+                            )
+                            return
+                        else:
+                            yield sse_frame(event.event, event.data)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                data = json.dumps(
+                yield sse_frame(
+                    "error",
                     {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": str(exc)[:200]},
-                    ensure_ascii=False,
                 )
-                yield f"event: error\ndata: {data}\n\n"
 
         return StreamingResponse(
             event_stream(),

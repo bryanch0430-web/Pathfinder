@@ -183,11 +183,18 @@ class PlanPath:
 
         results: dict[str, AgentResult] = {}
         started = time.perf_counter()
-        done, pending = await asyncio.wait(
-            tasks.keys(),
-            timeout=self.settings.preplan_budget_seconds,
-            return_when=asyncio.ALL_COMPLETED,
-        )
+        try:
+            done, pending = await asyncio.wait(
+                tasks.keys(),
+                timeout=self.settings.preplan_budget_seconds,
+                return_when=asyncio.ALL_COMPLETED,
+            )
+        except asyncio.CancelledError:
+            # The turn was abandoned (deadline or disconnect): stop the agents too.
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
         for task in pending:
             task.cancel()
         if pending:

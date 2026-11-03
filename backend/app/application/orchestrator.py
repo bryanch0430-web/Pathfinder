@@ -368,9 +368,12 @@ class TurnService:
                 version=1,
             )
         )
-        async for event in _drain(queue, task):
-            yield event
-        plan = await task
+        try:
+            async for event in _drain(queue, task):
+                yield event
+            plan = await task
+        finally:
+            await _settle(task)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
         self.store.add_message(
             Message(session_id=session_id, role="assistant", content=plan.summary, intent=Intent.PLAN)
@@ -414,9 +417,12 @@ class TurnService:
                 scope_item_id=scope_item_id,
             )
         )
-        async for event in _drain(queue, task):
-            yield event
-        updated, diff = await task
+        try:
+            async for event in _drain(queue, task):
+                yield event
+            updated, diff = await task
+        finally:
+            await _settle(task)
         self.store.save_plan(updated, updated.change_summary)
         description = _describe_diff(diff, updated)
         if diff:
@@ -548,6 +554,18 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
         parts.append(hotel)
     parts.extend(extras)
     return " ".join(parts) if parts else "No itinerary items needed to change."
+
+
+async def _settle(task: asyncio.Task) -> None:
+    """Cancel a path task the turn stopped waiting for (deadline, disconnect) and let it unwind.
+
+    A no-op when the task already finished.
+    """
+    if not task.done():
+        task.cancel()
+        await asyncio.wait({task})
+    if not task.cancelled():
+        task.exception()  # mark any failure as seen; the turn already reported or abandoned it
 
 
 async def _drain(

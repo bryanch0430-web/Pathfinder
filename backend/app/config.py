@@ -153,6 +153,13 @@ class Settings(BaseSettings):
     rate_limit_auth_per_minute: int = 10
     rate_limit_ai_per_minute: int = 30
 
+    # --- streaming ---------------------------------------------------------
+    # The chat stream sends an SSE comment after this many quiet seconds so
+    # proxies keep the connection open, and ends a turn that runs longer than
+    # turn_deadline_seconds with an `error` event (code turn_timeout).
+    sse_keepalive_seconds: float = 15.0
+    turn_deadline_seconds: float = 180.0
+
     @field_validator("llm_provider", mode="before")
     @classmethod
     def _normalise_provider(cls, value: object) -> str:
