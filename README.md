@@ -457,6 +457,17 @@ The evaluation tab needs at least one run; after the two `hongkong` commands abo
 shows a real comparison and a trend line. Full method and current results:
 [`docs/EVALUATION.md`](docs/EVALUATION.md).
 
+The tab, like the threat list on the Settings page, calls the admin routes, so the page must
+send your `ADMIN_TOKEN`. It reads the token from the browser's local storage; nothing in the
+page sets it. Store it once per browser (a profile only you use, because local storage is not
+a secret store) from the developer console:
+
+```js
+localStorage.setItem("pathfinder.admin", "<your ADMIN_TOKEN>")
+```
+
+Without it the tab shows "Admin token required".
+
 ---
 
 ## 7. Tests
@@ -571,7 +582,8 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
 - **Admin endpoints use one shared token.** They require an `X-Admin-Token` header equal to
   `ADMIN_TOKEN`. Outside `ENVIRONMENT=development` or `test` the backend refuses to start
   with the default or placeholder token (see section 2.2); set a real one before exposing
-  the process.
+  the process. The web page has no field for it: section 6 shows how to store it in the
+  browser for the Evaluation tab.
 - **Policy thresholds are environment-configured.** The Settings screen is intentionally
   read-only; changing a threshold means editing `.env`, restarting and recording the diff.
 
