@@ -120,7 +120,8 @@ def test_a_profile_token_on_a_row_with_no_account_opens_it_for_nobody(client: Te
     ):
         assert not _opens(client, legacy, headers), headers
         assert client.delete(f"/api/journeys/{legacy}", headers=headers).status_code == 404
-        assert client.patch(f"/api/journeys/{legacy}/state", json={"destination": "Kyoto"}, headers=headers).status_code == 404
+        patched = client.patch(f"/api/journeys/{legacy}/state", json={"destination": "Kyoto"}, headers=headers)
+        assert patched.status_code == 404
     assert client.app.state.container.store.get_session(legacy) is not None
 
 

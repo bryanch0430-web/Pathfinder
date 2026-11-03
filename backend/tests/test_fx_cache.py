@@ -151,7 +151,8 @@ def test_the_public_wallet_routes_make_one_outbound_call_while_the_upstream_is_d
 ) -> None:
     with TestClient(create_app(settings)) as client:
         wallet = [client.get("/api/wallet", params={"base": "HKD"}) for _ in range(20)]
-        convert = [client.get("/api/wallet/convert", params={"amount": 100, "from": "HKD", "to": "USD"}) for _ in range(5)]
+        pair = {"amount": 100, "from": "HKD", "to": "USD"}
+        convert = [client.get("/api/wallet/convert", params=pair) for _ in range(5)]
 
     assert {response.status_code for response in wallet + convert} == {200}
     assert {response.json()["source"] for response in wallet + convert} == {"static"}
