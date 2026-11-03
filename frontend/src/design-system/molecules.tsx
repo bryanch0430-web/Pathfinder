@@ -11,6 +11,7 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { isImeKey } from "../lib/typing";
 import type {
   AgentState,
   ClarifyPayload,
@@ -322,7 +323,7 @@ export function TripContextForm({
                 placeholder={preferenceTags.length ? t("settings.addAnother") : t("settings.preferencesExample")}
                 onChange={(event) => setPrefInput(event.target.value)}
                 onKeyDown={(event) => {
-                  if ((event.key === "Enter" || event.key === ",") && !event.nativeEvent.isComposing) {
+                  if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
                     event.preventDefault();
                     addPreference();
                   }
