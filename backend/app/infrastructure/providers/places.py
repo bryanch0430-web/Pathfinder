@@ -99,7 +99,9 @@ class GooglePlacesSource:
             label = next((TYPE_LABELS[t] for t in types if t in TYPE_LABELS), "")
             hours = ((row.get("regularOpeningHours") or {}).get("weekdayDescriptions") or [])[:7]
             summary = (row.get("editorialSummary") or {}).get("text") or ""
-            display = (row.get("displayName") or {}).get("text") or "Unnamed place"
+            display = str((row.get("displayName") or {}).get("text") or "").strip()
+            if not display:
+                continue  # never invent a name for a place the source did not name
             url = row.get("googleMapsUri") or row.get("websiteUri") or ""
             refs = [
                 SourceRef(

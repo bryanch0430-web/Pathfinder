@@ -288,12 +288,19 @@ class AttractionAgent(BaseAgent):
             # failed higher-priority source as a user-facing data gap, but keep
             # a data note so the failure is still on the plan's record.
             recovered = [gap for gap in failures if gap.section == "attractions"]
-            failures = []
+            meal_failures = [gap for gap in failures if gap.section == "meals"]
+            # A failed restaurant search stays a gap unless a fallback answered
+            # (Proposal TC-02: a partial failure is always on the plan's record).
+            failures = [] if restaurants else meal_failures
             status = AgentStatus.OK
             note_text = [f"{len(places)} attractions, {len(restaurants)} dining candidates"]
             if recovered:
                 note_text.append(
                     f"A place source failed ({recovered[0].kind.value}); a fallback source answered."
+                )
+            if meal_failures and restaurants:
+                note_text.append(
+                    f"A restaurant source failed ({meal_failures[0].kind.value}); a fallback source answered."
                 )
         else:
             status = AgentStatus.UNAVAILABLE
@@ -651,18 +658,35 @@ def _place_names(place: PlaceCandidate) -> set[str]:
     return {norm for norm in (_norm_name(value) for value in [place.name, *place.aliases]) if norm}
 
 
+_CHAIN_CATEGORIES = {"restaurant", "cafe", "food", "bar"}
+
+
 def _same_place(existing: PlaceCandidate, place: PlaceCandidate) -> bool:
-    """Same place when any of their names match (aliases included), or nearly match nearby."""
-    ratio = max(
-        (SequenceMatcher(None, a, b).ratio() for a in _place_names(existing) for b in _place_names(place)),
-        default=0.0,
-    )
-    close = bool(
-        existing.geo
-        and place.geo
-        and haversine_km(existing.geo.lat, existing.geo.lng, place.geo.lat, place.geo.lng) < 0.3
-    )
-    return ratio > 0.86 or (ratio > 0.7 and close)
+    """Whether two records describe one place. Names are compared with aliases, so
+    伏見稲荷大社 meets Fushimi Inari Taisha through either source's other name.
+
+    - the same name: one place unless far apart (10 km for a landmark, where a
+      source's coordinate is wrong; 1 km for a restaurant, which may be a chain);
+    - nearly the same name ("Kinkaku-ji" / "Ginkaku-ji" are 0.89 alike): within 1 km,
+      so both records need coordinates;
+    - a looser match or one name inside the other ("Senso-ji" / "Senso-ji Temple"):
+      within 300 m.
+    """
+    names_a, names_b = _place_names(existing), _place_names(place)
+    if not names_a or not names_b:
+        return False
+    if existing.geo and place.geo:
+        km: float | None = haversine_km(existing.geo.lat, existing.geo.lng, place.geo.lat, place.geo.lng)
+    else:
+        km = None
+    near = km is not None and km <= 1.0  # an unplaced record merges on an exact name only
+    close = km is not None and km < 0.3
+    if names_a & names_b:
+        chain = {existing.category.lower(), place.category.lower()} & _CHAIN_CATEGORIES
+        return km is None or km <= (1.0 if chain else 10.0)
+    ratio = max(SequenceMatcher(None, a, b).ratio() for a in names_a for b in names_b)
+    inside = any(set(a.split()) < set(b.split()) or set(b.split()) < set(a.split()) for a in names_a for b in names_b)
+    return (ratio > 0.86 and near) or ((ratio > 0.7 or inside) and close)
 
 
 def _agreed_geo(points: list[Any]) -> Any:

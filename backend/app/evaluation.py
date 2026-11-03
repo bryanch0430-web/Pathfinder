@@ -178,6 +178,10 @@ class EvalService:
                     latencies.append(int((time.perf_counter() - case_started) * 1000))
             if ledger.made_total:
                 suite_metrics.append(ledger.coverage_metric())
+            if meta.id == "japan":
+                from app.eval_replay import mode_label  # Proposal TC-02
+
+                snapshot["japan_replay"] = mode_label()
         finally:
             ledger.close()
         ledger.tokens += self.judge.tokens - judge_tokens
@@ -342,6 +346,17 @@ class EvalService:
                 checks.append("edit path did not preserve unaffected items")
         if ledger is not None:
             ledger.tokens += gateway.prompt_tokens + gateway.completion_tokens
+        if case.dataset == "japan":
+            # Proposal TC-02 (p4): fetch, parse and merge live-shaped, fragmented data.
+            from app.eval_replay import replay_case
+
+            replay = await replay_case(case, self.settings)
+            scores.update(replay.score_fields())
+            plan_checks["replay"] = replay.details
+            summary = "; ".join(part for part in (summary, replay.summary()) if part)
+            if passed and not replay.passed:
+                passed = False
+                failure_class = replay.failure_class
 
         verdict = None
         if plan is not None:
@@ -451,6 +466,10 @@ class EvalService:
             metrics.extend(planning_metrics(results))
             from app.dataset_splits import FIXTURE_FILES, split_metrics  # Proposal TC-06
 
+            if dataset == "japan":
+                from app.eval_replay import replay_metrics  # Proposal TC-02
+
+                metrics.extend(replay_metrics(results))
             if dataset in FIXTURE_FILES:
                 metrics.extend(split_metrics(dataset))
             if self.judge.available:

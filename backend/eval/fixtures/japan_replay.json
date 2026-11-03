@@ -1,0 +1,2953 @@
+{
+ "about": "Proposal TC-02 (p4 l.140-143) offline replay. Provider responses for the Japan set, shaped like the real APIs the app parses (Google Geocoding and Places (New), Open-Meteo geocoding/forecast/archive, Nominatim jsonv2 with namedetails, Wikivoyage parse API, DeepSeek search) and deliberately fragmented: missing fields, the same place under Japanese and English names across sources, conflicting coordinates and partial failures. Values are constructed from the parsers and the providers' public documentation, not downloaded. `truth` lists the real places each city's rows describe.",
+ "cities": {
+  "Kyoto": {
+   "city": {
+    "name": "Kyoto",
+    "lat": 35.0116,
+    "lng": 135.7681
+   },
+   "truth": [
+    {
+     "key": "fushimi_inari",
+     "lat": 34.9671,
+     "lng": 135.7727,
+     "names": [
+      "Fushimi Inari Taisha",
+      "伏見稲荷大社",
+      "Fushimi Inari-taisha Senbon Torii",
+      "Fushimi Inari Shrine"
+     ]
+    },
+    {
+     "key": "kiyomizu_dera",
+     "lat": 34.9949,
+     "lng": 135.785,
+     "names": [
+      "Kiyomizu-dera",
+      "清水寺"
+     ]
+    },
+    {
+     "key": "kinkaku_ji",
+     "lat": 35.0394,
+     "lng": 135.7292,
+     "names": [
+      "Kinkaku-ji",
+      "金閣寺",
+      "鹿苑寺",
+      "Rokuon-ji"
+     ]
+    },
+    {
+     "key": "ginkaku_ji",
+     "lat": 35.027,
+     "lng": 135.7982,
+     "names": [
+      "Ginkaku-ji",
+      "銀閣寺",
+      "慈照寺"
+     ]
+    },
+    {
+     "key": "nijo_castle",
+     "lat": 35.0142,
+     "lng": 135.7482,
+     "names": [
+      "Nijō Castle",
+      "Nijo Castle",
+      "二条城",
+      "元離宮二条城"
+     ]
+    },
+    {
+     "key": "arashiyama_bamboo",
+     "lat": 35.017,
+     "lng": 135.6713,
+     "names": [
+      "Arashiyama Bamboo Grove",
+      "嵐山竹林の小径",
+      "Sagano Bamboo Forest"
+     ]
+    }
+   ],
+   "routes": [
+    {
+     "id": "google.geocode",
+     "method": "GET",
+     "url": "https://maps.googleapis.com/maps/api/geocode/json",
+     "json": {
+      "results": [
+       {
+        "address_components": [
+         {
+          "long_name": "Kyoto",
+          "short_name": "Kyoto",
+          "types": [
+           "locality",
+           "political"
+          ]
+         },
+         {
+          "long_name": "Kyoto",
+          "short_name": "Kyoto",
+          "types": [
+           "administrative_area_level_1",
+           "political"
+          ]
+         },
+         {
+          "long_name": "Japan",
+          "short_name": "JP",
+          "types": [
+           "country",
+           "political"
+          ]
+         }
+        ],
+        "formatted_address": "Kyoto, Kyoto, Japan",
+        "geometry": {
+         "location": {
+          "lat": 35.0116363,
+          "lng": 135.7680294
+         },
+         "location_type": "APPROXIMATE",
+         "viewport": {
+          "northeast": {
+           "lat": 35.1116363,
+           "lng": 135.86802939999998
+          },
+          "southwest": {
+           "lat": 34.9116363,
+           "lng": 135.6680294
+          }
+         }
+        },
+        "place_id": "ChIJ-kyoto-replay",
+        "types": [
+         "locality",
+         "political"
+        ]
+       }
+      ],
+      "status": "OK"
+     }
+    },
+    {
+     "id": "openmeteo.geocode",
+     "method": "GET",
+     "url": "https://geocoding-api.open-meteo.com/v1/search",
+     "json": {
+      "results": [
+       {
+        "id": 1857910,
+        "name": "Kyoto",
+        "latitude": 35.02107,
+        "longitude": 135.75385,
+        "elevation": 46.0,
+        "feature_code": "PPLA",
+        "country_code": "JP",
+        "admin1_id": 1857907,
+        "timezone": "Asia/Tokyo",
+        "population": 1459640,
+        "country_id": 1861060,
+        "country": "Japan",
+        "admin1": "Kyoto"
+       },
+       {
+        "id": 1857908,
+        "name": "Kyoto",
+        "latitude": 35.0,
+        "longitude": 135.5,
+        "elevation": 210.0,
+        "feature_code": "ADM1",
+        "country_code": "JP",
+        "timezone": "Asia/Tokyo",
+        "country": "Japan"
+       }
+      ],
+      "generationtime_ms": 0.9
+     }
+    },
+    {
+     "id": "nominatim.geocode",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "^Kyoto$"
+     },
+     "json": [
+      {
+       "place_id": 457794,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "relation",
+       "osm_id": 357794,
+       "lat": "35.0115754",
+       "lon": "135.7681441",
+       "category": "boundary",
+       "type": "administrative",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "boundary",
+       "name": "京都市",
+       "display_name": "京都市, 京都府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "京都市",
+        "name:en": "Kyoto"
+       },
+       "boundingbox": [
+        "35.0105754",
+        "35.0125754",
+        "135.7671441",
+        "135.7691441"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "google.attractions",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "tourist_attraction"
+     },
+     "json": {
+      "places": [
+       {
+        "id": "ChIJkyoto-fushimi",
+        "types": [
+         "shinto_shrine",
+         "tourist_attraction",
+         "place_of_worship",
+         "point_of_interest",
+         "establishment"
+        ],
+        "formattedAddress": "68 Fukakusa Yabunouchicho, Fushimi Ward, Kyoto, 612-0882, Japan",
+        "location": {
+         "latitude": 34.9671402,
+         "longitude": 135.7726717
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=16978224342100",
+        "displayName": {
+         "text": "Fushimi Inari Taisha",
+         "languageCode": "en"
+        },
+        "rating": 4.6,
+        "userRatingCount": 88000,
+        "editorialSummary": {
+         "text": "Shinto shrine with thousands of vermilion torii gates over a mountain trail.",
+         "languageCode": "en"
+        },
+        "websiteUri": "https://inari.jp/",
+        "regularOpeningHours": {
+         "openNow": true,
+         "weekdayDescriptions": [
+          "Monday: Open 24 hours",
+          "Tuesday: Open 24 hours"
+         ]
+        },
+        "reviews": [
+         {
+          "name": "places/ChIJkyoto-fushimi/reviews/0",
+          "relativePublishTimeDescription": "a month ago",
+          "rating": 5,
+          "text": {
+           "text": "Go early; the upper trail is quiet and the gates go on for hours.",
+           "languageCode": "en"
+          },
+          "originalText": {
+           "text": "Go early; the upper trail is quiet and the gates go on for hours.",
+           "languageCode": "en"
+          },
+          "authorAttribution": {
+           "displayName": "A visitor"
+          }
+         },
+         {
+          "name": "places/ChIJkyoto-fushimi/reviews/1",
+          "relativePublishTimeDescription": "a month ago",
+          "rating": 4,
+          "text": {
+           "text": "Crowded at the bottom gate, worth the climb.",
+           "languageCode": "en"
+          },
+          "originalText": {
+           "text": "Crowded at the bottom gate, worth the climb.",
+           "languageCode": "en"
+          },
+          "authorAttribution": {
+           "displayName": "Another visitor"
+          }
+         }
+        ]
+       },
+       {
+        "id": "ChIJkyoto-kiyomizu",
+        "types": [
+         "buddhist_temple",
+         "tourist_attraction",
+         "place_of_worship",
+         "point_of_interest"
+        ],
+        "formattedAddress": "1-294 Kiyomizu, Higashiyama Ward, Kyoto, 605-0862, Japan",
+        "location": {
+         "latitude": 34.9948561,
+         "longitude": 135.7850463
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=20581912878503",
+        "displayName": {
+         "text": "Kiyomizu-dera",
+         "languageCode": "en"
+        },
+        "rating": 4.6,
+        "userRatingCount": 61000,
+        "editorialSummary": {
+         "text": "Wooden Buddhist temple with a stage over the hillside.",
+         "languageCode": "en"
+        },
+        "regularOpeningHours": {
+         "openNow": true,
+         "weekdayDescriptions": [
+          "Monday: 6:00 AM – 6:00 PM"
+         ]
+        }
+       },
+       {
+        "id": "ChIJkyoto-kinkaku",
+        "types": [
+         "buddhist_temple",
+         "tourist_attraction",
+         "point_of_interest"
+        ],
+        "formattedAddress": "1 Kinkakujicho, Kita Ward, Kyoto, 603-8361, Japan",
+        "location": {
+         "latitude": 35.0393788,
+         "longitude": 135.7292431
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=22920387425440",
+        "displayName": {
+         "text": "Kinkaku-ji",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 60000
+       },
+       {
+        "id": "ChIJkyoto-nijo",
+        "types": [
+         "castle",
+         "tourist_attraction",
+         "historical_landmark"
+        ],
+        "formattedAddress": "541 Nijojocho, Nakagyo Ward, Kyoto, 604-8301, Japan",
+        "location": {
+         "latitude": 35.0412,
+         "longitude": 135.7482
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=12126727730717",
+        "displayName": {
+         "text": "Nijo Castle",
+         "languageCode": "en"
+        },
+        "rating": 4.4,
+        "userRatingCount": 31000
+       },
+       {
+        "id": "ChIJkyoto-bamboo",
+        "types": [
+         "tourist_attraction",
+         "point_of_interest"
+        ],
+        "formattedAddress": "Sagaogurayama Tabuchiyamacho, Ukyo Ward, Kyoto, 616-8394, Japan",
+        "location": {
+         "latitude": 35.017,
+         "longitude": 135.6713
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=21815419382025",
+        "displayName": {
+         "text": "Arashiyama Bamboo Grove",
+         "languageCode": "en"
+        }
+       },
+       {
+        "id": "ChIJkyoto-gioncorner",
+        "types": [
+         "tourist_attraction"
+        ],
+        "formattedAddress": "Gion, Kyoto",
+        "googleMapsUri": "https://maps.google.com/?cid=29688952190117",
+        "displayName": {
+         "text": "Gion Corner",
+         "languageCode": "en"
+        }
+       },
+       {
+        "id": "ChIJkyoto-noname",
+        "types": [
+         "tourist_attraction"
+        ],
+        "formattedAddress": "Gion, Higashiyama Ward, Kyoto",
+        "location": {
+         "latitude": 35.0037,
+         "longitude": 135.7788
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=23226322516714"
+       },
+       {
+        "id": "ChIJkyoto-senbon",
+        "types": [
+         "tourist_attraction",
+         "point_of_interest"
+        ],
+        "formattedAddress": "Fukakusa Yabunouchicho, Fushimi Ward, Kyoto, Japan",
+        "location": {
+         "latitude": 34.9677,
+         "longitude": 135.774
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=33553001172975",
+        "displayName": {
+         "text": "Fushimi Inari-taisha Senbon Torii",
+         "languageCode": "en"
+        },
+        "rating": 4.7,
+        "userRatingCount": 9000
+       }
+      ]
+     }
+    },
+    {
+     "id": "google.restaurants",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "restaurant"
+     },
+     "json": {
+      "places": [
+       {
+        "id": "ChIJkyoto-shigetsu",
+        "types": [
+         "vegetarian_restaurant",
+         "japanese_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "68 Sagatenryuji, Ukyo Ward, Kyoto",
+        "location": {
+         "latitude": 35.0157,
+         "longitude": 135.6738
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=21380740950276",
+        "displayName": {
+         "text": "Shigetsu",
+         "languageCode": "en"
+        },
+        "rating": 4.4,
+        "userRatingCount": 900,
+        "editorialSummary": {
+         "text": "Buddhist vegetarian set meals inside Tenryu-ji.",
+         "languageCode": "en"
+        },
+        "priceLevel": "PRICE_LEVEL_MODERATE"
+       },
+       {
+        "id": "ChIJkyoto-ainosuke",
+        "types": [
+         "japanese_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "Gion, Kyoto",
+        "location": {
+         "latitude": 35.004,
+         "longitude": 135.775
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=33802721429298",
+        "displayName": {
+         "text": "Gion Kappa Nishiki",
+         "languageCode": "en"
+        },
+        "rating": 4.1,
+        "userRatingCount": 400
+       },
+       {
+        "id": "ChIJkyoto-veg",
+        "types": [
+         "vegan_restaurant",
+         "cafe",
+         "restaurant"
+        ],
+        "formattedAddress": "Shimogyo Ward, Kyoto",
+        "location": {
+         "latitude": 34.996,
+         "longitude": 135.764
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=11632472373377",
+        "displayName": {
+         "text": "Veg Out",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 700
+       }
+      ]
+     }
+    },
+    {
+     "id": "nominatim.attractions",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "attractions"
+     },
+     "json": [
+      {
+       "place_id": 687343,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 219287343,
+       "lat": "34.9672000",
+       "lon": "135.7731000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "伏見稲荷大社",
+       "display_name": "伏見稲荷大社, 68, 深草藪之内町, 伏見区, 京都市, 京都府, 612-0882, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {
+        "wikidata": "Q1061924",
+        "website": "https://inari.jp/",
+        "religion": "shinto"
+       },
+       "namedetails": {
+        "name": "伏見稲荷大社",
+        "name:en": "Fushimi Inari Taisha",
+        "name:ja": "伏見稲荷大社",
+        "name:ja-Latn": "Fushimi Inari Taisha"
+       },
+       "boundingbox": [
+        "34.9662000",
+        "34.9682000",
+        "135.7721000",
+        "135.7741000"
+       ]
+      },
+      {
+       "place_id": 476512,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 4430176512,
+       "lat": "34.9670000",
+       "lon": "135.7726000",
+       "category": "tourism",
+       "type": "attraction",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "tourism",
+       "name": "伏見稲荷大社",
+       "display_name": "伏見稲荷大社, 深草藪之内町, 伏見区, 京都市, 京都府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "伏見稲荷大社"
+       },
+       "boundingbox": [
+        "34.9660000",
+        "34.9680000",
+        "135.7716000",
+        "135.7736000"
+       ]
+      },
+      {
+       "place_id": 228791,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 139628791,
+       "lat": "34.9948000",
+       "lon": "135.7851000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "清水寺",
+       "display_name": "清水寺, 清水, 東山区, 京都市, 京都府, 605-0862, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {
+        "wikidata": "Q390954",
+        "heritage": "1"
+       },
+       "namedetails": {
+        "name": "清水寺",
+        "name:en": "Kiyomizu-dera",
+        "name:ja": "清水寺"
+       },
+       "boundingbox": [
+        "34.9938000",
+        "34.9958000",
+        "135.7841000",
+        "135.7861000"
+       ]
+      },
+      {
+       "place_id": 869426,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 26869426,
+       "lat": "35.0394000",
+       "lon": "135.7293000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "鹿苑寺",
+       "display_name": "鹿苑寺, 金閣寺町, 北区, 京都市, 京都府, 603-8361, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "鹿苑寺",
+        "name:en": "Kinkaku-ji",
+        "alt_name": "金閣寺"
+       },
+       "boundingbox": [
+        "35.0384000",
+        "35.0404000",
+        "135.7283000",
+        "135.7303000"
+       ]
+      },
+      {
+       "place_id": 421422,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 1803021422,
+       "lat": "35.0168000",
+       "lon": "135.6717000",
+       "category": "tourism",
+       "type": "attraction",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "tourism",
+       "name": "嵐山竹林の小径",
+       "display_name": "嵐山竹林の小径, 嵯峨小倉山田淵山町, 右京区, 京都市, 京都府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "嵐山竹林の小径",
+        "name:en": "Arashiyama Bamboo Grove"
+       },
+       "boundingbox": [
+        "35.0158000",
+        "35.0178000",
+        "135.6707000",
+        "135.6727000"
+       ]
+      },
+      {
+       "place_id": 394815,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 30894815,
+       "lat": "35.0142000",
+       "lon": "135.7481000",
+       "category": "historic",
+       "type": "castle",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "historic",
+       "name": "元離宮二条城",
+       "display_name": "元離宮二条城, 二条城町, 中京区, 京都市, 京都府, 604-8301, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "元離宮二条城",
+        "name:en": "Nijō Castle",
+        "alt_name": "二条城"
+       },
+       "boundingbox": [
+        "35.0132000",
+        "35.0152000",
+        "135.7471000",
+        "135.7491000"
+       ]
+      },
+      {
+       "place_id": 345678,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 5012345678,
+       "category": "highway",
+       "type": "footway",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "highway",
+       "name": "哲学の道",
+       "display_name": "哲学の道, 左京区, 京都市, 京都府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "哲学の道"
+       },
+       "boundingbox": [
+        "-0.0010000",
+        "0.0010000",
+        "-0.0010000",
+        "0.0010000"
+       ]
+      },
+      {
+       "place_id": 869552,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 26869552,
+       "lat": "35.0270000",
+       "lon": "135.7983000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "慈照寺",
+       "display_name": "慈照寺, 銀閣寺町, 左京区, 京都市, 京都府, 606-8402, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "慈照寺",
+        "alt_name": "銀閣寺"
+       },
+       "boundingbox": [
+        "35.0260000",
+        "35.0280000",
+        "135.7973000",
+        "135.7993000"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "nominatim.restaurants",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "restaurants"
+     },
+     "json": [
+      {
+       "place_id": 100001,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 6012000001,
+       "lat": "35.0157000",
+       "lon": "135.6738000",
+       "category": "amenity",
+       "type": "restaurant",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "篩月",
+       "display_name": "篩月, 嵯峨天龍寺芒ノ馬場町, 右京区, 京都市, 京都府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {
+        "diet:vegetarian": "only"
+       },
+       "namedetails": {
+        "name": "篩月",
+        "name:en": "Shigetsu"
+       },
+       "boundingbox": [
+        "35.0147000",
+        "35.0167000",
+        "135.6728000",
+        "135.6748000"
+       ]
+      },
+      {
+       "place_id": 100002,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 6012000002,
+       "lat": "35.0036000",
+       "lon": "135.7786000",
+       "category": "amenity",
+       "type": "restaurant",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "いづ重",
+       "display_name": "いづ重, 祇園町北側, 東山区, 京都市, 京都府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "いづ重",
+        "name:en": "Izuju"
+       },
+       "boundingbox": [
+        "35.0026000",
+        "35.0046000",
+        "135.7776000",
+        "135.7796000"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wikivoyage",
+     "method": "GET",
+     "url": "https://en.wikivoyage.org/w/api.php",
+     "json": {
+      "parse": {
+       "title": "Kyoto",
+       "pageid": 6185,
+       "wikitext": "{{pagebanner|Kyoto banner.jpg}}\n'''Kyoto''' (京都 ''Kyōto'') was the capital of Japan for over a thousand years.\n== Understand ==\nMost sights are temples, shrines and gardens spread around the edge of the basin.\n== See ==\n=== Southern Higashiyama ===\n* {{see | name=Kiyomizu-dera | alt=清水寺 | url=https://www.kiyomizudera.or.jp/en/ | lat=34.9949 | long=135.7850 | hours=6AM-6PM | price=¥400 | content=A wooden temple whose stage stands out over the hillside.}}\n* {{see | name=Fushimi Inari Taisha | alt=伏見稲荷大社 | url=https://inari.jp/en/ | lat=34.9671 | long=135.7727 | content=Thousands of vermilion torii gates climb Mount Inari.}}\n=== Northwest ===\n* {{see | name=Kinkaku-ji | alt=金閣寺 | lat=35.0939 | long=135.7292 | content=The Golden Pavilion, covered in gold leaf.}}\n* {{see | name=Nijō Castle | alt=二条城 | lat=35.0142 | long=135.7482 | content=Shogun's palace with nightingale floors.}}\n=== Northern Higashiyama ===\n* {{see | name=Ginkaku-ji | alt=銀閣寺 | content=The Silver Pavilion and its raked sand garden.}}\n== Do ==\n* {{do | name=Arashiyama Bamboo Grove | alt=嵐山竹林の小径 | lat=35.0170 | long=135.6713 | content=A path through tall bamboo.}}\n* {{do | name= | content=A listing whose name was never filled in.}}\n== Eat ==\n* {{eat | name=Shigetsu | alt=篩月 | lat=35.0157 | long=135.6738 | price=¥3,300 | content=Buddhist vegetarian meals inside Tenryu-ji.}}\n== Sleep ==\n* {{sleep | name=Hotel Granvia Kyoto | lat=34.9853 | long=135.7584 | price=¥25,000 | content=Above the station.}}\n* {{sleep | name=Guest House Waraku-an | address=Higashiyama | price=¥4,500 dorm | content=Small guesthouse.}}\n== Go next ==\n* [[Nara]] is an hour away by train."
+      }
+     }
+    },
+    {
+     "id": "openmeteo.forecast",
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast",
+     "json": {
+      "latitude": 35.0,
+      "longitude": 135.75,
+      "generationtime_ms": 0.08,
+      "utc_offset_seconds": 32400,
+      "timezone": "Asia/Tokyo",
+      "timezone_abbreviation": "GMT+9",
+      "elevation": 40.0,
+      "daily_units": {
+       "time": "iso8601",
+       "weather_code": "wmo code",
+       "temperature_2m_max": "°C",
+       "temperature_2m_min": "°C",
+       "precipitation_probability_max": "%"
+      }
+     },
+     "daily_template": {
+      "weather_code": [
+       1,
+       3,
+       61,
+       2,
+       80,
+       0,
+       3
+      ],
+      "temperature_2m_max": [
+       24.1,
+       22.3,
+       19.8,
+       23.0,
+       21.5,
+       25.2,
+       24.0
+      ],
+      "temperature_2m_min": [
+       14.0,
+       13.2,
+       12.9,
+       13.5,
+       12.0,
+       15.1,
+       14.4
+      ],
+      "precipitation_probability_max": [
+       10,
+       30,
+       85,
+       20,
+       60,
+       5,
+       25
+      ]
+     }
+    },
+    {
+     "id": "openmeteo.archive",
+     "method": "GET",
+     "url": "https://archive-api.open-meteo.com/v1/archive",
+     "json": {
+      "latitude": 35.0,
+      "longitude": 135.75,
+      "generationtime_ms": 0.08,
+      "utc_offset_seconds": 32400,
+      "timezone": "Asia/Tokyo",
+      "timezone_abbreviation": "GMT+9",
+      "elevation": 40.0,
+      "daily_units": {
+       "time": "iso8601",
+       "weather_code": "wmo code",
+       "temperature_2m_max": "°C",
+       "temperature_2m_min": "°C",
+       "precipitation_sum": "mm"
+      }
+     },
+     "daily_template": {
+      "weather_code": [
+       3,
+       2,
+       61,
+       1,
+       3,
+       2,
+       0
+      ],
+      "temperature_2m_max": [
+       23.5,
+       22.8,
+       20.1,
+       24.0,
+       22.2,
+       23.9,
+       24.6
+      ],
+      "temperature_2m_min": [
+       13.8,
+       13.0,
+       12.5,
+       14.1,
+       12.4,
+       14.0,
+       14.9
+      ],
+      "precipitation_sum": [
+       0.0,
+       1.2,
+       8.4,
+       0.0,
+       2.1,
+       0.3,
+       0.0
+      ]
+     }
+    },
+    {
+     "id": "deepseek.search",
+     "method": "POST",
+     "url": "https://api.deepseek.com/v1/tools/search",
+     "json": {
+      "results": [
+       {
+        "title": "Where to stay in Kyoto: neighbourhood guide",
+        "url": "https://www.japan-guide.com/e/e3955.html",
+        "summary": "Kyoto hotels cluster around Kyoto Station, Downtown and Gion; ryokan are common in Higashiyama.",
+        "snippet": "",
+        "site_name": "japan-guide.com",
+        "date": "2026-04-02",
+        "authority": 3,
+        "rerank_score": 0.84
+       },
+       {
+        "title": "Kyoto hotels",
+        "url": "",
+        "summary": "A row with no URL, which the parser must skip.",
+        "snippet": "",
+        "site_name": "",
+        "date": "",
+        "authority": -1,
+        "rerank_score": 0.1
+       },
+       {
+        "title": "Kyoto accommodation tips",
+        "url": "https://www.insidekyoto.com/where-to-stay-in-kyoto",
+        "summary": "Stay near a subway line in Kyoto; Gion and Higashiyama book out in spring.",
+        "snippet": "",
+        "site_name": "insidekyoto.com",
+        "date": "2025-11-20",
+        "authority": 2,
+        "rerank_score": 0.7
+       }
+      ]
+     }
+    },
+    {
+     "id": "fx.rates",
+     "method": "GET",
+     "url": "https://open.er-api.com/v6/latest/USD",
+     "json": {
+      "result": "success",
+      "provider": "https://www.exchangerate-api.com",
+      "documentation": "https://www.exchangerate-api.com/docs/free",
+      "time_last_update_unix": 1793750400,
+      "time_last_update_utc": "Mon, 02 Nov 2026 00:00:01 +0000",
+      "base_code": "USD",
+      "rates": {
+       "USD": 1,
+       "JPY": 151.4,
+       "HKD": 7.79,
+       "SGD": 1.33,
+       "TWD": 32.2,
+       "EUR": 0.92,
+       "GBP": 0.78
+      }
+     }
+    }
+   ],
+   "parse": {
+    "google.attractions": 6,
+    "google.restaurants": 3,
+    "nominatim.attractions": 7,
+    "nominatim.restaurants": 2,
+    "wikivoyage": 6,
+    "deepseek.search": 2
+   }
+  },
+  "Tokyo": {
+   "city": {
+    "name": "Tokyo",
+    "lat": 35.6764,
+    "lng": 139.65
+   },
+   "truth": [
+    {
+     "key": "senso_ji",
+     "lat": 35.7148,
+     "lng": 139.7967,
+     "names": [
+      "Sensō-ji",
+      "Senso-ji",
+      "浅草寺",
+      "Senso-ji Temple"
+     ]
+    },
+    {
+     "key": "asakusa_shrine",
+     "lat": 35.7153,
+     "lng": 139.7978,
+     "names": [
+      "Asakusa Shrine",
+      "浅草神社",
+      "Asakusa-jinja"
+     ]
+    },
+    {
+     "key": "ghibli_museum",
+     "lat": 35.6962,
+     "lng": 139.5704,
+     "names": [
+      "Ghibli Museum",
+      "三鷹の森ジブリ美術館",
+      "Ghibli Museum, Mitaka"
+     ]
+    },
+    {
+     "key": "meiji_jingu",
+     "lat": 35.6764,
+     "lng": 139.6993,
+     "names": [
+      "Meiji Jingu",
+      "Meiji Shrine",
+      "明治神宮"
+     ]
+    },
+    {
+     "key": "tokyo_skytree",
+     "lat": 35.7101,
+     "lng": 139.8107,
+     "names": [
+      "Tokyo Skytree",
+      "東京スカイツリー"
+     ]
+    },
+    {
+     "key": "tokyo_tower",
+     "lat": 35.6586,
+     "lng": 139.7454,
+     "names": [
+      "Tokyo Tower",
+      "東京タワー"
+     ]
+    }
+   ],
+   "routes": [
+    {
+     "id": "google.geocode",
+     "method": "GET",
+     "url": "https://maps.googleapis.com/maps/api/geocode/json",
+     "json": {
+      "results": [
+       {
+        "address_components": [
+         {
+          "long_name": "Tokyo",
+          "short_name": "Tokyo",
+          "types": [
+           "locality",
+           "political"
+          ]
+         },
+         {
+          "long_name": "Tokyo",
+          "short_name": "Tokyo",
+          "types": [
+           "administrative_area_level_1",
+           "political"
+          ]
+         },
+         {
+          "long_name": "Japan",
+          "short_name": "JP",
+          "types": [
+           "country",
+           "political"
+          ]
+         }
+        ],
+        "formatted_address": "Tokyo, Tokyo, Japan",
+        "geometry": {
+         "location": {
+          "lat": 35.6764225,
+          "lng": 139.650027
+         },
+         "location_type": "APPROXIMATE",
+         "viewport": {
+          "northeast": {
+           "lat": 35.7764225,
+           "lng": 139.750027
+          },
+          "southwest": {
+           "lat": 35.5764225,
+           "lng": 139.550027
+          }
+         }
+        },
+        "place_id": "ChIJ-tokyo-replay",
+        "types": [
+         "locality",
+         "political"
+        ]
+       }
+      ],
+      "status": "OK"
+     }
+    },
+    {
+     "id": "openmeteo.geocode",
+     "method": "GET",
+     "url": "https://geocoding-api.open-meteo.com/v1/search",
+     "json": {
+      "results": [
+       {
+        "id": 1850147,
+        "name": "Tokyo",
+        "latitude": 35.6895,
+        "longitude": 139.69171,
+        "elevation": 44.0,
+        "feature_code": "PPLC",
+        "country_code": "JP",
+        "timezone": "Asia/Tokyo",
+        "population": 8336599,
+        "country": "Japan",
+        "admin1": "Tokyo"
+       }
+      ],
+      "generationtime_ms": 0.7
+     }
+    },
+    {
+     "id": "nominatim.geocode",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "^Tokyo$"
+     },
+     "json": [
+      {
+       "place_id": 743125,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "relation",
+       "osm_id": 1543125,
+       "lat": "35.6768601",
+       "lon": "139.7638947",
+       "category": "boundary",
+       "type": "administrative",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "boundary",
+       "name": "東京都",
+       "display_name": "東京都, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "東京都",
+        "name:en": "Tokyo"
+       },
+       "boundingbox": [
+        "35.6758601",
+        "35.6778601",
+        "139.7628947",
+        "139.7648947"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "google.attractions",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "tourist_attraction"
+     },
+     "json": {
+      "places": [
+       {
+        "id": "ChIJtokyo-sensoji",
+        "types": [
+         "buddhist_temple",
+         "tourist_attraction",
+         "place_of_worship"
+        ],
+        "formattedAddress": "2-3-1 Asakusa, Taito City, Tokyo 111-0032, Japan",
+        "location": {
+         "latitude": 35.7147651,
+         "longitude": 139.7966553
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=5337046216073",
+        "displayName": {
+         "text": "Sensō-ji",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 79000,
+        "editorialSummary": {
+         "text": "Tokyo's oldest temple, reached through the Kaminarimon gate.",
+         "languageCode": "en"
+        },
+        "websiteUri": "https://www.senso-ji.jp/",
+        "reviews": [
+         {
+          "name": "places/ChIJtokyo-sensoji/reviews/0",
+          "relativePublishTimeDescription": "a month ago",
+          "rating": 5,
+          "text": {
+           "text": "Beautiful at night when the crowds are gone.",
+           "languageCode": "en"
+          },
+          "originalText": {
+           "text": "Beautiful at night when the crowds are gone.",
+           "languageCode": "en"
+          },
+          "authorAttribution": {
+           "displayName": "A visitor"
+          }
+         }
+        ]
+       },
+       {
+        "id": "ChIJtokyo-asakusajinja",
+        "types": [
+         "shinto_shrine",
+         "tourist_attraction",
+         "place_of_worship"
+        ],
+        "formattedAddress": "2-3-1 Asakusa, Taito City, Tokyo 111-0032, Japan",
+        "location": {
+         "latitude": 35.7153,
+         "longitude": 139.7978
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=2978792897571",
+        "displayName": {
+         "text": "Asakusa Shrine",
+         "languageCode": "en"
+        },
+        "rating": 4.3,
+        "userRatingCount": 8000
+       },
+       {
+        "id": "ChIJtokyo-ghibli",
+        "types": [
+         "museum",
+         "tourist_attraction"
+        ],
+        "formattedAddress": "1-1-83 Shimorenjaku, Mitaka, Tokyo 181-0013, Japan",
+        "location": {
+         "latitude": 35.696238,
+         "longitude": 139.5704317
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=15499647199348",
+        "displayName": {
+         "text": "Ghibli Museum, Mitaka",
+         "languageCode": "en"
+        },
+        "rating": 4.4,
+        "userRatingCount": 21000,
+        "editorialSummary": {
+         "text": "Animation museum; entry by advance ticket only.",
+         "languageCode": "en"
+        },
+        "regularOpeningHours": {
+         "openNow": true,
+         "weekdayDescriptions": [
+          "Monday: 10:00 AM – 6:00 PM",
+          "Tuesday: Closed"
+         ]
+        }
+       },
+       {
+        "id": "ChIJtokyo-meiji",
+        "types": [
+         "shinto_shrine",
+         "tourist_attraction"
+        ],
+        "formattedAddress": "1-1 Yoyogikamizonocho, Shibuya City, Tokyo 151-8557, Japan",
+        "location": {
+         "latitude": 35.6763976,
+         "longitude": 139.6993259
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=3097059757401",
+        "displayName": {
+         "text": "Meiji Jingu",
+         "languageCode": "en"
+        },
+        "rating": 4.6,
+        "userRatingCount": 52000
+       },
+       {
+        "id": "ChIJtokyo-skytree",
+        "types": [
+         "tourist_attraction",
+         "observation_deck"
+        ],
+        "formattedAddress": "1-1-2 Oshiage, Sumida City, Tokyo 131-0045, Japan",
+        "location": {
+         "latitude": 35.7100627,
+         "longitude": 139.8107004
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=26558669939125",
+        "displayName": {
+         "text": "Tokyo Skytree",
+         "languageCode": "en"
+        }
+       },
+       {
+        "id": "ChIJtokyo-sensoji2",
+        "types": [
+         "tourist_attraction"
+        ],
+        "formattedAddress": "Asakusa, Taito City, Tokyo",
+        "location": {
+         "latitude": 35.7147,
+         "longitude": 139.7966
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=17616762145179",
+        "displayName": {
+         "text": "Senso-ji Temple",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 1200
+       },
+       {
+        "id": "ChIJtokyo-crossing",
+        "types": [
+         "tourist_attraction"
+        ],
+        "formattedAddress": "Shibuya City, Tokyo",
+        "googleMapsUri": "https://maps.google.com/?cid=29468773945431",
+        "displayName": {
+         "text": "Shibuya Scramble Crossing",
+         "languageCode": "en"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "google.restaurants",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "restaurant"
+     },
+     "json": {
+      "places": [
+       {
+        "id": "ChIJtokyo-ain",
+        "types": [
+         "vegan_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "Shinjuku, Tokyo",
+        "location": {
+         "latitude": 35.6905,
+         "longitude": 139.7046
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=3580373400765",
+        "displayName": {
+         "text": "Ain Soph. Journey",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 1500
+       },
+       {
+        "id": "ChIJtokyo-daigo",
+        "types": [
+         "vegetarian_restaurant",
+         "japanese_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "Minato City, Tokyo",
+        "location": {
+         "latitude": 35.659,
+         "longitude": 139.746
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=26829538368007",
+        "displayName": {
+         "text": "Daigo",
+         "languageCode": "en"
+        },
+        "rating": 4.6,
+        "userRatingCount": 300,
+        "priceLevel": "PRICE_LEVEL_VERY_EXPENSIVE"
+       },
+       {
+        "id": "ChIJtokyo-sometaro",
+        "types": [
+         "japanese_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "Nishiasakusa, Taito City, Tokyo",
+        "location": {
+         "latitude": 35.7117,
+         "longitude": 139.7934
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=16804863993557",
+        "displayName": {
+         "text": "Sometaro",
+         "languageCode": "en"
+        },
+        "rating": 4.3,
+        "userRatingCount": 1800
+       }
+      ]
+     }
+    },
+    {
+     "id": "nominatim.attractions",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "attractions"
+     },
+     "json": [
+      {
+       "place_id": 324925,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 25424925,
+       "lat": "35.7148000",
+       "lon": "139.7967000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "浅草寺",
+       "display_name": "浅草寺, 2-3-1, 浅草, 台東区, 東京都, 111-0032, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "浅草寺",
+        "name:en": "Sensō-ji",
+        "name:ja-Latn": "Sensō-ji"
+       },
+       "boundingbox": [
+        "35.7138000",
+        "35.7158000",
+        "139.7957000",
+        "139.7977000"
+       ]
+      },
+      {
+       "place_id": 324999,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 25424999,
+       "lat": "35.7153000",
+       "lon": "139.7979000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "浅草神社",
+       "display_name": "浅草神社, 浅草, 台東区, 東京都, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "浅草神社",
+        "name:en": "Asakusa Shrine"
+       },
+       "boundingbox": [
+        "35.7143000",
+        "35.7163000",
+        "139.7969000",
+        "139.7989000"
+       ]
+      },
+      {
+       "place_id": 362171,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 1097362171,
+       "lat": "35.6963000",
+       "lon": "139.5703000",
+       "category": "tourism",
+       "type": "museum",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "tourism",
+       "name": "三鷹の森ジブリ美術館",
+       "display_name": "三鷹の森ジブリ美術館, 下連雀1丁目, 三鷹市, 東京都, 181-0013, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "三鷹の森ジブリ美術館",
+        "name:en": "Ghibli Museum"
+       },
+       "boundingbox": [
+        "35.6953000",
+        "35.6973000",
+        "139.5693000",
+        "139.5713000"
+       ]
+      },
+      {
+       "place_id": 364433,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 30864433,
+       "lat": "35.6763000",
+       "lon": "139.6993000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "明治神宮",
+       "display_name": "明治神宮, 代々木神園町, 渋谷区, 東京都, 151-8557, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "明治神宮",
+        "name:en": "Meiji Jingu"
+       },
+       "boundingbox": [
+        "35.6753000",
+        "35.6773000",
+        "139.6983000",
+        "139.7003000"
+       ]
+      },
+      {
+       "place_id": 209349,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 136009349,
+       "lat": "35.7101000",
+       "lon": "139.8107000",
+       "category": "man_made",
+       "type": "tower",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "man_made",
+       "name": "東京スカイツリー",
+       "display_name": "東京スカイツリー, 押上1丁目, 墨田区, 東京都, 131-0045, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "東京スカイツリー",
+        "name:en": "Tokyo Skytree"
+       },
+       "boundingbox": [
+        "35.7091000",
+        "35.7111000",
+        "139.8097000",
+        "139.8117000"
+       ]
+      },
+      {
+       "place_id": 996934,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 23396934,
+       "lat": "35.6586000",
+       "lon": "139.7454000",
+       "category": "man_made",
+       "type": "tower",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "man_made",
+       "name": "東京タワー",
+       "display_name": "東京タワー, 芝公園4丁目, 港区, 東京都, 105-0011, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "東京タワー",
+        "name:en": "Tokyo Tower"
+       },
+       "boundingbox": [
+        "35.6576000",
+        "35.6596000",
+        "139.7444000",
+        "139.7464000"
+       ]
+      },
+      {
+       "place_id": 950761,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 2299450761,
+       "lat": "35.7149000",
+       "lon": "139.7966000",
+       "category": "tourism",
+       "type": "attraction",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "tourism",
+       "name": "",
+       "display_name": "浅草寺, 2-3-1, 浅草, 台東区, 東京都, 111-0032, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {},
+       "boundingbox": [
+        "35.7139000",
+        "35.7159000",
+        "139.7956000",
+        "139.7976000"
+       ]
+      },
+      {
+       "place_id": 950799,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 2299450799,
+       "lat": "35.7188000",
+       "lon": null,
+       "category": "tourism",
+       "type": "museum",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "tourism",
+       "name": "東京国立博物館",
+       "display_name": "東京国立博物館, 上野公園, 台東区, 東京都, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "東京国立博物館"
+       },
+       "boundingbox": [
+        "35.7178000",
+        "35.7198000",
+        "-0.0010000",
+        "0.0010000"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "nominatim.restaurants",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "restaurants"
+     },
+     "json": [
+      {
+       "place_id": 200001,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 7012000001,
+       "lat": "35.6590000",
+       "lon": "139.7460000",
+       "category": "amenity",
+       "type": "restaurant",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "醍醐",
+       "display_name": "醍醐, 愛宕2丁目, 港区, 東京都, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {
+        "diet:vegetarian": "only"
+       },
+       "namedetails": {
+        "name": "醍醐",
+        "name:en": "Daigo"
+       },
+       "boundingbox": [
+        "35.6580000",
+        "35.6600000",
+        "139.7450000",
+        "139.7470000"
+       ]
+      },
+      {
+       "place_id": 200002,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 7012000002,
+       "lat": "35.7117000",
+       "lon": "139.7934000",
+       "category": "amenity",
+       "type": "restaurant",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "染太郎",
+       "display_name": "染太郎, 西浅草2丁目, 台東区, 東京都, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "染太郎",
+        "name:en": "Sometaro"
+       },
+       "boundingbox": [
+        "35.7107000",
+        "35.7127000",
+        "139.7924000",
+        "139.7944000"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wikivoyage",
+     "method": "GET",
+     "url": "https://en.wikivoyage.org/w/api.php",
+     "json": {
+      "parse": {
+       "title": "Tokyo",
+       "pageid": 7140,
+       "wikitext": "'''Tokyo''' (東京 ''Tōkyō'') is Japan's capital.\n== See ==\n=== Asakusa ===\n* {{see | name=Senso-ji | alt=浅草寺 | lat=35.7148 | long=139.7967 | content=The city's oldest temple.}}\n* {{see | name=Asakusa Shrine | alt=浅草神社 | lat=35.7153 | long=139.7978 | content=A small shrine beside the temple.}}\n=== West ===\n* {{see | name=Ghibli Museum | alt=三鷹の森ジブリ美術館 | lat=35.6962 | long=139.5704 | content=Tickets must be bought in advance.}}\n* {{see | name=Meiji Shrine | alt=明治神宮 | lat=35.6764 | long=139.6693 | content=Forest shrine next to Harajuku.}}\n* {{see | name=Tokyo Tower | alt=東京タワー | lat=35.6586 | long=139.7454 | content=Red lattice tower.}}\n* {{see | name=Tokyo Skytree | alt=東京スカイツリー | content=The tallest tower in Japan.}}\n== Sleep ==\n* {{sleep | name=Sakura Hostel Asakusa | address=Asakusa | content=Dorms and private rooms; no published rate.}}\n* {{sleep | name=Hotel Gracery Shinjuku | address=Kabukicho | content=Godzilla on the roof.}}"
+      }
+     }
+    },
+    {
+     "id": "openmeteo.forecast",
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast",
+     "json": {
+      "latitude": 35.69,
+      "longitude": 139.69,
+      "generationtime_ms": 0.08,
+      "utc_offset_seconds": 32400,
+      "timezone": "Asia/Tokyo",
+      "timezone_abbreviation": "GMT+9",
+      "elevation": 40.0,
+      "daily_units": {
+       "time": "iso8601",
+       "weather_code": "wmo code",
+       "temperature_2m_max": "°C",
+       "temperature_2m_min": "°C",
+       "precipitation_probability_max": "%"
+      }
+     },
+     "daily_template": {
+      "weather_code": [
+       0,
+       2,
+       3,
+       63,
+       1,
+       2,
+       3
+      ],
+      "temperature_2m_max": [
+       26.0,
+       25.1,
+       23.4,
+       20.2,
+       24.8,
+       26.3,
+       25.0
+      ],
+      "temperature_2m_min": [
+       18.2,
+       17.9,
+       17.0,
+       16.1,
+       17.5,
+       18.8,
+       18.0
+      ],
+      "precipitation_probability_max": [
+       0,
+       10,
+       35,
+       90,
+       15,
+       10,
+       20
+      ]
+     }
+    },
+    {
+     "id": "openmeteo.archive",
+     "method": "GET",
+     "url": "https://archive-api.open-meteo.com/v1/archive",
+     "json": {
+      "latitude": 35.69,
+      "longitude": 139.69,
+      "generationtime_ms": 0.08,
+      "utc_offset_seconds": 32400,
+      "timezone": "Asia/Tokyo",
+      "timezone_abbreviation": "GMT+9",
+      "elevation": 40.0,
+      "daily_units": {
+       "time": "iso8601",
+       "weather_code": "wmo code",
+       "temperature_2m_max": "°C",
+       "temperature_2m_min": "°C",
+       "precipitation_sum": "mm"
+      }
+     },
+     "daily_template": {
+      "weather_code": [
+       1,
+       3,
+       3,
+       61,
+       2,
+       1,
+       0
+      ],
+      "temperature_2m_max": [
+       25.2,
+       24.6,
+       23.0,
+       21.0,
+       24.1,
+       25.5,
+       25.9
+      ],
+      "temperature_2m_min": [
+       17.5,
+       17.2,
+       16.8,
+       16.0,
+       17.0,
+       18.1,
+       18.4
+      ],
+      "precipitation_sum": [
+       0.0,
+       0.5,
+       1.1,
+       9.0,
+       0.2,
+       0.0,
+       0.0
+      ]
+     }
+    },
+    {
+     "id": "deepseek.search",
+     "method": "POST",
+     "url": "https://api.deepseek.com/v1/tools/search",
+     "json": {
+      "results": [
+       {
+        "title": "Where to stay in Tokyo",
+        "url": "https://www.japan-guide.com/e/e2036.html",
+        "summary": "Tokyo hotel areas: Shinjuku, Ginza, Asakusa and Tokyo Station each suit a different trip.",
+        "snippet": "",
+        "site_name": "japan-guide.com",
+        "date": "2026-02-14",
+        "authority": 3,
+        "rerank_score": 0.81
+       },
+       {
+        "title": "Tokyo hotels by area",
+        "url": "https://www.timeout.com/tokyo/hotels",
+        "summary": "A Tokyo hotel guide by neighbourhood, from capsule hotels to ryokan.",
+        "snippet": "",
+        "site_name": "timeout.com",
+        "date": "2025-12-01",
+        "authority": 2,
+        "rerank_score": 0.7
+       },
+       {
+        "title": "Tokyo hotels by area",
+        "url": "https://www.timeout.com/tokyo/hotels",
+        "summary": "The same Tokyo page returned twice.",
+        "snippet": "",
+        "site_name": "timeout.com",
+        "date": "2025-12-01",
+        "authority": 2,
+        "rerank_score": 0.7
+       }
+      ]
+     }
+    },
+    {
+     "id": "fx.rates",
+     "method": "GET",
+     "url": "https://open.er-api.com/v6/latest/USD",
+     "json": {
+      "result": "success",
+      "provider": "https://www.exchangerate-api.com",
+      "documentation": "https://www.exchangerate-api.com/docs/free",
+      "time_last_update_unix": 1793750400,
+      "time_last_update_utc": "Mon, 02 Nov 2026 00:00:01 +0000",
+      "base_code": "USD",
+      "rates": {
+       "USD": 1,
+       "JPY": 151.4,
+       "HKD": 7.79,
+       "SGD": 1.33,
+       "TWD": 32.2,
+       "EUR": 0.92,
+       "GBP": 0.78
+      }
+     }
+    }
+   ],
+   "parse": {
+    "google.attractions": 6,
+    "google.restaurants": 3,
+    "nominatim.attractions": 7,
+    "nominatim.restaurants": 2,
+    "wikivoyage": 6,
+    "deepseek.search": 3
+   }
+  },
+  "Osaka": {
+   "city": {
+    "name": "Osaka",
+    "lat": 34.6937,
+    "lng": 135.5023
+   },
+   "truth": [
+    {
+     "key": "osaka_castle",
+     "lat": 34.6873,
+     "lng": 135.5262,
+     "names": [
+      "Osaka Castle",
+      "大阪城",
+      "大坂城",
+      "Osaka Castle Main Tower",
+      "大阪城天守閣"
+     ]
+    },
+    {
+     "key": "dotonbori",
+     "lat": 34.6687,
+     "lng": 135.5013,
+     "names": [
+      "Dotonbori",
+      "Dōtonbori",
+      "道頓堀"
+     ]
+    },
+    {
+     "key": "shitenno_ji",
+     "lat": 34.6536,
+     "lng": 135.5163,
+     "names": [
+      "Shitennō-ji",
+      "Shitennoji",
+      "Shitennoji Temple",
+      "四天王寺"
+     ]
+    },
+    {
+     "key": "umeda_sky",
+     "lat": 34.7053,
+     "lng": 135.4896,
+     "names": [
+      "Umeda Sky Building",
+      "梅田スカイビル"
+     ]
+    },
+    {
+     "key": "kuromon",
+     "lat": 34.6654,
+     "lng": 135.5066,
+     "names": [
+      "Kuromon Market",
+      "Kuromon Ichiba Market",
+      "黒門市場"
+     ]
+    },
+    {
+     "key": "usj",
+     "lat": 34.6654,
+     "lng": 135.4323,
+     "names": [
+      "Universal Studios Japan",
+      "ユニバーサル・スタジオ・ジャパン"
+     ]
+    }
+   ],
+   "routes": [
+    {
+     "id": "google.geocode",
+     "method": "GET",
+     "url": "https://maps.googleapis.com/maps/api/geocode/json",
+     "json": {
+      "results": [
+       {
+        "address_components": [
+         {
+          "long_name": "Osaka",
+          "short_name": "Osaka",
+          "types": [
+           "locality",
+           "political"
+          ]
+         },
+         {
+          "long_name": "Osaka",
+          "short_name": "Osaka",
+          "types": [
+           "administrative_area_level_1",
+           "political"
+          ]
+         },
+         {
+          "long_name": "Japan",
+          "short_name": "JP",
+          "types": [
+           "country",
+           "political"
+          ]
+         }
+        ],
+        "formatted_address": "Osaka, Osaka, Japan",
+        "geometry": {
+         "location": {
+          "lat": 34.6937249,
+          "lng": 135.5022535
+         },
+         "location_type": "APPROXIMATE",
+         "viewport": {
+          "northeast": {
+           "lat": 34.7937249,
+           "lng": 135.6022535
+          },
+          "southwest": {
+           "lat": 34.5937249,
+           "lng": 135.4022535
+          }
+         }
+        },
+        "place_id": "ChIJ-osaka-replay",
+        "types": [
+         "locality",
+         "political"
+        ]
+       }
+      ],
+      "status": "OK"
+     }
+    },
+    {
+     "id": "openmeteo.geocode",
+     "method": "GET",
+     "url": "https://geocoding-api.open-meteo.com/v1/search",
+     "json": {
+      "results": [
+       {
+        "id": 1853909,
+        "name": "Osaka",
+        "latitude": 34.69374,
+        "longitude": 135.50218,
+        "elevation": 12.0,
+        "feature_code": "PPLA",
+        "country_code": "JP",
+        "timezone": "Asia/Tokyo",
+        "population": 2592413,
+        "country": "Japan",
+        "admin1": "Osaka"
+       }
+      ],
+      "generationtime_ms": 0.6
+     }
+    },
+    {
+     "id": "nominatim.geocode",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "^Osaka$"
+     },
+     "json": [
+      {
+       "place_id": 458674,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "relation",
+       "osm_id": 358674,
+       "lat": "34.6937569",
+       "lon": "135.5014539",
+       "category": "boundary",
+       "type": "administrative",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "boundary",
+       "name": "大阪市",
+       "display_name": "大阪市, 大阪府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "大阪市",
+        "name:en": "Osaka"
+       },
+       "boundingbox": [
+        "34.6927569",
+        "34.6947569",
+        "135.5004539",
+        "135.5024539"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "google.attractions",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "tourist_attraction"
+     },
+     "json": {
+      "places": [
+       {
+        "id": "ChIJosaka-castle",
+        "types": [
+         "castle",
+         "tourist_attraction",
+         "historical_landmark"
+        ],
+        "formattedAddress": "1-1 Osakajo, Chuo Ward, Osaka 540-0002, Japan",
+        "location": {
+         "latitude": 34.6873153,
+         "longitude": 135.5262013
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=19850671674117",
+        "displayName": {
+         "text": "Osaka Castle",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 99000,
+        "editorialSummary": {
+         "text": "Rebuilt castle keep in a large moated park.",
+         "languageCode": "en"
+        },
+        "regularOpeningHours": {
+         "openNow": true,
+         "weekdayDescriptions": [
+          "Monday: 9:00 AM – 5:00 PM"
+         ]
+        }
+       },
+       {
+        "id": "ChIJosaka-dotonbori",
+        "types": [
+         "tourist_attraction",
+         "point_of_interest"
+        ],
+        "formattedAddress": "Dotonbori, Chuo Ward, Osaka",
+        "location": {
+         "latitude": 34.6687,
+         "longitude": 135.5013
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=7318588903455",
+        "displayName": {
+         "text": "Dotonbori",
+         "languageCode": "en"
+        },
+        "rating": 4.4,
+        "userRatingCount": 70000
+       },
+       {
+        "id": "ChIJosaka-shitennoji",
+        "types": [
+         "buddhist_temple",
+         "tourist_attraction"
+        ],
+        "formattedAddress": "1-11-18 Shitennoji, Tennoji Ward, Osaka 543-0051, Japan",
+        "location": {
+         "latitude": 34.6536,
+         "longitude": 135.5163
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=3805034670541",
+        "displayName": {
+         "text": "Shitennoji Temple",
+         "languageCode": "en"
+        },
+        "rating": 4.3,
+        "userRatingCount": 11000
+       },
+       {
+        "id": "ChIJosaka-umeda",
+        "types": [
+         "tourist_attraction",
+         "observation_deck"
+        ],
+        "formattedAddress": "1-1-88 Oyodonaka, Kita Ward, Osaka",
+        "location": {
+         "latitude": 34.7052,
+         "longitude": 135.4896
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=10746942552017",
+        "displayName": {
+         "text": "Umeda Sky Building",
+         "languageCode": "en"
+        },
+        "rating": 4.4,
+        "userRatingCount": 33000
+       },
+       {
+        "id": "ChIJosaka-kuromon",
+        "types": [
+         "market",
+         "tourist_attraction"
+        ],
+        "formattedAddress": "2-4-1 Nipponbashi, Chuo Ward, Osaka",
+        "location": {
+         "latitude": 34.6654,
+         "longitude": 135.5066
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=15335927528514",
+        "displayName": {
+         "text": "Kuromon Ichiba Market",
+         "languageCode": "en"
+        },
+        "rating": 4.1,
+        "userRatingCount": 30000
+       },
+       {
+        "id": "ChIJosaka-usj",
+        "types": [
+         "amusement_park",
+         "tourist_attraction"
+        ],
+        "formattedAddress": "2-1-33 Sakurajima, Konohana Ward, Osaka",
+        "location": {
+         "latitude": 34.6654,
+         "longitude": 135.4323
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=30591932818774",
+        "displayName": {
+         "text": "Universal Studios Japan",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 150000
+       },
+       {
+        "id": "ChIJosaka-noname",
+        "types": [
+         "tourist_attraction"
+        ],
+        "formattedAddress": "Namba, Osaka",
+        "location": {
+         "latitude": 34.67,
+         "longitude": 135.5
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=7341548895700"
+       }
+      ]
+     }
+    },
+    {
+     "id": "google.restaurants",
+     "method": "POST",
+     "url": "https://places.googleapis.com/v1/places:searchText",
+     "when": {
+      "includedType": "restaurant"
+     },
+     "json": {
+      "places": [
+       {
+        "id": "ChIJosaka-paprika",
+        "types": [
+         "vegan_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "Tanimachi, Chuo Ward, Osaka",
+        "location": {
+         "latitude": 34.681,
+         "longitude": 135.517
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=22001107681332",
+        "displayName": {
+         "text": "Paprika Shokudo Vegan",
+         "languageCode": "en"
+        },
+        "rating": 4.6,
+        "userRatingCount": 900
+       },
+       {
+        "id": "ChIJosaka-gokoku",
+        "types": [
+         "vegetarian_restaurant",
+         "japanese_restaurant",
+         "restaurant"
+        ],
+        "formattedAddress": "Tennoji Ward, Osaka",
+        "location": {
+         "latitude": 34.6535,
+         "longitude": 135.516
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=13667920303522",
+        "displayName": {
+         "text": "Shojin Ryori Gokoku",
+         "languageCode": "en"
+        },
+        "rating": 4.4,
+        "userRatingCount": 150
+       },
+       {
+        "id": "ChIJosaka-green",
+        "types": [
+         "vegetarian_restaurant",
+         "cafe",
+         "restaurant"
+        ],
+        "formattedAddress": "Namba, Osaka",
+        "location": {
+         "latitude": 34.669,
+         "longitude": 135.503
+        },
+        "googleMapsUri": "https://maps.google.com/?cid=26985630307580",
+        "displayName": {
+         "text": "Green Earth",
+         "languageCode": "en"
+        },
+        "rating": 4.5,
+        "userRatingCount": 600
+       }
+      ]
+     }
+    },
+    {
+     "id": "nominatim.attractions",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "attractions"
+     },
+     "json": [
+      {
+       "place_id": 334117,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 23634117,
+       "lat": "34.6873000",
+       "lon": "135.5259000",
+       "category": "historic",
+       "type": "castle",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "historic",
+       "name": "大阪城",
+       "display_name": "大阪城, 大阪城, 中央区, 大阪市, 大阪府, 540-0002, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "大阪城",
+        "name:en": "Osaka Castle",
+        "old_name": "大坂城"
+       },
+       "boundingbox": [
+        "34.6863000",
+        "34.6883000",
+        "135.5249000",
+        "135.5269000"
+       ]
+      },
+      {
+       "place_id": 512290,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 2385412290,
+       "lat": "34.6874000",
+       "lon": "135.5259000",
+       "category": "tourism",
+       "type": "museum",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "tourism",
+       "name": "大阪城天守閣",
+       "display_name": "大阪城天守閣, 大阪城, 中央区, 大阪市, 大阪府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "大阪城天守閣",
+        "name:en": "Osaka Castle Main Tower"
+       },
+       "boundingbox": [
+        "34.6864000",
+        "34.6884000",
+        "135.5249000",
+        "135.5269000"
+       ]
+      },
+      {
+       "place_id": 365312,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 187465312,
+       "lat": "34.6688000",
+       "lon": "135.5028000",
+       "category": "highway",
+       "type": "pedestrian",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "highway",
+       "name": "道頓堀",
+       "display_name": "道頓堀, 道頓堀1丁目, 中央区, 大阪市, 大阪府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "道頓堀",
+        "name:en": "Dōtonbori"
+       },
+       "boundingbox": [
+        "34.6678000",
+        "34.6698000",
+        "135.5018000",
+        "135.5038000"
+       ]
+      },
+      {
+       "place_id": 680523,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 37480523,
+       "lat": "34.6536000",
+       "lon": "135.5163000",
+       "category": "amenity",
+       "type": "place_of_worship",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "四天王寺",
+       "display_name": "四天王寺, 四天王寺1丁目, 天王寺区, 大阪市, 大阪府, 543-0051, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "四天王寺",
+        "name:en": "Shitennō-ji"
+       },
+       "boundingbox": [
+        "34.6526000",
+        "34.6546000",
+        "135.5153000",
+        "135.5173000"
+       ]
+      },
+      {
+       "place_id": 987521,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 41387521,
+       "lat": "34.7053000",
+       "lon": "135.4896000",
+       "category": "building",
+       "type": "commercial",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "building",
+       "name": "梅田スカイビル",
+       "display_name": "梅田スカイビル, 大淀中1丁目, 北区, 大阪市, 大阪府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "梅田スカイビル",
+        "name:en": "Umeda Sky Building"
+       },
+       "boundingbox": [
+        "34.7043000",
+        "34.7063000",
+        "135.4886000",
+        "135.4906000"
+       ]
+      },
+      {
+       "place_id": 913551,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "way",
+       "osm_id": 287013551,
+       "lat": "34.6654000",
+       "lon": "135.5066000",
+       "category": "amenity",
+       "type": "marketplace",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "黒門市場",
+       "display_name": "黒門市場, 日本橋2丁目, 中央区, 大阪市, 大阪府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {},
+       "namedetails": {
+        "name": "黒門市場",
+        "name:en": "Kuromon Market"
+       },
+       "boundingbox": [
+        "34.6644000",
+        "34.6664000",
+        "135.5056000",
+        "135.5076000"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "nominatim.restaurants",
+     "method": "GET",
+     "url": "https://nominatim.openstreetmap.org/search",
+     "when": {
+      "q": "restaurants"
+     },
+     "json": [
+      {
+       "place_id": 300001,
+       "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+       "osm_type": "node",
+       "osm_id": 8012000001,
+       "lat": "34.6810000",
+       "lon": "135.5170000",
+       "category": "amenity",
+       "type": "restaurant",
+       "place_rank": 30,
+       "importance": 0.4,
+       "addresstype": "amenity",
+       "name": "パプリカ食堂ヴィーガン",
+       "display_name": "パプリカ食堂ヴィーガン, 谷町, 中央区, 大阪市, 大阪府, 日本",
+       "address": {
+        "country": "日本",
+        "country_code": "jp"
+       },
+       "extratags": {
+        "diet:vegan": "only"
+       },
+       "namedetails": {
+        "name": "パプリカ食堂ヴィーガン",
+        "name:en": "Paprika Shokudo Vegan"
+       },
+       "boundingbox": [
+        "34.6800000",
+        "34.6820000",
+        "135.5160000",
+        "135.5180000"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wikivoyage",
+     "method": "GET",
+     "url": "https://en.wikivoyage.org/w/api.php",
+     "json": {
+      "parse": {
+       "title": "Osaka",
+       "pageid": 7029,
+       "wikitext": "'''Osaka''' (大阪 ''Ōsaka'') is Japan's kitchen.\n== See ==\n* {{see | name=Osaka Castle | alt=大阪城 | lat=34.6783 | long=135.5262 | content=The castle keep is a 1931 concrete rebuild.}}\n* {{see | name=Dōtonbori | alt=道頓堀 | lat=34.6687 | long=135.5013 | content=Canal-side neon and street food.}}\n* {{see | name=Shitennō-ji | alt=四天王寺 | lat=34.6536 | long=135.5163 | content=One of Japan's oldest temples.}}\n* {{see | name=Umeda Sky Building | alt=梅田スカイビル | content=Floating Garden Observatory.}}\n* {{see | name=Kuromon Market | alt=黒門市場 | lat=34.6654 | long=135.5066 | content=Covered seafood market.}}\n== Do ==\n* {{do | name=Universal Studios Japan | alt=ユニバーサル・スタジオ・ジャパン | lat=34.6654 | long=135.4323 | content=Theme park on the bay.}}\n== Eat ==\n* {{eat | name=Green Earth | lat=34.6690 | long=135.5030 | price=¥1,500 | content=Vegetarian cafe in Namba.}}\n== Sleep ==\n* {{sleep | name=Hotel Monterey Grasmere Osaka | lat=34.6650 | long=135.4960 | price=¥14,000 | content=Above JR Namba.}}"
+      }
+     }
+    },
+    {
+     "id": "openmeteo.forecast",
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast",
+     "json": {
+      "latitude": 34.69,
+      "longitude": 135.5,
+      "generationtime_ms": 0.08,
+      "utc_offset_seconds": 32400,
+      "timezone": "Asia/Tokyo",
+      "timezone_abbreviation": "GMT+9",
+      "elevation": 40.0,
+      "daily_units": {
+       "time": "iso8601",
+       "weather_code": "wmo code",
+       "temperature_2m_max": "°C",
+       "temperature_2m_min": "°C",
+       "precipitation_probability_max": "%"
+      }
+     },
+     "daily_template": {
+      "weather_code": [
+       2,
+       1,
+       0,
+       3,
+       61,
+       2,
+       1
+      ],
+      "temperature_2m_max": [
+       27.0,
+       27.8,
+       28.4,
+       25.9,
+       23.0,
+       26.1,
+       27.2
+      ],
+      "temperature_2m_min": [
+       19.1,
+       19.5,
+       20.0,
+       18.8,
+       18.0,
+       18.9,
+       19.4
+      ],
+      "precipitation_probability_max": [
+       10,
+       5,
+       0,
+       30,
+       80,
+       20,
+       10
+      ]
+     }
+    },
+    {
+     "id": "openmeteo.archive",
+     "method": "GET",
+     "url": "https://archive-api.open-meteo.com/v1/archive",
+     "json": {
+      "latitude": 34.69,
+      "longitude": 135.5,
+      "generationtime_ms": 0.08,
+      "utc_offset_seconds": 32400,
+      "timezone": "Asia/Tokyo",
+      "timezone_abbreviation": "GMT+9",
+      "elevation": 40.0,
+      "daily_units": {
+       "time": "iso8601",
+       "weather_code": "wmo code",
+       "temperature_2m_max": "°C",
+       "temperature_2m_min": "°C",
+       "precipitation_sum": "mm"
+      }
+     },
+     "daily_template": {
+      "weather_code": [
+       1,
+       2,
+       3,
+       3,
+       61,
+       1,
+       0
+      ],
+      "temperature_2m_max": [
+       26.5,
+       27.1,
+       27.9,
+       26.0,
+       23.8,
+       26.4,
+       27.5
+      ],
+      "temperature_2m_min": [
+       18.8,
+       19.2,
+       19.7,
+       18.9,
+       18.2,
+       19.0,
+       19.6
+      ],
+      "precipitation_sum": [
+       0.0,
+       0.0,
+       0.4,
+       2.0,
+       11.5,
+       0.1,
+       0.0
+      ]
+     }
+    },
+    {
+     "id": "deepseek.search",
+     "method": "POST",
+     "url": "https://api.deepseek.com/v1/tools/search",
+     "json": {
+      "results": [
+       {
+        "title": "Where to stay in Osaka",
+        "url": "https://www.japan-guide.com/e/e4029.html",
+        "summary": "Osaka hotels are concentrated in Kita (Umeda) and Minami (Namba).",
+        "snippet": "",
+        "site_name": "japan-guide.com",
+        "date": "2026-01-10",
+        "authority": 3,
+        "rerank_score": 0.8
+       }
+      ]
+     }
+    },
+    {
+     "id": "fx.rates",
+     "method": "GET",
+     "url": "https://open.er-api.com/v6/latest/USD",
+     "json": {
+      "result": "success",
+      "provider": "https://www.exchangerate-api.com",
+      "documentation": "https://www.exchangerate-api.com/docs/free",
+      "time_last_update_unix": 1793750400,
+      "time_last_update_utc": "Mon, 02 Nov 2026 00:00:01 +0000",
+      "base_code": "USD",
+      "rates": {
+       "USD": 1,
+       "JPY": 151.4,
+       "HKD": 7.79,
+       "SGD": 1.33,
+       "TWD": 32.2,
+       "EUR": 0.92,
+       "GBP": 0.78
+      }
+     }
+    }
+   ],
+   "parse": {
+    "google.attractions": 6,
+    "google.restaurants": 3,
+    "nominatim.attractions": 6,
+    "nominatim.restaurants": 1,
+    "wikivoyage": 6,
+    "deepseek.search": 1
+   }
+  }
+ },
+ "cases": {
+  "jp01": {
+   "city": "Kyoto",
+   "faults": [
+    {
+     "route": "google.attractions",
+     "status": 503,
+     "text": "Service Unavailable"
+    }
+   ],
+   "expect": [
+    {
+     "recorded": {
+      "any": [
+       "place source failed"
+      ]
+     }
+    }
+   ],
+   "note": "Google Places is down for attractions: the attraction agent falls back to OSM, whose names are Japanese."
+  },
+  "jp06": {
+   "city": "Kyoto",
+   "faults": [
+    {
+     "route": "openmeteo.forecast",
+     "drop_days": [
+      1
+     ],
+     "null": {
+      "temperature_2m_max": [
+       0
+      ]
+     }
+    }
+   ],
+   "expect": [
+    {
+     "weather_day": {
+      "day": 2,
+      "not_status": "ok"
+     }
+    },
+    {
+     "weather_day": {
+      "day": 1,
+      "high_c": null
+     }
+    }
+   ],
+   "note": "Open-Meteo leaves day 2 out and returns no maximum for day 1."
+  },
+  "jp02": {
+   "city": "Tokyo",
+   "faults": [
+    {
+     "route": "deepseek.search",
+     "status": 429,
+     "text": "rate limited"
+    }
+   ],
+   "expect": [
+    {
+     "gap": {
+      "section": "hotels",
+      "retryable": true
+     }
+    }
+   ],
+   "note": "No priced hotel listing, and the web search for hotel pages is rate limited."
+  },
+  "jp04": {
+   "city": "Tokyo",
+   "faults": [
+    {
+     "route": "google.restaurants",
+     "status": 500,
+     "text": "internal"
+    }
+   ],
+   "expect": [
+    {
+     "recorded": {
+      "any": [
+       "restaurant source failed"
+      ]
+     }
+    }
+   ],
+   "note": "Google Places fails for restaurants: meals come from OSM."
+  },
+  "jp03": {
+   "city": "Osaka",
+   "faults": [
+    {
+     "route": "wikivoyage",
+     "status": 200,
+     "text": "<!DOCTYPE html><html><body>Wikimedia Error</body></html>"
+    }
+   ],
+   "expect": [
+    {
+     "gap": {
+      "section": "hotels",
+      "contains": "non-JSON"
+     }
+    }
+   ],
+   "note": "Wikivoyage answers with an HTML error page instead of JSON."
+  },
+  "jp05": {
+   "city": "Osaka",
+   "faults": [
+    {
+     "route": "google.geocode",
+     "status": 200,
+     "json": {
+      "results": [],
+      "status": "OVER_QUERY_LIMIT"
+     }
+    },
+    {
+     "route": "openmeteo.forecast",
+     "status": 500,
+     "text": "internal"
+    }
+   ],
+   "expect": [
+    {
+     "destination_within_km": 15
+    },
+    {
+     "weather_all": {
+      "status": "stale"
+     }
+    }
+   ],
+   "note": "Google geocoding is over quota and the forecast fails: the city comes from Open-Meteo geocoding and the days carry the seasonal reference."
+  }
+ }
+}
