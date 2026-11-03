@@ -281,21 +281,42 @@ def chinese_input_reply(locale: str) -> str:
     return CHINESE_INPUT_REPLY["en"]
 
 
-def refresh_reply(locale: str, *, has_plan: bool, refreshed: list[str], outdated: list[str], labels: dict[str, str]) -> str:
+def refresh_reply(
+    locale: str,
+    *,
+    has_plan: bool,
+    refreshed: list[str],
+    outdated: list[str],
+    labels: dict[str, str],
+    missing: list[str] | None = None,
+) -> str:
+    """What a request to refresh the data did. ``refreshed`` are the sections that came back with data: those
+    in ``outdated`` were fetched again, the others had never arrived. ``missing`` are those still absent."""
     zh = locale == "zh-Hant"
     if not has_plan:
         return "未有行程可以更新。" if zh else "There is no plan yet, so there is nothing to refresh."
-    if refreshed:
+
+    def named(sections: list[str]) -> str:
         if zh:
-            names = "、".join(_ZH_SECTIONS.get(section, section) for section in refreshed)
-            return f"已重新取得過時的資料：{names}。"
-        parts = [labels.get(section, section) for section in refreshed]
-        names = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
-        return f"Refreshed the outdated {names}."
-    if outdated:
-        return (
+            return "、".join(_ZH_SECTIONS.get(section, section) for section in sections)
+        parts = [labels.get(section, section) for section in sections]
+        return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+
+    renewed = [section for section in refreshed if section in outdated]
+    fetched = [section for section in refreshed if section not in outdated]
+    said: list[str] = []
+    if renewed:
+        said.append(f"已重新取得過時的資料：{named(renewed)}。" if zh else f"Refreshed the outdated {named(renewed)}.")
+    if fetched:
+        said.append(f"已取得原本缺少的資料：{named(fetched)}。" if zh else f"Fetched the missing {named(fetched)}.")
+    if outdated and not renewed:
+        said.append(
             "部分資料已過時，但來源暫時未能提供新資料，現保留原有資料。"
             if zh
             else "Some data is outdated, but the sources could not be reached again; the earlier data is kept."
         )
+    if missing:
+        said.append(f"重試後仍然缺少：{named(missing)}。" if zh else f"Still missing after trying again: {named(missing)}.")
+    if said:
+        return ("" if zh else " ").join(said)
     return "行程中的資料仍在有效期內，毋須更新。" if zh else "Every section of the plan is within its freshness window; nothing needed refreshing."

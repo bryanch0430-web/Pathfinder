@@ -6,21 +6,29 @@ a saved plan is reopened, each section's oldest stamp is compared with its windo
 An outdated section is marked on the plan (``data_quality.freshness``) and fetched
 again by the agent that owns it, through the Toolbox ``refresh`` path (allowlisted and
 logged). Every other section of the plan is left as it was.
+
+A section whose source failed when the plan was made has no fetch time to compare. When the plan
+holds none of it and names a retryable gap for it, it is asked for again the same way: when the plan
+is reopened or a turn reads it (while its source stays down, no more often than every
+``RETRY_AFTER_SECONDS``) and whenever the traveller asks to refresh.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
 from app.application.agents import AgentContext, BaseAgent, HotelAgent, TicketAgent, WeatherAgent
+from app.application.planner import Planner, _constraints, _reservations
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.infrastructure.store import PlanConflict
 from app.domain.models import (
+    AgentResult,
+    ConstraintCheck,
     FreshnessMark,
     GeoLocation,
     Money,
@@ -39,6 +47,9 @@ logger = logging.getLogger(__name__)
 
 SECTIONS = ("weather", "tickets", "hotels")
 LABELS = {"weather": "weather forecast", "tickets": "flight fares", "hotels": "hotel prices"}
+
+#: A section that never arrived is asked for again at most this often (seconds) unless the traveller asks.
+RETRY_AFTER_SECONDS = 600
 
 
 class _OwnSourceOnly:
@@ -96,11 +107,32 @@ def outdated_sections(plan: TripPlan, settings: Settings, now: datetime) -> dict
     }
 
 
+def missing_sections(plan: TripPlan) -> list[str]:
+    """The time-sensitive sections whose data never arrived and may on another try.
+
+    ``section_stamps`` sees only data that exists, so a section whose source failed when the plan was
+    made would never be outdated. It is missing when the plan holds none of it (a forecast counts only
+    when it covers every day) and names a retryable gap for it: a source that answered "no data" is not
+    asked again.
+    """
+    holds = {
+        "weather": all(day.weather is not None for day in plan.days),
+        "tickets": any(ticket.mode == "flight" for ticket in plan.tickets),
+        "hotels": bool(plan.hotels),
+    }
+    retryable = {gap.section for gap in plan.data_quality.gaps if gap.retryable}
+    return [section for section in SECTIONS if section in retryable and not holds[section]]
+
+
 @dataclass
 class RefreshOutcome:
     plan: TripPlan
+    #: The sections older than their window.
     outdated: list[str]
+    #: The sections that came back with data: outdated ones fetched again and missing ones fetched at last.
     refreshed: list[str]
+    #: The sections the plan still holds none of after this check.
+    missing: list[str] = field(default_factory=list)
 
 
 def _never_busy(_: str) -> bool:
@@ -126,14 +158,31 @@ class FreshnessService:
         #: Whether a turn is running on a trip (the turn service sets this): a reopened plan is
         #: not saved over a turn's work.
         self.session_busy = session_busy
+        #: When a missing section of a trip was last asked for again, by (trip id, section): a source
+        #: that is down is asked again after ``RETRY_AFTER_SECONDS``, not on every reopen.
+        self._tried: dict[tuple[str, str], datetime] = {}
 
-    def needs_check(self, plan: TripPlan) -> bool:
+    def _missing_due(self, plan: TripPlan, now: datetime, *, requested: bool) -> list[str]:
+        """The missing sections to ask for again now: all of them when the traveller asked to refresh,
+        otherwise those not asked within ``RETRY_AFTER_SECONDS`` (the plan's own time stands for the
+        first try, made when it was built). Nothing about a trip that has ended is asked for again."""
+        if plan.dates.end < now.date():
+            return []
+        never = datetime.min.replace(tzinfo=timezone.utc)
+        due: list[str] = []
+        for section in missing_sections(plan):
+            tried = max(_aware(plan.updated_at), self._tried.get((plan.trip_id, section), never))
+            if requested or (now - tried).total_seconds() > RETRY_AFTER_SECONDS:
+                due.append(section)
+        return due
+
+    def needs_check(self, plan: TripPlan, *, requested: bool = False) -> bool:
         now = _aware(self.clock())
         outdated = outdated_sections(plan, self.settings, now)
         cleared = any(
             mark.status == "outdated" and mark.section not in outdated for mark in plan.data_quality.freshness
         )
-        return bool(outdated) or cleared
+        return bool(outdated) or cleared or bool(self._missing_due(plan, now, requested=requested))
 
     async def check(
         self,
@@ -143,16 +192,29 @@ class FreshnessService:
         tracer: Tracer,
         request_id: str,
         save: bool = True,
+        requested: bool = False,
     ) -> RefreshOutcome | None:
-        """Mark and re-fetch outdated sections. None when every section is in date.
+        """Mark and re-fetch outdated sections, and fetch again a section that never arrived.
 
-        A plan in which a section was re-fetched is saved as the next version, unless the caller
-        saves it (``save=False``).
+        None when every section is in date and nothing is due. A plan in which a section was
+        re-fetched is saved as the next version, unless the caller saves it (``save=False``).
+        ``requested`` is the traveller asking to refresh: a missing section is then asked for again
+        whenever it was last tried, and the outcome says what is still missing.
         """
-        if not self.needs_check(plan):
+        if not self.needs_check(plan, requested=requested):
             return None
         now = _aware(self.clock())
         outdated = outdated_sections(plan, self.settings, now)
+        absent = [section for section in self._missing_due(plan, now, requested=requested) if section not in outdated]
+        stale_marks = any(
+            mark.status == "outdated" and mark.section not in outdated for mark in plan.data_quality.freshness
+        )
+        for section in absent:
+            # Noted before the fetch, so a second request arriving meanwhile does not ask again.
+            self._tried[(plan.trip_id, section)] = now
+        self._tried = {
+            key: at for key, at in self._tried.items() if (now - at).total_seconds() <= RETRY_AFTER_SECONDS
+        }
         updated = plan.model_copy(deep=True)
         toolbox = Toolbox(
             path="refresh",
@@ -162,30 +224,38 @@ class FreshnessService:
             max_calls=self.settings.max_tool_calls_per_turn or None,
         )
         request_context = self._agent_context(updated, context)
-        with tracer.span("freshness", outdated=sorted(outdated)) as span:
-            sections = list(outdated)
+        with tracer.span("freshness", outdated=sorted(outdated), missing=sorted(absent)) as span:
+            sections = [*outdated, *absent]
             prices_before = _prices(updated)
-            notes = await asyncio.gather(
+            checks_before = _derived_checks(updated, request_context)
+            answers = await asyncio.gather(
                 *(self._refetch(section, updated, request_context, toolbox, now) for section in sections)
             )
+            fetched = dict(zip(sections, answers))
             marks = {
                 mark.section: mark
                 for mark in updated.data_quality.freshness
                 if not (mark.status == "outdated" and mark.section not in outdated)
             }
             refreshed: list[str] = []
-            for section, note in zip(sections, notes):
+            for section, (note, _) in fetched.items():
                 if note is None:
                     refreshed.append(section)
-                marks[section] = FreshnessMark(
-                    section=section,  # type: ignore[arg-type]
-                    status="refreshed" if note is None else "outdated",
-                    fetched_at=outdated[section],
-                    checked_at=now,
-                    window_seconds=window_seconds(section, self.settings),
-                    note=note or "",
-                )
+                if section in outdated:
+                    marks[section] = FreshnessMark(
+                        section=section,  # type: ignore[arg-type]
+                        status="refreshed" if note is None else "outdated",
+                        fetched_at=outdated[section],
+                        checked_at=now,
+                        window_seconds=window_seconds(section, self.settings),
+                        note=note or "",
+                    )
             updated.data_quality.freshness = [marks[section] for section in SECTIONS if section in marks]
+            filled = [section for section in absent if section in refreshed]
+            for section in filled:
+                result = fetched[section][1]
+                if result is not None:
+                    self._settle_filled(updated, section, result)
             if _prices(updated) != prices_before:
                 updated.cost = self.planner._cost(
                     request_context,
@@ -193,18 +263,37 @@ class FreshnessService:
                     updated.tickets,
                     updated.dates,
                 )
+            if filled:
+                updated.constraints = _recheck_derived(updated, request_context, checks_before)
             span.attrs["refreshed"] = refreshed
+        if not (outdated or refreshed or requested or stale_marks):
+            return None  # only a section that never arrived was tried again, and nothing came back
         if refreshed:
+            renewed = [section for section in refreshed if section in outdated]
+            said = []
+            if renewed:
+                said.append("Refreshed the outdated " + _join([LABELS[section] for section in renewed]) + ".")
+            if filled:
+                said.append("Fetched the missing " + _join([LABELS[section] for section in filled]) + ".")
             updated.version = plan.version + 1
             updated.updated_at = utcnow()
-            updated.change_summary = "Refreshed the outdated " + _join([LABELS[section] for section in refreshed]) + "."
+            updated.change_summary = " ".join(said)
             if save and self.store is not None:
                 try:
                     self.store.save_plan(updated, updated.change_summary)
                 except PlanConflict:
                     # Another request refreshed this plan first; its version stands, ours is shown.
                     logger.info("a concurrent request already saved version %s of this plan", updated.version)
-        return RefreshOutcome(plan=updated, outdated=sorted(outdated), refreshed=refreshed)
+        return RefreshOutcome(
+            plan=updated, outdated=sorted(outdated), refreshed=refreshed, missing=missing_sections(updated)
+        )
+
+    @staticmethod
+    def _settle_filled(plan: TripPlan, section: str, result: AgentResult) -> None:
+        """A section that came back: its gaps are what this fetch could not get, and its sources are named."""
+        quality = plan.data_quality
+        quality.gaps = [gap for gap in quality.gaps if gap.section != section] + list(result.failures)
+        quality.sources_used = sorted({*quality.sources_used, *(ref.source for ref in result.sources)})
 
     async def on_reopen(self, plan: TripPlan) -> TripPlan:
         """A saved plan opened again: the same check as a later turn, under its own request id.
@@ -274,11 +363,12 @@ class FreshnessService:
         context: TripContext,
         toolbox: Toolbox,
         now: datetime,
-    ) -> str | None:
-        """Re-run the section's own agent and apply what it returned. None when refreshed,
-        otherwise why the earlier data was kept."""
+    ) -> tuple[str | None, AgentResult | None]:
+        """Re-run the section's own agent and apply what it returned. The note is None when refreshed,
+        otherwise why the earlier data was kept (or why nothing came); the agent's result comes with it
+        when the agent ran."""
         if plan.destination.geo is None:
-            return "The destination has no coordinates, so the source could not be asked again."
+            return "The destination has no coordinates, so the source could not be asked again.", None
         destination = GeoLocation(
             name=plan.destination.name,
             country_code=plan.destination.country_code,
@@ -298,13 +388,14 @@ class FreshnessService:
             result = await agent.run(request)
         except Exception as exc:
             logger.warning("refreshing %s failed: %s", section, exc)
-            return "The source could not be reached; the earlier data is kept."
+            return "The source could not be reached; the earlier data is kept.", None
         apply = {"weather": _apply_weather, "tickets": _apply_fares, "hotels": _apply_hotels}[section]
-        return apply(plan, result.payload, now)
+        return apply(plan, result.payload, now), result
 
 
 def _apply_weather(plan: TripPlan, payload: dict[str, Any], now: datetime) -> str | None:
     rows = {row.get("date"): row for row in payload.get("days", []) if row.get("date")}
+    held = any(day.weather is not None for day in plan.days)
     kept = 0
     for day in plan.days:
         row = rows.get(day.date.isoformat())
@@ -317,6 +408,8 @@ def _apply_weather(plan: TripPlan, payload: dict[str, Any], now: datetime) -> st
         day.weather = fresh
     if kept:
         return f"No new forecast for {kept} of {len(plan.days)} days; the earlier forecast is kept."
+    if not held and all(day.weather is None for day in plan.days):
+        return "No forecast came back for these dates."
     return None
 
 
@@ -325,6 +418,16 @@ def _apply_fares(plan: TripPlan, payload: dict[str, Any], now: datetime) -> str 
     for row in payload.get("flights", []):
         name = " ".join(part for part in [row.get("airline"), row.get("flight_number")] if part) or "Flight"
         rows.setdefault(name.casefold(), row)
+    if not any(ticket.mode == "flight" for ticket in plan.tickets):
+        # The fares never arrived: the options a new plan builds from what came back.
+        flights = Planner._build_tickets(list(payload.get("flights", [])))
+        if not flights:
+            return "No flight came back for these dates."
+        for ticket in flights:
+            ticket.fetched_at = now
+        plan.tickets = [*plan.tickets, *flights]
+        plan.reservations = [*plan.reservations, *_reservations([], flights)]
+        return None
     kept = 0
     for ticket in plan.tickets:
         if ticket.mode != "flight":
@@ -346,6 +449,14 @@ def _apply_fares(plan: TripPlan, payload: dict[str, Any], now: datetime) -> str 
 
 def _apply_hotels(plan: TripPlan, payload: dict[str, Any], now: datetime) -> str | None:
     rows = {_name(row.get("name", "")): row for row in payload.get("hotels", [])}
+    if not plan.hotels:
+        # The stay never arrived: the pick a new plan makes from what came back (its first candidate).
+        stay = Planner._build_hotel(Planner._choose_hotel(list(payload.get("hotels", [])), None), plan.dates)
+        if stay is None:
+            return "No hotel came back for these dates."
+        stay.fetched_at = now
+        plan.hotels = [stay]
+        return None
     kept = 0
     for hotel in plan.hotels:
         row = rows.get(_name(hotel.name))
@@ -367,6 +478,32 @@ def _apply_hotels(plan: TripPlan, payload: dict[str, Any], now: datetime) -> str
 
 def _prices(plan: TripPlan) -> list[Any]:
     return [hotel.price_per_night for hotel in plan.hotels] + [ticket.price for ticket in plan.tickets]
+
+
+def _derived_checks(plan: TripPlan, context: TripContext) -> dict[str, ConstraintCheck]:
+    """The checks the planner reads off the plan's own data (budget, forecast, stay, fares), by text.
+    The checks that come from the traveller's own rules need what only the planner knew and are left out."""
+    bare = context.model_copy(update={"hard_constraints": [], "preferences": []})
+    checks = _constraints(bare, plan.days, plan.hotels[0] if plan.hotels else None, plan.tickets, plan.cost)
+    return {check.text: check for check in checks}
+
+
+def _recheck_derived(
+    plan: TripPlan, context: TripContext, before: dict[str, ConstraintCheck]
+) -> list[ConstraintCheck]:
+    """The plan's checks, with those that a section just fetched changed read again; the others stay as they were."""
+    after = _derived_checks(plan, context)
+    changed = {
+        text: check
+        for text, check in after.items()
+        if text not in before or (check.status, check.evidence) != (before[text].status, before[text].evidence)
+    }
+    return [
+        check.model_copy(update={"status": changed[check.text].status, "evidence": changed[check.text].evidence})
+        if check.text in changed
+        else check
+        for check in plan.constraints
+    ]
 
 
 def _name(value: str) -> str:
