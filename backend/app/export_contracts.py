@@ -31,6 +31,9 @@ def main(target: Path | None = None) -> None:
         json.dumps(schema, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     openapi = create_app().openapi()
+    # The catch-all that serves the built frontend exists only after `npm run build`, so listing it
+    # would make the contract depend on the machine that wrote it. It is not part of the API.
+    openapi["paths"].pop("/{full_path}", None)
     (contracts / "openapi.json").write_text(
         json.dumps(openapi, indent=2, ensure_ascii=False), encoding="utf-8"
     )
