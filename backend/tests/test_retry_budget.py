@@ -350,6 +350,56 @@ def test_the_retry_setting_is_what_limits_a_provider(settings: Settings, monkeyp
     assert flaky.requests == 1  # no retries, as set
 
 
+def _nominatim_geocode(settings: Settings):
+    from app.infrastructure.providers.geocoding import NominatimGeocoder
+
+    return NominatimGeocoder(settings).geocode("Kyoto")
+
+
+def _nominatim_places(settings: Settings):
+    from app.infrastructure.providers.places import NominatimPlacesSource
+
+    return NominatimPlacesSource(settings).search(destination="Kyoto", geo=None, category="attraction", limit=3)
+
+
+def _wikivoyage_places(settings: Settings):
+    from app.infrastructure.providers.places import WikivoyagePlacesSource
+
+    return WikivoyagePlacesSource(settings).search(destination="Kyoto", geo=None, category="attraction", limit=3)
+
+
+def _grok_answer(settings: Settings):
+    from app.infrastructure.providers.websearch import GrokSearchSource
+
+    return GrokSearchSource(settings.model_copy(update={"xai_api_key": "k", "xai_model": "m"})).answer(query="Kyoto")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [_nominatim_geocode, _nominatim_places, _wikivoyage_places, _grok_answer],
+    ids=["nominatim-geocoder", "nominatim-places", "wikivoyage", "grok-search"],
+)
+def test_a_source_that_asks_not_to_be_repeated_is_asked_once_whatever_the_retry_setting(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch, call
+) -> None:
+    """OpenStreetMap and Wikimedia ask clients not to repeat requests, and a Grok search is paid:
+    ``HTTP_RETRIES`` does not apply to them."""
+    monkeypatch.setattr("app.infrastructure.http.BACKOFF_BASE_SECONDS", 0.0)
+    monkeypatch.setattr("app.infrastructure.http.BACKOFF_JITTER_SECONDS", 0.0)
+    requests: list[str] = []
+
+    def always_unavailable(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        return httpx.Response(503, text="try later")
+
+    with use_transport(httpx.MockTransport(always_unavailable)):
+        with pytest.raises(ProviderError) as caught:
+            asyncio.run(call(settings.model_copy(update={"http_retries": 2})))
+
+    assert caught.value.kind is FailureKind.SERVER_ERROR
+    assert len(requests) == 1, requests
+
+
 def test_the_fourth_tool_call_in_a_turn_is_refused_when_the_cap_is_three() -> None:
     from app.application.toolbox import Toolbox
     from app.domain.errors import ToolBudgetExceeded
