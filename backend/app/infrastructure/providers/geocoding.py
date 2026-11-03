@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.config import Settings
-from app.domain.errors import ProviderError, ProviderNoData
+from app.domain.errors import ProviderError, ProviderNoData, operator_text
 from app.domain.models import GeoLocation, GeoPoint
 from app.infrastructure.http import request_json
 
@@ -163,7 +163,7 @@ class GeocoderChain:
         self.sources = sources
 
     async def geocode(self, name: str, *, country_hint: str = "") -> GeoLocation | None:
-        errors: list[str] = []
+        failures: list[tuple[str, ProviderError]] = []
         fallback: GeoLocation | None = None
         for source in self.sources:
             try:
@@ -177,12 +177,27 @@ class GeocoderChain:
             except ProviderNoData:
                 continue
             except ProviderError as exc:
-                errors.append(f"{source.name}: {exc}")
+                failures.append((source.name, exc))
         if fallback is not None:
             return fallback
-        if errors:
-            raise ProviderError(
-                "geocoding failed for all sources: " + "; ".join(errors),
-                source=self.name,
-            )
+        if failures:
+            raise self._failure(failures)
         return None
+
+    def _failure(self, failures: list[tuple[str, ProviderError]]) -> ProviderError:
+        """One typed error for a chain whose every source failed.
+
+        Its kind is that of the first failure asking again could fix (a timeout, a dropped
+        connection, a rate limit), else of the first failure, so it is retryable when any
+        failure was. The message is ours, source names and kinds only; what each source said
+        stays in `detail`, for the trace.
+        """
+        chosen = next((error for _, error in failures if error.retryable), failures[0][1])
+        return ProviderError(
+            "geocoding failed for all sources: "
+            + ", ".join(f"{name} ({error.kind.value})" for name, error in failures),
+            kind=chosen.kind,
+            source=self.name,
+            retryable=chosen.retryable,
+            detail="; ".join(f"{name}: {operator_text(error)}" for name, error in failures),
+        )
