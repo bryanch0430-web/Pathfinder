@@ -2021,6 +2021,17 @@ export function AuthDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // The dialog stays mounted while it is closed, so it forgets what was typed: the next person to open it
+  // on a shared computer must not find the last one's address, name or password, or the register mode.
+  useEffect(() => {
+    if (open) return;
+    setMode("login");
+    setEmail("");
+    setPassword("");
+    setDisplayName("");
+    setError(null);
+  }, [open]);
+
   const submit = async () => {
     setError(null);
     setBusy(true);
