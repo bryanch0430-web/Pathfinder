@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ApiError,
   clearMessages,
   createSession,
   discardSession,
@@ -364,7 +365,8 @@ export function usePathfinder(locale: string): PathfinderHook {
         );
       } catch (cause) {
         if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : tRef.current("errors.turn"));
+          if (cause instanceof ApiError && cause.status === 429) setError(tRef.current("errors.rateLimited"));
+          else setError(cause instanceof Error ? cause.message : tRef.current("errors.turn"));
         }
       } finally {
         abortRef.current = null;

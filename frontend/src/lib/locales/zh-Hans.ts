@@ -13,6 +13,8 @@ export const ZH_HANS: Messages = {
   "header.sections": "栏目",
   "header.language": "语言",
   "header.export": "导出",
+  "header.slides": "幻灯片",
+  "header.slidesTitle": "将行程下载为 PowerPoint 演示文稿",
   "header.share": "分享",
   "header.newTrip": "新行程",
   "header.help": "帮助与术语",
@@ -432,6 +434,8 @@ export const ZH_HANS: Messages = {
   "errors.share": "无法分享此行程。",
   "errors.copy": "无法复制链接，请选中后手动复制。",
   "errors.revoke": "无法关闭链接。",
+  "errors.slides": "无法生成幻灯片。",
+  "errors.rateLimited": "此设备的请求过多，请稍等一分钟再试。",
 
   "plan.stop": "站点",
   "plan.openTrips": "已打开的行程",

@@ -15,6 +15,8 @@ export const EN = {
   "header.sections": "Sections",
   "header.language": "Language",
   "header.export": "Export",
+  "header.slides": "Slides",
+  "header.slidesTitle": "Download the plan as a PowerPoint deck",
   "header.share": "Share",
   "header.newTrip": "New trip",
   "header.help": "Help and glossary",
@@ -434,6 +436,8 @@ export const EN = {
   "errors.share": "The trip could not be shared.",
   "errors.copy": "The link could not be copied. Select it and copy it yourself.",
   "errors.revoke": "The link could not be turned off.",
+  "errors.slides": "The slides could not be created.",
+  "errors.rateLimited": "Too many requests from this device. Wait a minute and try again.",
 
   "plan.stop": "Stop",
   "plan.openTrips": "Open trips",

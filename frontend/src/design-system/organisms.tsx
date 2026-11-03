@@ -139,8 +139,8 @@ export function AppHeader({
             </Button>
           ) : null}
           {onExportSlides ? (
-            <Button size="sm" variant="ghost" iconLeft="layers" onClick={onExportSlides} title="Download the plan as a PowerPoint deck">
-              Slides
+            <Button size="sm" variant="ghost" iconLeft="layers" onClick={onExportSlides} title={t("header.slidesTitle")}>
+              {t("header.slides")}
             </Button>
           ) : null}
           {onShare ? (
@@ -1851,7 +1851,9 @@ export function AuthDialog({
       } catch {
         // Plain-text errors stay as they are.
       }
-      if (/email or password is incorrect/i.test(message)) {
+      if ((cause as { status?: unknown } | null)?.status === 429) {
+        message = t("errors.rateLimited");
+      } else if (/email or password is incorrect/i.test(message)) {
         message = t("auth.mismatch");
       } else if (/already exists/i.test(message)) {
         message = t("auth.exists");

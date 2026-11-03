@@ -15,6 +15,8 @@ export const ZH_HANT: Messages = {
   "header.sections": "分頁",
   "header.language": "語言",
   "header.export": "匯出",
+  "header.slides": "簡報",
+  "header.slidesTitle": "將行程下載為 PowerPoint 簡報",
   "header.share": "分享",
   "header.newTrip": "新行程",
   "header.help": "說明與詞彙",
@@ -434,6 +436,8 @@ export const ZH_HANT: Messages = {
   "errors.share": "無法分享這趟行程。",
   "errors.copy": "無法複製連結，請選取後自行複製。",
   "errors.revoke": "無法停用連結。",
+  "errors.slides": "無法製作簡報。",
+  "errors.rateLimited": "此裝置的請求過多，請稍候一分鐘再試。",
 
   "plan.stop": "站點",
   "plan.openTrips": "已開啟的行程",

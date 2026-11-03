@@ -259,7 +259,7 @@ export default function App() {
     try {
       await downloadPlanSlides(pf.plan);
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : "The slides could not be created.");
+      window.alert(cause instanceof Error ? cause.message : t("errors.slides"));
     }
   };
 

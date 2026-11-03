@@ -35,13 +35,25 @@ export class ApiError extends Error {
   }
 }
 
+/** FastAPI answers errors as {"detail": "..."}; show that sentence rather than the raw JSON. */
+async function errorText(response: Response): Promise<string> {
+  const body = await response.text();
+  try {
+    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail) return detail;
+  } catch {
+    // Not JSON: the body is already readable text.
+  }
+  return body;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...authHeader(), ...(init?.headers ?? {}) },
   });
   if (!response.ok) {
-    const detail = await response.text();
+    const detail = await errorText(response);
     throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status);
   }
   return (await response.json()) as T;
@@ -304,8 +316,8 @@ export async function streamChat(
     signal,
   });
   if (!response.ok || !response.body) {
-    const detail = await response.text();
-    throw new Error(detail || "The chat stream could not be opened.");
+    const detail = await errorText(response);
+    throw new ApiError(detail || "The chat stream could not be opened.", response.status);
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
