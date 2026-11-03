@@ -174,6 +174,11 @@ preferences of at most 80 characters, newest last: what turns, feedback and the 
 to that (the oldest go first, a longer phrase is shortened), so what `GET /api/traveller` returns can
 always be sent back to `PATCH /api/traveller`.
 
+The credential is a header, so two callers send the same URL. Every answer under `/api/account`,
+`/api/journeys`, `/api/traveller`, `/api/recall`, `/api/wishlist`, `/api/popular`, `/api/turn`, `/api/eval`
+and `/api/admin`, errors included, therefore carries `Cache-Control: private, no-store` (the turn stream keeps
+its own `no-cache`); the public routes (`/api/runtime`, `/api/wallet`, shared trips) do not.
+
 A `useful` feedback saves the plan in a background task with its embedding. The feedback
 endpoint never blocks the response on the write. Trending prefers those **marked-useful**
 plans; until one exists it falls back to anonymous workspace plans.
