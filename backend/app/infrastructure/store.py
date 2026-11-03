@@ -8,13 +8,16 @@ trade-off documented in the architecture note.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import secrets
 import sqlite3
 import threading
+from contextlib import closing
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from app.domain.models import (
     DatasetMeta,
@@ -30,7 +33,12 @@ from app.domain.models import (
     User,
 )
 
-SCHEMA = """
+logger = logging.getLogger(__name__)
+
+#: The schema as it stood when versioned migrations began (migration 1).
+#: Frozen: a later schema change is a new step in MIGRATIONS, never an edit
+#: here, so a fresh file and an upgraded file walk the same path.
+BASELINE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -156,29 +164,107 @@ def _dump(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
+# -- schema migrations ---------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MigrationContext:
+    """What a migration step may need besides the connection."""
+
+    #: when this migration run started (UTC); use it for backfilled timestamps
+    now: datetime
+
+
+MigrationStep = Callable[[sqlite3.Connection, MigrationContext], None]
+
+
+def _statements(script: str) -> list[str]:
+    """Split a DDL script into statements (the schema has no `;` in literals)."""
+    return [part.strip() for part in script.split(";") if part.strip()]
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _user_version(conn: sqlite3.Connection) -> int:
+    return int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+
+def _migration_1_baseline(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Bring any pre-versioning database (user_version 0) to the baseline schema.
+
+    Every statement is idempotent, so a new file, a file from the first release
+    and a file from the release just before versioning all end up identical
+    with their rows intact.
+    """
+    for statement in _statements(BASELINE_SCHEMA):
+        conn.execute(statement)
+    # Files from before accounts existed have no journeys.user_id.
+    if "user_id" not in _columns(conn, "journeys"):
+        conn.execute("ALTER TABLE journeys ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
+    # Saved trips belong to one identity (`user:<id>` or a guest token).
+    # Legacy rows keep a NULL owner and are never listed per user.
+    if "owner" not in _columns(conn, "kept_journeys"):
+        conn.execute("ALTER TABLE kept_journeys ADD COLUMN owner TEXT")
+    # One row per owner and trip: saving the same trip again replaces it.
+    # NULL owners never collide, so legacy rows migrate untouched.
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_kept_owner_trip ON kept_journeys(owner, trip_id)")
+
+
+#: Ordered schema steps: step N moves a database from user_version N-1 to N.
+#: Append new steps; never edit, reorder or remove a released one.
+MIGRATIONS: list[MigrationStep] = [
+    _migration_1_baseline,
+]
+
+
+def migrate(conn: sqlite3.Connection, ctx: MigrationContext) -> int:
+    """Apply every step above the file's `PRAGMA user_version`, in order.
+
+    Each step commits together with its version bump, so a failing step leaves
+    the file at the previous version. `conn` must be in autocommit mode
+    (``isolation_level=None``) so these explicit transactions are the only ones.
+    Returns the version the file ends at.
+    """
+    steps = list(MIGRATIONS)
+    latest = len(steps)
+    current = _user_version(conn)
+    if current > latest:
+        logger.warning(
+            "database schema version %s is newer than this code (%s); not migrating", current, latest
+        )
+        return current
+    for version in range(current + 1, latest + 1):
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # Another process may have applied this step while we waited for the lock.
+            if _user_version(conn) < version:
+                steps[version - 1](conn, ctx)
+                conn.execute(f"PRAGMA user_version = {int(version)}")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    return _user_version(conn)
+
+
 class SQLiteStore:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        with self._connect() as conn:
-            conn.executescript(SCHEMA)
-            columns = {row["name"] for row in conn.execute("PRAGMA table_info(journeys)")}
-            if "user_id" not in columns:
-                conn.execute("ALTER TABLE journeys ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
-            # Saved trips belong to one identity (`user:<id>` or a guest token).
-            # Legacy rows keep a NULL owner and are never listed per user.
-            columns = {row["name"] for row in conn.execute("PRAGMA table_info(kept_journeys)")}
-            if "owner" not in columns:
-                conn.execute("ALTER TABLE kept_journeys ADD COLUMN owner TEXT")
-            # One row per owner and trip: saving the same trip again replaces it.
-            # NULL owners never collide, so legacy rows migrate untouched.
-            conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_kept_owner_trip ON kept_journeys(owner, trip_id)"
-            )
+        with self._lock, closing(self._connect(autocommit=True)) as conn:
+            self.schema_version = migrate(conn, MigrationContext(now=datetime.now(timezone.utc)))
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=20, check_same_thread=False)
+    def _connect(self, autocommit: bool = False) -> sqlite3.Connection:
+        conn = sqlite3.connect(
+            self.path,
+            timeout=20,
+            check_same_thread=False,
+            # Autocommit leaves transaction control to explicit BEGIN/COMMIT.
+            isolation_level=None if autocommit else "",
+        )
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
