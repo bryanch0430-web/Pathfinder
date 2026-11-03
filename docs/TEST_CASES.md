@@ -73,7 +73,7 @@ export all come from that run.
 ## A. Evaluation commitments (TC)
 
 Test paths are relative to `backend/tests/`. `test_tc03_*` means every test with that
-prefix, and the count in brackets is how many tests that is.
+prefix, and the number in parentheses is how many tests that is.
 
 | ID | Page | What the proposal promises | Where tested | Status | Latest result |
 |---|---|---|---|---|---|
