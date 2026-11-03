@@ -404,9 +404,9 @@ class EvalService:
                     value=pct(sum(result.passed for result in results), len(results)),
                 )
             )
-            from app.dataset_splits import split_metrics  # Proposal TC-06
+            from app.routing_report import routing_breakdown  # Proposal TC-04 / TC-06
 
-            metrics.extend(split_metrics("routing"))
+            metrics.extend(routing_breakdown(results))
         elif dataset == "injection":
             metrics.append(
                 EvalMetric(

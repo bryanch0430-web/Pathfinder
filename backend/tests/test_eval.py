@@ -21,7 +21,7 @@ def test_routing_scorecard_and_report(settings: Settings) -> None:
     assert run.status == "completed"
     assert run.metrics[0].key == "routing_accuracy"
     assert 0 <= run.metrics[0].value <= 100
-    assert len(run.cases) == 20
+    assert len(run.cases) == 84  # Proposal TC-04: the expanded router set
     report = export_markdown(run)
     assert "Routing accuracy" in report
     assert "baseline-v1" in report

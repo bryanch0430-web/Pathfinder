@@ -18,27 +18,75 @@
     },
     "routing": {
       "fixture": "routing.jsonl",
-      "sha256": "d02fbcb233dae2b23c1e60cf211e2f25562ef4b9a470bb61a101f89816490726",
-      "items": 20,
-      "dev": 14,
-      "heldout": 6,
+      "sha256": "77e5f1378c5a3960068bab8e9f8ab52cb74a4b0f4f691d9a54fd36742454e172",
+      "items": 84,
+      "dev": 59,
+      "heldout": 25,
       "stratified_by": "expected_intent x destination",
       "strata": {
-        "ask|any": {
-          "dev": 4,
-          "heldout": 1
-        },
-        "modify|any": {
+        "ask|Hong Kong": {
           "dev": 4,
           "heldout": 2
         },
-        "plan|any": {
-          "dev": 3,
+        "ask|Kyoto": {
+          "dev": 4,
           "heldout": 1
         },
-        "unclear|any": {
+        "ask|Osaka": {
           "dev": 3,
           "heldout": 2
+        },
+        "ask|Tokyo": {
+          "dev": 3,
+          "heldout": 2
+        },
+        "modify|Hong Kong": {
+          "dev": 4,
+          "heldout": 1
+        },
+        "modify|Kyoto": {
+          "dev": 3,
+          "heldout": 2
+        },
+        "modify|Osaka": {
+          "dev": 4,
+          "heldout": 1
+        },
+        "modify|Tokyo": {
+          "dev": 4,
+          "heldout": 2
+        },
+        "plan|Hong Kong": {
+          "dev": 4,
+          "heldout": 1
+        },
+        "plan|Kyoto": {
+          "dev": 4,
+          "heldout": 2
+        },
+        "plan|Osaka": {
+          "dev": 4,
+          "heldout": 1
+        },
+        "plan|Tokyo": {
+          "dev": 3,
+          "heldout": 2
+        },
+        "unclear|Hong Kong": {
+          "dev": 3,
+          "heldout": 2
+        },
+        "unclear|Kyoto": {
+          "dev": 4,
+          "heldout": 1
+        },
+        "unclear|Osaka": {
+          "dev": 4,
+          "heldout": 2
+        },
+        "unclear|Tokyo": {
+          "dev": 4,
+          "heldout": 1
         }
       }
     }
