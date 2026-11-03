@@ -58,10 +58,12 @@ def plan_outline(summary: dict[str, Any] | None, *, ids: bool = False, times: bo
     """One line per day from ``TripPlan.summary_for_prompt()``.
 
     ``ids`` keeps the item ids an edit can target; a locked item is marked so an
-    edit leaves it alone.
+    edit leaves it alone. The names in it come from the traveller's trip form and from
+    place sources, so they lose any fence tag like every other text a prompt repeats.
     """
     if not summary:
         return "none"
+    summary = strip_fence_tags_deep(summary)
     budget = summary.get("budget") or {}
     head = [str(summary.get("destination") or "")]
     dates = summary.get("dates") or []
@@ -102,8 +104,9 @@ def recent_turns(history: Sequence[Message], current: str, *, limit: int = 4, ch
 
 def compact_json(value: Any) -> str:
     """JSON without whitespace or empty values (``None`` and ``""``); lists are kept,
-    because an empty ``matching_items`` list is itself an answer."""
-    return json.dumps(_prune(value), separators=(",", ":"), ensure_ascii=False, default=str)
+    because an empty ``matching_items`` list is itself an answer. Any fence tag in a text
+    of it is taken out: the facts of an answer hold the plan's names and notes."""
+    return json.dumps(_prune(strip_fence_tags_deep(value)), separators=(",", ":"), ensure_ascii=False, default=str)
 
 
 def _prune(value: Any) -> Any:

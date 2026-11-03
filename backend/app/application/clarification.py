@@ -8,7 +8,7 @@ from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import trip_state
 from app.domain.errors import CanaryLeak
 from app.domain.models import RouteDecision, TripContext
-from app.security import fence_user_message
+from app.security import fence_user_message, strip_fence_tags, strip_fence_tags_deep
 
 SLOT_PHRASES = {
     "destination": "where you want to go",
@@ -54,8 +54,8 @@ class Clarifier:
         if self.gateway.available:
             user = (
                 f"Known context: {trip_state(context)}\n"
-                f"Missing slots: {missing}\n"
-                f"Router reason: {decision.reason_code}\n\n"
+                f"Missing slots: {strip_fence_tags_deep(missing)}\n"
+                f"Router reason: {strip_fence_tags(decision.reason_code)}\n\n"
                 + fence_user_message(message)
             )
             try:

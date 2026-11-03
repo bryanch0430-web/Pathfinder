@@ -331,7 +331,9 @@ The planner chooses *which* verified stops belong to a day; the scheduler owns t
   and a turn the blocklist blocked or flagged high is not repeated (one flagged medium, such as "a
   hotel with no restrictions on pets", is). A tag is found however it is spelled (hidden
   characters, look-alike brackets, pieces of one inside another) in time proportional to the
-  text; a text of more than 50,000 characters loses every opening bracket instead.
+  text; a text of more than 50,000 characters loses every opening bracket instead. The plan's own
+  names (a destination typed in the trip form, a stop from a place source) and the router model's
+  reason code lose any fence tag too where a prompt carries them.
 - A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
   calls, in the message as typed and as the model will read it (a fence tag typed inside a word
   is taken out first). Suspected injections are logged as **category + count only**.

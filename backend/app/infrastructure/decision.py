@@ -22,7 +22,7 @@ from app.application.prompts import PromptLibrary
 from app.application.router import affected_parts_for
 from app.config import Settings
 from app.domain.models import Intent, Message, RouteDecision, TripContext
-from app.security import fence_user_message, replayable, strip_fence_tags
+from app.security import fence_user_message, replayable, strip_fence_tags, strip_fence_tags_deep
 
 INTENT_CRITERIA: dict[str, str] = {
     "plan": "Create a brand-new itinerary from scratch",
@@ -61,7 +61,7 @@ class JevDecisionClient:
         history_lines = [f"{item.role}: {strip_fence_tags(item.content)[:280]}" for item in replayable(history)[-6:]]
         state = (
             f"Trip context: {trip_state(context)}\n"
-            f"Current plan: {json.dumps(plan_summary) if plan_summary else 'none'}\n"
+            f"Current plan: {json.dumps(strip_fence_tags_deep(plan_summary)) if plan_summary else 'none'}\n"
             f"Recent history:\n" + ("\n".join(history_lines) or "(none)") + "\n\n"
             + fence_user_message(message)
         )
