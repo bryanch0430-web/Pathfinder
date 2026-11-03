@@ -28,6 +28,7 @@ export const ZH_HANT: Messages = {
   "trip.noDates": "未設定日期",
   "trip.noBudget": "未設預算",
   "trip.kicker": "行程資料 · 點按即可編輯",
+  "trip.travellersOne": "{count} 位旅客",
   "trip.travellers": "{count} 位旅客",
   "trip.noParty": "未設人數",
   "trip.edit": "編輯",

@@ -26,6 +26,7 @@ export const ZH_HANS: Messages = {
   "trip.noDates": "未设置日期",
   "trip.noBudget": "未设预算",
   "trip.kicker": "行程信息 · 点按编辑",
+  "trip.travellersOne": "{count} 位旅客",
   "trip.travellers": "{count} 位旅客",
   "trip.noParty": "未设人数",
   "trip.edit": "编辑",

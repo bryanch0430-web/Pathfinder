@@ -280,7 +280,7 @@ export function TripPanel({
           <span className="pf-trip-bar__kicker">{t("trip.kicker")}</span>
           <span className="pf-trip-bar__title">{title}</span>
           <span className="pf-trip-bar__meta">
-            {dates} · {party ? t("trip.travellers", { count: party }) : t("trip.noParty")} · {budget}
+            {dates} · {party ? t(party === 1 ? "trip.travellersOne" : "trip.travellers", { count: party }) : t("trip.noParty")} · {budget}
           </span>
         </span>
         <span className="pf-trip-bar__action">
@@ -731,7 +731,7 @@ export function TripWorkspace({
               </Text>
             ) : null}
             <Text size="sm" tone="secondary">
-              {plan.dates.start} → {plan.dates.end} · {t("trip.travellers", { count: plan.party_size })}
+              {plan.dates.start} → {plan.dates.end} · {t(plan.party_size === 1 ? "trip.travellersOne" : "trip.travellers", { count: plan.party_size })}
               {plan.origin ? ` · ${t("workspace.from", { origin: plan.origin })}` : ""}
             </Text>
           </div>
