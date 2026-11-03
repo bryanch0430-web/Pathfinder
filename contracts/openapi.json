@@ -160,7 +160,7 @@
     "/api/places/suggest": {
       "get": {
         "summary": "Place Suggestions",
-        "description": "Destination autocomplete (Places API New). Public, no secrets returned.",
+        "description": "Destination autocomplete (Places API New). Needs a bearer or a client token; no secrets returned.",
         "operationId": "place_suggestions_api_places_suggest_get",
         "parameters": [
           {
@@ -1423,15 +1423,37 @@
       "get": {
         "summary": "Eval Datasets",
         "operationId": "eval_datasets_api_eval_suites_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Eval Datasets Api Eval Suites Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1504,6 +1526,16 @@
               "default": 30,
               "title": "Limit"
             }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
           }
         ],
         "responses": {
@@ -1534,6 +1566,18 @@
       "post": {
         "summary": "Run Eval",
         "operationId": "run_eval_api_eval_trials_post",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1583,6 +1627,16 @@
               "type": "string",
               "title": "Run Id"
             }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
+            }
           }
         ],
         "responses": {
@@ -1623,6 +1677,16 @@
             "schema": {
               "type": "string",
               "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -1671,6 +1735,16 @@
             "schema": {
               "type": "string",
               "title": "B"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -1930,6 +2004,11 @@
               }
             ],
             "title": "Scope Label"
+          },
+          "developer": {
+            "type": "boolean",
+            "title": "Developer",
+            "default": false
           }
         },
         "type": "object",

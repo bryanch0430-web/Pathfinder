@@ -195,12 +195,14 @@ and `AUTH_SECRET` (32+ characters) are set to real secrets. Trace ids must match
 - `contracts/openapi.json` — OpenAPI 3 document.
 - `contracts/trip_plan.schema.json` — TripPlan JSON Schema.
 
-Regenerate after a model change:
+Regenerate after a model or route change (a test fails while a committed contract is out of date):
 
 ```bash
 cd .
 PYTHONPATH=backend python -m app.export_contracts
 ```
+
+It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to write to instead of `contracts/`.
 
 ## 8. Error codes
 
