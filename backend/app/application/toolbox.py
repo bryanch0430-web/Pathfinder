@@ -14,6 +14,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 from app.domain.errors import ProviderError, SecurityBlocked
 from app.domain.models import FailureKind
 from app.domain.ports import Tracer
+from app.infrastructure.observability import developer_view, emit_live
 from app.security.untrusted import neutralise
 
 T = TypeVar("T")
@@ -151,6 +152,8 @@ class Toolbox:
                         latency_ms=latency,
                         source=getattr(fn, "__self__", None).__class__.__name__ if getattr(fn, "__self__", None) else "",
                     )
+                _remember_tool(self.tracer, tool, "ok", latency, kwargs, result)
+                emit_live("tool", _tool_event(tool, "ok", latency, kwargs, result))
                 return result
         except ProviderError as exc:
             latency = int((time.perf_counter() - started) * 1000)
@@ -164,9 +167,13 @@ class Toolbox:
                     error_class=exc.kind.value,
                     source=exc.source,
                 )
+            _remember_tool(self.tracer, tool, "error", latency, kwargs, None)
+            emit_live("tool", _tool_event(tool, "error", latency, kwargs, None))
             raise
         except Exception:
             latency = int((time.perf_counter() - started) * 1000)
+            _remember_tool(self.tracer, tool, "error", latency, kwargs, None)
+            emit_live("tool", _tool_event(tool, "error", latency, kwargs, None))
             if self.store is not None:
                 self.store.log_tool_call(
                     request_id=self.request_id,
@@ -208,6 +215,30 @@ class LoggedWebSource:
 
     async def answer(self, **kwargs: Any) -> Any:
         return await self._toolbox.call("web.search", self._source.answer, **kwargs)
+
+
+def _remember_tool(tracer: Tracer, tool: str, status: str, latency_ms: int, kwargs: dict[str, Any], result: Any) -> None:
+    record = getattr(tracer, "record_tool", None)
+    if record is None:
+        return
+    note = ""
+    if isinstance(result, list):
+        note = f"{len(result)} rows"
+    elif isinstance(result, dict) and (result.get("name") or result.get("title")):
+        note = str(result.get("name") or result.get("title"))[:160]
+    record(name=tool, status=status, latency_ms=latency_ms, args=_safe_args(kwargs), note=note)
+
+
+def _tool_event(tool: str, status: str, latency_ms: int, kwargs: dict[str, Any], result: Any) -> dict[str, Any]:
+    note = ""
+    if isinstance(result, list):
+        note = f"{len(result)} rows"
+    elif isinstance(result, dict) and (result.get("name") or result.get("title")):
+        note = str(result.get("name") or result.get("title"))[:160]
+    payload: dict[str, Any] = {"name": tool, "status": status, "latency_ms": latency_ms, "note": note}
+    if developer_view():
+        payload["args"] = _safe_args(kwargs)
+    return payload
 
 
 def _safe_args(kwargs: dict[str, Any]) -> dict[str, Any]:

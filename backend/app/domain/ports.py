@@ -62,6 +62,8 @@ class Tracer(Protocol):
         completion_tokens: int,
         latency_ms: int,
         output_preview: str = "",
+        reasoning: str = "",
+        user_preview: str = "",
     ) -> None: ...
     def finish(self, status: str = "ok") -> None: ...
 

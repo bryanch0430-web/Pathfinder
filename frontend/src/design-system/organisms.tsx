@@ -317,6 +317,73 @@ export function TripPanel({
 // English phrasing, so these stay in English in every locale.
 const QUICK_PROMPTS = ["Plan my trip", "Make it cheaper", "What is the weather on day 2?", "Add a museum"];
 
+const DEVELOPER_KEY = "pathfinder.developer";
+const DEVELOPER_EVENT = "pathfinder-developer";
+
+function readDeveloperMode() {
+  return typeof localStorage !== "undefined" && localStorage.getItem(DEVELOPER_KEY) === "1";
+}
+
+function writeDeveloperMode(on: boolean) {
+  localStorage.setItem(DEVELOPER_KEY, on ? "1" : "0");
+  window.dispatchEvent(new Event(DEVELOPER_EVENT));
+}
+
+function useDeveloperMode() {
+  const [on, setOn] = useState(readDeveloperMode);
+  useEffect(() => {
+    const sync = () => setOn(readDeveloperMode());
+    window.addEventListener(DEVELOPER_EVENT, sync);
+    return () => window.removeEventListener(DEVELOPER_EVENT, sync);
+  }, []);
+  return [on, (next: boolean) => {
+    writeDeveloperMode(next);
+    setOn(next);
+  }] as const;
+}
+
+function downloadTurnLog(
+  trace: RunTrace | null | undefined,
+  live: { id: string; title: string; body: string }[] | undefined,
+  messages: ChatMessage[],
+) {
+  const file = {
+    downloaded_at: new Date().toISOString(),
+    request_id: trace?.request_id ?? "",
+    user_message: trace?.message ?? [...messages].reverse().find((item) => item.role === "user")?.content ?? "",
+    messages: messages.map((item) => ({ role: item.role, content: item.content, at: item.created_at })),
+    why: trace?.why ?? [],
+    route: trace?.reason ?? "",
+    spans: trace?.spans ?? [],
+    generations: trace?.generations ?? [],
+    searches: trace?.searches ?? [],
+    tools: trace?.tools ?? [],
+    live: live ?? [],
+  };
+  const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${file.request_id || "turn"}-log.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function DeveloperToggle() {
+  const { t } = useI18n();
+  const [on, setOn] = useDeveloperMode();
+  return (
+    <button
+      type="button"
+      className="pf-plan-tab"
+      data-active={on ? "true" : "false"}
+      aria-pressed={on}
+      onClick={() => setOn(!on)}
+    >
+      {t("settings.developer")} · {on ? t("settings.on") : t("settings.off")}
+    </button>
+  );
+}
+
 export function ChatPanel({
   messages,
   onSend,
@@ -333,6 +400,8 @@ export function ChatPanel({
   error,
   onRetry,
   onClear,
+  trace,
+  live,
 }: {
   messages: ChatMessage[];
   onSend: (message: string) => void;
@@ -349,6 +418,8 @@ export function ChatPanel({
   error: string | null;
   onRetry?: () => void;
   onClear?: () => void;
+  trace?: RunTrace | null;
+  live?: { id: string; title: string; body: string }[];
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState("");
@@ -365,6 +436,7 @@ export function ChatPanel({
     onSend(value);
   };
   const running = Object.values(agents).filter((agent) => agent.status === "running").length;
+  const [developer] = useDeveloperMode();
   return (
     <section className="pf-card pf-chat" aria-label={t("chat.label")}>
       <div className="pf-chat__head">
@@ -382,6 +454,12 @@ export function ChatPanel({
           </div>
         </div>
         <div className="pf-row" style={{ gap: 4 }}>
+          <DeveloperToggle />
+          {developer && ((live ?? []).length > 0 || trace) ? (
+            <button type="button" className="pf-plan-tab" onClick={() => downloadTurnLog(trace, live, messages)}>
+              {t("settings.downloadLog")}
+            </button>
+          ) : null}
           <Badge tone={busy ? "busy" : "success"} dot>
             {busy ? t("chat.working") : t("chat.ready")}
           </Badge>
@@ -404,7 +482,21 @@ export function ChatPanel({
             body={t("chat.emptyBody")}
           />
         ) : (
-          messages.map((message) => (
+          <>
+          {developer ? (live ?? []).map((step) => (
+            <div key={step.id} className="pf-card" style={{ padding: 12 }}>
+              <Text size="xs" weight="semibold">{step.title}</Text>
+              {step.body ? (
+                <pre style={{ margin: 0, whiteSpace: "pre-wrap", maxHeight: 280, overflow: "auto", fontSize: 12 }}>{step.body}</pre>
+              ) : (
+                <Text size="xs" tone="tertiary">{t("trace.noReasoning")}</Text>
+              )}
+            </div>
+          )) : null}
+          {trace && ((trace.why ?? []).length > 0 || (developer && (trace.generations.some((call) => call.reasoning || call.output_preview) || (trace.searches ?? []).length > 0))) ? (
+            <ThoughtLog trace={trace} developer={developer} />
+          ) : null}
+          {messages.map((message) => (
             <ChatBubble
               key={message.id}
               role={message.role === "user" ? "user" : "assistant"}
@@ -423,7 +515,8 @@ export function ChatPanel({
             >
               {message.content}
             </ChatBubble>
-          ))
+          ))}
+          </>
         )}
         {error ? (
           <div className="pf-banner">
@@ -816,6 +909,40 @@ export function TripWorkspace({
   );
 }
 
+export function ThoughtLog({ trace, developer = false }: { trace: RunTrace; developer?: boolean }) {
+  const { t } = useI18n();
+  return (
+    <div className="pf-card" style={{ padding: 12 }}>
+      <Text size="xs" weight="semibold">{t("chat.thinking")}</Text>
+      {(trace.why ?? []).map((line) => (
+        <Text size="xs" key={line}>{line}</Text>
+      ))}
+      {developer ? trace.generations.filter((call) => call.reasoning || call.output_preview).map((call, index) => (
+        <div key={`${call.purpose}-${index}`} style={{ marginTop: 8 }}>
+          <Text size="xs" weight="semibold">{call.purpose} · {call.latency_ms} ms</Text>
+          {call.user_preview ? <Text size="xs" tone="tertiary">{call.user_preview}</Text> : null}
+          <Text size="xs">{call.reasoning || t("trace.noReasoning")}</Text>
+          {call.output_preview ? (
+            <pre style={{ margin: 0, whiteSpace: "pre-wrap", maxHeight: 280, overflow: "auto", fontSize: 12 }}>{call.output_preview}</pre>
+          ) : null}
+        </div>
+      )) : null}
+      {developer ? (trace.searches ?? []).map((search) => (
+        <div key={`${search.provider}-${search.query}`} style={{ marginTop: 8 }}>
+          <Text size="xs" weight="semibold">{t("trace.search", { provider: search.provider })}</Text>
+          <Text size="xs" tone="tertiary">{search.query}</Text>
+          {search.results.map((row, index) => (
+            <Text size="xs" key={`${row.url ?? index}`}>
+              {row.kept === false ? "dropped" : "kept"} {row.relevance ?? ""} {row.title || row.url || row.error || ""}
+              {row.snippet ? ` — ${row.snippet}` : ""}
+            </Text>
+          ))}
+        </div>
+      )) : null}
+    </div>
+  );
+}
+
 export function TraceList({ trace }: { trace: RunTrace }) {
   const { t } = useI18n();
   const max = Math.max(...trace.spans.map((span) => span.duration_ms ?? 0), 1);
@@ -825,6 +952,35 @@ export function TraceList({ trace }: { trace: RunTrace }) {
         <Text size="xs" weight="semibold">{t("trace.summary", { steps: trace.spans.length, calls: trace.tool_calls })}</Text>
         <Text size="xs" tone="tertiary" className="pf-mono">{trace.request_id}</Text>
       </div>
+      {trace.reason ? (
+        <Text size="xs" tone="secondary">{t("trace.reason", { reason: trace.reason })}</Text>
+      ) : null}
+      {trace.generations.map((call) => (
+        <div key={`${call.purpose}-${call.latency_ms}`}>
+          <Text size="xs" weight="semibold">{call.purpose}</Text>
+          <Text size="xs" tone="tertiary">{call.model} · {call.latency_ms} ms</Text>
+          {call.reasoning ? (
+            <Text size="xs">{call.reasoning}</Text>
+          ) : call.output_preview ? (
+            <Text size="xs" tone="secondary">{t("trace.noReasoning")}</Text>
+          ) : null}
+          {call.output_preview ? (
+            <Text size="xs" tone="tertiary">{call.output_preview}</Text>
+          ) : null}
+        </div>
+      ))}
+      {(trace.searches ?? []).map((search) => (
+        <div key={`${search.provider}-${search.query}`}>
+          <Text size="xs" weight="semibold">{t("trace.search", { provider: search.provider })}</Text>
+          <Text size="xs" tone="tertiary">{search.query}</Text>
+          {search.results.map((row, index) => (
+            <Text size="xs" key={`${row.url ?? row.title ?? "row"}-${index}`}>
+              {(row.kept === false ? "dropped" : "kept")} {row.relevance ?? ""} {row.title || row.url || row.error || ""}
+              {row.snippet ? ` — ${row.snippet}` : ""}
+            </Text>
+          ))}
+        </div>
+      ))}
       {trace.spans.slice(0, 12).map((span, index) => (
         <div className="pf-trace__row" key={`${span.name}-${index}`}>
           <span style={{ width: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{span.name}</span>
@@ -2068,6 +2224,13 @@ export function SettingsView({
         description={t("settings.body")}
         action={<Button variant="secondary" size="sm" iconLeft="book" onClick={() => setHelpOpen(true)}>{t("settings.howItWorks")}</Button>}
       />
+      <div className="pf-card pf-eval__panel">
+        <div className="pf-row pf-row--between">
+          <Text size="sm" weight="semibold">{t("settings.developer")}</Text>
+          <DeveloperToggle />
+        </div>
+        <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
+      </div>
       {config ? (
         <>
           <div className="pf-card pf-eval__panel">

@@ -313,6 +313,7 @@ export async function streamChat(
     locale: string;
     scope_item_id?: string | null;
     scope_label?: string | null;
+    developer?: boolean;
   },
   handlers: StreamHandlers,
   signal?: AbortSignal,

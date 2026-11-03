@@ -140,6 +140,7 @@ class BaseAgent:
             query=query,
             deepseek=deepseek,
             grok=grok,
+            tracer=getattr(toolbox, "tracer", None),
         )
         if not official_empty:
             return found.references, None

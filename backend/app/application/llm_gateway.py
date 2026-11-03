@@ -13,6 +13,7 @@ from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
 from app.domain.models import FailureKind
 from app.domain.ports import LLM, Tracer
+from app.infrastructure.observability import developer_view, emit_live
 from app.security import canary_leaked
 
 T = TypeVar("T", bound=BaseModel)
@@ -84,6 +85,7 @@ class LLMGateway:
                 max_tokens=self.settings.llm_max_tokens,
             )
             text = result.text
+            reasoning = "" if canary_leaked(result.reasoning, self.settings) else result.reasoning
             if canary_leaked(text, self.settings):
                 raise CanaryLeak("writer output contained the canary token")
             self.prompt_tokens += result.prompt_tokens
@@ -96,8 +98,21 @@ class LLMGateway:
                 completion_tokens=result.completion_tokens,
                 latency_ms=result.latency_ms,
                 output_preview=text,
+                reasoning=reasoning,
+                user_preview=user[:240],
             )
             span.attrs.update({"purpose": purpose, "model": result.model})
+            shown = text[:4000] if developer_view() else ""
+            emit_live(
+                "think",
+                {
+                    "purpose": purpose,
+                    "model": result.model,
+                    "latency_ms": result.latency_ms,
+                    "reasoning": reasoning[:4000] if developer_view() else "",
+                    "output_preview": shown,
+                },
+            )
             return text
 
 

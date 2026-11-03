@@ -139,6 +139,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [clarify, setClarify] = useState<ClarifyPayload | null>(null);
   const [clarifyValues, setClarifyValues] = useState<Record<string, string>>({});
   const [trace, setTrace] = useState<RunTrace | null>(null);
+  const [live, setLive] = useState<{ id: string; title: string; body: string }[]>([]);
   const [route, setRoute] = useState<RoutePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<PlanItem | null>(null);
@@ -410,6 +411,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         meta: scopeLabel ? { scope: scopeLabel } : undefined,
       };
       setMessages((current) => [...current, optimistic]);
+      setLive([]);
       let streamingId: string | null = null;
       const controller = new AbortController();
       abortRef.current = controller;
@@ -421,6 +423,7 @@ export function usePathfinder(locale: string): PathfinderHook {
             locale,
             scope_item_id: selectedItem?.id ?? null,
             scope_label: scopeLabel || null,
+            developer: localStorage.getItem("pathfinder.developer") === "1",
           },
           {
             onEvent: (event, data) => {
@@ -480,6 +483,15 @@ export function usePathfinder(locale: string): PathfinderHook {
                 setProgress(100);
               }
               if (event === "clarify") setClarify(data as unknown as ClarifyPayload);
+              if (event === "think" || event === "tool") {
+                const title = event === "think"
+                  ? `${String(data.purpose ?? "model")} · ${String(data.latency_ms ?? "")} ms`
+                  : `${String(data.name ?? "tool")} · ${String(data.status ?? "")} · ${String(data.latency_ms ?? "")} ms`;
+                const body = event === "think"
+                  ? [data.reasoning, data.output_preview].filter((part) => typeof part === "string" && part).join("\n\n")
+                  : [data.note, data.args ? JSON.stringify(data.args) : ""].filter((part) => typeof part === "string" && part).join("\n");
+                setLive((current) => [...current, { id: `${event}-${current.length}-${Date.now()}`, title, body }]);
+              }
               if (event === "trace") setTrace(data as unknown as RunTrace);
               if (event === "error") setError(String(data.message ?? tRef.current("errors.turn")));
             },
@@ -629,6 +641,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     clarify,
     clarifyValues,
     trace,
+    live,
     route,
     error,
     selectedItem,

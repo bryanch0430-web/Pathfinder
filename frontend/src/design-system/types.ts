@@ -352,7 +352,25 @@ export interface TraceSpan {
 export interface RunTrace {
   request_id: string;
   spans: TraceSpan[];
-  generations: { purpose: string; model: string; prompt_tokens: number; completion_tokens: number; latency_ms: number }[];
+  generations: {
+    purpose: string;
+    model: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    latency_ms: number;
+    reasoning?: string;
+    output_preview?: string;
+    user_preview?: string;
+  }[];
+  why?: string[];
+  reason?: string;
+  message?: string;
+  searches?: {
+    provider: string;
+    query: string;
+    results: { title?: string; url?: string; snippet?: string; relevance?: number; kept?: boolean; error?: string; text?: string }[];
+  }[];
+  tools?: { name: string; status: string; latency_ms: number; args?: Record<string, unknown>; note?: string }[];
   tool_calls: number;
 }
 

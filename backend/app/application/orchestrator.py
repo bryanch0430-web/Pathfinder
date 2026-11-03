@@ -33,7 +33,7 @@ from app.domain.models import (
     new_id,
     utcnow,
 )
-from app.infrastructure.observability import start_trace
+from app.infrastructure.observability import bind_developer_view, bind_live_emit, reset_developer_view, reset_live_emit, start_trace
 from app.infrastructure.store import SQLiteStore
 from app.security import SAFE_REPLY, screen_message
 
@@ -97,9 +97,13 @@ class TurnService:
         locale: str = "en",
         scope_item_id: str | None = None,
         scope_label: str | None = None,
+        developer: bool = False,
     ) -> AsyncIterator[TurnEvent]:
         request_id = new_id("req")
         tracer = start_trace(self.settings, request_id)
+        developer_token = bind_developer_view(developer)
+        tracer.metadata["message"] = message
+        tracer.metadata["session_id"] = session_id
         if self.tracer_proxy is not None:
             self.tracer_proxy.bind(tracer)
         session = self.store.get_session(session_id)
@@ -358,6 +362,7 @@ class TurnService:
             )
             tracer.finish(status="error")
         finally:
+            reset_developer_view(developer_token)
             tracer.finish(status="ok")
             yield TurnEvent(
                 event="trace",
@@ -381,9 +386,29 @@ class TurnService:
                             "prompt_tokens": generation["prompt_tokens"],
                             "completion_tokens": generation["completion_tokens"],
                             "latency_ms": generation["latency_ms"],
+                            **(
+                                {
+                                    "reasoning": generation.get("reasoning") or "",
+                                    "output_preview": (generation.get("output_preview") or "")[:4000],
+                                    "user_preview": (generation.get("user_preview") or "")[:240],
+                                }
+                                if developer
+                                else {}
+                            ),
                         }
                         for generation in tracer.generations
                     ],
+                    "why": _why_lines(tracer),
+                    **(
+                        {
+                            "reason": tracer.metadata.get("reason", ""),
+                            "message": tracer.metadata.get("message", ""),
+                            "searches": tracer.searches,
+                            "tools": tracer.tools,
+                        }
+                        if developer
+                        else {}
+                    ),
                     "tool_calls": len([span for span in tracer.spans if span.name.startswith("tool.")]),
                 },
             )
@@ -465,6 +490,7 @@ class TurnService:
 
         toolbox = Toolbox(path="plan", tracer=tracer, store=self.store, request_id=request_id)
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Planning the trip.", "progress": 5})
+        live = bind_live_emit(emit)
         task = asyncio.create_task(
             self.plan_path.run(
                 context=context,
@@ -481,6 +507,7 @@ class TurnService:
                 yield event
             plan = await task
         finally:
+            reset_live_emit(live)
             await _settle(task)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
         self.store.add_message(
@@ -510,6 +537,7 @@ class TurnService:
 
         toolbox = Toolbox(path="modify", tracer=tracer, store=self.store, request_id=request_id)
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Applying the smallest change.", "progress": 5})
+        live = bind_live_emit(emit)
         task = asyncio.create_task(
             self.modify_path.run(
                 plan=plan,
@@ -530,6 +558,7 @@ class TurnService:
                 yield event
             updated, diff = await task
         finally:
+            reset_live_emit(live)
             await _settle(task)
         self.store.save_plan(updated, updated.change_summary)
         description = _describe_diff(diff, updated)
@@ -688,6 +717,35 @@ async def _drain(
         except asyncio.TimeoutError:
             continue
         yield TurnEvent(event=event_name, data=data)
+
+
+def _why_lines(tracer: Any) -> list[str]:
+    """A traveller-facing account of the decision. Not the model's private draft."""
+    reason = str(getattr(tracer, "metadata", {}).get("reason") or "")
+    intent = str(getattr(tracer, "metadata", {}).get("intent") or "")
+    known = {
+        "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
+        "scoped_item_action": "A stop was selected, so only that stop could change.",
+        "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
+        "security_blocklist": "The message was blocked before any planning.",
+        "identity": "This was a question about the assistant, so no trip was planned.",
+    }
+    lines: list[str] = []
+    if reason in known:
+        lines.append(known[reason])
+    elif intent:
+        lines.append(f"Routed as {intent}" + (f" ({reason})." if reason else "."))
+    for search in getattr(tracer, "searches", []) or []:
+        results = search.get("results") or []
+        kept = [row.get("title") or row.get("url") for row in results if row.get("kept") is True and (row.get("title") or row.get("url"))]
+        dropped = [row.get("title") or row.get("url") for row in results if row.get("kept") is False and (row.get("title") or row.get("url"))]
+        sentence = f"Searched \"{search.get('query', '')}\" via {search.get('provider')}."
+        if kept:
+            sentence += " Kept " + ", ".join(str(item) for item in kept[:4]) + "."
+        if dropped:
+            sentence += " Dropped " + ", ".join(str(item) for item in dropped[:4]) + " because the page was not about this city or this question."
+        lines.append(sentence)
+    return lines[:8]
 
 
 def _route_data(decision: RouteDecision, settings: Settings) -> dict[str, Any]:

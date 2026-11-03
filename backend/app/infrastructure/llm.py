@@ -21,6 +21,7 @@ class LLMResult:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     latency_ms: int = 0
+    reasoning: str = ""
 
 
 class OpenAICompatibleLLM:
@@ -65,7 +66,8 @@ class OpenAICompatibleLLM:
 
         started = time.perf_counter()
         data = await self._post(payload, purpose)
-        content = self._content(data)
+        message = self._message(data)
+        content = self._content(message)
         usage = data.get("usage") or {}
         return LLMResult(
             text=content,
@@ -73,6 +75,7 @@ class OpenAICompatibleLLM:
             prompt_tokens=int(usage.get("prompt_tokens") or 0),
             completion_tokens=int(usage.get("completion_tokens") or 0),
             latency_ms=int((time.perf_counter() - started) * 1000),
+            reasoning=self._reasoning(message),
         )
 
     async def _post(self, payload: dict[str, Any], purpose: str) -> dict[str, Any]:
@@ -117,19 +120,35 @@ class OpenAICompatibleLLM:
                 ) from exc
 
     @staticmethod
-    def _content(data: dict[str, Any]) -> str:
+    def _message(data: dict[str, Any]) -> dict[str, Any]:
         choices = data.get("choices")
         if not isinstance(choices, list) or not choices:
             raise ProviderNoData("writer model returned no choices", source="llm")
         message = choices[0].get("message") if isinstance(choices[0], dict) else None
         if not isinstance(message, dict):
             raise ProviderNoData("writer model returned no message", source="llm")
+        return message
+
+    @staticmethod
+    def _content(message: dict[str, Any]) -> str:
+        """The answer only. A reasoning field is never the answer."""
         content = message.get("content")
         if isinstance(content, list):
             content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
         if not isinstance(content, str) or not content.strip():
             raise ProviderNoData("writer model returned empty content", source="llm")
         return content.strip()
+
+    @staticmethod
+    def _reasoning(message: dict[str, Any]) -> str:
+        raw = message.get("reasoning_content")
+        if raw in (None, ""):
+            raw = message.get("reasoning")
+        if isinstance(raw, list):
+            raw = "".join(part.get("text", "") for part in raw if isinstance(part, dict))
+        if not isinstance(raw, str):
+            return ""
+        return raw.strip()[:4000]
 
 
 class NullLLM:

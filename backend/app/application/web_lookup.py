@@ -146,6 +146,7 @@ async def lookup_web_references(
     query: str,
     deepseek: Any | None,
     grok: Any | None,
+    tracer: Any | None = None,
 ) -> WebLookup:
     """One DeepSeek search, then Grok only when no row is relevant.
 
@@ -163,6 +164,23 @@ async def lookup_web_references(
             rows = []
 
     scored = [(relevance(row, city=city, section=section), row) for row in rows]
+    _record_search(
+        tracer,
+        provider="deepseek-search",
+        query=query,
+        results=[
+            {
+                "title": row.title,
+                "url": row.url,
+                "snippet": (row.snippet or row.summary or "")[:300],
+                "authority": row.authority,
+                "rerank_score": row.score,
+                "relevance": score,
+                "kept": score > 0,
+            }
+            for score, row in scored
+        ],
+    )
     kept = [(score, row) for score, row in scored if score > 0]
     if kept:
         kept.sort(key=lambda pair: pair[0], reverse=True)
@@ -175,7 +193,9 @@ async def lookup_web_references(
             confidence=top[0][0],
         )
 
-    grok_rows, grok_failed_open = await _grok_once(grok, query=query, city=city, section=section)
+    grok_rows, grok_failed_open = await _grok_once(
+        grok, query=query, city=city, section=section, tracer=tracer
+    )
     if grok_rows:
         return WebLookup(references=grok_rows[:5], confidence=max(row["confidence"] for row in grok_rows))
     if deepseek_failed_open or grok_failed_open:
@@ -197,21 +217,36 @@ async def lookup_web_references(
     )
 
 
+def _record_search(tracer: Any | None, *, provider: str, query: str, results: list[dict[str, Any]]) -> None:
+    record = getattr(tracer, "record_search", None)
+    if record is None:
+        return
+    record(provider=provider, query=query, results=results)
+
+
 async def _grok_once(
     grok: Any | None,
     *,
     query: str,
     city: str,
     section: str,
+    tracer: Any | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
     if grok is None or not getattr(grok, "available", True):
         return [], False
     try:
         answer = await grok.answer(query=query, timeout=25.0)
     except (ProviderError, asyncio.TimeoutError) as exc:
+        _record_search(tracer, provider="grok-web-search", query=query, results=[{"error": str(exc)[:200]}])
         return [], _retryable(exc)
     if not isinstance(answer, WebAnswer):
         return [], False
+    _record_search(
+        tracer,
+        provider="grok-web-search",
+        query=query,
+        results=[{"text": (answer.text or "")[:500], "url": url, "kept": bool(answer.sources)} for url in (answer.sources or ["none"])],
+    )
     city_name = (city or "").strip().casefold()
     text = (answer.text or "").casefold()
     if not answer.sources or not city_name or city_name not in text:

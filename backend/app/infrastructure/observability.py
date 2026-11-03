@@ -50,6 +50,8 @@ class TraceRecorder:
         self.started_at = datetime.now(timezone.utc)
         self.spans: list[Span] = []
         self.generations: list[dict[str, Any]] = []
+        self.searches: list[dict[str, Any]] = []
+        self.tools: list[dict[str, Any]] = []
         self.metadata: dict[str, Any] = {}
         self._stack: list[Span] = []
         self.finished = False
@@ -78,6 +80,8 @@ class TraceRecorder:
         completion_tokens: int,
         latency_ms: int,
         output_preview: str = "",
+        reasoning: str = "",
+        user_preview: str = "",
     ) -> None:
         self.generations.append(
             {
@@ -87,8 +91,33 @@ class TraceRecorder:
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "latency_ms": latency_ms,
-                "output_preview": output_preview[:500],
+                "output_preview": output_preview[:4000],
+                "reasoning": reasoning[:4000],
+                "user_preview": user_preview[:240],
                 "at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+    def record_tool(
+        self,
+        *,
+        name: str,
+        status: str,
+        latency_ms: int,
+        args: dict[str, Any],
+        note: str = "",
+    ) -> None:
+        self.tools.append(
+            {"name": name, "status": status, "latency_ms": latency_ms, "args": args, "note": note}
+        )
+
+    def record_search(self, *, provider: str, query: str, results: list[dict[str, Any]]) -> None:
+        """The exact search request and every returned row, kept for the trace file."""
+        self.searches.append(
+            {
+                "provider": provider,
+                "query": query[:500],
+                "results": results[:20],
             }
         )
 
@@ -105,6 +134,8 @@ class TraceRecorder:
             "metadata": self.metadata,
             "spans": [span.to_dict() for span in self.spans],
             "generations": self.generations,
+            "searches": self.searches,
+            "tools": self.tools,
         }
         try:
             self.settings.trace_dir.mkdir(parents=True, exist_ok=True)
@@ -129,6 +160,12 @@ class NoopTracer:
         yield _NoopSpan(**attrs)
 
     def record_generation(self, **_: Any) -> None:
+        return None
+
+    def record_search(self, **_: Any) -> None:
+        return None
+
+    def record_tool(self, **_: Any) -> None:
         return None
 
     def finish(self, status: str = "ok") -> None:
@@ -262,6 +299,39 @@ class LangfuseSink:
 
 
 _current_tracer: ContextVar[Any] = ContextVar("pathfinder_tracer", default=NoopTracer())
+_live_emit: ContextVar[Any] = ContextVar("pathfinder_live_emit", default=None)
+_developer_view: ContextVar[bool] = ContextVar("pathfinder_developer_view", default=False)
+
+
+def bind_live_emit(emit: Any) -> Any:
+    """Child tasks copy this at creation, so a tool can push an event mid-turn."""
+    return _live_emit.set(emit)
+
+
+def reset_live_emit(token: Any) -> None:
+    _live_emit.reset(token)
+
+
+def bind_developer_view(enabled: bool) -> Any:
+    return _developer_view.set(enabled)
+
+
+def reset_developer_view(token: Any) -> None:
+    _developer_view.reset(token)
+
+
+def developer_view() -> bool:
+    return _developer_view.get()
+
+
+def emit_live(event: str, data: dict[str, Any]) -> None:
+    emit = _live_emit.get()
+    if emit is None:
+        return
+    try:
+        emit(event, data)
+    except Exception:
+        return
 
 
 class TracerProxy:
@@ -290,6 +360,16 @@ class TracerProxy:
 
     def record_generation(self, **kwargs: Any) -> None:
         self._tracer.record_generation(**kwargs)
+
+    def record_search(self, **kwargs: Any) -> None:
+        record = getattr(self._tracer, "record_search", None)
+        if record is not None:
+            record(**kwargs)
+
+    def record_tool(self, **kwargs: Any) -> None:
+        record = getattr(self._tracer, "record_tool", None)
+        if record is not None:
+            record(**kwargs)
 
     def finish(self, status: str = "ok") -> None:
         self._tracer.finish(status)

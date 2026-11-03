@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppHeader,
   AuthDialog,
@@ -457,6 +457,8 @@ export default function App() {
                   error={pf.error}
                   onRetry={() => void pf.retry()}
                   onClear={() => void pf.clearChat()}
+                  trace={pf.trace}
+                  live={pf.live}
                 />
               </div>
             }
@@ -566,8 +568,14 @@ function PlanTabs({
   onScrap: () => void;
 }) {
   const { t } = useI18n();
+  const scroller = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = scroller.current?.querySelector<HTMLElement>("[data-active='true']");
+    node?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activeId, trips.length]);
   return (
     <div className="pf-plan-tabs" role="tablist" aria-label={t("plan.openTrips")}>
+      <div className="pf-plan-tabs__scroll" ref={scroller}>
       {trips.map((trip, index) => (
         <button
           key={trip.id}
@@ -583,6 +591,7 @@ function PlanTabs({
           <span className="pf-plan-tab__label">{trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}</span>
         </button>
       ))}
+      </div>
       <button type="button" className="pf-plan-tab pf-plan-tab--add" onClick={onNew} aria-label={t("plan.createAnother")}>
         <Icon name="plus" size={12} />
         {t("header.newTrip")}
