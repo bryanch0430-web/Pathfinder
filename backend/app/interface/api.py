@@ -23,6 +23,7 @@ from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
 from app.application.soft_guides import CORPUS_VERSION
 from app.application.trending_rag import trending_report
+from app.application.translation import SUPPORTED_LOCALES, LLMTranslator, TranslationService
 from app.application.validation import tidy_data_gaps
 from app.config import Settings, get_settings
 from app.container import Container, build_container
@@ -451,6 +452,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             plan = await c.turn_service.freshness.on_reopen(plan)
         plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {"plan": plan.model_dump(mode="json")}
+
+    # Display translation of a plan version; the English plan stays the source of truth.
+    @app.get("/api/journeys/{session_id}/translation")
+    async def get_translation(
+        session_id: str, request: Request, version: int | None = None, locale: str | None = None
+    ) -> dict[str, Any]:
+        c = container(request)
+        require_session(c, request, session_id)
+        if locale is None:
+            context = c.store.get_context(session_id)
+            locale = getattr(context, "plan_locale", "en") if context is not None else "en"
+        if locale not in SUPPORTED_LOCALES:
+            raise HTTPException(status_code=422, detail=f"Unsupported locale; use one of {', '.join(SUPPORTED_LOCALES)}")
+        plan = c.store.get_plan(session_id, version)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        if c.translation is None:
+            c.translation = TranslationService(LLMTranslator(c.gateway))
+        return await c.translation.translate_plan(tidy_data_gaps(plan, drop_edit_gaps=True), locale)
 
     @app.get("/api/journeys/{session_id}/revisions")
     async def get_versions(session_id: str, request: Request) -> dict[str, Any]:

@@ -16,6 +16,7 @@ from app.application.planner import Planner
 from app.application.prompts import PromptLibrary
 from app.application.router import System1Router
 from app.application.orchestrator import TurnService
+from app.application.translation import LLMTranslator, TranslationService
 from app.config import Settings, get_settings
 from app.domain.ports import LLM
 from app.evaluation import EvalService
@@ -44,6 +45,7 @@ class Container:
     clarifier: Clarifier
     turn_service: TurnService
     evaluation: EvalService
+    translation: TranslationService | None = None
 
     def health(self) -> dict[str, Any]:
         return {
@@ -153,4 +155,5 @@ def build_container(settings: Settings | None = None) -> Container:
         clarifier=clarifier,
         turn_service=turn_service,
         evaluation=evaluation,
+        translation=TranslationService(LLMTranslator(gateway)),
     )
