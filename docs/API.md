@@ -46,6 +46,13 @@ traveller; `session_id` in the request is no longer needed. `attach` moves one s
 token it was created with. A `user:` token and an empty token move nothing. `PATCH` recomputes `days`
 from the date range (or `end_date` from `days`).
 
+A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is fine). `POST /api/journeys`
+and `POST /api/turn/stream` without a `session_id` take it from `client_token`, else from the
+`X-Client-Token` header, and answer `422` for any other token, because the session could not be
+opened again. A bearer needs no guest token. A turn that would start a trip with neither is `401`.
+`POST /api/journeys` with neither still answers `200` for compatibility, but the session it stores
+can never be opened again: always send a token.
+
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.
 
