@@ -1151,6 +1151,12 @@
   background: var(--p30-tone-brand-light);
 }
 
+.pf-chip:disabled {
+  opacity: var(--p30-alpha-disabled);
+  cursor: not-allowed;
+  transform: none;
+}
+
 .pf-day-strip {
   display: flex;
   gap: 6px;
@@ -2279,6 +2285,10 @@
 .pf-composer:focus-within {
   border-color: var(--p30-tone-brand-primary);
   box-shadow: 0 0 0 3px var(--p30-tone-brand-light);
+}
+
+.pf-composer textarea:disabled {
+  cursor: not-allowed;
 }
 
 .pf-composer textarea {

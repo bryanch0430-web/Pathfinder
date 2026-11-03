@@ -25,6 +25,15 @@ export function failureOf(cause: unknown, fallback: MessageKey, unauthorized: Me
   return cause instanceof TypeError ? "errors.network" : fallback;
 }
 
+/** Why a trip could not be reached: too many requests, a sign-in that ended, or else the server itself. */
+export function unreachableOf(cause: unknown): MessageKey {
+  if (cause instanceof ApiError) {
+    if (cause.status === 429) return "errors.rateLimited";
+    if (cause.status === 401) return "errors.signInEnded";
+  }
+  return "errors.reconnect";
+}
+
 /** The words of a failure in the language of `t`. */
 export function describeFailure(failure: Failure, t: Translate): string {
   return typeof failure === "string" ? t(failure) : failure.text;

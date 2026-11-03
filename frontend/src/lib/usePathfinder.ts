@@ -26,7 +26,7 @@ import type {
   TripContext,
   TripPlan,
 } from "../design-system/types";
-import { describeFailure, failureOf, type Failure } from "./failure";
+import { describeFailure, failureOf, unreachableOf, type Failure } from "./failure";
 import { useI18n } from "./i18n";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
 import { clearStoredValue } from "./storage";
@@ -231,7 +231,7 @@ export function usePathfinder(locale: string): PathfinderHook {
             clearStoredValue("session");
           } else {
             // The server is down or slow, not forgetting the trip: keep the id and say so.
-            setError("errors.reconnect");
+            setError(unreachableOf(cause));
             setReady(true);
             return;
           }
@@ -282,7 +282,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         return "missing";
       }
       // The server is down or slow: the trip is not gone.
-      setError("errors.reconnect");
+      setError(unreachableOf(cause));
       return "unavailable";
     }
   }, [loadSession]);

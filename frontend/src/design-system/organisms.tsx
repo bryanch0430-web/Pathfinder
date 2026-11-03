@@ -404,6 +404,7 @@ export function ChatPanel({
   onClear,
   trace,
   live,
+  disabled = false,
 }: {
   messages: ChatMessage[];
   onSend: (message: string) => void;
@@ -422,6 +423,8 @@ export function ChatPanel({
   onClear?: () => void;
   trace?: RunTrace | null;
   live?: { id: string; title: string; body: string }[];
+  /** No trip is open to send to (the server could not be reached): nothing can be typed or sent. */
+  disabled?: boolean;
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState("");
@@ -433,7 +436,7 @@ export function ChatPanel({
   }, [messages.length, lastContent, busy, clarify?.question]);
   const submit = () => {
     const value = draft.trim();
-    if (!value || busy) return;
+    if (!value || busy || disabled) return;
     setDraft("");
     onSend(value);
   };
@@ -521,7 +524,7 @@ export function ChatPanel({
           </>
         )}
         {error ? (
-          <div className="pf-banner">
+          <div className="pf-banner" role="alert">
             <Icon name="alert" size={14} />
             <div className="pf-stack" style={{ gap: 4 }}>
               <span>{error}</span>
@@ -558,7 +561,7 @@ export function ChatPanel({
         ) : null}
         <div className="pf-quick">
           {QUICK_PROMPTS.map((prompt) => (
-            <button key={prompt} type="button" className="pf-chip" disabled={busy} onClick={() => onSend(prompt)}>
+            <button key={prompt} type="button" className="pf-chip" disabled={busy || disabled} onClick={() => onSend(prompt)}>
               {prompt}
             </button>
           ))}
@@ -567,7 +570,8 @@ export function ChatPanel({
           <textarea
             value={draft}
             rows={2}
-            placeholder={scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
+            disabled={disabled}
+            placeholder={disabled ? t("chat.offline") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
             aria-label={t("chat.message")}
             onChange={(event) => setDraft(event.target.value)}
             onInput={(event) => {
@@ -583,7 +587,7 @@ export function ChatPanel({
               }
             }}
           />
-          <Button variant="primary" data-round="true" aria-label={t("chat.send")} disabled={busy || !draft.trim()} onClick={submit}>
+          <Button variant="primary" data-round="true" aria-label={t("chat.send")} disabled={busy || disabled || !draft.trim()} onClick={submit}>
             <Icon name="send" size={16} />
           </Button>
         </div>
@@ -2392,7 +2396,7 @@ export function LoadingScreen({ label }: { label?: string }) {
 
 export function Banner({ tone = "danger", children }: { tone?: "danger" | "info"; children: ReactNode }) {
   return (
-    <div className="pf-banner" data-tone={tone}>
+    <div className="pf-banner" data-tone={tone} role={tone === "danger" ? "alert" : "status"}>
       <Icon name={tone === "danger" ? "alert" : "info"} size={14} />
       <span>{children}</span>
     </div>

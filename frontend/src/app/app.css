@@ -96,6 +96,13 @@
   color: var(--pf-ink-tertiary);
 }
 
+.pf-example:disabled {
+  opacity: var(--p30-alpha-disabled);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .pf-welcome__steps {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

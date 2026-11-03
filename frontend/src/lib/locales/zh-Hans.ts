@@ -49,6 +49,7 @@ export const ZH_HANS: Messages = {
   "chat.clearScope": "取消选中的站点",
   "chat.placeholderScoped": "询问这个站点，或提出修改…",
   "chat.placeholder": "提出修改，或问一个简短问题…",
+  "chat.offline": "重新连接服务器后才能发送消息。",
   "chat.message": "消息",
   "chat.send": "发送消息",
   "chat.hint": "Enter 发送 · Shift + Enter 换行",
@@ -445,7 +446,7 @@ export const ZH_HANS: Messages = {
 
   "errors.memory": "无法清除记忆。",
   "errors.backend": "无法连接后端",
-  "errors.reconnect": "无法连接到服务器。你的行程已保留，请刷新页面重新连接。",
+  "errors.reconnect": "无法连接到服务器。你的行程已保留，请点击“重试”重新连接。",
   "errors.signInToOpen": "此处无法打开这个行程。如果它属于你的账户，请登录后再打开。",
   "errors.saveDetails": "无法保存行程信息。",
 

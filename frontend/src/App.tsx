@@ -446,7 +446,8 @@ export default function App() {
                   onSend={(message) => void pf.send(message)}
                   scope={scope}
                   onClearScope={() => pf.selectItem(null)}
-                  error={pf.error}
+                  error={pf.sessionId ? pf.error : null}
+                  disabled={!pf.sessionId}
                   onRetry={() => void pf.retry()}
                   onClear={() => void pf.clearChat()}
                   trace={pf.trace}
@@ -489,7 +490,8 @@ export default function App() {
               ) : (
                 <WelcomePanel
                   onExample={(message) => void pf.send(message)}
-                  backendError={pf.error}
+                  backendError={pf.sessionId ? null : pf.error}
+                  disabled={!pf.sessionId}
                   onRetry={() => void pf.reload()}
                 />
                 )}
@@ -600,10 +602,14 @@ function PlanTabs({
 function WelcomePanel({
   onExample,
   backendError,
+  disabled,
   onRetry,
 }: {
   onExample: (message: string) => void;
+  /** Shown here only while no trip is open; with a trip open the chat shows its errors. */
   backendError: string | null;
+  /** No trip is open to send an example to. */
+  disabled: boolean;
   onRetry: () => void;
 }) {
   const { t } = useI18n();
@@ -633,7 +639,7 @@ function WelcomePanel({
           "Plan a 4-day Kyoto trip from Hong Kong for 2 in April, budget 400,000 JPY. I want Fushimi Inari and a slow pace.",
           "Plan a 2-day Taipei trip from Hong Kong for 1 person next month, budget 12,000 TWD.",
         ].map((example) => (
-          <button key={example} type="button" className="pf-example" onClick={() => onExample(example)}>
+          <button key={example} type="button" className="pf-example" disabled={disabled} onClick={() => onExample(example)}>
             <Icon name="sparkles" size={14} />
             <span>{example}</span>
             <Icon name="arrowRight" size={14} />
