@@ -1369,10 +1369,10 @@ def lock_scope(
 
 
 _HOTEL_NOUN = r"(?:hotel|hostel|ryokan|room|accommodation)"
-#: "keep the hotel", "keep the same room", "same hotel": the hotel stays as it is
+#: "keep the hotel", "keep the same room", "same hotel", "the hotel stays the same": the hotel stays as it is
 _KEEP_HOTEL = re.compile(
-    r"\b(?:keep|keeping|retain|stick(?:ing)? (?:with|to)|stay(?:ing)? (?:at|in|with)|same)\b"
-    rf"[^.,;]{{0,24}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b[^.,;]{{0,16}}?\b(?:unchanged|the same)\b",
+    r"\b(?:keep|keeping|retain|stick(?:ing)? (?:with|to)|same)\b"
+    rf"[^.,;]{{0,16}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b\s+(?:(?:stays?|remains?|is|are)\s+)?(?:unchanged|the same)\b",
     re.IGNORECASE,
 )
 _NEGATION = re.compile(r"\b(?:not|never|no longer|dont)\b|n't\b", re.IGNORECASE)
