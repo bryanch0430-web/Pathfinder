@@ -26,6 +26,7 @@ import { Icon } from "./design-system/icons";
 import { claimSession, discardSession, getFx, getGuides, getTrending, login, me, register, shareSession, suggestPlaces } from "./lib/api";
 import { downloadPlanMarkdown } from "./lib/export";
 import { useI18n } from "./lib/i18n";
+import { clearStoredValue } from "./lib/storage";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
 
@@ -117,7 +118,7 @@ export default function App() {
     void me()
       .then((data) => setAuthUser(data.user))
       .catch(() => {
-        localStorage.removeItem("pathfinder.auth");
+        clearStoredValue("auth");
         // A `user:` profile token is refused without its bearer, so fall back
         // to the guest token, as signing out does.
         const guest = localStorage.getItem("pathfinder.guest");
@@ -224,7 +225,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("pathfinder.auth");
+    // Under both prefixes, so the legacy-key migration cannot sign the user back in.
+    clearStoredValue("auth");
     const guest = localStorage.getItem("pathfinder.guest");
     if (guest) localStorage.setItem("pathfinder.client", guest);
     setAuthUser(null);

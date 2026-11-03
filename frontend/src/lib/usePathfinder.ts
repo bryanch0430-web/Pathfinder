@@ -22,6 +22,7 @@ import type {
   TripContext,
   TripPlan,
 } from "../design-system/types";
+import { clearStoredValue } from "./storage";
 
 const SESSION_KEY = "pathfinder.session";
 const TOKEN_KEY = "pathfinder.client";
@@ -151,7 +152,7 @@ export function usePathfinder(locale: string): PathfinderHook {
           setReady(true);
           return;
         } catch {
-          localStorage.removeItem(SESSION_KEY);
+          clearStoredValue("session");
         }
       }
       const created = await createSession(clientToken());
@@ -456,7 +457,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         // Even if the old row is already gone, drop the local pointer.
       }
     }
-    localStorage.removeItem(SESSION_KEY);
+    clearStoredValue("session");
     sessionRef.current = null;
     setSessionId(null);
     setPlan(null);
