@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any, Awaitable, Callable
@@ -635,27 +636,57 @@ def _gap(section: str, exc: Exception) -> DataGap:
 
 
 def _norm_name(name: str) -> str:
-    return re.sub(r"[^a-z0-9 ]", "", name.lower()).strip()
+    """A comparable place name in any script: accents, punctuation and case dropped.
+
+    "Sensō-ji" and "Senso-ji" both become "sensoji"; 伏見稲荷大社 keeps its
+    characters (an ASCII-only filter turned every Japanese name into "", so two
+    different temples compared as identical).
+    """
+    text = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", name or ""))
+    text = "".join(char for char in text if not unicodedata.combining(char)).casefold()
+    return re.sub(r"\s+", " ", re.sub(r"[^\w ]|_", "", text)).strip()
+
+
+def _place_names(place: PlaceCandidate) -> set[str]:
+    return {norm for norm in (_norm_name(value) for value in [place.name, *place.aliases]) if norm}
+
+
+def _same_place(existing: PlaceCandidate, place: PlaceCandidate) -> bool:
+    """Same place when any of their names match (aliases included), or nearly match nearby."""
+    ratio = max(
+        (SequenceMatcher(None, a, b).ratio() for a in _place_names(existing) for b in _place_names(place)),
+        default=0.0,
+    )
+    close = bool(
+        existing.geo
+        and place.geo
+        and haversine_km(existing.geo.lat, existing.geo.lng, place.geo.lat, place.geo.lng) < 0.3
+    )
+    return ratio > 0.86 or (ratio > 0.7 and close)
+
+
+def _agreed_geo(points: list[Any]) -> Any:
+    """Where sources disagree, the point most others agree with (within 0.5 km); ties keep
+    the first, i.e. the higher-priority source."""
+    if len(points) < 3:
+        return points[0] if points else None
+    support = [
+        sum(1 for other in points if haversine_km(point.lat, point.lng, other.lat, other.lng) <= 0.5)
+        for point in points
+    ]
+    return points[support.index(max(support))]
 
 
 def _merge_places(places: list[PlaceCandidate]) -> list[PlaceCandidate]:
     merged: list[PlaceCandidate] = []
+    points: dict[int, list[Any]] = {}
     for place in places:
-        match = None
-        for existing in merged:
-            ratio = SequenceMatcher(None, _norm_name(existing.name), _norm_name(place.name)).ratio()
-            close = (
-                existing.geo
-                and place.geo
-                and haversine_km(existing.geo.lat, existing.geo.lng, place.geo.lat, place.geo.lng) < 0.3
-            )
-            if ratio > 0.86 or (ratio > 0.7 and close):
-                match = existing
-                break
+        match = next((existing for existing in merged if _same_place(existing, place)), None)
         if match is None:
             merged.append(place)
+            points[id(place)] = [place.geo] if place.geo else []
             continue
-        # Keep the richer record, merge provenance.
+        # Keep the richer record, merge provenance and the other names.
         if len(place.description) > len(match.description):
             match.description = place.description
         match.rating = match.rating if match.rating is not None else place.rating
@@ -665,6 +696,13 @@ def _merge_places(places: list[PlaceCandidate]) -> list[PlaceCandidate]:
         match.geo = match.geo or place.geo
         match.opening_hours = match.opening_hours or place.opening_hours
         match.source_refs = _dedupe_sources(match.source_refs + place.source_refs)
+        for alias in [place.name, *place.aliases]:
+            if alias and alias != match.name and alias not in match.aliases:
+                match.aliases.append(alias)
+        if place.geo:
+            points[id(match)].append(place.geo)
+    for place in merged:
+        place.geo = _agreed_geo(points[id(place)]) or place.geo
     return merged
 
 

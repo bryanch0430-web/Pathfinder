@@ -199,6 +199,12 @@ class WikivoyagePlacesSource:
                         )
                     ],
                     tags=["wikivoyage"],
+                    # `alt=` is the listing's other name, usually the local script.
+                    aliases=[
+                        alias
+                        for alias in (part.strip() for part in re.split(r"[,;、]", _clean(params.get("alt", ""))))
+                        if alias and alias != name
+                    ],
                 )
             )
             if len(out) >= limit:
@@ -275,7 +281,9 @@ class NominatimPlacesSource:
         if not isinstance(rows, list):
             return out
         for row in rows:
-            name = str(row.get("name") or row.get("display_name", "").split(",")[0]).strip()
+            if not isinstance(row, dict):
+                continue
+            name = str(row.get("name") or str(row.get("display_name") or "").split(",")[0]).strip()
             if not name:
                 continue
             try:
@@ -312,7 +320,7 @@ class NominatimPlacesSource:
                         {
                             str(value).strip()
                             for key, value in (row.get("namedetails") or {}).items()
-                            if key.startswith(("name", "alt_name", "official_name", "int_name"))
+                            if key.startswith(("name", "alt_name", "official_name", "int_name", "old_name"))
                             and str(value).strip()
                             and str(value).strip() != name
                         }

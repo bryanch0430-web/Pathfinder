@@ -575,7 +575,8 @@ class PlaceCandidate(BaseModel):
     reviews: list[dict[str, Any]] = Field(default_factory=list)
     source_refs: list[SourceRef] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
-    #: other names the source knows the place by ("Lotte World" for 롯데월드).
+    #: other names the source knows the place by ("Lotte World" for 롯데월드);
+    #: also used to merge duplicates across scripts (伏見稲荷大社 / Fushimi Inari Taisha).
     aliases: list[str] = Field(default_factory=list)
 
 

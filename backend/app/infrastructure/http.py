@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Any
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Any, Iterator
 
 import httpx
 
@@ -12,6 +14,20 @@ from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
 
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
+
+#: Transport for every request made in the current context. None is the real
+#: network; the TC-02 replay (app.eval_replay) sets recorded-shape responses.
+_TRANSPORT: ContextVar[httpx.AsyncBaseTransport | None] = ContextVar("pathfinder_http_transport", default=None)
+
+
+@contextmanager
+def use_transport(transport: httpx.AsyncBaseTransport | None) -> Iterator[None]:
+    """Route request_json through ``transport`` inside this block only (this task and its children)."""
+    token = _TRANSPORT.set(transport)
+    try:
+        yield
+    finally:
+        _TRANSPORT.reset(token)
 
 
 def classify_status(status: int, source: str, message: str = "") -> ProviderError:
@@ -47,7 +63,7 @@ async def request_json(
         merged_headers.update(headers)
     for attempt in range(retries + 1):
         try:
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, transport=_TRANSPORT.get()) as client:
                 response = await client.request(
                     method, url, headers=merged_headers, params=params, json=payload
                 )
