@@ -159,7 +159,7 @@ class OpenMeteoArchiveWeather:
                         "end_date": win_end.isoformat(),
                     },
                     timeout=self.settings.http_timeout_seconds,
-                    retries=1,
+                    retries=1,  # fixed: the archive is a fallback, not covered by HTTP_RETRIES
                     user_agent=self.settings.user_agent,
                 )
             except Exception:

@@ -37,7 +37,7 @@ class GoogleTimeZone:
                 "key": self._key,
             },
             timeout=self.settings.http_timeout_seconds,
-            retries=1,
+            retries=1,  # fixed: optional enrichment, not covered by HTTP_RETRIES
             user_agent=self.settings.user_agent,
         )
         if str(data.get("status") or "") != "OK":
