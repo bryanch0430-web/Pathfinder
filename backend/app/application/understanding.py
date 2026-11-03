@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import trip_state
 from app.domain.errors import CanaryLeak
-from app.domain.models import TripContext
+from app.domain.models import TripContext, fit_preference
 from app.security import fence_user_message
 
 # Interest and style tags the rules recognise. Any other tag is read by the
@@ -785,9 +785,12 @@ def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | Non
         values = data.get(key)
         if isinstance(values, list):
             existing = getattr(context, key)
+            # A preference ends up in the traveller's profile, which keeps no phrase longer than a tag.
+            fit = fit_preference if key == "preferences" else str.strip
             for item in values[:8]:
-                if isinstance(item, str) and item.strip() and item.strip() not in existing:
-                    existing.append(item.strip())
+                text = fit(item) if isinstance(item, str) else ""
+                if text and text not in existing:
+                    existing.append(text)
 
 
 def _normalise_dates(context: TripContext) -> None:

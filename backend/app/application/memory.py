@@ -130,7 +130,7 @@ class MemoryService:
                 values.append(preference)
         profile = PreferenceProfile(
             client_token=owner,
-            preferences=values[-30:],
+            preferences=values,
             updated_at=utcnow(),
         )
         self.store.upsert_preferences(profile)

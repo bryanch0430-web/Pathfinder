@@ -168,7 +168,10 @@ token of `user:<id>` without that user's bearer is `401`, here and on `POST /api
 on `/api/popular`, which then ranks without personal matching. A useful rating saves the
 trip for the journey's owner, and the preferences a turn learns are remembered for that owner
 too (a trip with no owner remembers none); planner recall reads only that owner's saved trips;
-signing in moves the guest's saved trips and preferences to the account.
+signing in moves the guest's saved trips and preferences to the account. A profile keeps at most 20
+preferences of at most 80 characters, newest last: what turns, feedback and the sign-in merge write is cut
+to that (the oldest go first, a longer phrase is shortened), so what `GET /api/traveller` returns can
+always be sent back to `PATCH /api/traveller`.
 
 A `useful` feedback saves the plan in a background task with its embedding. The feedback
 endpoint never blocks the response on the write. Trending prefers those **marked-useful**

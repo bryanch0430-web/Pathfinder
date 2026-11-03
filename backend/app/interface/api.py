@@ -31,9 +31,12 @@ from app.container import Container, build_container
 from app.application.auth import create_token, decode_token, hash_password, verify_password
 from app.domain.models import (
     Feedback,
+    fit_preference,
     Intent,
     Message,
+    PREFERENCE_MAX_LENGTH,
     PreferenceProfile,
+    PREFERENCES_MAX,
     TripContext,
     TripPlan,
     User,
@@ -47,9 +50,6 @@ from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, p
 #: nothing else and is trimmed, so a session made with any other token could not be opened again.
 TOKEN_MAX_LENGTH = 120
 TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
-#: What a traveller profile keeps; a request over either limit is refused, not cut, and the Settings page shows both.
-PREFERENCES_MAX = 20
-PREFERENCE_MAX_LENGTH = 80
 
 
 class CreateSessionRequest(BaseModel):
@@ -89,6 +89,8 @@ class ChatRequest(BaseModel):
 class ProfilePatch(BaseModel):
     #: guest token; may be empty when a bearer identifies the caller
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
+    #: What a profile keeps (see `PreferenceProfile`). A request over either limit is refused, not cut, and the
+    #: Settings page shows both; what the system itself writes is cut to them, so it can always be sent back.
     preferences: list[Annotated[str, StringConstraints(max_length=PREFERENCE_MAX_LENGTH)]] = Field(
         default_factory=list, max_length=PREFERENCES_MAX
     )
@@ -623,13 +625,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 derived = derive_preferences(plan, context)
                 existing = c.store.get_preferences(token)
                 merged: list[str] = list(existing.preferences) if existing else []
-                for value in derived:
+                for value in map(fit_preference, derived):
                     if value not in merged:
                         merged.append(value)
                         added.append(value)
-                c.store.upsert_preferences(
-                    PreferenceProfile(client_token=token, preferences=merged[:20])
-                )
+                c.store.upsert_preferences(PreferenceProfile(client_token=token, preferences=merged))
         return {
             "feedback": record.model_dump(mode="json"),
             "preferences_added": added,

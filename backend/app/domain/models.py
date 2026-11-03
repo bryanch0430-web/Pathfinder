@@ -593,10 +593,31 @@ class SavedTrip(BaseModel):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+#: What a traveller profile keeps, whoever writes it: PREFERENCES_MAX phrases of PREFERENCE_MAX_LENGTH characters.
+PREFERENCES_MAX = 20
+PREFERENCE_MAX_LENGTH = 80
+
+
+def fit_preference(text: str) -> str:
+    """One preference as a profile keeps it: trimmed, and cut to PREFERENCE_MAX_LENGTH characters."""
+    return text.strip()[:PREFERENCE_MAX_LENGTH].rstrip()
+
+
 class PreferenceProfile(BaseModel):
     client_token: str
+    #: Oldest first. Every profile that is built or read is fitted to the limits above, so what the
+    #: turns, feedback and the sign-in merge write can always be sent back by the Settings page.
     preferences: list[str] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def _fit(self) -> "PreferenceProfile":
+        kept: list[str] = []
+        for value in map(fit_preference, self.preferences):
+            if value and value not in kept:
+                kept.append(value)
+        self.preferences = kept[-PREFERENCES_MAX:]
+        return self
 
 
 # ---------------------------------------------------------------------------
