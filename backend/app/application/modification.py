@@ -209,13 +209,17 @@ class ModifyPath:
             context.days = len(plan.dates.dates)
             new_range = plan.dates
         date_changed = bool(new_range and new_range != plan.dates) and not referred
-        # Only an edit that names the hotel or the budget may change which hotel it is. When the
+        # Only an edit that asks for another hotel or the budget may change which hotel it is. When the
         # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
         hotel_requested = (
-            bool({"hotel", "budget"} & set(affected))
+            "budget" in affected
             or budget_mode
+            or _asks_for_another_hotel(message, affected)
             or (referred is not None and plan.find_hotel(referred) is not None)
         )
+        if not (hotel_requested or date_changed):
+            # Nothing asks for another hotel and no date moves: the hotel agent has no work to do.
+            agent_names.discard(AgentName.HOTEL)
         if date_changed and len(new_range.dates) != len(plan.days):
             # A different length is a different shape; rebuild with the same id and version + 1.
             rebuilt = await self.plan_path.run(
@@ -1314,6 +1318,41 @@ def lock_scope(
         names.discard(AgentName.TICKET)
         names.add(AgentName.ATTRACTION)
     return names
+
+
+_HOTEL_NOUN = r"(?:hotel|hostel|ryokan|room|accommodation)"
+#: "keep the hotel", "keep the same room", "same hotel": the hotel stays as it is
+_KEEP_HOTEL = re.compile(
+    r"\b(?:keep|keeping|retain|stick(?:ing)? (?:with|to)|stay(?:ing)? (?:at|in|with)|same)\b"
+    rf"[^.,;]{{0,24}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b[^.,;]{{0,16}}?\b(?:unchanged|the same)\b",
+    re.IGNORECASE,
+)
+_NEGATION = re.compile(r"\b(?:not|never|no longer|dont)\b|n't\b", re.IGNORECASE)
+#: wording that changes the hotel: "swap the hotel", "a different room", "switch to a ryokan"
+_CHANGE_HOTEL = re.compile(
+    r"\b(?:swap|switch|change|replace|upgrade|downgrade|another|different|other|cheaper|nicer|better)\b"
+    rf"[^.,;]{{0,20}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b[^.,;]{{0,20}}?\b(?:instead|swap|switch|change)\b",
+    re.IGNORECASE,
+)
+
+
+def _keeps_the_hotel(message: str) -> bool:
+    """"keep the hotel", "same room" - unless it is refused ("I don't want to keep the hotel")."""
+    return any(
+        not _NEGATION.search(message[max(found.start() - 24, 0) : found.start()])
+        for found in _KEEP_HOTEL.finditer(message)
+    )
+
+
+def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
+    """The hotel part names a hotel word, which is not yet a wish for another hotel.
+
+    "keep the hotel" is the opposite, and a word like "stay" or "room" in a request for other dates ("extend
+    my stay by two days") is about the dates. A message about dates needs wording that changes the hotel.
+    """
+    if "hotel" not in affected or _keeps_the_hotel(message):
+        return False
+    return not asks_for_new_dates(message) or _CHANGE_HOTEL.search(message) is not None
 
 
 def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:
