@@ -240,7 +240,9 @@ class PlanPath:
                 task.add_done_callback(_discard_outcome)
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         for task, agent_name in tasks.items():
-            if task in pending:
+            # An agent cancelled for the budget that shrugged the cancellation off and finished
+            # inside the grace period has finished: its result, or its failure, counts.
+            if task in pending and not (task.done() and not task.cancelled()):
                 # An agent that can say what it had found keeps that; the others are unavailable.
                 keep = getattr(agents[agent_name], "partial_result", None)
                 result = (
