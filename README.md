@@ -296,7 +296,9 @@ POST /api/turn/stream (SSE)
 All four run concurrently. A slow or failing agent marks only its section
 `unavailable`; the turn still returns inside `PREPLAN_BUDGET_SECONDS`. An attraction agent
 cut off by that budget keeps what it had already found (located places, restaurants, notes,
-the places the traveller named) and the section reads `partial`.
+the places the traveller named) and the section reads `partial`, provided it had located at least
+one place; with none located the restaurants and notes are not kept either and the section reads
+`unavailable`.
 
 ### How a day is laid out
 
