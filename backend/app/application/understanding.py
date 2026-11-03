@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from app.application.llm_gateway import LLMGateway
 from app.domain.errors import CanaryLeak
 from app.domain.models import TripContext
+from app.security import fence_user_message
 
 # Interest and style tags the rules recognise. Any other tag is read by the
 # planner as a place the traveller wants to visit.
@@ -138,7 +139,7 @@ async def understand(
             f"Current date: {today.isoformat()}\n"
             f"Existing context: {updated.model_dump_json()}\n"
             f"Still missing: {missing}\n\n"
-            f"Traveller message:\n<user_travel_request>\n{message}\n</user_travel_request>"
+            "Traveller message:\n" + fence_user_message(message)
         )
         try:
             data = await gateway.json("understand", user=prompt, purpose="understand")
