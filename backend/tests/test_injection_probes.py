@@ -65,6 +65,7 @@ def trial(tmp_path_factory) -> dict:
     """One injection trial through POST /api/eval/trials, the code path the Evaluation page uses."""
     settings = _settings(tmp_path_factory.mktemp("tc05"))
     with TestClient(create_app(settings)) as client:
+        client.headers["X-Admin-Token"] = settings.admin_token
         response = client.post("/api/eval/trials", json={"dataset_id": "injection", "experiment_tag": "tc05"})
         suites = client.get("/api/eval/suites").json()["datasets"]
     assert response.status_code == 200

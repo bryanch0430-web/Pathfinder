@@ -57,7 +57,9 @@ def _settings(root: Path) -> Settings:
 @pytest.fixture(scope="module")
 def japan_run(tmp_path_factory) -> dict:
     """One japan trial through POST /api/eval/trials, the Evaluation page's code path."""
-    with TestClient(create_app(_settings(tmp_path_factory.mktemp("japan")))) as client:
+    settings = _settings(tmp_path_factory.mktemp("japan"))
+    with TestClient(create_app(settings)) as client:
+        client.headers["X-Admin-Token"] = settings.admin_token
         response = client.post("/api/eval/trials", json={"dataset_id": "japan", "experiment_tag": "tc02"})
     assert response.status_code == 200, response.text
     return response.json()["run"]

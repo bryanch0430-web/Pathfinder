@@ -8,7 +8,8 @@ Base URL: `http://127.0.0.1:8100`. All bodies are JSON. Times are ISO 8601 UTC.
 |---|---|---|
 | GET | `/api/ready` | process, writer, decision model, Langfuse, provider chains, thresholds |
 | GET | `/api/runtime` | UI configuration, thresholds, freshness, provider chains, demo prompts |
-| GET | `/api/handbook?destination=&q=&limit=&rerank=` | BM25+BGE hybrid by default; cited chunks with `last_verified`, `stale`, `content_hash`, `corpus_version`; `rerank=true` enables the optional BGE cross-encoder |
+| GET | `/api/handbook?destination=&q=&limit=&rerank=` | BM25+BGE hybrid by default; cited chunks with `last_verified`, `stale`, `content_hash`, `corpus_version`; `rerank=true` enables the optional BGE cross-encoder. Needs a Bearer token or an `X-Client-Token` header (401 otherwise) |
+| GET | `/api/places/suggest?q=&limit=` | destination autocomplete (Places API New). Needs a Bearer token or an `X-Client-Token` header (401 otherwise) |
 | GET | `/api/wallet?base=HKD` | cached live reference rates, source, date and note |
 | GET | `/api/wallet/convert?amount=9000&from=HKD&to=USD` | converted amount and rate |
 | GET | `/docs` | Swagger UI |
@@ -27,7 +28,7 @@ a `data_quality.gap` on the plan, not a failed health check.
 | POST | `/api/account/signup` | `{email,password,display_name?,client_token?,session_id?}` | `{token,user,profile_token}` |
 | POST | `/api/account/signin` | same | `{token,user,profile_token}` |
 | GET | `/api/account/whoami` | Bearer token | `{user,profile_token}` |
-| POST | `/api/account/attach` | `{session_id}` | `{claimed}` |
+| POST | `/api/account/attach` | `{session_id, client_token}` — the guest token the session was created with | `{claimed}` |
 | POST | `/api/journeys` | `{client_token}` | `{session, context}` |
 | GET | `/api/journeys/{id}` | — | `{session, context, plan, versions, messages}` |
 | PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id`; `null` leaves a field unchanged | `{context}` |
@@ -36,8 +37,11 @@ a `data_quality.gap` on the plan, not a failed health check.
 | GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
 | GET | `/api/journeys/{id}/segments` | `?day=YYYY-MM-DD` optional | `{trip_id, version, day, legs}` — real route geometry per leg |
 
-Auth is optional. A guest session is readable by id; once a session is claimed by a user,
-requests without the matching Bearer token return 404, not 403. `PATCH` recomputes `days`
+Auth is optional. A guest session answers only to the guest token it was created with, sent as
+the `X-Client-Token` header on every request (the token is never returned by the API); any other
+caller gets 404, not 403. Once a session is claimed by a user, requests without the matching
+Bearer token return 404 too. Sign-up, sign-in and `attach` move a guest session to the account
+only when they present the token it was created with. `PATCH` recomputes `days`
 from the date range (or `end_date` from `days`).
 
 Shared trips are redacted before storage: no budget, party size, session id or client token
@@ -168,6 +172,8 @@ returns a session id, client token, owner, budget, party size or generated summa
 | GET | `/api/eval/trials/{id}` | — | full run with cases |
 | GET | `/api/eval/trials/{id}/export` | — | Markdown report |
 | GET | `/api/eval/contrast?a=&b=` | — | per-metric delta rows |
+
+Every `/api/eval/*` route needs the `X-Admin-Token` header (401 otherwise).
 
 An unfrozen dataset returns `409`. An unknown dataset returns `404`. A planning run is
 deterministic and sandboxed; see `docs/EVALUATION.md`.

@@ -8,10 +8,10 @@ import {
   LoadingScreen,
 } from "../design-system";
 import {
-  evalExportUrl,
   clearMemory,
   getConfig,
   getEvalDatasets,
+  getEvalExport,
   getEvalRun,
   getEvalRuns,
   getInjections,
@@ -21,7 +21,6 @@ import {
   saveProfilePreferences,
 } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import { safeHref } from "../lib/safeHref";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
 
@@ -95,6 +94,17 @@ export function EvaluationPage() {
     }
   };
 
+  const handleExport = async (runId: string) => {
+    try {
+      const report = await getEvalExport(runId);
+      const url = URL.createObjectURL(new Blob([report], { type: "text/plain;charset=utf-8" }));
+      window.open(url, "_blank", "noopener");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("errors.evalOpen"));
+    }
+  };
+
   const handleSelectRun = async (runId: string) => {
     try {
       const detail = await getEvalRun(runId);
@@ -127,10 +137,7 @@ export function EvaluationPage() {
       running={running}
       error={error}
       onRun={(dataset, tag) => void handleRun(dataset, tag)}
-      onExport={(runId) => {
-        const href = safeHref(evalExportUrl(runId));
-        if (href) window.open(href, "_blank", "noopener");
-      }}
+      onExport={(runId) => void handleExport(runId)}
       onSelectRun={(runId) => void handleSelectRun(runId)}
     />
   );

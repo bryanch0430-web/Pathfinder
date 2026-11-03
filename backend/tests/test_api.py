@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -187,3 +188,52 @@ def test_config_exposes_map_keys_but_no_other_secrets(client: TestClient, settin
     assert "secret-llm" not in body
 
     assert "client_token" not in str(payload).lower()
+
+
+# -- endpoints that cost money or compute need an identity (S-M4) --------------------
+
+
+def test_every_eval_route_needs_the_admin_token(client: TestClient, settings: Settings) -> None:
+    routes = [
+        (method, route.path)
+        for route in client.app.routes
+        if getattr(route, "path", "").startswith("/api/eval")
+        for method in sorted(route.methods - {"HEAD", "OPTIONS"})
+    ]
+    # The scan must see the routes, or the check would pass vacuously.
+    assert len(routes) >= 7, routes
+    for method, template in routes:
+        path = re.sub(r"\{[^}]+\}", "x", template)
+        for headers in ({}, {"X-Admin-Token": "not-the-admin-token"}):
+            refused = client.request(method, path, params={"a": "x", "b": "y"}, json={}, headers=headers)
+            assert refused.status_code == 401, (method, template, headers, refused.status_code)
+        allowed = client.request(
+            method, path, params={"a": "x", "b": "y"}, json={}, headers={"X-Admin-Token": settings.admin_token}
+        )
+        assert allowed.status_code != 401, (method, template, allowed.status_code)
+
+
+def test_suggest_and_handbook_need_a_bearer_or_a_client_token(client: TestClient) -> None:
+    suggest = {"url": "/api/places/suggest", "params": {"q": "kyoto"}}
+    handbook = {"url": "/api/handbook", "params": {"destination": "Kyoto"}}
+    forged_bearer = {"Authorization": "Bearer not.a.token"}
+    for call in (suggest, handbook):
+        assert client.get(call["url"], params=call["params"]).status_code == 401
+        assert client.get(call["url"], params=call["params"], headers=forged_bearer).status_code == 401
+        assert client.get(call["url"], params=call["params"], headers={"X-Client-Token": ""}).status_code == 401
+        assert client.get(call["url"], params=call["params"], headers={"X-Client-Token": "guest-cost"}).status_code == 200
+    signed_up = client.post(
+        "/api/account/signup", json={"email": "cost@example.com", "password": "correct-horse"}
+    ).json()
+    bearer = {"Authorization": f"Bearer {signed_up['token']}"}
+    for call in (suggest, handbook):
+        assert client.get(call["url"], params=call["params"], headers=bearer).status_code == 200
+
+
+def test_translation_goes_through_require_session(client: TestClient) -> None:
+    session_id = client.post("/api/journeys", json={"client_token": "guest-t"}).json()["session"]["id"]
+    url = f"/api/journeys/{session_id}/translation"
+    # An unsupported locale is a 422 only for a caller who got past the session check.
+    assert client.get(url, params={"locale": "ja"}, headers={"X-Client-Token": "guest-t"}).status_code == 422
+    assert client.get(url, params={"locale": "ja"}).status_code == 404
+    assert client.get(url, params={"locale": "ja"}, headers={"X-Client-Token": "guest-other"}).status_code == 404

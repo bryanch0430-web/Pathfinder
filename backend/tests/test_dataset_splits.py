@@ -90,7 +90,11 @@ def test_tc06_trial_report_shows_the_heldout_share_and_freeze(settings, name: st
     from app.interface.api import create_app
 
     with TestClient(create_app(settings)) as client:
-        response = client.post("/api/eval/trials", json={"dataset_id": name, "experiment_tag": "tc06"})
+        response = client.post(
+            "/api/eval/trials",
+            json={"dataset_id": name, "experiment_tag": "tc06"},
+            headers={"X-Admin-Token": settings.admin_token},
+        )
     assert response.status_code == 200
     metrics = {metric["key"]: metric for metric in response.json()["run"]["metrics"]}
     assert metrics["split_frozen"]["value"] == 100.0

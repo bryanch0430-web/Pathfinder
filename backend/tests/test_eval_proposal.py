@@ -67,6 +67,7 @@ def trials(tmp_path_factory) -> dict:
     """One POST /api/eval/trials per planning set, as the Evaluation page sends it."""
     settings = _settings(tmp_path_factory.mktemp("trials"))
     with TestClient(create_app(settings)) as client:
+        client.headers["X-Admin-Token"] = settings.admin_token
         suites = {row["id"]: row for row in client.get("/api/eval/suites").json()["datasets"]}
         runs = {}
         exports = {}
@@ -83,6 +84,7 @@ def unhandled(tmp_path_factory) -> dict:
     """The Hong Kong set with the HKO warnings and MTR status handling switched off."""
     settings = _settings(tmp_path_factory.mktemp("unhandled"), enable_hk_disruptions=False)
     with TestClient(create_app(settings)) as client:
+        client.headers["X-Admin-Token"] = settings.admin_token
         response = client.post("/api/eval/trials", json={"dataset_id": "hongkong", "experiment_tag": "no-hk-handling"})
         assert response.status_code == 200, response.text
         return {"runs": {"hongkong": response.json()["run"]}}

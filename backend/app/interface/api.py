@@ -282,6 +282,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c.store.merge_preferences(guest, profile_token)
         c.store.reassign_saved_trips(guest, profile_token)
 
+    def require_caller(request: Request) -> None:
+        """A cost endpoint answers a caller who has an identity: a valid bearer or a guest token."""
+        if request.headers.get("x-client-token", "").strip():
+            return
+        if current_user(request, container(request)) is None:
+            raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+
     def same_token(presented: str, expected: str) -> bool:
         """True when both guest tokens are non-empty and equal (constant-time compare)."""
         if not presented or not expected:
@@ -310,13 +317,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "user": user.model_dump(mode="json"),
         }
 
-    @app.get("/api/places/suggest")
+    @app.get("/api/places/suggest", dependencies=[Depends(require_caller)])
     async def place_suggestions(
         request: Request,
         q: str = Query(min_length=3, max_length=80),
         limit: int = Query(default=5, ge=1, le=10),
     ) -> dict[str, Any]:
-        """Destination autocomplete (Places API New). Public, no secrets returned."""
+        """Destination autocomplete (Places API New). Needs a bearer or a client token; no secrets returned."""
         c = container(request)
         provider = c.registry.autocomplete
         if provider is None or not getattr(provider, "available", False):
@@ -327,7 +334,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             items = []
         return {"items": items}
 
-    @app.get("/api/handbook")
+    @app.get("/api/handbook", dependencies=[Depends(require_caller)])
     async def guides(
         destination: str = Query(min_length=2, max_length=80),
         q: str = Query(default="", max_length=200),
@@ -799,7 +806,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     # -- evaluation -------------------------------------------------------
 
-    @app.get("/api/eval/suites")
+    @app.get("/api/eval/suites", dependencies=[Depends(require_admin)])
     async def eval_datasets(request: Request) -> dict[str, Any]:
         c = container(request)
         return {"datasets": [dataset.model_dump(mode="json") for dataset in c.store.list_eval_datasets()]}
@@ -813,7 +820,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             raise HTTPException(status_code=404, detail="Dataset not found")
         return {"dataset": meta.model_dump(mode="json")}
 
-    @app.get("/api/eval/trials")
+    @app.get("/api/eval/trials", dependencies=[Depends(require_admin)])
     async def eval_runs(request: Request, limit: int = 30) -> dict[str, Any]:
         c = container(request)
         runs = c.store.list_eval_runs(limit)
@@ -837,7 +844,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         }
 
     # An evaluation run plans every case in a dataset (and may call the judge model).
-    @app.post("/api/eval/trials", dependencies=[limit_ai])
+    @app.post("/api/eval/trials", dependencies=[Depends(require_admin), limit_ai])
     async def run_eval(payload: EvalRunRequest, request: Request) -> dict[str, Any]:
         c = container(request)
         try:
@@ -852,7 +859,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             raise HTTPException(status_code=409, detail=str(exc))
         return {"run": run.model_dump(mode="json")}
 
-    @app.get("/api/eval/trials/{run_id}")
+    @app.get("/api/eval/trials/{run_id}", dependencies=[Depends(require_admin)])
     async def eval_run(run_id: str, request: Request) -> dict[str, Any]:
         c = container(request)
         run = c.store.get_eval_run(run_id)
@@ -860,7 +867,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             raise HTTPException(status_code=404, detail="Run not found")
         return {"run": run.model_dump(mode="json")}
 
-    @app.get("/api/eval/trials/{run_id}/export", response_class=PlainTextResponse)
+    @app.get("/api/eval/trials/{run_id}/export", response_class=PlainTextResponse, dependencies=[Depends(require_admin)])
     async def eval_export(run_id: str, request: Request) -> str:
         c = container(request)
         run = c.store.get_eval_run(run_id)
@@ -868,7 +875,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             raise HTTPException(status_code=404, detail="Run not found")
         return export_markdown(run)
 
-    @app.get("/api/eval/contrast")
+    @app.get("/api/eval/contrast", dependencies=[Depends(require_admin)])
     async def eval_compare(a: str, b: str, request: Request) -> dict[str, Any]:
         c = container(request)
         run_a = c.store.get_eval_run(a)

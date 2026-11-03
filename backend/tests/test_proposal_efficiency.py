@@ -66,6 +66,7 @@ def trials(tmp_path_factory: pytest.TempPathFactory) -> dict:
     """One scored run per dataset, through the same endpoints as the Evaluation page."""
     settings = _settings(tmp_path_factory.mktemp("trials"))
     with TestClient(create_app(settings)) as client:
+        client.headers["X-Admin-Token"] = settings.admin_token
         suites = {row["id"]: row for row in client.get("/api/eval/suites").json()["datasets"]}
         runs = {}
         for dataset in TRIAL_DATASETS:
