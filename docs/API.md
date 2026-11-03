@@ -115,16 +115,18 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | POST | `/api/journeys/{id}/share` | — | `{slug,url}`; public read-only redacted trip |
 | GET | `/s/{slug}` | — | public HTML trip |
 | GET | `/api/public/{slug}` | — | public JSON trip |
-| GET | `/api/traveller?client_token=` | — | the caller's preferences, counts, destinations |
+| GET | `/api/traveller` | — | the caller's preferences, counts, destinations |
 | PATCH | `/api/traveller` | `{client_token?, preferences}` | `{profile}` |
 | POST | `/api/recall/clear` | `{client_token?}` | `{cleared, saved_trips, preferences}`: deletes only the caller's saved trips and preferences |
-| GET | `/api/wishlist?limit=&client_token=` | — | the caller's saved-trip summaries |
-| GET | `/api/popular?q=&limit=&client_token=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`); public, `match` uses only the caller's own preferences |
+| GET | `/api/wishlist?limit=` | — | the caller's saved-trip summaries |
+| GET | `/api/popular?q=&limit=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`); public, `match` uses only the caller's own preferences |
 
 **Caller identity** (traveller, recall/clear, wishlist, rating preferences, popular
 matching): a valid `Authorization: Bearer` token is `user:<id>`; otherwise the guest
-`client_token`. A `client_token` of `user:<id>` without that user's bearer is `401`, here
-and on `POST /api/journeys` / `POST /api/turn/stream`. No identity at all is `401`, except
+token, sent as the `X-Client-Token` header. A `client_token` query parameter or body field is
+still read first, for older clients, but a URL is written to access logs: send the header. A
+token of `user:<id>` without that user's bearer is `401`, here and on `POST /api/journeys` /
+`POST /api/turn/stream`. No identity at all is `401`, except
 on `/api/popular`, which then ranks without personal matching. A useful rating saves the
 trip for the journey's owner; planner recall reads only that owner's saved trips; signing
 in moves the guest's saved trips and preferences to the account.

@@ -229,8 +229,9 @@ export function discardSession(sessionId: string): Promise<{ deleted: Record<str
   return request(`/api/journeys/${sessionId}`, { method: "DELETE" });
 }
 
+/** The guest token travels in the `X-Client-Token` header, never in a URL: servers and proxies log URLs. */
 export function getProfile(clientToken: string): Promise<ClientProfile> {
-  return request(`/api/traveller?client_token=${encodeURIComponent(clientToken)}`);
+  return request("/api/traveller", { headers: { "X-Client-Token": clientToken } });
 }
 
 export function saveProfilePreferences(clientToken: string, preferences: string[]): Promise<{ profile: ClientProfile }> {
@@ -264,10 +265,12 @@ export async function getTrending(
   const load = (clientToken?: string) => {
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
-    if (clientToken) params.set("client_token", clientToken);
     if (options.destination) params.set("destination", options.destination);
     const suffix = params.toString();
-    return request<{ items: TrendingPlace[]; trace: TrendingTrace }>(`/api/popular${suffix ? `?${suffix}` : ""}`);
+    // The header always names the token this call personalises with, or none (an empty header).
+    return request<{ items: TrendingPlace[]; trace: TrendingTrace }>(`/api/popular${suffix ? `?${suffix}` : ""}`, {
+      headers: { "X-Client-Token": clientToken ?? "" },
+    });
   };
   try {
     return await load(options.clientToken);
@@ -283,7 +286,7 @@ export async function getTrending(
 export async function getSavedTrips(clientToken: string): Promise<{
   trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
 }> {
-  return request(`/api/wishlist?client_token=${encodeURIComponent(clientToken)}`);
+  return request("/api/wishlist", { headers: { "X-Client-Token": clientToken } });
 }
 
 // Every /api/eval route needs the admin token (X-Admin-Token).
