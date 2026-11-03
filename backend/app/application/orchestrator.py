@@ -281,6 +281,7 @@ class TurnService:
             return
 
         context = self.store.get_context(session_id) or TripContext(session_id=session_id, language=locale)
+        read = context.model_copy(deep=True)
         context.language = locale or context.language
         plan = self.store.get_plan(session_id)
         intent: Intent = Intent.UNCLEAR
@@ -309,7 +310,7 @@ class TurnService:
                     raise
                 except Exception:
                     pass
-                self.store.save_context(context)
+                context = self._save_changes(read, context)
                 if context.preferences:
                     self._remember_in_background(session.owner, context)
 
@@ -586,6 +587,23 @@ class TurnService:
             logger.exception("refreshing an outdated plan failed")
             return None
         return outcome.plan if outcome is not None else None
+
+    def _save_changes(self, read: TripContext, changed: TripContext) -> TripContext:
+        """Save what this turn changed in the trip's form on top of the form as it is stored now, so
+        a field saved while the turn was working (the traveller's own edit of the form) is kept."""
+        current = self.store.get_context(changed.session_id)
+        if current is not None:
+            for name in TripContext.model_fields:
+                before, after = getattr(read, name), getattr(changed, name)
+                if name == "session_id" or after == before:
+                    continue
+                if isinstance(after, list):  # a turn only adds preferences and constraints
+                    kept = getattr(current, name)
+                    after = [*kept, *(item for item in after if item not in before and item not in kept)]
+                setattr(current, name, after)
+            changed = current
+        self.store.save_context(changed)
+        return changed
 
     def _memory_owner(self, session_id: str) -> str:
         """Whose saved trips the planner may recall: the session's owner only."""
