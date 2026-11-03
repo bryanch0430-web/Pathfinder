@@ -87,7 +87,11 @@ start/finish frames reach the browser before the plan is ready.
    for the new nights and keeps its confirmed and locked marks, and when no new rate comes
    back it keeps its old rate and a data gap says so. Another hotel is chosen only when the
    message asks for one or for a lower budget.
-3. Only unlocked, unconfirmed items are replaced. Confirmed stops are carried by name.
+3. Only unlocked, unconfirmed items are replaced. When the trip changes length and is built again, each locked or
+   confirmed stop comes back as the traveller left it (marks and times), once, on the day it was on (the last
+   day when the trip is shorter, never a day kept free). The rebuild's own row for the same place goes, a stop
+   that would overlap another slides to the next free time, and the plan says where each stop was kept. Their
+   transfers and the plan's checks are read again.
 4. Recalculate cost and constraints; validate/repair; persist version + 1.
 5. `diff_plans` reports added/removed/changed items, a trip that moved (`dates`), the hotel's nights
    and rate (`stay`, `hotel_price`), a different hotel or flight, a changed forecast and the cost.

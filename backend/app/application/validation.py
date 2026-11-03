@@ -46,6 +46,11 @@ def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
                 errors.append(f"{item.name}: attraction without a source")
             if item.type.value == "attraction" and not item.geo:
                 errors.append(f"{item.name}: attraction without coordinates")
+        # A day whose stops overlap cannot be read back from the store (DayPlan refuses it).
+        ordered = sorted(day.items, key=lambda item: item.start)
+        for previous, current in zip(ordered, ordered[1:]):
+            if current.start < previous.end:
+                errors.append(f"{day.date}: {previous.name} and {current.name} overlap")
         if day.weather and day.weather.date != day.date:
             errors.append(f"{day.date}: weather attached to the wrong date")
     for hotel in plan.hotels:

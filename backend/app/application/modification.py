@@ -8,26 +8,36 @@ version increments by one.
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.application.agents import _same_place
 from app.application.language import cuisine_slot
-from app.application.opening_hours import lines_for
+from app.application.opening_hours import lines_for, only_other_weekdays
 from app.application.planning import PlanPath
-from app.application.planner import PACE_BUFFER_MINUTES, STAY_PRICE_NOT_REFRESHED, Planner, _constraints, _pace
+from app.application.planner import (
+    NO_STOPS_NOTE,
+    PACE_BUFFER_MINUTES,
+    STAY_PRICE_NOT_REFRESHED,
+    Planner,
+    _constraints,
+    _pace,
+)
 from app.application.prompt_context import plan_outline, trip_slots
 from app.application.router import asks_for_new_dates, is_replan_message
 from app.application.toolbox import Toolbox
-from app.application.transfers import refresh_transfers
+from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
 from app.domain.models import (
     AgentName,
+    ConstraintCheck,
     DataStatus,
     DayPlan,
     Disruption,
@@ -36,6 +46,7 @@ from app.domain.models import (
     HotelStay,
     ItemType,
     Money,
+    PlaceCandidate,
     PlanItem,
     PriceKind,
     SourceRef,
@@ -234,14 +245,22 @@ class ModifyPath:
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
                 keep_hotel=None if hotel_requested or not plan.hotels else plan.hotels[0],
             )
-            for name in _carry_protected(plan, rebuilt):
-                day_number = next(
-                    index + 1 for index, day in enumerate(rebuilt.days) if any(item.name == name for item in day.items)
+            rule_texts = [*context.hard_constraints, *context.preferences]
+            plan_dates = [day.date for day in rebuilt.days]
+            blocked = blocked_dates(rule_texts, plan_dates)
+            before = rebuilt.model_copy(deep=True)
+            kept_notes = _carry_protected(plan, rebuilt, blocked)
+            rebuilt.data_quality.gaps += [_gap("attractions", text) for text in kept_notes]
+            if kept_notes:
+                # The stops put back belong to their new days: their transfers, and the checks that read the days.
+                await refresh_transfers(
+                    before,
+                    rebuilt,
+                    toolbox=toolbox,
+                    source=getattr(self.plan_path.registry, "transfers", None),
+                    buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
                 )
-                kind = "locked" if any(item.locked and item.name == name for _, item in plan.iter_items()) else "confirmed"
-                rebuilt.data_quality.gaps.append(
-                    _gap("attractions", f"Kept your {kind} stop {name} on day {day_number}.")
-                )
+                rebuilt.constraints = _recheck(rebuilt, context, blocked, travel_windows(rule_texts, plan_dates))
             errors = validate_plan(rebuilt, self.settings)
             if errors:
                 rebuilt = await repair_plan(rebuilt, errors, self.gateway, self.settings)
@@ -1537,39 +1556,154 @@ def _remove_attraction(plan: TripPlan, draft: ChangeDraft, message: str) -> str 
     return None
 
 
-def _carry_protected(old: TripPlan, new: TripPlan) -> list[str]:
-    """Put the traveller's locked and confirmed stops back after a rebuild; return the names re-inserted.
+def _recheck(plan: TripPlan, context: TripContext, blocked, windows) -> list[ConstraintCheck]:
+    """The plan's checks read again from its days. The checks for places the traveller named are kept as they
+    were: only the planner knows what each place was found as."""
+    fresh = _constraints(
+        context,
+        plan.days,
+        plan.hotels[0] if plan.hotels else None,
+        plan.tickets,
+        plan.cost,
+        blocked=blocked,
+        windows=windows,
+    )
+    texts = {check.text for check in fresh}
+    named = [check for check in plan.constraints if check.text.startswith("Include ") and check.text not in texts]
+    return fresh + named
 
-    A stop the rebuild also planned keeps both flags. One it left out is copied onto the day it was
-    on (the last day when the new trip is shorter), in time order.
+
+def _free_start(taken: list[tuple[int, int]], start: int, duration: int) -> int | None:
+    """The first start at or after ``start`` where ``duration`` minutes fit between the ``taken`` spans,
+    or None when the day has no room left before it ends."""
+    for begin, end in sorted(taken):
+        if end <= start:
+            continue
+        if begin >= start + duration:
+            break
+        start = end
+    return start if start + duration <= LATEST_END else None
+
+
+def _room_for(taken: list[tuple[int, int]], start: int, duration: int) -> int | None:
+    """Where a stop that wants ``start`` goes: there when it is free, else the next free time, else the first."""
+    if all(end <= start or begin >= start + duration for begin, end in taken):
+        return start
+    later = _free_start(taken, start, duration)
+    return later if later is not None else _free_start(taken, _MIN_START, duration)
+
+
+def _same_stop(first: PlanItem, second: PlanItem) -> bool:
+    """Two rows for one place, however each source spells it (the rule the agents merge places by)."""
+    if (first.type is ItemType.MEAL) != (second.type is ItemType.MEAL):
+        return False
+
+    def place(item: PlanItem) -> PlaceCandidate:
+        category = "restaurant" if item.type is ItemType.MEAL else "attraction"
+        return PlaceCandidate(name=item.name, category=category, geo=item.geo, aliases=list(item.names.values()))
+
+    return _same_place(place(first), place(second))
+
+
+def _twin(stop: PlanItem, plan: TripPlan, put_back: set[str]) -> tuple[int, PlanItem] | None:
+    """The rebuild's row for the same place as ``stop``: the same name first, else the same place under another
+    spelling. A row that is itself a stop put back is nobody's twin."""
+    rows = [(index, item) for index, day in enumerate(plan.days) for item in day.items if item.id not in put_back]
+    same_name = next(((index, item) for index, item in rows if item.name.casefold() == stop.name.casefold()), None)
+    return same_name or next(((index, item) for index, item in rows if _same_stop(stop, item)), None)
+
+
+def _hours_for(stop: PlanItem, day_date: date) -> None:
+    """A stop moved to another day keeps hours that were stated for its weekday; a line for another one is dropped."""
+    if stop.hours_status == "stated" and only_other_weekdays(stop.opening_hours, day_date):
+        stop.opening_hours, stop.hours_status = [], "unknown"
+
+
+def _settle(day: DayPlan) -> list[str]:
+    """Take the overlaps out of a day: locked and confirmed stops stay where they are, the others move later
+    to the next free time. Returns the stops that no longer fit before the day ends and are left out."""
+    fixed = [item for item in day.items if item.locked or item.confirmed]
+    others = [item for item in day.items if not (item.locked or item.confirmed)]
+    taken = [(_clock_minutes(item.start), _clock_minutes(item.end)) for item in fixed]
+    kept, left_out = list(fixed), []
+    for item in sorted(others, key=lambda item: item.start):
+        start, end = _clock_minutes(item.start), _clock_minutes(item.end)
+        begin = _room_for(taken, start, end - start)
+        if begin is None:
+            left_out.append(item.name)
+            continue
+        item.start, item.end = _hhmm(begin), _hhmm(begin + end - start)
+        taken.append((begin, begin + end - start))
+        kept.append(item)
+    day.items = sorted(kept, key=lambda item: item.start)
+    return left_out
+
+
+def _carry_protected(old: TripPlan, new: TripPlan, blocked: Collection[date] = ()) -> list[str]:
+    """Put the traveller's locked and confirmed stops back after a rebuild; return what the plan should say.
+
+    Each stop of the old plan comes back as the traveller left it (marks and times), once, on the day it was on, or
+    on the last day when the new trip is shorter. A day the traveller kept free, or one with no room, is passed
+    over for the nearest day that suits. The rebuild's own row for the same place goes, so no place is planned
+    twice. Where two protected stops want one time, the later slides to the next free time; any other stop of the
+    day gives way by moving later, or is left out when the day has no time left.
     """
-    protected = {
-        item.name: (day_index, item)
-        for day_index, day in enumerate(old.days)
-        for item in day.items
+    protected = [
+        (index, item)
+        for index, day in enumerate(old.days)
+        for item in sorted(day.items, key=lambda entry: entry.start)
         if item.locked or item.confirmed
-    }
+    ]
     if not protected or not new.days:
         return []
-    planned = {item.name: item for day in new.days for item in day.items}
     used_ids = {item.id for day in new.days for item in day.items}
-    reinserted: list[str] = []
-    for name, (day_index, kept) in protected.items():
-        found = planned.get(name)
-        if found is not None:
-            found.locked = found.locked or kept.locked
-            found.confirmed = found.confirmed or kept.confirmed
-            continue
+    put_back: set[str] = set()
+    spans: dict[int, list[tuple[int, int]]] = {index: [] for index in range(len(new.days))}
+    open_days = [index for index, day in enumerate(new.days) if day.date not in blocked] or list(spans)
+    notes: list[str] = []
+    touched: set[int] = set()
+    for old_index, kept in protected:
+        planned: tuple[int, str, str] | None = None
+        twin = _twin(kept, new, put_back)
+        if twin is not None:
+            twin_index, row = twin
+            new.days[twin_index].items.remove(row)
+            used_ids.discard(row.id)
+            planned = (twin_index, row.start, row.end)
+            touched.add(twin_index)
+        wanted = min(old_index, len(new.days) - 1)
+        start, duration = _clock_minutes(kept.start), _clock_minutes(kept.end) - _clock_minutes(kept.start)
+        placed_on, begin = wanted, start
+        for index in sorted(open_days, key=lambda entry: (abs(entry - wanted), entry > wanted)):
+            room = _room_for(spans[index], start, duration)
+            if room is not None:
+                placed_on, begin = index, room
+                break
         restored = kept.model_copy(deep=True)
         if restored.id in used_ids:
             # The rebuild numbers its candidates again, so this id may now mean another place.
             restored.id = new_id("item")
         used_ids.add(restored.id)
-        target = new.days[min(day_index, len(new.days) - 1)]
-        target.items.append(restored)
-        target.items.sort(key=lambda item: item.start)
-        reinserted.append(name)
-    return reinserted
+        put_back.add(restored.id)
+        # The transfer it had was from a neighbour on another day; the day's transfers are fetched again.
+        restored.transfer = None
+        restored.notes = with_transfer_note(restored.notes, None, meal=restored.type is ItemType.MEAL)
+        restored.start, restored.end = _hhmm(begin), _hhmm(begin + duration)
+        _hours_for(restored, new.days[placed_on].date)
+        spans[placed_on].append((begin, begin + duration))
+        new.days[placed_on].items.append(restored)
+        if new.days[placed_on].note == NO_STOPS_NOTE:
+            new.days[placed_on].note = ""
+        touched.add(placed_on)
+        if planned != (placed_on, restored.start, restored.end):
+            kind = "locked" if kept.locked else "confirmed"
+            notes.append(f"Kept your {kind} stop {kept.name} on day {placed_on + 1}.")
+    for index in sorted(touched):
+        notes += [
+            f"There was no time left on day {index + 1} for {name} around your locked stops, so it was left out."
+            for name in _settle(new.days[index])
+        ]
+    return notes
 
 
 def _ticket_within(ticket: TicketOption, date_range) -> bool:

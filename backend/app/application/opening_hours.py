@@ -172,6 +172,15 @@ def windows_on(lines: list[str], day: date) -> list[Window] | None:
     return None
 
 
+def only_other_weekdays(lines: list[str], day: date) -> bool:
+    """True when the lines are one per weekday ("Monday: ...") and none of them is for ``day``'s weekday."""
+    lines = [str(line) for line in lines or [] if str(line).strip()]
+    named = [_WEEKDAY_LINE.match(_normalise(line)) for line in lines]
+    return any(named) and not any(
+        match and _WEEKDAYS.index(match.group(1).lower()) == day.weekday() for match in named
+    )
+
+
 def lines_for(lines: list[str], day: date) -> list[str]:
     """The source's own lines that state the hours for ``day``, verbatim."""
     lines = [str(line) for line in lines or [] if str(line).strip()]
