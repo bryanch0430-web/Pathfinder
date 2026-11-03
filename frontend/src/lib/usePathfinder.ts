@@ -84,6 +84,8 @@ export interface PathfinderHook {
   clarify: ClarifyPayload | null;
   clarifyValues: Record<string, string>;
   trace: RunTrace | null;
+  /** Developer mode: each tool and model step as it finishes. */
+  live: { id: string; title: string; body: string }[];
   route: RoutePayload | null;
   error: string | null;
   selectedItem: PlanItem | null;
