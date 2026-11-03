@@ -863,3 +863,49 @@ def test_saving_other_dates_and_generating_again_over_http_moves_the_trip_and_ke
         old = client.get(f"/api/journeys/{session_id}/itinerary", params={"version": 1}, headers=guest).json()["plan"]
         assert old["dates"]["start"] == START.isoformat()
         assert opened["context"]["start_date"] == WEEK_LATER[0].isoformat()
+
+
+# -- G2, the chat half: a request for other dates that nothing can apply says so -------------------------
+
+
+CHAT_DATES_REPLY = (
+    "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
+    "generate the itinerary again; the plan is unchanged."
+)
+
+
+def test_a_request_for_other_dates_in_chat_says_that_dates_are_changed_in_the_trip_details(settings: Settings) -> None:
+    for message in (
+        "move it to 12-14 December",
+        "extend my stay by two days",
+        "make it 4 days",
+        "shift the trip by a week",
+        "two days later",
+    ):
+        plan, updated, diff, _ = _edit(settings, message, form=None)
+
+        assert diff == [] and updated.version == plan.version, message
+        assert updated.change_summary == CHAT_DATES_REPLY, message
+        assert (updated.dates.start, updated.dates.end) == (plan.dates.start, plan.dates.end), message
+        assert updated.model_dump(exclude={"change_summary"}) == plan.model_dump(exclude={"change_summary"}), message
+
+
+def test_that_reply_is_not_given_for_a_message_that_is_about_a_row(settings: Settings) -> None:
+    for message, scope in (
+        ("push the temple back a day", None),
+        ("move Gion a day later", None),
+        ("move it a day later", "item_p1"),
+    ):
+        _, updated, _, _ = _edit(settings, message, form=None, scope_item_id=scope)
+
+        assert updated.change_summary != CHAT_DATES_REPLY, message
+
+
+def test_the_reply_to_a_request_for_other_dates_in_chat_reaches_the_traveller(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        events = await trip.turn("move it to 12-14 December")
+
+        assert reply_of(events) == CHAT_DATES_REPLY
+        assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
+
+    run_trip(settings, scenario)

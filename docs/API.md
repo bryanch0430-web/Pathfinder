@@ -45,7 +45,10 @@ is being worked on, the plan is returned as stored and nothing is saved, so that
 `PATCH` made while a message is being understood is kept: the turn saves only what the message changed,
 on top of the form as it is stored then. A `PATCH` stores the form and leaves the plan alone; the page's
 `Re-plan with the updated details.` is what moves the trip to the dates the form then holds. That is an
-edit of the same trip, a new version that keeps the stops and the hotel, not a new trip. `PATCH` accepts
+edit of the same trip, a new version that keeps the stops and the hotel, not a new trip. A message cannot
+change the stored dates (`understand` keeps a stored range): a request such as `move it to 12-14 December`,
+while the form holds the plan's dates, is answered with a plain reply that dates are changed in the trip
+details, and the plan stays as it is. `PATCH` accepts
 any date range an end-before-start check lets through, a start in the past included; an edit that moves the
 trip into the past says so in the plan's data gaps, and one asked for while the form holds an end before its
 start answers `plan_invalid`.

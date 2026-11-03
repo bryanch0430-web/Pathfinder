@@ -64,6 +64,11 @@ from app.security import fence_user_message
 
 #: said on the plan when the trip is moved to dates that have gone by (the form accepts them)
 PAST_DATES = "The new dates are in the past."
+#: the answer to a request for other dates when the form holds the plan's dates: the trip form is where dates change
+CHAT_DATES_REPLY = (
+    "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
+    "generate the itinerary again; the plan is unchanged."
+)
 
 AGENT_SECTION: dict[AgentName, str] = {
     AgentName.ATTRACTION: "attractions",
@@ -245,6 +250,15 @@ class ModifyPath:
         if not (hotel_requested or date_changed):
             # Nothing asks for another hotel and no date moves: the hotel agent has no work to do.
             agent_names.discard(AgentName.HOTEL)
+        if date_requested and not date_changed and referred is None and not is_replan_message(message):
+            elsewhere = {part for part in affected if not part.startswith("day_")} - {"dates"}
+            if not hotel_requested:
+                elsewhere.discard("hotel")
+            if not elsewhere:
+                # A sentence about the whole trip that no stored range backs: dates change in the trip details.
+                answer = plan.model_copy(deep=True)
+                answer.change_summary = CHAT_DATES_REPLY
+                return answer, []
         if date_changed and len(new_range.dates) != len(plan.days):
             # A different length is a different shape; rebuild with the same id and version + 1.
             rebuilt = await self.plan_path.run(
