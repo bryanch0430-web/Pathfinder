@@ -9,7 +9,10 @@
  *   the next read is fine. A bare array from an earlier build is carried over once.
  * - A second window kept its own copy and wrote it over the first one's tabs. Here every
  *   write starts from what is stored right now, and the `storage` event tells the other
- *   windows to read it again.
+ *   windows to read it again. There is no lock: two windows that change the tabs at the very
+ *   same moment can still lose one of the two changes.
+ *
+ * Storage that cannot be written (full, or blocked) is not covered by this: see `save`.
  */
 import { storageKey } from "./storage";
 
@@ -63,7 +66,8 @@ function save(trips: Trip[]): void {
   try {
     safeStorage()?.setItem(KEY, JSON.stringify({ v: VERSION, trips }));
   } catch {
-    // Quota or a blocked write: the tabs still work for this window, they are just not kept.
+    // Quota or a blocked write: this change is not kept. The window shows it, but the next change starts
+    // from what is stored, so with storage that cannot be written only the latest change is in the list.
   }
 }
 
