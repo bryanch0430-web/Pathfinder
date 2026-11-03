@@ -19,7 +19,17 @@ from typing import Any, TypeVar
 from app.application.llm_gateway import LLMGateway
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
-from app.domain.models import DataStatus, DayPlan, FailureKind, HotelStay, Money, PlanItem, TicketOption, TripPlan
+from app.domain.models import (
+    DataGap,
+    DataStatus,
+    DayPlan,
+    FailureKind,
+    HotelStay,
+    Money,
+    PlanItem,
+    TicketOption,
+    TripPlan,
+)
 
 
 def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
@@ -228,6 +238,17 @@ def _restore_facts(original: TripPlan, candidate: TripPlan) -> None:
             _keep(before, after)
 
 
+def is_edit_outcome(gap: DataGap) -> bool:
+    """A gap that says what an edit could not do (no stop found, nothing cheaper came back), not what the
+    plan lacks. The reply to that message tells it; the plan does not keep it."""
+    text = f"{gap.section} {gap.message}".lower()
+    if gap.section == "hotels":
+        return "no cheaper verified hotel" in text
+    return gap.section == "attractions" and any(
+        phrase in text for phrase in ("could not find", "no alternative stop", "no verified stop")
+    )
+
+
 def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
     """Drop obsolete or duplicated gaps before a plan is returned.
 
@@ -249,10 +270,7 @@ def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
         text = f"{gap.section} {gap.message}".lower()
         if gap.section == "notes":
             continue
-        if drop_edit_gaps and gap.section == "attractions" and any(
-            phrase in text
-            for phrase in ("could not find", "no alternative stop", "no verified stop")
-        ):
+        if drop_edit_gaps and is_edit_outcome(gap):
             # These describe a past edit attempt, not the current plan's data.
             continue
         if "wikipedia-geosearch" in text or "robot policy" in text or "w.wiki" in text:
