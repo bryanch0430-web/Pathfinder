@@ -39,19 +39,21 @@ Known gaps at v1.3.0: flight and hotel sources are unavailable while the SerpApi
 out of searches, so budget figures are provisional; price estimates are deliberately not
 implemented (see `docs/SPEC.md`); rail is not connected.
 
-![Planner with a live itinerary](docs/screenshots/app_plan.png)
+A 3-day Hong Kong plan from Singapore. The middle column is the sourced itinerary. The map on the right is pinned to the traveller (**Pinned**, under the clock) and draws the day's metro legs. Press a stop and the map zooms to that place; press **Pinned** again to let the camera stay where you leave it.
 
-| Selected stop and map | Evaluation | Storybook Pathfinder |
+![Planner with a live itinerary, map pinned on the traveller](docs/screenshots/app_plan.png)
+
+| Selected stop, zoomed on the map | Evaluation | Storybook Pathfinder |
 |---|---|---|
-| ![Selected stop](docs/screenshots/app_selected.png) | ![Evaluation dashboard](docs/screenshots/app_evaluation.png) | ![Storybook planner](docs/screenshots/sb_planner.png) |
+| ![Tian Tan Buddha selected; the map has zoomed to the stop](docs/screenshots/app_selected.png) | ![Evaluation dashboard](docs/screenshots/app_evaluation.png) | ![Storybook planner](docs/screenshots/sb_planner.png) |
 
 | Trip details open as a drawer | Changes called out in green |
 |---|---|
 | ![Trip details drawer](docs/screenshots/app_trip_details.png) | ![Updated itinerary](docs/screenshots/app_updated.png) |
 
-| Trending rail | Traveller token on a walking leg |
+| Trending rail | Traveller token on a leg |
 |---|---|
-| ![Trending rail](docs/screenshots/app_trending.png) | ![Walk token](docs/screenshots/map_token_walk.png) |
+| ![Trending rail](docs/screenshots/app_trending.png) | ![The map token, with the pin control and playback speed](docs/screenshots/map_token_walk.png) |
 
 | Budget FX monitor | Map speed and moving token |
 |---|---|
