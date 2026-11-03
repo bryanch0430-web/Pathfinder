@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **A map outage is not reported as a missing place.** When the map service cannot be reached, guide places are no longer described as places that could not be located. The plan says they could not be checked because the service failed, marks it as worth retrying, and lists the places left out. (`9bf99d6`)
 - **A repaired plan keeps every stop and its freshness.** When a plan fails its checks and is repaired, a stop can no longer be quietly dropped, and old prices and forecasts keep the time they were really fetched instead of being stamped as fresh. A repair that removes a stop is refused and the plan says which one. (`8931c30`)
 - **A slow attraction search keeps what it found.** When finding places runs past the time budget, the places already located are used in the plan instead of none, and the plan lists a gap saying the search ran out of time. (`0a6bf9e`)
 - **Two requests on one trip no longer overwrite each other.** Messages sent to the same trip at the same time are handled one after another, so the second change builds on the first instead of replacing it. If a version of the trip was saved by something else in the meantime, the traveller sees "Another change to this trip was still running. Please retry." rather than losing a version. (`43a06ad`)
