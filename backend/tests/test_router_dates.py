@@ -66,6 +66,9 @@ DATE_REQUESTS = [
     "I'd like to travel in March instead",
     "stay at the same hotel but go on 20 March instead",
     "keep The Kyoto Grand but move the trip a week later",
+    "bring the trip forward by a week",
+    "put the trip back a week",
+    "move my whole trip two days earlier",
 ]
 
 #: a day, a night, a time or a hotel's nights on their own: parts of the trip, not other dates
@@ -86,6 +89,9 @@ PARTS_OF_THE_TRIP = [
     "add a night market on day 2",
     "make it a night to remember",
     "a later flight please",
+    "Should we bring umbrellas for the trip?",
+    "How do we get around on the trip?",
+    "put the museum on day 2 and the park on day 3",
 ]
 
 

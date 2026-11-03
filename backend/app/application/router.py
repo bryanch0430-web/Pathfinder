@@ -76,7 +76,7 @@ _MONTH = (
 )
 _ORDINAL = r"\d{1,2}(?:st|nd|rd|th)?"
 _WHEN = rf"(?:{_ORDINAL}(?:\s*(?:-|–|to|until|and)\s*{_ORDINAL})?\s+)?{_MONTH}\b|next (?:week|month|year)\b"
-_SHIFT = r"(?:move|shift|push|bring|put|slide)"
+_SHIFT = r"(?:move|shift|push|slide)"
 _TRIP = r"(?:trip|holiday|vacation|stay|itinerary|plan|everything|whole)"
 #: Sentences that ask for other dates or another length for the whole trip. A day, a night or "later" on
 #: its own names a part of the trip ("add a temple on day 2", "swap the hotel for the last two nights",
@@ -88,8 +88,9 @@ _NEW_DATES = [
         r"\b(?:change|update|set|use|apply|alter|adjust|edit|pick|choose|new|different|other)\s+"
         r"(?:\w+\s+){0,2}?dates?\b",
         r"\b(?:move|shift|push)\b\s+(?:\w+\s+){0,2}?dates?\b",
-        # "move the trip", "shift my stay", "push everything back"
-        rf"\b{_SHIFT}\b\s+(?:\w+\s+){{0,3}}?{_TRIP}\b",
+        # "move the trip", "shift my stay", "push everything back", "put the trip back a week"
+        rf"\b{_SHIFT}\b\s+(?:\w+\s+){{0,2}}?{_TRIP}\b",
+        rf"\b(?:bring|put)\s+(?:\w+\s+){{0,2}}?{_TRIP}\s+(?:forward|back|off|later|earlier)\b",
         r"\b(?:postpon\w*|reschedul\w*)\b",
         # "extend the trip", "extend my stay by two days", "shorten it"
         rf"\b(?:extend|shorten|lengthen)\w*\b.{{0,24}}?\b(?:{_TRIP}|dates?|it|{_SPAN})\b",
