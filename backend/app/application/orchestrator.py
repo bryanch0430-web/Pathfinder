@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 SOURCE_FAILED = "A data source failed. Your plan was not changed."
 TURN_FAILED = "Something went wrong while handling this turn. You can retry."
 PLAN_CONFLICT = "Another change to this trip was still running. Please retry."
+TRIP_GONE = "This trip no longer exists, so nothing was changed. Start a new trip to continue."
 TOOL_LIMIT = "This request reached its limit of data lookups and was stopped. Please ask for a smaller change."
 BLOCKED = "This request was stopped by a safety check."
 #: How long a turn waits for a cancelled path to unwind before it goes on without it.
@@ -219,6 +220,14 @@ class TurnService:
         scope_label: str | None = None,
         developer: bool = False,
     ) -> AsyncIterator[TurnEvent]:
+        session = self.store.get_session(session_id)
+        if session is None:
+            # The trip was deleted while this message waited for its turn. Nothing is written for it, and no
+            # trip is made in its place: one made here has no owner, so nobody could open or delete it.
+            yield TurnEvent(
+                event="error", data={"code": "session_not_found", "message": TRIP_GONE, "retryable": False}
+            )
+            return
         request_id = new_id("req")
         tracer = start_trace(self.settings, request_id)
         developer_token = bind_developer_view(developer)
@@ -226,10 +235,6 @@ class TurnService:
         tracer.metadata["session_id"] = session_id
         if self.tracer_proxy is not None:
             self.tracer_proxy.bind(tracer)
-        session = self.store.get_session(session_id)
-        if session is None:
-            session = self.store.create_session("")
-        session_id = session.id
         screen = screen_message(message, self.settings)
         if screen.flagged:
             for category in screen.categories:

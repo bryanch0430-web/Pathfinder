@@ -150,7 +150,7 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | POST | `/api/journeys/{id}/rating` | `{useful, stars?, reason_code?, client_token?}` | `{feedback, preferences_added}` |
-| DELETE | `/api/journeys/{id}` | — | deletes turns, itineraries, state and the journey (Scrap plan); a turn still running on it does not bring it back, what it saves after the delete is removed when it ends |
+| DELETE | `/api/journeys/{id}` | — | deletes turns, itineraries, state and the journey (Scrap plan); a turn still running on it does not bring it back, what it saves after the delete is removed when it ends, and a message that was waiting for that turn ends with `error` `session_not_found` and saves nothing |
 | DELETE | `/api/journeys/{id}/turns` | — | `{deleted, session_id}`; itinerary is kept |
 | POST | `/api/journeys/{id}/share` | — | `{slug,url}`; public read-only redacted trip |
 | GET | `/s/{slug}` | — | public HTML trip |
@@ -270,6 +270,7 @@ It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to wri
 | `plan_invalid` | validation failed after repair, or the destination could not be located | yes (no when the lookup cap refused the lookup) |
 | `tool_budget_exceeded` | the turn reached the per-turn lookup cap (`MAX_TOOL_CALLS_PER_TURN`) | no |
 | `plan_conflict` | another turn on the same trip saved its version first (turns on one trip otherwise run one after another) | yes |
+| `session_not_found` | the trip was deleted before the turn began, for instance while the message waited for an earlier one; nothing is saved and no trip is made in its place | no |
 | `provider_error` | data source failure (kind attached) | depends |
 | `internal_error` | unexpected failure, no internals leaked to the user | yes |
 
