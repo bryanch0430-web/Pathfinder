@@ -677,3 +677,24 @@ def test_a_flight_that_came_back_for_the_new_dates_replaces_the_old_one(settings
 
     assert [ticket.depart_at.date() for ticket in updated.tickets] == [new_range[0]]
     assert not any("no longer fits the new dates" in gap.message for gap in updated.data_quality.gaps)
+
+
+# -- G17: no hotel, so nothing to say about the current one -------------------------------------------------
+
+
+def test_a_trip_without_a_hotel_is_not_told_that_its_current_hotel_stays(settings: Settings) -> None:
+    one_day = (START + timedelta(days=7), START + timedelta(days=7))
+    _, short, _ = _modify(settings, "move the trip a week later", ["dates"], days=1, new_range=one_day)
+    _, longer, _ = _modify(
+        settings,
+        "move the trip a week later",
+        ["dates"],
+        new_range=WEEK_LATER,
+        prepare=lambda plan: setattr(plan, "hotels", []),
+        break_registry=lambda registry: setattr(registry, "hotels", []),
+    )
+
+    assert not [gap for gap in short.data_quality.gaps if "current hotel" in gap.message]
+    assert [gap.message for gap in longer.data_quality.gaps if gap.section == "hotels"] == [
+        "No verified hotel was returned for the new dates."
+    ]

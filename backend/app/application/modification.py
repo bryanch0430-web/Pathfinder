@@ -361,8 +361,8 @@ class ModifyPath:
                 swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
                 if swapped is not None:
                     updated.hotels = [swapped]
-                else:
-                    if updated.hotels and date_changed:
+                elif updated.hotels:
+                    if date_changed:
                         # The hotel stays, but its rate is for the old dates: take the candidates' rate for the new.
                         kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
                         updated.hotels = [kept]
@@ -370,6 +370,11 @@ class ModifyPath:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     updated.data_quality.gaps.append(
                         _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
+                    )
+                elif len(updated.days) > 1:
+                    # There is no current hotel to keep: the trip has nights and no stay to put in them.
+                    updated.data_quality.gaps.append(
+                        _gap("hotels", "No verified hotel was returned for the new dates.")
                     )
 
         if AgentName.WEATHER in agent_names and referred is None:
