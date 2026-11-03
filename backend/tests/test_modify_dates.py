@@ -779,3 +779,72 @@ def test_a_move_to_dates_in_the_past_is_made_with_a_warning(settings: Settings) 
     assert [gap.message for gap in rebuilt.data_quality.gaps if gap.section == "dates"] == [
         "The new dates are in the past."
     ]
+
+
+# -- the whole page flow over HTTP ---------------------------------------------------------------------
+
+
+def _events(body: str) -> list[tuple[str, dict]]:
+    import json
+
+    found = []
+    for frame in body.split("\n\n"):
+        name = next((line[6:].strip() for line in frame.splitlines() if line.startswith("event:")), None)
+        data = next((line[5:].strip() for line in frame.splitlines() if line.startswith("data:")), None)
+        if name and data:
+            found.append((name, json.loads(data)))
+    return found
+
+
+def test_saving_other_dates_and_generating_again_over_http_moves_the_trip_and_keeps_the_old_version(
+    settings: Settings,
+) -> None:
+    """What the page does: PATCH the form with other dates, then send its fixed message on the same trip."""
+    from fastapi.testclient import TestClient
+
+    from app.evaluation import SandboxRegistry
+    from app.interface.api import create_app
+
+    guest = {"X-Client-Token": "guest-dates"}
+    settings = settings.model_copy(update={"preplan_budget_seconds": 15, "agent_timeout_seconds": 8})
+    with TestClient(create_app(settings)) as client:
+        container = client.app.state.container
+        container.plan_path.registry = SandboxRegistry(settings, "Kyoto")
+        session_id = client.post("/api/journeys", json={"client_token": "guest-dates"}).json()["session"]["id"]
+        form = {"destination": "Kyoto", "origin": "Hong Kong", "party_size": 2, "budget": 400000, "currency": "JPY"}
+        client.patch(
+            f"/api/journeys/{session_id}/state",
+            json={**form, "start_date": START.isoformat(), "end_date": (START + timedelta(days=2)).isoformat()},
+            headers=guest,
+        )
+        first = client.post(
+            "/api/turn/stream", json={"session_id": session_id, "message": "Plan my trip", "locale": "en"}, headers=guest
+        )
+        assert [name for name, _ in _events(first.text) if name == "error"] == []
+        assert client.get(f"/api/journeys/{session_id}", headers=guest).json()["plan"]["version"] == 1
+
+        saved = client.patch(
+            f"/api/journeys/{session_id}/state",
+            json={"start_date": WEEK_LATER[0].isoformat(), "end_date": WEEK_LATER[1].isoformat()},
+            headers=guest,
+        )
+        assert saved.status_code == 200
+        again = client.post(
+            "/api/turn/stream",
+            json={"session_id": session_id, "message": REPLAN_MESSAGE, "locale": "en"},
+            headers=guest,
+        )
+
+        events = _events(again.text)
+        assert not [data for name, data in events if name == "error"]
+        route = next(data for name, data in events if name == "route")
+        assert (route["intent"], route["affected_parts"]) == ("modify", ["dates"])
+        moved = next(data for name, data in events if name == "plan")
+        assert moved["plan"]["version"] == 2 and moved["plan"]["dates"]["start"] == WEEK_LATER[0].isoformat()
+        assert "dates" in [change["kind"] for change in moved["diff"]]
+        opened = client.get(f"/api/journeys/{session_id}", headers=guest).json()
+        assert sorted(row["version"] for row in opened["versions"]) == [1, 2]
+        assert opened["plan"]["version"] == 2
+        old = client.get(f"/api/journeys/{session_id}/itinerary", params={"version": 1}, headers=guest).json()["plan"]
+        assert old["dates"]["start"] == START.isoformat()
+        assert opened["context"]["start_date"] == WEEK_LATER[0].isoformat()
