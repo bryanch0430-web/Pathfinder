@@ -240,7 +240,14 @@ class PlanPath:
                 except asyncio.CancelledError:
                     result = _unavailable(agent_name, "agent was cancelled")
                 except Exception as exc:
-                    result = _unavailable(agent_name, str(exc)[:200])
+                    # The exception's own text stays in the trace; the gap says only that it failed.
+                    with toolbox.tracer.span(
+                        f"agent.{agent_name.value}", status="error", error_class=type(exc).__name__, error=str(exc)[:500]
+                    ):
+                        pass
+                    result = _unavailable(
+                        agent_name, "agent failed unexpectedly", kind=FailureKind.SERVER_ERROR
+                    )
             results[agent_name.value] = result
             emit(
                 "agent",
@@ -266,7 +273,9 @@ class PlanPath:
         return results
 
 
-def _unavailable(agent_name: AgentName, message: str, *, elapsed_ms: int = 0) -> AgentResult:
+def _unavailable(
+    agent_name: AgentName, message: str, *, kind: FailureKind = FailureKind.TIMEOUT, elapsed_ms: int = 0
+) -> AgentResult:
     # The gap names the plan section, so the planner does not add a second one.
     section = AGENT_SECTIONS.get(agent_name, agent_name.value)
     return AgentResult(
@@ -274,7 +283,7 @@ def _unavailable(agent_name: AgentName, message: str, *, elapsed_ms: int = 0) ->
         status=AgentStatus.UNAVAILABLE,
         payload={},
         notes=[message],
-        failures=[DataGap(section=section, kind=FailureKind.TIMEOUT, message=message, retryable=True)],
+        failures=[DataGap(section=section, kind=kind, message=message, retryable=True)],
         elapsed_ms=elapsed_ms,
     )
 

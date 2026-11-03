@@ -679,7 +679,8 @@ def _gap(section: str, exc: Exception) -> DataGap:
         )
     if isinstance(exc, asyncio.TimeoutError):
         return DataGap(section=section, kind=FailureKind.TIMEOUT, message="source exceeded its deadline", retryable=True)
-    return DataGap(section=section, kind=FailureKind.SERVER_ERROR, message=str(exc)[:200])
+    # An unexpected exception's own text can hold anything; the gap says only that the source failed.
+    return DataGap(section=section, kind=FailureKind.SERVER_ERROR, message="source failed unexpectedly")
 
 
 def _norm_name(name: str) -> str:

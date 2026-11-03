@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.application.legs import legs_for_plan
+from app.application.orchestrator import user_facing_error
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
 from app.application.soft_guides import CORPUS_VERSION
@@ -783,7 +784,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             except Exception as exc:
                 yield sse_frame(
                     "error",
-                    {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": str(exc)[:200]},
+                    {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": user_facing_error(exc)},
                 )
 
         return StreamingResponse(
