@@ -339,6 +339,12 @@ class ModifyPath:
                 if swapped is not None:
                     updated.hotels = [swapped]
                 else:
+                    if updated.hotels and date_changed:
+                        # The hotel stays, but its rate is for the old dates: take the candidates' rate for the new.
+                        kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
+                        updated.hotels = [kept]
+                        if not refreshed:
+                            updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     updated.data_quality.gaps.append(
                         _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
                     )

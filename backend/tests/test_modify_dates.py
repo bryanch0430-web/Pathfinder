@@ -395,3 +395,48 @@ def test_a_date_shift_keeps_the_marks_of_the_hotel(settings: Settings) -> None:
         "stay",
         "hotel_price",
     ]
+
+
+# -- G10: a request for a cheaper hotel while the dates move -------------------------------------
+
+
+NO_CHEAPER = "No cheaper verified hotel was returned; the current hotel stays."
+NOT_REFRESHED = "The hotel's price for the new dates could not be refreshed."
+
+
+def _gap_texts(plan: TripPlan) -> list[str]:
+    return [gap.message for gap in plan.data_quality.gaps if gap.section == "hotels"]
+
+
+def test_a_request_for_a_cheaper_hotel_prices_the_current_one_for_the_new_dates(settings: Settings) -> None:
+    """Nothing cheaper came back, so the hotel stays, at the rate quoted for the new dates and not the old one."""
+    _, updated, _ = _modify(
+        settings,
+        "make it cheaper and move it to May",
+        ["budget"],
+        new_range=WEEK_LATER,
+        prepare=lambda plan: accept_the_garden_inn(plan, confirmed=False, locked=False),
+        break_registry=quote(factor=1.5),
+    )
+
+    stay = updated.hotels[0]
+    assert (stay.name, stay.price_per_night.amount) == ("Kyoto Garden Inn", 135)
+    assert (stay.check_in, stay.check_out) == WEEK_LATER
+    assert [line.amount for line in updated.cost.lines if line.label.startswith("Hotel")] == [
+        round(FxService().convert(135, "USD", "JPY") * 2, 2)
+    ]
+    assert _gap_texts(updated) == [NO_CHEAPER]
+
+
+def test_a_request_for_a_cheaper_hotel_without_a_new_rate_keeps_the_old_rate_and_says_so(settings: Settings) -> None:
+    _, updated, _ = _modify(
+        settings,
+        "make it cheaper and move it to May",
+        ["budget"],
+        new_range=WEEK_LATER,
+        prepare=lambda plan: accept_the_garden_inn(plan, confirmed=False, locked=False),
+        break_registry=quote(unpriced=True),
+    )
+
+    assert (updated.hotels[0].name, updated.hotels[0].price_per_night.amount) == ("Kyoto Garden Inn", 90)
+    assert _gap_texts(updated) == [NOT_REFRESHED, NO_CHEAPER]
