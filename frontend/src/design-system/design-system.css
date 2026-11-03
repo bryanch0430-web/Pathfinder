@@ -3632,6 +3632,13 @@
     gap: var(--p30-gap-sm);
   }
 
+  /* With a plan open the actions are about 510 px wide: wrap them inside the header instead of pushing the page sideways. */
+  .pf-header__actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+  }
+
   .pf-tabs {
     order: 3;
     width: 100%;
