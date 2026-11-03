@@ -491,7 +491,7 @@ class SQLiteStore:
         for value in (target.preferences if target else []) + (source.preferences if source else []):
             if value and value not in merged:
                 merged.append(value)
-        profile = PreferenceProfile(client_token=to_token, preferences=merged[:20])
+        profile = PreferenceProfile(client_token=to_token, preferences=merged)
         self.upsert_preferences(profile)
         return profile
 
