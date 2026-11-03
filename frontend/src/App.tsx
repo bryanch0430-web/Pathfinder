@@ -25,6 +25,7 @@ import {
 import { Icon } from "./design-system/icons";
 import { claimSession, discardSession, getFx, getGuides, getTrending, login, me, register, shareSession, suggestPlaces } from "./lib/api";
 import { downloadPlanMarkdown } from "./lib/export";
+import { downloadPlanSlides } from "./lib/slides";
 import { useI18n } from "./lib/i18n";
 import { clearStoredValue } from "./lib/storage";
 import { usePathfinder } from "./lib/usePathfinder";
@@ -208,6 +209,15 @@ export default function App() {
     await pf.reload();
   };
 
+  const handleExportSlides = async () => {
+    if (!pf.plan) return;
+    try {
+      await downloadPlanSlides(pf.plan);
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : "The slides could not be created.");
+    }
+  };
+
   const handleShare = async () => {
     if (!pf.sessionId) return;
     try {
@@ -311,6 +321,7 @@ export default function App() {
         onAuth={() => setAuthOpen(true)}
         onLogout={handleLogout}
         onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!) : undefined}
+        onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
         onShare={pf.plan ? () => void handleShare() : undefined}
         onNewTrip={() => void createTripTab()}
       />

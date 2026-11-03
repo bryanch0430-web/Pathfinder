@@ -44,12 +44,16 @@ export function planMarkdown(plan: TripPlan): string {
   return rows.join("\n");
 }
 
+export function planFileName(plan: TripPlan, extension: string): string {
+  return `${plan.destination.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${plan.dates.start}.${extension}`;
+}
+
 export function downloadPlanMarkdown(plan: TripPlan): void {
   const blob = new Blob([planMarkdown(plan)], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${plan.destination.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${plan.dates.start}.md`;
+  anchor.download = planFileName(plan, "md");
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

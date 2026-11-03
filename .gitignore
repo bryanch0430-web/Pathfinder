@@ -64,3 +64,8 @@ backend/uvicorn.*.log
 # local runtime output and private task notes (never published)
 var/
 docs/tasks/
+
+# local Claude Code state (agent worktrees, preview launch config, personal settings)
+.claude/worktrees/
+.claude/launch.json
+.claude/settings.local.json
