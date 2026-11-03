@@ -68,6 +68,7 @@ export function AppHeader({
   onHelp,
   onNewTrip,
   onExport,
+  onExportSlides,
   onShare,
   user,
   onAuth,
@@ -80,6 +81,7 @@ export function AppHeader({
   onHelp?: () => void;
   onNewTrip?: () => void;
   onExport?: () => void;
+  onExportSlides?: () => void;
   onShare?: () => void;
   user?: AuthUser | null;
   onAuth?: () => void;
@@ -131,6 +133,11 @@ export function AppHeader({
           {onExport ? (
             <Button size="sm" variant="ghost" iconLeft="download" onClick={onExport}>
               Export
+            </Button>
+          ) : null}
+          {onExportSlides ? (
+            <Button size="sm" variant="ghost" iconLeft="layers" onClick={onExportSlides} title="Download the plan as a PowerPoint deck">
+              Slides
             </Button>
           ) : null}
           {onShare ? (
