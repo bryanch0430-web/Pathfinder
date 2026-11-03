@@ -39,16 +39,16 @@ a `data_quality.gap` on the plan, not a failed health check.
 | GET | `/api/journeys/{id}/segments` | `?day=YYYY-MM-DD` optional | `{trip_id, version, day, legs}` — real route geometry per leg |
 
 Auth is optional. A guest session answers only to the guest token it was created with, sent as
-the `X-Client-Token` header on every request (no session response carries it; `GET` and `PATCH
-/api/traveller` echo back the identity the caller presented, which is its own guest token or
-`user:<id>`); any other
-caller gets 404, not 403, and so does anyone for a row whose token is a `user:` profile token
-that no account owns (an empty token never matches either). Once a session is claimed by a user, requests without the matching
-Bearer token return 404 too. Sign-up and sign-in move every guest session made with the guest
-token they present (`client_token`) to the account, so the trips of the browser follow the
-traveller; `session_id` in the request is no longer needed. `attach` moves one session and needs the
-token it was created with. A `user:` token and an empty token move nothing. `PATCH` recomputes `days`
-from the date range (or `end_date` from `days`).
+the `X-Client-Token` header on every request. No session response carries the token; `GET` and
+`PATCH /api/traveller` echo back the identity the caller presented, which is its own guest token
+or `user:<id>`. Any other caller gets 404, not 403, and so does anyone for a row whose token is a
+`user:` profile token that no account owns (an empty token never matches either). Once a session
+is claimed by a user, requests without the matching Bearer token return 404 too. Sign-up and
+sign-in move every guest session made with the guest token they present (`client_token`) to the
+account, so the trips of the browser follow the traveller; `session_id` in the request is no
+longer needed. `attach` moves one session and needs the token it was created with. A `user:`
+token and an empty token move nothing. `PATCH` recomputes `days` from the date range (or
+`end_date` from `days`).
 
 A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is fine). `POST /api/journeys`
 and `POST /api/turn/stream` without a `session_id` take it from `client_token`, else from the
@@ -239,8 +239,8 @@ It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to wri
 
 ## 9. Rate limits
 
-Counted per process and per client address (the socket peer; see the README for proxies) in a
-sliding one-minute window. A request over the limit is answered `429` with a `Retry-After` header
+Counted per process and per client address (the socket peer, or the client a trusted proxy
+forwards; see the README) in a sliding one-minute window. A request over the limit is answered `429` with a `Retry-After` header
 and is not counted. A limit of `0` turns it off.
 
 | Setting | Default | Routes |
