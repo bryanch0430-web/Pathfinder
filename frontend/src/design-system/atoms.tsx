@@ -265,7 +265,7 @@ export function Divider({ vertical = false }: { vertical?: boolean }) {
 }
 
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
 
 /**
  * What a modal does besides showing: Escape closes it, the page behind stops scrolling, focus moves into
@@ -303,11 +303,17 @@ export function useModalBehaviour<T extends HTMLElement>(open: boolean, onClose:
         first.focus();
       }
     };
+    // Focus that leaves the modal in a way Tab does not show here (out of an embedded frame, say) is brought back.
+    const onFocusIn = (event: FocusEvent) => {
+      if (modal && event.target instanceof Node && !modal.contains(event.target)) modal.focus({ preventScroll: true });
+    };
     document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocusIn);
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocusIn);
       document.body.style.overflow = previous;
       if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
