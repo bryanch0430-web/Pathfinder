@@ -245,9 +245,19 @@ class PlanPath:
             if task in pending and not (task.done() and not task.cancelled()):
                 # An agent that can say what it had found keeps that; the others are unavailable.
                 keep = getattr(agents[agent_name], "partial_result", None)
-                result = (
-                    keep(progress[agent_name], context=context, centre=destination.geo, elapsed_ms=elapsed_ms) if keep else None
-                )
+                try:
+                    result = (
+                        keep(progress[agent_name], context=context, centre=destination.geo, elapsed_ms=elapsed_ms)
+                        if keep
+                        else None
+                    )
+                except Exception as exc:
+                    # A snapshot that cannot be built costs the section, never the turn; the trace says why.
+                    with toolbox.tracer.span(
+                        f"agent.{agent_name.value}", status="error", error_class=type(exc).__name__, error=operator_text(exc)[:500]
+                    ):
+                        pass
+                    result = None
                 if result is None:
                     result = _unavailable(
                         agent_name, "agent exceeded the pre-planning time budget", elapsed_ms=elapsed_ms
