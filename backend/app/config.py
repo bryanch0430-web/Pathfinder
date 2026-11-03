@@ -7,7 +7,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -134,11 +134,11 @@ class Settings(BaseSettings):
     preplan_budget_seconds: float = 90.0
     agent_timeout_seconds: float = 30.0
     http_timeout_seconds: float = 15.0
-    http_retries: int = 2
+    http_retries: int = Field(2, ge=0)
     #: Tool calls one turn path (plan, edit, question, refresh) may make before the rest are
     #: refused with a data gap. A guard against a runaway loop; a normal trip makes far fewer.
     #: 0 turns the cap off.
-    max_tool_calls_per_turn: int = 150
+    max_tool_calls_per_turn: int = Field(150, ge=0)
     max_days: int = 14
     max_attractions_per_day: int = 4
     memory_similarity_cutoff: float = 0.72
