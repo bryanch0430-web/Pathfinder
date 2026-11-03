@@ -609,3 +609,26 @@ def test_the_gap_for_a_named_place_reads_naturally(settings: Settings) -> None:
     assert gaps[0][2] == (
         "The place you named, Gion Corner, could not be looked up because a place source failed (timeout); ask again to retry."
     )
+
+
+# -- what the agent's chip says ----------------------------------------------------------------------
+
+
+def test_the_summary_of_an_agent_whose_geocoder_failed_does_not_say_no_source_answered(settings: Settings) -> None:
+    result = _attractions(settings, _Down(asyncio.TimeoutError()))
+
+    assert result.status.value == "unavailable"
+    assert result.notes[0] == "2 guide places could not be checked on the map."
+    assert "No attraction source" not in " ".join(result.notes)
+
+
+def test_the_summary_of_an_agent_whose_guide_places_could_not_be_located_says_so(settings: Settings) -> None:
+    result = _attractions(settings, _Script([None]))
+
+    assert result.notes[0] == "The guide named 2 places, but none could be located on the map."
+
+
+def test_the_summary_still_says_so_when_no_source_listed_a_place(settings: Settings) -> None:
+    result = _attractions(settings, _Down(asyncio.TimeoutError()), names=())
+
+    assert result.notes[0] == "No attraction source returned usable data."
