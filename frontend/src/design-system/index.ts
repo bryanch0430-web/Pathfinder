@@ -6,4 +6,5 @@ export * from "./templates";
 export * from "./icons";
 export * from "./types";
 export * from "./scope";
+export * from "./tablist";
 export * from "./fixtures";

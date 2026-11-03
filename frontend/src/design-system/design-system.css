@@ -2130,8 +2130,21 @@
   color: var(--p30-tone-feedback-danger);
 }
 
-.pf-plan-shell > .pf-workspace,
-.pf-plan-shell > .pf-welcome {
+.pf-plan-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* The trip that was open stays on screen, dimmed, while the next one loads. */
+.pf-plan-panel[aria-busy="true"] {
+  opacity: 0.55;
+  transition: opacity var(--p30-dur-fast);
+}
+
+.pf-plan-panel > .pf-workspace,
+.pf-plan-panel > .pf-welcome {
   flex: 1;
   min-height: 0;
 }
@@ -3556,15 +3569,15 @@
     min-height: 0;
   }
 
-  .pf-plan-shell > .pf-workspace,
-  .pf-plan-shell > .pf-welcome {
+  .pf-plan-panel > .pf-workspace,
+  .pf-plan-panel > .pf-welcome {
     display: flex;
     height: 100%;
     flex-direction: column;
     min-height: 0;
   }
 
-  .pf-plan-shell > .pf-welcome {
+  .pf-plan-panel > .pf-welcome {
     overflow-y: auto;
   }
 
