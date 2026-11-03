@@ -43,9 +43,14 @@ from app.evaluation import export_markdown
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, paced, sse_frame
 
+#: A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is 36). A header carries
+#: nothing else and is trimmed, so a session made with any other token could not be opened again.
+TOKEN_MAX_LENGTH = 120
+TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
+
 
 class CreateSessionRequest(BaseModel):
-    client_token: str = ""
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
 class ContextPatch(BaseModel):
@@ -69,7 +74,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
     message: str = Field(min_length=1, max_length=6000)
     locale: str = "en"
-    client_token: str = ""
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
     scope_item_id: str | None = None
     #: human-readable label for the selected stop ("Day 1 Â· HK City Sightseeing"),
     #: stored with the message so the transcript keeps the context
@@ -256,6 +261,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(status_code=401, detail="Sign in to use this profile.")
         return user
 
+    def session_caller(request: Request, c, client_token: str) -> tuple[str, User | None]:
+        """The guest token and the account a new session is made for.
+
+        The token is `client_token`, else the `X-Client-Token` header. One that could not be presented
+        again is 422: the session would stay in the database and open for nobody.
+        """
+        token = client_token or request.headers.get("x-client-token", "").strip()
+        if token and not TOKEN_FORMAT.fullmatch(token):
+            raise HTTPException(
+                status_code=422,
+                detail=f"The guest token must be 1 to {TOKEN_MAX_LENGTH} printable ASCII characters without spaces.",
+            )
+        return token, checked_user(request, c, token)
+
     def presented_token(request: Request, client_token: str = "") -> str:
         """The guest token a caller presents: an explicit `client_token` (older clients), else `X-Client-Token`.
 
@@ -432,8 +451,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/journeys")
     async def create_session(payload: CreateSessionRequest, request: Request) -> dict[str, Any]:
         c = container(request)
-        user = checked_user(request, c, payload.client_token)
-        session = c.store.create_session(payload.client_token, user.id if user else "")
+        token, user = session_caller(request, c, payload.client_token)
+        session = c.store.create_session(token, user.id if user else "")
         context = TripContext(
             session_id=session.id,
             language=settings.default_locale,
@@ -746,8 +765,11 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         c = container(request)
         session_id = payload.session_id
         if not session_id:
-            user = checked_user(request, c, payload.client_token)
-            session = c.store.create_session(payload.client_token, user.id if user else "")
+            token, user = session_caller(request, c, payload.client_token)
+            if not token and user is None:
+                # A trip nobody could open again would still cost a whole planning turn.
+                raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+            session = c.store.create_session(token, user.id if user else "")
             session_id = session.id
             c.store.save_context(
                 TripContext(
