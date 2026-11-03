@@ -574,7 +574,8 @@ export function ChatPanel({
               el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              // Enter that confirms an input-method candidate (Chinese, Japanese, Korean) is not a send.
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 submit();
               }
@@ -2072,7 +2073,7 @@ export function AuthDialog({
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") void submit();
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) void submit();
             }}
           />
         </Field>
@@ -2264,7 +2265,7 @@ export function SettingsView({
                     placeholder={preferences.length ? t("settings.addAnother") : t("settings.preferencesExample")}
                     onChange={(event) => setPrefInput(event.target.value)}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === ",") {
+                      if ((event.key === "Enter" || event.key === ",") && !event.nativeEvent.isComposing) {
                         event.preventDefault();
                         addPreference();
                       }

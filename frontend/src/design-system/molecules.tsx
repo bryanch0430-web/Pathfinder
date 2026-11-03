@@ -322,7 +322,7 @@ export function TripContextForm({
                 placeholder={preferenceTags.length ? t("settings.addAnother") : t("settings.preferencesExample")}
                 onChange={(event) => setPrefInput(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === ",") {
+                  if ((event.key === "Enter" || event.key === ",") && !event.nativeEvent.isComposing) {
                     event.preventDefault();
                     addPreference();
                   }
