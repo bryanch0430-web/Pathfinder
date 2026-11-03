@@ -1,0 +1,66 @@
+{
+  "_about": "Trimmed payloads of the two keyless Hong Kong sources (Proposal TC-03). 'live' entries were fetched on 2026-11-03; the warnsum sample follows the shape in the HKO Open Data API Documentation (its own example is marked 'sample only, NOT real data'); the delayed MTR entry is the live TWL-CEN response with isdelay set to Y.",
+  "hko_warnsum_live_none": {},
+  "hko_warnsum_sample": {
+    "WTCSGNL": {
+      "name": "Tropical Cyclone Warning Signal",
+      "code": "TC8NE",
+      "actionCode": "ISSUE",
+      "issueTime": "2026-09-14T09:40:00+08:00",
+      "updateTime": "2026-09-14T09:40:00+08:00"
+    },
+    "WRAIN": {
+      "name": "Rainstorm Warning Signal",
+      "code": "WRAINA",
+      "actionCode": "ISSUE",
+      "issueTime": "2026-09-14T08:15:00+08:00",
+      "updateTime": "2026-09-14T08:15:00+08:00"
+    },
+    "WFROST": {
+      "name": "Frost Warning",
+      "code": "WFROST",
+      "actionCode": "CANCEL",
+      "issueTime": "2026-09-14T07:00:00+08:00",
+      "updateTime": "2026-09-14T07:00:00+08:00"
+    }
+  },
+  "mtr_twl_cen_live_normal": {
+    "sys_time": "2026-11-03 19:52:15",
+    "curr_time": "2026-11-03 19:52:01",
+    "data": {
+      "TWL-CEN": {
+        "curr_time": "2026-11-03 19:52:01",
+        "sys_time": "2026-11-03 19:52:15",
+        "UP": [
+          {"seq": "1", "dest": "TSW", "plat": "2", "time": "2026-11-03 19:54:01", "ttnt": "2", "valid": "Y", "source": "-"}
+        ]
+      }
+    },
+    "isdelay": "N",
+    "status": 1,
+    "message": "successful"
+  },
+  "mtr_twl_cen_delayed": {
+    "sys_time": "2026-11-03 19:52:15",
+    "curr_time": "2026-11-03 19:52:01",
+    "data": {
+      "TWL-CEN": {
+        "curr_time": "2026-11-03 19:52:01",
+        "sys_time": "2026-11-03 19:52:15",
+        "UP": [
+          {"seq": "1", "dest": "TSW", "plat": "2", "time": "2026-11-03 19:54:01", "ttnt": "2", "valid": "Y", "source": "-"}
+        ]
+      }
+    },
+    "isdelay": "Y",
+    "status": 1,
+    "message": "successful"
+  },
+  "mtr_live_error": {
+    "resultCode": 0,
+    "timestamp": "2026-11-03 19:52:19",
+    "error": {"errorCode": "NT-205", "errorMsg": "XXX line is disabled in CMS."},
+    "status": 0,
+    "message": "XXX line is disabled in CMS."
+  }
+}
