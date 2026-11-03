@@ -76,7 +76,11 @@ class AskPath:
             return "No itinerary changes have been made yet. This is still the first version.", True, "plan"
 
         facts = _plan_facts(question, plan, history, scope_item_id) if plan else {}
-        related = bool(plan and (plan.destination.name.lower() in question.lower() or facts))
+        related = _relates_to_plan(question, plan, facts, scope_item_id)
+        if not related:
+            # The itinerary rows a bare "what" attached are not an answer to a
+            # question about something else; the writer still sees the outline.
+            facts.pop("itinerary", None)
         lower = question.lower()
         needs_live_tool = (
             (re.search(WEATHER_WORDS, lower) and "weather" not in facts)
@@ -136,6 +140,11 @@ class AskPath:
         if facts:
             text = await self._phrase(question, plan, facts, "plan")
             return text, related, "plan"
+        if plan is not None and not related:
+            # Not about this trip and no tool applies: one writer call with no
+            # facts, which says the plan does not hold it rather than guessing.
+            text = await self._phrase(question, plan, {}, "none")
+            return text, False, "none"
         if plan is not None:
             # Nothing matched a specific trigger, but the plan itself is context:
             # let the writer answer from the itinerary and weather rather than
@@ -165,7 +174,7 @@ class AskPath:
     ) -> tuple[str, Any, str]:
         lower = question.lower()
         if re.search(WEATHER_WORDS, lower) and self.registry.weather:
-            target_date = _mentioned_date(question, plan)
+            target_date = _mentioned_date(question, plan) or _named_date(question, plan)
             start = target_date or (plan.dates.start if plan else context.start_date)
             end = target_date or (plan.dates.end if plan else context.end_date)
             if start and end:
@@ -378,6 +387,10 @@ def _plan_facts(
     if re.search(WEATHER_WORDS, lower):
         target = _mentioned_date(question, plan)
         days = [day for day in plan.days if target is None or day.date == target]
+        if target is None and _named_date(question, plan) is not None:
+            # A date the trip does not cover: the plan does not hold that forecast,
+            # and the other days' forecasts are not an answer to it.
+            days = []
         weather = [
             day.weather.model_dump(mode="json")
             for day in days
@@ -530,7 +543,15 @@ def _find_item(plan: TripPlan | None, question: str, scope_item_id: str | None =
     return best if best_score >= 2 else None
 
 
+_MONTHS = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+}
+_MONTH_NAMES = "|".join(_MONTHS)
+
+
 def _mentioned_date(question: str, plan: TripPlan | None) -> date | None:
+    """The plan day the question names ("day 2", "12 April"), if the plan has that day."""
     if not plan:
         return None
     lower = question.lower()
@@ -539,29 +560,70 @@ def _mentioned_date(question: str, plan: TripPlan | None) -> date | None:
         index = int(day_match.group(1) or day_match.group(2))
         if 1 <= index <= len(plan.days):
             return plan.days[index - 1].date
-    months = {
-        "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
-        "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
-    }
-    match = re.search(
-        r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b",
-        lower,
-    )
-    if match:
-        month = months[match.group(2)]
+    named = _named_date(question, plan)
+    if named is not None:
         for day in plan.days:
-            if day.date.month == month and day.date.day == int(match.group(1)):
-                return day.date
-    match = re.search(
-        r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})\b",
-        lower,
-    )
-    if match:
-        month = months[match.group(1)]
-        for day in plan.days:
-            if day.date.month == month and day.date.day == int(match.group(2)):
+            if day.date == named:
                 return day.date
     return None
+
+
+def _named_date(question: str, plan: TripPlan | None) -> date | None:
+    """A calendar date the question names ("12 April", "April 12"), in or out of the trip.
+
+    The year is the one that puts the date closest to the trip.
+    """
+    if not plan:
+        return None
+    lower = question.lower()
+    match = re.search(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:of\s+)?({_MONTH_NAMES})\b", lower)
+    if match:
+        day_number, month = int(match.group(1)), _MONTHS[match.group(2)]
+    else:
+        match = re.search(rf"\b({_MONTH_NAMES})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", lower)
+        if not match:
+            return None
+        day_number, month = int(match.group(2)), _MONTHS[match.group(1)]
+    anchor = plan.dates.start
+    candidates = []
+    for year in (anchor.year - 1, anchor.year, anchor.year + 1):
+        try:
+            candidates.append(date(year, month, day_number))
+        except ValueError:
+            continue
+    if not candidates:
+        return None
+    return min(candidates, key=lambda value: abs((value - anchor).days))
+
+
+#: words that make a question about this trip; "what", "which", "show" alone do not
+PLAN_TOPIC_WORDS = (
+    r"\b(plan|itinerary|trip|day|days|museum|museums|attraction|attractions|"
+    r"restaurant|restaurants|food|meal|meals|activity|activities|stop|stops|"
+    r"added|changed|updated|include|included)\b"
+)
+
+
+def _relates_to_plan(
+    question: str, plan: TripPlan | None, facts: dict, scope_item_id: str | None = None
+) -> bool:
+    """Whether the question is about this trip (Proposal p3 l.110-111).
+
+    A date outside the trip is not; a selected stop or stay, the destination, a
+    plan fact the question matched (weather, hotel, a named stop...) or a word
+    about the itinerary is. The itinerary rows a bare "what" attaches do not count.
+    """
+    if plan is None:
+        return False
+    named = _named_date(question, plan)
+    if named is not None and not (plan.dates.start <= named <= plan.dates.end):
+        return False
+    if scope_item_id and (plan.find_item(scope_item_id) or plan.find_hotel(scope_item_id)):
+        return True
+    lower = question.lower()
+    if plan.destination.name.lower() in lower or set(facts) - {"itinerary"}:
+        return True
+    return bool(re.search(PLAN_TOPIC_WORDS, lower))
 
 
 def _destination_geo(plan: TripPlan | None, context: TripContext):
