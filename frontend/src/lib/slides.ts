@@ -1,6 +1,7 @@
 import type PptxGenJS from "pptxgenjs";
 import type { DayPlan, Money, PlanItem, TripPlan } from "../design-system/types";
 import { planFileName } from "./export";
+import { safeHref } from "./safeHref";
 
 // Colours follow tokens.css (brand red on warm paper).
 const BRAND = "CC0D0D";
@@ -79,9 +80,9 @@ function weatherLabel(day: DayPlan): string {
   return parts.filter(Boolean).join(", ");
 }
 
-// Only web links become clickable; anything else stays plain text.
+// Only absolute web links become clickable: a relative path means nothing inside a deck.
 function webLink(url: string | undefined): string | undefined {
-  return url && /^https?:\/\//i.test(url) ? url : undefined;
+  return url && /^https?:\/\//i.test(url.trim()) ? safeHref(url) : undefined;
 }
 
 function chunk<T>(rows: T[], size: number): T[][] {
