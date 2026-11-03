@@ -2,7 +2,9 @@
 
 Live rates come from open.er-api.com (keyless, cached). If the call fails the
 static table keeps the budget meaningful and every converted figure is labelled
-as a reference estimate.
+as a reference estimate. Live rates that have aged out are not kept under that
+label: when they cannot be renewed the static table replaces them, so the source
+and the date always describe the table in use.
 """
 
 from __future__ import annotations
@@ -24,6 +26,8 @@ RATES_TTL_SECONDS = 12 * 3600
 #: request to a dead host (waiting out the timeout) for every page load.
 FAILURE_BACKOFF_SECONDS = 60.0
 LIVE_SOURCE = "open.er-api"
+#: The date the figures of the static table stand for.
+STATIC_AS_OF = date(2026, 10, 1)
 
 # rates per 1 USD, approximate reference values; replaced by live data when available
 STATIC_USD_RATES: dict[str, float] = {
@@ -72,7 +76,7 @@ class FxService:
         # One fetch at a time: requests that arrive during it wait for its outcome instead of making their own.
         self._fetching = asyncio.Lock()
         self.source = "static"
-        self.as_of = date(2026, 10, 1)
+        self.as_of = STATIC_AS_OF
 
     def _settled(self) -> bool:
         """True when there is nothing to fetch: live rates are current, or a fetch failed a moment ago."""
@@ -109,7 +113,10 @@ class FxService:
             self._fetched_at = self._clock()
 
     def _fall_back(self) -> None:
+        """Serve the static table and say so: the label and the date describe it, not the last good fetch."""
+        self._rates = dict(STATIC_USD_RATES)
         self.source = "static"
+        self.as_of = STATIC_AS_OF
         self._retry_at = self._clock() + FAILURE_BACKOFF_SECONDS
 
     def convert(self, amount: float, from_currency: str, to_currency: str) -> float:

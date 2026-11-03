@@ -15,7 +15,8 @@ Base URL: `http://127.0.0.1:8100`. All bodies are JSON. Times are ISO 8601 UTC.
 | GET | `/docs` | Swagger UI |
 
 FX is keyless and cached for 12 hours. `open.er-api` is the live source; if it is
-unreachable the dated static table is used and `source` becomes `static`, and it is not asked
+unreachable the dated static table is used and `source` becomes `static` (live rates that had aged
+out are replaced by that table, with its date, not kept under that label), and it is not asked
 again for a minute, so these public routes make at most one outbound call a minute while it is
 down. The UI labels both and converts the known budget total into a chosen display currency.
 
