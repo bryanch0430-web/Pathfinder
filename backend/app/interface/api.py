@@ -295,17 +295,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return False
         return hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8"))
 
-    def adopt_guest_session(c, session_id: str | None, client_token: str, user: User) -> None:
-        """On sign-in, move the caller's own open guest session to the account.
+    def adopt_guest_sessions(c, client_token: str, user: User) -> None:
+        """On sign-in, move every guest session this browser made to the account.
 
-        The session is adopted only when `client_token` is the one it was created
-        with: knowing a session id alone must not take it over.
+        Holding the guest token is the proof, for all the sessions made with it: after sign-in the
+        page sends the account's identity instead, so a session left behind would stop opening.
+        Knowing a session id alone takes nothing over. A ``user:`` token names an account's
+        profile and is no guest's proof, and an empty token proves nothing.
         """
-        if not session_id:
+        if not client_token or client_token.startswith(USER_PREFIX):
             return
-        session = c.store.get_session(session_id)
-        if session and not session.user_id and same_token(client_token, session.client_token):
-            c.store.set_session_user(session.id, user.id)
+        c.store.adopt_sessions(client_token, user.id)
 
     def auth_response(c, user: User) -> dict[str, Any]:
         token = create_token(user.id, user.email, settings.auth_secret, settings.auth_token_hours)
@@ -361,7 +361,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c.store.create_user(user, hash_password(payload.password))
         profile_token = f"{USER_PREFIX}{user.id}"
         adopt_guest_memory(c, payload.client_token, profile_token)
-        adopt_guest_session(c, payload.session_id, payload.client_token, user)
+        adopt_guest_sessions(c, payload.client_token, user)
         return auth_response(c, user)
 
     @app.post("/api/account/signin", dependencies=[limit_auth])
@@ -374,7 +374,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         user = found[0]
         profile_token = f"{USER_PREFIX}{user.id}"
         adopt_guest_memory(c, payload.client_token, profile_token)
-        adopt_guest_session(c, payload.session_id, payload.client_token, user)
+        adopt_guest_sessions(c, payload.client_token, user)
         return auth_response(c, user)
 
     @app.get("/api/account/whoami")

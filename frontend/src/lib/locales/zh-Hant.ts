@@ -448,6 +448,7 @@ export const ZH_HANT: Messages = {
   "errors.memory": "無法清除記憶。",
   "errors.backend": "無法連線到後端",
   "errors.reconnect": "無法連線到伺服器。你的行程已保留，請重新整理頁面以重新連線。",
+  "errors.signInToOpen": "此處無法開啟這個行程。如果它屬於你的帳戶，請登入後再開啟。",
   "errors.saveDetails": "無法儲存行程資料。",
 
   "chat.understanding": "正在理解你的訊息",
