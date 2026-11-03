@@ -632,3 +632,46 @@ def test_the_summary_still_says_so_when_no_source_listed_a_place(settings: Setti
     result = _attractions(settings, _Down(asyncio.TimeoutError()), names=())
 
     assert result.notes[0] == "No attraction source returned usable data."
+
+
+# -- a geocoder route that answers HTTP 404 -----------------------------------------------------------
+
+
+def _real_chain(settings: Settings) -> GeocoderChain:
+    from app.infrastructure.providers.geocoding import NominatimGeocoder, OpenMeteoGeocoder
+
+    return GeocoderChain([OpenMeteoGeocoder(settings), NominatimGeocoder(settings)])
+
+
+def _answering(status: int, body: Any = None):
+    import httpx
+
+    from app.infrastructure.http import use_transport
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json=body if body is not None else {})
+
+    return use_transport(httpx.MockTransport(handler))
+
+
+def test_a_geocoder_route_that_answers_not_found_is_a_failed_source(settings: Settings) -> None:
+    with _answering(404):
+        with pytest.raises(ProviderError) as failure:
+            asyncio.run(_real_chain(settings).geocode("Kyoto"))
+
+    assert not isinstance(failure.value, ProviderNoData)
+    assert failure.value.kind is FailureKind.SERVER_ERROR and not failure.value.retryable
+
+
+def test_a_gone_geocoder_route_reads_as_an_outage_not_as_places_that_do_not_exist(settings: Settings) -> None:
+    with _answering(404):
+        result = _attractions(settings, _real_chain(settings))
+
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.SERVER_ERROR, False)]
+    assert "could not be checked" in gaps[0][2] and "none could be located" not in gaps[0][2]
+
+
+def test_a_geocoder_that_answers_with_no_results_still_means_no_such_place(settings: Settings) -> None:
+    with _answering(200, {"results": []}):
+        assert asyncio.run(_real_chain(settings).geocode("Nowhere")) is None
