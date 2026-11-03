@@ -351,16 +351,17 @@ class AttractionAgent(BaseAgent):
                 )
         else:
             status = AgentStatus.UNAVAILABLE
-            note_text = ["No attraction source returned usable data."]
+            # The summary the agent's chip shows: a guide that answered but whose places the map could
+            # not place or check is not "no source".
+            named = len(located.unplaced) + len(located.unchecked)
             if located.unplaced:
-                named = _noun(len(located.unplaced) + len(located.unchecked), "place")
-                failures.append(
-                    DataGap(
-                        section="attractions",
-                        kind=FailureKind.NO_DATA,
-                        message=f"The guide named {named}, but none could be located on the map.",
-                    )
-                )
+                said = f"The guide named {_noun(named, 'place')}, but none could be located on the map."
+                failures.append(DataGap(section="attractions", kind=FailureKind.NO_DATA, message=said))
+                note_text = [said]
+            elif located.unchecked:
+                note_text = [f"{_noun(named, 'guide place')} could not be checked on the map."]
+            else:
+                note_text = ["No attraction source returned usable data."]
         if located.unplaced:
             note_text.append(
                 f"Left out {_noun(len(located.unplaced), 'guide place')} the geocoder could not locate: "
