@@ -51,6 +51,30 @@ from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, p
 #: nothing else and is trimmed, so a session made with any other token could not be opened again.
 TOKEN_MAX_LENGTH = 120
 TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
+#: A JSON escape for half of a surrogate pair: the only way such a character reaches a JSON body.
+_SURROGATE_ESCAPE = re.compile(rb"\\u[dD][89a-fA-F][0-9a-fA-F]{2}")
+UNREADABLE_TEXT = "The request contains a character that cannot be read. Please retype that text."
+
+
+async def refuse_unreadable_text(request: Request) -> None:
+    """Refuse a JSON body with a lone surrogate (a broken input method, a string cut inside an emoji).
+
+    Python reads such an escape into a string that cannot be written as UTF-8, so it would fail wherever the
+    text is stored or sent back, with a 500. Two halves that make up one character are fine.
+    """
+    if request.method not in {"POST", "PUT", "PATCH"} or "json" not in request.headers.get("content-type", ""):
+        return
+    body = await request.body()
+    if not _SURROGATE_ESCAPE.search(body):
+        return
+    try:
+        parsed = json.loads(body)
+    except (ValueError, RecursionError):
+        return  # not JSON that can be read: the route says so
+    try:
+        json.dumps(parsed, ensure_ascii=False).encode("utf-8")
+    except UnicodeEncodeError:
+        raise HTTPException(status_code=422, detail=UNREADABLE_TEXT) from None
 
 
 class CreateSessionRequest(BaseModel):
@@ -141,6 +165,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="1.0.0",
         description="Pathfinder — agentic trip planner. English first.",
         lifespan=lifespan,
+        dependencies=[Depends(refuse_unreadable_text)],
     )
     app.add_middleware(PrivateResponses)
     app.add_middleware(
