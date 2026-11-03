@@ -40,7 +40,8 @@ a `data_quality.gap` on the plan, not a failed health check.
 
 Auth is optional. A guest session answers only to the guest token it was created with, sent as
 the `X-Client-Token` header on every request (the token is never returned by the API); any other
-caller gets 404, not 403. Once a session is claimed by a user, requests without the matching
+caller gets 404, not 403, and so does anyone for a row whose token is a `user:` profile token
+that no account owns (an empty token never matches either). Once a session is claimed by a user, requests without the matching
 Bearer token return 404 too. Sign-up and sign-in move every guest session made with the guest
 token they present (`client_token`) to the account, so the trips of the browser follow the
 traveller; `session_id` in the request is no longer needed. `attach` moves one session and needs the
