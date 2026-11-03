@@ -40,6 +40,7 @@ import {
   suggestPlaces,
 } from "./lib/api";
 import { downloadPlanMarkdown } from "./lib/export";
+import { failureText } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { useI18n, type Locale } from "./lib/i18n";
 import { planLocaleFor } from "./lib/planLocale";
@@ -144,7 +145,7 @@ export default function App() {
       setTrendingTrace(data.trace ?? null);
     } catch (cause) {
       setTrending([]);
-      setTrendingError(cause instanceof Error ? cause.message : t("errors.trending"));
+      setTrendingError(failureText(cause, t, "errors.trending"));
     } finally {
       setTrendingLoading(false);
     }
@@ -271,7 +272,7 @@ export default function App() {
     try {
       await downloadPlanSlides(pf.plan, planDisclaimer);
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : t("errors.slides"));
+      window.alert(t("errors.slides"));
     }
   };
 
@@ -294,7 +295,7 @@ export default function App() {
       }
       update({ loading: false, url, expiresAt: result.expires_at ?? null, copied });
     } catch (cause) {
-      update({ loading: false, error: cause instanceof Error ? cause.message : t("errors.share") });
+      update({ loading: false, error: failureText(cause, t, "errors.share") });
     }
   };
 
@@ -319,7 +320,7 @@ export default function App() {
       setShare((current) => ({
         ...current,
         revoking: false,
-        error: cause instanceof Error ? cause.message : t("errors.revoke"),
+        error: failureText(cause, t, "errors.revoke"),
       }));
     }
   };

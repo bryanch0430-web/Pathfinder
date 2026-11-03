@@ -463,6 +463,8 @@ export const ZH_HANS: Messages = {
   "errors.revoke": "无法关闭链接。",
   "errors.slides": "无法生成幻灯片。",
   "errors.rateLimited": "此设备的请求过多，请稍等一分钟再试。",
+  "errors.network": "无法连接到服务器。请检查网络连接后重试。",
+  "errors.signInEnded": "登录已失效。请重新登录后继续。",
 
   "plan.stop": "站点",
   "plan.openTrips": "已打开的行程",

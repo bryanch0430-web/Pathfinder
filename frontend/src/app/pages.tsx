@@ -20,6 +20,7 @@ import {
   runEval,
   saveProfilePreferences,
 } from "../lib/api";
+import { failureText } from "../lib/failure";
 import { useI18n } from "../lib/i18n";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
@@ -33,7 +34,7 @@ export function SavedPage() {
   useEffect(() => {
     getSavedTrips(ensureClientToken())
       .then((data) => setTrips(data.trips))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.savedTrips")))
+      .catch((cause) => setError(failureText(cause, t, "errors.savedTrips")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -69,7 +70,7 @@ export function EvaluationPage() {
       }
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("errors.evalService"));
+      setError(failureText(cause, t, "errors.evalService"));
     } finally {
       setLoading(false);
     }
@@ -88,7 +89,7 @@ export function EvaluationPage() {
       const runData = await getEvalRuns();
       setRuns(runData.runs);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("errors.evalRun"));
+      setError(failureText(cause, t, "errors.evalRun"));
     } finally {
       setRunning(false);
     }
@@ -101,7 +102,7 @@ export function EvaluationPage() {
       window.open(url, "_blank", "noopener");
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("errors.evalOpen"));
+      setError(failureText(cause, t, "errors.evalOpen"));
     }
   };
 
@@ -110,7 +111,7 @@ export function EvaluationPage() {
       const detail = await getEvalRun(runId);
       setLatest(detail.run);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("errors.evalOpen"));
+      setError(failureText(cause, t, "errors.evalOpen"));
     }
   };
 
@@ -154,7 +155,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   useEffect(() => {
     getConfig()
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.config")));
+      .catch((cause) => setError(failureText(cause, t, "errors.config")));
     // No built-in admin token: the admin request is only sent when one is stored.
     const adminToken = localStorage.getItem("pathfinder.admin") || "";
     if (adminToken) {
@@ -172,7 +173,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const handleSavePreferences = (preferences: string[]) => {
     void saveProfilePreferences(clientToken, preferences)
       .then((data) => setProfile(data.profile))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.preferences")));
+      .catch((cause) => setError(failureText(cause, t, "errors.preferences")));
   };
 
   const handleClearMemory = () => {
@@ -180,7 +181,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
     void clearMemory(clientToken)
       .then(() => getProfile(clientToken))
       .then(setProfile)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.memory")));
+      .catch((cause) => setError(failureText(cause, t, "errors.memory")));
   };
 
   return (

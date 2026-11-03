@@ -26,6 +26,7 @@ import type {
   TripContext,
   TripPlan,
 } from "../design-system/types";
+import { describeFailure, failureOf, type Failure } from "./failure";
 import { useI18n } from "./i18n";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
 import { clearStoredValue } from "./storage";
@@ -153,7 +154,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [trace, setTrace] = useState<RunTrace | null>(null);
   const [live, setLive] = useState<{ id: string; title: string; body: string }[]>([]);
   const [route, setRoute] = useState<RoutePayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as a message key where the page wrote the message, so a language switch translates it too.
+  const [error, setError] = useState<Failure | null>(null);
   const [selectedItem, setSelectedItem] = useState<PlanItem | null>(null);
   const [activeVersion, setActiveVersion] = useState(1);
   const [feedbackStars, setFeedbackStars] = useState<number | null>(null);
@@ -229,7 +231,7 @@ export function usePathfinder(locale: string): PathfinderHook {
             clearStoredValue("session");
           } else {
             // The server is down or slow, not forgetting the trip: keep the id and say so.
-            setError(tRef.current("errors.reconnect"));
+            setError("errors.reconnect");
             setReady(true);
             return;
           }
@@ -243,7 +245,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setSessionId(id);
       setReady(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : tRef.current("errors.backend"));
+      setError(failureOf(cause, "errors.backend"));
       setReady(true);
     }
   }, [carryPlanLocale, loadSession]);
@@ -274,13 +276,13 @@ export function usePathfinder(locale: string): PathfinderHook {
         // The server answers 404 both for a trip that is gone and for one that is not this
         // identity's. Signed out, it may be an account's trip: say so and keep it.
         if (!localStorage.getItem(AUTH_KEY)) {
-          setError(tRef.current("errors.signInToOpen"));
+          setError("errors.signInToOpen");
           return "needs-sign-in";
         }
         return "missing";
       }
       // The server is down or slow: the trip is not gone.
-      setError(tRef.current("errors.reconnect"));
+      setError("errors.reconnect");
       return "unavailable";
     }
   }, [loadSession]);
@@ -404,7 +406,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const data = await patchContext(id, patch);
       setContextState(data.context);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : tRef.current("errors.saveDetails"));
+      setError(failureOf(cause, "errors.saveDetails"));
       throw cause;
     }
   }, [context]);
@@ -532,16 +534,13 @@ export function usePathfinder(locale: string): PathfinderHook {
                 setLive((current) => [...current, { id: `${event}-${current.length}-${Date.now()}`, title, body }]);
               }
               if (event === "trace") setTrace(data as unknown as RunTrace);
-              if (event === "error") setError(String(data.message ?? tRef.current("errors.turn")));
+              if (event === "error") setError(data.message ? { text: String(data.message) } : "errors.turn");
             },
           },
           controller.signal,
         );
       } catch (cause) {
-        if (!controller.signal.aborted) {
-          if (cause instanceof ApiError && cause.status === 429) setError(tRef.current("errors.rateLimited"));
-          else setError(cause instanceof Error ? cause.message : tRef.current("errors.turn"));
-        }
+        if (!controller.signal.aborted) setError(failureOf(cause, "errors.turn"));
       } finally {
         // A newer stream (in the trip opened since) owns the busy state and the controller.
         const superseded = abortRef.current !== null && abortRef.current !== controller;
@@ -610,7 +609,7 @@ export function usePathfinder(locale: string): PathfinderHook {
           setFeedbackAdded(result.preferences_added ?? []);
         }
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : tRef.current("errors.feedback"));
+        setError(failureOf(cause, "errors.feedback"));
       }
     },
     [feedbackStars],
@@ -631,7 +630,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setClarifyValues({});
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : tRef.current("errors.clearChat"));
+      setError(failureOf(cause, "errors.clearChat"));
     }
   }, []);
 
@@ -691,7 +690,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     trace,
     live,
     route,
-    error,
+    error: error === null ? null : describeFailure(error, t),
     selectedItem,
     activeVersion,
     feedbackStars,
