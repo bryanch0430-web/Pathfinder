@@ -13,9 +13,9 @@ from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
-from app.application.modification import ModifyPath
+from app.application.modification import ModifyPath, plan_shape
 from app.application.planning import PlanPath
-from app.application.router import System1Router
+from app.application.router import MODIFY_VERBS, System1Router, looks_like_question
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.config import Settings
@@ -177,11 +177,23 @@ class TurnService:
                 )
             )
             scoped_question = (
-                scope_item_id
-                and plan is not None
-                and re.search(r"\b(about|this|it|selected|detail|details|info|tell)\b", message.lower())
+                plan is not None
+                and looks_like_question(message)
+                and not re.search(MODIFY_VERBS, message.lower())
             )
-            if scoped_action:
+            if plan is not None and plan_shape(message) and not re.search(
+                r"\b(this|that stop|selected)\b", message.lower()
+            ):
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "plan_shape",
+                        "affected_parts": ["attraction"],
+                    }
+                )
+            elif scoped_action:
                 # The selected stop is a decisive constraint. Terse commands
                 # such as "remove this" should not fall below the confidence
                 # gate and ask which item was meant.
@@ -193,7 +205,7 @@ class TurnService:
                         "reason_code": "scoped_item_action",
                     }
                 )
-            elif scoped_question and decision.intent != Intent.MODIFY:
+            elif scoped_question:
                 decision = decision.model_copy(
                     update={
                         "intent": Intent.ASK,
@@ -503,7 +515,12 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
                 day_index = plan.days.index(day) + 1
                 added.append(f"{item.name} on Day {day_index} at {item.start}")
             elif kind == "changed":
-                changed.append(str(entry.get("name") or (found[1].name if found else "an item")))
+                before = str(entry.get("from") or "").strip()
+                after = str(entry.get("name") or (found[1].name if found else "an item"))
+                if before and before != after:
+                    changed.append(f"{before} with {after}")
+                else:
+                    changed.append(after)
             elif kind == "removed":
                 removed.append(str(entry.get("name") or "an item"))
         elif kind == "hotel":
@@ -524,7 +541,7 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
     if added:
         parts.append("Added " + "; ".join(added) + ".")
     if changed:
-        parts.append("Updated " + ", ".join(changed) + ".")
+        parts.append("Replaced " + "; ".join(changed) + ".")
     if removed:
         parts.append("Removed " + ", ".join(removed) + ".")
     if hotel:

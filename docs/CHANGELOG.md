@@ -5,6 +5,16 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.3.0 — 2026-11-03 11:55
+
+Edit release: the assistant changes the thing that was asked for, and leaves the rest.
+
+- **One referred item.** A name in the sentence, or the selected chip when the sentence says "this", is the only row that may change. Hotel, flights and other stops are restored.
+- **A question is a question.** A message that ends in "?" and does not ask for a change is answered. A cuisine question is answered from public pages, and the reply says when those pages do not state it.
+- **Pace and schedule, within limits.** "One place a day", "two stops", "no meals", "start after 14:00" and "at least 3 hours" reshape the existing days. Zero places, more than four places a day, a start outside 08:00–18:00, or a visit longer than six hours is refused. "Spend 3 hours" is time, not a cheaper hotel.
+- **Web references stay references.** DeepSeek search runs first. Relevance is our own check. Grok runs only when that relevance is zero. A page never becomes a price or a temperature.
+- **The map follows the selection.** Pressing a stop zooms to it. The camera is pinned on the traveller token by default, and the control under the clock turns that off.
+
 ## v1.2.0 — 2026-11-01 23:57
 
 Clarity release: the console stops producing answers that *look* like actions but are not.

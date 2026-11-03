@@ -461,7 +461,7 @@ class SandboxPlaces:
     def __init__(self, destination: str):
         self.destination = destination
 
-    async def search(self, *, destination, geo, category, limit):
+    async def search(self, *, destination, geo, category, limit, query=None):
         lat, lng = BASE.get(self.destination, (35.0, 135.0))
         if category in {"restaurant", "meal", "food"}:
             return [

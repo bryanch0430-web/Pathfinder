@@ -14,15 +14,21 @@ from app.application.llm_gateway import LLMGateway
 from app.application.modification import (
     ChangeDraft,
     ModifyPath,
+    _hotel_near,
     _replace_target,
     _resolve_target,
+    apply_plan_shape,
+    interpret_plan,
+    keep_only,
+    lock_scope,
+    resolve_referred,
 )
 from app.application.planner import Planner
 from app.application.planning import PlanPath
 from app.application.prompts import PromptLibrary
 from app.application.toolbox import Toolbox
 from app.config import Settings
-from app.domain.models import ItemType, TripContext
+from app.domain.models import AgentName, ItemType, TripContext
 from app.evaluation import SandboxRegistry
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
@@ -70,7 +76,8 @@ def test_resolve_target_accepts_index_name_and_rejects_nonsense(settings: Settin
     by_name = _resolve_target(plan, draft, f"I want {first.name} changed")
     assert by_name is not None and by_name[1].id == first.id
 
-    by_fuzzy = _resolve_target(plan, draft, f"{first.name.split()[1]} is too far")
+    named = next(item for _, item in ((d, i) for d in plan.days for i in d.items) if len(item.name.split()) > 1)
+    by_fuzzy = _resolve_target(plan, draft, f"{named.name.split()[1]} is too far")
     assert by_fuzzy is not None
 
     assert _resolve_target(plan, draft, "somewhere entirely different please") is None
@@ -78,8 +85,7 @@ def test_resolve_target_accepts_index_name_and_rejects_nonsense(settings: Settin
 
 def test_meal_is_replaced_with_the_closest_candidate(settings: Settings) -> None:
     _, _, _, _, plan = _build(settings)
-    day = next(d for d in plan.days if d.items)
-    meal = day.items[0]
+    day, meal = next((d, i) for d in plan.days for i in d.items if i.type is ItemType.MEAL)
     assert meal.type is ItemType.MEAL
 
     anchor = meal.geo
@@ -105,8 +111,7 @@ def test_meal_is_replaced_with_the_closest_candidate(settings: Settings) -> None
 
 def test_meal_replacement_keeps_first_candidate_without_distance_hint(settings: Settings) -> None:
     _, _, _, _, plan = _build(settings)
-    day = next(d for d in plan.days if d.items)
-    meal = day.items[0]
+    day, meal = next((d, i) for d in plan.days for i in d.items if i.type is ItemType.MEAL)
 
     replaced = _replace_target(
         plan,
@@ -119,6 +124,117 @@ def test_meal_replacement_keeps_first_candidate_without_distance_hint(settings: 
 
     assert replaced is True
     assert meal.name == "Any Cafe"
+
+
+def test_a_selected_meal_is_not_turned_into_a_hotel_change(settings: Settings) -> None:
+    _, _, _, _, plan = _build(settings)
+    meal = next(item for day in plan.days for item in day.items if item.type is ItemType.MEAL)
+    names = lock_scope(
+        {AgentName.HOTEL},
+        plan,
+        "switch this i don't want to eat here",
+        meal.id,
+    )
+    assert AgentName.HOTEL not in names
+    assert AgentName.ATTRACTION in names
+
+
+def test_one_place_a_day_and_no_meals_reshapes_the_plan(settings: Settings) -> None:
+    sentence = "ok i want a version of trip plan where, each day, i only visit one place with no meals required"
+    shape = interpret_plan(sentence)
+    assert shape.requested is True
+    assert shape.places_per_day == 1
+    assert shape.meals == "drop"
+    assert shape.reason == ""
+    _, _, _, _, plan = _build(settings)
+    hotel = plan.hotels[0].name if plan.hotels else ""
+    summary = apply_plan_shape(plan, shape)
+    for day in plan.days:
+        assert sum(item.type is ItemType.ATTRACTION for item in day.items) <= 1
+        assert not any(item.type is ItemType.MEAL for item in day.items)
+    if hotel:
+        assert plan.hotels[0].name == hotel
+    assert "at most 1 place" in summary
+    assert "Hotel and flights are unchanged" in summary
+
+
+def test_a_late_start_and_a_long_visit_are_a_schedule_not_a_hotel(settings: Settings) -> None:
+    sentence = (
+        "all start after 1400 ok as can't wake up at the morning, "
+        "and i want to spend at least 3 hours at a single spot"
+    )
+    shape = interpret_plan(sentence)
+    assert shape.requested is True
+    assert shape.earliest == "14:00"
+    assert shape.min_hours == 3
+    assert shape.reason == ""
+    _, _, _, _, plan = _build(settings)
+    hotel = plan.hotels[0].name if plan.hotels else ""
+    summary = apply_plan_shape(plan, shape)
+    for day in plan.days:
+        for item in day.items:
+            if item.type is ItemType.ATTRACTION:
+                assert item.start >= "14:00"
+                start_h, start_m = item.start.split(":")
+                end_h, end_m = item.end.split(":")
+                assert (int(end_h) * 60 + int(end_m)) - (int(start_h) * 60 + int(start_m)) >= 180
+    if hotel:
+        assert plan.hotels[0].name == hotel
+    assert "Hotel and flights are unchanged" in summary
+    assert interpret_plan("start after 0200 and spend 3 hours").reason
+    assert interpret_plan("spend 12 hours at one spot").reason
+
+
+def test_an_extreme_pace_is_refused() -> None:
+    wiped = interpret_plan("delete the trip and leave no places")
+    assert wiped.requested is True and wiped.reason
+    packed = interpret_plan("I want 12 sights every day")
+    assert packed.requested is True and packed.places_per_day is None and packed.reason
+    milder = interpret_plan("can we do two stops a day")
+    assert milder.places_per_day == 2 and milder.reason == ""
+
+
+def test_a_cuisine_request_does_not_swap_in_an_unrelated_restaurant(settings: Settings) -> None:
+    _, _, _, _, plan = _build(settings)
+    day = next(entry for entry in plan.days if entry.items)
+    meal = next(item for item in day.items if item.type is ItemType.MEAL)
+    original = meal.name
+    replaced = _replace_target(
+        plan,
+        [],
+        [{"name": "Café Bohème TKO", "description": "A cafe in Tseung Kwan O.", "geo": None, "source_refs": []}],
+        (day, meal),
+        "i want to eat Japanese food",
+        distance_aware=False,
+        cuisine="japanese",
+    )
+    assert replaced is False
+    assert meal.name == original
+
+
+def test_a_referred_meal_is_the_only_row_that_may_change(settings: Settings) -> None:
+    _, _, _, _, plan = _build(settings)
+    meal = next(item for day in plan.days for item in day.items if item.type is ItemType.MEAL)
+    assert resolve_referred(plan, "switch this i don't want to eat here", meal.id) == meal.id
+    hotel_name = plan.hotels[0].name
+    updated = plan.model_copy(deep=True)
+    updated.hotels[0].name = "Clothing-Optional Yurts, California"
+    for day in updated.days:
+        for item in day.items:
+            if item.id == meal.id:
+                item.name = "Another Restaurant"
+    keep_only(plan, updated, meal.id)
+    assert updated.hotels[0].name == hotel_name
+    assert any(item.name == "Another Restaurant" for day in updated.days for item in day.items)
+    assert sum(item.name == "Another Restaurant" for day in updated.days for item in day.items) == 1
+
+
+def test_a_hotel_on_another_continent_is_rejected(settings: Settings) -> None:
+    _, _, _, _, plan = _build(settings)
+    assert _hotel_near(plan, {"geo": {"lat": 37.0, "lng": -122.0}}) is False
+    here = plan.destination.geo
+    assert here is not None
+    assert _hotel_near(plan, {"geo": {"lat": here.lat, "lng": here.lng}}) is True
 
 
 def test_locked_and_confirmed_items_are_never_replaced(settings: Settings) -> None:

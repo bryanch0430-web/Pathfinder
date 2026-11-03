@@ -1,7 +1,7 @@
 import asyncio
 from datetime import date, timedelta
 
-from app.application.asking import _fallback_answer, _plan_facts
+from app.application.asking import _cuisine_from_pages, _fallback_answer, _plan_facts
 from app.application.trending import trending_report
 from app.application.understanding import understand
 from app.application.llm_gateway import LLMGateway
@@ -282,3 +282,13 @@ def test_add_attraction_appends_one_stop_without_renaming(settings: Settings) ->
     assert added == ["Kyoto National Museum"]
     assert len(day.items) == len(before) + 1
     assert {item.name for item in day.items} >= set(before) | {"Kyoto National Museum"}
+
+
+def test_a_cuisine_question_is_not_answered_by_guessing() -> None:
+    text = _cuisine_from_pages(
+        "Café Bohème TKO is for eating japanese food??",
+        [{"title": "Café Bohème", "summary": "Coffee and cake in Tseung Kwan O.", "snippet": "", "url": "https://example.test"}],
+        "Café Bohème TKO",
+    )
+    assert "will not guess" in text
+    assert "serves japanese" in text

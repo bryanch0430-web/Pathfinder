@@ -17,6 +17,16 @@ from app.domain.models import Intent, Message, RouteDecision, TripContext
 from app.security import fence_user_message
 
 MODIFY_VERBS = r"(change|swap|replace|switch|move|add|remove|drop|cancel|upgrade|downgrade|shorten|extend|make it|turn it|adjust|update)"
+
+
+def looks_like_question(message: str) -> bool:
+    """A traveller asking about a stop, including a sentence that only ends with ?."""
+    text = (message or "").strip()
+    if not text:
+        return False
+    if text.endswith("?"):
+        return True
+    return bool(re.match(ASK_STARTERS, text.lower()))
 PLAN_VERBS = r"(plan|planning|itinerary|organi[sz]e|arrange|build|create|design|route|schedule)"
 ASK_STARTERS = r"^(what|where|when|which|who|why|how|is|are|can|could|do|does|should|will|would|any)\b"
 
@@ -238,9 +248,9 @@ def _affected_parts(lower: str) -> list[str]:
     mapping = [
         ("hotel", r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b"),
         ("ticket", r"\b(flight|fly|train|ticket|fare|seat|rail|shinkansen)\b"),
-        ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity)\b"),
+        ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity|eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe)\b"),
         ("weather", r"\b(weather|rain|forecast|typhoon|temperature)\b"),
-        ("budget", r"\b(budget|cost|cheaper|expensive|money|spend|price)\b"),
+        ("budget", r"\b(budget|cost|cheaper|expensive|money|price)\b|\bspend\s+(?:less|more|under|over)\b"),
         ("dates", r"\b(date|dates|day|days|nights|extend|shorten|earlier|later)\b"),
     ]
     for name, pattern in mapping:

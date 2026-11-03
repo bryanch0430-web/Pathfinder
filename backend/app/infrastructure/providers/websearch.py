@@ -71,7 +71,14 @@ class DeepSeekSearchSource:
         self.key = settings.deepseek_search_api_key or settings.judge_api_key
         self.available = bool(self.key)
 
-    async def search(self, *, query: str, count: int = 5, ori_question: str | None = None) -> list[WebResult]:
+    async def search(
+        self,
+        *,
+        query: str,
+        count: int = 5,
+        ori_question: str | None = None,
+        retries: int = 1,
+    ) -> list[WebResult]:
         if not self.available:
             from app.domain.errors import ProviderNoData
 
@@ -92,7 +99,7 @@ class DeepSeekSearchSource:
             headers={"Authorization": f"Bearer {self.key}"},
             payload=payload,
             timeout=20.0,
-            retries=1,
+            retries=retries,
         )
         return list(_deepseek_results(data))
 
@@ -127,7 +134,7 @@ class GrokSearchSource:
         self.timeout = float(settings.grok_search_timeout_seconds or 90.0)
         self.available = bool(self.key and self.model)
 
-    async def answer(self, *, query: str) -> WebAnswer:
+    async def answer(self, *, query: str, timeout: float | None = None) -> WebAnswer:
         if not self.available:
             from app.domain.errors import ProviderNoData
 
@@ -142,7 +149,7 @@ class GrokSearchSource:
                 "input": query[:2000],
                 "tools": [{"type": "web_search"}],
             },
-            timeout=self.timeout,
+            timeout=self.timeout if timeout is None else timeout,
             retries=0,
         )
         return _grok_answer(data, self.name)

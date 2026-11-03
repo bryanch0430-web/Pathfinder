@@ -392,7 +392,10 @@ export function TripMap(props: TripMapProps) {
     if (selectedItemId !== lastSelected.current) {
       lastSelected.current = selectedItemId;
       const selected = withGeo.find((item) => item.id === selectedItemId);
-      if (selected) engine.panTo(selected.geo);
+      if (selected) {
+        engine.panTo(selected.geo);
+        engine.setZoom(15);
+      }
     }
   }, [layersBuilt, clock, currentItemId, selectedItemId, updatedIds, hotelChanged, status, points]);
 
@@ -472,19 +475,19 @@ export function TripMap(props: TripMapProps) {
     // Pan once when a new leg starts, so the replay stays visible without the
     // camera fighting the user's own drag on every tick.
     const legKey = `${token.fromId ?? ""}|${token.toId ?? ""}|${token.moving ? "go" : "stay"}`;
-    if (token.moving && legKey !== lastLeg.current) {
+    if (token.moving && legKey !== lastLeg.current && !selectedItemId) {
       lastLeg.current = legKey;
       engine.panTo(target);
     }
 
-    if (follow) {
+    if (follow && !selectedItemId) {
       const key = `${token.position[0].toFixed(5)},${token.position[1].toFixed(5)}`;
       if (lastNow.current !== key) {
         lastNow.current = key;
         engine.panTo(target);
       }
     }
-  }, [token, follow, speed, status, generation, layersBuilt, legs]);
+  }, [token, follow, speed, status, generation, layersBuilt, legs, selectedItemId]);
 
   return (
     <div className="pf-map__canvas">

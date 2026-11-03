@@ -192,7 +192,14 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
         if item_id not in old_items:
             changes.append({"kind": "added", "item_id": item_id, "name": item.name})
         elif old_items[item_id].model_dump() != item.model_dump():
-            changes.append({"kind": "changed", "item_id": item_id, "name": item.name})
+            changes.append(
+                {
+                    "kind": "changed",
+                    "item_id": item_id,
+                    "name": item.name,
+                    "from": old_items[item_id].name,
+                }
+            )
     for item_id, item in old_items.items():
         if item_id not in new_items:
             changes.append({"kind": "removed", "item_id": item_id, "name": item.name})

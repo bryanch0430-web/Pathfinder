@@ -96,6 +96,50 @@ class BaseAgent:
             timeout=timeout or min(self.settings.agent_timeout_seconds, 25.0),
         )
 
+    def _grok_source(self) -> Any | None:
+        """The slow search, used only when DeepSeek relevance is zero.
+
+        ``grok_search_enabled`` still gates the question-answering path. This
+        fallback constructs the client from the xAI key when that flag is off,
+        and returns None when the key is missing.
+        """
+        configured = list(getattr(self.registry, "web_deep", None) or [])
+        if configured:
+            return configured[0]
+        from app.infrastructure.providers.websearch import GrokSearchSource
+
+        source = GrokSearchSource(self.settings)
+        return source if source.available else None
+
+    async def _web_references(
+        self,
+        *,
+        section: str,
+        city: str,
+        query: str,
+        official_empty: bool,
+    ) -> tuple[list[dict[str, Any]], DataGap | None]:
+        """Reference pages for a thin section. Never a price or a temperature."""
+        web = list(getattr(self.registry, "web", None) or [])
+        deepseek = web[0] if web else None
+        grok = self._grok_source()
+        if deepseek is None and grok is None:
+            return [], None
+        from app.application.web_lookup import inadequate_gap, lookup_web_references
+
+        found = await lookup_web_references(
+            section=section,
+            city=city,
+            query=query,
+            deepseek=deepseek,
+            grok=grok,
+        )
+        if not official_empty:
+            return found.references, None
+        if found.found:
+            return found.references, inadequate_gap(section, city)
+        return found.references, found.gap
+
 
 class AttractionAgent(BaseAgent):
     name = AgentName.ATTRACTION
@@ -143,6 +187,7 @@ class AttractionAgent(BaseAgent):
                     geo=request.destination.geo,
                     category="restaurant",
                     limit=6,
+                    query=request.extra.get("meals_query"),
                 )
                 if results:
                     restaurants = _merge_places(restaurants + results)
@@ -195,6 +240,17 @@ class AttractionAgent(BaseAgent):
         places = [p for p in places if p.geo is not None][:10] or places[:10]
         restaurants = [r for r in restaurants if r.geo is not None][:6]
 
+        web_references: list[dict[str, Any]] = []
+        if len(places) < 3:
+            web_references, web_gap = await self._web_references(
+                section="attraction",
+                city=request.context.destination,
+                query=f"things to do in {request.context.destination}",
+                official_empty=not places,
+            )
+            if web_gap is not None:
+                failures.append(web_gap)
+
         payload = {
             "places": [{"id": f"p{index + 1}", **place.model_dump(mode="json")} for index, place in enumerate(places)],
             "meals": [
@@ -202,6 +258,7 @@ class AttractionAgent(BaseAgent):
             ],
             "notes": notes,
             "centre": request.destination.geo.model_dump(),
+            "web_references": web_references,
         }
         if places:
             # A working fallback is not a degraded plan: do not surface the
@@ -283,6 +340,17 @@ class HotelAgent(BaseAgent):
             ),
             reverse=True,
         )
+        priced = [hotel for hotel in candidates if hotel.nightly_price is not None]
+        web_references: list[dict[str, Any]] = []
+        if not priced:
+            web_references, web_gap = await self._web_references(
+                section="hotel",
+                city=request.context.destination,
+                query=f"hotels in {request.context.destination}",
+                official_empty=True,
+            )
+            if web_gap is not None:
+                failures.append(web_gap)
         payload = {
             "hotels": [
                 {"id": f"h{index + 1}", **hotel.model_dump(mode="json")} for index, hotel in enumerate(candidates[:5])
@@ -290,6 +358,7 @@ class HotelAgent(BaseAgent):
             "nights": nights,
             "check_in": request.date_range.start.isoformat(),
             "check_out": request.date_range.end.isoformat(),
+            "web_references": web_references,
         }
         status = AgentStatus.OK if candidates else AgentStatus.UNAVAILABLE
         notes = [f"{len(candidates)} hotel candidates; prices are reference rates."] if candidates else [
@@ -397,10 +466,21 @@ class WeatherAgent(BaseAgent):
         note = f"{available} of {len(days)} dates have a forecast."
         if stale:
             note = f"{stale} of {len(days)} dates use a labelled seasonal reference, not a forecast."
+        web_references: list[dict[str, Any]] = []
+        if available == 0:
+            month = request.date_range.start.strftime("%B")
+            web_references, web_gap = await self._web_references(
+                section="weather",
+                city=request.context.destination,
+                query=f"typical weather in {request.context.destination} in {month}",
+                official_empty=not days,
+            )
+            if web_gap is not None:
+                failures.append(web_gap)
         return self._result(
             request,
             status=status,
-            payload={"days": days},
+            payload={"days": days, "web_references": web_references},
             notes=[note],
             sources=sources,
             failures=failures,
@@ -451,6 +531,17 @@ class TicketAgent(BaseAgent):
                 except (ProviderError, asyncio.TimeoutError, Exception) as exc:
                     failures.append(_gap("tickets", exc))
 
+        web_references: list[dict[str, Any]] = []
+        searched = bool(request.context.origin) and request.context.origin.strip().casefold() != request.context.destination.strip().casefold() and self.settings.enable_flights
+        if searched and not flights:
+            web_references, web_gap = await self._web_references(
+                section="flight",
+                city=request.context.destination,
+                query=f"{request.context.origin} to {request.context.destination} flights",
+                official_empty=True,
+            )
+            if web_gap is not None:
+                failures.append(web_gap)
         notes.append("Rail schedules are not connected to a live source in this build; fares and times need operator confirmation.")
         # Empty because it was skipped/optional is PARTIAL, not a failed source.
         status = AgentStatus.OK if flights else AgentStatus.PARTIAL
@@ -461,6 +552,7 @@ class TicketAgent(BaseAgent):
             status=status,
             payload={
                 "flights": [{"id": f"f{index + 1}", **flight} for index, flight in enumerate(flights[:4])],
+                "web_references": web_references,
             },
             notes=notes,
             sources=sources,

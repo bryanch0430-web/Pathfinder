@@ -17,23 +17,25 @@ under [`docs/`](docs/); the AI-use declaration is in
 
 ## Version notes
 
-**v1.2.0 — 1 November 2026, 23:57 HKT.** The console no longer produces answers that look
-like actions but are not: "who are you / are you a real person / which model" are answered
-instantly and honestly without a model call, a clarify about intent offers four concrete
-next steps instead of a Continue button that could only loop, and the source/freshness row
-is styled as a label rather than body text.
+**v1.3.0 — 3 November 2026, 11:55 HKT.** Edits follow what the traveller actually said.
+A named stop or the selected chip is the only row that changes. A question mark is
+answered, not treated as a new trip. A pace or a clock ("one place a day", "no meals",
+"start after 14:00", "at least 3 hours") reshapes the timetable, and a request that
+would erase the trip or run past 21:30 is refused. The map zooms to the stop you
+press and stays pinned on the traveller until you turn that off.
 
 Recent releases, newest first (full detail in [`docs/CHANGELOG.md`](docs/CHANGELOG.md)):
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.3.0 | 2026-11-03 11:55 | Edits match the request; pace and hours; map pin |
 | v1.2.0 | 2026-11-01 23:57 | Identity answers, useful clarify choices, label rows |
 | v1.1.0 | 2026-11-01 23:28 | Web search (DeepSeek, Grok opt-in), follow-ups, reviews, scoped stop |
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
 
-Known gaps at v1.2.0: flight and hotel sources are unavailable while the SerpApi account is
+Known gaps at v1.3.0: flight and hotel sources are unavailable while the SerpApi account is
 out of searches, so budget figures are provisional; price estimates are deliberately not
 implemented (see `docs/SPEC.md`); rail is not connected.
 

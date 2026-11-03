@@ -842,7 +842,7 @@ export function MapPanel({
   const [clock, setClock] = useState(9 * 60);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [follow, setFollow] = useState(false);
+  const [follow, setFollow] = useState(true);
   const day = plan.days.find((entry) => entry.date === activeDay) ?? plan.days[0];
   const centre = plan.destination.geo;
   const routePoints = useMemo(
@@ -1208,9 +1208,10 @@ export function MapPanel({
             className="pf-map__follow"
             data-active={follow}
             aria-pressed={follow}
+            aria-label={follow ? "Unpin the map from the traveller" : "Pin the map on the traveller"}
             onClick={() => setFollow((value) => !value)}
           >
-            Follow
+            {follow ? "Pinned" : "Pin"}
           </button>
           <div className="pf-map__time-main">
             <div className="pf-map__time-row">
