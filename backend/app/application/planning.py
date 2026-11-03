@@ -244,7 +244,9 @@ class PlanPath:
             if task in pending:
                 # An agent that can say what it had found keeps that; the others are unavailable.
                 keep = getattr(agents[agent_name], "partial_result", None)
-                result = keep(progress[agent_name], centre=destination.geo, elapsed_ms=elapsed_ms) if keep else None
+                result = (
+                    keep(progress[agent_name], context=context, centre=destination.geo, elapsed_ms=elapsed_ms) if keep else None
+                )
                 if result is None:
                     result = _unavailable(
                         agent_name, "agent exceeded the pre-planning time budget", elapsed_ms=elapsed_ms
