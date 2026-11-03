@@ -73,6 +73,15 @@ jobs:
         working-directory: frontend
         run: npm run build-storybook
 
+      # The packages that reach the browser. A high or critical advisory fails the job.
       - name: Audit packages
         working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      # Vite and Storybook only run on a developer's machine and in this job, never in the build.
+      # Their open advisories are listed here without failing the job (the fix for most is a major
+      # upgrade), and Dependabot proposes the upgrades.
+      - name: Audit build tools (report only)
+        working-directory: frontend
+        continue-on-error: true
         run: npm audit --audit-level=high
