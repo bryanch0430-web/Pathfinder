@@ -536,6 +536,11 @@
   border: 1px solid var(--pf-line);
 }
 
+.pf-dialog:focus,
+.pf-drawer:focus {
+  outline: none;
+}
+
 .pf-dialog__head,
 .pf-dialog__foot {
   display: flex;

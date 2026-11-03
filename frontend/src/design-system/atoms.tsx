@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useId,
+  useRef,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -215,14 +216,16 @@ export function Heading({
   level = 2,
   children,
   className,
+  id,
 }: {
   level?: 1 | 2 | 3 | 4 | 5 | 6;
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   const Tag = `h${level}` as keyof JSX.IntrinsicElements;
   return (
-    <Tag className={["pf-heading", className].filter(Boolean).join(" ")} data-level={level}>
+    <Tag id={id} className={["pf-heading", className].filter(Boolean).join(" ")} data-level={level}>
       {children}
     </Tag>
   );
@@ -261,11 +264,44 @@ export function Divider({ vertical = false }: { vertical?: boolean }) {
   return <hr className="pf-divider" data-orientation={vertical ? "vertical" : "horizontal"} />;
 }
 
-function useModalBehaviour(open: boolean, onClose: () => void) {
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * What a modal does besides showing: Escape closes it, the page behind stops scrolling, focus moves into
+ * it and stays there while Tab is pressed, and goes back to what opened it when it closes. Put the returned
+ * ref and `tabIndex={-1}` on the element that has `role="dialog"`; focus lands on that element first.
+ */
+export function useModalBehaviour<T extends HTMLElement>(open: boolean, onClose: () => void) {
+  const modalRef = useRef<T | null>(null);
+  // The latest onClose. A parent that passes a new function on every render must not restart the effect, which would move focus again.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return;
+    const modal = modalRef.current;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    modal?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !modal) return;
+      const items = Array.from(modal.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((item) => item.getClientRects().length > 0);
+      const active = document.activeElement;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        modal.focus();
+      } else if (event.shiftKey && (active === first || active === modal || !modal.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     const previous = document.body.style.overflow;
@@ -273,8 +309,10 @@ function useModalBehaviour(open: boolean, onClose: () => void) {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
+  return modalRef;
 }
 
 export function Dialog({
@@ -291,23 +329,25 @@ export function Dialog({
   footer?: ReactNode;
 }) {
   const { t } = useI18n();
-  useModalBehaviour(open, onClose);
+  const modalRef = useModalBehaviour<HTMLDivElement>(open, onClose);
   const titleId = useId();
   if (!open) return null;
   return createPortal(
     <div className="pf-dialog-overlay" role="presentation" onMouseDown={onClose}>
       <div
+        ref={modalRef}
         className="pf-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="pf-dialog__head">
-          <Heading level={4}>{title}</Heading>
+          <Heading level={4} id={titleId}>{title}</Heading>
           <IconButton icon="close" label={t("common.closeDialog")} onClick={onClose} />
         </div>
-        <div className="pf-dialog__body" id={titleId}>
+        <div className="pf-dialog__body">
           {children}
         </div>
         {footer ? <div className="pf-dialog__foot">{footer}</div> : null}
@@ -329,15 +369,17 @@ export function Drawer({
   children: ReactNode;
 }) {
   const { t } = useI18n();
-  useModalBehaviour(open, onClose);
+  const modalRef = useModalBehaviour<HTMLElement>(open, onClose);
   if (!open) return null;
   return createPortal(
     <div className="pf-drawer-overlay" role="presentation" onMouseDown={onClose}>
       <aside
+        ref={modalRef}
         className="pf-drawer"
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="pf-row pf-row--between">

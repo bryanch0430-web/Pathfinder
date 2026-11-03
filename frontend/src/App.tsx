@@ -17,6 +17,7 @@ import {
   TripWorkspace,
   VideoNotes,
   isHotelScope,
+  useModalBehaviour,
   type AppTab,
   type AuthUser,
   type FxSnapshot,
@@ -703,9 +704,10 @@ function HowItWorks() {
 
 function HelpDrawer({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
+  const modalRef = useModalBehaviour<HTMLElement>(true, onClose);
   return (
     <div className="pf-dialog-overlay" role="presentation" onMouseDown={onClose}>
-      <aside className="pf-drawer" role="dialog" aria-modal="true" aria-label={t("help.label")} onMouseDown={(event) => event.stopPropagation()}>
+      <aside ref={modalRef} className="pf-drawer" role="dialog" aria-modal="true" aria-label={t("help.label")} tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}>
         <div className="pf-row pf-row--between">
           <h2 className="pf-heading" data-level="4">{t("help.title")}</h2>
           <button type="button" className="pf-icon-btn" aria-label={t("help.close")} onClick={onClose}>
