@@ -709,9 +709,13 @@ class WeatherAgent(BaseAgent):
         available = sum(1 for day in days if day.get("status") == DataStatus.OK.value)
         stale = sum(1 for day in days if day.get("status") == DataStatus.STALE.value)
         usable = available + stale
+        # The source may answer for some of the trip's days only; the days it left out show no forecast.
+        total = len(request.date_range.dates)
+        answered = {row.get("date") for row in days} & {day.isoformat() for day in request.date_range.dates}
+        unanswered = total - len(answered)
         if not days:
             status = AgentStatus.UNAVAILABLE
-        elif available == len(days):
+        elif available == len(days) and not unanswered:
             status = AgentStatus.OK
         elif usable:
             status = AgentStatus.PARTIAL
@@ -741,9 +745,20 @@ class WeatherAgent(BaseAgent):
                     ),
                 )
             )
-        note = f"{available} of {len(days)} dates have a forecast."
+        if days and unanswered:
+            failures.append(
+                DataGap(
+                    section="weather",
+                    kind=FailureKind.NO_DATA,
+                    message=(
+                        f"The forecast source answered for {len(answered)} of {total} days; "
+                        f"the other {unanswered} have no forecast."
+                    ),
+                )
+            )
+        note = f"{available} of {total} dates have a forecast."
         if stale:
-            note = f"{stale} of {len(days)} dates use a labelled seasonal reference, not a forecast."
+            note = f"{stale} of {total} dates use a labelled seasonal reference, not a forecast."
         web_references: list[dict[str, Any]] = []
         if available == 0:
             month = request.date_range.start.strftime("%B")
