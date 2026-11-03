@@ -137,6 +137,42 @@ def test_an_account_needs_no_guest_token_to_start_a_trip(client: TestClient) -> 
     assert [user_id != "" for _, user_id in _rows(client)] == [True, True]
 
 
+@pytest.mark.parametrize("token", ["bad token", "bad\x01token", "y" * 121], ids=["space", "control", "too-long"])
+def test_a_guest_token_is_not_checked_when_a_bearer_is_sent_with_it(client: TestClient, token: str) -> None:
+    """The account's own token is used whatever guest token the request names, so an odd leftover cannot refuse it."""
+    account = _signup(client)
+    profile = client.get("/api/account/whoami", headers=account).json()["profile_token"]
+    via_header = {**account, "X-Client-Token": token}
+
+    created = client.post("/api/journeys", json={}, headers=via_header)
+    started = client.post("/api/turn/stream", json={"message": "Plan Kyoto"}, headers=via_header)
+
+    assert created.status_code == 200, created.text
+    assert started.status_code == 200, started.text
+    assert [stored for stored, _ in _rows(client)] == [profile, profile]
+    assert all(user_id for _, user_id in _rows(client))
+
+
+def test_a_guest_token_in_the_body_is_not_checked_when_a_bearer_is_sent_with_it(client: TestClient) -> None:
+    account = _signup(client)
+
+    created = client.post("/api/journeys", json={"client_token": "bad token"}, headers=account)
+    started = client.post("/api/turn/stream", json={"message": "Plan Kyoto", "client_token": "日本旅行"}, headers=account)
+
+    assert created.status_code == 200, created.text
+    assert started.status_code == 200, started.text
+    assert all(user_id for _, user_id in _rows(client))
+
+
+def test_another_accounts_profile_token_is_still_refused_next_to_a_bearer(client: TestClient) -> None:
+    account = _signup(client)
+
+    refused = client.post("/api/journeys", json={}, headers={**account, "X-Client-Token": "user:user_someone_else"})
+
+    assert refused.status_code == 401
+    assert _rows(client) == []
+
+
 # -- every token field has the same size cap ---------------------------------------
 
 
