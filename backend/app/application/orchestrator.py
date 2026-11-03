@@ -22,7 +22,7 @@ from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
 from app.application.modification import ModifyPath, plan_shape
 from app.application.planning import PlanPath
-from app.application.router import MODIFY_VERBS, System1Router, language_route, looks_like_question
+from app.application.router import MODIFY_VERBS, System1Router, language_route, looks_like_question, replans_new_dates
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.config import Settings
@@ -353,7 +353,19 @@ class TurnService:
                 and looks_like_question(message)
                 and not re.search(MODIFY_VERBS, message.lower())
             )
-            if plan is not None and plan_shape(message) and not re.search(
+            if plan is not None and replans_new_dates(message, context, plan.summary_for_prompt()):
+                # "Generate again" from the page, after the traveller put other dates in the trip form: the
+                # trip is moved, whatever a model made of the sentence (a new trip would drop the locked stops).
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "replan_dates",
+                        "affected_parts": ["dates"],
+                    }
+                )
+            elif plan is not None and plan_shape(message) and not re.search(
                 r"\b(this|that stop|selected)\b", message.lower()
             ):
                 decision = decision.model_copy(
@@ -933,6 +945,7 @@ def _why_lines(tracer: Any) -> list[str]:
     intent = str(getattr(tracer, "metadata", {}).get("intent") or "")
     known = {
         "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
+        "replan_dates": "The trip details held other dates than the plan, so the trip was moved, not planned again.",
         "scoped_item_action": "A stop was selected, so only that stop could change.",
         "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
         "security_blocklist": "The message was blocked before any planning.",

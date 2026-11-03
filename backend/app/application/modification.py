@@ -19,6 +19,7 @@ from app.application.opening_hours import lines_for
 from app.application.planning import PlanPath
 from app.application.planner import PACE_BUFFER_MINUTES, Planner, _constraints, _pace
 from app.application.prompt_context import plan_outline, trip_slots
+from app.application.router import is_replan_message
 from app.application.toolbox import Toolbox
 from app.application.transfers import refresh_transfers
 from app.application.trip_rules import blocked_dates, travel_windows
@@ -98,6 +99,9 @@ class ModifyPath:
         scope_item_id: str | None = None,
     ) -> tuple[TripPlan, list[dict[str, Any]]]:
         draft = await self._extract(message, plan, context, route_parts)
+        if is_replan_message(message):
+            # The page's "generate again" is about the whole trip, not the stop the traveller has selected.
+            scope_item_id = None
         if scope_item_id and not draft.target_item_id and plan.find_item(scope_item_id):
             # The console's "About: Day 3 · X" chip is a real context signal.
             # "remove this" / "swap it" must resolve to that stop, and a real
@@ -121,7 +125,7 @@ class ModifyPath:
             narrowed = [part for part in affected if part in route_parts or part.startswith("day_")]
             affected = narrowed or route_parts
         if not affected:
-            affected = ["attraction"]
+            affected = ["dates"] if is_replan_message(message) else ["attraction"]
         if re.search(r"\b(hours?|minutes?)\b", message.lower()) and not re.search(
             r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
         ):
@@ -190,7 +194,10 @@ class ModifyPath:
         old_plan = plan
         new_range = context.date_range()
         date_requested = not shape.requested and (
-            "dates" in affected or bool(
+            "dates" in affected
+            # Saving the form and generating again is the traveller asking for the dates the form holds.
+            or is_replan_message(message)
+            or bool(
                 re.search(r"\b(date|dates|day|days|night|nights|extend|shorten|earlier|later|move)\b", message.lower())
             )
         )

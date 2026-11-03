@@ -63,6 +63,27 @@ _TRIP_DETAIL = (
     r"\b(week|weekend|fortnight)\b"
 )
 
+#: What the page sends when the traveller saves the trip form and generates again for a trip that already has a
+#: plan (`generate` in frontend/src/lib/usePathfinder.ts; a test keeps the two in step). It asks to plan again
+#: with the stored details, so a stored date range that differs from the plan's is a request to move the trip.
+REPLAN_MESSAGE = "Re-plan with the updated details."
+
+
+def is_replan_message(message: str) -> bool:
+    """The page's "generate again" message (see REPLAN_MESSAGE)."""
+    return (message or "").strip().rstrip(".").casefold() == REPLAN_MESSAGE.rstrip(".").casefold()
+
+
+def replans_new_dates(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
+    """The page's "generate again" message while the trip form holds other dates than the plan has."""
+    if plan_summary is None or not is_replan_message(message):
+        return False
+    try:
+        form = context.date_range()
+    except ValueError:  # a form range that is not a trip (end before start, too long) asks for nothing
+        return False
+    return form is not None and [form.start.isoformat(), form.end.isoformat()] != list(plan_summary.get("dates") or [])
+
 
 class RuleRouter:
     def route(
@@ -82,9 +103,9 @@ class RuleRouter:
         if display is not None:
             return display.model_copy(update={"missing_slots": missing})
 
-        affected = _affected_parts(lower)
+        affected = ["dates"] if replans_new_dates(text, context, plan_summary) else _affected_parts(lower)
         is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
-        modify_hit = bool(re.search(MODIFY_VERBS, lower))
+        modify_hit = bool(re.search(MODIFY_VERBS, lower)) or is_replan_message(text)
         plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*(day|night)s?\b", lower))
         travel_hit = bool(re.search(r"\b(trip|travel|holiday|vacation|visit|go to|going to)\b", lower))
 
@@ -437,7 +458,7 @@ def rules_decide_alone(
     is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
     command_question = bool(re.match(_COMMAND_QUESTION, lower))
     plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
-    modify_hit = bool(re.search(_WORD_MODIFY, lower))
+    modify_hit = bool(re.search(_WORD_MODIFY, lower)) or is_replan_message(text)
     if decision.intent == Intent.ASK:
         return (
             is_question
