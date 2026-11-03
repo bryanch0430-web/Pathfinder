@@ -73,7 +73,7 @@ Modify reports a change only when one was made.
 - "Make it cheaper", when nothing in the plan has a price, asks whether to replace the stop or keep it. It does not bump the version and it does not invent a "no cheaper hotel" gap.
 - "Change Ocean Park to Disneyland" takes the place after the last "to". Joined words resolve: "oceanpark" is Ocean Park. If that place is already on another day, it is not added twice. The reply names the existing day and time.
 - A meal can be replaced, by its number in the day, by its name, or by the selected chip.
-- An edit that changes nothing does not create a new version. The reply states why. What an edit could not do (for example, that no cheaper verified hotel was returned) is told in the reply and is not kept as a data gap of the plan.
+- An edit that changes nothing does not create a new version. The reply states why.
 
 ### v1.0.1 — 1 November 2026, 20:30 HKT
 
