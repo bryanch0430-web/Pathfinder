@@ -17,14 +17,7 @@ under [`docs/`](docs/); the AI-use declaration is in
 
 ## Version notes
 
-**v1.3.0 — 3 November 2026, 11:55 HKT.** Edits follow what the traveller actually said.
-A named stop or the selected chip is the only row that changes. A question mark is
-answered, not treated as a new trip. A pace or a clock ("one place a day", "no meals",
-"start after 14:00", "at least 3 hours") reshapes the timetable, and a request that
-would erase the trip or run past 21:30 is refused. The map zooms to the stop you
-press and stays pinned on the traveller until you turn that off.
-
-Recent releases, newest first (full detail in [`docs/CHANGELOG.md`](docs/CHANGELOG.md)):
+Recent releases, newest first. The table is only an index. The notes under it are the patch notes. A shorter copy is also in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 | Version | When (HKT) | Headline |
 |---|---|---|
@@ -34,6 +27,63 @@ Recent releases, newest first (full detail in [`docs/CHANGELOG.md`](docs/CHANGEL
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.3.0 — 3 November 2026, 11:55 HKT
+
+This release is about the assistant doing the change that was asked, and not a different one.
+
+**Only the referred row changes.** If the sentence names a stop or a hotel, that name is the target. If it says "this", "switch", or "somewhere else" and a chip is selected ("About: Day 2 · Pakeeza"), the chip is the target. After the edit, every other row is put back: the hotel, the flights, the other days, and the dates. The reply says "Replaced Pakeeza Food Restaurant with …" and then "Everything else is unchanged." It no longer says only "Updated Café Bohème", which hid which row had actually moved. A selected restaurant is never turned into a hotel swap. A hotel more than 40 km from the city is not a candidate.
+
+**A question is answered, not sent back to trip setup.** A message that ends in "?" and does not use a change verb (change, swap, add, remove, …) is an ask, even if it starts with a place name. "Café Bohème TKO is for eating japanese food??" is no longer answered with "I have the trip details. Could you say what you want me to plan or change?" A cuisine question is checked against public pages. If those pages mention the cuisine, the reply quotes the page. If they do not, the reply says the pages do not state it and that Pathfinder will not guess. Asking for Japanese food as a *change* searches for a Japanese restaurant. A café whose text does not mention Japanese, sushi, ramen, or an izakaya is not substituted, and the selected restaurant stays.
+
+**The whole plan can be reshaped, without naming a stop.** These are not single-stop edits:
+
+- How many places a day. "One place each day", "two stops a day", and the same idea in other wording. The limit is 1 to 4. Zero places, "delete the trip", or 5 or more places a day is refused and the plan is not changed.
+- Meals. "No meals", "skip lunch and dinner", "meals not required" removes meal rows. The hotel and the flights stay.
+- When the day starts. "After 14:00", "after 1400", "after 2pm". Every sight is moved to that time or later. A flight is not moved. A start before 08:00 or after 18:00 is refused. "I can't wake up in the morning", with no clock, is read as 11:00.
+- How long a visit lasts. "Spend at least 3 hours at one spot" stretches each sight to at least that long, up to 6 hours. "Spend 3 hours" is time. It is not a request for a cheaper hotel, which is what the word "spend" used to trigger. If the next sight would run past 21:30, that sight is removed and the reply names it. A 3-hour visit that cannot start at the requested time, because 21:30 would be passed, is refused entirely.
+
+**Web pages are references, not prices.** When a section is thin, DeepSeek search runs once. A page counts only if the city is in the title or snippet, the title matches the question (a sight, a hotel, the weather, a flight), and the host is not a video site or a shop. The provider's own score is not used: on a Tokyo query it barely moved and ranked an advertisement first. Grok runs once, and only when no page was relevant. Its text is kept only when it includes a URL. If both time out or return 429, the gap says "Search did not answer in time" and is marked retryable. A relevant page that still does not state a fare, a nightly rate, or a temperature does not get a made-up number.
+
+**The map.** Pressing a stop pans to it and zooms to street level (zoom 15). The camera starts pinned on the traveller token. The control under the clock reads **Pinned**; press it to leave the camera where you put it. While a stop is selected, the pin does not drag the view away.
+
+### v1.2.0 — 1 November 2026, 23:57 HKT
+
+The console stopped producing answers that looked like actions but were not.
+
+- "Who are you?", "are you a real person?", and "which model are you?" are answered immediately, in about 40 ms, with no model call, no router call, and no web search. The reply does not claim to be human. The route reason is `identity`.
+- When a clarification is about what to do next, rather than a missing field, the card offers four real messages: Plan my trip, Make it cheaper, What is on day 1?, What changed? The old Continue button re-sent "Please continue with the current details." and could only loop.
+- The source line `Live · google-places: …` is a label. The whole strip sits on a tinted band, not in the body text of the stop.
+
+### v1.1.0 — 1 November 2026, 23:28 HKT
+
+Questions the itinerary cannot answer are answered from sources, and the selected stop is actually used.
+
+- DeepSeek Search (`POST /v1/tools/search`) is the interactive web source. A measured call returned in about 0.6 s. It is billed at $0.75 per 1,000 successful calls. Grok's Agent Tools search synthesises across many pages but took 13–23 s, so it is off unless `GROK_SEARCH_ENABLED` is set, and then only for synthesis questions.
+- "really?" and "why?" receive the previous exchange. They continue that topic instead of describing the whole itinerary again.
+- "Is it fun?" uses Google Places reviews. Up to three reviews are given to the writer, so the answer is what visitors wrote, not only the one-line editorial summary.
+- Place lookup, web search, and a distance question use the row selected in the console. The distance is that stop's coordinates, not the city centre.
+- The sent message keeps `meta.scope`, for example "Day 1 · Ocean Park". The tag is drawn above the bubble and survives a reload.
+- "How far is this?", "what is nearest?", and "why is there no hotel?" are answered from data already on the plan. A failed hotel or flight lookup names the source error. It does not say only "the plan has no hotel".
+
+### v1.0.2 — 1 November 2026, 22:50 HKT
+
+Modify reports a change only when one was made.
+
+- "Make it cheaper", when nothing in the plan has a price, asks whether to replace the stop or keep it. It does not bump the version and it does not invent a "no cheaper hotel" gap.
+- "Change Ocean Park to Disneyland" takes the place after the last "to". Joined words resolve: "oceanpark" is Ocean Park. If that place is already on another day, it is not added twice. The reply names the existing day and time.
+- A meal can be replaced, by its number in the day, by its name, or by the selected chip.
+- An edit that changes nothing does not create a new version. The reply states why.
+
+### v1.0.1 — 1 November 2026, 20:30 HKT
+
+- The product name is Pathfinder. The old "Pathfinder 30" title was removed from the README, the handoff note, the gap analysis, the API title, `app_name`, and the OpenAPI contract.
+- Browser storage keys moved from `pathfinder30.*` to `pathfinder.*`, with a one-time copy, so a session already in the browser is kept.
+- Fourteen of the eighteen screenshots were retaken for the UI as it stood that evening.
+
+### v1.0.0 — 1 November 2026
+
+First import on branch `pathfinder-v1`. The tree is the FastAPI backend, the React console, the evaluation harness, the OpenAPI contract, and the docs. One path per message: plan, modify, or ask. Four agents gather places, hotels, weather, and flights. A missing source is a gap, not a guessed price.
 
 Known gaps at v1.3.0: flight and hotel sources are unavailable while the SerpApi account is
 out of searches, so budget figures are provisional; price estimates are deliberately not
