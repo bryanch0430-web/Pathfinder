@@ -32,7 +32,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 This release is about the assistant doing the change that was asked, and not a different one.
 
-**Only the referred row changes.** If the sentence names a stop or a hotel, that name is the target. If it says "this", "switch", or "somewhere else" and a chip is selected ("About: Day 2 · Pakeeza"), the chip is the target. After the edit, every other row is put back: the hotel, the flights, the other days, and the dates. The reply says "Replaced Pakeeza Food Restaurant with …" and then "Everything else is unchanged." It no longer says only "Updated Café Bohème", which hid which row had actually moved. A selected restaurant is never turned into a hotel swap. A hotel more than 40 km from the city is not a candidate.
+**Only the referred row changes.** If the sentence names a stop or a hotel, that name is the target. If it says "this", "switch", or "somewhere else" and a chip is selected ("About: Day 2 · Pakeeza"), the chip is the target. After the edit, every other row is put back: the hotel, the flights, the other days, and the dates. The reply says "Replaced Pakeeza Food Restaurant with …" and then "Everything else is unchanged." It no longer says only "Updated Café Bohème", which hid which row had actually moved. A selected restaurant is never turned into a hotel swap. A hotel more than 40 km from the city is not a candidate. A sentence that asks for other dates or another length ("shift the trip by a week", "make it 4 days") is about the whole trip: a name in it or a selected row does not turn it into a one-row edit, the move is a new version, and the hotel you have, with its marks, is kept and priced again.
 
 **A question is answered, not sent back to trip setup.** A message that ends in "?" and does not use a change verb (change, swap, add, remove, …) is an ask, even if it starts with a place name. "Café Bohème TKO is for eating japanese food??" is no longer answered with "I have the trip details. Could you say what you want me to plan or change?" A cuisine question is checked against public pages. If those pages mention the cuisine, the reply quotes the page. If they do not, the reply says the pages do not state it and that Pathfinder will not guess. Asking for Japanese food as a *change* searches for a Japanese restaurant. A café whose text does not mention Japanese, sushi, ramen, or an izakaya is not substituted, and the selected restaurant stays.
 
@@ -403,7 +403,8 @@ drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The comm
 - `weather`: dates outside the 16-day forecast fall back to a three-year archive average,
   labelled `Seasonal`/`stale`. If the archive also has no rows, the gap names both dates
   and both windows. A forecast source that failed (a timeout, a server error) keeps its gap
-  while only the seasonal average fills the dates.
+  while only the seasonal average fills the dates. A source that answers for only some of the
+  trip's days leaves a gap that says how many.
 - `tickets`: a departure city is now a required planning slot, so the assistant asks for
   it instead of leaving a ticket gap. Same-city trips skip flights with a note, not a gap.
   A round trip uses SerpApi's two-step flow (`departure_token`): the outbound and the
