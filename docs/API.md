@@ -34,10 +34,14 @@ a `data_quality.gap` on the plan, not a failed health check.
 | POST | `/api/journeys` | `{client_token}` | `{session, context}` |
 | GET | `/api/journeys/{id}` | — | `{session, context, plan, versions, messages}` |
 | PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id`; `null` leaves a field unchanged | `{context}` |
-| GET | `/api/journeys/{id}/itinerary` | `?version=` optional | `{plan}` |
-| GET | `/api/journeys/{id}/revisions` | — | `{versions}` |
+| GET | `/api/journeys/{id}/itinerary` | `?version=` optional: a version of the session's newest trip (`404` when it has none by that number) | `{plan}` |
+| GET | `/api/journeys/{id}/revisions` | — | `{versions}`: the versions of the session's newest trip, newest first |
 | GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
 | GET | `/api/journeys/{id}/segments` | `?day=YYYY-MM-DD` optional | `{trip_id, version, day, legs}` — real route geometry per leg |
+
+A version is a number inside one trip. Planning again in the same session (`Plan my trip`) starts a new trip at
+version 1, and the session shows that trip: `versions` and `revisions` list its versions only, and `?version=` finds
+them. The versions of the earlier trip are no longer listed or served, so no number is offered twice.
 
 Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
 forecast, fare or stay again and saves the result as the next version. A forecast, fare or stay that

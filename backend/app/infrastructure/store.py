@@ -40,6 +40,10 @@ logger = logging.getLogger(__name__)
 #: Days a share link stays public unless the store is given another lifetime.
 DEFAULT_SHARE_TTL_DAYS = 30
 
+#: The trip a session shows (one placeholder, the session id): the newest, since planning again starts a new
+#: trip at version 1. A rewrite keeps a row's creation time, so rewriting an older trip never brings it back.
+_NEWEST_TRIP = "(SELECT trip_id FROM itineraries WHERE session_id=? ORDER BY created_at DESC, version DESC LIMIT 1)"
+
 #: The schema as it stood when versioned migrations began (migration 1).
 #: Frozen: a later schema change is a new step in MIGRATIONS, never an edit
 #: here, so a fresh file and an upgraded file walk the same path.
@@ -658,30 +662,30 @@ class SQLiteStore:
             raise PlanConflict(f"version {plan.version} of this trip is already saved") from exc
 
     def get_plan(self, session_id: str, version: int | None = None) -> TripPlan | None:
+        """The plan of the session's newest trip: its highest version, or the one numbered ``version``.
+        A version is a number inside one trip, so an older trip of the session is not reached by it."""
         with self._connect() as conn:
             if version is None:
-                # The newest trip of the session (planning again starts a new one at version 1), and
-                # of that trip the highest version: the number decides, never a timestamp.
+                # The highest version of the newest trip: the number decides, never a timestamp.
                 row = conn.execute(
-                    "SELECT data FROM itineraries WHERE session_id=? AND trip_id=("
-                    "  SELECT trip_id FROM itineraries WHERE session_id=? ORDER BY created_at DESC, version DESC LIMIT 1"
-                    ") ORDER BY version DESC LIMIT 1",
+                    f"SELECT data FROM itineraries WHERE session_id=? AND trip_id={_NEWEST_TRIP} "
+                    "ORDER BY version DESC LIMIT 1",
                     (session_id, session_id),
                 ).fetchone()
             else:
                 row = conn.execute(
-                    "SELECT data FROM itineraries WHERE session_id=? AND version=? ORDER BY created_at DESC LIMIT 1",
-                    (session_id, version),
+                    f"SELECT data FROM itineraries WHERE session_id=? AND version=? AND trip_id={_NEWEST_TRIP}",
+                    (session_id, version, session_id),
                 ).fetchone()
         return TripPlan.model_validate_json(row["data"]) if row else None
 
     def list_versions(self, session_id: str) -> list[dict[str, Any]]:
+        """The versions of the session's newest trip, newest first: the ones ``get_plan`` finds by number."""
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT trip_id, version, change_summary, created_at, data FROM itineraries AS plan WHERE session_id=? "
-                "ORDER BY (SELECT MAX(created_at) FROM itineraries WHERE session_id=plan.session_id AND trip_id=plan.trip_id) DESC, "
-                "trip_id, version DESC",
-                (session_id,),
+                "SELECT trip_id, version, change_summary, created_at, data FROM itineraries "
+                f"WHERE session_id=? AND trip_id={_NEWEST_TRIP} ORDER BY version DESC",
+                (session_id, session_id),
             ).fetchall()
         out = []
         for row in rows:
