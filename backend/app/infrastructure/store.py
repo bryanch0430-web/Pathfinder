@@ -766,6 +766,17 @@ class SQLiteStore:
                 (request_id, tool, _dump(args), status, latency_ms, error_class, source, _now()),
             )
 
+    def tool_calls(self, request_id: str | None = None) -> list[dict[str, Any]]:
+        """The tool log, oldest first; one request's spans when `request_id` is given."""
+        query = "SELECT request_id, tool, status, latency_ms, error_class, source FROM tool_spans"
+        params: tuple[Any, ...] = ()
+        if request_id is not None:
+            query += " WHERE request_id=?"
+            params = (request_id,)
+        with self._connect() as conn:
+            rows = conn.execute(query + " ORDER BY id", params).fetchall()
+        return [dict(row) for row in rows]
+
     def log_injection(self, category: str, severity: str) -> None:
         with self._lock, self._connect() as conn:
             conn.execute(

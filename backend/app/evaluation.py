@@ -54,6 +54,7 @@ from app.eval_checks import (
     render_markdown,
     score_plan,
 )
+from app.eval_metering import RunLedger
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.judge import Judge
 from app.infrastructure.observability import NoopTracer
@@ -68,7 +69,10 @@ DATASETS = {
     "hongkong": "hongkong.json",
     "japan": "japan.json",
     "travelplanner": "travelplanner.json",
+    "efficiency": "efficiency.json",
 }
+# Paired cost comparisons (Proposal TC-10), run by app.eval_efficiency.
+COST_DATASETS = frozenset({"efficiency"})
 
 
 class EvalService:
@@ -144,20 +148,34 @@ class EvalService:
         started = time.perf_counter()
         results: list[EvalCaseResult] = []
         latencies: list[int] = []
+        # Per-run account of provider calls, logged tool spans and writer tokens.
+        ledger = RunLedger()
+        suite_metrics: list[EvalMetric] = []
+        snapshot: dict = {}
 
-        if meta.id == "routing":
-            for case in cases:
-                results.append(self._routing_case(case))
-        elif meta.id == "injection":
-            results.extend(await self._injection_cases(cases))
-        else:
-            for case in cases:
-                case_started = time.perf_counter()
-                result = await self._planning_case(case)
-                results.append(result)
-                latencies.append(int((time.perf_counter() - case_started) * 1000))
+        try:
+            if meta.id == "routing":
+                for case in cases:
+                    results.append(self._routing_case(case))
+            elif meta.id == "injection":
+                results.extend(await self._injection_cases(cases))
+            elif meta.id in COST_DATASETS:
+                from app.eval_efficiency import run_cost_suite
 
-        metrics = self._metrics(meta.id, results, latencies)
+                report = await run_cost_suite(meta.id, cases, self.settings, ledger)
+                results, suite_metrics, snapshot = report.results, report.metrics, report.snapshot
+            else:
+                for case in cases:
+                    case_started = time.perf_counter()
+                    result = await self._planning_case(case, ledger=ledger)
+                    results.append(result)
+                    latencies.append(int((time.perf_counter() - case_started) * 1000))
+            if ledger.made_total:
+                suite_metrics.append(ledger.coverage_metric())
+        finally:
+            ledger.close()
+
+        metrics = self._metrics(meta.id, results, latencies) + suite_metrics
         previous = self._previous_run(meta.id)
         if previous:
             baseline = {metric.key: metric.value for metric in previous.metrics}
@@ -183,8 +201,9 @@ class EvalService:
                     "preplan_budget_seconds": self.settings.preplan_budget_seconds,
                     "max_repairs": self.settings.max_repairs,
                 },
+                **snapshot,
             },
-            token_usage=0,
+            token_usage=ledger.tokens,
             latency_ms=int((time.perf_counter() - started) * 1000),
             finished_at=utcnow(),
         )
@@ -226,7 +245,7 @@ class EvalService:
 
         return await score_probes(cases, self.settings)
 
-    async def _planning_case(self, case: EvalCase) -> EvalCaseResult:
+    async def _planning_case(self, case: EvalCase, ledger: RunLedger | None = None) -> EvalCaseResult:
         settings = self.settings.model_copy(
             update={"preplan_budget_seconds": 20, "agent_timeout_seconds": 10, "enable_flights": True}
         )
@@ -234,6 +253,8 @@ class EvalService:
         registry = SandboxRegistry(
             settings, case.destination or "Kyoto", fault=case.fault, fault_detail=case.fault_detail, start=start
         )
+        if ledger is not None:
+            ledger.instrument(registry)  # Proposal TC-12: count every provider call
         gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
         planner = Planner(gateway, settings, registry.fx)
         plan_path = PlanPath(planner=planner, registry=registry, settings=settings)
@@ -254,6 +275,8 @@ class EvalService:
         # The app's Toolbox, logging into this run's tool log (Proposal TC-09, p4).
         log = ToolLog()
         toolbox = RecordingToolbox(log, path="plan", request_id="eval")
+        if ledger is not None:
+            ledger.track(log)
         errors: list[str] = []
         plan = None
         try:
@@ -282,7 +305,10 @@ class EvalService:
         summary = ""
         if plan:
             initial = plan
-            edit_ok = await self._edit_check(plan, context, settings, registry, gateway, plan_path)
+            edit_ok = await self._edit_check(
+                plan, context, settings, registry, gateway, plan_path,
+                tool_log=ledger.store if ledger is not None else None,
+            )
             if case.fault == "venue_closure":
                 plan = await self._reroute_closure(case, plan, context, settings, registry, gateway, plan_path, log)
             checks = validate_plan(plan, settings)
@@ -303,6 +329,8 @@ class EvalService:
                 scores["error_recovery"] = 1.0 if report.disruption and report.disruption["handled"] else 0.0
             if not edit_ok:
                 checks.append("edit path did not preserve unaffected items")
+        if ledger is not None:
+            ledger.tokens += gateway.prompt_tokens + gateway.completion_tokens
 
         verdict = None
         if plan is not None:
@@ -361,7 +389,7 @@ class EvalService:
         except Exception:
             return plan
 
-    async def _edit_check(self, plan, context, settings, registry, gateway, plan_path) -> bool:
+    async def _edit_check(self, plan, context, settings, registry, gateway, plan_path, tool_log=None) -> bool:
         try:
             modify = ModifyPath(planner=plan_path.planner, plan_path=plan_path, settings=settings, gateway=gateway)
             updated, diff = await modify.run(
@@ -369,7 +397,7 @@ class EvalService:
                 context=context,
                 message="Swap the hotel for the other option, keep everything else.",
                 route_parts=["hotel"],
-                toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="eval"),
+                toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=tool_log, request_id="eval"),
                 tracer=NoopTracer(),
                 emit=lambda *_: None,
             )
