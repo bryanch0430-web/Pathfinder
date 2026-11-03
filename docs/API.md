@@ -48,7 +48,8 @@ sign-in move every guest session made with the guest token they present (`client
 account, so the trips of the browser follow the traveller; `session_id` in the request is no
 longer needed. `attach` moves one session and needs the token it was created with. A `user:`
 token and an empty token move nothing. `PATCH` recomputes `days` from the date range (or
-`end_date` from `days`).
+`end_date` from `days`). A `PATCH` made while a message is being understood is kept: the turn saves only
+what the message changed, on top of the form as it is stored then.
 
 A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is fine). `POST /api/journeys`
 and `POST /api/turn/stream` without a `session_id` take it from `client_token`, else from the
@@ -58,6 +59,11 @@ The server does not issue guest tokens and cannot
 tell a strong one from a weak one: whoever sends the same string opens the same trips, so use a
 random value (the page uses a UUID), never `undefined` or a name. A trip made with a valid bearer
 belongs to the account and is stored under its `user:<id>` token, whatever guest token the request names.
+
+Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
+forecast, fare or stay again and saves the result as the next version. While a message for the trip
+is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
+`plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first.
 
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.
@@ -127,7 +133,7 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | POST | `/api/journeys/{id}/rating` | `{useful, stars?, reason_code?, client_token?}` | `{feedback, preferences_added}` |
-| DELETE | `/api/journeys/{id}` | — | deletes turns, itineraries, state and the journey (Scrap plan) |
+| DELETE | `/api/journeys/{id}` | — | deletes turns, itineraries, state and the journey (Scrap plan); a turn still running on it does not bring it back, what it saves after the delete is removed when it ends |
 | DELETE | `/api/journeys/{id}/turns` | — | `{deleted, session_id}`; itinerary is kept |
 | POST | `/api/journeys/{id}/share` | — | `{slug,url}`; public read-only redacted trip |
 | GET | `/s/{slug}` | — | public HTML trip |
