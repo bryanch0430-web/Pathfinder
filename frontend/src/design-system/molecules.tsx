@@ -204,6 +204,11 @@ export function TripContextForm({
   return (
     <form
       className="pf-context-form"
+      // The Enter that confirms an input-method candidate is not a submit. WebKit sends it after the composition
+      // has ended, when the browser would otherwise submit the form (and plan a trip from a half-filled form).
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && isImeKey(event)) event.preventDefault();
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
