@@ -43,6 +43,7 @@ from app.domain.models import (
     WeatherDay,
     utcnow,
 )
+from app.domain.place_names import trusted_names
 from app.domain.ports import Tracer
 from app.infrastructure.http import haversine_km
 from app.security import fence_user_message
@@ -1412,6 +1413,7 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str) -> list[s
             data_status=DataStatus.OK,
             fetched_at=utcnow(),
             tags=(row.get("tags") or [])[:4],
+            names=trusted_names(row.get("names")),
         )
         day.items.append(item)
         day.items.sort(key=lambda entry: entry.start)

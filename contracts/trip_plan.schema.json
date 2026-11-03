@@ -784,6 +784,13 @@
             }
           ],
           "default": null
+        },
+        "names": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Names",
+          "type": "object"
         }
       },
       "required": [

@@ -8,6 +8,7 @@ import re
 from app.config import Settings
 from app.domain.errors import ProviderNoData
 from app.domain.models import GeoPoint, PlaceCandidate, SourceRef, utcnow
+from app.domain.place_names import osm_names
 from app.infrastructure.http import haversine_km, request_json
 
 GOOGLE_FIELD_MASK = ",".join(
@@ -136,6 +137,12 @@ class GooglePlacesSource:
                     ],
                     source_refs=refs,
                     tags=types[:6],
+                    # Asked for in English; Google says which language the name is in.
+                    names=(
+                        {"en": display}
+                        if str((row.get("displayName") or {}).get("languageCode") or "").startswith("en")
+                        else {}
+                    ),
                 )
             )
         return out[:limit]
@@ -331,6 +338,7 @@ class NominatimPlacesSource:
                             and str(value).strip() != name
                         }
                     )[:12],
+                    names=osm_names(row.get("namedetails")),
                 )
             )
             if len(out) >= limit:

@@ -60,6 +60,7 @@ from app.domain.models import (
     WeatherDay,
     utcnow,
 )
+from app.domain.place_names import trusted_names
 from app.infrastructure.http import haversine_km
 from app.infrastructure.providers.fx import FxService
 from app.infrastructure.providers.routes import (  # noqa: F401  (re-exported for the TC-07 check)
@@ -1119,6 +1120,7 @@ def _schedule(
                 opening_hours=hours_lines,
                 hours_status="stated" if hours_lines else "unknown",
                 transfer=moved_in,
+                names=trusted_names(row.get("names")),
             )
         )
         state["row"], state["end"] = row, end
@@ -1170,6 +1172,7 @@ def _meal_item(
         opening_hours=hours_lines,
         hours_status="stated" if hours_lines else "unknown",
         transfer=transfer,
+        names=trusted_names(row.get("names")),
     )
 
 

@@ -762,6 +762,8 @@ def _merge_places(places: list[PlaceCandidate]) -> list[PlaceCandidate]:
         for alias in [place.name, *place.aliases]:
             if alias and alias != match.name and alias not in match.aliases:
                 match.aliases.append(alias)
+        for locale, localized in place.names.items():
+            match.names.setdefault(locale, localized)
         if place.geo:
             points[id(match)].append(place.geo)
     for place in merged:

@@ -197,6 +197,9 @@ class PlanItem(BaseModel):
     opening_hours: list[str] = Field(default_factory=list)
     hours_status: Literal["stated", "unknown"] = "unknown"
     transfer: TransferLeg | None = None
+    #: Localized names a place source supplied ("en", "zh-Hant"); display data only,
+    #: never written by the model. Empty when no source named the place that way.
+    names: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _times(self) -> "PlanItem":
@@ -620,6 +623,8 @@ class PlaceCandidate(BaseModel):
     #: other names the source knows the place by ("Lotte World" for 롯데월드);
     #: also used to merge duplicates across scripts (伏見稲荷大社 / Fushimi Inari Taisha).
     aliases: list[str] = Field(default_factory=list)
+    #: the source's own localized names, keyed "en" / "zh-Hant" (OSM name:en, name:zh-HK, ...).
+    names: dict[str, str] = Field(default_factory=dict)
 
 
 class HotelCandidate(BaseModel):
