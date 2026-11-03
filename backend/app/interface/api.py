@@ -146,11 +146,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         auth=SlidingWindowLimiter(settings.rate_limit_auth_per_minute),
         ai=SlidingWindowLimiter(settings.rate_limit_ai_per_minute),
         create=SlidingWindowLimiter(settings.rate_limit_create_per_minute),
+        lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     limit_ai = Depends(rate_limit("ai", "Too many planning requests."))
-    # Charged inside the route once the request is known to make something, so a refused one costs nothing.
+    # These two are charged inside the route, once the request is known to do its work, so one that is
+    # refused (401, 404, 422) costs nothing.
     charge_create = rate_limit("create", "Too many new trips or share links.")
+    charge_lookup = rate_limit("lookup", "Too many place or handbook look-ups.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -353,6 +356,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         limit: int = Query(default=5, ge=1, le=10),
     ) -> dict[str, Any]:
         """Destination autocomplete (Places API New). Needs a bearer or a client token; no secrets returned."""
+        await charge_lookup(request)
         c = container(request)
         provider = c.registry.autocomplete
         if provider is None or not getattr(provider, "available", False):
@@ -365,11 +369,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/handbook", dependencies=[Depends(require_caller)])
     async def guides(
+        request: Request,
         destination: str = Query(min_length=2, max_length=80),
         q: str = Query(default="", max_length=200),
         limit: int = Query(default=3, ge=1, le=6),
         rerank: bool = Query(default=False),
     ) -> dict[str, Any]:
+        await charge_lookup(request)
         items, retrieval = await asyncio.to_thread(retrieve_hybrid, destination, q, limit, rerank)
         return {
             "items": items,

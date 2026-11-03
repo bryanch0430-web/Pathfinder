@@ -253,3 +253,58 @@ def test_default_creation_limit_is_sixty_per_minute(client: TestClient) -> None:
 def test_creation_limit_zero_turns_it_off(settings: Settings) -> None:
     with _create_limit(settings, 0) as scoped:
         assert {scoped.post("/api/journeys", json={"client_token": f"g-{n}"}).status_code for n in range(80)} == {200}
+
+
+# -- place suggestions and the handbook ----------------------------------------------
+
+
+def _lookup_limit(settings: Settings, limit: int):
+    return TestClient(create_app(settings.model_copy(update={"rate_limit_lookup_per_minute": limit})))
+
+
+def test_a_fresh_header_every_call_does_not_reset_the_lookup_budget(settings: Settings) -> None:
+    """The caller's identity is a string it makes up, so the budget belongs to the address."""
+    with _lookup_limit(settings, 3) as scoped:
+        statuses = []
+        for number in range(6):
+            route, params = (
+                ("/api/places/suggest", {"q": f"kyoto{number}"})
+                if number % 2 == 0
+                else ("/api/handbook", {"destination": "Kyoto"})
+            )
+            response = scoped.get(route, params=params, headers={"X-Client-Token": f"fresh-{number}"})
+            statuses.append(response.status_code)
+            last = response
+
+    assert statuses == [200, 200, 200, 429, 429, 429]  # both routes draw on one budget
+    assert int(last.headers["Retry-After"]) >= 1 and set(last.json()) == {"detail"}
+
+
+def test_calls_without_an_identity_do_not_use_the_lookup_budget(settings: Settings) -> None:
+    with _lookup_limit(settings, 2) as scoped:
+        anonymous = [scoped.get("/api/places/suggest", params={"q": "kyoto"}).status_code for _ in range(8)]
+        too_short = [
+            scoped.get("/api/places/suggest", params={"q": "ky"}, headers={"X-Client-Token": "guest-l"}).status_code
+            for _ in range(8)
+        ]
+        identified = [
+            scoped.get("/api/places/suggest", params={"q": "kyoto"}, headers={"X-Client-Token": "guest-l"}).status_code
+            for _ in range(3)
+        ]
+
+    assert anonymous == [401] * 8 and too_short == [422] * 8
+    assert identified == [200, 200, 429]
+
+
+def test_default_lookup_limit_is_sixty_per_minute(client: TestClient) -> None:
+    guest = {"X-Client-Token": "guest-lookup"}
+
+    statuses = [client.get("/api/places/suggest", params={"q": "kyoto"}, headers=guest).status_code for _ in range(61)]
+
+    assert statuses == [200] * 60 + [429]
+
+
+def test_lookup_limit_zero_turns_it_off(settings: Settings) -> None:
+    with _lookup_limit(settings, 0) as scoped:
+        guest = {"X-Client-Token": "guest-lookup"}
+        assert {scoped.get("/api/places/suggest", params={"q": "kyoto"}, headers=guest).status_code for _ in range(80)} == {200}
