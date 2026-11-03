@@ -764,6 +764,13 @@ def test_a_form_range_that_is_not_a_trip_is_refused_for_a_date_request_and_ignor
     assert updated.hotels[0].name != plan.hotels[0].name
 
 
+def _past(plan: TripPlan) -> None:
+    """A plan that already carries the warning of an earlier move into the past."""
+    from app.application.modification import PAST_DATES, _gap
+
+    plan.data_quality.gaps.append(_gap("dates", PAST_DATES))
+
+
 def test_a_move_to_dates_in_the_past_is_made_with_a_warning(settings: Settings) -> None:
     long_ago = (date.today() - timedelta(days=400), date.today() - timedelta(days=398))
 
@@ -773,6 +780,11 @@ def test_a_move_to_dates_in_the_past_is_made_with_a_warning(settings: Settings) 
     assert [gap.message for gap in updated.data_quality.gaps if gap.section == "dates"] == [
         "The new dates are in the past."
     ]
+    # moving on to dates that are not past takes the warning away again
+    _, later, _ = _modify(
+        settings, "move the trip a week later", ["dates"], new_range=WEEK_LATER, prepare=lambda plan: _past(plan)
+    )
+    assert not [gap for gap in later.data_quality.gaps if gap.section == "dates"]
     # and the same when the trip also changes length
     longer = (long_ago[0], long_ago[0] + timedelta(days=4))
     _, rebuilt, _ = _modify(settings, "make it 5 days", ["dates"], new_range=longer)

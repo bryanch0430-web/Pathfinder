@@ -133,7 +133,8 @@ class ModifyPath:
         if dates_move or is_replan_message(message):
             # A request for the whole trip is not about the stop the traveller has selected.
             scope_item_id = None
-            draft.is_question = False if dates_move else draft.is_question
+        if dates_move:
+            draft.is_question = False
         if scope_item_id and not draft.target_item_id and plan.find_item(scope_item_id):
             # The console's "About: Day 3 · X" chip is a real context signal.
             # "remove this" / "swap it" must resolve to that stop, and a real
@@ -338,6 +339,8 @@ class ModifyPath:
                 if not any(known.section == gap.section and known.message == gap.message for known in updated.data_quality.gaps):
                     updated.data_quality.gaps.append(gap)
         if date_changed and new_range:
+            # What the plan said about its earlier dates (that they were past) is not said of the new ones.
+            updated.data_quality.gaps = [gap for gap in updated.data_quality.gaps if gap.section != "dates"]
             if new_range.start < date.today():
                 updated.data_quality.gaps.append(_gap("dates", PAST_DATES))
             updated.dates = new_range
