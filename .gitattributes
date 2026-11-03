@@ -1,0 +1,4 @@
+# Evaluation fixtures and the frozen split manifest are hashed and compared
+# byte for byte, so keep them LF on every checkout, Windows included.
+backend/eval/fixtures/** text eol=lf
+backend/eval/splits/** text eol=lf
