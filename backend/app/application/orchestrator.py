@@ -55,6 +55,8 @@ logger = logging.getLogger(__name__)
 SOURCE_FAILED = "A data source failed. Your plan was not changed."
 TURN_FAILED = "Something went wrong while handling this turn. You can retry."
 PLAN_CONFLICT = "Another change to this trip was still running. Please retry."
+#: How long a turn waits for a cancelled path to unwind before it goes on without it.
+SETTLE_GRACE_SECONDS = 3.0
 TOOL_LIMIT = "This request reached its limit of data lookups and was stopped. Please ask for a smaller change."
 BLOCKED = "This request was stopped by a safety check."
 
@@ -856,11 +858,20 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
 async def _settle(task: asyncio.Task) -> None:
     """Cancel a path task the turn stopped waiting for (deadline, disconnect) and let it unwind.
 
-    A no-op when the task already finished.
+    A no-op when the task already finished. A path that has not stopped after the grace period is
+    left to end on its own, so it cannot keep the trip's lock; what it returns is never used.
     """
     if not task.done():
         task.cancel()
-        await asyncio.wait({task})
+        await asyncio.wait({task}, timeout=SETTLE_GRACE_SECONDS)
+        if not task.done():
+            logger.warning("a path did not stop within %.0f s of cancellation; the turn ends without it", SETTLE_GRACE_SECONDS)
+            task.add_done_callback(_mark_seen)
+            return
+    _mark_seen(task)
+
+
+def _mark_seen(task: asyncio.Task) -> None:
     if not task.cancelled():
         task.exception()  # mark any failure as seen; the turn already reported or abandoned it
 

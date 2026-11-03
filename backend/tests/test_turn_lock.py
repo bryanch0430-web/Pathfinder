@@ -12,10 +12,12 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 
+import app.application.orchestrator as orchestrator
 from app.config import Settings
 from app.domain.models import EvalCase
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
+from app.interface.sse import KEEPALIVE, paced
 
 SWAP_HOTEL = "Swap the hotel for the other option."
 
@@ -142,5 +144,50 @@ def test_closing_a_turn_while_its_edit_path_works_stops_the_path(quick_settings:
 
         assert stopped.is_set(), "the path went on working after the turn was closed"
         assert not turns.session_busy(scene.session_id)
+
+    _run(quick_settings, scenario)
+
+
+# -- CONC-G11: a path that will not stop -------------------------------------
+
+
+def test_a_path_that_ignores_cancellation_does_not_hold_the_trip_after_a_disconnect(
+    quick_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(orchestrator, "SETTLE_GRACE_SECONDS", 0.05)
+
+    async def scenario(scene: Scene) -> None:
+        turns = scene.rig.turns
+        original = turns.modify_path.run
+        released = asyncio.Event()
+        entered = asyncio.Event()
+
+        async def stubborn(**kwargs: Any):
+            entered.set()
+            while not released.is_set():
+                try:
+                    await released.wait()
+                except asyncio.CancelledError:
+                    pass  # a path that swallows its cancellation
+            return await original(**kwargs)
+
+        turns.modify_path.run = stubborn
+        events = paced(
+            turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL), keepalive_seconds=0.05, deadline_seconds=60
+        )
+        try:
+            async for item in events:
+                if item is KEEPALIVE:
+                    break
+            assert entered.is_set()
+
+            await asyncio.wait_for(events.aclose(), 4)  # the stream is closed: the client went away
+
+            assert not turns.session_busy(scene.session_id), "the lock is still held by the path that will not stop"
+            turns.modify_path.run = original
+            assert not _errors(await asyncio.wait_for(scene.turn(), 30))
+        finally:
+            released.set()  # let the abandoned path end
+        await asyncio.sleep(0)
 
     _run(quick_settings, scenario)
