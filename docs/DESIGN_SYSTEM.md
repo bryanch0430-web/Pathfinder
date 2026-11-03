@@ -208,7 +208,7 @@ App.tsx
 - The focus ring is a 2 px info-blue outline with 2 px offset, visible on paper and white.
 - Icon-only controls always carry `aria-label` and `title`.
 - Tabs use `role="tablist"` / `role="tab"` / `aria-selected`; day strip does the same.
-- Dialogs are labelled, close on Escape, and lock background scroll.
+- Dialogs and drawers are named by their title, take focus when they open, keep Tab inside, close on Escape, give the focus back to what opened them, and lock background scroll.
 - Colour is never the only signal: status pills pair a dot with text; deltas pair sign,
   colour and value.
 - The storybook addon-a11y is enabled for component review.

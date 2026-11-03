@@ -70,6 +70,9 @@ Rules:
 - live agent chips, route/progress events;
 - canonical refresh after `done` (server messages, versions, plan);
 - item selection, version switching, feedback.
+- what a failed call is told to the traveller (`src/lib/failure.ts`): one of the page's own messages, kept as a
+  key so a language switch translates it, or the server's own `detail` sentence; never an error page or an
+  exception's text.
 
 `src/App.tsx` is the composition: header + `PlannerTemplate` + pages. The evaluation,
 saved-trips and settings pages fetch their own read-only data.
