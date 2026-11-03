@@ -60,7 +60,7 @@ from app.domain.models import (
     WeatherDay,
     utcnow,
 )
-from app.domain.place_names import trusted_names
+from app.domain.place_names import display_name, trusted_names
 from app.infrastructure.http import haversine_km
 from app.infrastructure.providers.fx import FxService
 from app.infrastructure.providers.routes import (  # noqa: F401  (re-exported for the TC-07 check)
@@ -252,7 +252,8 @@ class Planner:
                 title = draft.day_titles[index].strip()
             if not title:
                 if day_places:
-                    title = f"{day_places[0]['name']} and nearby stops"
+                    first = day_places[0]
+                    title = f"{display_name(first['name'], trusted_names(first.get('names')), 'en')} and nearby stops"
                 elif window is not None:
                     title = f"Travel day in {context.destination}"
                 else:

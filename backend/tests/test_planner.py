@@ -253,3 +253,26 @@ def test_a_single_stop_day_is_rebalanced(settings: Settings, offline_gateway: LL
     counts = [len(assignment[index]) for index in range(4)]
     assert min(counts) >= 2
     assert sum(counts) == 9
+
+
+def test_generated_day_title_uses_the_trusted_english_name(settings: Settings, offline_gateway: LLMGateway) -> None:
+    """A Korean stop with a trusted English name must not put Hangul in an English day title."""
+    start = date.today() + timedelta(days=30)
+    agents = _agents()
+    for place in agents["attraction"].payload["places"]:
+        place["names"] = {"en": place["name"] + " (English)"}
+        place["name"] = "환구단 " + place["id"]
+    context = TripContext(session_id="s", destination="Seoul", start_date=start, end_date=start, party_size=2)
+    plan = asyncio.run(
+        Planner(offline_gateway, settings, FxService()).compose(
+            session_id="s",
+            context=context,
+            destination=GeoLocation(name="Seoul", geo=GeoPoint(lat=35.0, lng=135.0)),
+            date_range=DateRange(start=start, end=start),
+            results=agents,
+            memory_summaries=[],
+        )
+    )
+    title = plan.days[0].title
+    assert title.endswith(" and nearby stops"), title
+    assert "환구단" not in title and "(English)" in title
