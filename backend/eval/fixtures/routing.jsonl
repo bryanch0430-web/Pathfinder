@@ -1,84 +1,84 @@
-{"id":"r01","input":"Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD","expected_intent":"plan","destination":"Kyoto","split":"dev"}
-{"id":"r02","input":"I want to visit Tokyo for a week with my partner","expected_intent":"plan","destination":"Tokyo","split":"dev"}
-{"id":"r03","input":"Can you build an itinerary for Hong Kong, 3 days, 2 travellers?","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
-{"id":"r04","input":"What is the weather in Kyoto on 12 April?","expected_intent":"ask","destination":"Kyoto","split":"dev"}
-{"id":"r05","input":"Which hotel did you pick and why?","expected_intent":"ask","destination":"Tokyo","split":"dev"}
-{"id":"r06","input":"How much is the flight?","expected_intent":"ask","destination":"Osaka","split":"heldout"}
-{"id":"r07","input":"Swap the hotel for something boutique","expected_intent":"modify","destination":"Kyoto","split":"dev"}
-{"id":"r08","input":"Move day 2 to the afternoon and keep the rest","expected_intent":"modify","destination":"Tokyo","split":"dev"}
-{"id":"r09","input":"Make the budget 3000 USD instead","expected_intent":"modify","destination":"Osaka","split":"dev"}
-{"id":"r10","input":"Add a museum on the last day","expected_intent":"modify","destination":"Hong Kong","split":"heldout"}
-{"id":"r11","input":"Hmm","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
-{"id":"r12","input":"What about it?","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
-{"id":"r13","input":"Plan something nice","expected_intent":"unclear","destination":"Osaka","split":"dev"}
-{"id":"r14","input":"I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY","expected_intent":"plan","destination":"Osaka","split":"dev"}
-{"id":"r15","input":"Replace the second day's temple with a park","expected_intent":"modify","destination":"Kyoto","split":"dev"}
-{"id":"r16","input":"Is the hotel near the train station?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
-{"id":"r17","input":"What time does the flight leave?","expected_intent":"ask","destination":"Tokyo","split":"heldout"}
-{"id":"r18","input":"Change the dates to the first week of May","expected_intent":"modify","destination":"Tokyo","split":"dev"}
-{"id":"r19","input":"Surprise me","expected_intent":"unclear","destination":"Hong Kong","split":"dev"}
-{"id":"r20","input":"Help","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
-{"id":"r21","input":"Plan a new trip: 4 days in Osaka for a family of four in July","expected_intent":"plan","destination":"Osaka","split":"dev"}
-{"id":"r22","input":"Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels","expected_intent":"plan","destination":"Tokyo","split":"dev"}
-{"id":"r23","input":"We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
-{"id":"r24","input":"Organise a 3-day food trip to Osaka for me and my sister in November","expected_intent":"plan","destination":"Osaka","split":"dev"}
-{"id":"r25","input":"Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY","expected_intent":"plan","destination":"Kyoto","split":"heldout"}
-{"id":"r26","input":"Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit","expected_intent":"plan","destination":"Kyoto","split":"dev"}
-{"id":"r27","input":"I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku","expected_intent":"plan","destination":"Tokyo","split":"heldout"}
-{"id":"r28","input":"New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
-{"id":"r29","input":"Help me plan two days in Hong Kong for a school group of 10 students","expected_intent":"plan","destination":"Hong Kong","split":"heldout"}
-{"id":"r30","input":"Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March","expected_intent":"plan","destination":"Osaka","split":"dev"}
-{"id":"r31","input":"I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total","expected_intent":"plan","destination":"Tokyo","split":"heldout"}
-{"id":"r32","input":"Let's plan another trip, this time to Kyoto for three nights with my parents","expected_intent":"plan","destination":"Kyoto","split":"heldout"}
-{"id":"r33","input":"Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
-{"id":"r34","input":"Plan me a weekend in Osaka","expected_intent":"plan","destination":"Osaka","split":"heldout"}
-{"id":"r35","input":"Going to Tokyo for 10 days in spring with my wife, we love art and ramen","expected_intent":"plan","destination":"Tokyo","split":"dev"}
-{"id":"r36","input":"Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible","expected_intent":"plan","destination":"Kyoto","split":"dev"}
-{"id":"r37","input":"Drop the teamLab visit, we've been already","expected_intent":"modify","destination":"Tokyo","split":"dev"}
-{"id":"r38","input":"Can you swap day 1 and day 3?","expected_intent":"modify","destination":"Osaka","split":"dev"}
-{"id":"r39","input":"Upgrade the hotel to something with a view of the harbour","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
-{"id":"r40","input":"Remove Fushimi Inari, my knees won't handle the climb","expected_intent":"modify","destination":"Kyoto","split":"heldout"}
-{"id":"r41","input":"Shorten the trip to 3 days and keep the best stops","expected_intent":"modify","destination":"Osaka","split":"dev"}
-{"id":"r42","input":"Add a dim sum lunch on day 2","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
-{"id":"r43","input":"Switch the flight to an evening departure","expected_intent":"modify","destination":"Tokyo","split":"dev"}
-{"id":"r44","input":"I'd rather not walk so much on the second day","expected_intent":"modify","destination":"Kyoto","split":"dev"}
-{"id":"r45","input":"That hotel is too expensive, find one under 150 USD a night","expected_intent":"modify","destination":"Osaka","split":"dev"}
-{"id":"r46","input":"Put a rest afternoon after the Peak hike","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
-{"id":"r47","input":"Extend the stay by one night","expected_intent":"modify","destination":"Tokyo","split":"heldout"}
-{"id":"r48","input":"Make it a slower pace with fewer temples","expected_intent":"modify","destination":"Kyoto","split":"heldout"}
-{"id":"r49","input":"Cancel the day trip to Nara and stay in Osaka instead","expected_intent":"modify","destination":"Osaka","split":"heldout"}
-{"id":"r50","input":"What if we did Lantau on day 3 instead of day 1?","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
-{"id":"r51","input":"How far is Kiyomizu-dera from the hotel?","expected_intent":"ask","destination":"Kyoto","split":"dev"}
-{"id":"r52","input":"Is Senso-ji open early in the morning?","expected_intent":"ask","destination":"Tokyo","split":"dev"}
-{"id":"r53","input":"What's the total cost so far?","expected_intent":"ask","destination":"Osaka","split":"dev"}
-{"id":"r54","input":"Do I need to book the Peak Tram in advance?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
-{"id":"r55","input":"Will it rain on day 3","expected_intent":"ask","destination":"Kyoto","split":"dev"}
-{"id":"r56","input":"Tell me more about Dotonbori","expected_intent":"ask","destination":"Osaka","split":"dev"}
-{"id":"r57","input":"how long is the walk between the two temples on day 2","expected_intent":"ask","destination":"Kyoto","split":"dev"}
-{"id":"r58","input":"Which day has the most walking?","expected_intent":"ask","destination":"Tokyo","split":"dev"}
-{"id":"r59","input":"Is the Star Ferry included in the budget?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
-{"id":"r60","input":"Can I pay with an Octopus card at the night market?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
-{"id":"r61","input":"Why did you put Osaka Castle on the first morning?","expected_intent":"ask","destination":"Osaka","split":"heldout"}
-{"id":"r62","input":"Are there vegetarian options near Gion?","expected_intent":"ask","destination":"Kyoto","split":"heldout"}
-{"id":"r63","input":"Remind me what we're doing on the last evening","expected_intent":"ask","destination":"Tokyo","split":"heldout"}
-{"id":"r64","input":"What's the best way to get from the airport to the hotel?","expected_intent":"ask","destination":"Osaka","split":"dev"}
-{"id":"r65","input":"Should we bring umbrellas for the trip?","expected_intent":"ask","destination":"Hong Kong","split":"heldout"}
-{"id":"r66","input":"ok","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
-{"id":"r67","input":"asdfgh","expected_intent":"unclear","destination":"Osaka","split":"dev"}
-{"id":"r68","input":"Not sure yet, maybe somewhere warm?","expected_intent":"unclear","destination":"Hong Kong","split":"dev"}
-{"id":"r69","input":"I don't know","expected_intent":"unclear","destination":"Kyoto","split":"heldout"}
-{"id":"r70","input":"The thing we talked about","expected_intent":"unclear","destination":"Tokyo","split":"heldout"}
-{"id":"r71","input":"Do it","expected_intent":"unclear","destination":"Osaka","split":"dev"}
-{"id":"r72","input":"yes","expected_intent":"unclear","destination":"Hong Kong","split":"heldout"}
-{"id":"r73","input":"What's the capital of Australia?","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
-{"id":"r74","input":"Write me a poem about the sea","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
-{"id":"r75","input":"Somewhere","expected_intent":"unclear","destination":"Osaka","split":"heldout"}
-{"id":"r76","input":"Can you?","expected_intent":"unclear","destination":"Hong Kong","split":"dev"}
-{"id":"r77","input":"Same as last time","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
-{"id":"r78","input":"Next","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
-{"id":"r79","input":"Never mind","expected_intent":"unclear","destination":"Osaka","split":"dev"}
-{"id":"r80","input":"Thoughts?","expected_intent":"unclear","destination":"Hong Kong","split":"heldout"}
-{"id":"r81","input":"幫我規劃一個五日四夜的京都行程，兩個人，預算三十萬日圓","expected_intent":"plan","destination":"Kyoto","split":"dev"}
-{"id":"r82","input":"把酒店換成近新宿站的","expected_intent":"modify","destination":"Tokyo","split":"heldout"}
-{"id":"r83","input":"天星小輪最後一班幾點開？","expected_intent":"ask","destination":"Hong Kong","split":"heldout"}
-{"id":"r84","input":"唔知呀","expected_intent":"unclear","destination":"Osaka","split":"heldout"}
+{"id":"r01","proposal":"TC-04 (p4)","input":"Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD","expected_intent":"plan","destination":"Kyoto","split":"dev"}
+{"id":"r02","proposal":"TC-04 (p4)","input":"I want to visit Tokyo for a week with my partner","expected_intent":"plan","destination":"Tokyo","split":"dev"}
+{"id":"r03","proposal":"TC-04 (p4)","input":"Can you build an itinerary for Hong Kong, 3 days, 2 travellers?","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
+{"id":"r04","proposal":"TC-04 (p4)","input":"What is the weather in Kyoto on 12 April?","expected_intent":"ask","destination":"Kyoto","split":"dev"}
+{"id":"r05","proposal":"TC-04 (p4)","input":"Which hotel did you pick and why?","expected_intent":"ask","destination":"Tokyo","split":"dev"}
+{"id":"r06","proposal":"TC-04 (p4)","input":"How much is the flight?","expected_intent":"ask","destination":"Osaka","split":"heldout"}
+{"id":"r07","proposal":"TC-04 (p4)","input":"Swap the hotel for something boutique","expected_intent":"modify","destination":"Kyoto","split":"dev"}
+{"id":"r08","proposal":"TC-04 (p4)","input":"Move day 2 to the afternoon and keep the rest","expected_intent":"modify","destination":"Tokyo","split":"dev"}
+{"id":"r09","proposal":"TC-04 (p4)","input":"Make the budget 3000 USD instead","expected_intent":"modify","destination":"Osaka","split":"dev"}
+{"id":"r10","proposal":"TC-04 (p4)","input":"Add a museum on the last day","expected_intent":"modify","destination":"Hong Kong","split":"heldout"}
+{"id":"r11","proposal":"TC-04 (p4)","input":"Hmm","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
+{"id":"r12","proposal":"TC-04 (p4)","input":"What about it?","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
+{"id":"r13","proposal":"TC-04 (p4)","input":"Plan something nice","expected_intent":"unclear","destination":"Osaka","split":"dev"}
+{"id":"r14","proposal":"TC-04 (p4)","input":"I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY","expected_intent":"plan","destination":"Osaka","split":"dev"}
+{"id":"r15","proposal":"TC-04 (p4)","input":"Replace the second day's temple with a park","expected_intent":"modify","destination":"Kyoto","split":"dev"}
+{"id":"r16","proposal":"TC-04 (p4)","input":"Is the hotel near the train station?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
+{"id":"r17","proposal":"TC-04 (p4)","input":"What time does the flight leave?","expected_intent":"ask","destination":"Tokyo","split":"heldout"}
+{"id":"r18","proposal":"TC-04 (p4)","input":"Change the dates to the first week of May","expected_intent":"modify","destination":"Tokyo","split":"dev"}
+{"id":"r19","proposal":"TC-04 (p4)","input":"Surprise me","expected_intent":"unclear","destination":"Hong Kong","split":"dev"}
+{"id":"r20","proposal":"TC-04 (p4)","input":"Help","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
+{"id":"r21","proposal":"TC-04 (p4)","input":"Plan a new trip: 4 days in Osaka for a family of four in July","expected_intent":"plan","destination":"Osaka","split":"dev"}
+{"id":"r22","proposal":"TC-04 (p4)","input":"Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels","expected_intent":"plan","destination":"Tokyo","split":"dev"}
+{"id":"r23","proposal":"TC-04 (p4)","input":"We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
+{"id":"r24","proposal":"TC-04 (p4)","input":"Organise a 3-day food trip to Osaka for me and my sister in November","expected_intent":"plan","destination":"Osaka","split":"dev"}
+{"id":"r25","proposal":"TC-04 (p4)","input":"Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY","expected_intent":"plan","destination":"Kyoto","split":"heldout"}
+{"id":"r26","proposal":"TC-04 (p4)","input":"Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit","expected_intent":"plan","destination":"Kyoto","split":"dev"}
+{"id":"r27","proposal":"TC-04 (p4)","input":"I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku","expected_intent":"plan","destination":"Tokyo","split":"heldout"}
+{"id":"r28","proposal":"TC-04 (p4)","input":"New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
+{"id":"r29","proposal":"TC-04 (p4)","input":"Help me plan two days in Hong Kong for a school group of 10 students","expected_intent":"plan","destination":"Hong Kong","split":"heldout"}
+{"id":"r30","proposal":"TC-04 (p4)","input":"Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March","expected_intent":"plan","destination":"Osaka","split":"dev"}
+{"id":"r31","proposal":"TC-04 (p4)","input":"I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total","expected_intent":"plan","destination":"Tokyo","split":"heldout"}
+{"id":"r32","proposal":"TC-04 (p4)","input":"Let's plan another trip, this time to Kyoto for three nights with my parents","expected_intent":"plan","destination":"Kyoto","split":"heldout"}
+{"id":"r33","proposal":"TC-04 (p4)","input":"Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?","expected_intent":"plan","destination":"Hong Kong","split":"dev"}
+{"id":"r34","proposal":"TC-04 (p4)","input":"Plan me a weekend in Osaka","expected_intent":"plan","destination":"Osaka","split":"heldout"}
+{"id":"r35","proposal":"TC-04 (p4)","input":"Going to Tokyo for 10 days in spring with my wife, we love art and ramen","expected_intent":"plan","destination":"Tokyo","split":"dev"}
+{"id":"r36","proposal":"TC-04 (p4)","input":"Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible","expected_intent":"plan","destination":"Kyoto","split":"dev"}
+{"id":"r37","proposal":"TC-04 (p4)","input":"Drop the teamLab visit, we've been already","expected_intent":"modify","destination":"Tokyo","split":"dev"}
+{"id":"r38","proposal":"TC-04 (p4)","input":"Can you swap day 1 and day 3?","expected_intent":"modify","destination":"Osaka","split":"dev"}
+{"id":"r39","proposal":"TC-04 (p4)","input":"Upgrade the hotel to something with a view of the harbour","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
+{"id":"r40","proposal":"TC-04 (p4)","input":"Remove Fushimi Inari, my knees won't handle the climb","expected_intent":"modify","destination":"Kyoto","split":"heldout"}
+{"id":"r41","proposal":"TC-04 (p4)","input":"Shorten the trip to 3 days and keep the best stops","expected_intent":"modify","destination":"Osaka","split":"dev"}
+{"id":"r42","proposal":"TC-04 (p4)","input":"Add a dim sum lunch on day 2","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
+{"id":"r43","proposal":"TC-04 (p4)","input":"Switch the flight to an evening departure","expected_intent":"modify","destination":"Tokyo","split":"dev"}
+{"id":"r44","proposal":"TC-04 (p4)","input":"I'd rather not walk so much on the second day","expected_intent":"modify","destination":"Kyoto","split":"dev"}
+{"id":"r45","proposal":"TC-04 (p4)","input":"That hotel is too expensive, find one under 150 USD a night","expected_intent":"modify","destination":"Osaka","split":"dev"}
+{"id":"r46","proposal":"TC-04 (p4)","input":"Put a rest afternoon after the Peak hike","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
+{"id":"r47","proposal":"TC-04 (p4)","input":"Extend the stay by one night","expected_intent":"modify","destination":"Tokyo","split":"heldout"}
+{"id":"r48","proposal":"TC-04 (p4)","input":"Make it a slower pace with fewer temples","expected_intent":"modify","destination":"Kyoto","split":"heldout"}
+{"id":"r49","proposal":"TC-04 (p4)","input":"Cancel the day trip to Nara and stay in Osaka instead","expected_intent":"modify","destination":"Osaka","split":"heldout"}
+{"id":"r50","proposal":"TC-04 (p4)","input":"What if we did Lantau on day 3 instead of day 1?","expected_intent":"modify","destination":"Hong Kong","split":"dev"}
+{"id":"r51","proposal":"TC-04 (p4)","input":"How far is Kiyomizu-dera from the hotel?","expected_intent":"ask","destination":"Kyoto","split":"dev"}
+{"id":"r52","proposal":"TC-04 (p4)","input":"Is Senso-ji open early in the morning?","expected_intent":"ask","destination":"Tokyo","split":"dev"}
+{"id":"r53","proposal":"TC-04 (p4)","input":"What's the total cost so far?","expected_intent":"ask","destination":"Osaka","split":"dev"}
+{"id":"r54","proposal":"TC-04 (p4)","input":"Do I need to book the Peak Tram in advance?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
+{"id":"r55","proposal":"TC-04 (p4)","input":"Will it rain on day 3","expected_intent":"ask","destination":"Kyoto","split":"dev"}
+{"id":"r56","proposal":"TC-04 (p4)","input":"Tell me more about Dotonbori","expected_intent":"ask","destination":"Osaka","split":"dev"}
+{"id":"r57","proposal":"TC-04 (p4)","input":"how long is the walk between the two temples on day 2","expected_intent":"ask","destination":"Kyoto","split":"dev"}
+{"id":"r58","proposal":"TC-04 (p4)","input":"Which day has the most walking?","expected_intent":"ask","destination":"Tokyo","split":"dev"}
+{"id":"r59","proposal":"TC-04 (p4)","input":"Is the Star Ferry included in the budget?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
+{"id":"r60","proposal":"TC-04 (p4)","input":"Can I pay with an Octopus card at the night market?","expected_intent":"ask","destination":"Hong Kong","split":"dev"}
+{"id":"r61","proposal":"TC-04 (p4)","input":"Why did you put Osaka Castle on the first morning?","expected_intent":"ask","destination":"Osaka","split":"heldout"}
+{"id":"r62","proposal":"TC-04 (p4)","input":"Are there vegetarian options near Gion?","expected_intent":"ask","destination":"Kyoto","split":"heldout"}
+{"id":"r63","proposal":"TC-04 (p4)","input":"Remind me what we're doing on the last evening","expected_intent":"ask","destination":"Tokyo","split":"heldout"}
+{"id":"r64","proposal":"TC-04 (p4)","input":"What's the best way to get from the airport to the hotel?","expected_intent":"ask","destination":"Osaka","split":"dev"}
+{"id":"r65","proposal":"TC-04 (p4)","input":"Should we bring umbrellas for the trip?","expected_intent":"ask","destination":"Hong Kong","split":"heldout"}
+{"id":"r66","proposal":"TC-04 (p4)","input":"ok","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
+{"id":"r67","proposal":"TC-04 (p4)","input":"asdfgh","expected_intent":"unclear","destination":"Osaka","split":"dev"}
+{"id":"r68","proposal":"TC-04 (p4)","input":"Not sure yet, maybe somewhere warm?","expected_intent":"unclear","destination":"Hong Kong","split":"dev"}
+{"id":"r69","proposal":"TC-04 (p4)","input":"I don't know","expected_intent":"unclear","destination":"Kyoto","split":"heldout"}
+{"id":"r70","proposal":"TC-04 (p4)","input":"The thing we talked about","expected_intent":"unclear","destination":"Tokyo","split":"heldout"}
+{"id":"r71","proposal":"TC-04 (p4)","input":"Do it","expected_intent":"unclear","destination":"Osaka","split":"dev"}
+{"id":"r72","proposal":"TC-04 (p4)","input":"yes","expected_intent":"unclear","destination":"Hong Kong","split":"heldout"}
+{"id":"r73","proposal":"TC-04 (p4)","input":"What's the capital of Australia?","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
+{"id":"r74","proposal":"TC-04 (p4)","input":"Write me a poem about the sea","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
+{"id":"r75","proposal":"TC-04 (p4)","input":"Somewhere","expected_intent":"unclear","destination":"Osaka","split":"heldout"}
+{"id":"r76","proposal":"TC-04 (p4)","input":"Can you?","expected_intent":"unclear","destination":"Hong Kong","split":"dev"}
+{"id":"r77","proposal":"TC-04 (p4)","input":"Same as last time","expected_intent":"unclear","destination":"Kyoto","split":"dev"}
+{"id":"r78","proposal":"TC-04 (p4)","input":"Next","expected_intent":"unclear","destination":"Tokyo","split":"dev"}
+{"id":"r79","proposal":"TC-04 (p4)","input":"Never mind","expected_intent":"unclear","destination":"Osaka","split":"dev"}
+{"id":"r80","proposal":"TC-04 (p4)","input":"Thoughts?","expected_intent":"unclear","destination":"Hong Kong","split":"heldout"}
+{"id":"r81","proposal":"TC-04 (p4)","input":"幫我規劃一個五日四夜的京都行程，兩個人，預算三十萬日圓","expected_intent":"plan","destination":"Kyoto","split":"dev"}
+{"id":"r82","proposal":"TC-04 (p4)","input":"把酒店換成近新宿站的","expected_intent":"modify","destination":"Tokyo","split":"heldout"}
+{"id":"r83","proposal":"TC-04 (p4)","input":"天星小輪最後一班幾點開？","expected_intent":"ask","destination":"Hong Kong","split":"heldout"}
+{"id":"r84","proposal":"TC-04 (p4)","input":"唔知呀","expected_intent":"unclear","destination":"Osaka","split":"heldout"}
