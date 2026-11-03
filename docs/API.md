@@ -15,8 +15,9 @@ Base URL: `http://127.0.0.1:8100`. All bodies are JSON. Times are ISO 8601 UTC.
 | GET | `/docs` | Swagger UI |
 
 FX is keyless and cached for 12 hours. `open.er-api` is the live source; if it is
-unreachable the dated static table is used and `source` becomes `static`. The UI labels
-both and converts the known budget total into a chosen display currency.
+unreachable the dated static table is used and `source` becomes `static`, and it is not asked
+again for a minute, so these public routes make at most one outbound call a minute while it is
+down. The UI labels both and converts the known budget total into a chosen display currency.
 
 `/api/ready` never proves every data key. A missing Places or SerpApi key appears as
 a `data_quality.gap` on the plan, not a failed health check.
