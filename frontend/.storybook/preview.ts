@@ -1,4 +1,6 @@
 import type { Preview } from "@storybook/react";
+import { createElement } from "react";
+import { I18nProvider, type Locale } from "../src/lib/i18n";
 import "../src/design-system/tokens.css";
 import "../src/design-system/base.css";
 import "../src/design-system/design-system.css";
@@ -26,6 +28,30 @@ const preview: Preview = {
       },
     },
   },
+  globalTypes: {
+    locale: {
+      description: "Interface language",
+      toolbar: {
+        title: "Language",
+        icon: "globe",
+        items: [
+          { value: "en", title: "EN" },
+          { value: "zh-Hans", title: "简" },
+          { value: "zh-Hant", title: "繁" },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  initialGlobals: { locale: "en" },
+  decorators: [
+    // English needs no provider: every component falls back to it on its own.
+    (Story, context) => {
+      const locale = context.globals.locale as Locale | undefined;
+      if (!locale || locale === "en") return createElement(Story);
+      return createElement(I18nProvider, { locale }, createElement(Story));
+    },
+  ],
 };
 
 export default preview;

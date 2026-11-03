@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Icon, type IconName } from "./icons";
+import { useI18n } from "../lib/i18n";
 
 type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info" | "busy" | "ink";
 
@@ -181,8 +182,9 @@ export function Badge({
   );
 }
 
-export function Spinner({ size = "md", label = "Loading" }: { size?: "md" | "lg"; label?: string }) {
-  return <span className="pf-spinner" data-size={size} role="status" aria-label={label} />;
+export function Spinner({ size = "md", label }: { size?: "md" | "lg"; label?: string }) {
+  const { t } = useI18n();
+  return <span className="pf-spinner" data-size={size} role="status" aria-label={label ?? t("common.loading")} />;
 }
 
 export function Avatar({
@@ -288,6 +290,7 @@ export function Dialog({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const { t } = useI18n();
   useModalBehaviour(open, onClose);
   const titleId = useId();
   if (!open) return null;
@@ -302,7 +305,7 @@ export function Dialog({
       >
         <div className="pf-dialog__head">
           <Heading level={4}>{title}</Heading>
-          <IconButton icon="close" label="Close dialog" onClick={onClose} />
+          <IconButton icon="close" label={t("common.closeDialog")} onClick={onClose} />
         </div>
         <div className="pf-dialog__body" id={titleId}>
           {children}
@@ -325,6 +328,7 @@ export function Drawer({
   title: string;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   useModalBehaviour(open, onClose);
   if (!open) return null;
   return createPortal(
@@ -338,7 +342,7 @@ export function Drawer({
       >
         <div className="pf-row pf-row--between">
           <Heading level={4}>{title}</Heading>
-          <IconButton icon="close" label="Close panel" onClick={onClose} />
+          <IconButton icon="close" label={t("common.closePanel")} onClick={onClose} />
         </div>
         {children}
       </aside>

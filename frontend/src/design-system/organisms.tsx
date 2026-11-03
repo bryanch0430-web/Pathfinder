@@ -49,16 +49,17 @@ import type {
 import { hotelScopeItem } from "./scope";
 import { getLegs, type MapLeg } from "../lib/api";
 import { safeHref } from "../lib/safeHref";
+import { useI18n, type MessageKey, type Translate } from "../lib/i18n";
 
 /* --------------------------------------------------------------- header -- */
 
 export type AppTab = "plan" | "saved" | "evaluation" | "settings";
 
-const TABS: { id: AppTab; label: string; icon: "compass" | "book" | "route" | "shield" }[] = [
-  { id: "plan", label: "Plan", icon: "compass" },
-  { id: "saved", label: "My trips", icon: "book" },
-  { id: "evaluation", label: "Evaluation", icon: "route" },
-  { id: "settings", label: "Settings", icon: "shield" },
+const TABS: { id: AppTab; label: MessageKey; icon: "compass" | "book" | "route" | "shield" }[] = [
+  { id: "plan", label: "tab.plan", icon: "compass" },
+  { id: "saved", label: "tab.saved", icon: "book" },
+  { id: "evaluation", label: "tab.evaluation", icon: "route" },
+  { id: "settings", label: "tab.settings", icon: "shield" },
 ];
 
 export function AppHeader({
@@ -88,6 +89,7 @@ export function AppHeader({
   onAuth?: () => void;
   onLogout?: () => void;
 }) {
+  const { t } = useI18n();
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -110,7 +112,7 @@ export function AppHeader({
             Path<span>finder</span>
           </span>
         </a>
-        <div className="pf-tabs" role="tablist" aria-label="Sections">
+        <div className="pf-tabs" role="tablist" aria-label={t("header.sections")}>
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -121,19 +123,19 @@ export function AppHeader({
               aria-selected={activeTab === tab.id}
               onClick={() => onTabChange(tab.id)}
             >
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>
         <div className="pf-header__actions">
-          <select className="pf-lang" aria-label="Language" value={locale} onChange={(event) => onLocaleChange(event.target.value)}>
+          <select className="pf-lang" aria-label={t("header.language")} value={locale} onChange={(event) => onLocaleChange(event.target.value)}>
             <option value="en">EN</option>
             <option value="zh-Hans">简</option>
             <option value="zh-Hant">繁</option>
           </select>
           {onExport ? (
             <Button size="sm" variant="ghost" iconLeft="download" onClick={onExport}>
-              Export
+              {t("header.export")}
             </Button>
           ) : null}
           {onExportSlides ? (
@@ -143,15 +145,15 @@ export function AppHeader({
           ) : null}
           {onShare ? (
             <Button size="sm" variant="ghost" iconLeft="external" onClick={onShare}>
-              Share
+              {t("header.share")}
             </Button>
           ) : null}
           {onNewTrip ? (
             <Button size="sm" variant="secondary" iconLeft="plus" onClick={onNewTrip}>
-              New trip
+              {t("header.newTrip")}
             </Button>
           ) : null}
-          <IconButton icon="book" label="Help and glossary" onClick={onHelp} />
+          <IconButton icon="book" label={t("header.help")} onClick={onHelp} />
           {user ? (
             <div className="pf-account" ref={accountRef}>
               <button
@@ -180,7 +182,7 @@ export function AppHeader({
                       setAccountOpen(false);
                     }}
                   >
-                    <Icon name="book" size={14} /> My trips
+                    <Icon name="book" size={14} /> {t("tab.saved")}
                   </button>
                   <button
                     type="button"
@@ -191,7 +193,7 @@ export function AppHeader({
                       setAccountOpen(false);
                     }}
                   >
-                    <Icon name="shield" size={14} /> Settings
+                    <Icon name="shield" size={14} /> {t("tab.settings")}
                   </button>
                   <div className="pf-account__divider" />
                   <button
@@ -203,14 +205,14 @@ export function AppHeader({
                       onLogout?.();
                     }}
                   >
-                    <Icon name="logout" size={14} /> Log out
+                    <Icon name="logout" size={14} /> {t("header.logout")}
                   </button>
                 </div>
               ) : null}
             </div>
           ) : (
             <Button size="sm" variant="secondary" iconLeft="user" onClick={onAuth}>
-              Log in
+              {t("auth.login")}
             </Button>
           )}
         </div>
@@ -242,19 +244,20 @@ export function TripPanel({
   submitting?: boolean;
   initialOpen?: boolean;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(initialOpen);
-  const title = plan?.destination.name || context.destination || "Set the trip details";
+  const title = plan?.destination.name || context.destination || t("trip.setDetails");
   const dates = plan
     ? `${plan.dates.start} → ${plan.dates.end}`
     : context.start_date && context.end_date
       ? `${context.start_date} → ${context.end_date}`
-      : "Dates not set";
+      : t("trip.noDates");
   const party = plan?.party_size ?? context.party_size;
   const budget = plan?.budget
     ? `${plan.budget.currency} ${plan.budget.amount.toLocaleString()}`
     : context.budget
       ? `${context.currency ?? ""} ${context.budget.toLocaleString()}`
-      : "No budget";
+      : t("trip.noBudget");
   return (
     <>
       <button
@@ -266,21 +269,20 @@ export function TripPanel({
       >
         <span className="pf-trip-bar__icon"><Icon name="compass" size={17} /></span>
         <span className="pf-trip-bar__body">
-          <span className="pf-trip-bar__kicker">Trip details · tap to edit</span>
+          <span className="pf-trip-bar__kicker">{t("trip.kicker")}</span>
           <span className="pf-trip-bar__title">{title}</span>
           <span className="pf-trip-bar__meta">
-            {dates} · {party ? `${party} travellers` : "party not set"} · {budget}
+            {dates} · {party ? t("trip.travellers", { count: party }) : t("trip.noParty")} · {budget}
           </span>
         </span>
         <span className="pf-trip-bar__action">
-          Edit <Icon name="chevronRight" size={13} />
+          {t("trip.edit")} <Icon name="chevronRight" size={13} />
         </span>
       </button>
-      <Drawer open={open} onClose={() => setOpen(false)} title="Trip details">
+      <Drawer open={open} onClose={() => setOpen(false)} title={t("trip.details")}>
         <div className="pf-trip-drawer">
           <Text size="sm" tone="secondary">
-            Use the assistant directly, or set the hard facts here. The form is optional; the
-            assistant can extract exactly the same fields from one message.
+            {t("trip.drawerIntro")}
           </Text>
           <TripContextForm
             values={context}
@@ -305,6 +307,8 @@ export function TripPanel({
 
 /* ----------------------------------------------------------------- chat -- */
 
+// Sent to the planner as the traveller's own words, whose routing is tuned on
+// English phrasing, so these stay in English in every locale.
 const QUICK_PROMPTS = ["Plan my trip", "Make it cheaper", "What is the weather on day 2?", "Add a museum"];
 
 export function ChatPanel({
@@ -340,6 +344,7 @@ export function ChatPanel({
   onRetry?: () => void;
   onClear?: () => void;
 }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastContent = messages[messages.length - 1]?.content ?? "";
@@ -355,7 +360,7 @@ export function ChatPanel({
   };
   const running = Object.values(agents).filter((agent) => agent.status === "running").length;
   return (
-    <section className="pf-card pf-chat" aria-label="Chat">
+    <section className="pf-card pf-chat" aria-label={t("chat.label")}>
       <div className="pf-chat__head">
         <div className="pf-row">
           <span className="pf-logo__mark" style={{ width: 26, height: 26, background: "var(--p30-tone-brand-primary)" }}>
@@ -363,23 +368,23 @@ export function ChatPanel({
           </span>
           <div className="pf-stack" style={{ gap: 0 }}>
             <Text size="sm" weight="semibold">
-              Trip assistant
+              {t("chat.title")}
             </Text>
             <Text size="xs" tone="tertiary">
-              One path per message
+              {t("chat.subtitle")}
             </Text>
           </div>
         </div>
         <div className="pf-row" style={{ gap: 4 }}>
           <Badge tone={busy ? "busy" : "success"} dot>
-            {busy ? "Working" : "Ready"}
+            {busy ? t("chat.working") : t("chat.ready")}
           </Badge>
           {onClear && messages.length > 0 ? (
             <IconButton
               icon="trash"
-              label="Clear chat"
+              label={t("chat.clear")}
               onClick={() => {
-                if (window.confirm("Clear this chat? The itinerary and saved memory are kept.")) onClear();
+                if (window.confirm(t("chat.clearConfirm"))) onClear();
               }}
             />
           ) : null}
@@ -389,8 +394,8 @@ export function ChatPanel({
         {messages.length === 0 ? (
           <EmptyState
             icon="compass"
-            title="Where are we going?"
-            body="Tell me the destination, dates, travellers and budget. I will gather live sources and build the itinerary."
+            title={t("chat.emptyTitle")}
+            body={t("chat.emptyBody")}
           />
         ) : (
           messages.map((message) => (
@@ -421,7 +426,7 @@ export function ChatPanel({
               <span>{error}</span>
               {onRetry ? (
                 <Button size="sm" variant="ghost" onClick={onRetry} iconLeft="refresh">
-                  Retry
+                  {t("common.retry")}
                 </Button>
               ) : null}
             </div>
@@ -437,15 +442,15 @@ export function ChatPanel({
           />
         ) : null}
         {busy && (running > 0 || progress > 0) ? (
-          <AgentActivity agents={agents} progress={progress} message={progressMessage || "Working on your trip"} />
+          <AgentActivity agents={agents} progress={progress} message={progressMessage || t("chat.progressFallback")} />
         ) : null}
       </div>
       <div className="pf-chat__composer">
         {scope ? (
           <span className="pf-scope-chip">
             <Icon name="map" size={12} />
-            About: {scope}
-            <button type="button" aria-label="Clear selected stop" onClick={onClearScope} style={{ border: 0, background: "transparent", padding: 0 }}>
+            {t("chat.about", { scope })}
+            <button type="button" aria-label={t("chat.clearScope")} onClick={onClearScope} style={{ border: 0, background: "transparent", padding: 0 }}>
               <Icon name="close" size={12} />
             </button>
           </span>
@@ -461,8 +466,8 @@ export function ChatPanel({
           <textarea
             value={draft}
             rows={2}
-            placeholder={scope ? "Ask about this stop, or ask for a change…" : "Ask for a change, or a quick question…"}
-            aria-label="Message"
+            placeholder={scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
+            aria-label={t("chat.message")}
             onChange={(event) => setDraft(event.target.value)}
             onInput={(event) => {
               const el = event.currentTarget;
@@ -476,13 +481,13 @@ export function ChatPanel({
               }
             }}
           />
-          <Button variant="primary" data-round="true" aria-label="Send message" disabled={busy || !draft.trim()} onClick={submit}>
+          <Button variant="primary" data-round="true" aria-label={t("chat.send")} disabled={busy || !draft.trim()} onClick={submit}>
             <Icon name="send" size={16} />
           </Button>
         </div>
         <div className="pf-row pf-row--between pf-small pf-muted">
-          <span>Enter to send · Shift + Enter for a new line</span>
-          <span className="pf-row" style={{ gap: 5 }} title="Your message is handled as data, not as instructions">
+          <span>{t("chat.hint")}</span>
+          <span className="pf-row" style={{ gap: 5 }} title={t("chat.dataNotInstructions")}>
             <Icon name="shield" size={12} />
           </span>
         </div>
@@ -558,6 +563,7 @@ export function TripWorkspace({
   updatedIds?: string[];
   hotelChanged?: boolean;
 }) {
+  const { t } = useI18n();
   const [activeDay, setActiveDay] = useState(plan.days[0]?.date ?? "");
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
   const hotel = plan.hotels[0];
@@ -597,7 +603,7 @@ export function TripWorkspace({
   }, [firstUpdated, plan]);
 
   return (
-    <section className="pf-card pf-workspace" aria-label="Itinerary">
+    <section className="pf-card pf-workspace" aria-label={t("workspace.label")}>
       <div className="pf-workspace__head">
         <div className="pf-workspace__title">
           <div className="pf-stack" style={{ gap: 3 }}>
@@ -605,19 +611,19 @@ export function TripWorkspace({
               <Heading level={3}>{plan.destination.name}</Heading>
               <Badge tone="brand">v{plan.version}</Badge>
               {updatedIds?.length ? (
-                <Badge tone="success" dot>{updatedIds.length} updated</Badge>
+                <Badge tone="success" dot>{t("workspace.updatedCount", { count: updatedIds.length })}</Badge>
               ) : hotelChanged ? (
-                <Badge tone="success" dot>Hotel updated</Badge>
+                <Badge tone="success" dot>{t("workspace.hotelUpdated")}</Badge>
               ) : null}
             </div>
             {plan.destination.timezone ? (
               <Text size="xs" tone="tertiary" title={plan.destination.timezone}>
-                {localClock(plan.destination.timezone)}
+                {localClock(plan.destination.timezone, t)}
               </Text>
             ) : null}
             <Text size="sm" tone="secondary">
-              {plan.dates.start} → {plan.dates.end} · {plan.party_size} travellers
-              {plan.origin ? ` · from ${plan.origin}` : ""}
+              {plan.dates.start} → {plan.dates.end} · {t("trip.travellers", { count: plan.party_size })}
+              {plan.origin ? ` · ${t("workspace.from", { origin: plan.origin })}` : ""}
             </Text>
           </div>
           <div className="pf-stack" style={{ gap: 6, alignItems: "flex-end" }}>
@@ -630,7 +636,7 @@ export function TripWorkspace({
             />
             <StatusSummary plan={plan} />
             <span className="pf-version">
-              Version
+              {t("workspace.version")}
               <select value={activeVersion} onChange={(event) => onVersionChange(Number(event.target.value))}>
                 {versions.map((version) => (
                   <option key={version.version} value={version.version}>
@@ -642,10 +648,10 @@ export function TripWorkspace({
           </div>
         </div>
         <div className="pf-workspace__meta">
-          <MiniStat icon="calendar" label="Dates" value={`${plan.days.length} days`} />
-          <MiniStat icon="users" label="Party" value={String(plan.party_size)} />
-          {plan.budget ? <MiniStat icon="wallet" label="Budget" value={`${plan.cost.currency} ${plan.budget.amount.toLocaleString()}`} /> : null}
-          {onRefresh ? <Button size="sm" variant="ghost" iconLeft="refresh" onClick={onRefresh}>Refresh data</Button> : null}
+          <MiniStat icon="calendar" label={t("workspace.dates")} value={t("workspace.days", { count: plan.days.length })} />
+          <MiniStat icon="users" label={t("workspace.party")} value={String(plan.party_size)} />
+          {plan.budget ? <MiniStat icon="wallet" label={t("workspace.budget")} value={`${plan.cost.currency} ${plan.budget.amount.toLocaleString()}`} /> : null}
+          {onRefresh ? <Button size="sm" variant="ghost" iconLeft="refresh" onClick={onRefresh}>{t("workspace.refresh")}</Button> : null}
         </div>
         <DayStrip days={plan.days} active={activeDay} onSelect={jump} />
       </div>
@@ -669,7 +675,7 @@ export function TripWorkspace({
             data-selected={selectedItemId === hotel.id}
             role="button"
             tabIndex={0}
-            title="Select this stay to ask about it"
+            title={t("workspace.hotelSelect")}
             onClick={() => onSelectItem(selectedItemId === hotel.id ? null : hotelScopeItem(hotel))}
             onKeyDown={(event) => {
               if (event.key !== "Enter" && event.key !== " ") return;
@@ -681,21 +687,21 @@ export function TripWorkspace({
             <div className="pf-stack pf-grow" style={{ gap: 2 }}>
               <Text size="sm" weight="semibold">
                 {hotel.name}
-                {hotelChanged ? <Badge tone="success" dot>Updated</Badge> : null}
+                {hotelChanged ? <Badge tone="success" dot>{t("common.updated")}</Badge> : null}
               </Text>
               <Text size="xs" tone="tertiary">
-                {hotel.area || "Area not returned"} · {hotel.rating ? `${hotel.rating} / 5` : "No rating"}
-                {hotel.distance_to_centre_km !== null ? ` · ${hotel.distance_to_centre_km} km to centre` : ""}
+                {hotel.area || t("workspace.noArea")} · {hotel.rating ? `${hotel.rating} / 5` : t("workspace.noRating")}
+                {hotel.distance_to_centre_km !== null ? ` · ${t("workspace.kmToCentre", { km: hotel.distance_to_centre_km })}` : ""}
               </Text>
               <Text size="xs" tone="secondary">
                 {hotel.price_per_night
-                  ? `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()} per night · ${hotel.price_kind}`
-                  : "No rate returned"}
+                  ? `${t("workspace.perNight", { price: `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()}` })} · ${hotel.price_kind}`
+                  : t("workspace.noRate")}
               </Text>
             </div>
             <div className="pf-stack" style={{ alignItems: "flex-end", gap: 4 }}>
               <StatusPill status={hotel.data_status} />
-              {bookingHref ? <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Check hotel</a> : null}
+              {bookingHref ? <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{t("workspace.checkHotel")}</a> : null}
             </div>
           </div>
         ) : null}
@@ -706,18 +712,18 @@ export function TripWorkspace({
             <div className="pf-stack pf-grow" style={{ gap: 2 }}>
               <Text size="sm" weight="semibold">{ticket.name}</Text>
               <Text size="xs" tone="tertiary">
-                {ticket.return_depart_at ? "Outbound · " : ""}
+                {ticket.return_depart_at ? `${t("workspace.outbound")} · ` : ""}
                 {ticket.origin} → {ticket.destination}
                 {ticket.depart_at ? ` · ${ticket.depart_at.replace("T", " ").slice(0, 16)}` : ""}
               </Text>
               {ticket.return_depart_at ? (
                 <Text size="xs" tone="tertiary">
-                  Return{ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
+                  {t("workspace.return")}{ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
                   {` · ${ticket.return_origin} → ${ticket.return_destination} · ${ticket.return_depart_at.replace("T", " ").slice(0, 16)}`}
                 </Text>
               ) : null}
               <Text size="xs" tone="secondary">
-                {ticket.price ? `${ticket.price.currency} ${ticket.price.amount.toLocaleString()} · ${ticket.price_kind}` : "No fare returned"}
+                {ticket.price ? `${ticket.price.currency} ${ticket.price.amount.toLocaleString()} · ${ticket.price_kind}` : t("workspace.noFare")}
               </Text>
             </div>
             <StatusPill status={ticket.data_status} />
@@ -725,13 +731,13 @@ export function TripWorkspace({
         ))}
 
         <div className="pf-stack" style={{ gap: 0, marginTop: 8 }}>
-          <Collapsible title="Cost" icon="wallet" defaultOpen>
+          <Collapsible title={t("workspace.cost")} icon="wallet" defaultOpen>
             <BudgetPanel cost={plan.cost} />
           </Collapsible>
-          <Collapsible title="Constraint checks" icon="check" badge={<Badge tone={plan.constraints.some((c) => c.status === "fail") ? "danger" : "success"}>{plan.constraints.length}</Badge>}>
+          <Collapsible title={t("workspace.constraints")} icon="check" badge={<Badge tone={plan.constraints.some((c) => c.status === "fail") ? "danger" : "success"}>{plan.constraints.length}</Badge>}>
             <ConstraintList checks={plan.constraints} />
           </Collapsible>
-          <Collapsible title="Reservations to make" icon="ticket" badge={<Badge tone="warning">{plan.reservations.length}</Badge>}>
+          <Collapsible title={t("workspace.reservations")} icon="ticket" badge={<Badge tone="warning">{plan.reservations.length}</Badge>}>
             {plan.reservations.length ? (
               <div className="pf-stack">
                 {plan.reservations.map((reservation) => (
@@ -745,24 +751,24 @@ export function TripWorkspace({
                 ))}
               </div>
             ) : (
-              <Text size="xs" tone="tertiary">No reservations are required by the returned sources.</Text>
+              <Text size="xs" tone="tertiary">{t("workspace.noReservations")}</Text>
             )}
           </Collapsible>
-          <Collapsible title="Disruptions" icon="alert" badge={<Badge tone={plan.disruptions.length ? "danger" : "neutral"}>{plan.disruptions.length}</Badge>}>
+          <Collapsible title={t("workspace.disruptions")} icon="alert" badge={<Badge tone={plan.disruptions.length ? "danger" : "neutral"}>{plan.disruptions.length}</Badge>}>
             {plan.disruptions.length ? (
               <div className="pf-stack">
                 {plan.disruptions.map((disruption) => (
                   <div className="pf-gap" key={disruption.id}>
                     <Icon name="alert" size={13} />
-                    <span>{disruption.summary} — {disruption.resolved ? "resolved" : "open"}</span>
+                    <span>{disruption.summary} — {disruption.resolved ? t("workspace.resolved") : t("workspace.open")}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <Text size="xs" tone="tertiary">No disruption was reported for this trip.</Text>
+              <Text size="xs" tone="tertiary">{t("workspace.noDisruptions")}</Text>
             )}
           </Collapsible>
-          <Collapsible title={`Data and sources (${unknownGaps})`} icon="info" badge={<Badge tone={unknownGaps ? "warning" : "success"} dot>{unknownGaps ? "gaps" : "complete"}</Badge>}>
+          <Collapsible title={t("workspace.dataSources", { count: unknownGaps })} icon="info" badge={<Badge tone={unknownGaps ? "warning" : "success"} dot>{unknownGaps ? t("workspace.gaps") : t("workspace.complete")}</Badge>}>
             <GapList gaps={plan.data_quality.gaps} />
             <Divider />
             <div className="pf-row pf-row--wrap">
@@ -771,11 +777,14 @@ export function TripWorkspace({
               ))}
             </div>
             <Text size="xs" tone="tertiary">
-              Search window: last {plan.data_quality.search_window_months} months. Generated {new Date(plan.data_quality.generated_at).toLocaleString("en-GB")}.
+              {t("workspace.searchWindow", {
+                months: plan.data_quality.search_window_months,
+                generated: new Date(plan.data_quality.generated_at).toLocaleString("en-GB"),
+              })}
             </Text>
           </Collapsible>
           {trace ? (
-            <Collapsible title="How the AI worked" icon="info">
+            <Collapsible title={t("workspace.howAiWorked")} icon="info">
               <TraceList trace={trace} />
             </Collapsible>
           ) : null}
@@ -787,11 +796,12 @@ export function TripWorkspace({
 }
 
 export function TraceList({ trace }: { trace: RunTrace }) {
+  const { t } = useI18n();
   const max = Math.max(...trace.spans.map((span) => span.duration_ms ?? 0), 1);
   return (
     <div className="pf-trace">
       <div className="pf-row pf-row--between">
-        <Text size="xs" weight="semibold">{trace.spans.length} steps · {trace.tool_calls} tool calls</Text>
+        <Text size="xs" weight="semibold">{t("trace.summary", { steps: trace.spans.length, calls: trace.tool_calls })}</Text>
         <Text size="xs" tone="tertiary" className="pf-mono">{trace.request_id}</Text>
       </div>
       {trace.spans.slice(0, 12).map((span, index) => (
@@ -807,20 +817,28 @@ export function TraceList({ trace }: { trace: RunTrace }) {
 
 /* ------------------------------------------------------------------ map -- */
 
+/** Travel-mode names; `MODE` in maps/geo keeps the colours and icons. */
+export const MODE_LABEL: Record<TravelMode, MessageKey> = {
+  walk: "map.mode.walk",
+  metro: "map.mode.metro",
+  drive: "map.mode.drive",
+  flight: "map.mode.flight",
+};
+
 function modeMinutes(km: number, mode: TravelMode): number {
   const speed = mode === "walk" ? 4.5 : mode === "metro" ? 22 : mode === "drive" ? 32 : 620;
   const overhead = mode === "walk" ? 0 : mode === "metro" ? 8 : mode === "drive" ? 5 : 90;
   return Math.max(2, Math.round((km / speed) * 60 + overhead));
 }
 
-function localClock(zone: string): string {
+function localClock(zone: string, t: Translate): string {
   try {
     const time = new Intl.DateTimeFormat("en-GB", {
       timeZone: zone,
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date());
-    return `Local time ${time} · ${zone}`;
+    return t("workspace.localTime", { time, zone });
   } catch {
     return zone;
   }
@@ -847,6 +865,7 @@ export function MapPanel({
   updatedIds?: string[];
   hotelChanged?: boolean;
 }) {
+  const { t } = useI18n();
   const [showRoute, setShowRoute] = useState(true);
   const [clock, setClock] = useState(9 * 60);
   const [playing, setPlaying] = useState(false);
@@ -963,13 +982,13 @@ export function MapPanel({
           real.mode === "transit" ? "metro" : real.mode === "drive" ? "drive" : "walk";
         return {
           mode,
-          label: `to ${to.name} · ${real.minutes ?? "?"} min ${MODE[mode].label.toLowerCase()}`,
+          label: t("map.legReal", { name: to.name, minutes: real.minutes ?? "?", mode: t(MODE_LABEL[mode]).toLowerCase() }),
           km: real.km ?? kmBetween(from.geo!, to.geo!),
         };
       }
       const km = kmBetween(from.geo!, to.geo!);
       const mode = modeForDistance(km);
-      return { mode, label: `to ${to.name} · est ${modeMinutes(km, mode)} min`, km };
+      return { mode, label: t("map.legEstimate", { name: to.name, minutes: modeMinutes(km, mode) }), km };
     };
 
     const timeline = timelineAt(items, clock);
@@ -983,7 +1002,7 @@ export function MapPanel({
         position: [timeline.active.geo.lat, timeline.active.geo.lng],
         mode: route?.mode ?? "walk",
         moving: false,
-        label: route ? route.label : "At the last stop",
+        label: route ? route.label : t("map.atLastStop"),
         fromId: timeline.active.id,
         toId: timeline.active.id,
         progress: 0,
@@ -1018,20 +1037,20 @@ export function MapPanel({
       position: [anchor.geo.lat, anchor.geo.lng],
       mode: route?.mode ?? "walk",
       moving: false,
-      label: route ? route.label : "At stop",
+      label: route ? route.label : t("map.atStop"),
       fromId: anchor.id,
       toId: anchor.id,
       progress: 0,
     };
-  }, [timelinePoints, legs, clock, activeItem]);
+  }, [timelinePoints, legs, clock, activeItem, t]);
 
   const dayLegs = useMemo(() => {
     const modeOf = (value: string): TravelMode =>
       value === "transit" ? "metro" : value === "drive" ? "drive" : "walk";
     if (legs.length) {
       return legs.map((entry) => ({
-        from: { id: entry.from_id, name: nameById.get(entry.from_id) ?? "the stay" },
-        to: { id: entry.to_id, name: nameById.get(entry.to_id) ?? "the stay" },
+        from: { id: entry.from_id, name: nameById.get(entry.from_id) ?? t("map.theStay") },
+        to: { id: entry.to_id, name: nameById.get(entry.to_id) ?? t("map.theStay") },
         mode: modeOf(entry.mode),
         km: entry.km ?? 0,
         minutes: entry.minutes ?? 0,
@@ -1054,7 +1073,7 @@ export function MapPanel({
         real: false,
       };
     });
-  }, [legs, nameById, routePoints]);
+  }, [legs, nameById, routePoints, t]);
 
   const legendModes = useMemo(
     () => [...new Set(dayLegs.map((entry) => entry.mode))],
@@ -1111,7 +1130,7 @@ export function MapPanel({
   }, [clock, playing, day, plan.days, onActiveDay]);
 
   return (
-    <section className="pf-card pf-map" aria-label="Trip map">
+    <section className="pf-card pf-map" aria-label={t("map.label")}>
       <TripMap
         plan={plan}
         day={day}
@@ -1135,8 +1154,14 @@ export function MapPanel({
       <div className="pf-map__foot">
         <div className="pf-row pf-row--between">
           <div className="pf-stack" style={{ gap: 0 }}>
-            <Text size="sm" weight="semibold">{day?.title ?? "Select a day"}</Text>
-            <Text size="xs" tone="tertiary">{points.filter((item) => item.type !== "meal").length} sights · {points.filter((item) => item.type === "meal").length} meals · {plan.destination.name}</Text>
+            <Text size="sm" weight="semibold">{day?.title ?? t("map.selectDay")}</Text>
+            <Text size="xs" tone="tertiary">
+              {t("map.counts", {
+                sights: points.filter((item) => item.type !== "meal").length,
+                meals: points.filter((item) => item.type === "meal").length,
+              })}{" "}
+              · {plan.destination.name}
+            </Text>
           </div>
           <div className="pf-row" style={{ gap: 4 }}>
             {plan.days.map((entry) => (
@@ -1155,17 +1180,17 @@ export function MapPanel({
             ))}
           </div>
         </div>
-        <div className="pf-route-legend" aria-label="Route legend">
+        <div className="pf-route-legend" aria-label={t("map.legend")}>
           <span className="pf-route-legend__item">
-            <i className="pf-route-legend__line pf-route-legend__line--done" /> travelled
+            <i className="pf-route-legend__line pf-route-legend__line--done" /> {t("map.travelled")}
           </span>
           <span className="pf-route-legend__item">
-            <i className="pf-route-legend__line pf-route-legend__line--ahead" /> ahead
+            <i className="pf-route-legend__line pf-route-legend__line--ahead" /> {t("map.ahead")}
           </span>
           {legendModes.map((mode) => (
             <span className="pf-route-legend__item" key={mode}>
               <i className="pf-route-legend__dot" style={{ background: MODE[mode].color }} />
-              {MODE[mode].label}
+              {t(MODE_LABEL[mode])}
             </span>
           ))}
         </div>
@@ -1174,31 +1199,31 @@ export function MapPanel({
             {dayLegs.slice(0, 3).map((entry) => (
               <div className="pf-route-leg" key={`${entry.from.id}-${entry.to.id}`}>
                 <span className="pf-route-leg__mode" style={{ color: MODE[entry.mode].color }}>
-                  {MODE[entry.mode].label}
+                  {t(MODE_LABEL[entry.mode])}
                 </span>
                 <span className="pf-route-leg__name">
                   {entry.from.name} → {entry.to.name}
                 </span>
                 <span className="pf-route-leg__time">
-                  {entry.real ? `${entry.minutes} min` : `est ${entry.minutes} min`}
+                  {entry.real ? t("map.minutes", { minutes: entry.minutes }) : t("map.minutesEstimate", { minutes: entry.minutes })}
                 </span>
               </div>
             ))}
             {dayLegs.length > 3 ? (
-              <span className="pf-route-legs__more">+{dayLegs.length - 3} more legs</span>
+              <span className="pf-route-legs__more">{t("map.moreLegs", { count: dayLegs.length - 3 })}</span>
             ) : null}
           </div>
         ) : null}
         <div className="pf-map__timebar">
           <IconButton
             icon={playing ? "pause" : "play"}
-            label={playing ? "Pause the day" : "Play through the day"}
+            label={playing ? t("map.pause") : t("map.play")}
             onClick={() => {
               if (clock >= CLOCK_MAX) setClock(firstStartOfDay);
               setPlaying((value) => !value);
             }}
           />
-          <div className="pf-map__speeds" role="group" aria-label="Playback speed">
+          <div className="pf-map__speeds" role="group" aria-label={t("map.speed")}>
             {[1, 2, 4].map((value) => (
               <button
                 key={value}
@@ -1217,10 +1242,10 @@ export function MapPanel({
             className="pf-map__follow"
             data-active={follow}
             aria-pressed={follow}
-            aria-label={follow ? "Unpin the map from the traveller" : "Pin the map on the traveller"}
+            aria-label={follow ? t("map.unpinLabel") : t("map.pinLabel")}
             onClick={() => setFollow((value) => !value)}
           >
-            {follow ? "Pinned" : "Pin"}
+            {follow ? t("map.pinned") : t("map.pin")}
           </button>
           <div className="pf-map__time-main">
             <div className="pf-map__time-row">
@@ -1228,14 +1253,14 @@ export function MapPanel({
               <span className="pf-map__now">
                 {currentItem
                   ? `${currentItem.start}–${currentItem.end} · ${currentItem.name}`
-                  : "Before the first stop"}
+                  : t("map.beforeFirstStop")}
               </span>
             </div>
             {tracker ? (
               <div className="pf-map__legrow">
                 <span className="pf-map__mode" data-mode={tracker.mode}>
                   <Icon name={MODE[tracker.mode].icon} size={11} />
-                  {MODE[tracker.mode].label}
+                  {t(MODE_LABEL[tracker.mode])}
                 </span>
                 <span className="pf-map__leglabel">{tracker.label}</span>
               </div>
@@ -1244,7 +1269,7 @@ export function MapPanel({
               <input
                 className="pf-slider"
                 type="range"
-                aria-label="Time of day"
+                aria-label={t("map.timeOfDay")}
                 min={CLOCK_MIN}
                 max={CLOCK_MAX}
                 step={CLOCK_STEP}
@@ -1269,7 +1294,7 @@ export function MapPanel({
                       className="pf-map__tick"
                       style={{ left: `${Math.max(0, Math.min(100, left))}%` }}
                       title={`${item.start} · ${item.name}`}
-                      aria-label={`Jump to ${item.start}, ${item.name}`}
+                      aria-label={t("map.jumpTo", { time: item.start, name: item.name })}
                       onClick={() => {
                         setPlaying(false);
                         setClock(start);
@@ -1310,8 +1335,10 @@ export function TrendingRail({
   query?: string;
   onQueryChange?: (value: string) => void;
 }) {
+  const { t } = useI18n();
   const [asking, setAsking] = useState<string | null>(null);
 
+  // Sent to the planner as the traveller's request, so it stays in English.
   const promptFor = (item: TrendingPlace) => {
     const places = item.places.slice(0, 3);
     const base = `Plan a ${item.days}-day trip to ${item.destination}`;
@@ -1319,43 +1346,42 @@ export function TrendingRail({
   };
 
   return (
-    <aside className="pf-card pf-trending" aria-label="Trending trips">
+    <aside className="pf-card pf-trending" aria-label={t("trending.label")}>
       <div className="pf-row pf-row--between" style={{ alignItems: "flex-start" }}>
         <div className="pf-stack" style={{ gap: 2 }}>
           <Text size="xs" tone="tertiary" weight="semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Trending
+            {t("trending.eyebrow")}
           </Text>
-          <Heading level={4}>What others planned</Heading>
+          <Heading level={4}>{t("trending.title")}</Heading>
         </div>
         {onRefresh ? (
-          <IconButton icon="refresh" label="Refresh trending" onClick={onRefresh} />
+          <IconButton icon="refresh" label={t("trending.refresh")} onClick={onRefresh} />
         ) : null}
       </div>
       <Text size="xs" tone="tertiary">
-        Trips marked useful by travellers. Only destination, length, year and sight names
-        are shown; no budgets, party sizes or session ids.
+        {t("trending.privacy")}
       </Text>
       {onQueryChange ? (
         <SearchField
           value={query}
           onChange={onQueryChange}
-          placeholder="Search destinations or sights"
-          label="Search trending"
+          placeholder={t("trending.searchPlaceholder")}
+          label={t("trending.search")}
         />
       ) : null}
 
-      {loading ? <Text size="sm" tone="secondary">Loading public plans…</Text> : null}
+      {loading ? <Text size="sm" tone="secondary">{t("trending.loading")}</Text> : null}
       {error ? (
         <div className="pf-trending__empty">
           <Text size="sm" tone="secondary">{error}</Text>
-          {onRefresh ? <Button size="sm" variant="ghost" onClick={onRefresh}>Try again</Button> : null}
+          {onRefresh ? <Button size="sm" variant="ghost" onClick={onRefresh}>{t("common.tryAgain")}</Button> : null}
         </div>
       ) : null}
       {!loading && !error && !items.length ? (
         <div className="pf-trending__empty">
           <Icon name="compass" size={18} />
           <Text size="sm" tone="secondary">
-            No public plans yet. Generate an itinerary and mark it useful to seed the rail.
+            {t("trending.empty")}
           </Text>
         </div>
       ) : null}
@@ -1367,10 +1393,10 @@ export function TrendingRail({
             <article className="pf-trending__card" key={`${item.destination}-${item.year ?? ""}`}>
               <div className="pf-row pf-row--between">
                 <strong>{item.destination}</strong>
-                <Badge tone="brand">{item.plans} {item.plans === 1 ? "plan" : "plans"}</Badge>
+                <Badge tone="brand">{t(item.plans === 1 ? "trending.plansOne" : "trending.plans", { count: item.plans })}</Badge>
               </div>
               <span className="pf-trending__meta">
-                {item.days} days{item.year ? ` · ${item.year}` : ""}
+                {t("workspace.days", { count: item.days })}{item.year ? ` · ${item.year}` : ""}
               </span>
               {item.places.length ? (
                 <div className="pf-trending__places">
@@ -1381,7 +1407,7 @@ export function TrendingRail({
               ) : null}
               {item.match?.length ? (
                 <div className="pf-trending__match">
-                  <span>Matches your</span>
+                  <span>{t("trending.matches")}</span>
                   {item.match.map((tag) => (
                     <Badge key={tag} tone="info">{tag}</Badge>
                   ))}
@@ -1390,8 +1416,7 @@ export function TrendingRail({
               {open ? (
                 <div className="pf-trending__confirm">
                   <Text size="xs" tone="secondary">
-                    This sends a new trip request to the assistant. Your current plan is not
-                    changed until you send it.
+                    {t("trending.confirm")}
                   </Text>
                   <div className="pf-row">
                     <Button
@@ -1403,16 +1428,16 @@ export function TrendingRail({
                         onTry?.(promptFor(item));
                       }}
                     >
-                      Start planning
+                      {t("trending.start")}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setAsking(null)}>
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <Button size="sm" variant="ghost" iconRight="arrowRight" onClick={() => setAsking(item.destination)}>
-                  Try this trip
+                  {t("trending.try")}
                 </Button>
               )}
             </article>
@@ -1422,7 +1447,7 @@ export function TrendingRail({
 
       {trace?.note ? (
         <details className="pf-trending__trace">
-          <summary>How this is ranked</summary>
+          <summary>{t("trending.ranked")}</summary>
           <Text size="xs" tone="tertiary">{trace.note}</Text>
         </details>
       ) : null}
@@ -1439,19 +1464,20 @@ export function SavedTripsView({
   trips: { id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
   onOpen?: (id: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <main className="pf-saved">
       <PageHeader
-        eyebrow="Memory"
-        title="My trips"
-        description="Trips you marked useful. A similar new trip can use their shape, never their facts."
+        eyebrow={t("saved.eyebrow")}
+        title={t("saved.title")}
+        description={t("saved.body")}
       />
       {trips.length === 0 ? (
         <div className="pf-card">
           <EmptyState
             icon="book"
-            title="No saved trips yet"
-            body="Mark an itinerary as useful from the Plan tab and it will appear here with its destination and rating."
+            title={t("saved.empty")}
+            body={t("saved.emptyBody")}
           />
         </div>
       ) : (
@@ -1460,11 +1486,11 @@ export function SavedTripsView({
             <button type="button" className="pf-card pf-saved-card" key={trip.id} onClick={() => onOpen?.(trip.id)}>
               <div className="pf-row pf-row--between">
                 <Heading level={4}>{trip.destination}</Heading>
-                <Badge tone="success" dot>Useful</Badge>
+                <Badge tone="success" dot>{t("saved.useful")}</Badge>
               </div>
               <Text size="sm" tone="secondary">{trip.summary}</Text>
               <div className="pf-row pf-row--between">
-                <Text size="xs" tone="tertiary">{trip.days ? `${trip.days} days` : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
+                <Text size="xs" tone="tertiary">{trip.days ? t("workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
                 <Badge tone="warning">{trip.stars ? `${trip.stars}★` : `${Math.round(trip.rating * 5)}★`}</Badge>
               </div>
             </button>
@@ -1496,6 +1522,7 @@ export function EvalDashboard({
   onExport?: (runId: string) => void;
   onSelectRun?: (runId: string) => void;
 }) {
+  const { t } = useI18n();
   const [dataset, setDataset] = useState(latest?.dataset_id ?? "hongkong");
   const [tag, setTag] = useState("baseline-v1");
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -1508,13 +1535,13 @@ export function EvalDashboard({
   return (
     <main className="pf-eval">
       <PageHeader
-        eyebrow="Evaluation"
-        title="Measured, not asserted"
-        description="Every run is frozen against a dataset, scored with deterministic scripts, and compared with the previous run."
+        eyebrow={t("tab.evaluation")}
+        title={t("eval.title")}
+        description={t("eval.body")}
         action={
           <div className="pf-row">
-            {latest ? <Button variant="secondary" size="sm" iconLeft="download" onClick={() => onExport?.(latest.id)}>Export report</Button> : null}
-            <Badge tone={latest ? "success" : "warning"} dot>{latest ? "Run complete" : "No runs yet"}</Badge>
+            {latest ? <Button variant="secondary" size="sm" iconLeft="download" onClick={() => onExport?.(latest.id)}>{t("eval.export")}</Button> : null}
+            <Badge tone={latest ? "success" : "warning"} dot>{latest ? t("eval.runComplete") : t("eval.noRuns")}</Badge>
           </div>
         }
       />
@@ -1524,26 +1551,26 @@ export function EvalDashboard({
       <div className="pf-card pf-eval__panel">
         <div className="pf-eval__panel-head">
           <div className="pf-stack" style={{ gap: 2 }}>
-            <Text size="sm" weight="semibold">Run an experiment</Text>
-            <Text size="xs" tone="tertiary">Frozen datasets only. The sandbox runs the real pipeline without live keys.</Text>
+            <Text size="sm" weight="semibold">{t("eval.experiment")}</Text>
+            <Text size="xs" tone="tertiary">{t("eval.experimentBody")}</Text>
           </div>
-          <Badge tone="neutral">{runs.length} runs</Badge>
+          <Badge tone="neutral">{t("eval.runs", { count: runs.length })}</Badge>
         </div>
         <div className="pf-run-form">
           <label className="pf-field">
-            <span className="pf-field__label">Dataset</span>
+            <span className="pf-field__label">{t("eval.dataset")}</span>
             <Select value={dataset} onChange={(event) => setDataset(event.target.value)}>
               {datasets.map((item) => (
-                <option key={item.id} value={item.id}>{item.name} · {item.item_count} cases</option>
+                <option key={item.id} value={item.id}>{item.name} · {t("eval.cases", { count: item.item_count })}</option>
               ))}
             </Select>
           </label>
           <label className="pf-field">
-            <span className="pf-field__label">Experiment tag</span>
+            <span className="pf-field__label">{t("eval.tag")}</span>
             <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="router-tune-v2" />
           </label>
           <Button variant="primary" iconLeft="play" loading={running} onClick={() => onRun(dataset, tag)}>
-            Run evaluation
+            {t("eval.run")}
           </Button>
         </div>
       </div>
@@ -1559,14 +1586,14 @@ export function EvalDashboard({
           <div className="pf-eval__grid">
             <div className="pf-card pf-eval__panel">
               <div className="pf-eval__panel-head">
-                <Text size="sm" weight="semibold">Experiment comparison</Text>
+                <Text size="sm" weight="semibold">{t("eval.comparison")}</Text>
                 <Badge tone="neutral">{latest.dataset_id} v{latest.dataset_version}</Badge>
               </div>
               <ExperimentTable runs={runs} activeId={latest.id} onSelect={onSelectRun} />
             </div>
             <div className="pf-card pf-eval__panel">
               <div className="pf-eval__panel-head">
-                <Text size="sm" weight="semibold">Trend</Text>
+                <Text size="sm" weight="semibold">{t("eval.trend")}</Text>
                 <Badge tone="neutral">{primaryMetric.replaceAll("_", " ")}</Badge>
               </div>
               <TrendChart runs={series} metricKey={primaryMetric} />
@@ -1576,11 +1603,11 @@ export function EvalDashboard({
           <div className="pf-eval__grid">
             <div className="pf-card pf-eval__panel">
               <div className="pf-eval__panel-head">
-                <Text size="sm" weight="semibold">Failures and drill-down</Text>
-                <Badge tone={failed.length ? "danger" : "success"}>{failed.length} failed</Badge>
+                <Text size="sm" weight="semibold">{t("eval.failures")}</Text>
+                <Badge tone={failed.length ? "danger" : "success"}>{t("eval.failedCount", { count: failed.length })}</Badge>
               </div>
               {failed.length === 0 ? (
-                <EmptyState icon="check" title="No failing cases" body="This run passed every case in the frozen split." />
+                <EmptyState icon="check" title={t("eval.noFailures")} body={t("eval.noFailuresBody")} />
               ) : (
                 <div className="pf-stack">
                   {failed.map((item) => (
@@ -1589,9 +1616,9 @@ export function EvalDashboard({
                         <Text size="sm" weight="semibold">{item.case_id}</Text>
                         <span className="pf-row" style={{ gap: 6 }}>
                           {typeof item.judge_score === "number" ? (
-                            <Badge tone="neutral">judge {item.judge_score.toFixed(1)}</Badge>
+                            <Badge tone="neutral">{t("eval.judge", { score: item.judge_score.toFixed(1) })}</Badge>
                           ) : null}
-                          <Badge tone="danger">{item.failure_class || "failed"}</Badge>
+                          <Badge tone="danger">{item.failure_class || t("eval.failed")}</Badge>
                         </span>
                       </div>
                       <Text size="xs" tone="secondary">{item.input}</Text>
@@ -1603,8 +1630,8 @@ export function EvalDashboard({
             </div>
             <div className="pf-card pf-eval__panel">
               <div className="pf-eval__panel-head">
-                <Text size="sm" weight="semibold">Dataset split</Text>
-                <Badge tone="neutral">frozen</Badge>
+                <Text size="sm" weight="semibold">{t("eval.split")}</Text>
+                <Badge tone="neutral">{t("eval.frozen")}</Badge>
               </div>
               {datasets.map((item) => (
                 <div className="pf-row pf-row--between" key={item.id}>
@@ -1613,43 +1640,43 @@ export function EvalDashboard({
                     <span className="pf-small">{item.name}</span>
                   </span>
                   <span className="pf-row" style={{ gap: 8 }}>
-                    <span className="pf-small pf-muted">{item.item_count} cases</span>
-                    <Badge tone={item.frozen ? "success" : "warning"}>{item.frozen ? "frozen" : "draft"}</Badge>
+                    <span className="pf-small pf-muted">{t("eval.cases", { count: item.item_count })}</span>
+                    <Badge tone={item.frozen ? "success" : "warning"}>{item.frozen ? t("eval.frozen") : t("eval.draft")}</Badge>
                   </span>
                 </div>
               ))}
               <Divider />
               <Text size="xs" tone="tertiary">
-                Dev and held-out items are frozen before the first scored run. Failed cases carry the input, judge reason and tool summary.
+                {t("eval.splitNote")}
               </Text>
             </div>
           </div>
         </>
       ) : (
         <div className="pf-card">
-          <EmptyState icon="route" title="No evaluation runs recorded" body="Run the first evaluation to see metric cards, a comparison table and a failure drill-down." />
+          <EmptyState icon="route" title={t("eval.empty")} body={t("eval.emptyBody")} />
         </div>
       )}
 
-      <Drawer open={Boolean(selectedCase)} onClose={() => setCaseId(null)} title={selectedCase ? `Case ${selectedCase.case_id}` : "Case"}>
+      <Drawer open={Boolean(selectedCase)} onClose={() => setCaseId(null)} title={selectedCase ? t("eval.caseTitle", { id: selectedCase.case_id }) : t("eval.case")}>
         {selectedCase ? (
           <div className="pf-stack pf-stack--md">
-            <Badge tone={selectedCase.passed ? "success" : "danger"} dot>{selectedCase.passed ? "passed" : selectedCase.failure_class || "failed"}</Badge>
+            <Badge tone={selectedCase.passed ? "success" : "danger"} dot>{selectedCase.passed ? t("eval.passed") : selectedCase.failure_class || t("eval.failed")}</Badge>
             <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">Input</Text>
+              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.input")}</Text>
               <Text size="sm">{selectedCase.input}</Text>
             </div>
             <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">Output</Text>
+              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.output")}</Text>
               <Text size="sm">{selectedCase.output_summary}</Text>
             </div>
             <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">Judge reason</Text>
+              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.judgeReason")}</Text>
               <Text size="sm">{selectedCase.judge_reason}</Text>
             </div>
             {typeof selectedCase.judge_score === "number" ? (
               <div className="pf-stack">
-                <Text size="xs" weight="semibold" tone="tertiary">Judge score (advisory)</Text>
+                <Text size="xs" weight="semibold" tone="tertiary">{t("eval.judgeScore")}</Text>
                 <div className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
                   <Badge tone={selectedCase.judge_score >= 4 ? "success" : selectedCase.judge_score >= 3 ? "warning" : "danger"}>
                     {selectedCase.judge_score.toFixed(1)} / 5
@@ -1661,10 +1688,10 @@ export function EvalDashboard({
               </div>
             ) : null}
             <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">Tool summary</Text>
+              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.toolSummary")}</Text>
               {selectedCase.tool_summary.map((tool) => <Badge key={tool} tone="neutral">{tool}</Badge>)}
             </div>
-            <Text size="xs" tone="tertiary" className="pf-mono">trace {selectedCase.trace_id || "not linked"}</Text>
+            <Text size="xs" tone="tertiary" className="pf-mono">{t("eval.trace", { id: selectedCase.trace_id || t("eval.notLinked") })}</Text>
           </div>
         ) : null}
       </Drawer>
@@ -1685,16 +1712,17 @@ function videoEmbedUrl(note: VideoNote): string {
 }
 
 export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
+  const { t } = useI18n();
   const [active, setActive] = useState<VideoNote | null>(null);
   if (!notes || notes.length === 0) return null;
   const embed = active ? videoEmbedUrl(active) : "";
   const activeHref = safeHref(active?.url);
   return (
-    <section className="pf-card pf-videos" aria-label="Video guides">
+    <section className="pf-card pf-videos" aria-label={t("videos.label")}>
       <div className="pf-videos__head">
-        <Heading level={4}>Watch before you go</Heading>
+        <Heading level={4}>{t("videos.title")}</Heading>
         <Text size="xs" tone="tertiary">
-          Public videos from YouTube and Bilibili; they cannot change prices or hours.
+          {t("videos.body")}
         </Text>
       </div>
       <div className="pf-videos__grid">
@@ -1704,7 +1732,7 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
             className="pf-video"
             key={note.url}
             onClick={() => setActive(note)}
-            aria-label={`Play ${note.title}`}
+            aria-label={t("videos.play", { title: note.title })}
           >
             <span className="pf-video__thumb">
               {note.thumbnail_url ? (
@@ -1721,7 +1749,7 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
           </button>
         ))}
       </div>
-      <Dialog open={Boolean(active)} onClose={() => setActive(null)} title={active?.title ?? "Video"}>
+      <Dialog open={Boolean(active)} onClose={() => setActive(null)} title={active?.title ?? t("videos.video")}>
         {active ? (
           <div className="pf-video__frame">
             {embed ? (
@@ -1732,11 +1760,11 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
                 allowFullScreen
               />
             ) : (
-              <Text size="sm">This video does not allow an in-page player.</Text>
+              <Text size="sm">{t("videos.noEmbed")}</Text>
             )}
             {activeHref ? (
               <a className="pf-video__open" href={activeHref} target="_blank" rel="noreferrer">
-                Open on {active.source}
+                {t("videos.openOn", { source: active.source })}
               </a>
             ) : null}
           </div>
@@ -1753,14 +1781,15 @@ export function GuideNotes({
   items: GuideChunk[];
   loading?: boolean;
 }) {
+  const { t } = useI18n();
   return (
-    <section className="pf-card pf-guides" aria-label="Local guide notes">
+    <section className="pf-card pf-guides" aria-label={t("guides.label")}>
       <div className="pf-row pf-row--between">
-        <span className="pf-guides__eyebrow">LOCAL GUIDE · CITED</span>
-        <Badge tone="neutral" dot>{items[0]?.retrieval?.mode ?? "soft context"}</Badge>
+        <span className="pf-guides__eyebrow">{t("guides.eyebrow")}</span>
+        <Badge tone="neutral" dot>{items[0]?.retrieval?.mode ?? t("guides.softContext")}</Badge>
       </div>
       {loading ? (
-        <Text size="xs" tone="tertiary">Retrieving guide notes…</Text>
+        <Text size="xs" tone="tertiary">{t("guides.loading")}</Text>
       ) : items.length ? (
         items.map((item) => (
           <article className="pf-guide" key={item.id}>
@@ -1776,16 +1805,16 @@ export function GuideNotes({
             </div>
             <Text size="xs" tone="secondary">{item.text}</Text>
             <span className="pf-guide__meta">
-              {item.stale ? "Guide may be outdated" : `Verified ${item.last_verified ?? "recently"}`}
+              {item.stale ? t("guides.stale") : t("guides.verified", { when: item.last_verified ?? t("guides.recently") })}
               {item.license ? ` · ${item.license}` : ""}
             </span>
           </article>
         ))
       ) : (
-        <Text size="xs" tone="tertiary">No guide note for this destination yet.</Text>
+        <Text size="xs" tone="tertiary">{t("guides.empty")}</Text>
       )}
       <Text size="xs" tone="tertiary" className="pf-guides__note">
-        Soft context only: never a price, opening hour or booking claim.
+        {t("guides.note")}
       </Text>
     </section>
   );
@@ -1800,6 +1829,7 @@ export function AuthDialog({
   onClose: () => void;
   onSubmit: (mode: "login" | "register", email: string, password: string, displayName: string) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1814,7 +1844,7 @@ export function AuthDialog({
       await onSubmit(mode, email.trim(), password, displayName.trim());
       setPassword("");
     } catch (cause) {
-      let message = cause instanceof Error ? cause.message : "Sign-in failed.";
+      let message = cause instanceof Error ? cause.message : t("auth.failed");
       try {
         const parsed = JSON.parse(message) as { detail?: string };
         message = parsed.detail || message;
@@ -1822,11 +1852,11 @@ export function AuthDialog({
         // Plain-text errors stay as they are.
       }
       if (/email or password is incorrect/i.test(message)) {
-        message = "That email and password don’t match. Please try again.";
+        message = t("auth.mismatch");
       } else if (/already exists/i.test(message)) {
-        message = "That email is already registered. Try logging in instead.";
+        message = t("auth.exists");
       } else if (/valid email|password/i.test(message) && /422|field|least/i.test(message)) {
-        message = "Check your email and use a password with at least 8 characters.";
+        message = t("auth.invalid");
       }
       setError(message);
     } finally {
@@ -1835,18 +1865,17 @@ export function AuthDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={mode === "login" ? "Log in" : "Create account"}>
+    <Dialog open={open} onClose={onClose} title={mode === "login" ? t("auth.login") : t("auth.register")}>
       <div className="pf-auth">
         <Text size="sm" tone="secondary">
-          An account keeps your preferences and trips across browsers. You can keep planning
-          as a guest without one.
+          {t("auth.intro")}
         </Text>
         {mode === "register" ? (
-          <Field label="Name" htmlFor="pf-auth-name">
+          <Field label={t("auth.name")} htmlFor="pf-auth-name">
             <Input id="pf-auth-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Alex" />
           </Field>
         ) : null}
-        <Field label="Email" htmlFor="pf-auth-email">
+        <Field label={t("auth.email")} htmlFor="pf-auth-email">
           <Input
             id="pf-auth-email"
             type="email"
@@ -1856,7 +1885,7 @@ export function AuthDialog({
             placeholder="you@example.com"
           />
         </Field>
-        <Field label="Password" hint="At least 8 characters" htmlFor="pf-auth-password">
+        <Field label={t("auth.password")} hint={t("auth.passwordHint")} htmlFor="pf-auth-password">
           <Input
             id="pf-auth-password"
             type="password"
@@ -1870,7 +1899,7 @@ export function AuthDialog({
         </Field>
         {error ? <div className="pf-auth__error">{error}</div> : null}
         <Button variant="primary" block loading={busy} onClick={() => void submit()} disabled={!email || password.length < 8}>
-          {mode === "login" ? "Log in" : "Create account"}
+          {mode === "login" ? t("auth.login") : t("auth.register")}
         </Button>
         <button
           type="button"
@@ -1880,7 +1909,7 @@ export function AuthDialog({
             setError(null);
           }}
         >
-          {mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}
+          {mode === "login" ? t("auth.toRegister") : t("auth.toLogin")}
         </button>
       </div>
     </Dialog>
@@ -1903,7 +1932,6 @@ export function ShareDialog({
   onClose,
   url,
   expiresAt,
-  locale = "en",
   loading = false,
   copied = false,
   revoked = false,
@@ -1917,7 +1945,6 @@ export function ShareDialog({
   /** The full link, or null while it is being created and after it is turned off. */
   url: string | null;
   expiresAt?: string | null;
-  locale?: string;
   loading?: boolean;
   copied?: boolean;
   revoked?: boolean;
@@ -1926,43 +1953,44 @@ export function ShareDialog({
   onCopy?: () => void;
   onRevoke?: () => void;
 }) {
+  const { t, locale } = useI18n();
   return (
-    <Dialog open={open} onClose={onClose} title="Share this trip">
+    <Dialog open={open} onClose={onClose} title={t("share.title")}>
       <div className="pf-share">
         {url ? (
           <>
             <Text size="sm" tone="secondary">
-              Anyone with this link can view a read-only copy of the trip. They cannot chat or change it.
+              {t("share.body")}
             </Text>
             <div className="pf-share__link">
               <Input
                 readOnly
                 value={url}
-                aria-label="Share link"
+                aria-label={t("share.link")}
                 onFocus={(event) => event.currentTarget.select()}
               />
               <Button size="sm" variant="secondary" onClick={onCopy}>
-                {copied ? "Copied" : "Copy link"}
+                {copied ? t("share.copied") : t("share.copy")}
               </Button>
             </div>
             <div className="pf-share__foot">
               {expiresAt ? (
                 <Text size="xs" tone="tertiary">
-                  Link expires {formatExpiry(expiresAt, locale)}
+                  {t("share.expires", { date: formatExpiry(expiresAt, locale) })}
                 </Text>
               ) : (
                 <span />
               )}
               <Button size="sm" variant="danger" loading={revoking} onClick={onRevoke}>
-                Turn off link
+                {t("share.turnOff")}
               </Button>
             </div>
           </>
         ) : loading ? (
-          <Text size="sm" tone="secondary">Creating a read-only link…</Text>
+          <Text size="sm" tone="secondary">{t("share.creating")}</Text>
         ) : revoked ? (
           <Text size="sm" tone="secondary">
-            The link is off. Anyone who opens it now sees nothing. Share again to make a new link.
+            {t("share.revoked")}
           </Text>
         ) : null}
         {error ? <div className="pf-auth__error">{error}</div> : null}
@@ -1992,6 +2020,7 @@ export function SettingsView({
   onClearMemory?: () => void;
   onSavePreferences?: (preferences: string[]) => void;
 }) {
+  const { t } = useI18n();
   const [helpOpen, setHelpOpen] = useState(false);
   const [preferences, setPreferences] = useState<string[]>(profile?.preferences ?? []);
   const [prefInput, setPrefInput] = useState("");
@@ -2011,32 +2040,30 @@ export function SettingsView({
   return (
     <main className="pf-settings">
       <PageHeader
-        eyebrow="Configuration"
-        title="Settings"
-        description="Production thresholds are read-only in the app. Change them in the environment, restart, and record the diff."
-        action={<Button variant="secondary" size="sm" iconLeft="book" onClick={() => setHelpOpen(true)}>How it works</Button>}
+        eyebrow={t("settings.eyebrow")}
+        title={t("settings.title")}
+        description={t("settings.body")}
+        action={<Button variant="secondary" size="sm" iconLeft="book" onClick={() => setHelpOpen(true)}>{t("settings.howItWorks")}</Button>}
       />
       {config ? (
         <>
           <div className="pf-card pf-eval__panel">
             <div className="pf-row pf-row--between">
-              <Text size="sm" weight="semibold">Traveller profile</Text>
-              <Badge tone={signedIn ? "success" : "neutral"} dot>{signedIn ? "Account" : "Anonymous"}</Badge>
+              <Text size="sm" weight="semibold">{t("settings.profile")}</Text>
+              <Badge tone={signedIn ? "success" : "neutral"} dot>{signedIn ? t("settings.account") : t("settings.anonymous")}</Badge>
             </div>
             <Text size="xs" tone="tertiary">
-              {signedIn
-                ? "Signed in. Preferences and useful trips are stored against your account and can be cleared here."
-                : "Stored in this browser under a random token — no account, email or password. Preferences are remembered from your trip form and used in later plans."}
+              {signedIn ? t("settings.signedIn") : t("settings.guest")}
             </Text>
             <div className="pf-form-grid">
-              <Field label="Remembered preferences" wide htmlFor="pf-profile-preferences">
+              <Field label={t("settings.preferences")} wide htmlFor="pf-profile-preferences">
                 <div className="pf-preference-tags">
                   {preferences.map((preference) => (
                     <span className="pf-preference-tag" key={preference}>
                       {preference}
                       <button
                         type="button"
-                        aria-label={`Remove ${preference}`}
+                        aria-label={t("common.remove", { value: preference })}
                         onClick={() => removePreference(preference)}
                       >
                         <Icon name="close" size={11} />
@@ -2047,8 +2074,8 @@ export function SettingsView({
                     id="pf-profile-preferences"
                     className="pf-preference-tags__input"
                     value={prefInput}
-                    aria-label="Add a preference"
-                    placeholder={preferences.length ? "Add another…" : "slow pace, vegetarian, museums"}
+                    aria-label={t("settings.addPreference")}
+                    placeholder={preferences.length ? t("settings.addAnother") : t("settings.preferencesExample")}
                     onChange={(event) => setPrefInput(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === ",") {
@@ -2065,7 +2092,13 @@ export function SettingsView({
             </div>
             <div className="pf-row pf-row--between">
               <Text size="xs" tone="tertiary">
-                {profile ? `${profile.sessions} chats · ${profile.saved_trips} useful trips · ${profile.destinations.length} destinations` : "Loading profile…"}
+                {profile
+                  ? t("settings.profileCounts", {
+                      chats: profile.sessions,
+                      trips: profile.saved_trips,
+                      destinations: profile.destinations.length,
+                    })
+                  : t("settings.loadingProfile")}
               </Text>
               <div className="pf-row" style={{ gap: 6 }}>
                 {onSavePreferences ? (
@@ -2080,24 +2113,24 @@ export function SettingsView({
                       onSavePreferences(next);
                     }}
                   >
-                    Save preferences
+                    {t("settings.savePreferences")}
                   </Button>
                 ) : null}
                 {onClearMemory ? (
                   <Button size="sm" variant="ghost" onClick={onClearMemory}>
-                    Clear memory
+                    {t("settings.clearMemory")}
                   </Button>
                 ) : null}
               </div>
             </div>
             {profile?.destinations.length ? (
               <Text size="xs" tone="tertiary">
-                Recent destinations: {profile.destinations.join(" · ")}
+                {t("settings.recent", { destinations: profile.destinations.join(" · ") })}
               </Text>
             ) : null}
           </div>
           <div className="pf-card pf-eval__panel">
-            <Text size="sm" weight="semibold">Policy thresholds</Text>
+            <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {Object.entries(config.thresholds).map(([key, value]) => (
               <div className="pf-row pf-row--between" key={key}>
                 <span className="pf-small pf-muted">{key.replaceAll("_", " ")}</span>
@@ -2106,34 +2139,34 @@ export function SettingsView({
             ))}
           </div>
           <div className="pf-card pf-eval__panel">
-            <Text size="sm" weight="semibold">Freshness windows</Text>
+            <Text size="sm" weight="semibold">{t("settings.freshness")}</Text>
             {Object.entries(config.freshness_hours).map(([key, value]) => (
               <div className="pf-row pf-row--between" key={key}>
                 <span className="pf-small pf-muted">{key}</span>
-                <span className="pf-mono pf-small">{value} h</span>
+                <span className="pf-mono pf-small">{t("settings.hours", { count: value })}</span>
               </div>
             ))}
           </div>
           <div className="pf-card pf-eval__panel">
             <div className="pf-row pf-row--between">
-              <Text size="sm" weight="semibold">Writer</Text>
-              <Badge tone={config.writer.available ? "success" : "warning"} dot>{config.writer.available ? "available" : "offline"}</Badge>
+              <Text size="sm" weight="semibold">{t("settings.writer")}</Text>
+              <Badge tone={config.writer.available ? "success" : "warning"} dot>{config.writer.available ? t("settings.available") : t("settings.offline")}</Badge>
             </div>
             <Text size="sm" tone="secondary" className="pf-mono">{config.writer.model}</Text>
             <Divider />
-            <Text size="sm" weight="semibold">Provider chains</Text>
+            <Text size="sm" weight="semibold">{t("settings.providers")}</Text>
             {Object.entries(config.providers).map(([capability, chains]) => (
               <div className="pf-row pf-row--between" key={capability}>
                 <span className="pf-small pf-muted">{capability}</span>
                 <span className="pf-small" style={{ textAlign: "right" }}>
-                  {Array.isArray(chains) ? chains.join(" → ") || "none" : String(chains)}
+                  {Array.isArray(chains) ? chains.join(" → ") || t("settings.none") : String(chains)}
                 </span>
               </div>
             ))}
           </div>
           <div className="pf-card pf-eval__panel">
-            <Text size="sm" weight="semibold">Aggregate injection log</Text>
-            <Text size="xs" tone="tertiary">Counts and categories only. No conversation text is stored in this log.</Text>
+            <Text size="sm" weight="semibold">{t("settings.injections")}</Text>
+            <Text size="xs" tone="tertiary">{t("settings.injectionsBody")}</Text>
             {(injections ?? []).length ? (
               injections?.map((event) => (
                 <div className="pf-row pf-row--between" key={event.category}>
@@ -2142,19 +2175,19 @@ export function SettingsView({
                 </div>
               ))
             ) : (
-              <Text size="xs" tone="tertiary">No injection attempts recorded.</Text>
+              <Text size="xs" tone="tertiary">{t("settings.noInjections")}</Text>
             )}
           </div>
         </>
       ) : (
-        <div className="pf-card"><EmptyState title="Configuration unavailable" body="The backend did not return /api/runtime." /></div>
+        <div className="pf-card"><EmptyState title={t("settings.unavailable")} body={t("settings.unavailableBody")} /></div>
       )}
-      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title="How Pathfinder works">
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title={t("help.title")}>
         <div className="pf-stack pf-stack--md">
-          <Text size="sm">One message takes one path. A typed System 1 decision chooses plan, modify or ask; anything unclear is clarified instead of guessed.</Text>
-          <Text size="sm">A new plan runs four agents in parallel — attractions, hotels, weather and tickets — under a time budget. The planner may select and order verified candidates, never invent one.</Text>
-          <Text size="sm">An edit reruns only the affected agents, preserves locked and confirmed stops, and increments the version. A quick question answers from the current plan first, then at most one allowlisted tool.</Text>
-          <Text size="sm">Every item carries a source and a freshness status. Missing data stays visibly unavailable.</Text>
+          <Text size="sm">{t("settings.help1")}</Text>
+          <Text size="sm">{t("settings.help2")}</Text>
+          <Text size="sm">{t("settings.help3")}</Text>
+          <Text size="sm">{t("settings.help4")}</Text>
         </div>
       </Dialog>
     </main>
@@ -2163,11 +2196,12 @@ export function SettingsView({
 
 /* -------------------------------------------------------------- utility -- */
 
-export function LoadingScreen({ label = "Loading Pathfinder" }: { label?: string }) {
+export function LoadingScreen({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div className="pf-empty" style={{ minHeight: "60vh" }}>
       <span className="pf-spinner" data-size="lg" />
-      <Text size="sm" tone="tertiary">{label}</Text>
+      <Text size="sm" tone="tertiary">{label ?? t("common.loadingApp")}</Text>
     </div>
   );
 }

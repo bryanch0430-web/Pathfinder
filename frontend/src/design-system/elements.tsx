@@ -1,39 +1,49 @@
 import type { ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
 import { safeHref } from "../lib/safeHref";
+import { useI18n, type MessageKey } from "../lib/i18n";
 
 type DataStatus = "ok" | "stale" | "unavailable";
 type Intent = "plan" | "modify" | "ask" | "unclear";
 export type AgentStatus = "running" | "ok" | "partial" | "unavailable" | "timeout" | "failed";
 
-const STATUS_LABEL: Record<DataStatus, string> = {
-  ok: "Live",
-  stale: "Needs refresh",
-  unavailable: "Unavailable",
+const STATUS_LABEL: Record<DataStatus, MessageKey> = {
+  ok: "status.ok",
+  stale: "status.stale",
+  unavailable: "status.unavailable",
 };
 
 export function StatusPill({ status, label }: { status: DataStatus; label?: string }) {
+  const { t } = useI18n();
   return (
     <span className="pf-status" data-status={status}>
       <span className="pf-dot" aria-hidden="true" />
-      {label ?? STATUS_LABEL[status]}
+      {label ?? (STATUS_LABEL[status] ? t(STATUS_LABEL[status]) : status)}
     </span>
   );
 }
+
+const INTENT_LABEL: Record<Intent, MessageKey> = {
+  plan: "intent.plan",
+  modify: "intent.modify",
+  ask: "intent.ask",
+  unclear: "intent.unclear",
+};
 
 export function IntentBadge({ intent }: { intent: Intent }) {
+  const { t } = useI18n();
   return (
     <span className="pf-intent" data-intent={intent}>
-      {intent === "unclear" ? "clarify" : intent}
+      {INTENT_LABEL[intent] ? t(INTENT_LABEL[intent]) : intent}
     </span>
   );
 }
 
-const AGENT_LABEL: Record<string, string> = {
-  attraction: "Attractions",
-  hotel: "Hotels",
-  weather: "Weather",
-  ticket: "Tickets",
+const AGENT_LABEL: Record<string, MessageKey> = {
+  attraction: "agent.attraction",
+  hotel: "agent.hotel",
+  weather: "agent.weather",
+  ticket: "agent.ticket",
 };
 
 const AGENT_ICON: Record<string, IconName> = {
@@ -52,11 +62,12 @@ export function AgentChip({
   status: AgentStatus;
   detail?: string;
 }) {
+  const { t } = useI18n();
   return (
     <span className="pf-agent-chip" data-status={status}>
       {status === "running" ? <span className="pf-spinner" style={{ width: 12, height: 12 }} /> : <Icon name={AGENT_ICON[agent] ?? "sparkles"} size={13} />}
       <span className="pf-agent-chip__text">
-        {AGENT_LABEL[agent] ?? agent}
+        {AGENT_LABEL[agent] ? t(AGENT_LABEL[agent]) : agent}
         {detail ? <span className="pf-muted"> · {detail}</span> : null}
       </span>
     </span>

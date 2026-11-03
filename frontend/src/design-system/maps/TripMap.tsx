@@ -13,6 +13,7 @@ import { kmBetween, modeForDistance, MODE, type LatLng, type TravelMode } from "
 import { clockText, minutesOf } from "./time";
 import { pinHtml, pinSvg, tokenHtml, tokenSvg, type PinVisual } from "./pins";
 import { hotelScopeItem } from "../scope";
+import { useI18n } from "../../lib/i18n";
 import type { DayPlan, PlanItem, TripPlan } from "../types";
 
 const HAS_GEO = (item: PlanItem): item is PlanItem & { geo: NonNullable<PlanItem["geo"]> } => Boolean(item.geo);
@@ -81,6 +82,7 @@ export interface TripMapProps {
 }
 
 export function TripMap(props: TripMapProps) {
+  const { t } = useI18n();
   const {
     plan,
     day,
@@ -496,34 +498,34 @@ export function TripMap(props: TripMapProps) {
         className="pf-map__surface"
         data-provider="google"
         role="application"
-        aria-label={`Map of ${plan.destination.name}${day ? `, ${day.title}` : ""}`}
+        aria-label={t("map.of", { place: day ? `${plan.destination.name}, ${day.title}` : plan.destination.name })}
       />
       <div className="pf-map__place">
         <span className="pf-map__place-icon"><Icon name="map" size={14} /></span>
         <div>
-          <span className="pf-map__place-kicker">{day?.title ?? "Choose a day"}</span>
+          <span className="pf-map__place-kicker">{day?.title ?? t("map.chooseDay")}</span>
           <strong>{plan.destination.name}</strong>
         </div>
       </div>
       <div className="pf-map__toolbar">
-        <IconButton icon="zoomIn" label="Zoom in" onClick={() => engineRef.current?.zoomIn()} />
-        <IconButton icon="zoomOut" label="Zoom out" onClick={() => engineRef.current?.zoomOut()} />
-        <IconButton icon={showRoute ? "layers" : "route"} label="Toggle route" onClick={onToggleRoute} />
-        <IconButton icon="close" label="Clear selection" onClick={() => onSelectItem(null)} />
+        <IconButton icon="zoomIn" label={t("map.zoomIn")} onClick={() => engineRef.current?.zoomIn()} />
+        <IconButton icon="zoomOut" label={t("map.zoomOut")} onClick={() => engineRef.current?.zoomOut()} />
+        <IconButton icon={showRoute ? "layers" : "route"} label={t("map.toggleRoute")} onClick={onToggleRoute} />
+        <IconButton icon="close" label={t("place.clear")} onClick={() => onSelectItem(null)} />
       </div>
       <div className="pf-map__legend" aria-hidden="true">
-        <span><i className="pf-legend-dot pf-legend-dot--sight" />Sight</span>
-        <span><i className="pf-legend-dot pf-legend-dot--hotel" />Hotel</span>
+        <span><i className="pf-legend-dot pf-legend-dot--sight" />{t("map.sight")}</span>
+        <span><i className="pf-legend-dot pf-legend-dot--hotel" />{t("map.hotel")}</span>
         <span className="pf-map__provider">Google Maps</span>
       </div>
       <div className="pf-map__clock" aria-live="polite">
         <strong>{clockText(clock)}</strong>
-        <span>{currentName ?? "Before the first stop"}</span>
+        <span>{currentName ?? t("map.beforeFirstStop")}</span>
       </div>
       {status === "no-key" ? (
-        <span className="pf-map__notice">GOOGLE_MAPS_API_KEY not set · stops still shown</span>
+        <span className="pf-map__notice">{t("map.noKey")}</span>
       ) : null}
-      {status === "failed" ? <span className="pf-map__notice">Base map unavailable · stops still shown</span> : null}
+      {status === "failed" ? <span className="pf-map__notice">{t("map.failed")}</span> : null}
     </div>
   );
 }

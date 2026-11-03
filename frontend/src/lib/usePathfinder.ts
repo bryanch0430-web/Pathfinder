@@ -22,6 +22,7 @@ import type {
   TripContext,
   TripPlan,
 } from "../design-system/types";
+import { useI18n } from "./i18n";
 import { clearStoredValue } from "./storage";
 
 const SESSION_KEY = "pathfinder.session";
@@ -97,6 +98,11 @@ export interface PathfinderHook {
 }
 
 export function usePathfinder(locale: string): PathfinderHook {
+  // Read through a ref so a locale switch does not recreate the callbacks
+  // (and with them re-run the bootstrap effect).
+  const { t } = useI18n();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [context, setContextState] = useState<TripContext>(emptyContext());
   const [plan, setPlan] = useState<TripPlan | null>(null);
@@ -163,7 +169,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setSessionId(id);
       setReady(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Backend unreachable");
+      setError(cause instanceof Error ? cause.message : tRef.current("errors.backend"));
       setReady(true);
     }
   }, [loadSession]);
@@ -248,7 +254,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const data = await patchContext(id, patch);
       setContextState(data.context);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save the trip details.");
+      setError(cause instanceof Error ? cause.message : tRef.current("errors.saveDetails"));
       throw cause;
     }
   }, [context]);
@@ -266,7 +272,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setClarifyValues({});
       setAgents({});
       setProgress(0);
-      setProgressMessage("Understanding your message");
+      setProgressMessage(tRef.current("chat.understanding"));
       setRoute(null);
       const scopeLabel = selectedItem
         ? (() => {
@@ -274,6 +280,7 @@ export function usePathfinder(locale: string): PathfinderHook {
               entry.items.some((candidate) => candidate.id === selectedItem.id),
             );
             const index = day && plan ? plan.days.indexOf(day) + 1 : 0;
+            // Sent to the planner as `scope_label`, so it stays in English.
             return day ? `Day ${index} · ${selectedItem.name}` : selectedItem.name;
           })()
         : "";
@@ -350,14 +357,14 @@ export function usePathfinder(locale: string): PathfinderHook {
               }
               if (event === "clarify") setClarify(data as unknown as ClarifyPayload);
               if (event === "trace") setTrace(data as unknown as RunTrace);
-              if (event === "error") setError(String(data.message ?? "The turn failed."));
+              if (event === "error") setError(String(data.message ?? tRef.current("errors.turn")));
             },
           },
           controller.signal,
         );
       } catch (cause) {
         if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "The turn failed.");
+          setError(cause instanceof Error ? cause.message : tRef.current("errors.turn"));
         }
       } finally {
         abortRef.current = null;
@@ -422,7 +429,7 @@ export function usePathfinder(locale: string): PathfinderHook {
           setFeedbackAdded(result.preferences_added ?? []);
         }
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Feedback could not be saved.");
+        setError(cause instanceof Error ? cause.message : tRef.current("errors.feedback"));
       }
     },
     [feedbackStars],
@@ -443,7 +450,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setClarifyValues({});
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The chat could not be cleared.");
+      setError(cause instanceof Error ? cause.message : tRef.current("errors.clearChat"));
     }
   }, []);
 

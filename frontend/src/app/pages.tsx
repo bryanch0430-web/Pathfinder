@@ -20,11 +20,13 @@ import {
   runEval,
   saveProfilePreferences,
 } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import { safeHref } from "../lib/safeHref";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
 
 export function SavedPage() {
+  const { t } = useI18n();
   const [trips, setTrips] = useState<Awaited<ReturnType<typeof getSavedTrips>>["trips"]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,11 +34,11 @@ export function SavedPage() {
   useEffect(() => {
     getSavedTrips(ensureClientToken())
       .then((data) => setTrips(data.trips))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load saved trips."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.savedTrips")))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <LoadingScreen label="Loading saved trips" />;
+  if (loading) return <LoadingScreen label={t("saved.loading")} />;
   if (error) {
     return (
       <main className="pf-saved">
@@ -48,6 +50,7 @@ export function SavedPage() {
 }
 
 export function EvaluationPage() {
+  const { t } = useI18n();
   const [datasets, setDatasets] = useState<EvalDataset[]>([]);
   const [runs, setRuns] = useState<EvalRunSummary[]>([]);
   const [latest, setLatest] = useState<EvalRun | null>(null);
@@ -67,7 +70,7 @@ export function EvaluationPage() {
       }
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The evaluation service is unavailable.");
+      setError(cause instanceof Error ? cause.message : t("errors.evalService"));
     } finally {
       setLoading(false);
     }
@@ -86,7 +89,7 @@ export function EvaluationPage() {
       const runData = await getEvalRuns();
       setRuns(runData.runs);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The evaluation run failed.");
+      setError(cause instanceof Error ? cause.message : t("errors.evalRun"));
     } finally {
       setRunning(false);
     }
@@ -97,11 +100,11 @@ export function EvaluationPage() {
       const detail = await getEvalRun(runId);
       setLatest(detail.run);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The run could not be opened.");
+      setError(cause instanceof Error ? cause.message : t("errors.evalOpen"));
     }
   };
 
-  if (loading) return <LoadingScreen label="Loading evaluation" />;
+  if (loading) return <LoadingScreen label={t("eval.loading")} />;
   if (!datasets.length && error) {
     return (
       <main className="pf-eval">
@@ -112,7 +115,7 @@ export function EvaluationPage() {
   if (!datasets.length) {
     return (
       <main className="pf-eval">
-        <EmptyState title="No evaluation datasets" body="The backend seeds routing, injection, Hong Kong, Japan and TravelPlanner fixtures on first start." />
+        <EmptyState title={t("eval.noDatasets")} body={t("eval.noDatasetsBody")} />
       </main>
     );
   }
@@ -134,6 +137,7 @@ export function EvaluationPage() {
 }
 
 export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
+  const { t } = useI18n();
   const [config, setConfig] = useState<Parameters<typeof SettingsView>[0]["config"]>(null);
   const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
@@ -143,7 +147,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   useEffect(() => {
     getConfig()
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Configuration is unavailable."));
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.config")));
     // No built-in admin token: the admin request is only sent when one is stored.
     const adminToken = localStorage.getItem("pathfinder.admin") || "";
     if (adminToken) {
@@ -161,15 +165,15 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const handleSavePreferences = (preferences: string[]) => {
     void saveProfilePreferences(clientToken, preferences)
       .then((data) => setProfile(data.profile))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Preferences could not be saved."));
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.preferences")));
   };
 
   const handleClearMemory = () => {
-    if (!window.confirm("Clear saved trips and remembered preferences? Your current itinerary and chat stay.")) return;
+    if (!window.confirm(t("settings.clearConfirm"))) return;
     void clearMemory(clientToken)
       .then(() => getProfile(clientToken))
       .then(setProfile)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Memory could not be cleared."));
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("errors.memory")));
   };
 
   return (

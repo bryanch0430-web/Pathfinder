@@ -10,6 +10,7 @@ import {
   type AgentStatus,
 } from "./elements";
 import { Icon, type IconName } from "./icons";
+import { useI18n, type MessageKey } from "../lib/i18n";
 import type {
   AgentState,
   ClarifyPayload,
@@ -59,14 +60,15 @@ export function Field({
 export function SearchField({
   value,
   onChange,
-  placeholder = "Search",
-  label = "Search",
+  placeholder,
+  label,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   label?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="pf-search">
       <span className="pf-search__icon">
@@ -75,8 +77,8 @@ export function SearchField({
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        aria-label={label}
+        placeholder={placeholder ?? t("common.search")}
+        aria-label={label ?? t("common.search")}
       />
     </div>
   );
@@ -100,12 +102,13 @@ export function ChatBubble({
   above?: ReactNode;
   streaming?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="pf-bubble" data-role={role}>
       {above ? <div className="pf-bubble__above">{above}</div> : null}
       <div className="pf-bubble__body">
         {children}
-        {streaming ? <span className="pf-muted" aria-label="Still writing">▍</span> : null}
+        {streaming ? <span className="pf-muted" aria-label={t("chat.streaming")}>▍</span> : null}
       </div>
       <div className="pf-bubble__meta">
         {intent ? <IntentBadge intent={intent} /> : null}
@@ -135,6 +138,7 @@ export function TripContextForm({
   saving?: boolean;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   const id = useId();
   const [destinationOptions, setDestinationOptions] = useState<{ label: string }[]>([]);
   const [preferenceTags, setPreferenceTags] = useState<string[]>(values.preferences ?? []);
@@ -207,7 +211,7 @@ export function TripContextForm({
       }}
     >
       <div className="pf-form-grid">
-        <Field label="Destination" required htmlFor={`${id}-destination`}>
+        <Field label={t("form.destination")} required htmlFor={`${id}-destination`}>
           <Input
             id={`${id}-destination`}
             value={values.destination ?? ""}
@@ -222,7 +226,7 @@ export function TripContextForm({
             ))}
           </datalist>
         </Field>
-        <Field label="From" required htmlFor={`${id}-origin`}>
+        <Field label={t("form.from")} required htmlFor={`${id}-origin`}>
           <Input
             id={`${id}-origin`}
             value={values.origin ?? ""}
@@ -231,7 +235,7 @@ export function TripContextForm({
             autoComplete="off"
           />
         </Field>
-        <Field label="Start" required htmlFor={`${id}-start`}>
+        <Field label={t("form.start")} required htmlFor={`${id}-start`}>
           <Input
             id={`${id}-start`}
             type="date"
@@ -239,7 +243,7 @@ export function TripContextForm({
             onChange={(event) => onChange({ start_date: event.target.value || null })}
           />
         </Field>
-        <Field label="End" required htmlFor={`${id}-end`}>
+        <Field label={t("form.end")} required htmlFor={`${id}-end`}>
           <Input
             id={`${id}-end`}
             type="date"
@@ -247,7 +251,7 @@ export function TripContextForm({
             onChange={(event) => onChange({ end_date: event.target.value || null })}
           />
         </Field>
-        <Field label="Travellers" required htmlFor={`${id}-party`}>
+        <Field label={t("form.travellers")} required htmlFor={`${id}-party`}>
           <Input
             id={`${id}-party`}
             type="number"
@@ -257,7 +261,7 @@ export function TripContextForm({
             onChange={(event) => onChange({ party_size: event.target.value ? Number(event.target.value) : null })}
           />
         </Field>
-        <Field label="Budget" required wide htmlFor={`${id}-budget`}>
+        <Field label={t("form.budget")} required wide htmlFor={`${id}-budget`}>
           <div className="pf-budget-input">
             <Input
               id={`${id}-budget`}
@@ -269,7 +273,7 @@ export function TripContextForm({
               placeholder="400000"
             />
             <Select
-              aria-label="Budget currency"
+              aria-label={t("form.currency")}
               value={values.currency ?? "HKD"}
               onChange={(event) => onChange({ currency: event.target.value })}
             >
@@ -281,29 +285,29 @@ export function TripContextForm({
             </Select>
           </div>
         </Field>
-        <Field label="Hotel style" htmlFor={`${id}-style`}>
+        <Field label={t("form.hotelStyle")} htmlFor={`${id}-style`}>
           <Select
             id={`${id}-style`}
             value={values.hotel_style ?? ""}
             onChange={(event) => onChange({ hotel_style: event.target.value })}
           >
-            <option value="">No preference</option>
-            <option value="budget">Budget</option>
-            <option value="midrange">Midrange</option>
-            <option value="boutique">Boutique</option>
-            <option value="luxury">Luxury</option>
-            <option value="hostel">Hostel</option>
+            <option value="">{t("form.style.none")}</option>
+            <option value="budget">{t("form.style.budget")}</option>
+            <option value="midrange">{t("form.style.midrange")}</option>
+            <option value="boutique">{t("form.style.boutique")}</option>
+            <option value="luxury">{t("form.style.luxury")}</option>
+            <option value="hostel">{t("form.style.hostel")}</option>
           </Select>
         </Field>
         {!compact ? (
-          <Field label="Preferences" hint="Enter or comma adds a tag" wide htmlFor={`${id}-prefs`}>
+          <Field label={t("form.preferences")} hint={t("form.preferencesHint")} wide htmlFor={`${id}-prefs`}>
             <div className="pf-preference-tags">
               {preferenceTags.map((preference) => (
                 <span className="pf-preference-tag" key={preference}>
                   {preference}
                   <button
                     type="button"
-                    aria-label={`Remove ${preference}`}
+                    aria-label={t("common.remove", { value: preference })}
                     onClick={() => removePreference(preference)}
                   >
                     <Icon name="close" size={11} />
@@ -314,8 +318,8 @@ export function TripContextForm({
                 id={`${id}-prefs`}
                 className="pf-preference-tags__input"
                 value={prefInput}
-                aria-label="Add a preference"
-                placeholder={preferenceTags.length ? "Add another…" : "slow pace, vegetarian, museums"}
+                aria-label={t("settings.addPreference")}
+                placeholder={preferenceTags.length ? t("settings.addAnother") : t("settings.preferencesExample")}
                 onChange={(event) => setPrefInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === ",") {
@@ -331,7 +335,7 @@ export function TripContextForm({
           </Field>
         ) : null}
         {!compact ? (
-          <Field label="Hard constraints" hint="Must include, avoid, accessibility" wide htmlFor={`${id}-constraints`}>
+          <Field label={t("form.constraints")} hint={t("form.constraintsHint")} wide htmlFor={`${id}-constraints`}>
             <Input
               id={`${id}-constraints`}
               value={constraintText}
@@ -344,6 +348,7 @@ export function TripContextForm({
                     .filter(Boolean),
                 });
               }}
+              // The planner reads "must include …" in English, so the example stays English.
               placeholder="must include Fushimi Inari"
             />
           </Field>
@@ -352,13 +357,13 @@ export function TripContextForm({
       <div className="pf-row pf-row--between">
         {onSave ? (
           <Button variant="ghost" size="sm" loading={saving} onClick={onSave} type="button">
-            Save details
+            {t("form.save")}
           </Button>
         ) : (
           <span />
         )}
         <Button type="submit" variant="primary" loading={submitting} iconRight="arrowRight">
-          Generate itinerary
+          {t("form.generate")}
         </Button>
       </div>
     </form>
@@ -378,6 +383,7 @@ export function ClarifyCard({
   onSubmit: (message?: string) => void;
   submitting?: boolean;
 }) {
+  const { t } = useI18n();
   const choices = payload.choices ?? [];
   const slotsOnly = payload.slots.length > 0;
   return (
@@ -440,14 +446,14 @@ export function ClarifyCard({
       <div className="pf-row pf-row--between">
         <Text size="xs" tone="tertiary">
           {slotsOnly
-            ? "The plan will not start until these are known."
+            ? t("clarify.slots")
             : choices.length
-              ? "Pick one, or type your own request below."
-              : "Type what you want to plan or change."}
+              ? t("clarify.choices")
+              : t("clarify.free")}
         </Text>
         {slotsOnly ? (
           <Button variant="primary" size="sm" onClick={() => onSubmit()} loading={submitting} iconRight="send">
-            Continue
+            {t("common.continue")}
           </Button>
         ) : null}
       </div>
@@ -464,8 +470,9 @@ export function DayStrip({
   active: string;
   onSelect: (date: string) => void;
 }) {
+  const { t } = useI18n();
   return (
-    <div className="pf-day-strip" role="tablist" aria-label="Itinerary days">
+    <div className="pf-day-strip" role="tablist" aria-label={t("day.strip")}>
       {days.map((day, index) => {
         const date = new Date(`${day.date}T12:00:00`);
         return (
@@ -478,7 +485,7 @@ export function DayStrip({
             aria-selected={day.date === active}
             onClick={() => onSelect(day.date)}
           >
-            <span>Day {index + 1}</span>
+            <span>{t("day.number", { n: index + 1 })}</span>
             <b>{date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</b>
           </button>
         );
@@ -510,6 +517,7 @@ export function ItineraryItem({
   number?: number;
   showSource?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className="pf-item"
@@ -546,7 +554,7 @@ export function ItineraryItem({
           <StatusPill status={item.data_status as DataStatus} />
           {updated ? (
             <Badge tone="success" dot>
-              Updated
+              {t("common.updated")}
             </Badge>
           ) : null}
           {item.price ? (
@@ -556,7 +564,7 @@ export function ItineraryItem({
           ) : null}
           {item.locked ? (
             <Badge tone="warning" dot>
-              Locked
+              {t("item.locked")}
             </Badge>
           ) : null}
           {showSource && item.source_refs.length ? (
@@ -577,11 +585,12 @@ export function ItineraryItem({
 }
 
 export function WeatherChip({ weather }: { weather: WeatherDay | null }) {
+  const { t } = useI18n();
   if (!weather) {
     return (
       <span className="pf-weather">
         <Icon name="cloud" size={13} />
-        No forecast
+        {t("weather.none")}
       </span>
     );
   }
@@ -591,11 +600,11 @@ export function WeatherChip({ weather }: { weather: WeatherDay | null }) {
       <Icon name={hasData ? "sun" : "cloud"} size={13} />
       {hasData ? (
         <>
-          {weather.status === "stale" ? "Seasonal" : weather.summary} ·{" "}
+          {weather.status === "stale" ? t("weather.seasonal") : weather.summary} ·{" "}
           {Math.round(weather.high_c ?? 0)}° / {Math.round(weather.low_c ?? 0)}°
         </>
       ) : (
-        "No forecast"
+        t("weather.none")
       )}
     </span>
   );
@@ -616,14 +625,16 @@ export function DaySection({
   onSelectItem?: (item: PlanItem) => void;
   innerRef?: (node: HTMLElement | null) => void;
 }) {
+  const { t } = useI18n();
+  const dayLabel = t("day.number", { n: index + 1 });
   return (
-    <section className="pf-day" ref={innerRef} aria-label={`Day ${index + 1}`}>
+    <section className="pf-day" ref={innerRef} aria-label={dayLabel}>
       <div className="pf-day__head">
         <div className="pf-stack" style={{ gap: 2 }}>
-          <span className="pf-day__date">Day {index + 1} · {day.date}</span>
-          <span className="pf-day__title">{day.title || `Day ${index + 1}`}</span>
+          <span className="pf-day__date">{dayLabel} · {day.date}</span>
+          <span className="pf-day__title">{day.title || dayLabel}</span>
           {typeof day.elevation_gain_m === "number" && day.elevation_gain_m > 0 ? (
-            <span className="pf-muted">↑ {Math.round(day.elevation_gain_m)} m climb</span>
+            <span className="pf-muted">↑ {t("day.climb", { m: Math.round(day.elevation_gain_m) })}</span>
           ) : null}
         </div>
         <WeatherChip weather={day.weather} />
@@ -641,7 +652,7 @@ export function DaySection({
       {!day.items.length ? (
         <div className="pf-gap" style={{ margin: "0 8px" }}>
           <Icon name="alert" size={13} />
-          {day.note || "No verified stops were available for this day."}
+          {day.note || t("day.noStops")}
         </div>
       ) : null}
     </section>
@@ -657,12 +668,13 @@ export function AgentActivity({
   progress?: number;
   message?: string;
 }) {
+  const { t } = useI18n();
   const list = Object.values(agents);
   return (
     <div className="pf-live">
       <div className="pf-live__head">
         <span className="pf-spinner" style={{ width: 12, height: 12 }} />
-        {message ?? "Working"}
+        {message ?? t("chat.working")}
       </div>
       <div className="pf-agents">
         {list.map((agent) => (
@@ -683,6 +695,7 @@ export function BudgetPanel({
   fx?: FxSnapshot | null;
   onOptimize?: () => void;
 }) {
+  const { t } = useI18n();
   const [displayCurrency, setDisplayCurrency] = useState("USD");
   const ratio = cost.budget && cost.budget > 0 ? Math.min(100, Math.round((cost.total / cost.budget) * 100)) : 42;
   const rates = fx?.rates ?? {};
@@ -696,7 +709,7 @@ export function BudgetPanel({
         <div className="pf-donut" style={{ ["--pf-donut-value" as string]: ratio }}>
           <span className="pf-donut__label">
             {cost.currency} {Math.round(cost.total).toLocaleString()}
-            <span>{cost.budget ? "of budget" : "known"}</span>
+            <span>{cost.budget ? t("budget.ofBudget") : t("budget.known")}</span>
           </span>
         </div>
         <div className="pf-legend">
@@ -709,11 +722,11 @@ export function BudgetPanel({
               </span>
             ))
           ) : (
-            <span className="pf-small pf-muted">No known costs yet.</span>
+            <span className="pf-small pf-muted">{t("budget.noCosts")}</span>
           )}
           <span className="pf-legend__row" style={{ opacity: 0.6 }}>
             <span className="pf-legend__swatch" style={{ background: "var(--p30-tone-neutral-gray300)" }} />
-            Meals and attraction tickets <span className="pf-legend__amount">not tracked</span>
+            {t("budget.untracked")} <span className="pf-legend__amount">{t("budget.notTracked")}</span>
           </span>
         </div>
       </div>
@@ -721,20 +734,20 @@ export function BudgetPanel({
         <div className="pf-row pf-row--between">
           <span className="pf-small pf-muted">
             {cost.remaining !== null && cost.remaining >= 0
-              ? `${cost.currency} ${Math.round(cost.remaining).toLocaleString()} left`
-              : `${cost.currency} ${Math.round(Math.abs(cost.remaining ?? 0)).toLocaleString()} over`}
+              ? t("budget.left", { amount: `${cost.currency} ${Math.round(cost.remaining).toLocaleString()}` })
+              : t("budget.over", { amount: `${cost.currency} ${Math.round(Math.abs(cost.remaining ?? 0)).toLocaleString()}` })}
           </span>
           <Badge tone={cost.status === "within" ? "success" : cost.status === "over" ? "danger" : "neutral"} dot>
-            {cost.status === "within" ? "Within budget" : cost.status === "over" ? "Over budget" : "Budget unknown"}
+            {cost.status === "within" ? t("budget.within") : cost.status === "over" ? t("budget.overBudget") : t("budget.unknown")}
           </Badge>
         </div>
       ) : null}
       {fx ? (
         <div className="pf-fx">
           <div className="pf-row pf-row--between">
-            <span className="pf-fx__title"><Icon name="globe" size={12} /> FX monitor</span>
+            <span className="pf-fx__title"><Icon name="globe" size={12} /> {t("budget.fx")}</span>
             <Badge tone={fx.source === "open.er-api" ? "success" : "neutral"} dot>
-              {fx.source === "open.er-api" ? "Live" : "Reference"}
+              {fx.source === "open.er-api" ? t("status.ok") : t("budget.reference")}
             </Badge>
           </div>
           <div className="pf-fx__convert">
@@ -742,7 +755,7 @@ export function BudgetPanel({
               {cost.currency} {Math.round(cost.total).toLocaleString()} ≈
             </span>
             <Select
-              aria-label="Display currency"
+              aria-label={t("budget.displayCurrency")}
               value={displayCurrency}
               onChange={(event) => setDisplayCurrency(event.target.value)}
             >
@@ -755,13 +768,13 @@ export function BudgetPanel({
             </strong>
           </div>
           <span className="pf-fx__note">
-            {fx.base} base · {fx.as_of} · {fx.note}
+            {t("budget.base", { base: fx.base })} · {fx.as_of} · {fx.note}
           </span>
         </div>
       ) : null}
       {onOptimize ? (
         <Button variant="ink" size="sm" block onClick={onOptimize} iconLeft="sparkles">
-          Optimise my budget
+          {t("budget.optimise")}
         </Button>
       ) : null}
     </div>
@@ -777,11 +790,12 @@ export function PlaceCard({
   weather?: WeatherDay | null;
   onClose?: () => void;
 }) {
+  const { t } = useI18n();
   if (!item) {
     return (
       <div className="pf-place-card">
         <Text size="sm" tone="tertiary">
-          Select a day or a stop to see its place card.
+          {t("place.empty")}
         </Text>
       </div>
     );
@@ -796,19 +810,19 @@ export function PlaceCard({
           </Text>
           <Text size="xs" tone="tertiary">
             {isStay
-              ? `${item.start} → ${item.end} · ${item.address || "Area not returned"}`
-              : `${item.start}–${item.end} · ${item.address || "Address not returned"}`}
+              ? `${item.start} → ${item.end} · ${item.address || t("workspace.noArea")}`
+              : `${item.start}–${item.end} · ${item.address || t("place.noAddress")}`}
           </Text>
         </div>
-        {onClose ? <IconButton icon="close" label="Clear selection" onClick={onClose} /> : null}
+        {onClose ? <IconButton icon="close" label={t("place.clear")} onClick={onClose} /> : null}
       </div>
       <div className="pf-row pf-row--wrap">
         <StatusPill status={item.data_status} />
         {isStay ? (
           <Text size="xs" tone="tertiary">
             {item.price
-              ? `${item.price.currency} ${item.price.amount.toLocaleString()} per night · ${item.price_kind}`
-              : "No rate returned"}
+              ? `${t("workspace.perNight", { price: `${item.price.currency} ${item.price.amount.toLocaleString()}` })} · ${item.price_kind}`
+              : t("workspace.noRate")}
           </Text>
         ) : null}
         {weather ? <WeatherChip weather={weather} /> : null}
@@ -840,16 +854,17 @@ export function PlanFeedback({
   onUseful: (stars: number) => void;
   onNotUseful: () => void;
 }) {
+  const { t } = useI18n();
   const [ratingOpen, setRatingOpen] = useState(false);
   return (
     <div className="pf-plan-feedback">
       {verdict === "useful" ? (
         <button type="button" className="pf-plan-feedback__saved" data-saved="true">
           <Icon name="check" size={13} />
-          Marked as useful
+          {t("feedback.markedUseful")}
         </button>
       ) : verdict === "not_useful" ? (
-        <span className="pf-plan-feedback__not">Marked as not useful</span>
+        <span className="pf-plan-feedback__not">{t("feedback.markedNotUseful")}</span>
       ) : (
         <>
           <button
@@ -857,23 +872,23 @@ export function PlanFeedback({
             className="pf-plan-feedback__button"
             onClick={() => setRatingOpen((value) => !value)}
           >
-            <Icon name="star" size={12} /> Useful
+            <Icon name="star" size={12} /> {t("saved.useful")}
           </button>
           <button type="button" className="pf-plan-feedback__button" onClick={onNotUseful}>
-            Not useful
+            {t("feedback.notUseful")}
           </button>
         </>
       )}
       {ratingOpen && verdict === null ? (
-        <div className="pf-plan-feedback__rating" role="group" aria-label="Rate this plan">
-          <span>How useful was this plan?</span>
+        <div className="pf-plan-feedback__rating" role="group" aria-label={t("feedback.rate")}>
+          <span>{t("feedback.question")}</span>
           <div className="pf-row" style={{ gap: 2 }}>
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 type="button"
                 className="pf-plan-feedback__star"
-                aria-label={`${value} star${value > 1 ? "s" : ""}`}
+                aria-label={t(value > 1 ? "feedback.stars" : "feedback.star", { count: value })}
                 onClick={() => {
                   setRatingOpen(false);
                   onUseful(value);
@@ -883,7 +898,7 @@ export function PlanFeedback({
               </button>
             ))}
           </div>
-          {stars ? <small>{stars} / 5 saved</small> : null}
+          {stars ? <small>{t("feedback.saved", { stars })}</small> : null}
         </div>
       ) : null}
       {verdict === "useful" && added.length ? (
@@ -893,6 +908,7 @@ export function PlanFeedback({
   );
 }
 export function MetricCard({ metric }: { metric: EvalMetric }) {
+  const { t } = useI18n();
   return (
     <div className="pf-metric">
       <span className="pf-metric__label">{metric.label}</span>
@@ -901,7 +917,7 @@ export function MetricCard({ metric }: { metric: EvalMetric }) {
         <span style={{ fontSize: 14, marginLeft: 2, color: "var(--pf-ink-tertiary)" }}>{metric.unit}</span>
       </span>
       <div className="pf-metric__foot">
-        <span>{metric.baseline !== null ? `baseline ${metric.baseline}${metric.unit}` : "baseline —"}</span>
+        <span>{t("metric.baseline", { value: metric.baseline !== null ? `${metric.baseline}${metric.unit}` : "—" })}</span>
         <Delta value={metric.delta} unit={metric.unit === "%" ? "%" : ""} />
       </div>
     </div>
@@ -917,15 +933,16 @@ export function ExperimentTable({
   onSelect?: (runId: string) => void;
   activeId?: string;
 }) {
+  const { t } = useI18n();
   return (
     <table className="pf-exp-table">
       <thead>
         <tr>
-          <th>Run</th>
-          <th>Cases</th>
-          <th>Latency</th>
-          <th>Tokens</th>
-          <th>Created</th>
+          <th>{t("table.run")}</th>
+          <th>{t("table.cases")}</th>
+          <th>{t("table.latency")}</th>
+          <th>{t("table.tokens")}</th>
+          <th>{t("table.created")}</th>
         </tr>
       </thead>
       <tbody>
@@ -938,7 +955,7 @@ export function ExperimentTable({
             }}
             tabIndex={onSelect ? 0 : undefined}
             role={onSelect ? "button" : undefined}
-            aria-label={onSelect ? `Open run ${run.experiment_tag}` : undefined}
+            aria-label={onSelect ? t("table.open", { tag: run.experiment_tag }) : undefined}
             style={{ cursor: onSelect ? "pointer" : undefined }}
             data-active={activeId === run.id || undefined}
           >
@@ -962,13 +979,14 @@ export function ExperimentTable({
 }
 
 export function TrendChart({ runs, metricKey }: { runs: EvalRunSummary[]; metricKey: string }) {
+  const { t } = useI18n();
   const points = runs
     .slice()
     .reverse()
     .map((run) => ({ label: run.experiment_tag, value: run.metrics.find((metric) => metric.key === metricKey)?.value ?? 0 }))
     .filter((point) => Number.isFinite(point.value));
   if (points.length < 2) {
-    return <EmptyState icon="route" title="Not enough runs yet" body="Run the same dataset twice to see a trend." />;
+    return <EmptyState icon="route" title={t("trend.empty")} body={t("trend.emptyBody")} />;
   }
   const width = 600;
   const height = 150;
@@ -985,7 +1003,7 @@ export function TrendChart({ runs, metricKey }: { runs: EvalRunSummary[]; metric
   const path = coords.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
   return (
     <div className="pf-trend">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${metricKey} trend`}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("trend.label", { metric: metricKey })}>
         {[0.25, 0.5, 0.75].map((fraction) => (
           <line key={fraction} className="pf-trend__grid" x1={padding} x2={width - padding} y1={padding + fraction * (height - padding * 2)} y2={padding + fraction * (height - padding * 2)} />
         ))}
@@ -1004,8 +1022,9 @@ export function TrendChart({ runs, metricKey }: { runs: EvalRunSummary[]; metric
 }
 
 export function GapList({ gaps }: { gaps: DataGap[] }) {
+  const { t } = useI18n();
   if (!gaps.length) {
-    return <Text size="xs" tone="tertiary">No data gaps recorded for this plan.</Text>;
+    return <Text size="xs" tone="tertiary">{t("gaps.empty")}</Text>;
   }
   return (
     <div className="pf-gap-list">
@@ -1021,14 +1040,21 @@ export function GapList({ gaps }: { gaps: DataGap[] }) {
   );
 }
 
+const CHECK_LABEL: Record<ConstraintCheck["status"], MessageKey> = {
+  pass: "constraint.pass",
+  fail: "constraint.fail",
+  unknown: "constraint.unknown",
+};
+
 export function ConstraintList({ checks }: { checks: ConstraintCheck[] }) {
-  if (!checks.length) return <Text size="xs" tone="tertiary">No constraint checks recorded.</Text>;
+  const { t } = useI18n();
+  if (!checks.length) return <Text size="xs" tone="tertiary">{t("constraint.empty")}</Text>;
   return (
     <div className="pf-stack">
       {checks.map((check) => (
         <div className="pf-row" key={check.id} style={{ alignItems: "flex-start" }}>
           <Badge tone={check.status === "pass" ? "success" : check.status === "fail" ? "danger" : "warning"} dot>
-            {check.status}
+            {CHECK_LABEL[check.status] ? t(CHECK_LABEL[check.status]) : check.status}
           </Badge>
           <div className="pf-stack" style={{ gap: 1 }}>
             <Text size="sm">{check.text}</Text>
@@ -1072,15 +1098,18 @@ export function PageHeader({
   );
 }
 export function StatusSummary({ plan }: { plan: { constraints: ConstraintCheck[]; data_quality: { gaps: DataGap[] } } }) {
+  const { t } = useI18n();
   const failing = plan.constraints.filter((check) => check.status === "fail").length;
   const gaps = plan.data_quality.gaps.length;
   return (
     <div className="pf-row pf-row--wrap">
       <Badge tone={failing ? "danger" : "success"} dot>
-        {failing ? `${failing} constraint${failing > 1 ? "s" : ""} need attention` : "Constraints hold"}
+        {failing
+          ? t(failing > 1 ? "summary.failing" : "summary.failingOne", { count: failing })
+          : t("summary.hold")}
       </Badge>
       <Badge tone={gaps ? "warning" : "neutral"} dot>
-        {gaps ? `${gaps} data gap${gaps > 1 ? "s" : ""}` : "No data gaps"}
+        {gaps ? t(gaps > 1 ? "summary.gaps" : "summary.gapsOne", { count: gaps }) : t("summary.noGaps")}
       </Badge>
     </div>
   );

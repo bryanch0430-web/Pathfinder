@@ -76,6 +76,12 @@ const CLOSED_SHARE: ShareState = {
   error: null,
 };
 
+/**
+ * The label a new tab is stored with. It is saved in `pathfinder.trips`, so it
+ * stays in English there and is translated only when shown.
+ */
+const UNTITLED_TRIP = "Untitled trip";
+
 function tabFromHash(): AppTab {
   const hash = window.location.hash.replace("#", "");
   return HASH_TAB[hash] ?? "plan";
@@ -119,7 +125,7 @@ export default function App() {
       setTrendingTrace(data.trace ?? null);
     } catch (cause) {
       setTrending([]);
-      setTrendingError(cause instanceof Error ? cause.message : "Trending is unavailable.");
+      setTrendingError(cause instanceof Error ? cause.message : t("errors.trending"));
     } finally {
       setTrendingLoading(false);
     }
@@ -171,7 +177,7 @@ export default function App() {
     const activeId = pf.sessionId;
     if (!activeId) return;
     setTrips((current) => {
-      const label = pf.plan?.destination.name || current.find((trip) => trip.id === activeId)?.label || "Untitled trip";
+      const label = pf.plan?.destination.name || current.find((trip) => trip.id === activeId)?.label || UNTITLED_TRIP;
       const next = current.some((trip) => trip.id === activeId)
         ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
         : [...current, { id: activeId, label }];
@@ -182,7 +188,7 @@ export default function App() {
 
   const scrapActiveTrip = async () => {
     const id = pf.sessionId;
-    if (!id || !window.confirm("Scrap this plan? Its chat and plan are deleted. Other tabs stay.")) return;
+    if (!id || !window.confirm(t("plan.scrapConfirm"))) return;
     try {
       await discardSession(id);
     } catch {
@@ -209,7 +215,7 @@ export default function App() {
   const createTripTab = async () => {
     const id = await pf.newPlan();
     setTrips((current) => {
-      const next = current.some((trip) => trip.id === id) ? current : [...current, { id, label: "Untitled trip" }];
+      const next = current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }];
       localStorage.setItem("pathfinder.trips", JSON.stringify(next));
       return next;
     });
@@ -276,7 +282,7 @@ export default function App() {
       }
       update({ loading: false, url, expiresAt: result.expires_at ?? null, copied });
     } catch (cause) {
-      update({ loading: false, error: cause instanceof Error ? cause.message : "The trip could not be shared." });
+      update({ loading: false, error: cause instanceof Error ? cause.message : t("errors.share") });
     }
   };
 
@@ -286,7 +292,7 @@ export default function App() {
       await navigator.clipboard.writeText(share.url);
       setShare((current) => ({ ...current, copied: true, error: null }));
     } catch {
-      setShare((current) => ({ ...current, error: "The link could not be copied. Select it and copy it yourself." }));
+      setShare((current) => ({ ...current, error: t("errors.copy") }));
     }
   };
 
@@ -301,7 +307,7 @@ export default function App() {
       setShare((current) => ({
         ...current,
         revoking: false,
-        error: cause instanceof Error ? cause.message : "The link could not be turned off.",
+        error: cause instanceof Error ? cause.message : t("errors.revoke"),
       }));
     }
   };
@@ -354,12 +360,12 @@ export default function App() {
   const scope = useMemo(() => {
     if (!pf.selectedItem || !pf.plan) return null;
     if (isHotelScope(pf.selectedItem.id, pf.plan.hotels)) {
-      return `Hotel · ${pf.selectedItem.name}`;
+      return `${t("map.hotel")} · ${pf.selectedItem.name}`;
     }
     const day = pf.plan.days.find((entry) => entry.items.some((item) => item.id === pf.selectedItem?.id));
     const index = day ? pf.plan.days.indexOf(day) + 1 : 0;
-    return `${day ? `Day ${index}` : "Stop"} · ${pf.selectedItem.name}`;
-  }, [pf.plan, pf.selectedItem]);
+    return `${day ? t("day.number", { n: index }) : t("plan.stop")} · ${pf.selectedItem.name}`;
+  }, [pf.plan, pf.selectedItem, t]);
 
   const trendingRail = (
     <TrendingRail
@@ -399,7 +405,7 @@ export default function App() {
       />
       {tab === "plan" ? (
         !pf.ready ? (
-          <LoadingScreen label={t("common.loading", "Loading")} />
+          <LoadingScreen label={t("common.loading")} />
         ) : (
           <PlannerTemplate
             header={null}
@@ -511,7 +517,6 @@ export default function App() {
         onClose={() => setShare(CLOSED_SHARE)}
         url={share.url}
         expiresAt={share.expiresAt}
-        locale={locale}
         loading={share.loading}
         copied={share.copied}
         revoked={share.revoked}
@@ -538,8 +543,9 @@ function PlanTabs({
   onNew: () => void;
   onScrap: () => void;
 }) {
+  const { t } = useI18n();
   return (
-    <div className="pf-plan-tabs" role="tablist" aria-label="Open trips">
+    <div className="pf-plan-tabs" role="tablist" aria-label={t("plan.openTrips")}>
       {trips.map((trip, index) => (
         <button
           key={trip.id}
@@ -549,18 +555,18 @@ function PlanTabs({
           className="pf-plan-tab"
           data-active={trip.id === activeId}
           onClick={() => onSelect(trip.id)}
-          title={trip.label}
+          title={trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}
         >
           <span className="pf-plan-tab__index">{index + 1}</span>
-          <span className="pf-plan-tab__label">{trip.label}</span>
+          <span className="pf-plan-tab__label">{trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}</span>
         </button>
       ))}
-      <button type="button" className="pf-plan-tab pf-plan-tab--add" onClick={onNew} aria-label="Create another trip">
+      <button type="button" className="pf-plan-tab pf-plan-tab--add" onClick={onNew} aria-label={t("plan.createAnother")}>
         <Icon name="plus" size={12} />
-        New trip
+        {t("header.newTrip")}
       </button>
       {activeId ? (
-        <button type="button" className="pf-plan-tab pf-plan-tab--scrap" onClick={onScrap} aria-label="Scrap this trip">
+        <button type="button" className="pf-plan-tab pf-plan-tab--scrap" onClick={onScrap} aria-label={t("plan.scrap")}>
           <Icon name="trash" size={11} />
         </button>
       ) : null}
@@ -577,13 +583,14 @@ function WelcomePanel({
   backendError: string | null;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <section className="pf-card pf-welcome">
       {backendError ? (
         <Banner>
           {backendError}
           <button type="button" className="pf-button" data-variant="ghost" data-size="sm" onClick={onRetry}>
-            Retry
+            {t("common.retry")}
           </button>
         </Banner>
       ) : null}
@@ -591,13 +598,13 @@ function WelcomePanel({
         <Icon name="compass" size={30} />
       </div>
       <h1 className="pf-heading" data-level="2">
-        Start with a trip, not a form
+        {t("welcome.title")}
       </h1>
       <Text size="md" tone="secondary" className="pf-welcome__body">
-        Tell the assistant where, when, with whom and for how much. It runs four specialist agents in
-        parallel, keeps every fact traced to a source, and leaves a visible gap when a source is missing.
+        {t("welcome.body")}
       </Text>
       <div className="pf-welcome__examples">
+        {/* Sent to the planner as the traveller's request, so they stay in English. */}
         {[
           "Plan a 3-day trip to Hong Kong from Singapore for 2 people in March, budget 9,000 HKD.",
           "Plan a 4-day Kyoto trip from Hong Kong for 2 in April, budget 400,000 JPY. I want Fushimi Inari and a slow pace.",
@@ -611,17 +618,19 @@ function WelcomePanel({
         ))}
       </div>
       <div className="pf-welcome__steps">
-        {[
-          ["route", "Typed route", "plan · modify · ask · clarify"],
-          ["users", "Four agents", "attractions · hotels · weather · tickets"],
-          ["shield", "Grounded", "source, freshness, no invention"],
-          ["memory", "Memory", "useful trips seed the next plan"],
-        ].map(([icon, title, body]) => (
+        {(
+          [
+            ["route", "welcome.step1", "welcome.step1Body"],
+            ["users", "welcome.step2", "welcome.step2Body"],
+            ["shield", "welcome.step3", "welcome.step3Body"],
+            ["memory", "welcome.step4", "welcome.step4Body"],
+          ] as const
+        ).map(([icon, title, body]) => (
           <div className="pf-welcome__step" key={title}>
-            <Icon name={icon as "route"} size={16} />
+            <Icon name={icon} size={16} />
             <div className="pf-stack" style={{ gap: 1 }}>
-              <Text size="sm" weight="semibold">{title}</Text>
-              <Text size="xs" tone="tertiary">{body}</Text>
+              <Text size="sm" weight="semibold">{t(title)}</Text>
+              <Text size="xs" tone="tertiary">{t(body)}</Text>
             </div>
           </div>
         ))}
@@ -631,62 +640,53 @@ function WelcomePanel({
 }
 
 function HowItWorks() {
+  const { t } = useI18n();
   return (
     <section className="pf-card pf-how">
       <Text size="xs" tone="tertiary" weight="semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        How the AI worked
+        {t("workspace.howAiWorked")}
       </Text>
       <div className="pf-stack pf-stack--md">
-        {[
-          ["compass", "System 1", "Chooses exactly one path and a confidence. Below 0.8 it clarifies."],
-          ["users", "Four agents", "Attraction, hotel, weather and ticket run in parallel under a time budget."],
-          ["route", "Grounding", "The planner may only select and order candidate ids with a source."],
-          ["shield", "Validation", "Dates, budget, route continuity and ticket conflicts are checked before return."],
-        ].map(([icon, title, body]) => (
+        {(
+          [
+            ["compass", "how.system1", "how.system1Body"],
+            ["users", "welcome.step2", "how.agentsBody"],
+            ["route", "how.grounding", "how.groundingBody"],
+            ["shield", "how.validation", "how.validationBody"],
+          ] as const
+        ).map(([icon, title, body]) => (
           <div className="pf-row" key={title} style={{ alignItems: "flex-start" }}>
-            <span className="pf-how__icon"><Icon name={icon as "compass"} size={15} /></span>
+            <span className="pf-how__icon"><Icon name={icon} size={15} /></span>
             <div className="pf-stack" style={{ gap: 2 }}>
-              <Text size="sm" weight="semibold">{title}</Text>
-              <Text size="xs" tone="tertiary">{body}</Text>
+              <Text size="sm" weight="semibold">{t(title)}</Text>
+              <Text size="xs" tone="tertiary">{t(body)}</Text>
             </div>
           </div>
         ))}
       </div>
       <div className="pf-how__footer">
         <StatusSummary plan={{ constraints: [], data_quality: { gaps: [] } }} />
-        <Text size="xs" tone="tertiary">No plan yet. The first turn will create v1.</Text>
+        <Text size="xs" tone="tertiary">{t("how.noPlan")}</Text>
       </div>
     </section>
   );
 }
 
 function HelpDrawer({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="pf-dialog-overlay" role="presentation" onMouseDown={onClose}>
-      <aside className="pf-drawer" role="dialog" aria-modal="true" aria-label="Help" onMouseDown={(event) => event.stopPropagation()}>
+      <aside className="pf-drawer" role="dialog" aria-modal="true" aria-label={t("help.label")} onMouseDown={(event) => event.stopPropagation()}>
         <div className="pf-row pf-row--between">
-          <h2 className="pf-heading" data-level="4">How Pathfinder works</h2>
-          <button type="button" className="pf-icon-btn" aria-label="Close help" onClick={onClose}>
+          <h2 className="pf-heading" data-level="4">{t("help.title")}</h2>
+          <button type="button" className="pf-icon-btn" aria-label={t("help.close")} onClick={onClose}>
             <Icon name="close" size={16} />
           </button>
         </div>
-        <Text size="sm">
-          One message takes one path. A typed System 1 decision chooses plan, modify or ask; an unclear
-          request is clarified instead of guessed.
-        </Text>
-        <Text size="sm">
-          A new plan runs four agents in parallel: attractions, hotels, weather and tickets. The planner may
-          select and order verified candidates, never invent one. Every item keeps a source and a freshness
-          status.
-        </Text>
-        <Text size="sm">
-          An edit reruns only the affected agents, preserves locked and confirmed stops, and increments the
-          version. A quick question answers from the current plan first, then at most one allowlisted tool.
-        </Text>
-        <Text size="sm" tone="tertiary">
-          English is the primary language. Simplified and Traditional Chinese are supplemental interface
-          locales; place names remain in the form the source returned.
-        </Text>
+        <Text size="sm">{t("help.paths")}</Text>
+        <Text size="sm">{t("help.agents")}</Text>
+        <Text size="sm">{t("help.edits")}</Text>
+        <Text size="sm" tone="tertiary">{t("help.languages")}</Text>
       </aside>
     </div>
   );
