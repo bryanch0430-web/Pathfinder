@@ -19,7 +19,7 @@ from app.application.planner import Planner
 from app.application.router import REPLAN_MESSAGE
 from app.application.validation import diff_plans
 from app.config import Settings
-from app.domain.models import EvalCase, FailureKind, Intent, Money, RouteDecision, TripPlan, WeatherDay
+from app.domain.models import EvalCase, Intent, Money, RouteDecision, TripPlan, WeatherDay
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
 from app.evaluation import SandboxHotels
