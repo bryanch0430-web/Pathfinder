@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     google_places_api_key: str = ""
     google_places_proxy: str = ""
     google_maps_api_key: str = ""
+    #: AMap (Gaode) Web Service key: the maps fallback for mainland China (DB-16).
+    #: Empty disables it. Server-side only; never sent to the browser.
+    amap_key: str = ""
     serpapi_key: str = ""
     youtube_api_key: str = ""
 

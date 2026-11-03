@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.config import Settings
+from app.infrastructure.providers.amap import AmapGeocoder, AmapPlacesSource
 from app.infrastructure.providers.flights import SerpApiFlightSource
 from app.infrastructure.providers.fx import FxService
 from app.infrastructure.providers.geocoding import (
@@ -61,11 +62,16 @@ class ProviderRegistry:
         geocoders: list = []
         if settings.google_places_api_key or settings.google_maps_api_key:
             geocoders.append(GoogleGeocoder(settings))
+        if settings.amap_key:
+            # DB-16: AMap answers when Google is unconfigured, failing or empty.
+            geocoders.append(AmapGeocoder(settings))
         geocoders.extend([OpenMeteoGeocoder(settings), NominatimGeocoder(settings)])
         geocoder = GeocoderChain(geocoders)
         weather = [OpenMeteoWeather(settings), OpenMeteoArchiveWeather(settings)]
         places = [
             GooglePlacesSource(settings),
+            # DB-16: the maps fallback; skipped (never called) without AMAP_KEY.
+            AmapPlacesSource(settings),
             NominatimPlacesSource(settings),
             WikivoyagePlacesSource(settings),
         ]

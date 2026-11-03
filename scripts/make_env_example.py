@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ENV = ROOT / ".env"
 EXAMPLE = ROOT / ".env.example"
 
-SECRET_NAME = re.compile(r"(API_KEY|SECRET|PASSWORD|_TOKEN$|^ADMIN_TOKEN$|^KEY$)", re.I)
+SECRET_NAME = re.compile(r"(API_KEY|SECRET|PASSWORD|_TOKEN$|^ADMIN_TOKEN$|^KEY$|^AMAP_KEY$)", re.I)
 #: non-secret settings whose names merely look secret-like (numbers / test strings)
 NOT_SECRET = re.compile(r"(MAX_TOKENS|CANARY)", re.I)
 SECRET_VALUE = re.compile(r"(sk-[A-Za-z0-9_\-]{10,}|AIza[0-9A-Za-z_\-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9\-]{10,})")
