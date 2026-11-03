@@ -7,6 +7,7 @@ import {
   getPlan,
   getSession,
   getTranslation,
+  me,
   patchContext,
   postFeedback,
   streamChat,
@@ -29,7 +30,7 @@ import type {
 import { describeFailure, failureOf, unreachableOf, type Failure } from "./failure";
 import { useI18n } from "./i18n";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
-import { clearStoredValue, readStoredValue, writeStoredValue } from "./storage";
+import { clearStoredValue, forgetSignIn, readStoredValue, writeStoredValue } from "./storage";
 
 /** The profile token the API resolves with the bearer: a guest UUID, or `user:<id>` once signed in. */
 export function clientToken(): string {
@@ -262,13 +263,27 @@ export function usePathfinder(locale: string): PathfinderHook {
     setSessionId(id);
   }, [forgetTripView]);
 
+  /** Whether the stored sign-in has ended: another check dropped it already, or the server refuses it now (and it is dropped here). */
+  const signInEnded = useCallback(async (): Promise<boolean> => {
+    if (!readStoredValue("auth")) return true;
+    try {
+      await withTimeout((signal) => me(signal));
+      return false;
+    } catch (cause) {
+      if (!(cause instanceof ApiError && cause.status === 401)) return false;
+      forgetSignIn();
+      return true;
+    }
+  }, [withTimeout]);
+
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
     retryRef.current = null;
     setError(null);
     try {
       const id = readStoredValue("session");
-      if (id) {
+      const signedIn = Boolean(readStoredValue("auth"));
+      for (let attempt = 0; id && attempt < 2; attempt += 1) {
         try {
           const data = await withTimeout((signal) => getSession(id, signal));
           if (ticket !== navRef.current) return;
@@ -277,15 +292,17 @@ export function usePathfinder(locale: string): PathfinderHook {
           return;
         } catch (cause) {
           if (ticket !== navRef.current) return;
-          if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
-            // The server says this trip is gone or is not this browser's: forget it.
-            clearStoredValue("session");
-          } else {
+          if (!(cause instanceof ApiError && (cause.status === 404 || cause.status === 403))) {
             // The server is down or slow, not forgetting the trip: keep the id and say so.
             setError(unreachableOf(cause));
             setReady(true);
             return;
           }
+          // An expired sign-in makes every trip look gone: drop it and ask again, as the guest.
+          if (attempt === 0 && signedIn && (await signInEnded())) continue;
+          // The server says this trip is gone or is not this browser's: forget it.
+          clearStoredValue("session");
+          break;
         }
       }
       const created = await withTimeout((signal) => createSession(clientToken(), signal));
@@ -298,7 +315,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setError(failureOf(cause, "errors.backend"));
       setReady(true);
     }
-  }, [carryPlanLocale, showTrip, withTimeout]);
+  }, [carryPlanLocale, showTrip, signInEnded, withTimeout]);
 
   useEffect(() => {
     void bootstrap();
