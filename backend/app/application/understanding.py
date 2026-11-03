@@ -553,23 +553,9 @@ def _find_dates(lower: str, today: date) -> tuple[date | None, date | None]:
     if len(iso) == 1:
         return date.fromisoformat(iso[0]), None
 
-    day_month = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b", lower)
-    month_day = re.search(r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b", lower)
-    if day_month or month_day:
-        if day_month:
-            day = int(day_month.group(1))
-            month = MONTHS[day_month.group(2)]
-        else:
-            month = MONTHS[month_day.group(1)]
-            day = int(month_day.group(2))
-        year = today.year
-        try:
-            candidate = date(year, month, day)
-        except ValueError:
-            return None, None
-        if candidate < today:
-            candidate = date(year + 1, month, day)
-        return candidate, None
+    written = _written_dates(lower, today)
+    if written:
+        return written
 
     month_only = re.search(r"\b(?:in|next|this)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b", lower)
     if month_only:
@@ -577,6 +563,89 @@ def _find_dates(lower: str, today: date) -> tuple[date | None, date | None]:
         year = today.year if month >= today.month else today.year + 1
         return date(year, month, 1), None
     return None, None
+
+
+#: Month words in chat dates, full or short ("nov", "sept"), with an optional full stop.
+_MONTH_WORDS = {**MONTHS, **{name[:3]: number for name, number in MONTHS.items()}, "sept": 9}
+_MONTH = (
+    r"(january|february|march|april|may|june|july|august|september|october|november|december"
+    r"|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b\.?"
+)
+_DAY = r"(\d{1,2})(?:st|nd|rd|th)?"
+_YEAR = r"(?:,?\s*(20\d{2})\b)?"
+#: Only these words join two dates into a range, so a date in a later constraint
+#: ("20 November cannot have any plan") is never taken as the trip's end.
+_TO = r"\s*(?:-|–|—|to|until|till|through|and)\s*"
+_DAY_RANGE_MONTH = re.compile(rf"\b{_DAY}{_TO}{_DAY}\s+{_MONTH}{_YEAR}")  # 18 to 23 November 2026
+_MONTH_DAY_RANGE = re.compile(rf"\b{_MONTH}\s+{_DAY}{_TO}{_DAY}\b{_YEAR}")  # Nov 18-23, 2026
+_DAY_MONTH = re.compile(rf"\b{_DAY}\s+{_MONTH}{_YEAR}")  # 18 November 2026
+_MONTH_DAY = re.compile(rf"\b{_MONTH}\s+{_DAY}\b{_YEAR}")  # November 18, 2026
+
+
+def _written_dates(lower: str, today: date) -> tuple[date | None, date | None] | None:
+    """The first written date or date range: "18 to 23 November", "Nov 18-23", "18 Nov to 23 Nov"."""
+    candidates: list[tuple[int, date, date | None]] = []
+    for match in _DAY_RANGE_MONTH.finditer(lower):
+        month = _MONTH_WORDS[match.group(3)]
+        span = _date_span(int(match.group(1)), month, int(match.group(2)), month, match.group(4), today)
+        if span:
+            candidates.append((match.start(), *span))
+    for match in _MONTH_DAY_RANGE.finditer(lower):
+        month = _MONTH_WORDS[match.group(1)]
+        span = _date_span(int(match.group(2)), month, int(match.group(3)), month, match.group(4), today)
+        if span:
+            candidates.append((match.start(), *span))
+
+    mentions: list[tuple[int, int, int, int, str | None]] = []  # start, end, day, month, year
+    for match in _DAY_MONTH.finditer(lower):
+        mentions.append((match.start(), match.end(), int(match.group(1)), _MONTH_WORDS[match.group(2)], match.group(3)))
+    for match in _MONTH_DAY.finditer(lower):
+        mentions.append((match.start(), match.end(), int(match.group(2)), _MONTH_WORDS[match.group(1)], match.group(3)))
+    mentions.sort()
+    kept: list[tuple[int, int, int, int, str | None]] = []
+    for mention in mentions:
+        if not kept or mention[0] >= kept[-1][1]:
+            kept.append(mention)
+    for first, second in zip(kept, kept[1:]):
+        if re.fullmatch(_TO, lower[first[1]:second[0]]):
+            span = _date_span(first[2], first[3], second[2], second[3], second[4] or first[4], today)
+            if span:
+                candidates.append((first[0], *span))
+    if candidates:
+        _, start, end = min(candidates, key=lambda row: row[0])
+        return start, end
+    for _, _, day, month, year in kept:
+        single = _date_span(day, month, None, None, year, today)
+        if single:
+            return single
+    return None
+
+
+def _date_span(
+    start_day: int,
+    start_month: int,
+    end_day: int | None,
+    end_month: int | None,
+    year_text: str | None,
+    today: date,
+) -> tuple[date, date | None] | None:
+    """Dates for a written day-month pair or range; a written year applies to the range's end,
+    an unwritten one means the next such date from today, and a range may cross a new year."""
+    crosses = end_month is not None and (end_month, end_day) < (start_month, start_day)
+    try:
+        if year_text:
+            end_year = int(year_text)
+            start = date(end_year - 1 if crosses else end_year, start_month, start_day)
+        else:
+            start = date(today.year, start_month, start_day)
+            if start < today:
+                start = date(today.year + 1, start_month, start_day)
+        if end_month is None or end_day is None:
+            return start, None
+        end = date(start.year + 1 if crosses else start.year, end_month, end_day)
+    except ValueError:
+        return None
+    return (start, end) if end >= start else None
 
 
 def _hard_constraints(text: str) -> list[str]:
