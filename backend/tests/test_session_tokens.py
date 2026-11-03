@@ -120,3 +120,59 @@ def test_an_account_needs_no_guest_token_to_start_a_trip(client: TestClient) -> 
     session_id = created.json()["session"]["id"]
     assert client.get(f"/api/journeys/{session_id}", headers=account).status_code == 200
     assert [user_id != "" for _, user_id in _rows(client)] == [True, True]
+
+
+# -- every token field has the same size cap ---------------------------------------
+
+
+def test_every_request_model_that_takes_a_client_token_caps_its_size() -> None:
+    from pydantic import BaseModel
+
+    from app.interface import api
+
+    models = [
+        model
+        for model in vars(api).values()
+        if isinstance(model, type)
+        and issubclass(model, BaseModel)
+        and model.__module__ == api.__name__  # the request models, not the domain models it imports
+        and "client_token" in model.model_fields
+    ]
+    assert len(models) >= 7, models  # the scan must see the models, or the loop below would pass vacuously
+    for model in models:
+        caps = [getattr(rule, "max_length", None) for rule in model.model_fields["client_token"].metadata]
+        assert api.TOKEN_MAX_LENGTH in caps, f"{model.__name__}.client_token has no size cap"
+
+
+OVERSIZE = "t" * 121
+CREDENTIALS = {"email": "cap@example.com", "password": "correct-horse"}
+CALLS = [
+    ("post", "/api/journeys", {"json": {"client_token": OVERSIZE}}),
+    ("post", "/api/turn/stream", {"json": {"message": "hi", "client_token": OVERSIZE}}),
+    ("post", "/api/journeys/sess_x/rating", {"json": {"useful": True, "client_token": OVERSIZE}}),
+    ("post", "/api/account/attach", {"json": {"session_id": "sess_x", "client_token": OVERSIZE}}),
+    ("post", "/api/account/signup", {"json": {**CREDENTIALS, "client_token": OVERSIZE}}),
+    ("post", "/api/account/signin", {"json": {**CREDENTIALS, "client_token": OVERSIZE}}),
+    ("patch", "/api/traveller", {"json": {"client_token": OVERSIZE, "preferences": []}}),
+    ("post", "/api/recall/clear", {"json": {"client_token": OVERSIZE}}),
+    ("get", "/api/traveller", {"params": {"client_token": OVERSIZE}}),
+    ("get", "/api/wishlist", {"params": {"client_token": OVERSIZE}}),
+    ("get", "/api/popular", {"params": {"client_token": OVERSIZE}}),
+]
+
+
+@pytest.mark.parametrize(("method", "url", "kwargs"), CALLS, ids=[f"{method} {url}" for method, url, _ in CALLS])
+def test_a_token_over_the_cap_is_refused_on_every_route_that_takes_one(
+    client: TestClient, method: str, url: str, kwargs: dict
+) -> None:
+    assert getattr(client, method)(url, **kwargs).status_code == 422
+
+
+def test_a_megabyte_token_is_refused_and_stores_nothing(client: TestClient) -> None:
+    before = client.app.state.container.store.path.stat().st_size
+
+    refused = [client.post("/api/journeys", json={"client_token": "A" * 1_000_000}) for _ in range(3)]
+
+    assert [response.status_code for response in refused] == [422, 422, 422]
+    assert _rows(client) == []
+    assert client.app.state.container.store.path.stat().st_size == before
