@@ -523,9 +523,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
-        slug = c.store.create_share(session_id, plan)
-        return {"slug": slug, "url": f"/s/{slug}"}
+        slug, expires_at = c.store.create_share(session_id, plan)
+        return {"slug": slug, "url": f"/s/{slug}", "expires_at": expires_at}
 
+    @app.delete("/api/journeys/{session_id}/share")
+    async def revoke_share(session_id: str, request: Request) -> dict[str, Any]:
+        """Take every public link of this session down at once."""
+        c = container(request)
+        require_session(c, request, session_id)
+        return {"revoked": c.store.revoke_shares(session_id)}
+
+    # An expired or revoked link answers exactly like one that never existed.
     @app.get("/api/public/{slug}")
     async def shared_json(slug: str, request: Request) -> dict[str, Any]:
         data = container(request).store.get_share(slug)

@@ -79,7 +79,7 @@ class Container:
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or get_settings()
     settings.ensure_directories()
-    store = SQLiteStore(settings.database_path)
+    store = SQLiteStore(settings.database_path, share_ttl_days=settings.share_ttl_days)
     registry = ProviderRegistry.build(settings)
     prompts = PromptLibrary(settings)
     llm: LLM = OpenAICompatibleLLM(settings) if settings.writer_available else NullLLM()

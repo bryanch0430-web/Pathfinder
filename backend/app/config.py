@@ -143,6 +143,10 @@ class Settings(BaseSettings):
     blocklist_enabled: bool = True
     fence_enabled: bool = True
 
+    # --- sharing -----------------------------------------------------------
+    # A public share link stops working this many days after it is created.
+    share_ttl_days: int = 30
+
     @field_validator("llm_provider", mode="before")
     @classmethod
     def _normalise_provider(cls, value: object) -> str:

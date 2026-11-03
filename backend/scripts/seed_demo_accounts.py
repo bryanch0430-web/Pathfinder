@@ -20,7 +20,7 @@ from app.infrastructure.store import SQLiteStore  # noqa: E402
 def main() -> None:
     settings = get_settings()
     settings.ensure_directories()
-    store = SQLiteStore(settings.database_path)
+    store = SQLiteStore(settings.database_path, share_ttl_days=settings.share_ttl_days)
     for index in (1, 2, 3):
         email = f"testaccount{index}@pathfinder.test"
         if store.get_user_by_email(email):

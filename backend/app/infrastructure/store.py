@@ -15,7 +15,7 @@ import sqlite3
 import threading
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -34,6 +34,9 @@ from app.domain.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Days a share link stays public unless the store is given another lifetime.
+DEFAULT_SHARE_TTL_DAYS = 30
 
 #: The schema as it stood when versioned migrations began (migration 1).
 #: Frozen: a later schema change is a new step in MIGRATIONS, never an edit
@@ -173,6 +176,8 @@ class MigrationContext:
 
     #: when this migration run started (UTC); use it for backfilled timestamps
     now: datetime
+    #: lifetime given to share links that existed before links could expire
+    share_ttl_days: int = DEFAULT_SHARE_TTL_DAYS
 
 
 MigrationStep = Callable[[sqlite3.Connection, MigrationContext], None]
@@ -189,6 +194,24 @@ def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
 
 def _user_version(conn: sqlite3.Connection) -> int:
     return int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+
+def _share_expiry(start: datetime, ttl_days: int) -> str:
+    """ISO 8601 UTC instant a share link made at `start` stops working."""
+    return (start.astimezone(timezone.utc) + timedelta(days=ttl_days)).isoformat(timespec="seconds")
+
+
+def _share_is_live(expires_at: str | None) -> bool:
+    """True until the expiry instant; a missing or unreadable expiry counts as expired."""
+    try:
+        expiry = datetime.fromisoformat(expires_at) if expires_at else None
+    except ValueError:
+        expiry = None
+    if expiry is None:
+        return False
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) < expiry
 
 
 def _migration_1_baseline(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
@@ -212,10 +235,22 @@ def _migration_1_baseline(conn: sqlite3.Connection, ctx: MigrationContext) -> No
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_kept_owner_trip ON kept_journeys(owner, trip_id)")
 
 
+def _migration_2_share_expiry(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Share links expire. Links made before this step get a full lifetime from now."""
+    if "expires_at" not in _columns(conn, "share_links"):
+        conn.execute("ALTER TABLE share_links ADD COLUMN expires_at TEXT")
+    conn.execute(
+        "UPDATE share_links SET expires_at=? WHERE expires_at IS NULL",
+        (_share_expiry(ctx.now, ctx.share_ttl_days),),
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_share_session ON share_links(session_id)")
+
+
 #: Ordered schema steps: step N moves a database from user_version N-1 to N.
 #: Append new steps; never edit, reorder or remove a released one.
 MIGRATIONS: list[MigrationStep] = [
     _migration_1_baseline,
+    _migration_2_share_expiry,
 ]
 
 
@@ -250,12 +285,14 @@ def migrate(conn: sqlite3.Connection, ctx: MigrationContext) -> int:
 
 
 class SQLiteStore:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, share_ttl_days: int = DEFAULT_SHARE_TTL_DAYS):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.share_ttl_days = share_ttl_days
         self._lock = threading.RLock()
+        context = MigrationContext(now=datetime.now(timezone.utc), share_ttl_days=share_ttl_days)
         with self._lock, closing(self._connect(autocommit=True)) as conn:
-            self.schema_version = migrate(conn, MigrationContext(now=datetime.now(timezone.utc)))
+            self.schema_version = migrate(conn, context)
 
     def _connect(self, autocommit: bool = False) -> sqlite3.Connection:
         conn = sqlite3.connect(
@@ -656,8 +693,10 @@ class SQLiteStore:
         scored.sort(key=lambda pair: (pair[0], pair[1].rating), reverse=True)
         return scored[:limit]
 
-    def create_share(self, session_id: str, plan: TripPlan) -> str:
+    def create_share(self, session_id: str, plan: TripPlan) -> tuple[str, str]:
+        """Publish a read-only copy of `plan`; returns (slug, expires_at in ISO 8601 UTC)."""
         slug = "trip_" + secrets.token_urlsafe(9).replace("-", "").replace("_", "")[:12]
+        expires_at = _share_expiry(datetime.now(timezone.utc), self.share_ttl_days)
         public = {
             "destination": plan.destination.model_dump(mode="json"),
             "dates": plan.dates.model_dump(mode="json"),
@@ -671,15 +710,25 @@ class SQLiteStore:
         }
         with self._lock, self._connect() as conn:
             conn.execute(
-                "INSERT INTO share_links (slug, session_id, trip_id, version, data, created_at) VALUES (?,?,?,?,?,?)",
-                (slug, session_id, plan.trip_id, plan.version, _dump(public), _now()),
+                "INSERT INTO share_links (slug, session_id, trip_id, version, data, created_at, expires_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (slug, session_id, plan.trip_id, plan.version, _dump(public), _now(), expires_at),
             )
-        return slug
+        return slug, expires_at
 
     def get_share(self, slug: str) -> dict[str, Any] | None:
+        """The shared trip, or None when the link is unknown, revoked or expired."""
         with self._connect() as conn:
-            row = conn.execute("SELECT data FROM share_links WHERE slug=?", (slug,)).fetchone()
-        return json.loads(row["data"]) if row else None
+            row = conn.execute("SELECT data, expires_at FROM share_links WHERE slug=?", (slug,)).fetchone()
+        if not row or not _share_is_live(row["expires_at"]):
+            return None
+        return json.loads(row["data"])
+
+    def revoke_shares(self, session_id: str) -> int:
+        """Delete every share link of a session; returns how many were removed."""
+        with self._lock, self._connect() as conn:
+            cursor = conn.execute("DELETE FROM share_links WHERE session_id=?", (session_id,))
+            return int(cursor.rowcount or 0)
 
     def get_preferences(self, client_token: str) -> PreferenceProfile | None:
         with self._connect() as conn:

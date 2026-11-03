@@ -310,7 +310,7 @@ def main() -> None:
 
     settings = get_settings()
     settings.ensure_directories()
-    store = SQLiteStore(settings.database_path)
+    store = SQLiteStore(settings.database_path, share_ttl_days=settings.share_ttl_days)
 
     if args.reset:
         trips = store.delete_saved_trips_prefix(TRIP_PREFIX)
