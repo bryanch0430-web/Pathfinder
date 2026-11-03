@@ -26,6 +26,7 @@ import {
 } from "./design-system";
 import { Icon } from "./design-system/icons";
 import {
+  ApiError,
   claimSession,
   discardSession,
   getFx,
@@ -184,7 +185,10 @@ export default function App() {
     if (!localStorage.getItem("pathfinder.auth")) return;
     void me()
       .then((data) => setAuthUser(data.user))
-      .catch(() => {
+      .catch((cause) => {
+        // Only the server saying the sign-in is no longer valid signs the traveller out; an
+        // outage or a slow answer keeps the stored sign-in for the next try.
+        if (!(cause instanceof ApiError && cause.status === 401)) return;
         clearStoredValue("auth");
         // A `user:` profile token is refused without its bearer, so fall back
         // to the guest token, as signing out does.
