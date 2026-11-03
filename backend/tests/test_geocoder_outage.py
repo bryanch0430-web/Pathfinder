@@ -15,12 +15,14 @@ from typing import Any
 import pytest
 
 from app.application.agents import AgentContext, AttractionAgent
+from app.application.asking import AskPath
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
 from app.application.planning import PlanPath
+from app.application.prompts import PromptLibrary
 from app.application.toolbox import Toolbox
 from app.config import Settings
-from app.domain.errors import ProviderError, ProviderNoData, operator_text
+from app.domain.errors import PlanInvalidError, ProviderError, ProviderNoData, operator_text
 from app.domain.models import (
     AgentResult,
     ConstraintStatus,
@@ -34,6 +36,7 @@ from app.domain.models import (
     TripContext,
 )
 from app.eval_efficiency import case_context, cost_sandbox
+from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.providers.geocoding import GeocoderChain
 
@@ -442,3 +445,98 @@ def test_the_check_for_a_named_place_no_source_knows_keeps_its_wording(settings:
 
     assert check.status is ConstraintStatus.UNKNOWN
     assert check.evidence == "No place source returned a place with this name."
+
+
+# -- the destination itself: the plan path and the ask path ----------------------------------------
+
+
+def _plan_for(settings: Settings, geocoder: object):
+    start = date.today() + timedelta(days=30)
+    context = TripContext(session_id="s", destination="Kyoto", start_date=start, end_date=start + timedelta(days=2))
+    path = PlanPath(planner=None, registry=SimpleNamespace(geocoder=geocoder, fx=None), settings=settings)
+    return asyncio.run(
+        path.run(
+            context=context,
+            session_id="s",
+            toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="req_destination"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+    )
+
+
+def test_an_outage_at_the_destination_lookup_is_a_failed_source_not_a_bad_query(settings: Settings) -> None:
+    outage = ProviderError("geocoding failed for all sources", kind=FailureKind.TIMEOUT, source="geocoder-chain")
+
+    with pytest.raises(ProviderError) as failure:
+        _plan_for(settings, _Down(outage))
+
+    assert failure.value.kind is FailureKind.TIMEOUT and failure.value.retryable
+    assert not isinstance(failure.value, PlanInvalidError)
+
+
+@pytest.mark.parametrize("geocoder", [_Script([None]), _Down(ProviderNoData("no result", source="amap-geocoder"))])
+def test_a_destination_no_map_source_knows_is_a_name_to_rephrase(settings: Settings, geocoder: object) -> None:
+    with pytest.raises(PlanInvalidError) as failure:
+        _plan_for(settings, geocoder)
+
+    assert "Try the city and country together" in str(failure.value)
+
+
+class _Forecast:
+    name = "forecast"
+    available = True
+
+    def __init__(self, error: BaseException | None = None) -> None:
+        self.error = error
+
+    async def forecast(self, *, geo: GeoLocation, start: date, end: date) -> list[Any]:
+        if self.error is not None:
+            raise self.error
+        return []
+
+
+def _weather_answer(settings: Settings, geocoder: object, weather: _Forecast | None = None) -> str:
+    gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
+    registry = SimpleNamespace(weather=[weather or _Forecast()], geocoder=geocoder, routes=[])
+    start = date.today() + timedelta(days=30)
+    context = TripContext(session_id="s", destination="Kyoto", start_date=start, end_date=start + timedelta(days=2))
+    text, _related, _source = asyncio.run(
+        AskPath(gateway=gateway, registry=registry, settings=settings).answer(
+            question="What will the weather be like?",
+            plan=None,
+            context=context,
+            toolbox=Toolbox(path="ask", tracer=NoopTracer(), store=None, request_id="req_ask"),
+            emit=lambda *_: None,
+        )
+    )
+    return text
+
+
+def test_a_weather_question_says_when_the_lookup_failed(settings: Settings) -> None:
+    text = _weather_answer(settings, _Down(ProviderError("down", kind=FailureKind.TIMEOUT, source="geocoder-chain")))
+
+    assert "failed (timeout)" in text and "Asking again later may work" in text
+    assert "No forecast could be found" not in text
+
+
+def test_a_weather_question_about_an_unknown_place_says_none_was_found(settings: Settings) -> None:
+    for geocoder in (_Script([None]), _Down(ProviderNoData("no result", source="amap-geocoder"))):
+        text = _weather_answer(settings, geocoder)
+
+        assert "No forecast could be found" in text
+        assert "failed" not in text
+
+
+def test_a_weather_question_says_when_the_forecast_source_failed(settings: Settings) -> None:
+    text = _weather_answer(settings, _Finds(), _Forecast(asyncio.TimeoutError()))
+
+    assert "failed (timeout)" in text and "Asking again later may work" in text
+
+
+def test_a_weather_failure_that_asking_again_cannot_fix_is_not_told_to_retry(settings: Settings) -> None:
+    refused = ProviderError("refused", kind=FailureKind.AUTH, source="geocoder-chain", retryable=False)
+
+    text = _weather_answer(settings, _Down(refused))
+
+    assert "failed (auth)" in text and "Asking again" not in text
