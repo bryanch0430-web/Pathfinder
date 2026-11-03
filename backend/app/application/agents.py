@@ -262,10 +262,16 @@ class AttractionAgent(BaseAgent):
         }
         if places:
             # A working fallback is not a degraded plan: do not surface the
-            # failed higher-priority source as a user-facing data gap.
+            # failed higher-priority source as a user-facing data gap, but keep
+            # a data note so the failure is still on the plan's record.
+            recovered = [gap for gap in failures if gap.section == "attractions"]
             failures = []
             status = AgentStatus.OK
             note_text = [f"{len(places)} attractions, {len(restaurants)} dining candidates"]
+            if recovered:
+                note_text.append(
+                    f"A place source failed ({recovered[0].kind.value}); a fallback source answered."
+                )
         else:
             status = AgentStatus.UNAVAILABLE
             note_text = ["No attraction source returned usable data."]

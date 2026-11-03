@@ -25,7 +25,9 @@ from app.domain.models import (
     AgentName,
     DataStatus,
     DayPlan,
+    Disruption,
     GeoLocation,
+    GeoPoint,
     HotelStay,
     ItemType,
     Money,
@@ -356,6 +358,22 @@ class ModifyPath:
                             prefer_name=wanted_text,
                             cuisine=cuisine,
                         )
+                        closure = _CLOSURE.search(message) is not None
+                        if closure:
+                            # A reported closure is a disruption on the plan's record,
+                            # whether or not a replacement was found.
+                            updated.disruptions.append(
+                                Disruption(
+                                    kind="closure",
+                                    summary=f"{before} was reported closed.",
+                                    affected_item_ids=[target_item.id],
+                                    resolution=(
+                                        f"Replaced with {target_item.name}." if replaced
+                                        else "No verified alternative came back; the stop is still in the plan."
+                                    ),
+                                    resolved=replaced,
+                                )
+                            )
                         if replaced:
                             draft.description = f"Replaced {before} with {target_item.name}."
                         else:
@@ -687,9 +705,13 @@ def _candidate_pool(item: PlanItem, places: list[dict], meals: list[dict], used:
     return [row for row in source if row.get("name") and row["name"] not in used]
 
 
+_CLOSURE = re.compile(r"\b(closed|closure|shut|suspended|not operating|cancel+ed)\b", re.IGNORECASE)
+
+
 def _apply_candidate(item: PlanItem, row: dict) -> None:
     item.name = row["name"]
-    item.geo = row.get("geo") or item.geo
+    # Assignment is not validated, so a raw dict would stay a dict, not a GeoPoint.
+    item.geo = GeoPoint.model_validate(row["geo"]) if row.get("geo") else item.geo
     item.address = row.get("address", "")
     item.notes = (row.get("description") or "")[:700]
     refs = row.get("source_refs") or []
