@@ -54,8 +54,8 @@ PROVIDER_GROUPS = (
 PROVIDER_METHODS = (
     "geocode", "search", "forecast", "leg", "matrix", "segments", "resolve", "gain", "answer", "refresh", "alerts", "status",
 )
-# Tool-log statuses of a call that reached the provider.
-INVOKED_STATUSES = frozenset({"ok", "error"})
+# Tool-log statuses of a call that reached the provider (a timed-out call did too).
+INVOKED_STATUSES = frozenset({"ok", "error", "timeout"})
 
 DEFAULT_REPLIES: dict[str, str] = {
     "ask.answer": json.dumps({"answer": "The itinerary covers that; here is the relevant part."}),

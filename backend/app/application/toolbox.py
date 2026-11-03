@@ -6,6 +6,7 @@ choke point where a path is prevented from using a tool it does not own.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import time
 from typing import Any, Awaitable, Callable, TypeVar
@@ -125,7 +126,12 @@ class Toolbox:
         self.calls += 1
         try:
             with self.tracer.span(f"tool.{tool}", path=self.path) as span:
-                result = await fn(**kwargs)
+                try:
+                    result = await fn(**kwargs)
+                except asyncio.CancelledError as exc:
+                    span.attrs["status"] = "timeout"
+                    span.attrs["reason"] = str(exc.args[0]) if exc.args else "cancelled"
+                    raise
                 # Fetched text is data: instruction-like text is replaced before
                 # any agent, prompt or reply sees it (Proposal TC-05).
                 screened: list[str] = []
@@ -169,6 +175,20 @@ class Toolbox:
                     status="error",
                     latency_ms=latency,
                     error_class=FailureKind.SERVER_ERROR.value,
+                )
+            raise
+        except asyncio.CancelledError:
+            # The caller stopped waiting (a call deadline, the pre-planning
+            # budget, or an abandoned turn): the call ran but has no result.
+            latency = int((time.perf_counter() - started) * 1000)
+            if self.store is not None:
+                self.store.log_tool_call(
+                    request_id=self.request_id,
+                    tool=tool,
+                    args=_safe_args(kwargs),
+                    status="timeout",
+                    latency_ms=latency,
+                    error_class=FailureKind.TIMEOUT.value,
                 )
             raise
 

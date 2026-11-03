@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any, Callable
 
@@ -37,6 +38,23 @@ AGENT_FACTORIES = {
     AgentName.WEATHER: WeatherAgent,
     AgentName.TICKET: TicketAgent,
 }
+
+#: The plan section each agent fills, as the planner names it in a data gap.
+AGENT_SECTIONS = {
+    AgentName.ATTRACTION: "attractions",
+    AgentName.HOTEL: "hotels",
+    AgentName.WEATHER: "weather",
+    AgentName.TICKET: "tickets",
+}
+
+#: The reason an agent still running at the end of the pre-planning budget is
+#: cancelled with; the tool call it was waiting on is logged as timed out.
+BUDGET_EXCEEDED = "pre-planning time budget exceeded"
+
+#: How long a cancelled agent gets to stop before the plan goes ahead without it.
+CANCEL_GRACE_SECONDS = 2.0
+
+logger = logging.getLogger(__name__)
 
 
 class PlanPath:
@@ -202,12 +220,20 @@ class PlanPath:
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
         for task in pending:
-            task.cancel()
+            task.cancel(BUDGET_EXCEEDED)
         if pending:
-            await asyncio.gather(*pending, return_exceptions=True)
+            # An agent that does not stop when cancelled must not hold the plan
+            # past the budget: after a short grace period the plan goes ahead.
+            _, stuck = await asyncio.wait(pending, timeout=CANCEL_GRACE_SECONDS)
+            for task in stuck:
+                logger.warning("%s agent did not stop when the pre-planning budget ran out", tasks[task].value)
+                task.add_done_callback(_discard_outcome)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
         for task, agent_name in tasks.items():
             if task in pending:
-                result = _unavailable(agent_name, "agent exceeded the pre-planning time budget")
+                result = _unavailable(
+                    agent_name, "agent exceeded the pre-planning time budget", elapsed_ms=elapsed_ms
+                )
             else:
                 try:
                     result = task.result()
@@ -240,11 +266,20 @@ class PlanPath:
         return results
 
 
-def _unavailable(agent_name: AgentName, message: str) -> AgentResult:
+def _unavailable(agent_name: AgentName, message: str, *, elapsed_ms: int = 0) -> AgentResult:
+    # The gap names the plan section, so the planner does not add a second one.
+    section = AGENT_SECTIONS.get(agent_name, agent_name.value)
     return AgentResult(
         agent=agent_name,
         status=AgentStatus.UNAVAILABLE,
         payload={},
         notes=[message],
-        failures=[DataGap(section=agent_name.value, kind=FailureKind.TIMEOUT, message=message, retryable=True)],
+        failures=[DataGap(section=section, kind=FailureKind.TIMEOUT, message=message, retryable=True)],
+        elapsed_ms=elapsed_ms,
     )
+
+
+def _discard_outcome(task: asyncio.Task) -> None:
+    """Mark a late agent's outcome as seen; the plan was returned without it."""
+    if not task.cancelled():
+        task.exception()
