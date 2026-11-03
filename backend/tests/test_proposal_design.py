@@ -6,17 +6,22 @@ Offline: sandbox providers, and the metered writer where a model reply matters.
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
+
+import pytest
 
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
 from app.application.planning import PlanPath
 from app.application.prompts import PromptLibrary
 from app.application.toolbox import Toolbox
+from app.application.validation import repair_plan
 from app.config import Settings
+from app.domain.errors import PlanInvalidError
 from app.domain.models import AgentName, EvalCase, GeoPoint, HotelCandidate, Money, PriceKind
-from app.eval_efficiency import build_rig, case_context, cost_sandbox
-from app.eval_metering import RunLedger
+from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox
+from app.eval_metering import MeteredLLM, RunLedger
 from app.evaluation import BASE, _ref
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
@@ -33,6 +38,67 @@ def _session(ledger: RunLedger, client_token: str, destination: str = "Kyoto") -
 
 async def _events(rig, session_id: str, message: str) -> list:
     return [event async for event in rig.turns.handle_turn(session_id=session_id, message=message)]
+
+
+def _kyoto_context(session_id: str = "s"):
+    return case_context(EvalCase(id="t", dataset="design", input="", destination="Kyoto"), session_id)
+
+
+NOT_A_PLAN = json.dumps({"not": "a trip plan"})
+
+
+# ---------------------------------------------------------------------------
+# DB-08: an invalid plan gets a bounded number of repairs, then an error
+# ---------------------------------------------------------------------------
+
+
+def test_db08_invalid_plan_gets_at_most_max_repairs_then_is_rejected(settings: Settings) -> None:
+    """Proposal DB-08 (p3 l.99-103): the repair loop is bounded and never returns an invalid plan."""
+    plan = asyncio.run(accepted_plan(settings, _kyoto_context()))
+    llm = MeteredLLM(replies={"plan.repair": NOT_A_PLAN})
+    gateway = LLMGateway(llm, PromptLibrary(settings), NoopTracer(), settings)
+    with pytest.raises(PlanInvalidError) as failure:
+        asyncio.run(repair_plan(plan, ["day 1: an item has no source"], gateway, settings))
+    assert settings.max_repairs == 2
+    assert llm.purposes == ["plan.repair"] * settings.max_repairs
+    assert failure.value.retryable is True
+    assert "bounded repair" in str(failure.value)
+
+
+def test_db08_a_repair_that_returns_a_valid_plan_is_accepted(settings: Settings) -> None:
+    """Proposal DB-08 (p3 l.99-103): a schema-valid, grounded repair ends the loop."""
+    plan = asyncio.run(accepted_plan(settings, _kyoto_context()))
+    llm = MeteredLLM(replies={"plan.repair": plan.model_dump_json()})
+    gateway = LLMGateway(llm, PromptLibrary(settings), NoopTracer(), settings)
+    repaired = asyncio.run(repair_plan(plan, ["day 1: an item has no source"], gateway, settings))
+    assert llm.purposes == ["plan.repair"]
+    assert repaired.trip_id == plan.trip_id
+    assert [item.name for day in repaired.days for item in day.items] == [
+        item.name for day in plan.days for item in day.items
+    ]
+
+
+def test_db08_unrepairable_plan_turn_shows_a_retryable_error_and_saves_no_plan(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Proposal DB-08 (p3 l.99-103): the console shows an error and asks to retry; no plan is kept."""
+    monkeypatch.setattr("app.application.planning.validate_plan", lambda plan, settings: ["forced schema error"])
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Kyoto", ledger)
+        rig.llm.replies["plan.repair"] = NOT_A_PLAN
+        rig.llm.route = {"intent": "plan", "confidence": 0.95}
+        session_id = _session(ledger, "guest-db08")
+        events = asyncio.run(_events(rig, session_id, "Plan the Kyoto trip now."))
+        saved = ledger.store.get_plan(session_id)
+    finally:
+        ledger.close()
+    names = [event.event for event in events]
+    errors = [event.data for event in events if event.event == "error"]
+    assert "plan" not in names
+    assert len(errors) == 1 and errors[0]["code"] == "plan_invalid" and errors[0]["retryable"] is True
+    assert rig.llm.purposes.count("plan.repair") == settings.max_repairs
+    assert saved is None
 
 
 # ---------------------------------------------------------------------------
