@@ -466,6 +466,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def create_session(payload: CreateSessionRequest, request: Request) -> dict[str, Any]:
         c = container(request)
         token, user = session_caller(request, c, payload.client_token)
+        if not token and user is None:
+            # A trip nobody could open again would stay in the database for good.
+            raise HTTPException(status_code=401, detail="Sign in or send a client token.")
         await charge_create(request)
         session = c.store.create_session(token, user.id if user else "")
         context = TripContext(

@@ -90,7 +90,7 @@ def test_a_trip_that_already_belongs_to_an_account_is_not_taken_over(client: Tes
 
 
 def test_an_empty_token_adopts_nothing(client: TestClient) -> None:
-    orphan = _trip(client, "")
+    orphan = _store(client).create_session("").id  # the API no longer makes one; an old database can hold one
 
     _sign_up(client, "empty@example.com", "")
 
