@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from app.application.language import cuisine_slot
 from app.application.opening_hours import lines_for
 from app.application.planning import PlanPath
-from app.application.planner import PACE_BUFFER_MINUTES, Planner, _constraints, _pace
+from app.application.planner import PACE_BUFFER_MINUTES, STAY_PRICE_NOT_REFRESHED, Planner, _constraints, _pace
 from app.application.prompt_context import plan_outline, trip_slots
 from app.application.router import is_replan_message
 from app.application.toolbox import Toolbox
@@ -209,6 +209,13 @@ class ModifyPath:
             context.days = len(plan.dates.dates)
             new_range = plan.dates
         date_changed = bool(new_range and new_range != plan.dates) and not referred
+        # Only an edit that names the hotel or the budget may change which hotel it is. When the
+        # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
+        hotel_requested = (
+            bool({"hotel", "budget"} & set(affected))
+            or budget_mode
+            or (referred is not None and plan.find_hotel(referred) is not None)
+        )
         if date_changed and len(new_range.dates) != len(plan.days):
             # A different length is a different shape; rebuild with the same id and version + 1.
             rebuilt = await self.plan_path.run(
@@ -221,6 +228,7 @@ class ModifyPath:
                 version=plan.version + 1,
                 trip_id=plan.trip_id,
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
+                keep_hotel=None if hotel_requested or not plan.hotels else plan.hotels[0],
             )
             for name in _carry_protected(plan, rebuilt):
                 day_number = next(
@@ -303,13 +311,6 @@ class ModifyPath:
                 updated.hotels[0].check_out = new_range.end
             updated.tickets = [ticket for ticket in updated.tickets if _ticket_within(ticket, new_range)]
 
-        # Only an edit that names the hotel or the budget may change which hotel it is. When the
-        # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
-        hotel_requested = (
-            bool({"hotel", "budget"} & set(affected))
-            or budget_mode
-            or (referred is not None and plan.find_hotel(referred) is not None)
-        )
         if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
             candidates = (hotels.payload.get("hotels") if hotels else []) or []
@@ -320,14 +321,10 @@ class ModifyPath:
                 else None
             )
             if updated.hotels and not hotel_requested:
-                same = next((row for row in candidates if row.get("name") == current), None)
-                rebuilt = self.planner._build_hotel(same, updated.dates) if same is not None else None
-                if rebuilt is not None:
-                    updated.hotels = [rebuilt]
-                else:
-                    updated.data_quality.gaps.append(
-                        _gap("hotels", "The hotel's price for the new dates could not be refreshed.")
-                    )
+                kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
+                updated.hotels = [kept]
+                if not refreshed:
+                    updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
             else:
                 cheaper = budget_mode or bool(
                     re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower())

@@ -28,6 +28,7 @@ from app.domain.models import (
     DataGap,
     FailureKind,
     GeoPoint,
+    HotelStay,
     TripContext,
     TripPlan,
 )
@@ -76,6 +77,7 @@ class PlanPath:
         version: int = 1,
         trip_id: str | None = None,
         change_summary: str = "",
+        keep_hotel: HotelStay | None = None,
     ) -> TripPlan:
         fx = getattr(self.registry, "fx", None)
         if fx is not None:
@@ -151,6 +153,7 @@ class PlanPath:
             change_summary=change_summary,
             toolbox=toolbox,
             transfers=getattr(self.registry, "transfers", None),
+            keep_hotel=keep_hotel,
         )
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(
