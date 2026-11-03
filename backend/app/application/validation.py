@@ -1,8 +1,10 @@
 """Plan validation and bounded repair.
 
-Validation is deliberately boring and explicit. Repair may only rename/re-shape
-what is already present: a repaired plan cannot introduce a new attraction or a
-new source URL that was not in the original document.
+Validation is deliberately boring and explicit. Repair re-shapes what is already
+present: it may change times, the dates of a stay or a ticket, and wording, and
+nothing else. It cannot add, drop or rename a stop, hotel or ticket, or bring a URL
+that was not in the original document, and every price, coordinate, source,
+forecast and data gap of a repaired plan is the original's.
 """
 
 from __future__ import annotations
