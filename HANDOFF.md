@@ -193,6 +193,23 @@ gain. Jev is still the System 1 route classifier, not a reranker.
    Google OAuth. Google OAuth requires a client ID/secret and authorized origins.
 7. Collaboration/expense split/journal/offline PWA; booking link-out only.
 
+## Reporting a bug
+
+File it as a GitHub issue with the **Bug report** form (`.github/ISSUE_TEMPLATE/bug_report.yml`). Do not add a row to a spreadsheet or a Markdown ledger. The account that clicks **Submit new issue** is the reporter; do not type a name.
+
+Do this once, on the tree you actually ran. `git rev-parse --short HEAD` is the commit. Say `main` unless you reproduced it on another branch.
+
+1. Quote the traveller's sentence and the selected chip. If no chip was selected, write `none`. Do not paraphrase the sentence.
+2. Write numbered steps, what the plan and the reply should have done, and what they did. Name the row that changed and the rows that should have stayed.
+3. Take the `request_id` for that turn. It looks like `req_` plus 12 hex characters.
+   - In the browser, open the request to `POST /api/turn/stream`. In the event stream, the event named `trace` has `request_id`. The same id is on the final `done` event.
+   - On disk the file is `data/traces/<request_id>.json`. One turn writes one file when the trace finishes. `GET /api/admin/spans/<request_id>` returns that file and requires `X-Admin-Token`.
+4. Paste a short log, not the whole file. From the JSON, copy `request_id`, `status`, `duration_ms`, and for each span its `name`, `attrs.status`, and `duration_ms`. From `generations`, copy `purpose`, `model`, and `latency_ms`. If the API process printed a traceback for that request, paste the traceback too.
+5. If the bug is a 404 or a wrong path, also paste the request path and the status code from the browser network panel. That is the log. A missing `request_id` is allowed only when the server never started the turn; write `none` and say so.
+6. A proposed fix is optional. If you have one, write the check the code should enforce and what it must still refuse. Do not write "make it smarter".
+
+Before you paste, delete anything that is a secret: values from `.env`, `Authorization`, `X-Admin-Token`, cookies, and API keys. Keep the traveller's sentence. Do not attach `data/pathfinder.db`.
+
 ## Important invariants
 
 - Active project is `Pathfinder_v1/`; never commit root `obselete/`.

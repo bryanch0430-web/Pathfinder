@@ -1,0 +1,133 @@
+name: Bug report
+description: A wrong result, with the sentence that caused it and the turn's trace.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You are already the reporter: GitHub records the account that submits this issue. Do not type a name.
+        Follow HANDOFF.md, section "Reporting a bug", and attach the trace for this turn. Do not paste `.env`, API keys, bearer tokens, or cookies.
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Output of `git rev-parse --short HEAD` on the tree you ran.
+      placeholder: 88fd497
+    validations:
+      required: true
+  - type: dropdown
+    id: branch
+    attributes:
+      label: Branch
+      options:
+        - main
+        - pathfinder-v1
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - blocker
+        - major
+        - minor
+        - docs
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - modify
+        - ask
+        - schedule
+        - map
+        - api
+        - privacy
+        - security
+        - docs
+        - web
+    validations:
+      required: true
+  - type: input
+    id: chip
+    attributes:
+      label: Selected chip
+      description: Copy the chip text, for example "Day 2 · Pakeeza Food Restaurant". Write "none" if nothing was selected.
+      placeholder: none
+    validations:
+      required: true
+  - type: textarea
+    id: user_report
+    attributes:
+      label: Exact message
+      description: Paste the traveller's sentence. Do not paraphrase it.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: Numbered. Say what was already on the plan.
+      placeholder: |
+        1. On main, open a plan for Hong Kong.
+        2. Select the chip.
+        3. Send the sentence.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What the reply and the plan must do, including what must stay unchanged.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: Quote the reply and name the row that changed.
+    validations:
+      required: true
+  - type: input
+    id: request_id
+    attributes:
+      label: request_id
+      description: From the SSE event named trace, or from the file name data/traces/req_xxxxxxxxxxxx.json. Pattern req_ plus 12 hex characters. Write "none" only if the server never started the turn.
+      placeholder: req_0123456789ab
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Paste the trace summary and any server traceback for this request_id only.
+        Include status, duration_ms, each span name with status and duration_ms, and each generation purpose, model, and latency_ms.
+        If the API logged a traceback, paste that too.
+        Delete secrets before pasting.
+      placeholder: |
+        request_id: req_0123456789ab
+        status: error
+        duration_ms: 840
+        spans:
+        - route 12 ms ok
+        - agents 700 ms error
+        generations:
+        - purpose: modify, model: grok-4.20-0309-non-reasoning, latency_ms: 400
+        server:
+        Traceback (most recent call last):
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_fix
+    attributes:
+      label: Proposed fix
+      description: Checks the code can enforce, and what must still be refused. Leave blank if you do not have a plan.
+    validations:
+      required: false

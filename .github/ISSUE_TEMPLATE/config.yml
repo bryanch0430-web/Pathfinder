@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: How to report a bug
+    url: https://github.com/bryanch0430-web/Pathfinder/blob/main/HANDOFF.md#reporting-a-bug
+    about: Read this before opening an issue. It says which logs to attach and what to leave out.
