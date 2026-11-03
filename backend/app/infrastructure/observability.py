@@ -1,7 +1,9 @@
 """Per-turn tracing: JSONL on disk always, Langfuse when configured.
 
 No personal content is written to the Langfuse sink beyond the prompt/answer
-preview controlled by the caller; tool arguments are stored locally only.
+preview controlled by the caller; tool arguments are stored locally only, and so
+is the text of an exception (the span attribute ``error``), which can quote what
+a traveller typed, an address or a key. Langfuse gets the exception's class.
 """
 
 from __future__ import annotations
@@ -18,6 +20,10 @@ import httpx
 
 from app.config import Settings
 from app.domain.models import new_id
+
+
+#: Span attributes that stay in the local trace file and are never exported.
+LOCAL_ONLY_ATTRIBUTES = frozenset({"error"})
 
 
 class Span:
@@ -232,6 +238,7 @@ def _otlp_payload(record: dict[str, Any]) -> dict[str, Any]:
                 "attributes": [
                     {"key": key, "value": _otlp_value(value)}
                     for key, value in (span.get("attrs") or {}).items()
+                    if key not in LOCAL_ONLY_ATTRIBUTES
                 ],
             }
         )
