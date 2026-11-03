@@ -461,6 +461,7 @@ export const EN = {
   "errors.turn": "The turn failed.",
   "errors.feedback": "Feedback could not be saved.",
   "errors.clearChat": "The chat could not be cleared.",
+  "errors.scrap": "The trip could not be scrapped. It is still open; try again.",
   "errors.trending": "Trending is unavailable.",
 
   "plan.scrapConfirm": "Scrap this plan? Its chat and plan are deleted. Other tabs stay.",

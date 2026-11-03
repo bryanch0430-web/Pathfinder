@@ -211,16 +211,14 @@ export default function App() {
   const scrapActiveTrip = async () => {
     const id = pf.sessionId;
     if (!id || !window.confirm(t("plan.scrapConfirm"))) return;
-    // The reply being written for this trip stops before the trip is deleted.
-    pf.abort();
-    try {
-      await discardSession(id);
-    } catch {
-      // Already gone; drop it locally.
-    }
+    // The trip is deleted first: when the server refuses, it keeps its tab and the page says so.
+    if (!(await pf.scrapTrip())) return;
     const remaining = writeTrips((current) => current.filter((trip) => trip.id !== id));
-    if (remaining.length) await pf.openSession(remaining[0].id);
-    else await createTripTab();
+    // The next tab that still opens takes over; a tab for a trip that is gone is dropped on the way.
+    for (const trip of remaining) {
+      if ((await openTrip(trip.id)) !== "missing") return;
+    }
+    await createTripTab();
   };
 
   const openTrip = async (id: string) => {
@@ -228,6 +226,7 @@ export default function App() {
     // that could not be reached, or that may belong to an account, stays for the next try.
     const outcome = await pf.openSession(id);
     if (outcome === "missing") writeTrips((current) => current.filter((trip) => trip.id !== id));
+    return outcome;
   };
 
   const createTripTab = async () => {
