@@ -440,3 +440,123 @@ def test_a_request_for_a_cheaper_hotel_without_a_new_rate_keeps_the_old_rate_and
 
     assert (updated.hotels[0].name, updated.hotels[0].price_per_night.amount) == ("Kyoto Garden Inn", 90)
     assert _gap_texts(updated) == [NOT_REFRESHED, NO_CHEAPER]
+
+
+# -- G5: a hotel word in a message about dates is not a request for another hotel -------------------
+
+
+class _WriterDraft:
+    """A writer whose draft of the change names the parts it was told to."""
+
+    available = True
+
+    def __init__(self, parts: list[str]) -> None:
+        self.parts = parts
+
+    async def json(self, *_: Any, **__: Any) -> dict:
+        return {"description": "Moved the trip.", "affected_parts": self.parts, "is_question": False, "confidence": 0.9}
+
+
+def _edit(
+    settings: Settings,
+    message: str,
+    *,
+    route_parts: list[str] | None = None,
+    form: tuple[date, date] | None = WEEK_LATER,
+    writer: Any = None,
+    prepare: Callable[[TripPlan], None] | None = None,
+    scope_item_id: str | None = None,
+):
+    """One edit with the parts the real rule router names for the message, as `_modify` does but with a writer
+    and a chip of your own. `form` is the date range the trip form holds (None: the form matches the plan)."""
+    from app.application.modification import ModifyPath
+    from app.application.router import affected_parts_for
+    from app.application.toolbox import Toolbox
+    from app.infrastructure.observability import NoopTracer
+    from tests.test_modify_targets import _build
+
+    gateway, planner, plan_path, context, plan = _build(settings)
+    if prepare is not None:
+        prepare(plan)
+    if form is not None:
+        context.start_date, context.end_date, context.days = form[0], form[1], (form[1] - form[0]).days + 1
+    modify = ModifyPath(planner=planner, plan_path=plan_path, settings=settings, gateway=writer or gateway)
+    updated, diff = asyncio.run(
+        modify.run(
+            plan=plan,
+            context=context,
+            message=message,
+            route_parts=affected_parts_for(message) if route_parts is None else route_parts,
+            toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="t"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+            scope_item_id=scope_item_id,
+        )
+    )
+    return plan, updated, diff, context
+
+
+HOTEL_WORDS_IN_A_DATE_MESSAGE = [
+    "keep the hotel but move to March",
+    "extend my stay by two days",
+    "move the dates but keep the same room",
+    "same trip, same hotel, new dates",
+    "stay at the same hotel but go on 20 March instead",
+    "shift my stay by a day",
+]
+
+
+def test_a_hotel_word_in_a_message_about_dates_does_not_swap_the_hotel(settings: Settings) -> None:
+    for message in HOTEL_WORDS_IN_A_DATE_MESSAGE:
+        plan, updated, diff, _ = _edit(settings, message)
+
+        assert updated.hotels[0].name == plan.hotels[0].name, message
+        assert not any(change["kind"] == "hotel" for change in diff), message
+        assert (updated.dates.start, updated.dates.end) == WEEK_LATER, message
+        assert updated.version == plan.version + 1, message
+
+
+def test_a_writer_that_adds_the_hotel_to_a_date_message_does_not_swap_it_either(settings: Settings) -> None:
+    for parts in (["dates", "hotel"], ["hotel"]):
+        writer = _WriterDraft(parts)
+        plan, updated, diff, _ = _edit(settings, "move the trip a week later", route_parts=[], writer=writer)
+
+        assert updated.hotels[0].name == plan.hotels[0].name, parts
+        assert (updated.dates.start, updated.dates.end) == WEEK_LATER, parts
+
+
+def test_keeping_the_hotel_is_never_a_swap_even_when_no_date_moves(settings: Settings) -> None:
+    plan, updated, diff, _ = _edit(settings, "keep the hotel but move to March", form=None)
+
+    assert updated.hotels[0].name == plan.hotels[0].name
+    assert diff == [] and updated.version == plan.version
+
+
+def test_a_hotel_swap_that_also_moves_the_dates_still_swaps(settings: Settings) -> None:
+    for message in ("swap the hotel and move the trip a week later", "change my hotel and shift the trip by a week"):
+        plan, updated, diff, _ = _edit(settings, message)
+
+        assert updated.hotels[0].name != plan.hotels[0].name, message
+        assert (updated.dates.start, updated.dates.end) == WEEK_LATER, message
+        assert any(change["kind"] == "hotel" for change in diff), message
+
+
+def test_which_hotel_words_ask_for_another_hotel() -> None:
+    from app.application.modification import _asks_for_another_hotel
+    from app.application.router import affected_parts_for
+
+    asks = {
+        "swap the hotel for the other option, keep everything else.": True,
+        "Swap the hotel for the last two nights.": True,
+        "swap the hotel and move the trip a week later": True,
+        "change my hotel and shift the trip by a week": True,
+        "move the trip a week later and switch to a ryokan": True,
+        "I don't want to keep this hotel": True,
+        "I want a different hotel, not the same hotel": True,
+        "a quieter hotel please": True,
+        "keep the hotel, swap Gion for something else": False,
+        "don't keep the hotel, move the trip a week later": False,
+        **{message: False for message in HOTEL_WORDS_IN_A_DATE_MESSAGE},
+    }
+    for message, expected in asks.items():
+        assert _asks_for_another_hotel(message, affected_parts_for(message)) is expected, message
