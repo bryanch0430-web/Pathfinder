@@ -1,8 +1,10 @@
-"""Proposal design behaviour DB-03 (Section 4, p2).
+"""Proposal design behaviours DB-03 and DB-18 (Section 4, p2-p3).
 
 DB-03: the four pre-planning agents run together inside a time budget; an agent
 that overruns is cancelled, its section is marked unavailable and the plan is
 still returned.
+DB-18: the attraction agent turns guide notes into place records and every
+record it keeps carries coordinates from a logged geocoder call.
 
 Offline and deterministic: sandbox providers, fake agents that wait on each
 other instead of the clock, and a budget of a few milliseconds.
@@ -11,12 +13,14 @@ other instead of the clock, and a budget of a few milliseconds.
 from __future__ import annotations
 
 import asyncio
+from datetime import date, timedelta
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from app.application import planning
+from app.application.agents import AgentContext, AttractionAgent
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
 from app.application.planning import BUDGET_EXCEEDED, PlanPath
@@ -26,14 +30,18 @@ from app.domain.models import (
     AgentName,
     AgentResult,
     AgentStatus,
+    DateRange,
     EvalCase,
     FailureKind,
     GeoLocation,
     GeoPoint,
+    NoteItem,
+    TripContext,
 )
 from app.eval_efficiency import case_context, cost_sandbox
 from app.evaluation import BASE
 from app.infrastructure.observability import NoopTracer, TraceRecorder
+from app.infrastructure.providers.places import WikivoyagePlacesSource
 from app.infrastructure.store import SQLiteStore
 
 REQUEST_ID = "req_db03"
@@ -259,3 +267,162 @@ def test_db03_an_agent_that_ignores_cancellation_cannot_hold_the_plan(
         await asyncio.gather(*_others())
 
     asyncio.run(scenario())
+
+
+# -- DB-18: guide notes become geocoded place records ------------------------
+
+DB18_REQUEST = "req_db18"
+KYOTO_CENTRE = GeoPoint(lat=KYOTO[0], lng=KYOTO[1])
+
+# A travel guide naming several places: one with coordinates, the rest without;
+# one place listed twice, one under two spellings, one no map knows and one a
+# geocoder would put in the wrong city.
+GUIDE = """== See ==
+{{see | name=Kiyomizu-dera | alt=清水寺 | lat=34.9949 | long=135.7850 | content=Hilltop temple.}}
+{{see | name=Fushimi Inari Taisha | alt=伏見稲荷大社 | content=Thousands of torii gates.}}
+{{see | name=Kinkaku-ji | content=The golden pavilion.}}
+{{see | name=Kinkaku-ji Temple | content=The golden pavilion by its pond.}}
+{{see | name=Nowhere Garden | content=A garden no map knows.}}
+{{see | name=Kyoto Castle Replica | content=Not in Kyoto at all.}}
+== Do ==
+{{do | name=Philosopher's Path | content=A canal-side walk.}}
+{{do | name=Fushimi Inari Taisha | content=Hike to the summit.}}
+== Eat ==
+{{eat | name=Nishiki Market | lat=35.0050 | long=135.7650}}
+"""
+
+GEOCODER_KNOWS = {
+    "Fushimi Inari Taisha, Kyoto": (34.9671, 135.7727),
+    "Kinkaku-ji, Kyoto": (35.0394, 135.7292),
+    "Kinkaku-ji Temple, Kyoto": (35.0395, 135.7293),
+    "Philosopher's Path, Kyoto": (35.0270, 135.7949),
+    "Kyoto Castle Replica, Kyoto": (35.6895, 139.6917),  # a match in Tokyo
+}
+
+
+class FakeGeocoder:
+    name = "fake-geocoder"
+
+    def __init__(self, known: dict[str, tuple[float, float]]) -> None:
+        self.known = known
+        self.asked: list[str] = []
+
+    async def geocode(self, name: str, *, country_hint: str = "") -> GeoLocation | None:
+        self.asked.append(name)
+        point = self.known.get(name)
+        if point is None:
+            return None
+        return GeoLocation(name=name, geo=GeoPoint(lat=point[0], lng=point[1]), source=self.name)
+
+
+class VideoNotes:
+    """Community notes that name places the guide does not list."""
+
+    name = "fake-notes"
+    available = True
+
+    async def search(self, query: str, *, limit: int = 5, window_months: int = 24) -> list[NoteItem]:
+        return [
+            NoteItem(
+                title="Kyoto in 3 days: Kiyomizu-dera and the Secret Bamboo Grove",
+                url="https://example.com/notes/kyoto",
+                source=self.name,
+                snippet="We also loved Hidden Moss Temple.",
+            )
+        ]
+
+
+class ToolLog:
+    """Stands in for the store's tool log, keeping each call's arguments."""
+
+    def __init__(self) -> None:
+        self.rows: list[dict[str, Any]] = []
+
+    def log_tool_call(self, **row: Any) -> None:
+        self.rows.append(row)
+
+    def log_injection(self, *_: Any) -> None:
+        return None
+
+
+def _attractions(settings: Settings, guide_text: str, geocoder: FakeGeocoder, preferences: list[str]):
+    guide = WikivoyagePlacesSource(settings)
+
+    async def wikitext(destination: str) -> tuple[str, str]:
+        return guide_text, destination
+
+    guide._wikitext = wikitext  # the parser is real; only the fetch is replaced
+    registry = SimpleNamespace(places=[guide], notes=[VideoNotes()], geocoder=geocoder, web=[], web_deep=[])
+    log = ToolLog()
+    start = date.today() + timedelta(days=30)
+    context = TripContext(
+        session_id="s",
+        destination="Kyoto",
+        start_date=start,
+        end_date=start + timedelta(days=2),
+        preferences=preferences,
+    )
+    request = AgentContext(
+        context=context,
+        destination=GeoLocation(name="Kyoto", geo=KYOTO_CENTRE),
+        date_range=DateRange(start=start, end=start + timedelta(days=2)),
+        request_id=DB18_REQUEST,
+        toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=log, request_id=DB18_REQUEST),
+        settings=settings,
+    )
+    return asyncio.run(AttractionAgent(registry, settings).run(request)), log
+
+
+def test_db18_every_place_from_the_guide_is_geocoded_or_left_out(settings: Settings) -> None:
+    geocoder = FakeGeocoder(GEOCODER_KNOWS)
+    result, log = _attractions(settings, GUIDE, geocoder, ["must-see: Fushimi Inari Taisha"])
+
+    assert result.status is AgentStatus.OK
+    places = {row["name"]: row for row in result.payload["places"]}
+    # The duplicates merged, the unlocatable and wrongly located places were left
+    # out, and nothing the community notes merely mention became a place.
+    assert set(places) == {"Kiyomizu-dera", "Fushimi Inari Taisha", "Kinkaku-ji", "Philosopher's Path"}
+    assert "Kinkaku-ji Temple" in places["Kinkaku-ji"]["aliases"]
+    assert places["Fushimi Inari Taisha"]["tags"][0] == "requested"
+    assert result.payload["wishes"] == {"Fushimi Inari Taisha": "Fushimi Inari Taisha"}
+
+    geocodes = [row for row in log.rows if row["tool"] == "geocode"]
+    # Every geocoder call went through the tool log.
+    assert [row["args"]["name"] for row in geocodes] == geocoder.asked
+    assert all(row["status"] == "ok" for row in geocodes)
+    logged = {row["args"]["name"] for row in geocodes}
+    for name, row in places.items():
+        point = (row["geo"]["lat"], row["geo"]["lng"])
+        assert row["source_refs"], name
+        if name == "Kiyomizu-dera":
+            # The guide's own coordinates: no geocoder call was needed.
+            assert point == (34.9949, 135.785)
+            assert f"{name}, Kyoto" not in logged
+        else:
+            # Coordinates exactly as a logged geocoder call returned them.
+            assert f"{name}, Kyoto" in logged
+            assert point == GEOCODER_KNOWS[f"{name}, Kyoto"]
+    # The place listed twice and asked for by name was geocoded once.
+    assert geocoder.asked.count("Fushimi Inari Taisha, Kyoto") == 1
+    assert "Nowhere Garden, Kyoto" in geocoder.asked and "Kyoto Castle Replica, Kyoto" in geocoder.asked
+    assert any("Nowhere Garden" in note and "Kyoto Castle Replica" in note for note in result.notes)
+    # The community note is kept as a note, not turned into place records.
+    assert [note["url"] for note in result.payload["notes"]] == ["https://example.com/notes/kyoto"]
+
+
+def test_db18_a_guide_whose_places_cannot_be_located_leaves_a_data_gap(settings: Settings) -> None:
+    guide = """== See ==
+{{see | name=Nowhere Garden | content=A garden no map knows.}}
+{{see | name=Kyoto Castle Replica | content=Not in Kyoto at all.}}
+"""
+    geocoder = FakeGeocoder({"Kyoto Castle Replica, Kyoto": GEOCODER_KNOWS["Kyoto Castle Replica, Kyoto"]})
+    result, log = _attractions(settings, guide, geocoder, ["must-see: Nowhere Garden"])
+
+    assert result.status is AgentStatus.UNAVAILABLE
+    assert result.payload["places"] == []
+    # A wish the guide names but no map can place is not reported as found.
+    assert result.payload["wishes"] == {"Nowhere Garden": None}
+    gaps = [gap for gap in result.failures if gap.section == "attractions"]
+    assert [gap.kind for gap in gaps] == [FailureKind.NO_DATA]
+    assert "none could be located" in gaps[0].message
+    assert len([row for row in log.rows if row["tool"] == "geocode"]) == len(geocoder.asked) >= 2

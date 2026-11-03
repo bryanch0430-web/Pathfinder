@@ -227,21 +227,13 @@ class AttractionAgent(BaseAgent):
                 # section. A Bilibili rate-limit must not become a visible data gap.
                 continue
 
-        # Fill coordinates for a few guide entries so they can appear on the map.
-        missing_geo = [place for place in places if place.geo is None][:3]
-        for place in missing_geo:
-            try:
-                location = await self._call(
-                    request,
-                    "geocode",
-                    self.registry.geocoder.geocode,
-                    name=f"{place.name}, {request.context.destination}",
-                    timeout=10.0,
-                )
-                if location:
-                    place.geo = location.geo
-            except Exception:
-                continue
+        # Every guide entry without coordinates is geocoded. One the geocoder
+        # cannot place near the destination is left out, never pinned to a guess.
+        missing = sum(1 for place in places if place.geo is None)
+        unplaced = await self._locate(request, places)
+        if missing:
+            # Two spellings of one place may only meet once both have coordinates.
+            places = _merge_places([place for place in places if place.geo is not None])
 
         # A place the traveller named is searched by name, so a generic
         # "attractions in X" list that misses it cannot drop it.
@@ -249,6 +241,13 @@ class AttractionAgent(BaseAgent):
         wished: list[PlaceCandidate] = []
         for wish in place_wishes(request.context):
             match = await self._find_wish(request, wish)
+            if match is not None and match.geo is None:
+                # A place already located above is not geocoded a second time.
+                known = next((place for place in places if _same_place(place, match)), None)
+                match.geo = known.geo if known is not None else None
+            if match is not None and await self._locate(request, [match]):
+                unplaced.append(match.name)
+                match = None
             wishes[wish] = match.name if match else None
             if match:
                 match.tags = ["requested", *match.tags]
@@ -305,6 +304,18 @@ class AttractionAgent(BaseAgent):
         else:
             status = AgentStatus.UNAVAILABLE
             note_text = ["No attraction source returned usable data."]
+            if unplaced:
+                failures.append(
+                    DataGap(
+                        section="attractions",
+                        kind=FailureKind.NO_DATA,
+                        message=f"The guide named {len(unplaced)} places, but none could be located on the map.",
+                    )
+                )
+        if unplaced:
+            note_text.append(
+                f"Left out {len(unplaced)} guide places the geocoder could not locate: " + ", ".join(unplaced[:5])
+            )
         return self._result(
             request,
             status=status,
@@ -314,6 +325,34 @@ class AttractionAgent(BaseAgent):
             failures=failures,
             started=started,
         )
+
+    async def _locate(self, request: AgentContext, places: list[PlaceCandidate]) -> list[str]:
+        """Geocode each place without coordinates (a logged tool call per place).
+
+        Returns the names it could not place: no answer, a failed call, or an
+        answer farther from the destination than a guide listing may be.
+        """
+        centre = request.destination.geo
+        unplaced: list[str] = []
+        for place in places:
+            if place.geo is not None:
+                continue
+            try:
+                location = await self._call(
+                    request,
+                    "geocode",
+                    self.registry.geocoder.geocode,
+                    name=f"{place.name}, {request.context.destination}",
+                    timeout=10.0,
+                )
+            except Exception:
+                location = None
+            # 80 km: the radius the guide source keeps a listing within.
+            if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= 80:
+                place.geo = location.geo
+            else:
+                unplaced.append(place.name)
+        return unplaced
 
     async def _find_wish(self, request: AgentContext, wish: str) -> PlaceCandidate | None:
         """The place a traveller named, or None when no source answers with that name."""
