@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **A locked stop stays when the trip changes length.** Shortening or lengthening a trip rebuilds the plan, and a stop you locked or confirmed now stays locked, on the same day if that day still exists and on the last day if it does not. The plan says which stop it kept and where. (`1559f1b`)
 - **Moving the dates keeps your hotel.** Changing a trip's dates now prices the hotel you already accepted for the new nights instead of swapping it for another one. A different hotel is chosen only when you ask for one or for a lower budget, and if the hotel's price for the new dates cannot be fetched, the plan says so. (`8668c4a`)
 - **Build tools updated for security.** Storybook, Vite and TypeScript moved to the newest release of the same major version, and the Slides export uses a patched image reader. `npm audit` goes from 2 critical, 3 high and 8 moderate findings to 0 critical, 1 high and 9 moderate; what is left in Vite and Storybook needs a major upgrade. The Slides button still downloads a deck. (`9e5bb5a`)
 - **Costly endpoints need an identity.** The evaluation runs and their reports now need the admin token, and destination suggestions and the travel handbook need a signed-in account or the browser's guest token. A trip's translation already followed the same rule as the trip itself. (`ebebc1b`)
