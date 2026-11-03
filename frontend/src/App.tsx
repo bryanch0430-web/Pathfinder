@@ -509,6 +509,7 @@ export default function App() {
                 <WelcomePanel
                   key={pf.sessionId}
                   onExample={(message) => void pf.send(message)}
+                  notice={pf.notice}
                   backendError={pf.sessionId ? null : pf.error}
                   disabled={!pf.sessionId}
                   onRetry={() => void pf.reload()}
@@ -628,11 +629,13 @@ function PlanTabs({
 
 function WelcomePanel({
   onExample,
+  notice,
   backendError,
   disabled,
   onRetry,
 }: {
   onExample: (message: string) => void;
+  notice: string | null;
   /** Shown here only while no trip is open; with a trip open the chat shows its errors. */
   backendError: string | null;
   /** No trip is open to send an example to. */
@@ -642,6 +645,7 @@ function WelcomePanel({
   const { t } = useI18n();
   return (
     <section className="pf-card pf-welcome">
+      {notice ? <Banner tone="info">{notice}</Banner> : null}
       {backendError ? (
         <Banner>
           {backendError}

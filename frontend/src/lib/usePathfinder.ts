@@ -28,9 +28,10 @@ import type {
   TripPlan,
 } from "../design-system/types";
 import { describeFailure, failureOf, unreachableOf, type Failure } from "./failure";
-import { useI18n } from "./i18n";
+import { useI18n, type MessageKey } from "./i18n";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
 import { clearStoredValue, forgetSignIn, readStoredValue, writeStoredValue } from "./storage";
+import { writeTrips } from "./tripsStore";
 
 /** The profile token the API resolves with the bearer: a guest UUID, or `user:<id>` once signed in. */
 export function clientToken(): string {
@@ -48,6 +49,12 @@ export function clientToken(): string {
  * Longer than the 30 s the server gives its own look-ups when it reopens an outdated plan.
  */
 const LOAD_TIMEOUT_MS = 45_000;
+
+/**
+ * The server has no such trip for this identity. Signed out in a browser that has signed in before, it may be an
+ * account's trip. In a browser that never has, nobody else can own it, so it is gone.
+ */
+const mayBeAccountTrip = () => !readStoredValue("auth") && Boolean(readStoredValue("guest"));
 
 const emptyContext = (sessionId = ""): TripContext => ({
   session_id: sessionId,
@@ -104,6 +111,8 @@ export interface PathfinderHook {
   live: { id: string; title: string; body: string }[];
   route: RoutePayload | null;
   error: string | null;
+  /** Something the traveller should know that is not a failure, such as the trip they had open being gone. */
+  notice: string | null;
   selectedItem: PlanItem | null;
   activeVersion: number;
   feedbackStars: number | null;
@@ -149,7 +158,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     try {
       return await run(controller.signal);
     } catch (cause) {
-      if (controller.signal.aborted) throw new ApiError(tRef.current("errors.reconnect"), 0);
+      // The message is for the console; what the page says is chosen by the caller (the reconnect message).
+      if (controller.signal.aborted) throw new ApiError("The server did not answer in time.", 0);
       throw cause;
     } finally {
       window.clearTimeout(timer);
@@ -178,6 +188,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [route, setRoute] = useState<RoutePayload | null>(null);
   // Kept as a message key where the page wrote the message, so a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
+  const [notice, setNotice] = useState<MessageKey | null>(null);
   const [selectedItem, setSelectedItem] = useState<PlanItem | null>(null);
   const [activeVersion, setActiveVersion] = useState(1);
   const [feedbackStars, setFeedbackStars] = useState<number | null>(null);
@@ -232,6 +243,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     lastMessage.current = "";
     retryRef.current = null;
     setError(null);
+    setNotice(null);
     setClarify(null);
     setClarifyValues({});
     setTrace(null);
@@ -287,6 +299,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     try {
       const id = readStoredValue("session");
       const signedIn = Boolean(readStoredValue("auth"));
+      let lost: string | null = null;
       for (let attempt = 0; id && attempt < 2; attempt += 1) {
         try {
           const data = await withTimeout((signal) => getSession(id, signal));
@@ -306,6 +319,7 @@ export function usePathfinder(locale: string): PathfinderHook {
           if (attempt === 0 && signedIn && (await signInEnded())) continue;
           // The server says this trip is gone or is not this browser's: forget it.
           clearStoredValue("session");
+          lost = id;
           break;
         }
       }
@@ -313,10 +327,17 @@ export function usePathfinder(locale: string): PathfinderHook {
       const context = await carryPlanLocale(created.session.id, created.context);
       if (ticket !== navRef.current) return;
       showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
+      if (lost && !mayBeAccountTrip()) {
+        // The trip that was open is gone for good: its tab goes too, and the page says why it starts a new one.
+        const gone = lost;
+        writeTrips((current) => current.filter((trip) => trip.id !== gone));
+        setNotice("errors.tripGone");
+      }
       setReady(true);
     } catch (cause) {
       if (ticket !== navRef.current) return;
-      setError(failureOf(cause, "errors.backend"));
+      // A server that never answered is an outage like any other.
+      setError(cause instanceof ApiError && cause.status === 0 ? "errors.reconnect" : failureOf(cause, "errors.backend"));
       setReady(true);
     }
   }, [carryPlanLocale, showTrip, signInEnded, withTimeout]);
@@ -357,9 +378,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       }
       if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
         // The server answers 404 both for a trip that is gone and for one that is not this
-        // identity's. Signed out in a browser that has signed in before, it may be an account's
-        // trip: say so and keep it. In a browser that never has, nobody else can own it.
-        if (!readStoredValue("auth") && readStoredValue("guest")) {
+        // identity's: when it may be an account's, say so and keep it.
+        if (mayBeAccountTrip()) {
           if (latest) setError("errors.signInToOpen");
           if (latest && sessionRef.current === null) writeStoredValue("session", id);
           return "needs-sign-in";
@@ -533,6 +553,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       let failed = false;
       setBusy(true);
       setError(null);
+      setNotice(null);
       setChangedIds([]);
       setHotelChanged(false);
       setClarify(null);
@@ -813,6 +834,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     live,
     route,
     error: error === null ? null : describeFailure(error, t),
+    notice: notice === null ? null : t(notice),
     selectedItem,
     activeVersion,
     feedbackStars,

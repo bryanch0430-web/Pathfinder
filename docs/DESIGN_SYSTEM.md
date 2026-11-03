@@ -159,7 +159,9 @@ App.tsx
   Trending → Try this trip creates a new tab instead of overwriting the current plan.
   The page stays in place while a trip loads (the chat box, a half-typed message and
   keyboard focus are kept, and the trip that was open is shown dimmed until the new one
-  arrives); when several are asked for, the last one asked for is shown.
+  arrives); when several are asked for, the last one asked for is shown. A trip the page
+  remembers that the server no longer has (and that cannot be an account's) loses its tab
+  when the page opens, and the new blank trip says so.
   Opening a trip never changes the interface language: a trip saved in 繁 is shown in 繁
   whatever the interface language is, and the language menu sets both for the open trip.
 - Tabs are stored in `pathfinder.trips`; the active pointer stays in

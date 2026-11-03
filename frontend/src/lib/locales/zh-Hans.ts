@@ -452,6 +452,7 @@ export const ZH_HANS: Messages = {
   "errors.backend": "无法连接后端",
   "errors.reconnect": "无法连接到服务器。你的行程已保留，请点击“重试”重新连接。",
   "errors.signInToOpen": "此处无法打开这个行程。如果它属于你的账户，请登录后再打开。",
+  "errors.tripGone": "你之前打开的行程已不存在，已为你新建了一个行程。",
   "errors.saveDetails": "无法保存行程信息。",
 
   "chat.understanding": "正在理解你的消息",
