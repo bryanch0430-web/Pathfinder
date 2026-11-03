@@ -77,7 +77,7 @@ class DeepSeekSearchSource:
         query: str,
         count: int = 5,
         ori_question: str | None = None,
-        retries: int = 1,
+        retries: int | None = None,
     ) -> list[WebResult]:
         if not self.available:
             from app.domain.errors import ProviderNoData
@@ -99,7 +99,7 @@ class DeepSeekSearchSource:
             headers={"Authorization": f"Bearer {self.key}"},
             payload=payload,
             timeout=20.0,
-            retries=retries,
+            retries=self.settings.http_retries if retries is None else retries,
         )
         return list(_deepseek_results(data))
 
@@ -150,7 +150,7 @@ class GrokSearchSource:
                 "tools": [{"type": "web_search"}],
             },
             timeout=self.timeout if timeout is None else timeout,
-            retries=0,
+            retries=0,  # deliberate: a 90-second paid search is not repeated
         )
         return _grok_answer(data, self.name)
 

@@ -62,7 +62,7 @@ class SerpApiHotelSource:
                 "api_key": self.settings.serpapi_key,
             },
             timeout=max(self.settings.http_timeout_seconds, 20),
-            retries=1,
+            retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
         if data.get("error"):

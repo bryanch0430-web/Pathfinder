@@ -144,7 +144,13 @@ class FreshnessService:
         now = _aware(self.clock())
         outdated = outdated_sections(plan, self.settings, now)
         updated = plan.model_copy(deep=True)
-        toolbox = Toolbox(path="refresh", tracer=tracer, store=self.store, request_id=request_id)
+        toolbox = Toolbox(
+            path="refresh",
+            tracer=tracer,
+            store=self.store,
+            request_id=request_id,
+            max_calls=self.settings.max_tool_calls_per_turn or None,
+        )
         request_context = self._agent_context(updated, context)
         with tracer.span("freshness", outdated=sorted(outdated)) as span:
             sections = list(outdated)

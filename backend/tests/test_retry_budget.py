@@ -15,6 +15,7 @@ from email.utils import format_datetime
 import httpx
 import pytest
 
+from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
 from app.infrastructure.http import (
@@ -274,3 +275,170 @@ def test_db11_an_attempt_that_hangs_is_cut_off_at_the_time_left() -> None:
     with pytest.raises(ProviderError) as caught:
         asyncio.run(asyncio.wait_for(go(), timeout=5.0))
     assert caught.value.kind == FailureKind.TIMEOUT
+
+
+# -- the retry and tool-call budgets are settings ---------------------------------
+
+
+class _FlakyHotels:
+    """Answers 503 a set number of times, then a real SerpApi hotel list."""
+
+    def __init__(self, failures: int) -> None:
+        self.failures = failures
+        self.requests = 0
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.requests += 1
+        if self.requests <= self.failures:
+            return httpx.Response(503, text="try later")
+        return httpx.Response(
+            200,
+            json={
+                "properties": [
+                    {
+                        "name": "Test Inn",
+                        "gps_coordinates": {"latitude": 35.01, "longitude": 135.77},
+                        "overall_rating": 4.4,
+                        "rate_per_night": {"extracted_lowest": 120},
+                    }
+                ]
+            },
+        )
+
+
+def _search_hotels(settings: Settings, flaky: _FlakyHotels):
+    from datetime import date
+
+    from app.infrastructure.providers.hotels import SerpApiHotelSource
+
+    source = SerpApiHotelSource(settings)
+    with use_transport(httpx.MockTransport(flaky)):
+        return asyncio.run(
+            source.search(
+                destination="Kyoto",
+                check_in=date(2027, 4, 10),
+                check_out=date(2027, 4, 12),
+                party_size=2,
+                budget=None,
+                currency="USD",
+            )
+        )
+
+
+def test_a_provider_that_fails_twice_succeeds_with_two_retries(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.infrastructure.http.BACKOFF_BASE_SECONDS", 0.0)
+    monkeypatch.setattr("app.infrastructure.http.BACKOFF_JITTER_SECONDS", 0.0)
+    flaky = _FlakyHotels(failures=2)
+
+    hotels = _search_hotels(settings.model_copy(update={"serpapi_key": "k", "http_retries": 2}), flaky)
+
+    assert [hotel.name for hotel in hotels] == ["Test Inn"]
+    assert flaky.requests == 3
+
+
+def test_the_retry_setting_is_what_limits_a_provider(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.infrastructure.http.BACKOFF_BASE_SECONDS", 0.0)
+    monkeypatch.setattr("app.infrastructure.http.BACKOFF_JITTER_SECONDS", 0.0)
+    flaky = _FlakyHotels(failures=2)
+
+    with pytest.raises(ProviderError) as caught:
+        _search_hotels(settings.model_copy(update={"serpapi_key": "k", "http_retries": 0}), flaky)
+
+    assert caught.value.kind is FailureKind.SERVER_ERROR
+    assert flaky.requests == 1  # no retries, as set
+
+
+def test_the_fourth_tool_call_in_a_turn_is_refused_when_the_cap_is_three() -> None:
+    from app.application.toolbox import Toolbox
+    from app.domain.errors import ToolBudgetExceeded
+    from app.infrastructure.observability import NoopTracer
+
+    class Log:
+        def __init__(self) -> None:
+            self.rows: list[dict] = []
+
+        def log_tool_call(self, **row) -> None:
+            self.rows.append(row)
+
+        def log_injection(self, *_) -> None:
+            return None
+
+    ran: list[int] = []
+
+    async def lookup(number: int) -> list[int]:
+        ran.append(number)
+        return [number]
+
+    log = Log()
+    toolbox = Toolbox(path="plan", tracer=NoopTracer(), store=log, request_id="req_cap", max_calls=3)
+
+    async def scenario() -> None:
+        for number in (1, 2, 3):
+            assert await toolbox.call("geocode", lookup, number=number) == [number]
+        with pytest.raises(ToolBudgetExceeded) as caught:
+            await toolbox.call("geocode", lookup, number=4)
+        assert caught.value.kind is FailureKind.BLOCKED and not caught.value.retryable
+
+    asyncio.run(scenario())
+
+    assert ran == [1, 2, 3], "the refused call never reached the source"
+    assert [(row["status"], row.get("error_class")) for row in log.rows] == [("ok", None)] * 3 + [("blocked", "budget")]
+
+
+def test_the_plan_shows_a_gap_for_a_lookup_the_cap_refused(settings: Settings) -> None:
+    from datetime import date, timedelta
+
+    from app.application.llm_gateway import LLMGateway
+    from app.application.modification import ModifyPath
+    from app.application.planner import Planner
+    from app.application.planning import PlanPath
+    from app.application.prompts import PromptLibrary
+    from app.application.toolbox import Toolbox
+    from app.domain.models import TripContext
+    from app.evaluation import SandboxRegistry
+    from app.infrastructure.llm import NullLLM
+    from app.infrastructure.observability import NoopTracer
+    from app.infrastructure.providers.fx import FxService
+
+    settings = settings.model_copy(update={"preplan_budget_seconds": 15, "agent_timeout_seconds": 8})
+    gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
+    plan_path = PlanPath(
+        planner=Planner(gateway, settings, FxService()), registry=SandboxRegistry(settings, "Kyoto"), settings=settings
+    )
+    start = date.today() + timedelta(days=30)
+    context = TripContext(
+        session_id="s", destination="Kyoto", origin="Hong Kong", start_date=start,
+        end_date=start + timedelta(days=2), days=3, party_size=2, budget=400000, currency="JPY",
+    )
+    plan = asyncio.run(
+        plan_path.run(
+            context=context,
+            session_id="s",
+            toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="t"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+    )
+    assert plan.days[0].weather is not None
+
+    # Moving the trip re-runs the weather, hotel and flight lookups after the exchange rates:
+    # with a cap of three calls, one of those lookups is refused.
+    context.start_date, context.end_date = start + timedelta(days=9), start + timedelta(days=11)
+    toolbox = Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="t", max_calls=3)
+    updated, _ = asyncio.run(
+        ModifyPath(planner=plan_path.planner, plan_path=plan_path, settings=settings, gateway=gateway).run(
+            plan=plan,
+            context=context,
+            message="move the trip 9 days later",
+            route_parts=["dates"],
+            toolbox=toolbox,
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+    )
+
+    refused = [gap for gap in updated.data_quality.gaps if gap.kind is FailureKind.BLOCKED]
+    assert len(refused) == 1 and refused[0].section in {"weather", "hotels", "tickets"}
+    assert toolbox.calls == 3

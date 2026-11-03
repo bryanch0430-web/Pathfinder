@@ -235,7 +235,7 @@ class WikivoyagePlacesSource:
                 "redirects": 1,
             },
             timeout=self.settings.http_timeout_seconds,
-            retries=0,
+            retries=0,  # deliberate: Wikimedia asks clients not to repeat failed requests
             user_agent=self.settings.wikimedia_user_agent,
         )
         parsed = data.get("parse") or {}
@@ -282,7 +282,7 @@ class NominatimPlacesSource:
             source=self.name,
             params=params,
             timeout=self.settings.http_timeout_seconds,
-            retries=0,
+            retries=0,  # deliberate: OpenStreetMap's usage policy asks clients not to repeat requests
             user_agent=self.settings.user_agent,
         )
         rows = data.get("data") if isinstance(data.get("data"), list) else data
@@ -478,7 +478,7 @@ class GooglePlacesAutocomplete:
             headers={"X-Goog-Api-Key": self._key, "Content-Type": "application/json"},
             payload={"input": text, "languageCode": "en"},
             timeout=self.settings.http_timeout_seconds,
-            retries=1,
+            retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
         items: list[dict] = []

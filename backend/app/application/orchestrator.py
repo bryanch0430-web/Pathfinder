@@ -568,7 +568,13 @@ class TurnService:
         def emit(event_name: str, data: dict[str, Any]) -> None:
             queue.put_nowait((event_name, data))
 
-        toolbox = Toolbox(path="plan", tracer=tracer, store=self.store, request_id=request_id)
+        toolbox = Toolbox(
+            path="plan",
+            tracer=tracer,
+            store=self.store,
+            request_id=request_id,
+            max_calls=self.settings.max_tool_calls_per_turn or None,
+        )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Planning the trip.", "progress": 5})
         live = bind_live_emit(emit)
         task = asyncio.create_task(
@@ -615,7 +621,13 @@ class TurnService:
         def emit(event_name: str, data: dict[str, Any]) -> None:
             queue.put_nowait((event_name, data))
 
-        toolbox = Toolbox(path="modify", tracer=tracer, store=self.store, request_id=request_id)
+        toolbox = Toolbox(
+            path="modify",
+            tracer=tracer,
+            store=self.store,
+            request_id=request_id,
+            max_calls=self.settings.max_tool_calls_per_turn or None,
+        )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Applying the smallest change.", "progress": 5})
         live = bind_live_emit(emit)
         task = asyncio.create_task(
@@ -675,7 +687,13 @@ class TurnService:
         request_id,
         scope_item_id: str | None = None,
     ) -> AsyncIterator[TurnEvent]:
-        toolbox = Toolbox(path="ask", tracer=tracer, store=self.store, request_id=request_id)
+        toolbox = Toolbox(
+            path="ask",
+            tracer=tracer,
+            store=self.store,
+            request_id=request_id,
+            max_calls=self.settings.max_tool_calls_per_turn or None,
+        )
         answer, related, source = await self.ask_path.answer(
             question=message,
             plan=plan,
