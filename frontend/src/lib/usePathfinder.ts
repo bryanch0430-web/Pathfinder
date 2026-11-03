@@ -125,7 +125,8 @@ export interface PathfinderHook {
   /** Stops the reply being streamed, if there is one. */
   abort: () => void;
   openSession: (id: string) => Promise<OpenOutcome>;
-  newPlan: () => Promise<string>;
+  /** Makes a trip and opens it. Its id, or null (the traveller is told) when none could be made. */
+  newPlan: () => Promise<string | null>;
 }
 
 export function usePathfinder(locale: string): PathfinderHook {
@@ -174,8 +175,10 @@ export function usePathfinder(locale: string): PathfinderHook {
   // Every open, new trip and reload takes the next number, and only the latest is shown when its answer
   // arrives: the traveller's last click wins, whatever order the answers come back in.
   const navRef = useRef(0);
-  const creatingRef = useRef<Promise<string> | null>(null);
+  const creatingRef = useRef<Promise<string | null> | null>(null);
   const creatingTicket = useRef(0);
+  // What the Retry button does for an error that is not a failed turn: ask for the trip again.
+  const retryRef = useRef<(() => Promise<unknown>) | null>(null);
 
   /** Follow the session's plan locale: zh-Hant shows the interface in 繁; English leaves 繁 for EN, and EN/简 as they are. */
   const adoptPlanLocale = useCallback(
@@ -205,6 +208,7 @@ export function usePathfinder(locale: string): PathfinderHook {
    */
   const forgetTripView = useCallback(() => {
     lastMessage.current = "";
+    retryRef.current = null;
     setError(null);
     setClarify(null);
     setClarifyValues({});
@@ -217,7 +221,11 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
   const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages">) => {
-    if (sessionRef.current !== id) forgetTripView();
+    if (sessionRef.current !== id) {
+      // The reply being written for the trip being left stops with it, so its late events cannot land in this one.
+      abortRef.current?.abort();
+      forgetTripView();
+    }
     setContextState(trip.context);
     adoptPlanLocale(trip.context.plan_locale);
     if (trip.plan) {
@@ -238,6 +246,7 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
+    retryRef.current = null;
     setError(null);
     try {
       const id = localStorage.getItem(SESSION_KEY);
@@ -284,10 +293,13 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [plan?.trip_id, plan?.version]);
 
   const openSession = useCallback(async (id: string): Promise<OpenOutcome> => {
-    // The stream of the trip being left stops with it, so its late events cannot land in this one.
-    abortRef.current?.abort();
-    setError(null);
     const ticket = ++navRef.current;
+    if (id === sessionRef.current) {
+      // Already open: nothing to load, and nothing the traveller asked for before is wanted any more.
+      setReady(true);
+      return "opened";
+    }
+    setError(null);
     setReady(false);
     try {
       const data = await getSession(id);
@@ -310,14 +322,18 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
         return "missing";
       }
-      // The server is down or slow: the trip is not gone. With no trip open, a reload tries it again.
-      if (latest) setError(unreachableOf(cause));
-      if (latest && sessionRef.current === null) localStorage.setItem(SESSION_KEY, id);
+      // The server is down or slow: the trip is not gone. The trip that is open stays as it is, and
+      // Retry asks for this one again. With no trip open, a reload tries it again.
+      if (latest) {
+        setError(unreachableOf(cause));
+        retryRef.current = () => openSession(id);
+        if (sessionRef.current === null) localStorage.setItem(SESSION_KEY, id);
+      }
       return "unavailable";
     }
   }, [showTrip]);
 
-  const newPlan = useCallback((): Promise<string> => {
+  const newPlan = useCallback((): Promise<string | null> => {
     const pending = creatingRef.current;
     if (pending) {
       // A second click while the first trip is still being made takes the view but makes no second trip.
@@ -325,7 +341,6 @@ export function usePathfinder(locale: string): PathfinderHook {
       setReady(false);
       return pending;
     }
-    abortRef.current?.abort();
     creatingTicket.current = ++navRef.current;
     setReady(false);
     const making = (async () => {
@@ -336,6 +351,13 @@ export function usePathfinder(locale: string): PathfinderHook {
           showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
         }
         return created.session.id;
+      } catch (cause) {
+        // No trip was made: the one that is open stays, and the traveller is told.
+        if (creatingTicket.current === navRef.current) {
+          setError(unreachableOf(cause));
+          retryRef.current = () => newPlan();
+        }
+        return null;
       } finally {
         creatingRef.current = null;
         if (creatingTicket.current === navRef.current) setReady(true);
@@ -460,6 +482,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       const id = sessionRef.current;
       if (!id || busy) return;
       lastMessage.current = message;
+      retryRef.current = null;
+      let failed = false;
       setBusy(true);
       setError(null);
       setChangedIds([]);
@@ -578,14 +602,22 @@ export function usePathfinder(locale: string): PathfinderHook {
                 setLive((current) => [...current, { id: `${event}-${current.length}-${Date.now()}`, title, body }]);
               }
               if (event === "trace") setTrace(data as unknown as RunTrace);
-              if (event === "error") setError(data.message ? { text: String(data.message) } : "errors.turn");
+              if (event === "error") {
+                failed = true;
+                setError(data.message ? { text: String(data.message) } : "errors.turn");
+              }
             },
           },
           controller.signal,
         );
       } catch (cause) {
-        if (!controller.signal.aborted) setError(failureOf(cause, "errors.turn"));
+        if (!controller.signal.aborted) {
+          failed = true;
+          setError(failureOf(cause, "errors.turn"));
+        }
       } finally {
+        // Only a turn that failed is something Retry sends again.
+        if (!failed && sessionRef.current === id) lastMessage.current = "";
         // A newer stream (in the trip opened since) owns the busy state and the controller.
         const superseded = abortRef.current !== null && abortRef.current !== controller;
         if (!superseded) {
@@ -752,7 +784,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     feedback,
     setStars: setFeedbackStars,
     retry: async () => {
-      if (lastMessage.current) await send(lastMessage.current);
+      if (retryRef.current) await retryRef.current();
+      else if (lastMessage.current) await send(lastMessage.current);
       else await reload();
     },
     reload,
