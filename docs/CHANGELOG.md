@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **Opening another trip stops the one you left.** If a reply is still being written when you open a different trip or start a new one, that reply is cancelled and can no longer appear in, or overwrite, the trip you moved to. (`9c022a5`)
 - **A server outage keeps your trip and your sign-in.** If the server cannot be reached or answers with an error when the page opens, the open trip stays remembered and the page says to reload to reconnect, instead of forgetting the trip and starting a blank one. You are signed out only when the server says the sign-in is no longer valid. The message is in English, 简 and 繁. (`d92b7f0`)
 - **Retry and call limits are settings.** `HTTP_RETRIES` now sets how often the flight, hotel, route, search and map-key services are retried, and `MAX_TOOL_CALLS_PER_TURN` (150) caps the lookups one request may make. A lookup refused by the cap shows as a data gap on the plan instead of running. (`f7981b4`)
 - **A map outage is not reported as a missing place.** When the map service cannot be reached, guide places are no longer described as places that could not be located. The plan says they could not be checked because the service failed, marks it as worth retrying, and lists the places left out. (`9bf99d6`)
