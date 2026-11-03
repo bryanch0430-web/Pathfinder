@@ -229,13 +229,20 @@ class FreshnessService:
         return plan if outcome is None else self._save_reopened(plan, outcome)
 
     def _save_reopened(self, base: TripPlan, outcome: RefreshOutcome) -> TripPlan:
-        """Save a refresh made for ``base`` and return the plan to show: the stored one if it moved on."""
-        if not outcome.refreshed or self.store is None:
+        """Save a refresh made for ``base`` and return the plan to show: the stored one if it moved on.
+
+        That holds when nothing was refreshed too: the marks of a failed refresh belong on the version the
+        traveller has, not on an older one next to a newer version in the list."""
+        if self.store is None:
             return outcome.plan
         stored = self.store.get_plan(base.session_id)
         moved_on = stored is None or (stored.trip_id, stored.version) != (base.trip_id, base.version)
-        if moved_on or self.session_busy(base.session_id):
-            return stored or base  # a newer version, or a turn, took the trip over while this was fetched
+        if moved_on:
+            return stored or base  # a newer version took the trip over while this was fetched
+        if not outcome.refreshed:
+            return outcome.plan  # nothing to save: the stored plan, with the sections it could not refresh flagged
+        if self.session_busy(base.session_id):
+            return stored or base  # a turn is running on the trip and will save the next version
         try:
             self.store.save_plan(outcome.plan, outcome.plan.change_summary)
         except PlanConflict:
