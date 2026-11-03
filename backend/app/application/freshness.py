@@ -103,6 +103,10 @@ class RefreshOutcome:
     refreshed: list[str]
 
 
+def _never_busy(_: str) -> bool:
+    return False
+
+
 class FreshnessService:
     def __init__(
         self,
@@ -112,12 +116,16 @@ class FreshnessService:
         settings: Settings,
         store: Any | None = None,
         clock: Callable[[], datetime] = utcnow,
+        session_busy: Callable[[str], bool] = _never_busy,
     ):
         self.registry = registry
         self.planner = planner
         self.settings = settings
         self.store = store
         self.clock = clock
+        #: Whether a turn is running on a trip (the turn service sets this): a reopened plan is
+        #: not saved over a turn's work.
+        self.session_busy = session_busy
 
     def needs_check(self, plan: TripPlan) -> bool:
         now = _aware(self.clock())
@@ -134,10 +142,12 @@ class FreshnessService:
         context: TripContext | None,
         tracer: Tracer,
         request_id: str,
+        save: bool = True,
     ) -> RefreshOutcome | None:
         """Mark and re-fetch outdated sections. None when every section is in date.
 
-        A plan in which a section was re-fetched is saved as the next version.
+        A plan in which a section was re-fetched is saved as the next version, unless the caller
+        saves it (``save=False``).
         """
         if not self.needs_check(plan):
             return None
@@ -188,7 +198,7 @@ class FreshnessService:
             updated.version = plan.version + 1
             updated.updated_at = utcnow()
             updated.change_summary = "Refreshed the outdated " + _join([LABELS[section] for section in refreshed]) + "."
-            if self.store is not None:
+            if save and self.store is not None:
                 try:
                     self.store.save_plan(updated, updated.change_summary)
                 except PlanConflict:
@@ -197,20 +207,40 @@ class FreshnessService:
         return RefreshOutcome(plan=updated, outdated=sorted(outdated), refreshed=refreshed)
 
     async def on_reopen(self, plan: TripPlan) -> TripPlan:
-        """A saved plan opened again: the same check as a later turn, under its own request id."""
-        if plan is None or not self.needs_check(plan):
+        """A saved plan opened again: the same check as a later turn, under its own request id.
+
+        A turn on the trip has read the plan and will save the next version, so a refresh saved
+        meanwhile would make it end in a conflict. While a turn runs the plan is shown as stored (the
+        turn refreshes an outdated plan itself before it reads it); otherwise the refresh is saved
+        only if the plan is still the one it was made from.
+        """
+        if plan is None or not self.needs_check(plan) or self.session_busy(plan.session_id):
             return plan
         request_id = new_id("req")
         tracer = start_trace(self.settings, request_id)
         context = self.store.get_context(plan.session_id) if self.store is not None else None
         try:
-            outcome = await self.check(plan, context=context, tracer=tracer, request_id=request_id)
+            outcome = await self.check(plan, context=context, tracer=tracer, request_id=request_id, save=False)
         except Exception:  # a failed refresh never stops the plan from opening
             logger.exception("refreshing an outdated plan failed")
             tracer.finish(status="error")
             return plan
         tracer.finish(status="ok")
-        return outcome.plan if outcome is not None else plan
+        return plan if outcome is None else self._save_reopened(plan, outcome)
+
+    def _save_reopened(self, base: TripPlan, outcome: RefreshOutcome) -> TripPlan:
+        """Save a refresh made for ``base`` and return the plan to show: the stored one if it moved on."""
+        if not outcome.refreshed or self.store is None:
+            return outcome.plan
+        stored = self.store.get_plan(base.session_id)
+        moved_on = stored is None or (stored.trip_id, stored.version) != (base.trip_id, base.version)
+        if moved_on or self.session_busy(base.session_id):
+            return stored or base  # a newer version, or a turn, took the trip over while this was fetched
+        try:
+            self.store.save_plan(outcome.plan, outcome.plan.change_summary)
+        except PlanConflict:
+            return self.store.get_plan(base.session_id) or base
+        return outcome.plan
 
     def _agent_context(self, plan: TripPlan, context: TripContext | None) -> TripContext:
         """The trip as the plan states it: its dates, origin and party size."""

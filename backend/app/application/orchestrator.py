@@ -100,6 +100,8 @@ class TurnService:
         self.freshness = freshness or FreshnessService(
             registry=plan_path.registry, planner=plan_path.planner, settings=settings, store=store
         )
+        # Reopening a trip must not save a refresh over the work of a turn that is running on it.
+        self.freshness.session_busy = self.session_busy
 
     def _remember_in_background(self, owner: str, context: TripContext) -> None:
         """Session preferences go to the owner's long-term memory off the turn's critical path."""
@@ -118,6 +120,10 @@ class TurnService:
         """Wait for pending background writes (tests and shutdown)."""
         if self._background:
             await asyncio.gather(*list(self._background), return_exceptions=True)
+
+    def session_busy(self, session_id: str) -> bool:
+        """True while a turn on the session runs or waits for the session's lock."""
+        return session_id in self._session_turns
 
     @asynccontextmanager
     async def _lock_for(self, session_id: str) -> AsyncIterator[None]:
