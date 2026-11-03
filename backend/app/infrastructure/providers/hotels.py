@@ -66,7 +66,7 @@ class SerpApiHotelSource:
             user_agent=self.settings.user_agent,
         )
         if data.get("error"):
-            raise ProviderError(str(data["error"]), source=self.name)
+            raise ProviderError(f"{self.name} returned an error", source=self.name, detail=str(data["error"])[:300])
         properties = data.get("properties") or []
         if not properties:
             return []

@@ -82,20 +82,23 @@ def use_transport(transport: httpx.AsyncBaseTransport | None) -> Iterator[None]:
         _TRANSPORT.reset(token)
 
 
-def classify_status(status: int, source: str, message: str = "") -> ProviderError:
-    detail = message or f"{source} returned HTTP {status}"
+def classify_status(status: int, source: str, message: str = "", *, detail: str = "") -> ProviderError:
+    """The typed failure for an HTTP status. ``detail`` is what the source said: for the trace, not the message."""
+    text = message or f"{source} returned HTTP {status}"
     if status in {401, 403}:
-        return ProviderError(detail, kind=FailureKind.AUTH, source=source, retryable=False)
+        return ProviderError(text, kind=FailureKind.AUTH, source=source, retryable=False, detail=detail)
     if status == 429:
-        return ProviderError(detail, kind=FailureKind.RATE_LIMIT, source=source)
+        return ProviderError(text, kind=FailureKind.RATE_LIMIT, source=source, detail=detail)
     if status in {400, 422}:
-        return ProviderError(detail, kind=FailureKind.INVALID_REQUEST, source=source, retryable=False)
+        return ProviderError(text, kind=FailureKind.INVALID_REQUEST, source=source, retryable=False, detail=detail)
     if status == 404:
-        return ProviderNoData(detail, source=source)
+        error = ProviderNoData(text, source=source)
+        error.detail = detail
+        return error
     if status >= 500 or status in RETRYABLE_STATUS:
         # 408 Request Timeout and 425 Too Early are transient like a 5xx.
-        return ProviderError(detail, kind=FailureKind.SERVER_ERROR, source=source)
-    return ProviderError(detail, kind=FailureKind.SERVER_ERROR, source=source, retryable=False)
+        return ProviderError(text, kind=FailureKind.SERVER_ERROR, source=source, detail=detail)
+    return ProviderError(text, kind=FailureKind.SERVER_ERROR, source=source, retryable=False, detail=detail)
 
 
 def classify_exception(exc: BaseException, source: str) -> ProviderError:

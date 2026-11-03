@@ -43,6 +43,7 @@ class LLMGateway:
     ) -> dict[str, Any]:
         purpose = purpose or prompt
         request = user
+        problem, problem_detail = "", ""
         # The first answer plus at most `max_repairs` bounded repairs; each repair
         # tells the writer what was wrong with its previous answer.
         for attempt in range(max(self.settings.max_repairs, 0) + 1):
@@ -54,7 +55,7 @@ class LLMGateway:
             )
             data = _extract_json(result)
             if data is None:
-                problem = f"writer returned invalid JSON for {purpose}"
+                problem, problem_detail = f"writer returned invalid JSON for {purpose}", ""
                 request = user + "\n\nYour previous answer was not valid JSON. Return the JSON object only."
                 continue
             if schema is None:
@@ -62,13 +63,14 @@ class LLMGateway:
             try:
                 return schema.model_validate(data).model_dump()
             except PydanticValidationError as exc:
-                problem = f"writer returned JSON that does not match {schema.__name__}: {exc.errors()[:2]}"
+                problem = f"writer returned JSON that does not match {schema.__name__}"
+                problem_detail = str(exc.errors()[:2])[:300]
                 request = (
                     user
                     + f"\n\nYour previous answer did not match the schema: {exc.errors()[:3]}. "
                     "Return the corrected JSON object only."
                 )
-        raise ProviderError(problem, kind=FailureKind.PARSE, source="llm")
+        raise ProviderError(problem, kind=FailureKind.PARSE, source="llm", detail=problem_detail)
 
     async def text(self, prompt: str, *, user: str, purpose: str | None = None) -> str:
         return await self._call(prompt, user=user, purpose=purpose or prompt, json_mode=False)

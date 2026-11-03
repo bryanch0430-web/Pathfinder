@@ -119,7 +119,7 @@ class SerpApiFlightSource:
             user_agent=self.settings.user_agent,
         )
         if data.get("error"):
-            raise ProviderError(str(data["error"]), source=self.name)
+            raise ProviderError(f"{self.name} returned an error", source=self.name, detail=str(data["error"])[:300])
         itineraries = _itineraries(data)
         if not return_date:
             out = [

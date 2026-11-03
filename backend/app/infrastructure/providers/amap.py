@@ -61,6 +61,7 @@ INFOCODE_KINDS: dict[str, tuple[FailureKind, bool]] = {
     "20800": _NONE,  # OUT_OF_SERVICE
 }
 
+_STATUS_LABEL = re.compile(r"[A-Z][A-Z0-9_]{2,63}")
 _KANA_HANGUL = re.compile(r"[぀-ヿㇰ-ㇿ가-힯]")
 _HAN = re.compile(r"[一-鿿]")
 _CHINA_WORDS = re.compile(r"\b(china|prc)\b|中国|中國", re.IGNORECASE)
@@ -73,13 +74,20 @@ def check_status(data: dict[str, Any], source: str) -> None:
     status = str(data.get("status") or "")
     if status == "1":
         return
-    info = _text(data.get("info")) or "unknown error"
+    info = _text(data.get("info"))
     code = _text(data.get("infocode"))
     kind, retryable = INFOCODE_KINDS.get(code, (FailureKind.SERVER_ERROR, True))
-    message = f"AMap returned status {status or '?'}: {info} (infocode {code or '?'})"
-    if kind is FailureKind.NO_DATA:
-        raise ProviderNoData(message, source=source)
-    raise ProviderError(message, kind=kind, source=source, retryable=retryable)
+    # AMap names its failures with an upper-case label (INVALID_USER_KEY). Anything else it says
+    # is free text, which stays in the detail.
+    label = info if _STATUS_LABEL.fullmatch(info) else "unknown error"
+    shown_status = status if status.isdigit() else "?"
+    shown_code = code if code.isdigit() else "?"
+    message = f"AMap returned status {shown_status}: {label} (infocode {shown_code})"
+    error = ProviderNoData(message, source=source) if kind is FailureKind.NO_DATA else ProviderError(
+        message, kind=kind, source=source, retryable=retryable
+    )
+    error.detail = f"{info} (infocode {code})"[:300]
+    raise error
 
 
 def parse_location(value: Any) -> GeoPoint | None:

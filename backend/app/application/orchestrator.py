@@ -26,7 +26,7 @@ from app.application.router import MODIFY_VERBS, System1Router, language_route, 
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.config import Settings
-from app.domain.errors import CanaryLeak, PathfinderError, PlanInvalidError, ProviderError
+from app.domain.errors import CanaryLeak, PathfinderError, PlanInvalidError, ProviderError, operator_text
 from app.domain.models import (
     Intent,
     Message,
@@ -63,7 +63,7 @@ def user_facing_error(exc: BaseException) -> str:
 
 def _note_failure(tracer: Any, exc: BaseException) -> None:
     """Keep the exception's own text where only the operator reads it: a span of the trace."""
-    with tracer.span("turn.failure", status="error", error_class=type(exc).__name__, error=str(exc)[:500]):
+    with tracer.span("turn.failure", status="error", error_class=type(exc).__name__, error=operator_text(exc)[:500]):
         pass
 
 
