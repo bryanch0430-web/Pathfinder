@@ -454,6 +454,7 @@ export const ZH_HANT: Messages = {
   "errors.backend": "無法連線到後端",
   "errors.reconnect": "無法連線到伺服器。你的行程已保留，請按「重試」重新連線。",
   "errors.signInToOpen": "此處無法開啟這個行程。如果它屬於你的帳戶，請登入後再開啟。",
+  "errors.tripGone": "你之前開啟的行程已不存在，已為你建立了一個新行程。",
   "errors.saveDetails": "無法儲存行程資料。",
 
   "chat.understanding": "正在理解你的訊息",
