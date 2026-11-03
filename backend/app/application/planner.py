@@ -669,11 +669,9 @@ def _summary(
         return draft.summary.strip()
     days = len(date_range.dates)
     party = context.party_size or 1
-    return (
-        f"A {days}-day trip to {context.destination} for {party} traveller{'s' if party != 1 else ''}. "
-        "Stops are grouped by location so the days do not backtrack; each stop carries its source "
-        "and a freshness status."
-    )
+    # The summary is also the chat reply, so it describes the trip only; how the
+    # app groups stops and marks freshness is in the help text, not repeated here.
+    return f"A {days}-day trip to {context.destination} for {party} traveller{'s' if party != 1 else ''}."
 
 
 def _trim_place(row: dict) -> dict:
