@@ -112,8 +112,10 @@ class TurnService:
         self.tracer_proxy = tracer_proxy
         self._background: set[asyncio.Future] = set()
         # One turn at a time per session: a lock exists only while a turn holds or awaits it.
+        # An asyncio lock belongs to one event loop (the server has one), so each lock remembers which.
         self._session_locks: dict[str, asyncio.Lock] = {}
         self._session_turns: dict[str, int] = {}
+        self._session_loops: dict[str, asyncio.AbstractEventLoop] = {}
         self.freshness = freshness or FreshnessService(
             registry=plan_path.registry, planner=plan_path.planner, settings=settings, store=store
         )
@@ -147,6 +149,10 @@ class TurnService:
         """Hold the session's lock; drop it again when no other turn is waiting for it.
 
         ``on_wait`` is called first when another turn holds or awaits the lock, so this one has to wait."""
+        loop = asyncio.get_running_loop()
+        if self._session_loops.setdefault(session_id, loop) is not loop:
+            # Waiting on a lock of another loop would never wake up: say so instead of hanging.
+            raise RuntimeError("turns on one trip must all run in the same event loop")
         lock = self._session_locks.setdefault(session_id, asyncio.Lock())
         self._session_turns[session_id] = self._session_turns.get(session_id, 0) + 1
         try:
@@ -159,6 +165,7 @@ class TurnService:
             if not self._session_turns[session_id]:
                 del self._session_turns[session_id]
                 del self._session_locks[session_id]
+                del self._session_loops[session_id]
 
     @contextmanager
     def _removed_if_deleted(self, session_id: str) -> Iterator[None]:
