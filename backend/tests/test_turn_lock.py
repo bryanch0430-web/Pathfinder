@@ -18,9 +18,11 @@ from fastapi.testclient import TestClient
 
 import app.application.orchestrator as orchestrator
 from app.config import Settings
+from app.domain.errors import CanaryLeak, PlanInvalidError, ProviderError
 from app.domain.models import EvalCase
 from app.eval_efficiency import Rig, accepted_plan, build_rig, case_context
 from app.eval_metering import RunLedger
+from app.infrastructure.store import PlanConflict
 from app.interface.api import create_app
 from app.interface.sse import KEEPALIVE, TIMED_OUT, Deadline, paced
 
@@ -149,6 +151,89 @@ def test_closing_a_turn_while_its_edit_path_works_stops_the_path(quick_settings:
 
         assert stopped.is_set(), "the path went on working after the turn was closed"
         assert not turns.session_busy(scene.session_id)
+
+    _run(quick_settings, scenario)
+
+
+# -- RB-B-2: a turn that fails and is closed at its error event ---------------------------------------
+
+
+@pytest.fixture()
+def traces(monkeypatch: pytest.MonkeyPatch) -> list:
+    """The trace recorder of every turn that starts, in order."""
+    made: list = []
+    start = orchestrator.start_trace
+
+    def recording(*args: Any, **kwargs: Any):
+        made.append(start(*args, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(orchestrator, "start_trace", recording)
+    return made
+
+
+def _trace_status(tracer: Any) -> str:
+    """What the trace file of a turn says the turn ended as (the file is written when the turn is finished)."""
+    path = tracer.settings.trace_dir / f"{tracer.request_id}.json"
+    assert path.exists(), "the turn left no trace file"
+    return json.loads(path.read_text(encoding="utf-8"))["status"]
+
+
+def _failing_edit(error: BaseException) -> Callable[..., Awaitable[Any]]:
+    async def failing(**kwargs: Any):
+        raise error
+
+    return failing
+
+
+FAILURES = pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        (ProviderError("The source failed."), "error"),
+        (PlanInvalidError("The plan did not pass its checks."), "error"),
+        (PlanConflict("another turn saved this version first"), "error"),
+        (CanaryLeak("canary"), "blocked"),
+        (RuntimeError("boom"), "error"),
+    ],
+    ids=["a source failed", "an invalid plan", "a plan conflict", "a canary leak", "a crash"],
+)
+
+
+@FAILURES
+def test_closing_a_turn_at_its_error_event_ends_quietly_and_the_trace_says_how_it_ended(
+    quick_settings: Settings, traces: list, error: BaseException, status: str
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        turns = scene.rig.turns
+        turns.modify_path.run = _failing_edit(error)
+        turn = turns.handle_turn(session_id=scene.session_id, message=SWAP_HOTEL)
+        seen: list[str] = []
+        async for event in turn:
+            seen.append(event.event)
+            if event.event == "error":
+                break
+        assert seen[-1] == "error"
+
+        await turn.aclose()  # used to raise RuntimeError: async generator ignored GeneratorExit
+
+        assert not turns.session_busy(scene.session_id)
+        assert _trace_status(traces[0]) == status
+
+    _run(quick_settings, scenario)
+
+
+@FAILURES
+def test_a_turn_that_fails_still_sends_its_error_then_its_trace_and_done(
+    quick_settings: Settings, traces: list, error: BaseException, status: str
+) -> None:
+    async def scenario(scene: Scene) -> None:
+        scene.rig.turns.modify_path.run = _failing_edit(error)
+
+        events = await scene.turn()
+
+        assert [event.event for event in events][-3:] == ["error", "trace", "done"]
+        assert _trace_status(traces[0]) == status
+        assert [m.role for m in scene.ledger.store.list_messages(scene.session_id, limit=20)] == ["user", "assistant"]
 
     _run(quick_settings, scenario)
 
