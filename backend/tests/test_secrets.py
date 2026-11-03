@@ -72,6 +72,16 @@ def test_secret_check_reads_the_environment_variables(monkeypatch: pytest.Monkey
     create_app(from_env())
 
 
+def test_unset_environment_refuses_default_secrets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # An ENVIRONMENT variable left in the shell (CI sets it to "test") would hide the default.
+    for name in ("ENVIRONMENT", "AUTH_SECRET", "ADMIN_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(_env_file=None, data_dir=tmp_path, database_path=tmp_path / "t.db")
+    with pytest.raises(RuntimeError, match="AUTH_SECRET") as excinfo:
+        settings.check_secrets()
+    assert "ENVIRONMENT is not set" in str(excinfo.value)
+
+
 def test_development_and_test_start_with_defaults(settings: Settings) -> None:
     for environment in ("development", "test"):
         create_app(settings.model_copy(update={"environment": environment}))

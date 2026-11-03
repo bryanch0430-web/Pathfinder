@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
+
+# Importing app.interface.api builds the app, and an unset ENVIRONMENT now means
+# production (which refuses the repository's default secrets). The suite runs as "test".
+os.environ.setdefault("ENVIRONMENT", "test")
 
 from app.application.llm_gateway import LLMGateway
 from app.application.prompts import PromptLibrary
@@ -16,6 +21,7 @@ from app.infrastructure.observability import NoopTracer
 def settings(tmp_path: Path) -> Settings:
     return Settings(
         _env_file=None,
+        environment="test",
         data_dir=tmp_path,
         database_path=tmp_path / "test.db",
         trace_dir=tmp_path / "traces",

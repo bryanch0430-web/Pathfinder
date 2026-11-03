@@ -33,7 +33,8 @@ class Settings(BaseSettings):
 
     # --- application -------------------------------------------------------
     app_name: str = "Pathfinder"
-    environment: str = "development"
+    #: Unset means production, so a deployment that forgets it is refused rather than run on the repo's secrets.
+    environment: str = "production"
     debug: bool = False
     base_dir: Path = BASE_DIR
     data_dir: Path = DATA_DIR
@@ -259,9 +260,14 @@ class Settings(BaseSettings):
         if self.admin_token in PLACEHOLDER_ADMIN_TOKENS:
             missing.append("ADMIN_TOKEN (a random value, not the default or placeholder)")
         if missing:
+            shown = (
+                repr(self.environment)
+                if "environment" in self.model_fields_set
+                else f"{self.environment!r} (ENVIRONMENT is not set)"
+            )
             raise RuntimeError(
-                f"Refusing to start with ENVIRONMENT={self.environment!r} and insecure defaults. "
-                f"Set {' and '.join(missing)}, or use ENVIRONMENT=development for local work."
+                f"Refusing to start with ENVIRONMENT={shown} and insecure defaults. "
+                f"Set {' and '.join(missing)}, or set ENVIRONMENT=development for local work."
             )
 
     def ensure_directories(self) -> None:
