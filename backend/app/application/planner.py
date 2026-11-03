@@ -74,6 +74,8 @@ from app.security import strip_fence_tags_deep
 
 #: The gap for a kept stay whose rate for the new dates could not be fetched; it keeps its old rate.
 STAY_PRICE_NOT_REFRESHED = "The hotel's price for the new dates could not be refreshed."
+#: What a day with no stop reads; an edit that puts a stop on such a day clears it.
+NO_STOPS_NOTE = "No verified stops were available for this day."
 
 
 class PlannerAssignment(BaseModel):
@@ -273,7 +275,7 @@ class Planner:
             elif window is not None:
                 note = "Travel day: no time for stops around your flight."
             else:
-                note = "No verified stops were available for this day."
+                note = NO_STOPS_NOTE
             if left_out:
                 note = (
                     f"{note} Not scheduled, for lack of time inside the day or the stated "
