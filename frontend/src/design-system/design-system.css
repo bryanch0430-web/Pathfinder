@@ -977,6 +977,31 @@
   cursor: pointer;
 }
 
+.pf-share {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-md);
+}
+
+.pf-share__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-share__link .pf-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-share__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .pf-account {
   position: relative;
   display: flex;

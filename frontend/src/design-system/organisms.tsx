@@ -1887,6 +1887,90 @@ export function AuthDialog({
   );
 }
 
+/** Formats an ISO time for the reader's locale; an unparseable value is shown as it came. */
+function formatExpiry(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
+export function ShareDialog({
+  open,
+  onClose,
+  url,
+  expiresAt,
+  locale = "en",
+  loading = false,
+  copied = false,
+  revoked = false,
+  revoking = false,
+  error,
+  onCopy,
+  onRevoke,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** The full link, or null while it is being created and after it is turned off. */
+  url: string | null;
+  expiresAt?: string | null;
+  locale?: string;
+  loading?: boolean;
+  copied?: boolean;
+  revoked?: boolean;
+  revoking?: boolean;
+  error?: string | null;
+  onCopy?: () => void;
+  onRevoke?: () => void;
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Share this trip">
+      <div className="pf-share">
+        {url ? (
+          <>
+            <Text size="sm" tone="secondary">
+              Anyone with this link can view a read-only copy of the trip. They cannot chat or change it.
+            </Text>
+            <div className="pf-share__link">
+              <Input
+                readOnly
+                value={url}
+                aria-label="Share link"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+              <Button size="sm" variant="secondary" onClick={onCopy}>
+                {copied ? "Copied" : "Copy link"}
+              </Button>
+            </div>
+            <div className="pf-share__foot">
+              {expiresAt ? (
+                <Text size="xs" tone="tertiary">
+                  Link expires {formatExpiry(expiresAt, locale)}
+                </Text>
+              ) : (
+                <span />
+              )}
+              <Button size="sm" variant="danger" loading={revoking} onClick={onRevoke}>
+                Turn off link
+              </Button>
+            </div>
+          </>
+        ) : loading ? (
+          <Text size="sm" tone="secondary">Creating a read-only link…</Text>
+        ) : revoked ? (
+          <Text size="sm" tone="secondary">
+            The link is off. Anyone who opens it now sees nothing. Share again to make a new link.
+          </Text>
+        ) : null}
+        {error ? <div className="pf-auth__error">{error}</div> : null}
+      </div>
+    </Dialog>
+  );
+}
+
 export function SettingsView({
   config,
   injections,

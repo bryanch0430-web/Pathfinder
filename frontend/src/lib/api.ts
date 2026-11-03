@@ -173,8 +173,20 @@ export function claimSession(sessionId: string): Promise<{ claimed: boolean }> {
   });
 }
 
-export function shareSession(sessionId: string): Promise<{ slug: string; url: string }> {
+/** A read-only share link; `url` is a path on this origin, `expires_at` an ISO 8601 time. */
+export interface ShareLink {
+  slug: string;
+  url: string;
+  expires_at: string;
+}
+
+export function shareSession(sessionId: string): Promise<ShareLink> {
   return request(`/api/journeys/${sessionId}/share`, { method: "POST" });
+}
+
+/** Turns off the trip's share link; `revoked` is how many links were live. */
+export function revokeShare(sessionId: string): Promise<{ revoked: number }> {
+  return request(`/api/journeys/${sessionId}/share`, { method: "DELETE" });
 }
 
 export function clearMessages(sessionId: string): Promise<{ deleted: number }> {

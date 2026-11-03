@@ -8,6 +8,7 @@ import {
   LoadingScreen,
   MapPanel,
   PlannerTemplate,
+  ShareDialog,
   StatusSummary,
   Text,
   TrendingRail,
@@ -23,7 +24,19 @@ import {
   type TrendingTrace,
 } from "./design-system";
 import { Icon } from "./design-system/icons";
-import { claimSession, discardSession, getFx, getGuides, getTrending, login, me, register, shareSession, suggestPlaces } from "./lib/api";
+import {
+  claimSession,
+  discardSession,
+  getFx,
+  getGuides,
+  getTrending,
+  login,
+  me,
+  register,
+  revokeShare,
+  shareSession,
+  suggestPlaces,
+} from "./lib/api";
 import { downloadPlanMarkdown } from "./lib/export";
 import { downloadPlanSlides } from "./lib/slides";
 import { useI18n } from "./lib/i18n";
@@ -36,6 +49,31 @@ const HASH_TAB: Record<string, AppTab> = {
   saved: "saved",
   evaluation: "evaluation",
   settings: "settings",
+};
+
+/** The share dialog: the link for one trip, from creation until it is turned off. */
+interface ShareState {
+  open: boolean;
+  sessionId: string | null;
+  url: string | null;
+  expiresAt: string | null;
+  loading: boolean;
+  copied: boolean;
+  revoked: boolean;
+  revoking: boolean;
+  error: string | null;
+}
+
+const CLOSED_SHARE: ShareState = {
+  open: false,
+  sessionId: null,
+  url: null,
+  expiresAt: null,
+  loading: false,
+  copied: false,
+  revoked: false,
+  revoking: false,
+  error: null,
 };
 
 function tabFromHash(): AppTab {
@@ -58,6 +96,7 @@ export default function App() {
   const [fx, setFx] = useState<FxSnapshot | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);
   const [guidesLoading, setGuidesLoading] = useState(false);
   const [trips, setTrips] = useState<{ id: string; label: string }[]>(() => {
@@ -219,18 +258,51 @@ export default function App() {
   };
 
   const handleShare = async () => {
-    if (!pf.sessionId) return;
+    const sessionId = pf.sessionId;
+    if (!sessionId) return;
+    setShare({ ...CLOSED_SHARE, open: true, sessionId, loading: true });
+    // Only apply a result to the dialog that asked for it.
+    const update = (patch: Partial<ShareState>) =>
+      setShare((current) => (current.sessionId === sessionId ? { ...current, ...patch } : current));
     try {
-      const result = await shareSession(pf.sessionId);
+      const result = await shareSession(sessionId);
       const url = `${window.location.origin}${result.url}`;
+      let copied = false;
       try {
         await navigator.clipboard.writeText(url);
-        window.alert(`Share link copied:\n${url}`);
+        copied = true;
       } catch {
-        window.prompt("Copy this read-only trip link:", url);
+        // The link stays in a selectable field for a manual copy.
       }
+      update({ loading: false, url, expiresAt: result.expires_at ?? null, copied });
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : "The trip could not be shared.");
+      update({ loading: false, error: cause instanceof Error ? cause.message : "The trip could not be shared." });
+    }
+  };
+
+  const copyShareLink = async () => {
+    if (!share.url) return;
+    try {
+      await navigator.clipboard.writeText(share.url);
+      setShare((current) => ({ ...current, copied: true, error: null }));
+    } catch {
+      setShare((current) => ({ ...current, error: "The link could not be copied. Select it and copy it yourself." }));
+    }
+  };
+
+  const turnOffShareLink = async () => {
+    const sessionId = share.sessionId;
+    if (!sessionId) return;
+    setShare((current) => ({ ...current, revoking: true, error: null }));
+    try {
+      await revokeShare(sessionId);
+      setShare((current) => ({ ...current, revoking: false, revoked: true, url: null, expiresAt: null, copied: false }));
+    } catch (cause) {
+      setShare((current) => ({
+        ...current,
+        revoking: false,
+        error: cause instanceof Error ? cause.message : "The link could not be turned off.",
+      }));
     }
   };
 
@@ -434,6 +506,20 @@ export default function App() {
       {tab === "settings" ? <SettingsPage signedIn={Boolean(authUser)} /> : null}
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} />
+      <ShareDialog
+        open={share.open}
+        onClose={() => setShare(CLOSED_SHARE)}
+        url={share.url}
+        expiresAt={share.expiresAt}
+        locale={locale}
+        loading={share.loading}
+        copied={share.copied}
+        revoked={share.revoked}
+        revoking={share.revoking}
+        error={share.error}
+        onCopy={() => void copyShareLink()}
+        onRevoke={() => void turnOffShareLink()}
+      />
       {helpOpen ? <HelpDrawer onClose={() => setHelpOpen(false)} /> : null}
     </>
   );
