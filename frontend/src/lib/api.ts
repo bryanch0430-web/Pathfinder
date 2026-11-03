@@ -79,6 +79,11 @@ export function getSession(sessionId: string, signal?: AbortSignal): Promise<Ses
   return request(`/api/journeys/${sessionId}`, { signal });
 }
 
+/** The saved versions of a trip: a light call to find out whether the trip is still there (404 when it is not). */
+export function getVersions(sessionId: string, signal?: AbortSignal): Promise<{ versions: SessionState["versions"] }> {
+  return request(`/api/journeys/${sessionId}/revisions`, { signal });
+}
+
 /** Body of PATCH /state (backend `ContextPatch`): every field optional; a null leaves the value unchanged. */
 export type ContextPatch = Partial<Omit<TripContext, "session_id">>;
 
