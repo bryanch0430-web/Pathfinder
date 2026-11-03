@@ -122,3 +122,19 @@ def test_a_profile_token_on_a_row_with_no_account_opens_it_for_nobody(client: Te
         assert client.delete(f"/api/journeys/{legacy}", headers=headers).status_code == 404
         assert client.patch(f"/api/journeys/{legacy}/state", json={"destination": "Kyoto"}, headers=headers).status_code == 404
     assert client.app.state.container.store.get_session(legacy) is not None
+
+
+def test_a_trip_made_by_an_account_does_not_borrow_a_guest_token(client: TestClient) -> None:
+    """Naming someone else's guest token must not add a trip to that guest's profile."""
+    guest = {"X-Client-Token": "guest-whose-profile"}
+    _trip(client, "guest-whose-profile")
+    assert client.get("/api/traveller", headers=guest).json()["sessions"] == 1
+    account = _sign_up(client, "borrower@example.com")
+
+    made = _trip(client, "guest-whose-profile", account["headers"])
+
+    assert client.get("/api/traveller", headers=guest).json()["sessions"] == 1
+    assert _opens(client, made, account["headers"]) and not _opens(client, made, guest)
+    with closing(sqlite3.connect(client.app.state.container.store.path)) as conn:
+        stored = conn.execute("SELECT client_token, user_id FROM journeys WHERE id=?", (made,)).fetchone()
+    assert stored == (account["profile"], account["user"]["id"])
