@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     auth_token_hours: int = 168
     user_agent: str = "Pathfinder/1.0 (COMP7608B student project)"
     wikimedia_user_agent: str = (
-        "Pathfinder/1.0 (https://github.com/bryan0430-web/Pathfinder; educational project) "
+        "Pathfinder/1.0 (https://github.com/bryanch0430-web/Pathfinder; educational project) "
         "python-httpx/0.28"
     )
 
