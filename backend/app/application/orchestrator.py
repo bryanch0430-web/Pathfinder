@@ -736,7 +736,9 @@ class TurnService:
         self.store.save_plan(updated, updated.change_summary, replace=updated.version == plan.version)
         description = _describe_diff(diff, updated)
         if diff:
-            prose = f"Updated to version {updated.version}. " + description + " Everything else is unchanged."
+            # A trip that moved takes its stay, flights and forecast along: not everything else is unchanged.
+            rest = "" if any(entry.get("kind") == "dates" for entry in diff) else " Everything else is unchanged."
+            prose = f"Updated to version {updated.version}. " + description + rest
         else:
             # Nothing changed. Do not claim a version: say why, using the reason
             # the edit recorded (a data gap, an unmatched stop, a duplicate).
@@ -827,6 +829,7 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
     changed: list[str] = []
     extras: list[str] = []
     hotel: str = ""
+    moved: list[str] = []
     for entry in diff:
         kind = entry.get("kind")
         if kind in {"added", "changed", "removed"}:
@@ -845,6 +848,21 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
                     changed.append(after)
             elif kind == "removed":
                 removed.append(str(entry.get("name") or "an item"))
+        elif kind == "dates":
+            moved.append(f"The trip dates changed from {entry.get('from')} to {entry.get('to')}.")
+        elif kind == "stay" and not any(other.get("kind") == "dates" for other in diff):
+            # On a plain move the stay follows the trip, and the sentence above says so.
+            moved.append(f"The stay at {entry.get('name')} now runs {entry.get('to')}.")
+        elif kind == "hotel_price":
+            moved.append(
+                f"The nightly rate at {entry.get('name')} changed from {entry.get('from')} to {entry.get('to')}."
+            )
+        elif kind == "weather":
+            moved.append(
+                "The forecast was updated."
+                if any(day.weather for day in plan.days)
+                else "The forecast was removed: it was for the earlier dates."
+            )
         elif kind == "hotel":
             hotel = f"Hotel changed from {entry.get('from') or 'the previous hotel'} to {entry.get('to') or 'a new hotel'}."
         elif kind == "flight":
@@ -859,7 +877,7 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
                 )
             except (TypeError, ValueError):
                 extras.append("The cost breakdown changed.")
-    parts: list[str] = []
+    parts: list[str] = list(moved)
     if added:
         parts.append("Added " + "; ".join(added) + ".")
     if changed:
