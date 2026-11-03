@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData, operator_text
-from app.domain.models import GeoLocation, GeoPoint
+from app.domain.models import FailureKind, GeoLocation, GeoPoint
 from app.infrastructure.http import request_json
 
 _GEOCODE_CACHE: dict[tuple[str, str], GeoLocation] = {}
+
+
+async def _search(url: str, *, source: str, **kwargs: Any) -> dict[str, Any]:
+    """A geocoder's search request. A search endpoint answers "nothing found" with HTTP 200 and an
+    empty list, so HTTP 404 means the route itself is gone: the source failed, no place is unknown."""
+    try:
+        return await request_json("GET", url, source=source, **kwargs)
+    except ProviderNoData as exc:
+        raise ProviderError(
+            f"{source} search endpoint was not found",
+            kind=FailureKind.SERVER_ERROR,
+            source=source,
+            retryable=False,
+            detail=exc.detail,
+        ) from exc
 
 
 class GoogleGeocoder:
@@ -31,8 +48,7 @@ class GoogleGeocoder:
         hint = country_hint.strip().upper()
         if len(hint) == 2 and hint.isalpha():
             params["components"] = f"country:{hint}"
-        data = await request_json(
-            "GET",
+        data = await _search(
             "https://maps.googleapis.com/maps/api/geocode/json",
             source=self.name,
             params=params,
@@ -83,8 +99,7 @@ class OpenMeteoGeocoder:
         self.settings = settings
 
     async def geocode(self, name: str, *, country_hint: str = "") -> GeoLocation | None:
-        data = await request_json(
-            "GET",
+        data = await _search(
             "https://geocoding-api.open-meteo.com/v1/search",
             source=self.name,
             params={
@@ -132,8 +147,7 @@ class NominatimGeocoder:
         self.settings = settings
 
     async def geocode(self, name: str, *, country_hint: str = "") -> GeoLocation | None:
-        data = await request_json(
-            "GET",
+        data = await _search(
             "https://nominatim.openstreetmap.org/search",
             source=self.name,
             params={"q": name, "format": "jsonv2", "limit": 3, "addressdetails": 1},
