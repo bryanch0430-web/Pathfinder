@@ -76,6 +76,8 @@ export type OpenOutcome = "opened" | "missing" | "needs-sign-in" | "unavailable"
 
 export interface PathfinderHook {
   ready: boolean;
+  /** A trip is being opened or made. The trip that is shown stays on screen until the new one arrives. */
+  opening: boolean;
   sessionId: string | null;
   context: TripContext;
   /** The plan as shown: trusted display names, and the translation laid over it when the plan locale is not English. */
@@ -185,6 +187,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [changedIds, setChangedIds] = useState<string[]>([]);
   const [hotelChanged, setHotelChanged] = useState(false);
   const [ready, setReady] = useState(false);
+  const [opening, setOpening] = useState(false);
   const lastMessage = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const sessionRef = useRef<string | null>(null);
@@ -279,6 +282,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
     retryRef.current = null;
+    setOpening(false);
     setError(null);
     try {
       const id = readStoredValue("session");
@@ -331,21 +335,26 @@ export function usePathfinder(locale: string): PathfinderHook {
     const ticket = ++navRef.current;
     if (id === sessionRef.current) {
       // Already open: nothing to load, and nothing the traveller asked for before is wanted any more.
+      setOpening(false);
       setReady(true);
       return "opened";
     }
     setError(null);
-    setReady(false);
+    setOpening(true);
     try {
       const data = await withTimeout((signal) => getSession(id, signal));
       if (ticket !== navRef.current) return "superseded";
       showTrip(id, data);
+      setOpening(false);
       setReady(true);
       return "opened";
     } catch (cause) {
       // Whatever came of this answer, the page belongs to the latest ask: it is told nothing about this one.
       const latest = ticket === navRef.current;
-      if (latest) setReady(true);
+      if (latest) {
+        setOpening(false);
+        setReady(true);
+      }
       if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
         // The server answers 404 both for a trip that is gone and for one that is not this
         // identity's. Signed out in a browser that has signed in before, it may be an account's
@@ -373,11 +382,11 @@ export function usePathfinder(locale: string): PathfinderHook {
     if (pending) {
       // A second click while the first trip is still being made takes the view but makes no second trip.
       creatingTicket.current = ++navRef.current;
-      setReady(false);
+      setOpening(true);
       return pending;
     }
     creatingTicket.current = ++navRef.current;
-    setReady(false);
+    setOpening(true);
     const making = (async () => {
       try {
         const created = await withTimeout((signal) => createSession(clientToken(), signal));
@@ -395,7 +404,10 @@ export function usePathfinder(locale: string): PathfinderHook {
         return null;
       } finally {
         creatingRef.current = null;
-        if (creatingTicket.current === navRef.current) setReady(true);
+        if (creatingTicket.current === navRef.current) {
+          setOpening(false);
+          setReady(true);
+        }
       }
     })();
     creatingRef.current = making;
@@ -780,6 +792,7 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   return {
     ready,
+    opening,
     sessionId,
     context,
     plan: displayPlan,

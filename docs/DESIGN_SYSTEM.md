@@ -157,6 +157,9 @@ App.tsx
 - A tab strip above the centre card lists open sessions (`1 Hong Kong`, `2 Untitled trip`).
   Switching loads that session without regenerating it; **New trip** adds another tab.
   Trending → Try this trip creates a new tab instead of overwriting the current plan.
+  The page stays in place while a trip loads (the chat box, a half-typed message and
+  keyboard focus are kept, and the trip that was open is shown dimmed until the new one
+  arrives); when several are asked for, the last one asked for is shown.
   Opening a trip never changes the interface language: a trip saved in 繁 is shown in 繁
   whatever the interface language is, and the language menu sets both for the open trip.
 - Tabs are stored in `pathfinder.trips`; the active pointer stays in
@@ -218,6 +221,10 @@ App.tsx
 - The focus ring is a 2 px info-blue outline with 2 px offset, visible on paper and white.
 - Icon-only controls always carry `aria-label` and `title`.
 - Tabs use `role="tablist"` / `role="tab"` / `aria-selected`; day strip does the same.
+  The header sections and the trip tabs follow the ARIA tabs pattern: only the selected tab
+  is a tab stop, the arrow keys, Home and End move between the tabs, Enter or Space opens
+  one, and each list controls a labelled `tabpanel`. New trip and Scrap sit beside the trip
+  tab list, not in it.
 - Dialogs and drawers are named by their title, take focus when they open, keep Tab inside, close on Escape, give the focus back to what opened them, and lock background scroll.
 - Colour is never the only signal: status pills pair a dot with text; deltas pair sign,
   colour and value.

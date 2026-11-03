@@ -6,6 +6,7 @@ import {
   ChatPanel,
   GuideNotes,
   LoadingScreen,
+  MAIN_PANEL_ID,
   MapPanel,
   PlanLanguageBanner,
   PlannerTemplate,
@@ -16,7 +17,9 @@ import {
   TripPanel,
   TripWorkspace,
   VideoNotes,
+  appTabId,
   isHotelScope,
+  onTablistKeyDown,
   useModalBehaviour,
   type AppTab,
   type AuthUser,
@@ -87,6 +90,10 @@ const CLOSED_SHARE: ShareState = {
  * stays in English there and is translated only when shown.
  */
 const UNTITLED_TRIP = "Untitled trip";
+
+/** The plan area under the trip tabs is their tabpanel, labelled by the selected tab. */
+const TRIP_PANEL_ID = "pf-trip-panel";
+const tripTabId = (id: string) => `pf-trip-tab-${id}`;
 
 function tabFromHash(): AppTab {
   const hash = window.location.hash.replace("#", "");
@@ -418,6 +425,7 @@ export default function App() {
         onShare={pf.plan ? () => void handleShare() : undefined}
         onNewTrip={() => void createTripTab()}
       />
+      <div role="tabpanel" id={MAIN_PANEL_ID} aria-labelledby={appTabId(tab)}>
       {tab === "plan" ? (
         !pf.ready ? (
           <LoadingScreen label={t("common.loading")} />
@@ -466,8 +474,16 @@ export default function App() {
                   onNew={() => void createTripTab()}
                   onScrap={() => void scrapActiveTrip()}
                 />
+                <div
+                  className="pf-plan-panel"
+                  role="tabpanel"
+                  id={TRIP_PANEL_ID}
+                  aria-labelledby={pf.sessionId ? tripTabId(pf.sessionId) : undefined}
+                  aria-busy={pf.opening}
+                >
                 {pf.plan ? (
                 <TripWorkspace
+                  key={pf.sessionId}
                   plan={pf.plan}
                   languageNotice={languageBanner}
                   versions={pf.versions}
@@ -491,18 +507,21 @@ export default function App() {
                 />
               ) : (
                 <WelcomePanel
+                  key={pf.sessionId}
                   onExample={(message) => void pf.send(message)}
                   backendError={pf.sessionId ? null : pf.error}
                   disabled={!pf.sessionId}
                   onRetry={() => void pf.reload()}
                 />
                 )}
+                </div>
               </div>
             }
             right={
               <>
                 {pf.plan ? (
                   <MapPanel
+                    key={pf.sessionId}
                     plan={pf.plan}
                     activeDay={mapDay || pf.plan.days[0]?.date}
                     onActiveDay={setMapDay}
@@ -530,6 +549,7 @@ export default function App() {
       {tab === "saved" ? <SavedPage /> : null}
       {tab === "evaluation" ? <EvaluationPage /> : null}
       {tab === "settings" ? <SettingsPage signedIn={Boolean(authUser)} /> : null}
+      </div>
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} />
       <ShareDialog
@@ -569,24 +589,29 @@ function PlanTabs({
     const node = scroller.current?.querySelector<HTMLElement>("[data-active='true']");
     node?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [activeId, trips.length]);
+  // One tab stop for the list: the selected tab, or the first when none is selected.
+  const stop = trips.some((trip) => trip.id === activeId) ? activeId : trips[0]?.id;
   return (
-    <div className="pf-plan-tabs" role="tablist" aria-label={t("plan.openTrips")}>
-      <div className="pf-plan-tabs__scroll" ref={scroller}>
-      {trips.map((trip, index) => (
-        <button
-          key={trip.id}
-          type="button"
-          role="tab"
-          aria-selected={trip.id === activeId}
-          className="pf-plan-tab"
-          data-active={trip.id === activeId}
-          onClick={() => onSelect(trip.id)}
-          title={trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}
-        >
-          <span className="pf-plan-tab__index">{index + 1}</span>
-          <span className="pf-plan-tab__label">{trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}</span>
-        </button>
-      ))}
+    <div className="pf-plan-tabs">
+      <div className="pf-plan-tabs__scroll" role="tablist" aria-label={t("plan.openTrips")} ref={scroller} onKeyDown={onTablistKeyDown}>
+        {trips.map((trip, index) => (
+          <button
+            key={trip.id}
+            id={tripTabId(trip.id)}
+            type="button"
+            role="tab"
+            aria-selected={trip.id === activeId}
+            aria-controls={trip.id === activeId ? TRIP_PANEL_ID : undefined}
+            tabIndex={trip.id === stop ? 0 : -1}
+            className="pf-plan-tab"
+            data-active={trip.id === activeId}
+            onClick={() => onSelect(trip.id)}
+            title={trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}
+          >
+            <span className="pf-plan-tab__index">{index + 1}</span>
+            <span className="pf-plan-tab__label">{trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}</span>
+          </button>
+        ))}
       </div>
       <button type="button" className="pf-plan-tab pf-plan-tab--add" onClick={onNew} aria-label={t("plan.createAnother")}>
         <Icon name="plus" size={12} />

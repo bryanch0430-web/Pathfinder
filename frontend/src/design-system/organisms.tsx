@@ -53,6 +53,7 @@ import { safeHref } from "../lib/safeHref";
 import { addTags, isImeKey } from "../lib/typing";
 import { useI18n, type MessageKey, type Translate } from "../lib/i18n";
 import { readStoredValue, writeStoredValue } from "../lib/storage";
+import { onTablistKeyDown } from "./tablist";
 
 const FRESHNESS_SECTION: Record<"weather" | "tickets" | "hotels", MessageKey> = {
   weather: "workspace.freshness.weather",
@@ -63,6 +64,10 @@ const FRESHNESS_SECTION: Record<"weather" | "tickets" | "hotels", MessageKey> = 
 /* --------------------------------------------------------------- header -- */
 
 export type AppTab = "plan" | "saved" | "evaluation" | "settings";
+
+/** The page under the header's tabs is their tabpanel, labelled by the selected tab. */
+export const MAIN_PANEL_ID = "pf-main-panel";
+export const appTabId = (tab: AppTab) => `pf-tab-${tab}`;
 
 const TABS: { id: AppTab; label: MessageKey; icon: "compass" | "book" | "route" | "shield" }[] = [
   { id: "plan", label: "tab.plan", icon: "compass" },
@@ -121,15 +126,18 @@ export function AppHeader({
             Path<span>finder</span>
           </span>
         </a>
-        <div className="pf-tabs" role="tablist" aria-label={t("header.sections")}>
+        <div className="pf-tabs" role="tablist" aria-label={t("header.sections")} onKeyDown={onTablistKeyDown}>
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              id={appTabId(tab.id)}
               type="button"
               role="tab"
               className="pf-tab"
               data-active={activeTab === tab.id}
               aria-selected={activeTab === tab.id}
+              aria-controls={activeTab === tab.id ? MAIN_PANEL_ID : undefined}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => onTabChange(tab.id)}
             >
               {t(tab.label)}
