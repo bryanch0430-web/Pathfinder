@@ -6,6 +6,7 @@ choke point where a path is prevented from using a tool it does not own.
 
 from __future__ import annotations
 
+import inspect
 import time
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -86,6 +87,28 @@ class Toolbox:
                     source="allowlist",
                 )
             raise SecurityBlocked(f"tool {tool} is not allowed on the {self.path} path", category="tool_allowlist")
+        try:
+            inspect.signature(fn).bind(**kwargs)
+        except TypeError as exc:
+            # A malformed request (missing or unknown field) never reaches the
+            # provider: the caller gets a structured, non-retryable error.
+            if self.store is not None:
+                self.store.log_tool_call(
+                    request_id=self.request_id,
+                    tool=tool,
+                    args=_safe_args(kwargs),
+                    status="invalid",
+                    latency_ms=0,
+                    error_class=FailureKind.INVALID_REQUEST.value,
+                )
+            raise ProviderError(
+                f"{tool} request is malformed: {exc}",
+                kind=FailureKind.INVALID_REQUEST,
+                source=tool,
+                retryable=False,
+            ) from exc
+        except ValueError:
+            pass  # no introspectable signature; the provider validates its own arguments
         started = time.perf_counter()
         self.calls += 1
         try:

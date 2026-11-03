@@ -180,7 +180,7 @@ class RunLedger:
         return sum(self.made.values())
 
     def logged(self, request_id: str | None = None) -> int:
-        """Tool spans that record an invocation (a blocked call never ran)."""
+        """Tool spans that record an invocation (a blocked or malformed call never ran)."""
         return sum(self.logged_tools(request_id).values())
 
     def logged_tools(self, request_id: str | None = None) -> Counter[str]:

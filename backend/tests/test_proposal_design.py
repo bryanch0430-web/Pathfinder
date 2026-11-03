@@ -10,6 +10,7 @@ import json
 import threading
 
 import pytest
+from pydantic import BaseModel
 
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
@@ -18,8 +19,8 @@ from app.application.prompts import PromptLibrary
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan
 from app.config import Settings
-from app.domain.errors import PlanInvalidError
-from app.domain.models import AgentName, EvalCase, GeoPoint, HotelCandidate, Money, PriceKind
+from app.domain.errors import PlanInvalidError, ProviderError
+from app.domain.models import AgentName, EvalCase, FailureKind, GeoPoint, HotelCandidate, Money, PriceKind
 from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox
 from app.eval_metering import MeteredLLM, RunLedger
 from app.evaluation import BASE, _ref
@@ -99,6 +100,82 @@ def test_db08_unrepairable_plan_turn_shows_a_retryable_error_and_saves_no_plan(
     assert len(errors) == 1 and errors[0]["code"] == "plan_invalid" and errors[0]["retryable"] is True
     assert rig.llm.purposes.count("plan.repair") == settings.max_repairs
     assert saved is None
+
+
+# ---------------------------------------------------------------------------
+# DB-10: a malformed request gets a structured error and two repair chances
+# ---------------------------------------------------------------------------
+
+
+def test_db10_malformed_tool_request_gets_a_structured_error(settings: Settings) -> None:
+    """Proposal DB-10 (p3 l.120-122): the adapter answers a malformed tool request with a structured error."""
+    ledger = RunLedger()
+    try:
+        registry = ledger.instrument(cost_sandbox(settings, "Kyoto"))
+        toolbox = Toolbox(path="plan", tracer=NoopTracer(), store=ledger.store, request_id="r")
+        with pytest.raises(ProviderError) as missing:
+            asyncio.run(toolbox.call("places.search", registry.places[0].search, destination="Kyoto"))
+        with pytest.raises(ProviderError) as unknown:
+            asyncio.run(toolbox.call("geocode", registry.geocoder.geocode, name="Kyoto", radius_km=5))
+        rows = ledger.store.tool_calls("r")
+        made = ledger.made_total
+    finally:
+        ledger.close()
+    for failure in (missing.value, unknown.value):
+        error = failure.as_dict()
+        assert (error["kind"], error["retryable"], error["code"]) == ("invalid_request", False, "provider_error")
+    assert "geo" in str(missing.value) and "radius_km" in str(unknown.value)
+    assert made == 0  # the provider was never called with the malformed request
+    assert [(row["tool"], row["status"], row["error_class"]) for row in rows] == [
+        ("places.search", "invalid", "invalid_request"),
+        ("geocode", "invalid", "invalid_request"),
+    ]
+
+
+class _Sequenced(MeteredLLM):
+    """Returns the scripted answers in order, then repeats the last one."""
+
+    def __init__(self, answers: list[str]):
+        super().__init__()
+        self.answers = list(answers)
+
+    def reply(self, purpose: str) -> str:
+        return self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
+
+
+class _SearchRequest(BaseModel):
+    query: str
+    count: int
+
+
+def _gateway(settings: Settings, llm: MeteredLLM) -> LLMGateway:
+    return LLMGateway(llm, PromptLibrary(settings), NoopTracer(), settings)
+
+
+def test_db10_malformed_model_request_gets_two_repairs_then_a_structured_error(settings: Settings) -> None:
+    """Proposal DB-10 (p3 l.120-122): invalid JSON gets up to two repair chances, then a typed error."""
+    llm = _Sequenced(["this is not json"])
+    with pytest.raises(ProviderError) as failure:
+        asyncio.run(_gateway(settings, llm).json("modify", user="Swap the hotel.", purpose="modify.extract"))
+    assert llm.purposes == ["modify.extract"] + ["modify.extract.repair"] * 2
+    assert failure.value.kind == FailureKind.PARSE
+    assert failure.value.as_dict()["kind"] == "parse"
+
+
+def test_db10_request_with_missing_fields_gets_two_repairs(settings: Settings) -> None:
+    """Proposal DB-10 (p3 l.120-122): a schema miss is repaired too, and the repaired request is used."""
+    llm = _Sequenced(['{"query": "temples"}', '{"count": 3}', '{"query": "temples", "count": 3}'])
+    data = asyncio.run(
+        _gateway(settings, llm).json("ask", user="Find temples.", schema=_SearchRequest, purpose="ask.search")
+    )
+    assert data == {"query": "temples", "count": 3}
+    assert llm.purposes == ["ask.search", "ask.search.repair", "ask.search.repair"]
+
+    stuck = _Sequenced(['{"query": "temples"}'])
+    with pytest.raises(ProviderError) as failure:
+        asyncio.run(_gateway(settings, stuck).json("ask", user="Find temples.", schema=_SearchRequest, purpose="ask.search"))
+    assert len(stuck.purposes) == 1 + settings.max_repairs
+    assert failure.value.kind == FailureKind.PARSE and "_SearchRequest" in str(failure.value)
 
 
 # ---------------------------------------------------------------------------

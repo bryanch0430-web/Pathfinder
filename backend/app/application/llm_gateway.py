@@ -11,6 +11,7 @@ from pydantic import BaseModel, ValidationError as PydanticValidationError
 from app.application.prompts import PromptLibrary
 from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
+from app.domain.models import FailureKind
 from app.domain.ports import LLM, Tracer
 from app.security import canary_leaked
 
@@ -39,31 +40,34 @@ class LLMGateway:
         schema: type[T] | None = None,
         purpose: str | None = None,
     ) -> dict[str, Any]:
-        result = await self._call(prompt, user=user, purpose=purpose or prompt, json_mode=True)
-        data = _extract_json(result)
-        if data is None:
-            # One bounded repair attempt: ask for JSON only, then parse again.
+        purpose = purpose or prompt
+        request = user
+        # The first answer plus at most `max_repairs` bounded repairs; each repair
+        # tells the writer what was wrong with its previous answer.
+        for attempt in range(max(self.settings.max_repairs, 0) + 1):
             result = await self._call(
                 prompt,
-                user=user + "\n\nYour previous answer was not valid JSON. Return the JSON object only.",
-                purpose=f"{purpose or prompt}.repair",
+                user=request,
+                purpose=purpose if attempt == 0 else f"{purpose}.repair",
                 json_mode=True,
             )
             data = _extract_json(result)
-        if data is None:
-            raise ProviderError(
-                f"writer returned invalid JSON for {purpose or prompt}",
-                source="llm",
-            )
-        if schema is not None:
+            if data is None:
+                problem = f"writer returned invalid JSON for {purpose}"
+                request = user + "\n\nYour previous answer was not valid JSON. Return the JSON object only."
+                continue
+            if schema is None:
+                return data
             try:
                 return schema.model_validate(data).model_dump()
             except PydanticValidationError as exc:
-                raise ProviderError(
-                    f"writer returned JSON that does not match {schema.__name__}: {exc.errors()[:2]}",
-                    source="llm",
-                ) from exc
-        return data
+                problem = f"writer returned JSON that does not match {schema.__name__}: {exc.errors()[:2]}"
+                request = (
+                    user
+                    + f"\n\nYour previous answer did not match the schema: {exc.errors()[:3]}. "
+                    "Return the corrected JSON object only."
+                )
+        raise ProviderError(problem, kind=FailureKind.PARSE, source="llm")
 
     async def text(self, prompt: str, *, user: str, purpose: str | None = None) -> str:
         return await self._call(prompt, user=user, purpose=purpose or prompt, json_mode=False)
