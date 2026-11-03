@@ -126,7 +126,7 @@ def test_forwarded_for_does_not_buy_a_new_budget(client: TestClient) -> None:
 
 
 def test_behind_uvicorns_proxy_handling_only_a_trusted_peer_chooses_its_key(settings: Settings) -> None:
-    """The app never reads X-Forwarded-For, but uvicorn rewrites the client of a peer it trusts (README, rate limits)."""
+    """The app never reads X-Forwarded-For, but uvicorn rewrites the client of a peer it trusts (see the README)."""
     from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
     def forwarded_logins(peer: str) -> list[int]:
@@ -325,7 +325,8 @@ def test_default_lookup_limit_is_sixty_per_minute(client: TestClient) -> None:
 def test_lookup_limit_zero_turns_it_off(settings: Settings) -> None:
     with _lookup_limit(settings, 0) as scoped:
         guest = {"X-Client-Token": "guest-lookup"}
-        assert {scoped.get("/api/places/suggest", params={"q": "kyoto"}, headers=guest).status_code for _ in range(80)} == {200}
+        calls = [scoped.get("/api/places/suggest", params={"q": "kyoto"}, headers=guest) for _ in range(80)]
+        assert {call.status_code for call in calls} == {200}
 
 
 # -- junk does not use up the budget of the people it is not from ----------------------

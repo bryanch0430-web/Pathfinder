@@ -66,14 +66,17 @@ def test_a_turn_that_starts_a_trip_takes_the_token_from_the_header_too(client: T
 
 
 def test_an_explicit_token_wins_over_the_header_when_a_session_is_made(client: TestClient) -> None:
-    created = client.post("/api/journeys", json={"client_token": "guest-body"}, headers={"X-Client-Token": "guest-head"})
+    both = {"X-Client-Token": "guest-head"}
+    created = client.post("/api/journeys", json={"client_token": "guest-body"}, headers=both)
 
     session_id = created.json()["session"]["id"]
     assert client.get(f"/api/journeys/{session_id}", headers={"X-Client-Token": "guest-body"}).status_code == 200
     assert client.get(f"/api/journeys/{session_id}", headers={"X-Client-Token": "guest-head"}).status_code == 404
 
 
-UNUSABLE = [" padded ", "line\nbreak", "trailing\n", "tab\there", "two words", "日本旅行", "nul\x00", "del\x7f", "x" * 121]
+UNUSABLE = [
+    " padded ", "line\nbreak", "trailing\n", "tab\there", "two words", "日本旅行", "nul\x00", "del\x7f", "x" * 121,
+]
 
 
 @pytest.mark.parametrize("token", UNUSABLE, ids=lambda token: repr(token)[:24])

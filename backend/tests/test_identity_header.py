@@ -105,7 +105,8 @@ def test_a_profile_token_in_the_header_needs_its_own_bearer(client: TestClient) 
             assert refused.status_code == 401, (url, bearer)
         own = client.get(url, headers={"X-Client-Token": a_token, **a_headers})
         assert own.status_code == 200, (url, own.text)
-    assert client.get("/api/traveller", headers={"X-Client-Token": a_token, **a_headers}).json()["preferences"] == ["food"]
+    own = client.get("/api/traveller", headers={"X-Client-Token": a_token, **a_headers})
+    assert own.json()["preferences"] == ["food"]
 
 
 def test_a_signed_in_caller_who_still_sends_a_guest_header_gets_the_account(client: TestClient) -> None:
@@ -124,7 +125,8 @@ def test_the_profile_echoes_only_the_identity_the_caller_presented(client: TestC
     guest = {"X-Client-Token": "guest-echo"}
 
     assert client.get("/api/traveller", headers=guest).json()["client_token"] == "guest-echo"
-    assert client.patch("/api/traveller", json={"preferences": ["a"]}, headers=guest).json()["profile"]["client_token"] == "guest-echo"
+    patched = client.patch("/api/traveller", json={"preferences": ["a"]}, headers=guest)
+    assert patched.json()["profile"]["client_token"] == "guest-echo"
     assert client.get("/api/traveller", headers=headers).json()["client_token"] == profile_token
     created = client.post("/api/journeys", json={"client_token": "guest-echo"}).json()
     assert "guest-echo" not in str(created)
