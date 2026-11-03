@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from array import array
 from dataclasses import dataclass, field
+from functools import lru_cache
+from itertools import repeat
 from typing import Any, Iterable
 
 from app.config import Settings
@@ -115,7 +118,17 @@ _TAG = re.compile(
 )
 
 
-def _skeleton(text: str) -> tuple[str, list[int]]:
+@lru_cache(maxsize=4096)
+def _as_seen(char: str) -> str:
+    """What a reader sees of one character: its compatibility form, less what shows as nothing."""
+    return "".join(
+        part
+        for part in unicodedata.normalize("NFKD", char)
+        if part not in _FILLERS and unicodedata.category(part) not in _SHOWN_AS_NOTHING
+    )
+
+
+def _skeleton(text: str) -> tuple[str, array[int]]:
     """`text` as a reader sees it, and for each of its characters the index in `text` it came from.
 
     Compatibility forms are folded (a fullwidth less-than sign is `<`), and what shows as nothing is left
@@ -123,17 +136,17 @@ def _skeleton(text: str) -> tuple[str, list[int]]:
     line feed, combining marks and the Hangul fillers. A tag spelled with any of them is a tag here.
     """
     seen: list[str] = []
-    came_from: list[int] = []
+    came_from = array("I")
     for index, char in enumerate(text):
         if char < "\x80":
             if (char >= " " and char != "\x7f") or char in "\t\n":
                 seen.append(char)
                 came_from.append(index)
             continue
-        for part in unicodedata.normalize("NFKD", char):
-            if part not in _FILLERS and unicodedata.category(part) not in _SHOWN_AS_NOTHING:
-                seen.append(part)
-                came_from.append(index)
+        folded = _as_seen(char)
+        if folded:
+            seen.append(folded)
+            came_from.extend(repeat(index, len(folded)))
     return "".join(seen), came_from
 
 
@@ -159,7 +172,7 @@ def strip_fence_tags(text: str) -> str:
         if not spans:
             break
         kept: list[str] = []
-        kept_from: list[int] = []
+        kept_from = array("I")
         end = 0
         for start, stop in spans:
             cuts.append((came_from[start], came_from[stop - 1] + 1))
