@@ -11,3 +11,16 @@ export function isImeKey(event: { nativeEvent: KeyboardEvent }): boolean {
   const key = event.nativeEvent;
   return key.isComposing || key.keyCode === 229;
 }
+
+/**
+ * `current` followed by the tags in `text`, without repeats. Text typed or pasted into a tag field may hold
+ * several tags: "," from a keyboard and "，" or "、" from a Chinese or Japanese input method all separate them.
+ */
+export function addTags(current: string[], text: string): string[] {
+  const next = [...current];
+  for (const tag of text.split(/[,，、]/)) {
+    const clean = tag.trim();
+    if (clean && !next.includes(clean)) next.push(clean);
+  }
+  return next;
+}
