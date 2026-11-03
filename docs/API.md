@@ -210,5 +210,6 @@ PYTHONPATH=backend python -m app.export_contracts
 | `canary_leak` | output contained the canary | no |
 | `clarification_required` | missing slots (normally a `clarify` event) | yes |
 | `plan_invalid` | validation failed after repair | yes |
+| `plan_conflict` | another turn on the same trip saved its version first (turns on one trip otherwise run one after another) | yes |
 | `provider_error` | data source failure (kind attached) | depends |
 | `internal_error` | unexpected failure, no internals leaked to the user | yes |

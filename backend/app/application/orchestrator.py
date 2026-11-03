@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from contextlib import aclosing, asynccontextmanager
 from typing import Any, AsyncIterator
 
 import httpx
@@ -36,7 +37,7 @@ from app.domain.models import (
     utcnow,
 )
 from app.infrastructure.observability import bind_developer_view, bind_live_emit, reset_developer_view, reset_live_emit, start_trace
-from app.infrastructure.store import SQLiteStore
+from app.infrastructure.store import PlanConflict, SQLiteStore
 from app.security import SAFE_REPLY, screen_message
 
 logger = logging.getLogger(__name__)
@@ -45,10 +46,13 @@ logger = logging.getLogger(__name__)
 #: shown: it can hold a source's error page, a URL with a key or a file path. It stays in the trace.
 SOURCE_FAILED = "A data source failed. Your plan was not changed."
 TURN_FAILED = "Something went wrong while handling this turn. You can retry."
+PLAN_CONFLICT = "Another change to this trip was still running. Please retry."
 
 
 def user_facing_error(exc: BaseException) -> str:
     """The only error text a traveller is shown for a failed turn."""
+    if isinstance(exc, PlanConflict):
+        return PLAN_CONFLICT
     if isinstance(exc, (ProviderError, httpx.HTTPError, asyncio.TimeoutError)):
         return SOURCE_FAILED
     if isinstance(exc, PathfinderError):
@@ -90,6 +94,9 @@ class TurnService:
         self.settings = settings
         self.tracer_proxy = tracer_proxy
         self._background: set[asyncio.Future] = set()
+        # One turn at a time per session: a lock exists only while a turn holds or awaits it.
+        self._session_locks: dict[str, asyncio.Lock] = {}
+        self._session_turns: dict[str, int] = {}
         self.freshness = freshness or FreshnessService(
             registry=plan_path.registry, planner=plan_path.planner, settings=settings, store=store
         )
@@ -112,7 +119,46 @@ class TurnService:
         if self._background:
             await asyncio.gather(*list(self._background), return_exceptions=True)
 
+    @asynccontextmanager
+    async def _lock_for(self, session_id: str) -> AsyncIterator[None]:
+        """Hold the session's lock; drop it again when no other turn is waiting for it."""
+        lock = self._session_locks.setdefault(session_id, asyncio.Lock())
+        self._session_turns[session_id] = self._session_turns.get(session_id, 0) + 1
+        try:
+            async with lock:
+                yield
+        finally:
+            self._session_turns[session_id] -= 1
+            if not self._session_turns[session_id]:
+                del self._session_turns[session_id]
+                del self._session_locks[session_id]
+
     async def handle_turn(
+        self,
+        *,
+        session_id: str,
+        message: str,
+        locale: str = "en",
+        scope_item_id: str | None = None,
+        scope_label: str | None = None,
+        developer: bool = False,
+    ) -> AsyncIterator[TurnEvent]:
+        """One turn. Turns on the same session run one after another: the second reads the
+        plan the first saved, so neither overwrites the other's version."""
+        async with self._lock_for(session_id):
+            turn = self._run_turn(
+                session_id=session_id,
+                message=message,
+                locale=locale,
+                scope_item_id=scope_item_id,
+                scope_label=scope_label,
+                developer=developer,
+            )
+            async with aclosing(turn) as events:
+                async for event in events:
+                    yield event
+
+    async def _run_turn(
         self,
         *,
         session_id: str,
@@ -368,6 +414,14 @@ class TurnService:
             )
             yield TurnEvent(event="error", data={"code": exc.code, "message": str(exc), "retryable": True})
             tracer.finish(status="error")
+        except PlanConflict as exc:
+            _note_failure(tracer, exc)
+            message_text = user_facing_error(exc)
+            self.store.add_message(
+                Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
+            )
+            yield TurnEvent(event="error", data={"code": "plan_conflict", "message": message_text, "retryable": True})
+            tracer.finish(status="error")
         except PathfinderError as exc:
             _note_failure(tracer, exc)
             message_text = user_facing_error(exc)
@@ -586,7 +640,7 @@ class TurnService:
         finally:
             reset_live_emit(live)
             await _settle(task)
-        self.store.save_plan(updated, updated.change_summary)
+        self.store.save_plan(updated, updated.change_summary, replace=updated.version == plan.version)
         description = _describe_diff(diff, updated)
         if diff:
             prose = f"Updated to version {updated.version}. " + description + " Everything else is unchanged."

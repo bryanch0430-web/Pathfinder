@@ -19,6 +19,7 @@ from typing import Any, Callable
 from app.application.agents import AgentContext, BaseAgent, HotelAgent, TicketAgent, WeatherAgent
 from app.application.toolbox import Toolbox
 from app.config import Settings
+from app.infrastructure.store import PlanConflict
 from app.domain.models import (
     FreshnessMark,
     GeoLocation,
@@ -182,7 +183,11 @@ class FreshnessService:
             updated.updated_at = utcnow()
             updated.change_summary = "Refreshed the outdated " + _join([LABELS[section] for section in refreshed]) + "."
             if self.store is not None:
-                self.store.save_plan(updated, updated.change_summary)
+                try:
+                    self.store.save_plan(updated, updated.change_summary)
+                except PlanConflict:
+                    # Another request refreshed this plan first; its version stands, ours is shown.
+                    logger.info("a concurrent request already saved version %s of this plan", updated.version)
         return RefreshOutcome(plan=updated, outdated=sorted(outdated), refreshed=refreshed)
 
     async def on_reopen(self, plan: TripPlan) -> TripPlan:
