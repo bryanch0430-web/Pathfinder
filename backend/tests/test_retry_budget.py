@@ -76,6 +76,20 @@ class Script:
         return len(self.timeouts)
 
 
+def test_upstream_error_body_is_not_part_of_the_error_text() -> None:
+    """S-M3: a source's own error page can hold keys and markup; the error names the status only."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="<html>secret key abc</html>")
+
+    with use_transport(httpx.MockTransport(handler)):
+        with pytest.raises(ProviderError) as caught:
+            asyncio.run(request_json("GET", URL, source="demo", retries=0))
+    assert caught.value.kind is FailureKind.SERVER_ERROR
+    assert "secret" not in str(caught.value) and "<html>" not in str(caught.value)
+    assert str(caught.value) == "demo returned HTTP 500"
+
+
 def _run(script: Script, clock: FakeClock, *, jitter=None, **kwargs) -> dict:
     timing = RetryTiming(clock=clock, sleep=clock.sleep, jitter=jitter or random.uniform)
 

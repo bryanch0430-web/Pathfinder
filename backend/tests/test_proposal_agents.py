@@ -182,6 +182,36 @@ def test_db03_agents_start_together_and_an_overrun_section_is_marked_unavailable
     assert [(span.attrs["status"], span.attrs["reason"]) for span in spans] == [("timeout", BUDGET_EXCEEDED)]
 
 
+def test_an_agent_that_raises_is_a_server_error_gap_without_the_error_text(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S-M3/B-M6: an unexpected exception is a SERVER_ERROR (not a timeout) and its text stays out of the gap."""
+    settings = _budget(settings)
+
+    async def explodes(request: Any) -> AgentResult:
+        raise RuntimeError("boom <html>secret key abc</html>")
+
+    monkeypatch.setattr(
+        planning, "AGENT_FACTORIES", {AgentName.WEATHER: lambda registry, settings: SimpleNamespace(run=explodes)}
+    )
+
+    async def scenario() -> AgentResult:
+        context = _context()
+        results = await PlanPath(planner=None, registry=cost_sandbox(settings, "Kyoto"), settings=settings).run_agents(
+            context=context,
+            destination=GeoLocation(name="Kyoto", geo=GeoPoint(lat=KYOTO[0], lng=KYOTO[1])),
+            date_range=context.date_range(),
+            toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id=REQUEST_ID),
+            emit=lambda *_: None,
+        )
+        return results["weather"]
+
+    weather = asyncio.run(scenario())
+    assert weather.status is AgentStatus.UNAVAILABLE
+    assert [(gap.section, gap.kind) for gap in weather.failures] == [("weather", FailureKind.SERVER_ERROR)]
+    assert "secret" not in weather.failures[0].message and all("secret" not in note for note in weather.notes)
+
+
 def test_db03_the_planner_still_returns_a_plan_when_an_agent_overruns(
     settings: Settings, offline_gateway: LLMGateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:

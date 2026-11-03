@@ -9,6 +9,8 @@ import logging
 import re
 from typing import Any, AsyncIterator
 
+import httpx
+
 from app.application.asking import AskPath
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
@@ -23,7 +25,7 @@ from app.application.router import MODIFY_VERBS, System1Router, language_route, 
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.config import Settings
-from app.domain.errors import CanaryLeak, PathfinderError, PlanInvalidError
+from app.domain.errors import CanaryLeak, PathfinderError, PlanInvalidError, ProviderError
 from app.domain.models import (
     Intent,
     Message,
@@ -38,6 +40,27 @@ from app.infrastructure.store import SQLiteStore
 from app.security import SAFE_REPLY, screen_message
 
 logger = logging.getLogger(__name__)
+
+#: What a traveller is told when a data source fails or a turn crashes. Exception text is never
+#: shown: it can hold a source's error page, a URL with a key or a file path. It stays in the trace.
+SOURCE_FAILED = "A data source failed. Your plan was not changed."
+TURN_FAILED = "Something went wrong while handling this turn. You can retry."
+
+
+def user_facing_error(exc: BaseException) -> str:
+    """The only error text a traveller is shown for a failed turn."""
+    if isinstance(exc, (ProviderError, httpx.HTTPError, asyncio.TimeoutError)):
+        return SOURCE_FAILED
+    if isinstance(exc, PathfinderError):
+        # Our own typed errors ("I could not locate ...") are written for the traveller.
+        return str(exc)
+    return TURN_FAILED
+
+
+def _note_failure(tracer: Any, exc: BaseException) -> None:
+    """Keep the exception's own text where only the operator reads it: a span of the trace."""
+    with tracer.span("turn.failure", status="error", error_class=type(exc).__name__, error=str(exc)[:500]):
+        pass
 
 
 class TurnService:
@@ -346,19 +369,22 @@ class TurnService:
             yield TurnEvent(event="error", data={"code": exc.code, "message": str(exc), "retryable": True})
             tracer.finish(status="error")
         except PathfinderError as exc:
+            _note_failure(tracer, exc)
+            message_text = user_facing_error(exc)
             self.store.add_message(
-                Message(session_id=session_id, role="assistant", content=str(exc), intent=intent)
+                Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
             )
-            yield TurnEvent(event="error", data=exc.as_dict())
+            yield TurnEvent(event="error", data={**exc.as_dict(), "message": message_text})
             tracer.finish(status="error")
         except Exception as exc:
-            message_text = "Something went wrong while handling this turn. You can retry."
+            _note_failure(tracer, exc)
+            message_text = user_facing_error(exc)
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
             )
             yield TurnEvent(
                 event="error",
-                data={"code": "internal_error", "message": message_text, "detail": str(exc)[:200], "retryable": True},
+                data={"code": "internal_error", "message": message_text, "retryable": True},
             )
             tracer.finish(status="error")
         finally:

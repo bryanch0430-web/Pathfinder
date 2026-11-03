@@ -9,6 +9,7 @@ import logging
 import time
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -116,7 +117,9 @@ def test_turn_errors_still_end_as_stream_error(quick_settings: Settings) -> None
     assert frames[0].startswith("event: progress\n")
     assert frames[-1].startswith("event: error\n")
     assert _data(frames[-1])["code"] == "stream_error"
-    assert "planner exploded" in _data(frames[-1])["detail"]
+    # The exception's own text is no longer shown (S-M3): the detail is fixed copy.
+    assert "planner exploded" not in frames[-1]
+    assert _data(frames[-1])["detail"] == "Something went wrong while handling this turn. You can retry."
 
 
 def test_a_quick_turn_has_no_keepalive_or_timeout(settings: Settings) -> None:
@@ -131,6 +134,61 @@ def test_a_quick_turn_has_no_keepalive_or_timeout(settings: Settings) -> None:
     assert ": keepalive" not in body
     assert "turn_timeout" not in body
     assert _frames(body)[-1].startswith("event: done\n")
+
+
+SOURCE_BODY = "<html>secret key abc</html>"
+SOURCE_FAILED = "A data source failed. Your plan was not changed."
+
+
+def test_a_failing_data_source_never_shows_its_own_error_text(settings: Settings) -> None:
+    """S-M3: the traveller sees fixed copy; the source's body is in no frame and no saved turn."""
+
+    async def geocode(*, name: str):
+        request = httpx.Request("GET", "https://geocoder.example/search")
+        response = httpx.Response(500, request=request, text=SOURCE_BODY)
+        raise httpx.HTTPStatusError(
+            f"Server error '500' for url '{request.url}': {SOURCE_BODY}", request=request, response=response
+        )
+
+    async def rates() -> None:
+        return None
+
+    guest = {"X-Client-Token": "guest-sse"}
+    with TestClient(create_app(settings)) as client:
+        registry = client.app.state.container.registry
+        registry.geocoder = SimpleNamespace(geocode=geocode)
+        registry.fx = SimpleNamespace(refresh=rates)  # no network for the exchange rates
+        session_id = client.post("/api/journeys", json={"client_token": "guest-sse"}).json()["session"]["id"]
+        client.patch(
+            f"/api/journeys/{session_id}/state",
+            json={
+                "destination": "Kyoto",
+                "origin": "Hong Kong",
+                "start_date": "2027-04-10",
+                "end_date": "2027-04-12",
+                "party_size": 2,
+                "budget": 400000,
+                "currency": "JPY",
+            },
+            headers=guest,
+        )
+        body = client.post(
+            "/api/turn/stream",
+            json={**TURN, "session_id": session_id, "message": "Plan my trip."},
+            headers=guest,
+        ).text
+        saved = client.get(f"/api/journeys/{session_id}", headers=guest).json()["messages"]
+
+    frames = _frames(body)
+    # Ids in other frames are hex and may spell "abc", so every frame is checked for the whole
+    # body and the frames that carry text for the short marker too.
+    assert all("secret" not in frame and "<html>" not in frame for frame in frames)
+    errors = [_data(frame) for frame in frames if frame.startswith("event: error")]
+    assert len(errors) == 1 and errors[0]["message"] == SOURCE_FAILED
+    assert "abc" not in json.dumps(errors[0])
+    assistant = [message["content"] for message in saved if message["role"] == "assistant"]
+    assert assistant == [SOURCE_FAILED]
+    assert all("abc" not in message["content"] for message in saved)
 
 
 def test_closing_the_stream_early_cancels_the_source() -> None:

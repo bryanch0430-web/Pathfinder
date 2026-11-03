@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import time
 from contextlib import contextmanager
@@ -16,6 +17,8 @@ import httpx
 
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
+
+logger = logging.getLogger(__name__)
 
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
@@ -143,7 +146,10 @@ async def request_json(
             if response.status_code >= 400:
                 if response.status_code in RETRYABLE_STATUS:
                     wait_hint = retry_after_seconds(response.headers.get("Retry-After"))
-                raise classify_status(response.status_code, source, response.text[:300])
+                # The source's own error page can hold keys and markup, and this error's text
+                # reaches plan gaps: it names the status only. The page goes to the debug log.
+                logger.debug("%s returned HTTP %s: %s", source, response.status_code, response.text[:300])
+                raise classify_status(response.status_code, source)
             try:
                 data = response.json()
             except ValueError as exc:
