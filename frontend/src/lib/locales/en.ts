@@ -265,6 +265,8 @@ export const EN = {
   "settings.addPreference": "Add a preference",
   "settings.addAnother": "Add another…",
   "settings.preferencesExample": "slow pace, vegetarian, museums",
+  "settings.preferencesLimit": "Up to {max} preferences of {length} characters each.",
+  "settings.preferencesFull": "Limit reached. Remove one to add another.",
   "settings.profileCounts": "{chats} chats · {trips} useful trips · {destinations} destinations",
   "settings.loadingProfile": "Loading profile…",
   "settings.savePreferences": "Save preferences",

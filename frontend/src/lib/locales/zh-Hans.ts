@@ -263,6 +263,8 @@ export const ZH_HANS: Messages = {
   "settings.addPreference": "添加偏好",
   "settings.addAnother": "再添加一个…",
   "settings.preferencesExample": "慢节奏、素食、博物馆",
+  "settings.preferencesLimit": "最多 {max} 条偏好，每条最多 {length} 个字符。",
+  "settings.preferencesFull": "已达上限，删除一条后才能再添加。",
   "settings.profileCounts": "{chats} 次对话 · {trips} 个有用行程 · {destinations} 个目的地",
   "settings.loadingProfile": "正在加载档案…",
   "settings.savePreferences": "保存偏好",

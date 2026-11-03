@@ -10,13 +10,13 @@ import re
 from contextlib import aclosing, asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any, AsyncIterator, Literal
+from typing import Annotated, Any, AsyncIterator, Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.application.legs import legs_for_plan
 from app.application.orchestrator import user_facing_error
@@ -47,6 +47,9 @@ from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, p
 #: nothing else and is trimmed, so a session made with any other token could not be opened again.
 TOKEN_MAX_LENGTH = 120
 TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
+#: What a traveller profile keeps; a request over either limit is refused, not cut, and the Settings page shows both.
+PREFERENCES_MAX = 20
+PREFERENCE_MAX_LENGTH = 80
 
 
 class CreateSessionRequest(BaseModel):
@@ -86,7 +89,9 @@ class ChatRequest(BaseModel):
 class ProfilePatch(BaseModel):
     #: guest token; may be empty when a bearer identifies the caller
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
-    preferences: list[str] = Field(default_factory=list, max_length=30)
+    preferences: list[Annotated[str, StringConstraints(max_length=PREFERENCE_MAX_LENGTH)]] = Field(
+        default_factory=list, max_length=PREFERENCES_MAX
+    )
 
 
 class ClearMemoryRequest(BaseModel):
@@ -711,7 +716,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         identity = resolve_identity(request, c, payload.client_token)
         profile = PreferenceProfile(
             client_token=identity,
-            preferences=[value.strip() for value in payload.preferences if value.strip()][:20],
+            preferences=[value.strip() for value in payload.preferences if value.strip()],
         )
         c.store.upsert_preferences(profile)
         return {"profile": c.store.client_profile(identity)}

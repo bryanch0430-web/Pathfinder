@@ -140,7 +140,7 @@ curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
 | GET | `/s/{slug}` | — | public HTML trip |
 | GET | `/api/public/{slug}` | — | public JSON trip |
 | GET | `/api/traveller` | — | the caller's identity (`client_token`), preferences, counts, destinations |
-| PATCH | `/api/traveller` | `{client_token?, preferences}` | `{profile}` |
+| PATCH | `/api/traveller` | `{client_token?, preferences}`: at most 20 preferences of at most 80 characters each; more is refused with 422, not cut | `{profile}` |
 | POST | `/api/recall/clear` | `{client_token?}` | `{cleared, saved_trips, preferences}`: deletes only the caller's saved trips and preferences |
 | GET | `/api/wishlist?limit=` | — | the caller's saved-trip summaries |
 | GET | `/api/popular?q=&limit=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`); public, `match` uses only the caller's own preferences |

@@ -1885,6 +1885,10 @@ export function EvalDashboard({
 
 /* ------------------------------------------------------------- settings -- */
 
+/** What the server keeps for one profile (PREFERENCES_MAX and PREFERENCE_MAX_LENGTH in backend/app/interface/api.py). */
+const MAX_PREFERENCES = 20;
+const MAX_PREFERENCE_LENGTH = 80;
+
 function videoEmbedUrl(note: VideoNote): string {
   if (note.source === "youtube" && note.video_id) {
     return `https://www.youtube-nocookie.com/embed/${note.video_id}`;
@@ -2224,7 +2228,7 @@ export function SettingsView({
   }, [profile]);
 
   const addPreference = () => {
-    setPreferences((current) => addTags(current, prefInput));
+    setPreferences((current) => addTags(current, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH));
     setPrefInput("");
   };
   const removePreference = (value: string) => {
@@ -2257,7 +2261,12 @@ export function SettingsView({
               {signedIn ? t("settings.signedIn") : t("settings.guest")}
             </Text>
             <div className="pf-form-grid">
-              <Field label={t("settings.preferences")} wide htmlFor="pf-profile-preferences">
+              <Field
+                label={t("settings.preferences")}
+                hint={t("settings.preferencesLimit", { max: MAX_PREFERENCES, length: MAX_PREFERENCE_LENGTH })}
+                wide
+                htmlFor="pf-profile-preferences"
+              >
                 <div className="pf-preference-tags">
                   {preferences.map((preference) => (
                     <span className="pf-preference-tag" key={preference}>
@@ -2276,7 +2285,14 @@ export function SettingsView({
                     className="pf-preference-tags__input"
                     value={prefInput}
                     aria-label={t("settings.addPreference")}
-                    placeholder={preferences.length ? t("settings.addAnother") : t("settings.preferencesExample")}
+                    disabled={preferences.length >= MAX_PREFERENCES}
+                    placeholder={
+                      preferences.length >= MAX_PREFERENCES
+                        ? t("settings.preferencesFull")
+                        : preferences.length
+                          ? t("settings.addAnother")
+                          : t("settings.preferencesExample")
+                    }
                     onChange={(event) => setPrefInput(event.target.value)}
                     onKeyDown={(event) => {
                       if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
@@ -2307,7 +2323,7 @@ export function SettingsView({
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      const next = addTags(preferences, prefInput);
+                      const next = addTags(preferences, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH);
                       addPreference();
                       onSavePreferences(next);
                     }}

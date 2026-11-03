@@ -265,6 +265,8 @@ export const ZH_HANT: Messages = {
   "settings.addPreference": "新增偏好",
   "settings.addAnother": "再新增一個…",
   "settings.preferencesExample": "慢步調、素食、博物館",
+  "settings.preferencesLimit": "最多 {max} 項偏好，每項最多 {length} 個字元。",
+  "settings.preferencesFull": "已達上限，刪除一項後才能再新增。",
   "settings.profileCounts": "{chats} 段對話 · {trips} 個有用行程 · {destinations} 個目的地",
   "settings.loadingProfile": "正在載入檔案…",
   "settings.savePreferences": "儲存偏好",
