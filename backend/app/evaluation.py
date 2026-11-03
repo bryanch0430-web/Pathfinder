@@ -8,10 +8,12 @@ The sandbox is labelled as such in the UI and in the report.
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from app.application.hk_disruptions import LINE_NAMES, line_code
 from app.application.llm_gateway import LLMGateway
 from app.application.modification import ModifyPath
 from app.application.planning import PlanPath
@@ -41,8 +43,10 @@ from app.domain.models import (
     PriceKind,
     RouteLeg,
     SourceRef,
+    TransitStatus,
     TripContext,
     utcnow,
+    WeatherAlert,
     WeatherDay,
 )
 from app.eval_checks import (
@@ -472,9 +476,11 @@ class SandboxRegistry:
     """Sandbox providers, with one simulation per Hong Kong disruption (Proposal TC-03, p4).
 
     - ``source_timeout``: the first place source times out once; a fallback answers.
-    - ``typhoon``: the weather source reports a typhoon signal on ``fault_detail["day"]``.
+    - ``typhoon``: the weather source reports a typhoon signal on ``fault_detail["day"]``,
+      and the HKO warnings feed has the signal in force on that day.
     - ``venue_closure``: ``close_venue()`` makes the place source stop listing a venue.
-    - ``transit_delay``: the routes source adds ``delay_minutes`` to every transit leg.
+    - ``transit_delay``: the routes source adds ``delay_minutes`` to every transit leg,
+      and the MTR status feed reports ``fault_detail["line"]`` delayed on ``fault_detail["day"]``.
     """
 
     def __init__(
@@ -507,6 +513,14 @@ class SandboxRegistry:
         self.notes = [SandboxNotes()]
         delay = int(detail.get("delay_minutes", 0)) if self.fault == "transit_delay" else 0
         self.routes = [SandboxRoutes(delay_minutes=delay, line=str(detail.get("line", "")))]
+        # The live-status sources a Hong Kong plan checks (TC-03): the sandbox's
+        # "today" for each feed is the fault day.
+        self.warnings = [SandboxWarnings(alerts)]
+        delays: dict[date, tuple[str, int]] = {}
+        if self.fault == "transit_delay":
+            day = (start or date.today()) + timedelta(days=int(detail.get("day", 1)) - 1)
+            delays[day] = (str(detail.get("line") or "Island Line"), delay)
+        self.transit = [SandboxTransit(delays)]
         self.fx = SandboxFx()
 
     def close_venue(self, name: str) -> None:
@@ -675,6 +689,57 @@ class SandboxWeather:
                 )
             else:
                 out.append(WeatherDay(date=day, status=DataStatus.OK, summary="Partly cloudy", high_c=22, low_c=14, precipitation_probability=20, source=self.name))
+        return out
+
+
+class SandboxWarnings:
+    """HKO warnings feed: the simulated signal in force on its day (``typhoon``), none otherwise."""
+
+    name = "sandbox-warnings"
+
+    def __init__(self, signals: dict[date, str] | None = None):
+        self.signals = signals or {}
+
+    async def alerts(self, *, start: date, end: date) -> list[WeatherAlert]:
+        out = []
+        for day, signal in sorted(self.signals.items()):
+            if start <= day <= end:
+                number = re.search(r"No\.?\s*(\d+)", signal)
+                level = int(number.group(1)) if number else 8
+                out.append(
+                    WeatherAlert(
+                        date=day, code=f"TC{level}", name=signal, severe=level >= 3, source=self.name,
+                        url="https://www.hko.gov.hk/en/wxinfo/dailywx/wxwarntoday.htm",
+                    )
+                )
+        return out
+
+
+class SandboxTransit:
+    """MTR status feed: the simulated line delay on its day (``transit_delay``), normal otherwise."""
+
+    name = "sandbox-transit"
+
+    def __init__(self, delays: dict[date, tuple[str, int]] | None = None):
+        self.delays = delays or {}
+
+    async def status(self, *, lines: list[str], start: date, end: date) -> list[TransitStatus]:
+        out = []
+        for day, (line, minutes) in sorted(self.delays.items()):
+            if not start <= day <= end:
+                continue
+            delayed_code = line_code(line)
+            for code in lines:
+                delayed = code == delayed_code
+                name = LINE_NAMES.get(code, code)
+                out.append(
+                    TransitStatus(
+                        line=code, line_name=name, date=day, delayed=delayed,
+                        delay_minutes=(minutes or None) if delayed else None,
+                        message=f"{name} trains are delayed by about {minutes} minutes." if delayed else f"{name}: normal service.",
+                        source=self.name,
+                    )
+                )
         return out
 
 

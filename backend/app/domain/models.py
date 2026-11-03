@@ -635,6 +635,36 @@ class RouteLeg(BaseModel):
     polyline: list[GeoPoint] = Field(default_factory=list)
 
 
+class WeatherAlert(BaseModel):
+    """An official weather warning in force on a date (Hong Kong Observatory)."""
+
+    date: date
+    code: str
+    name: str
+    # Severe warnings (typhoon signal No. 3 and above, red or black rainstorm,
+    # tsunami) move outdoor stops off the day; the others are a note.
+    severe: bool = False
+    source: str = ""
+    url: str = ""
+    issued_at: datetime | None = None
+    fetched_at: datetime = Field(default_factory=utcnow)
+
+
+class TransitStatus(BaseModel):
+    """The service status one rail line reported for a date (MTR Next Train)."""
+
+    line: str
+    line_name: str = ""
+    date: date
+    delayed: bool = False
+    # Only when the source states it; the MTR feed reports a delay flag only.
+    delay_minutes: int | None = None
+    message: str = ""
+    source: str = ""
+    url: str = ""
+    fetched_at: datetime = Field(default_factory=utcnow)
+
+
 class GeoLocation(BaseModel):
     name: str
     country_code: str = ""

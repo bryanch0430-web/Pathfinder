@@ -33,6 +33,9 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "fx.rates",
             # Reference pages for a section the official sources left empty.
             "web.search",
+            # Hong Kong only: HKO warnings and MTR line status (TC-03).
+            "weather.warnings",
+            "routes.status",
         }
     ),
     "modify": frozenset(
@@ -49,6 +52,8 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "elevation.gain",
             "fx.rates",
             "web.search",
+            "weather.warnings",
+            "routes.status",
         }
     ),
     "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search"}),

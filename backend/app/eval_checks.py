@@ -32,7 +32,9 @@ from app.domain.models import (
     NoteItem,
     PlaceCandidate,
     RouteLeg,
+    TransitStatus,
     TripPlan,
+    WeatherAlert,
     WeatherDay,
 )
 from app.infrastructure.http import haversine_km
@@ -156,6 +158,15 @@ def extract_facts(result: Any) -> list[dict[str, Any]]:
             out.append({"kind": "geo", "name": row.name})
         elif isinstance(row, RouteLeg):
             out.append({"kind": "leg", "minutes": row.duration_minutes, "mode": row.mode, "source": row.source})
+        elif isinstance(row, WeatherAlert):
+            # An official warning (HKO), kept apart from forecast rows so grounding
+            # still compares each day's forecast with the forecast tool.
+            out.append({"kind": "alert", "date": row.date.isoformat(), "text": row.name, "severe": row.severe, "source": row.source})
+        elif isinstance(row, TransitStatus):
+            out.append(
+                {"kind": "transit", "date": row.date.isoformat(), "line": row.line, "delayed": row.delayed,
+                 "minutes": row.delay_minutes, "source": row.source}
+            )
     return out
 
 
@@ -280,8 +291,10 @@ def _diet_ok(diet: str, fact: dict[str, Any] | None) -> bool:
 
 
 def alert_dates(log: ToolLog) -> set[str]:
-    """Dates a weather tool reported a severe-weather alert for."""
-    return {fact["date"] for fact in log.facts("weather") if ALERT_RE.search(fact.get("text", ""))}
+    """Dates a weather tool (forecast or official warnings) reported a severe-weather alert for."""
+    forecast = {fact["date"] for fact in log.facts("weather") if ALERT_RE.search(fact.get("text", ""))}
+    warnings = {fact["date"] for fact in log.facts("alert") if fact.get("severe") and ALERT_RE.search(fact.get("text", ""))}
+    return forecast | warnings
 
 
 def _indoor(log: ToolLog, item) -> bool:
@@ -530,7 +543,12 @@ def disruption_outcomes(
     elif fault == "transit_delay":
         delay = int(case.fault_detail.get("delay_minutes", 0) or 0)
         routed = [entry for entry in log.entries if entry["tool"].startswith("routes.")]
-        delayed = [fact for entry in routed for fact in entry["facts"] if "delay" in str(fact.get("source", ""))]
+        delayed = [
+            fact
+            for entry in routed
+            for fact in entry["facts"]
+            if "delay" in str(fact.get("source", "")) or (fact["kind"] == "transit" and fact.get("delayed"))
+        ]
         outcomes["delay_detected"] = bool(delayed)
         evidence["delay_detected"] = f"{len(routed)} routes call(s) during planning; {len(delayed)} reported the delay."
         short = short_transfers(plan, delay_dates=fault_dates(case, start), delay=delay, only_delay_days=True)

@@ -13,6 +13,7 @@ from app.application.agents import (
     TicketAgent,
     WeatherAgent,
 )
+from app.application.hk_disruptions import apply_hong_kong_disruptions
 from app.application.planner import Planner
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
@@ -125,6 +126,10 @@ class PlanPath:
             trip_id=trip_id,
             change_summary=change_summary,
             toolbox=toolbox,
+        )
+        # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
+        plan = await apply_hong_kong_disruptions(
+            plan, registry=self.registry, toolbox=toolbox, settings=self.settings, results=agent_results, context=context
         )
         errors = validate_plan(plan, self.settings)
         if errors:

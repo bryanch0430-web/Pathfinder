@@ -19,6 +19,7 @@ from app.infrastructure.providers.geocoding import (
     OpenMeteoGeocoder,
 )
 from app.infrastructure.providers.elevation import GoogleElevation
+from app.infrastructure.providers.hong_kong import HkoWarningsSource, MtrLineStatusSource
 from app.infrastructure.providers.hotels import SerpApiHotelSource, WikivoyageHotelSource
 from app.infrastructure.providers.notes import BilibiliNotesSource, YouTubeNotesSource
 from app.infrastructure.providers.places import (
@@ -45,6 +46,9 @@ class ProviderRegistry:
     web: list = field(default_factory=list)
     web_deep: list = field(default_factory=list)
     routes: list = field(default_factory=list)
+    # Hong Kong only: official weather warnings and MTR line status (TC-03).
+    warnings: list = field(default_factory=list)
+    transit: list = field(default_factory=list)
     timezone: object | None = None
     elevation: object | None = None
     autocomplete: object | None = None
@@ -70,6 +74,8 @@ class ProviderRegistry:
             notes.append(YouTubeNotesSource(settings))
             notes.append(BilibiliNotesSource(settings))
         routes = [GoogleRoutesSource(settings)]
+        warnings = [HkoWarningsSource(settings)] if settings.enable_hk_disruptions else []
+        transit = [MtrLineStatusSource(settings)] if settings.enable_hk_disruptions else []
         web = [DeepSeekSearchSource(settings)] if settings.web_search_enabled else []
         web_deep = [GrokSearchSource(settings)] if settings.grok_search_enabled else []
         timezone = GoogleTimeZone(settings) if settings.enable_timezone else None
@@ -84,6 +90,8 @@ class ProviderRegistry:
             flights=flights,
             notes=notes,
             routes=routes,
+            warnings=warnings,
+            transit=transit,
             web=web,
             web_deep=web_deep,
             timezone=timezone,
@@ -106,6 +114,8 @@ class ProviderRegistry:
             "web": names(self.web),
             "web_deep": names(self.web_deep),
             "routes": names(self.routes),
+            "warnings": names(self.warnings),
+            "transit": names(self.transit),
             "timezone": names([self.timezone]) if self.timezone is not None else [],
             "elevation": names([self.elevation]) if self.elevation is not None else [],
             "autocomplete": names([self.autocomplete]) if self.autocomplete is not None else [],

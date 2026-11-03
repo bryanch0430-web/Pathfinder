@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     enable_elevation: bool = True
     enable_bilibili: bool = True
     enable_youtube: bool = True
+    # Hong Kong trips: HKO warnings and MTR line status adjust the plan (TC-03).
+    enable_hk_disruptions: bool = True
 
     # --- planning policy ---------------------------------------------------
     router_threshold: float = 0.8

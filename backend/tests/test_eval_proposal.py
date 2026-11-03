@@ -78,6 +78,16 @@ def trials(tmp_path_factory) -> dict:
     return {"suites": suites, "runs": runs, "exports": exports}
 
 
+@pytest.fixture(scope="module")
+def unhandled(tmp_path_factory) -> dict:
+    """The Hong Kong set with the HKO warnings and MTR status handling switched off."""
+    settings = _settings(tmp_path_factory.mktemp("unhandled"), enable_hk_disruptions=False)
+    with TestClient(create_app(settings)) as client:
+        response = client.post("/api/eval/trials", json={"dataset_id": "hongkong", "experiment_tag": "no-hk-handling"})
+        assert response.status_code == 200, response.text
+        return {"runs": {"hongkong": response.json()["run"]}}
+
+
 def _case(trials: dict, dataset: str, case_id: str) -> dict:
     return next(row for row in trials["runs"][dataset]["cases"] if row["case_id"] == case_id)
 
@@ -215,6 +225,9 @@ def test_tc03_each_disruption_has_its_own_simulation(settings: Settings) -> None
     typhoon = SandboxRegistry(settings, "Hong Kong", fault="typhoon", fault_detail={"day": 2}, start=start)
     days = asyncio.run(typhoon.weather[0].forecast(geo, start, start + timedelta(days=2)))
     assert ["Typhoon" in day.summary for day in days] == [False, True, False]
+    # The HKO warnings feed has the signal in force on that day only.
+    alerts = asyncio.run(typhoon.warnings[0].alerts(start=start, end=start + timedelta(days=2)))
+    assert [(alert.date, alert.code, alert.severe) for alert in alerts] == [(start + timedelta(days=1), "TC8", True)]
 
     closure = SandboxRegistry(settings, "Hong Kong", fault="venue_closure", fault_detail={"venue": "Peak Tram"})
     search = dict(destination="Hong Kong", geo=geo, category="attraction", limit=10)
@@ -230,6 +243,15 @@ def test_tc03_each_disruption_has_its_own_simulation(settings: Settings) -> None
     assert delayed.duration_minutes == usual.duration_minutes + 40 and "delay" in delayed.source
     walk = asyncio.run(delay.routes[0].leg(geo, far, mode="walk"))
     assert walk.source == "estimate"
+    # The MTR status feed reports the line (Island Line by default) delayed on its
+    # day, which is day 1 (today without a start date); other lines run normally.
+    today = date.today()
+    rows = asyncio.run(delay.transit[0].status(lines=["ISL", "TWL"], start=today, end=today + timedelta(days=1)))
+    assert [(row.line, row.delayed, row.delay_minutes) for row in rows] == [("ISL", True, 40), ("TWL", False, None)]
+    assert asyncio.run(delay.transit[0].status(lines=["ISL"], start=today + timedelta(days=1), end=today + timedelta(days=2))) == []
+    for quiet in (normal, closure):
+        assert asyncio.run(quiet.warnings[0].alerts(start=today, end=today + timedelta(days=400))) == []
+        assert asyncio.run(quiet.transit[0].status(lines=["ISL"], start=today, end=today + timedelta(days=400))) == []
 
     timeout = SandboxRegistry(settings, "Hong Kong", fault="source_timeout")
     with pytest.raises(ProviderError):
@@ -269,22 +291,22 @@ def test_tc03_every_disruption_reports_its_own_outcomes(trials: dict) -> None:
         assert set(disruption["evidence"]) <= set(disruption["outcomes"])
 
 
-TYPHOON_GAP = "Proposal TC-03: no weather source reports typhoon signals and the planner keeps outdoor stops on an alert day"
-MTR_GAP = "Proposal TC-03: planning never calls a transit source, so an MTR delay is neither detected nor recorded"
 MEALS_GAP = "Proposal TC-07: the planner fixes lunch and dinner times without the transfer from the previous stop"
 
 
 @pytest.mark.parametrize(
     "case_id",
     [
-        pytest.param("hk01", marks=pytest.mark.xfail(strict=True, reason=TYPHOON_GAP)),
+        "hk01",
         "hk02",
-        pytest.param("hk03", marks=pytest.mark.xfail(strict=True, reason=f"{MTR_GAP}; {MEALS_GAP}")),
+        "hk03",
         "hk04",
         "hk05",
-        pytest.param("hk06", marks=pytest.mark.xfail(strict=True, reason=f"{MTR_GAP}; {MEALS_GAP}")),
+        # The MTR delay is handled (see the test below); day 1's lunch still leaves
+        # 5 min for a 21-min transfer, which is the TC-07 meal gap.
+        pytest.param("hk06", marks=pytest.mark.xfail(strict=True, reason=MEALS_GAP)),
         "hk07",
-        pytest.param("hk08", marks=pytest.mark.xfail(strict=True, reason=TYPHOON_GAP)),
+        "hk08",
     ],
 )
 def test_tc03_hongkong_case_passes(trials: dict, case_id: str) -> None:
@@ -293,36 +315,54 @@ def test_tc03_hongkong_case_passes(trials: dict, case_id: str) -> None:
     assert case["passed"], case["judge_reason"]
 
 
-def test_tc03_failing_cases_name_the_unhandled_disruption(trials: dict) -> None:
-    """Proposal TC-03 (p4): a case that fails says which handling is missing."""
+def test_tc03_failing_cases_name_the_unhandled_disruption(unhandled: dict) -> None:
+    """Proposal TC-03 (p4): a case that fails says which handling is missing.
+
+    The run switches the HKO warnings and MTR status handling off, so the typhoon and
+    MTR cases fail the way they did before that handling existed.
+    """
     for case_id in ("hk01", "hk08"):
-        case = _case(trials, "hongkong", case_id)
+        case = _case(unhandled, "hongkong", case_id)
         outcomes = case["plan_checks"]["disruption"]["outcomes"]
         assert outcomes["alert_detected"] and outcomes["alert_recorded"]
         assert not outcomes["outdoor_stops_moved"]
         assert case["failure_class"] == "unmet_weather"
         assert "Outdoor stops on an alert day" in case["judge_reason"]
     for case_id in ("hk03", "hk06"):
-        case = _case(trials, "hongkong", case_id)
+        case = _case(unhandled, "hongkong", case_id)
         outcomes = case["plan_checks"]["disruption"]["outcomes"]
         assert not outcomes["delay_detected"] and not outcomes["delay_recorded"]
-        assert case["failure_class"] == "unmet_travel_times"
-    assert not _case(trials, "hongkong", "hk03")["plan_checks"]["disruption"]["outcomes"]["transfers_absorb_delay"]
+        if case_id == "hk03":
+            assert case["failure_class"] == "unmet_travel_times"
+        else:
+            # hk06's delay day is a walk, so once the TC-07 meal gap is closed its
+            # only failure is the unhandled delay itself.
+            assert case["failure_class"] in {"unmet_travel_times", "transit_delay_not_handled"}
+    assert not _case(unhandled, "hongkong", "hk03")["plan_checks"]["disruption"]["outcomes"]["transfers_absorb_delay"]
+    metrics = _metrics(unhandled, "hongkong")
+    assert metrics["recovery_typhoon"]["value"] == metrics["recovery_transit_delay"]["value"] == 0.0
 
 
-@pytest.mark.xfail(strict=True, reason=TYPHOON_GAP)
 def test_tc03_typhoon_day_has_no_outdoor_stops(trials: dict) -> None:
     """Proposal TC-03 (p4): on a typhoon-signal day only indoor stops remain."""
     for case_id in ("hk01", "hk08"):
-        assert _case(trials, "hongkong", case_id)["plan_checks"]["disruption"]["outcomes"]["outdoor_stops_moved"]
+        case = _case(trials, "hongkong", case_id)
+        assert case["plan_checks"]["disruption"]["outcomes"]["outdoor_stops_moved"]
+        assert case["plan_checks"]["disruption"]["handled"]
+        assert case["plan_checks"]["tool_log"]["calls"]["weather.warnings:ok"] == 1
+    assert _metrics(trials, "hongkong")["recovery_typhoon"]["value"] == 100.0
+    assert _metrics(trials, "hongkong")["constraint_weather"]["value"] == 100.0
 
 
-@pytest.mark.xfail(strict=True, reason=MTR_GAP)
 def test_tc03_mtr_delay_is_detected_and_absorbed(trials: dict) -> None:
     """Proposal TC-03 (p4): an MTR delay is detected and the day's transfers allow for it."""
     for case_id in ("hk03", "hk06"):
-        outcomes = _case(trials, "hongkong", case_id)["plan_checks"]["disruption"]["outcomes"]
+        case = _case(trials, "hongkong", case_id)
+        outcomes = case["plan_checks"]["disruption"]["outcomes"]
         assert outcomes["delay_detected"] and outcomes["transfers_absorb_delay"] and outcomes["delay_recorded"]
+        assert case["plan_checks"]["disruption"]["handled"]
+        assert case["plan_checks"]["tool_log"]["calls"]["routes.status:ok"] == 1
+    assert _metrics(trials, "hongkong")["recovery_transit_delay"]["value"] == 100.0
 
 
 # --- TC-07: constraint satisfaction -----------------------------------------
@@ -332,12 +372,14 @@ def _constraint_rows(score) -> dict:
     return {row["kind"]: row for row in score.constraints}
 
 
-def test_tc07_constraint_score_is_met_over_total(trials: dict) -> None:
+def test_tc07_constraint_score_is_met_over_total(trials: dict, unhandled: dict) -> None:
     """Proposal TC-07 (p4): the score is met / total constraints, not one binary per case."""
-    hk01 = _case(trials, "hongkong", "hk01")
+    hk01 = _case(unhandled, "hongkong", "hk01")  # outdoor stops left on the typhoon day
     checks = hk01["plan_checks"]
     assert (checks["constraints_met"], checks["constraints_total"]) == (3, 4)
     assert hk01["scores"]["constraint_satisfaction"] == 0.75
+    handled = _case(trials, "hongkong", "hk01")["plan_checks"]
+    assert (handled["constraints_met"], handled["constraints_total"]) == (4, 4)
     for name in PLANNING_SETS:
         cases = trials["runs"][name]["cases"]
         met = sum(case["plan_checks"]["constraints_met"] for case in cases)
