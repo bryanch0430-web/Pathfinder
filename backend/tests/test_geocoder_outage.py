@@ -680,3 +680,101 @@ def test_a_geocoder_that_answers_with_no_results_still_means_no_such_place(setti
 def test_a_cancellation_raised_while_geocoding_is_not_turned_into_a_gap(settings: Settings) -> None:
     with pytest.raises(asyncio.CancelledError):
         _attractions(settings, _Down(asyncio.CancelledError()))
+
+
+# -- Google answers HTTP 200 with a status that is not a result ---------------------------------------
+
+
+def _google_chain(settings: Settings) -> GeocoderChain:
+    from app.infrastructure.providers.geocoding import GoogleGeocoder, NominatimGeocoder, OpenMeteoGeocoder
+
+    keyed = settings.model_copy(update={"google_maps_api_key": "test-key", "http_retries": 0})
+    return GeocoderChain([GoogleGeocoder(keyed), OpenMeteoGeocoder(keyed), NominatimGeocoder(keyed)])
+
+
+def _google_says(status: str, *, error_message: str = "", free_sources: Any = None):
+    """Google answers `status` (with HTTP 200, as it does for quota and key problems); the free sources answer `free_sources`."""
+    import httpx
+
+    from app.infrastructure.http import use_transport
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "maps.googleapis.com":
+            body: dict[str, Any] = {"status": status, "results": []}
+            if error_message:
+                body["error_message"] = error_message
+            return httpx.Response(200, json=body)
+        return httpx.Response(200, json=free_sources if free_sources is not None else {"results": []})
+
+    return use_transport(httpx.MockTransport(handler))
+
+
+#: What each status of Google's geocoding answer stands for, and whether asking again could change it.
+GOOGLE_FAILURES = [
+    ("OVER_QUERY_LIMIT", FailureKind.RATE_LIMIT, True),
+    ("OVER_DAILY_LIMIT", FailureKind.RATE_LIMIT, True),
+    ("REQUEST_DENIED", FailureKind.AUTH, False),
+    ("UNKNOWN_ERROR", FailureKind.SERVER_ERROR, True),
+    ("INVALID_REQUEST", FailureKind.INVALID_REQUEST, False),
+    ("SOMETHING_NEW", FailureKind.PARSE, False),
+]
+
+
+@pytest.mark.parametrize(("status", "kind", "retryable"), GOOGLE_FAILURES)
+def test_a_google_status_that_is_not_a_result_is_a_failed_source_not_an_unknown_place(
+    settings: Settings, status: str, kind: FailureKind, retryable: bool
+) -> None:
+    with _google_says(status):
+        with pytest.raises(ProviderError) as failure:
+            asyncio.run(_google_chain(settings).geocode("Kinkaku-ji, Kyoto"))
+
+    assert not isinstance(failure.value, ProviderNoData)
+    assert (failure.value.kind, failure.value.retryable) == (kind, retryable)
+
+
+def test_google_zero_results_still_means_no_such_place(settings: Settings) -> None:
+    with _google_says("ZERO_RESULTS"):
+        assert asyncio.run(_google_chain(settings).geocode("Nowhere at all")) is None
+
+
+def test_what_google_says_about_its_failure_stays_in_the_detail(settings: Settings) -> None:
+    said = "You have exceeded your daily request quota. key=SECRET-KEY-123"
+    with _google_says("OVER_QUERY_LIMIT", error_message=said):
+        with pytest.raises(ProviderError) as failure:
+            asyncio.run(_google_chain(settings).geocode("Kinkaku-ji, Kyoto"))
+
+    shown = str(failure.value)
+    assert "quota" not in shown and "SECRET" not in shown and "OVER_QUERY_LIMIT" not in shown
+    assert "SECRET-KEY-123" in operator_text(failure.value)
+
+
+def test_a_later_source_that_knows_the_place_answers_when_google_is_over_its_quota(settings: Settings) -> None:
+    kyoto = {
+        "results": [
+            {"name": "Kyoto", "latitude": 35.01, "longitude": 135.77, "country": "Japan", "country_code": "JP",
+             "feature_code": "PPLA", "population": 1_400_000, "timezone": "Asia/Tokyo"}
+        ]
+    }
+    with _google_says("OVER_QUERY_LIMIT", free_sources=kyoto):
+        found = asyncio.run(_google_chain(settings).geocode("Kyoto"))
+
+    assert found is not None and found.source == "open-meteo-geocoder"
+
+
+def test_a_google_quota_answer_is_a_retryable_rate_limit_gap_not_places_that_do_not_exist(settings: Settings) -> None:
+    with _google_says("OVER_QUERY_LIMIT"):
+        result = _attractions(settings, _google_chain(settings))
+
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.RATE_LIMIT, True)]
+    assert "could not be checked" in gaps[0][2] and "none could be located" not in gaps[0][2]
+    assert not any("could not locate" in note for note in result.notes)
+
+
+def test_a_google_key_that_is_refused_is_a_gap_that_asking_again_will_not_fix(settings: Settings) -> None:
+    with _google_says("REQUEST_DENIED", error_message="The provided API key is invalid."):
+        result = _attractions(settings, _google_chain(settings))
+
+    gaps = _gaps(result)
+    assert [(kind, retryable) for kind, retryable, _ in gaps] == [(FailureKind.AUTH, False)]
+    assert "invalid" not in gaps[0][2]
