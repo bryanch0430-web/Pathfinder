@@ -77,7 +77,10 @@ start/finish frames reach the browser before the plan is ready.
 
 ### Modify path
 
-1. Typed `ChangeDraft` from the writer, or rules over the router's `affected_parts`.
+1. Typed `ChangeDraft` from the writer, or rules over the router's `affected_parts`. The rules read a request
+   for other dates or another length in any wording (`shift the trip by a week`, `two days later`,
+   `make it 4 days`) as a modify with the part `dates`, never as a new trip; a day, a night or `later` that
+   names part of the trip (`add a temple on day 2`, `a later flight`) is not a new date.
 2. Map parts to agents; a budget change reruns hotel; a date change reruns
    weather/hotel/ticket. If the date length changes, the plan is rebuilt with the same
    `trip_id` and version + 1. In both cases the hotel the plan has is kept: it is priced again

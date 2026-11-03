@@ -19,7 +19,7 @@ from app.application.opening_hours import lines_for
 from app.application.planning import PlanPath
 from app.application.planner import PACE_BUFFER_MINUTES, STAY_PRICE_NOT_REFRESHED, Planner, _constraints, _pace
 from app.application.prompt_context import plan_outline, trip_slots
-from app.application.router import is_replan_message
+from app.application.router import asks_for_new_dates, is_replan_message
 from app.application.toolbox import Toolbox
 from app.application.transfers import refresh_transfers
 from app.application.trip_rules import blocked_dates, travel_windows
@@ -595,6 +595,8 @@ def _rule_parts(message: str) -> list[str]:
     ]:
         if re.search(pattern, lower):
             parts.append(name)
+    if asks_for_new_dates(message):
+        parts.append("dates")
     day = _rule_day(message)
     if day:
         parts.append(f"day_{day}")
