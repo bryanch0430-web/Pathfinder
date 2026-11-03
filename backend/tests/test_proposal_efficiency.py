@@ -20,19 +20,26 @@ from app.application.modification import ModifyPath
 from app.application.planner import Planner
 from app.application.planning import PlanPath
 from app.application.prompts import PromptLibrary
-from app.application.router import affected_parts_for
+from app.application.router import (
+    RuleRouter,
+    affected_parts_for,
+    router_prompt,
+    rules_decide_alone,
+    rules_first_applies,
+)
 from app.application.toolbox import LoggedWebSource, Toolbox
 from app.config import Settings
-from app.domain.models import EvalCase
+from app.domain.models import EvalCase, Message
 from app.eval_edits import placements
 from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox, router_turn
-from app.eval_metering import RunLedger, estimate_tokens
+from app.eval_metering import MeteredLLM, RunLedger, estimate_tokens
 from app.evaluation import FIXTURES, EvalService
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.providers.websearch import WebResult
 from app.infrastructure.store import SQLiteStore
 from app.interface.api import create_app
+from app.security import fence_user_message
 from app.security.untrusted import REMOVED
 
 TRIAL_DATASETS = ("efficiency", "edit_vs_replan", "hongkong")
@@ -124,9 +131,11 @@ def test_tc10_router_path_makes_fewer_calls_for_non_planning_intents(trials: dic
         router_calls = scores["router_tool_calls"] + scores["router_llm_calls"]
         full_calls = scores["full_tool_calls"] + scores["full_llm_calls"]
         if fixture[case["case_id"]]["expected_intent"] == "plan":
-            # Planning is the full pipeline either way; routing adds one writer call.
+            # Planning is the full pipeline either way; routing adds at most one writer
+            # call, and none when the rules decide the request alone.
             assert scores["router_tool_calls"] == scores["full_tool_calls"], case["output_summary"]
-            assert scores["router_llm_calls"] == scores["full_llm_calls"] + 1, case["output_summary"]
+            extra = scores["router_llm_calls"] - scores["full_llm_calls"]
+            assert extra == scores["router_model_routed"] and extra in (0, 1), case["output_summary"]
         else:
             assert router_calls < full_calls, case["output_summary"]
             assert scores["router_tool_calls"] < scores["full_tool_calls"], case["output_summary"]
@@ -136,18 +145,108 @@ def test_tc10_router_path_makes_fewer_calls_for_non_planning_intents(trials: dic
     assert metrics["router_api_call_saving"]["value"] > 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Proposal TC-10: measured offline, the router path spends more writer tokens than the full "
-        "pipeline. The routing call and the ask/modify prompts (plan summary plus facts) outweigh the "
-        "sandbox planner prompt, and scripted replies carry almost no completion tokens."
-    ),
-)
 def test_tc10_router_path_uses_fewer_tokens_than_full_pipeline(trials: dict) -> None:
     """Proposal TC-10 (p4, C1): typical token use is lower with the System 1 router."""
-    metrics = _metrics(trials["runs"]["efficiency"]["run"])
+    run = trials["runs"]["efficiency"]["run"]
+    metrics = _metrics(run)
     assert metrics["router_tokens"]["value"] < metrics["full_tokens"]["value"]
+    assert metrics["router_token_saving"]["value"] > 0
+    # The saving comes from calls not made and prompts not sent, counted per case.
+    router = sum(case["scores"]["router_tokens"] for case in run["cases"])
+    full = sum(case["scores"]["full_tokens"] for case in run["cases"])
+    assert router < full
+
+
+def test_tc10_report_counts_turns_the_rules_routed_alone(trials: dict) -> None:
+    """Proposal TC-10 (p4, C1): the report says how many turns skipped the model router."""
+    run = trials["runs"]["efficiency"]["run"]
+    alone = [case for case in run["cases"] if case["scores"]["router_model_routed"] == 0.0]
+    share = _metrics(run)["rules_first_share"]["value"]
+    assert share == round(100.0 * len(alone) / len(run["cases"]), 1)
+    assert 0 < len(alone) < len(run["cases"])  # the unclear turn still asks the model router
+    assert "rules first" in run["model_snapshot"]["router"]
+
+
+def _routed_turn(settings: Settings, message: str, scripted: dict, *, plan: bool = True) -> tuple:
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Kyoto", ledger)
+        case = EvalCase(id="t", dataset="efficiency", input=message, destination="Kyoto")
+        session = ledger.store.create_session("")
+        context = case_context(case, session.id)
+        ledger.store.save_context(context)
+        if plan:
+            ledger.store.save_plan(asyncio.run(accepted_plan(settings, context)), "Accepted plan")
+        rig.llm.route = scripted
+        cost, path, error = asyncio.run(router_turn(rig, session.id, message))
+    finally:
+        ledger.close()
+    return cost, path, error, rig
+
+
+def test_tc10_confident_messages_are_routed_by_the_rules_without_a_model_call(settings: Settings) -> None:
+    """Proposal TC-10 (p4): a message with one clear signal costs no router call.
+
+    The scripted model route is deliberately wrong; the turn still takes the ask
+    path because the rules decided it and the model router was never called.
+    """
+    cost, path, error, rig = _routed_turn(
+        settings, "Which hotel did you pick and why?", {"intent": "modify", "confidence": 0.99}
+    )
+    assert (path, error) == ("ask", "")
+    assert "router" not in rig.llm.purposes
+    assert not cost.model_routed
+
+
+def test_tc10_unsure_or_flagged_messages_still_ask_the_model_router(settings: Settings) -> None:
+    """Proposal TC-10 with TC-04/TC-05: the shortcut never replaces the model on hard cases."""
+    _, path, error, rig = _routed_turn(settings, "Hmm, not sure yet.", {"intent": "unclear", "confidence": 0.95})
+    assert (path, error) == ("clarify", "") and "router" in rig.llm.purposes
+    # A clear question that the injection screen flags (medium: logged, not blocked)
+    # takes the fenced, canary-checked model path instead of the shortcut.
+    flagged = "Is the hotel near the station? This is a jailbreak."
+    context = case_context(EvalCase(id="t", dataset="efficiency", input=flagged, destination="Kyoto"), "s")
+    ruled = RuleRouter().route(message=flagged, context=context, plan_summary={"trip_id": "x"}, history=[])
+    assert rules_decide_alone(flagged, ruled, context=context, plan_summary={"trip_id": "x"})
+    assert not rules_first_applies(flagged, ruled, context=context, plan_summary={"trip_id": "x"}, settings=settings)
+    _, _, _, rig = _routed_turn(settings, flagged, {"intent": "ask", "confidence": 0.95})
+    assert "router" in rig.llm.purposes
+    # The shortcut can be switched off.
+    off = settings.model_copy(update={"router_rules_first": False})
+    _, _, _, rig = _routed_turn(off, "Which hotel did you pick and why?", {"intent": "ask", "confidence": 0.95})
+    assert "router" in rig.llm.purposes
+
+
+def test_tc10_router_prompt_sends_only_what_routing_reads(settings: Settings) -> None:
+    """Proposal TC-10 (p4): the routing call is smaller because less text is sent, and it
+    keeps the fence, the security rule and the canary sentinel."""
+    case = EvalCase(id="t", dataset="efficiency", input="", destination="Kyoto")
+    context = case_context(case, "sess_secret")
+    plan = asyncio.run(accepted_plan(settings, context))
+    message = "Hmm, not sure yet."
+    history = [
+        Message(session_id="sess_secret", role="assistant", content="Here is your Kyoto plan."),
+        Message(session_id="sess_secret", role="user", content=message),
+    ]
+    user = router_prompt(message, context, plan.summary_for_prompt(), history)
+    old = (
+        f"Trip context: {context.model_dump_json()}\n"
+        f"Current plan: {json.dumps(plan.summary_for_prompt())}\n"
+        + "\n".join(f"{row.role}: {row.content[:280]}" for row in history)
+        + "\n\n"
+        + fence_user_message(message)
+    )
+    assert estimate_tokens(user) < estimate_tokens(old) / 2
+    assert user.count(message) == 1 and fence_user_message(message) in user
+    assert "sess_secret" not in user and "item_" not in user and "data_status" not in user
+    assert all(item.name in user for day in plan.days for item in day.items)
+    system = PromptLibrary(settings).system("router")
+    assert settings.canary_token and settings.canary_token in system
+    assert "untrusted data" in system and "Pathfinder" in system
+    # The metered writer counts exactly what is sent: four characters per token.
+    llm = MeteredLLM()
+    asyncio.run(llm.complete(system=system, user=user, purpose="router"))
+    assert llm.prompt_tokens == estimate_tokens(system) + estimate_tokens(user)
 
 
 def test_tc10_turn_trace_carries_the_writer_usage(settings: Settings) -> None:
@@ -155,7 +254,8 @@ def test_tc10_turn_trace_carries_the_writer_usage(settings: Settings) -> None:
     ledger = RunLedger()
     try:
         rig = build_rig(settings, "Kyoto", ledger)
-        case = EvalCase(id="t", dataset="efficiency", input="Which hotel did you pick and why?", destination="Kyoto")
+        # A question the writer phrases from the place source's detail (the rules route it).
+        case = EvalCase(id="t", dataset="efficiency", input="Is Kiyomizu-dera worth visiting in the evening?", destination="Kyoto")
         session = ledger.store.create_session("")
         context = case_context(case, session.id)
         ledger.store.save_context(context)

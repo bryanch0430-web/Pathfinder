@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any
 
 from app.application.llm_gateway import LLMGateway
+from app.application.prompt_context import compact_json, plan_outline
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import CanaryLeak
@@ -278,13 +279,7 @@ class AskPath:
         source: str,
     ) -> str:
         if self.gateway.available:
-            user = (
-                f"Question: {question}\n"
-                f"Current plan summary: {json.dumps(plan.summary_for_prompt()) if plan else 'none'}\n"
-                f"Facts for this answer: {json.dumps(facts, default=str)[:12000]}\n"
-                f"Source: {source}\n\n"
-                + fence_user_message(question)
-            )
+            user = ask_prompt(question, plan, facts, source)
             try:
                 data = await self.gateway.json("ask", user=user, purpose="ask.answer")
                 answer = str(data.get("answer") or "").strip()
@@ -295,6 +290,26 @@ class AskPath:
             except Exception:
                 pass
         return _fallback_answer(facts, source)
+
+
+def ask_prompt(question: str, plan: TripPlan | None, facts: dict, source: str) -> str:
+    """The writer's input for one answer (Proposal TC-10: only what the answer reads).
+
+    The question is sent once, fenced. The plan is a day-by-day outline, or just
+    its header line when the facts already carry the itinerary rows. Facts are
+    compact JSON without empty values.
+    """
+    if plan is None:
+        outline = "none"
+    else:
+        outline = plan_outline(plan.summary_for_prompt())
+        if "itinerary" in facts:
+            outline = outline.splitlines()[0]
+    return (
+        f"Plan: {outline}\n"
+        f"Facts (source: {source}): {compact_json(facts)[:12000]}\n\n"
+        + fence_user_message(question)
+    )
 
 
 def _scoped_item(plan: TripPlan | None, scope_item_id: str | None):

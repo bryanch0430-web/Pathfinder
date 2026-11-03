@@ -7,7 +7,6 @@ version increments by one.
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -17,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.application.planning import PlanPath
 from app.application.planner import Planner, _constraints
+from app.application.prompt_context import plan_outline, trip_slots
 from app.application.toolbox import Toolbox
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, repair_plan, tidy_data_gaps, validate_plan
@@ -478,9 +478,11 @@ class ModifyPath:
         route_parts: list[str],
     ) -> ChangeDraft:
         if self.gateway.available:
+            # Proposal TC-10: the item ids, days and times an edit can target, and
+            # the trip slots, not the stored context or the plan's status fields.
             user = (
-                f"Current plan summary: {json.dumps(plan.summary_for_prompt())}\n"
-                f"Trip context: {context.model_dump_json()}\n\n"
+                f"Current plan:\n{plan_outline(plan.summary_for_prompt(), ids=True)}\n"
+                f"Trip: {trip_slots(context, preferences=True)}\n\n"
                 + fence_user_message(message)
             )
             try:

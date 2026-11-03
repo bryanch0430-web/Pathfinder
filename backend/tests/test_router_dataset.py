@@ -71,3 +71,20 @@ def test_tc04_trial_report_breaks_accuracy_down_by_split_and_intent(routing_run:
         expected = round(100.0 * sum(case["passed"] for case in subset) / len(subset), 1)
         assert metrics[f"routing_accuracy_{intent}"] == expected
     assert all(case["judge_reason"].startswith("Expected ") for case in cases)
+
+
+def test_tc04_tc10_rules_first_decisions_are_right_on_the_labelled_set(routing_run: dict) -> None:
+    """Proposal TC-04 with TC-10 (p4): the decisions the router makes without a model call.
+
+    The System 1 router lets the rules decide alone only on one unambiguous signal.
+    On the labelled set every such decision is correct (48 of 84 measured on
+    2026-11-03), so the shortcut that saves the routing call does not cost accuracy;
+    the other utterances still go to Jev or the writer model.
+    """
+    run = routing_run["run"]
+    metrics = {metric["key"]: metric["value"] for metric in run["metrics"]}
+    alone = [case for case in run["cases"] if case["scores"]["rules_alone"]]
+    assert metrics["rules_first_share"] == round(100.0 * len(alone) / len(run["cases"]), 1) >= 50.0
+    assert metrics["rules_first_accuracy"] == 100.0
+    assert all(case["passed"] for case in alone)
+    assert {case["split"] for case in alone} == {"dev", "heldout"}

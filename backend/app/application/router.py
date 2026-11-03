@@ -1,20 +1,29 @@
 """System 1 router: typed decision, confidence and affected parts.
 
-Priority: Jev (when configured) -> writer model -> deterministic rules. All three
-return the same `RouteDecision`; a lower layer is always able to take over.
+Priority: confident rules -> Jev (when configured) -> writer model -> deterministic
+rules. The rules decide alone only when a message carries one unambiguous signal
+(``rules_decide_alone``) and the injection screen flags nothing; every other
+message goes to the model layers, which see a compact prompt (``router_prompt``).
+All layers return the same `RouteDecision`; a lower layer is always able to take
+over. Proposal TC-10: the shortcut is what makes a routed turn cheaper than the
+full pipeline.
 """
 
 from __future__ import annotations
 
-import json
 import re
+from datetime import date
 from typing import Any, Sequence
 
 from app.application.llm_gateway import LLMGateway
+from app.application.prompt_context import plan_outline, recent_turns, trip_slots
 from app.config import Settings
 from app.domain.errors import CanaryLeak
 from app.domain.models import Intent, Message, RouteDecision, TripContext
-from app.security import fence_user_message
+from app.security import fence_user_message, screen_message
+
+#: rationale on a decision the rules made without asking a model
+RULES_FIRST = "rules-first: one unambiguous signal"
 
 MODIFY_VERBS = r"(change|swap|replace|switch|move|add|remove|drop|cancel|upgrade|downgrade|shorten|extend|make it|turn it|adjust|update)"
 
@@ -29,6 +38,29 @@ def looks_like_question(message: str) -> bool:
     return bool(re.match(ASK_STARTERS, text.lower()))
 PLAN_VERBS = r"(plan|planning|itinerary|organi[sz]e|arrange|build|create|design|route|schedule)"
 ASK_STARTERS = r"^(what|where|when|which|who|why|how|is|are|can|could|do|does|should|will|would|any)\b"
+
+# --- rules-first gate ---------------------------------------------------------
+# The rules answer alone only when the message carries one unambiguous signal.
+# Everything else (hedges, mixed signals, bare fragments, non-English text,
+# anything the injection screen flags) still goes to Jev or the writer model.
+_HEDGES = (
+    r"\b(not sure|maybe|perhaps|i don'?t know|dunno|whatever|surprise me|never ?mind|"
+    r"something|somewhere|anything|thinking (of|about)|what if|what about|rather)\b"
+)
+_COMMAND_QUESTION = r"^(please\b|(can|could|would|will) (you|we)\b)"
+_WORD_MODIFY = rf"\b{MODIFY_VERBS}\b"
+_TRAVEL_ANCHORS = (
+    r"\b(hotels?|hostels?|ryokan|rooms?|stay|check[- ]?(in|out)|flights?|fly|trains?|stations?|airport|"
+    r"tickets?|fares?|tram|ferry|bus|metro|mtr|subway|taxi|weather|rain\w*|forecast|typhoon|"
+    r"temperature|umbrellas?|budget|cost|price|pay|total|day\s*\d+|(first|second|third|last) "
+    r"(day|morning|afternoon|evening|night)|walk\w*|open|opening|close[sd]?|hours|museums?|"
+    r"temples?|shrines?|castle|park|market|restaurants?|cafe|food|meals?|lunch|dinner|breakfast|"
+    r"vegetarian|vegan|halal|stops?|trip|visit\w*|morning|afternoon|evening)\b"
+)
+_TRIP_DETAIL = (
+    r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|a)\s+(days?|nights?|weeks?)\b|"
+    r"\b(week|weekend|fortnight)\b"
+)
 
 
 class RuleRouter:
@@ -105,15 +137,7 @@ class LLMRouter:
     ) -> RouteDecision:
         if not self.gateway.available:
             raise RuntimeError("writer unavailable")
-        history_lines = [f"{item.role}: {item.content[:280]}" for item in history[-6:]]
-        user = (
-            f"Current date: {__import__('datetime').date.today().isoformat()}\n"
-            f"Trip context: {context.model_dump_json()}\n"
-            f"Current plan: {json.dumps(plan_summary) if plan_summary else 'none'}\n"
-            f"Recent history:\n" + ("\n".join(history_lines) or "(none)") + "\n\n"
-            + fence_user_message(message)
-        )
-        data = await self.gateway.json("router", user=user, purpose="router")
+        data = await self.gateway.json("router", user=router_prompt(message, context, plan_summary, history), purpose="router")
         intent = str(data.get("intent", "unclear")).lower()
         if intent == "clarify":
             intent = "unclear"
@@ -137,6 +161,26 @@ class LLMRouter:
             related_to_plan=bool(data.get("related_to_plan", plan_summary is not None)),
             rationale=str(data.get("rationale") or ""),
         )
+
+
+def router_prompt(
+    message: str,
+    context: TripContext,
+    plan_summary: dict[str, Any] | None,
+    history: Sequence[Message],
+) -> str:
+    """What the model router reads: trip slots, a day-by-day outline of the plan
+    (names and times, no ids or statuses), earlier turns and the fenced message.
+
+    The current message is already the last history row; it is sent once, fenced.
+    """
+    return (
+        f"Today: {date.today().isoformat()}\n"
+        f"Trip: {trip_slots(context)}\n"
+        f"Current plan: {plan_outline(plan_summary, times=False)}\n"
+        f"Earlier turns:\n{recent_turns(history, message)}\n\n"
+        + fence_user_message(message)
+    )
 
 
 class System1Router:
@@ -163,6 +207,15 @@ class System1Router:
         plan_summary: dict[str, Any] | None,
         history: Sequence[Message],
     ) -> RouteDecision:
+        ruled = self.rules.route(message=message, context=context, plan_summary=plan_summary, history=history)
+        if self.use_model and rules_first_applies(
+            message, ruled, context=context, plan_summary=plan_summary, settings=self.settings
+        ):
+            # Rules first: a message with one unambiguous signal is decided here,
+            # with no Jev or writer call. A message the injection screen flags,
+            # or one the rules are unsure about, takes the model path below.
+            decided = ruled.model_copy(update={"rationale": RULES_FIRST})
+            return _gate(decided, context, plan_summary, self.settings, source="rules")
         if self.use_model and self.decision_client is not None:
             try:
                 decision = await self.decision_client.route(
@@ -190,13 +243,7 @@ class System1Router:
                 raise
             except Exception:
                 pass
-        decision = self.rules.route(
-            message=message,
-            context=context,
-            plan_summary=plan_summary,
-            history=history,
-        )
-        return _gate(decision, context, plan_summary, self.settings, source="rules")
+        return _gate(ruled, context, plan_summary, self.settings, source="rules")
 
 
 def _gate(
@@ -279,3 +326,89 @@ def _looks_like_new_trip(lower: str) -> bool:
 def affected_parts_for(message: str) -> list[str]:
     """Public wrapper over the scope rules, shared with the Jev adapter."""
     return _affected_parts(message.lower())
+
+
+def rules_first_applies(
+    message: str,
+    decision: RouteDecision,
+    *,
+    context: TripContext,
+    plan_summary: dict[str, Any] | None,
+    settings: Settings,
+) -> bool:
+    """The System 1 router's shortcut test: the rules' decision stands with no model call.
+
+    It needs the setting on, a confidence at or above the router threshold, one
+    unambiguous signal (``rules_decide_alone``) and nothing the injection screen
+    flags, so a suspicious message always gets the fenced, canary-checked path.
+    """
+    return (
+        settings.router_rules_first
+        and decision.confidence >= settings.router_threshold
+        and rules_decide_alone(message, decision, context=context, plan_summary=plan_summary)
+        and not screen_message(message, settings).flagged
+    )
+
+
+def rules_decide_alone(
+    message: str,
+    decision: RouteDecision,
+    *,
+    context: TripContext,
+    plan_summary: dict[str, Any] | None,
+) -> bool:
+    """True when the rules' decision is unambiguous enough to skip Jev and the writer.
+
+    Only a plan, modify or ask decision backed by exactly one kind of signal
+    qualifies: a question about a named part of the trip, a change verb aimed at
+    the current plan, or a planning request with a concrete detail. Hedges,
+    mixed signals (a question that also asks for a plan or a change), bare
+    fragments and non-English text return False and go to the model router.
+    The caller also keeps every message the injection screen flags away from
+    this shortcut.
+    """
+    text = (message or "").strip()
+    lower = text.lower()
+    words = re.findall(r"[a-z0-9']+", lower)
+    if len(words) < 3 or not text.isascii() or re.search(_HEDGES, lower):
+        return False
+    is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
+    command_question = bool(re.match(_COMMAND_QUESTION, lower))
+    plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
+    modify_hit = bool(re.search(_WORD_MODIFY, lower))
+    if decision.intent == Intent.ASK:
+        return (
+            is_question
+            and not plan_hit
+            and not modify_hit
+            and (bool(re.search(_TRAVEL_ANCHORS, lower)) or _names_a_known_place(lower, context, plan_summary))
+        )
+    if decision.intent == Intent.MODIFY:
+        return (
+            plan_summary is not None
+            and modify_hit
+            and (not is_question or command_question)
+            and not re.search(r"\b(new|another|different|fresh)\s+(trip|itinerary|plan)\b", lower)
+        )
+    if decision.intent == Intent.PLAN:
+        if is_question and not command_question:
+            return False
+        travel_hit = bool(re.search(r"\b(trip|travel|holiday|vacation|visit|go to|going to)\b", lower))
+        detail = bool(re.search(_TRIP_DETAIL, lower)) or _names_a_place(text)
+        ready = plan_summary is None and not context.missing_slots() and bool(context.destination)
+        return (plan_hit or travel_hit) and (detail or ready)
+    return False
+
+
+def _names_a_place(text: str) -> bool:
+    """A capitalised word after the first one, e.g. "a weekend in Osaka"."""
+    return any(word[0].isupper() and word not in {"I", "I'd", "I'm"} for word in text.split()[1:])
+
+
+def _names_a_known_place(lower: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
+    names = [context.destination or ""]
+    if plan_summary:
+        names.append(str(plan_summary.get("destination") or ""))
+        for day in plan_summary.get("days") or []:
+            names.extend(str(item.get("name") or "") for item in day.get("items") or [])
+    return any(len(name) >= 3 and name.lower() in lower for name in names)

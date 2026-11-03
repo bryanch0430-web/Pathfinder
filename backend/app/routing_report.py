@@ -47,5 +47,23 @@ def routing_breakdown(results: list[EvalCaseResult]) -> list[EvalMetric]:
                     value=_pct(sum(result.passed for result in subset), len(subset)),
                 )
             )
+    # Proposal TC-10: how many utterances the router's rules-first shortcut would
+    # decide with no model call, and how often those decisions are right.
+    alone = [result for result in results if result.scores.get("rules_alone")]
+    metrics.append(
+        EvalMetric(
+            key="rules_first_share",
+            label="Decided by the rules alone (no model call)",
+            value=_pct(len(alone), len(results)),
+        )
+    )
+    if alone:
+        metrics.append(
+            EvalMetric(
+                key="rules_first_accuracy",
+                label=f"Accuracy of rules-alone decisions ({sum(r.passed for r in alone)}/{len(alone)})",
+                value=_pct(sum(result.passed for result in alone), len(alone)),
+            )
+        )
     metrics.extend(split_metrics("routing"))
     return metrics

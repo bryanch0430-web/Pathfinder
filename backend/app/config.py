@@ -123,6 +123,9 @@ class Settings(BaseSettings):
 
     # --- planning policy ---------------------------------------------------
     router_threshold: float = 0.8
+    # Let the deterministic rules decide unambiguous messages without a Jev or
+    # writer call (Proposal TC-10). Unsure or flagged messages still use the model.
+    router_rules_first: bool = True
     max_repairs: int = 2
     preplan_budget_seconds: float = 90.0
     agent_timeout_seconds: float = 30.0

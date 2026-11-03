@@ -19,7 +19,7 @@ from app.application.modification import ModifyPath
 from app.application.planning import PlanPath
 from app.application.planner import Planner
 from app.application.prompts import PromptLibrary
-from app.application.router import RuleRouter
+from app.application.router import RuleRouter, rules_first_applies
 from app.application.toolbox import Toolbox
 from app.application.validation import validate_plan
 from app.config import Settings
@@ -231,6 +231,10 @@ class EvalService:
         )
         decision = RuleRouter().route(message=case.input, context=context, plan_summary={"trip_id": "x"}, history=[])
         passed = decision.intent == case.expected_intent
+        # Proposal TC-10: would the System 1 router let this decision stand with no model call?
+        alone = rules_first_applies(
+            case.input, decision, context=context, plan_summary={"trip_id": "x"}, settings=self.settings
+        )
         return EvalCaseResult(
             case_id=case.id,
             dataset=case.dataset,
@@ -241,7 +245,7 @@ class EvalService:
             input=case.input,
             output_summary=f"{decision.intent.value} ({decision.confidence:.2f})",
             judge_reason="Expected " + (case.expected_intent.value if case.expected_intent else "unknown"),
-            scores={"routing_accuracy": 1.0 if passed else 0.0},
+            scores={"routing_accuracy": 1.0 if passed else 0.0, "rules_alone": 1.0 if alone else 0.0},
         )
 
     async def _injection_cases(self, cases: list[EvalCase]) -> list[EvalCaseResult]:

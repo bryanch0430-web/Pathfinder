@@ -8,11 +8,15 @@ agents and the planner, whatever was asked). The pair is compared on latency,
 tool calls, writer calls and tokens.
 
 The run is offline. Providers are the deterministic sandbox; the writer is
-``MeteredLLM``, whose router reply is scripted from the case's expected intent
-so the run measures the cost of each path, not routing accuracy (that is the
-``routing`` dataset). Tool calls are counted at the provider and compared with
-the SQLite tool log (Proposal TC-12). The rig here is shared with the
-``edit_vs_replan`` dataset in ``app.eval_edits``.
+``MeteredLLM``. The router decides rules first: a message with one unambiguous
+signal is routed by the rules with no writer call, and only the rest reach the
+model router, whose reply is scripted from the case's expected intent so the run
+measures the cost of each path, not model routing accuracy (that is the
+``routing`` dataset). Tokens are the characters actually sent and returned,
+estimated at four per token (``app.eval_metering``), so a shorter prompt or a
+skipped call is a real saving. Tool calls are counted at the provider and
+compared with the SQLite tool log (Proposal TC-12). The rig here is shared with
+the ``edit_vs_replan`` dataset in ``app.eval_edits``.
 """
 
 from __future__ import annotations
@@ -46,9 +50,11 @@ from app.infrastructure.providers.websearch import WebResult
 
 SNAPSHOT = {
     "writer": "sandbox-metered (scripted replies; tokens estimated at 4 characters per token)",
-    "router": "model (scripted offline from the expected intent)",
+    "router": "rules first; the model router (scripted offline from the expected intent) only when the rules are unsure",
     "providers": "sandbox",
 }
+#: gateway purposes of a model routing call (the writer router; Jev is off offline)
+ROUTER_PURPOSES = frozenset({"router", "router.repair"})
 
 
 @dataclass
@@ -59,10 +65,16 @@ class PathCost:
     tokens: int = 0
     latency_ms: float = 0.0
     tools: Counter = field(default_factory=Counter)
+    purposes: list[str] = field(default_factory=list)
 
     @property
     def api_calls(self) -> int:
         return self.tool_calls + self.llm_calls
+
+    @property
+    def model_routed(self) -> bool:
+        """The turn asked the model router (the rules alone were not sure)."""
+        return any(purpose in ROUTER_PURPOSES for purpose in self.purposes)
 
     def describe(self) -> str:
         return (
@@ -224,6 +236,7 @@ def measure(ledger: RunLedger, before: Counter, request_id: str, generations: li
         tokens=sum(int(row["prompt_tokens"]) + int(row["completion_tokens"]) for row in generations),
         latency_ms=round((time.perf_counter() - started) * 1000, 1),
         tools=ledger.logged_tools(request_id),
+        purposes=[str(row.get("purpose") or "") for row in generations],
     )
 
 
@@ -340,8 +353,10 @@ async def _efficiency_case(case: EvalCase, settings: Settings, ledger: RunLedger
         input=case.input,
         output_summary=f"Router → {path or '?'}: {router.describe()}. Full pipeline: {full.describe()}.",
         judge_reason=(
-            "Proposal TC-10: a planning request may cost one extra router call; any other "
-            "intent must use fewer API calls than always running the full pipeline."
+            "Proposal TC-10: a planning request costs at most one extra router call (none when "
+            "the rules decide it); any other intent must use fewer API calls than always running "
+            "the full pipeline. "
+            + ("The model router was asked." if router.model_routed else "The rules routed it alone.")
         ),
         tool_summary=tools[:16],
         scores={
@@ -349,6 +364,7 @@ async def _efficiency_case(case: EvalCase, settings: Settings, ledger: RunLedger
             "router_llm_calls": router.llm_calls,
             "router_tokens": router.tokens,
             "router_latency_ms": router.latency_ms,
+            "router_model_routed": 1.0 if router.model_routed else 0.0,
             "full_tool_calls": full.tool_calls,
             "full_llm_calls": full.llm_calls,
             "full_tokens": full.tokens,
@@ -389,6 +405,11 @@ def _efficiency_metrics(router: list[PathCost], full: list[PathCost]) -> list[Ev
             key="router_token_saving",
             label="Tokens saved by the router",
             value=saving(sum(c.tokens for c in router), sum(c.tokens for c in full)),
+        ),
+        EvalMetric(
+            key="rules_first_share",
+            label="Turns routed by the rules alone (no router model call)",
+            value=round(100.0 * sum(not c.model_routed for c in router) / len(router), 1) if router else 0.0,
         ),
         *path_metrics("router", "Router path", router),
         *path_metrics("full", "Full pipeline", full),
