@@ -9,6 +9,7 @@ commit is named for anyone who wants to read the diff.
 
 Hardening release: limits, expiry and a language switcher that works.
 
+- **A trip message cannot step out of its quotation marks.** The text a traveller types is now fenced the same way in the first reading step as everywhere else, and a fake closing tag typed in any capitals or spacing is removed, even when it is built out of pieces. (`73301b1`)
 - **A deployment that forgets `ENVIRONMENT` is refused, not left open.** An unset `ENVIRONMENT` now means production, so the backend will not start on the repository's public signing secret and admin token. Local work sets `ENVIRONMENT=development` (the dev scripts do it) and the tests set `test`. (`f5bb22f`)
 - **A trip opens only in the browser that made it.** Knowing a trip's id is no longer enough. The page sends its guest token with every request, a guest trip answers only to the token it was created with, and that token is never sent back to the page. Signing up or in takes over only the trip the traveller's own browser created. (`1ccd596`)
 - **"Korea" is South Korea again.** Without a Google key, the first keyless geocoder (Open-Meteo, which indexes towns, not countries) answered a bare "Korea" with Koréa in Côte d'Ivoire, so the trip was planned in West Africa with no stops. A plain village is now only a last resort: the next geocoder is asked first.
