@@ -308,6 +308,12 @@ class TurnService:
         context.language = locale or context.language
         plan = self.store.get_plan(session_id)
         intent: Intent = Intent.UNCLEAR
+        # How the trace of this turn ends. A handler below sets it before it ends the turn, so a turn that is
+        # closed while it reports a failure still has the failure on record.
+        status = "ok"
+        # The error event of a failed turn. It is sent from the end of this method, not from the handler: nothing
+        # is yielded while an exception is being handled, so closing the turn at the error ends it like anywhere else.
+        failure: TurnEvent | None = None
         closed = False
         try:
             # Display language, refresh and Chinese input are decided first: before
@@ -477,53 +483,58 @@ class TurnService:
             closed = True
             raise
         except CanaryLeak:
+            status = "blocked"
             self.store.log_injection("canary_leak", "high", channel="model_output")
             message_text = "I cannot return that answer. Ask the question again in your own words."
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
             )
-            yield TurnEvent(
+            failure = TurnEvent(
                 event="error",
                 data={"code": "canary_leak", "message": message_text, "retryable": False},
             )
-            tracer.finish(status="blocked")
         except PlanInvalidError as exc:
+            status = "error"
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=str(exc), intent=intent)
             )
-            yield TurnEvent(event="error", data={"code": exc.code, "message": str(exc), "retryable": exc.retryable})
-            tracer.finish(status="error")
+            failure = TurnEvent(event="error", data={"code": exc.code, "message": str(exc), "retryable": exc.retryable})
         except PlanConflict as exc:
+            status = "error"
             _note_failure(tracer, exc)
             message_text = user_facing_error(exc)
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
             )
-            yield TurnEvent(event="error", data={"code": "plan_conflict", "message": message_text, "retryable": True})
-            tracer.finish(status="error")
+            failure = TurnEvent(
+                event="error",
+                data={"code": "plan_conflict", "message": message_text, "retryable": True},
+            )
         except PathfinderError as exc:
+            status = "error"
             _note_failure(tracer, exc)
             message_text = user_facing_error(exc)
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
             )
-            yield TurnEvent(event="error", data={**exc.as_dict(), "message": message_text})
-            tracer.finish(status="error")
+            failure = TurnEvent(event="error", data={**exc.as_dict(), "message": message_text})
         except Exception as exc:
+            status = "error"
             _note_failure(tracer, exc)
             message_text = user_facing_error(exc)
             self.store.add_message(
                 Message(session_id=session_id, role="assistant", content=message_text, intent=intent)
             )
-            yield TurnEvent(
+            failure = TurnEvent(
                 event="error",
                 data={"code": "internal_error", "message": message_text, "retryable": True},
             )
-            tracer.finish(status="error")
         finally:
             reset_developer_view(developer_token)
-            tracer.finish(status="ok")
+            tracer.finish(status=status)
             if not closed:
+                if failure is not None:
+                    yield failure
                 yield TurnEvent(
                     event="trace",
                     data={
