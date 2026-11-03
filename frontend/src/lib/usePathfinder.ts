@@ -65,9 +65,10 @@ const emptyContext = (sessionId = ""): TripContext => ({
 /**
  * What opening a trip came to. `missing`: the server has no such trip for this identity, and the
  * traveller is signed in, so it is gone. `needs-sign-in`: the same answer while signed out, when the
- * trip may belong to an account. `unavailable`: the server could not be reached.
+ * trip may belong to an account. `unavailable`: the server could not be reached. `superseded`: the
+ * traveller asked for something else before the answer came, so nothing was shown.
  */
-export type OpenOutcome = "opened" | "missing" | "needs-sign-in" | "unavailable";
+export type OpenOutcome = "opened" | "missing" | "needs-sign-in" | "unavailable" | "superseded";
 
 export interface PathfinderHook {
   ready: boolean;
@@ -168,6 +169,11 @@ export function usePathfinder(locale: string): PathfinderHook {
   const lastMessage = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const sessionRef = useRef<string | null>(null);
+  // Every open, new trip and reload takes the next number, and only the latest is shown when its answer
+  // arrives: the traveller's last click wins, whatever order the answers come back in.
+  const navRef = useRef(0);
+  const creatingRef = useRef<Promise<string> | null>(null);
+  const creatingTicket = useRef(0);
 
   /** Follow the session's plan locale: zh-Hant shows the interface in 繁; English leaves 繁 for EN, and EN/简 as they are. */
   const adoptPlanLocale = useCallback(
@@ -180,17 +186,14 @@ export function usePathfinder(locale: string): PathfinderHook {
     [setUiLocale],
   );
 
-  /** A new session starts in English; carry the 繁 choice over to it. */
-  const carryPlanLocale = useCallback(async (id: string, context: TripContext) => {
-    if (uiLocaleRef.current !== "zh-Hant" || context.plan_locale === "zh-Hant") {
-      if (isPlanLocale(context.plan_locale)) setPlanLocaleState(context.plan_locale);
-      return context;
-    }
-    setPlanLocaleState("zh-Hant");
+  /** A new session starts in English; carry the 繁 choice over to it. Returns the context to show. */
+  const carryPlanLocale = useCallback(async (id: string, context: TripContext): Promise<TripContext> => {
+    if (uiLocaleRef.current !== "zh-Hant" || context.plan_locale === "zh-Hant") return context;
     try {
       return (await patchContext(id, { plan_locale: "zh-Hant" })).context;
     } catch {
-      return context;
+      // The view still switches; the session keeps its stored locale until the next save.
+      return { ...context, plan_locale: "zh-Hant" };
     }
   }, []);
 
@@ -210,39 +213,41 @@ export function usePathfinder(locale: string): PathfinderHook {
     setFeedbackStars(null);
   }, []);
 
-  const loadSession = useCallback(async (id: string, fresh = false) => {
-    const data = await getSession(id);
+  /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
+  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages">) => {
     if (sessionRef.current !== id) forgetTripView();
-    if (fresh) setContextState(await carryPlanLocale(id, data.context));
-    else {
-      setContextState(data.context);
-      adoptPlanLocale(data.context.plan_locale);
-    }
-    if (data.plan) {
-      setPlan(data.plan);
-      setActiveVersion(data.plan.version);
+    setContextState(trip.context);
+    adoptPlanLocale(trip.context.plan_locale);
+    if (trip.plan) {
+      setPlan(trip.plan);
+      setActiveVersion(trip.plan.version);
     } else {
       setPlan(null);
       setActiveVersion(1);
     }
     setChangedIds([]);
     setHotelChanged(false);
-    setVersions(data.versions);
-    setMessages(data.messages);
+    setVersions(trip.versions);
+    setMessages(trip.messages);
+    localStorage.setItem(SESSION_KEY, id);
     sessionRef.current = id;
     setSessionId(id);
-  }, [adoptPlanLocale, carryPlanLocale, forgetTripView]);
+  }, [adoptPlanLocale, forgetTripView]);
 
   const bootstrap = useCallback(async () => {
+    const ticket = ++navRef.current;
     setError(null);
     try {
-      let id = localStorage.getItem(SESSION_KEY);
+      const id = localStorage.getItem(SESSION_KEY);
       if (id) {
         try {
-          await loadSession(id);
+          const data = await getSession(id);
+          if (ticket !== navRef.current) return;
+          showTrip(id, data);
           setReady(true);
           return;
         } catch (cause) {
+          if (ticket !== navRef.current) return;
           if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
             // The server says this trip is gone or is not this browser's: forget it.
             clearStoredValue("session");
@@ -255,18 +260,16 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
       }
       const created = await createSession(clientToken());
-      id = created.session.id;
-      localStorage.setItem(SESSION_KEY, id);
-      forgetTripView();
-      setContextState(await carryPlanLocale(id, created.context));
-      sessionRef.current = id;
-      setSessionId(id);
+      const context = await carryPlanLocale(created.session.id, created.context);
+      if (ticket !== navRef.current) return;
+      showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
       setReady(true);
     } catch (cause) {
+      if (ticket !== navRef.current) return;
       setError(failureOf(cause, "errors.backend"));
       setReady(true);
     }
-  }, [carryPlanLocale, forgetTripView, loadSession]);
+  }, [carryPlanLocale, showTrip]);
 
   useEffect(() => {
     void bootstrap();
@@ -282,42 +285,60 @@ export function usePathfinder(locale: string): PathfinderHook {
     // The stream of the trip being left stops with it, so its late events cannot land in this one.
     abortRef.current?.abort();
     setError(null);
+    const ticket = ++navRef.current;
     setReady(false);
     try {
-      await loadSession(id);
-      localStorage.setItem(SESSION_KEY, id);
+      const data = await getSession(id);
+      if (ticket !== navRef.current) return "superseded";
+      showTrip(id, data);
       setReady(true);
       return "opened";
     } catch (cause) {
-      setReady(true);
+      // Whatever came of this answer, the page belongs to the latest ask: it is told nothing about this one.
+      const latest = ticket === navRef.current;
+      if (latest) setReady(true);
       if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
         // The server answers 404 both for a trip that is gone and for one that is not this
         // identity's. Signed out, it may be an account's trip: say so and keep it.
         if (!localStorage.getItem(AUTH_KEY)) {
-          setError("errors.signInToOpen");
+          if (latest) setError("errors.signInToOpen");
           return "needs-sign-in";
         }
         return "missing";
       }
       // The server is down or slow: the trip is not gone.
-      setError(unreachableOf(cause));
+      if (latest) setError(unreachableOf(cause));
       return "unavailable";
     }
-  }, [loadSession]);
+  }, [showTrip]);
 
-  const newPlan = useCallback(async () => {
-    abortRef.current?.abort();
-    setReady(false);
-    try {
-      const created = await createSession(clientToken());
-      await loadSession(created.session.id, true);
-      localStorage.setItem(SESSION_KEY, created.session.id);
-      setReady(true);
-      return created.session.id;
-    } finally {
-      setReady(true);
+  const newPlan = useCallback((): Promise<string> => {
+    const pending = creatingRef.current;
+    if (pending) {
+      // A second click while the first trip is still being made takes the view but makes no second trip.
+      creatingTicket.current = ++navRef.current;
+      setReady(false);
+      return pending;
     }
-  }, [loadSession]);
+    abortRef.current?.abort();
+    creatingTicket.current = ++navRef.current;
+    setReady(false);
+    const making = (async () => {
+      try {
+        const created = await createSession(clientToken());
+        const context = await carryPlanLocale(created.session.id, created.context);
+        if (creatingTicket.current === navRef.current) {
+          showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
+        }
+        return created.session.id;
+      } finally {
+        creatingRef.current = null;
+        if (creatingTicket.current === navRef.current) setReady(true);
+      }
+    })();
+    creatingRef.current = making;
+    return making;
+  }, [carryPlanLocale, showTrip]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
