@@ -399,7 +399,8 @@ drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The comm
 
 - `weather`: dates outside the 16-day forecast fall back to a three-year archive average,
   labelled `Seasonal`/`stale`. If the archive also has no rows, the gap names both dates
-  and both windows.
+  and both windows. A forecast source that failed (a timeout, a server error) keeps its gap
+  while only the seasonal average fills the dates.
 - `tickets`: a departure city is now a required planning slot, so the assistant asks for
   it instead of leaving a ticket gap. Same-city trips skip flights with a note, not a gap.
   A round trip uses SerpApi's two-step flow (`departure_token`): the outbound and the

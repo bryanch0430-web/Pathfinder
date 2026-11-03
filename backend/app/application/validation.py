@@ -17,7 +17,7 @@ from typing import Any, TypeVar
 from app.application.llm_gateway import LLMGateway
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
-from app.domain.models import DataStatus, DayPlan, HotelStay, PlanItem, TicketOption, TripPlan
+from app.domain.models import DataStatus, DayPlan, FailureKind, HotelStay, PlanItem, TicketOption, TripPlan
 
 
 def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
@@ -226,13 +226,16 @@ def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
 
     A gap is a statement about the current plan, not an append-only log. Old
     Wikimedia failures from before the policy fix, a missing origin that is now
-    simply optional, and a weather gap whose days now carry a seasonal/forecast
-    row must not survive into a new version.
+    simply optional, and a weather gap about days that now carry a seasonal or
+    forecast row must not survive into a new version. A forecast that failed is
+    the exception: its gap stays until a live forecast covers every date.
     """
     all_weather = bool(plan.days) and all(
         day.weather is not None and day.weather.status != DataStatus.UNAVAILABLE
         for day in plan.days
     )
+    # A failed forecast stays on the record while a seasonal reference stands in for it.
+    all_live = all_weather and all(day.weather is not None and day.weather.status == DataStatus.OK for day in plan.days)
     kept: list[Any] = []
     seen: set[tuple[str, str]] = set()
     for gap in plan.data_quality.gaps:
@@ -251,7 +254,7 @@ def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
             continue
         if "no origin city was given" in text or "ticket agent returned no usable data" in text:
             continue
-        if gap.section == "weather" and all_weather:
+        if gap.section == "weather" and (all_live or (all_weather and gap.kind is FailureKind.NO_DATA)):
             continue
         if gap.section == "weather" and "no usable data" in text:
             gap.message = (
