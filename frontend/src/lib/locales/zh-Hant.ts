@@ -51,6 +51,7 @@ export const ZH_HANT: Messages = {
   "chat.clearScope": "取消選取的站點",
   "chat.placeholderScoped": "詢問這個站點，或提出修改…",
   "chat.placeholder": "提出修改，或問個簡短問題…",
+  "chat.offline": "重新連線到伺服器後才能傳送訊息。",
   "chat.message": "訊息",
   "chat.send": "傳送訊息",
   "chat.hint": "Enter 傳送 · Shift + Enter 換行",
@@ -447,7 +448,7 @@ export const ZH_HANT: Messages = {
 
   "errors.memory": "無法清除記憶。",
   "errors.backend": "無法連線到後端",
-  "errors.reconnect": "無法連線到伺服器。你的行程已保留，請重新整理頁面以重新連線。",
+  "errors.reconnect": "無法連線到伺服器。你的行程已保留，請按「重試」重新連線。",
   "errors.signInToOpen": "此處無法開啟這個行程。如果它屬於你的帳戶，請登入後再開啟。",
   "errors.saveDetails": "無法儲存行程資料。",
 
