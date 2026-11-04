@@ -213,18 +213,30 @@ def replans_new_destination(message: str, context: TripContext, plan_summary: di
     return is_replan_message(message) and names_another_place(context, plan_summary)
 
 
+def _says_a_length_only(lower: str) -> bool:
+    """A length said in plain words and nothing that moves or shortens the trip ("only 2 days", "can I do 4 days")."""
+    return (
+        any(pattern.search(lower) for pattern in _LENGTH_SAID)
+        and not any(pattern.search(lower) for pattern in _NEW_DATES)
+        and not any(pattern.search(lower) for pattern in _SPAN_DATES)
+    )
+
+
 def asks_for_other_dates(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
     """``asks_for_new_dates`` for a traveller who has a plan. A length said in plain words ("I want 4 nights",
     "only 2 days") is a new trip when the sentence names another place than the plan's ("I want 4 nights in Osaka")."""
     lower = (message or "").lower()
     if not asks_for_new_dates(lower):
         return False
-    says_a_length_only = (
-        any(pattern.search(lower) for pattern in _LENGTH_SAID)
-        and not any(pattern.search(lower) for pattern in _NEW_DATES)
-        and not any(pattern.search(lower) for pattern in _SPAN_DATES)
-    )
-    return not (says_a_length_only and names_another_place(context, plan_summary))
+    return not (_says_a_length_only(lower) and names_another_place(context, plan_summary))
+
+
+def _changes_the_dates(lower: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
+    """What the rules count as a change of the trip's dates. With no plan there is nothing to change, so a length said
+    in plain words is not one: "can I do 4 days in Kyoto?" stays a question and "we need 4 days" plans a trip."""
+    if plan_summary is None:
+        return asks_for_new_dates(lower) and not _says_a_length_only(lower)
+    return asks_for_other_dates(lower, context, plan_summary)
 
 
 class RuleRouter:
@@ -249,7 +261,7 @@ class RuleRouter:
         is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
         modify_hit = (
             bool(re.search(MODIFY_VERBS, lower))
-            or asks_for_other_dates(lower, context, plan_summary)
+            or _changes_the_dates(lower, context, plan_summary)
             or is_replan_message(text)
             or _MAKE_THE_TRIP.search(lower) is not None
         )
@@ -618,7 +630,7 @@ def rules_decide_alone(
     plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
     modify_hit = (
         bool(re.search(_WORD_MODIFY, lower))
-        or asks_for_other_dates(lower, context, plan_summary)
+        or _changes_the_dates(lower, context, plan_summary)
         or is_replan_message(text)
         or _MAKE_THE_TRIP.search(lower) is not None
     )
