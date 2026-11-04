@@ -16,6 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.application.agents import _same_place
+from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
 from app.application.opening_hours import lines_for, only_other_weekdays
 from app.application.planning import PlanPath
@@ -26,6 +27,7 @@ from app.application.planner import (
     Planner,
     _constraints,
     _pace,
+    _reservations,
 )
 from app.application.prompt_context import plan_outline, trip_slots
 from app.application.router import asks_for_new_dates, asks_for_trip_dates, is_replan_message
@@ -560,6 +562,18 @@ class ModifyPath:
         if referred:
             keep_only(old_plan, updated, referred)
             draft.description = _one_item_summary(old_plan, updated, referred)
+        if _first_flight(old_plan) != _first_flight(updated):
+            # The flight's reservation is the plan's first flight: one an edit replaced or dropped is not kept.
+            updated.reservations = [
+                row for row in updated.reservations if not row.name.startswith("Flight · ")
+            ] + _reservations([], updated.tickets)
+        # A section this edit fetched again is no longer marked outdated (the next reopen would only clear it).
+        still_outdated = outdated_sections(updated, self.settings, utcnow())
+        updated.data_quality.freshness = [
+            mark
+            for mark in updated.data_quality.freshness
+            if not (mark.status == "outdated" and mark.section not in still_outdated)
+        ]
         # Budget and cost are always recalculated after a change.
         if context.budget is not None:
             updated.budget = Money(amount=context.budget, currency=context.currency)
@@ -1480,6 +1494,11 @@ def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
     if asks_for_new_dates(message):
         return bool(changes)
     return bool(changes) or _CHANGE_HOTEL.search(message) is None
+
+
+def _first_flight(plan: TripPlan) -> tuple[str, str] | None:
+    """The flight the plan's reservation is for: its name and booking link, or None without a flight."""
+    return (plan.tickets[0].name, plan.tickets[0].booking_url) if plan.tickets else None
 
 
 def _form_differences(plan: TripPlan, context: TripContext) -> list[str]:
