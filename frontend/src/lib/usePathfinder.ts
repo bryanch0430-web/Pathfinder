@@ -466,11 +466,11 @@ export function usePathfinder(locale: string): PathfinderHook {
   const openSession = useCallback(async (id: string): Promise<OpenOutcome> => {
     const ticket = ++navRef.current;
     if (id === sessionRef.current) {
-      // Already open: nothing to load, and nothing the traveller asked for before is wanted any more. That includes the
-      // banner of a trip that could not be opened, whose Retry would switch to it.
+      // Already open: nothing to load, and no other trip is wanted any more. That includes the banner of a trip that could
+      // not be opened, whose Retry would switch to it. What failed on this trip stays, with its Retry.
       setOpening(false);
       setReady(true);
-      clearBanner();
+      if (retryRef.current?.kind === "open") clearBanner();
       return "opened";
     }
     clearBanner();
