@@ -964,6 +964,8 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
                 hotel = f"A hotel was added: {now}."
             else:
                 hotel = f"Hotel changed from {was} to {now}."
+                if plan.hotels and plan.hotels[0].name == now and plan.hotels[0].price_per_night is None:
+                    hotel += " Its price was not returned, so the total does not include the stay."
         elif kind == "flight":
             was, now = entry.get("from"), entry.get("to")
             if was and not now:

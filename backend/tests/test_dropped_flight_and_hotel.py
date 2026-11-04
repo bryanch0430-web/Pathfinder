@@ -38,6 +38,7 @@ def test_a_hotel_dropped_by_a_one_day_trim_is_said_to_be_removed(settings: Setti
 def test_a_flight_or_hotel_that_appears_is_said_to_be_added() -> None:
     class Plan:
         days = [object(), object()]
+        hotels: list = []
 
     text = _describe_diff(
         [{"kind": "hotel", "from": "", "to": "Kyoto Grand"}, {"kind": "flight", "from": "", "to": "PF100"}], Plan()
@@ -49,6 +50,7 @@ def test_a_flight_or_hotel_that_appears_is_said_to_be_added() -> None:
 def test_a_flight_or_hotel_that_was_replaced_is_still_said_to_have_changed() -> None:
     class Plan:
         days = [object(), object()]
+        hotels: list = []
 
     text = _describe_diff(
         [{"kind": "hotel", "from": "A", "to": "B"}, {"kind": "flight", "from": "PF1", "to": "PF2"}], Plan()

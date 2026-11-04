@@ -70,6 +70,8 @@ PAST_DATES = "The new dates are in the past."
 HOTEL_SEARCH = "hotels.search"
 #: said (and then not kept: it is an edit outcome) when a request for another or a cheaper hotel found none
 NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel stays."
+#: said when the stay an edit put in the plan came with no price, so the total leaves it out
+NEW_STAY_UNPRICED = "The new hotel's price was not returned, so the total does not include the stay."
 #: the flight of the earlier dates is gone from a trip that moved, and none came back for the new ones
 FLIGHT_NO_LONGER_FITS = "The earlier flight no longer fits the new dates and no flight for them came back."
 #: the page's "generate again" when the trip form has nothing the plan does not
@@ -309,7 +311,7 @@ class ModifyPath:
                 trip_id=plan.trip_id,
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
                 keep_hotel=plan.hotels[0] if plan.hotels else None,
-                pick_hotel=(lambda rows: _swap_choice(plan, rows, cheaper=cheaper)) if asked else None,
+                pick_hotel=(lambda rows: _swap_choice(plan, rows, cheaper=cheaper, message=message)) if asked else None,
             )
             if (
                 asked
@@ -318,6 +320,8 @@ class ModifyPath:
                 and HOTEL_SEARCH not in getattr(toolbox, "refused", ())
             ):
                 rebuilt.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
+            elif asked and rebuilt.hotels and rebuilt.hotels[0].price_per_night is None:
+                rebuilt.data_quality.gaps.append(_gap("hotels", NEW_STAY_UNPRICED))
             if new_range.start < date.today():
                 rebuilt.data_quality.gaps.append(_gap("dates", PAST_DATES))
             if plan.tickets and not rebuilt.tickets and not any(g.section == "tickets" for g in rebuilt.data_quality.gaps):
@@ -407,12 +411,14 @@ class ModifyPath:
                 if not refreshed:
                     updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
             else:
-                choice = _swap_choice(updated, candidates, cheaper=cheaper)
+                choice = _swap_choice(updated, candidates, cheaper=cheaper, message=message)
                 swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
                 # A lookup the cap refused returned nothing because it was never made: its gap says so, once.
                 searched = HOTEL_SEARCH not in getattr(toolbox, "refused", ())
                 if swapped is not None:
                     updated.hotels = [swapped]
+                    if swapped.price_per_night is None:
+                        updated.data_quality.gaps.append(_gap("hotels", NEW_STAY_UNPRICED))
                 elif updated.hotels:
                     if date_changed:
                         # The hotel stays, but its rate is for the old dates: take the candidates' rate for the new.
@@ -1535,18 +1541,25 @@ def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:
     return _row_near(plan.destination.geo, row, km)
 
 
-def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool) -> dict | None:
+def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool, message: str = "") -> dict | None:
     """The stay that replaces the plan's own when the traveller asks for another or a cheaper one, or None.
 
-    Another hotel than the one the plan has, near the city. For "cheaper" the lowest rate first, and only one that
-    is lower than the current rate; otherwise the candidate order of the source stands."""
+    Another hotel than the one the plan has, near the city. One the sentence names is the one asked for. For
+    "cheaper" the lowest rate first, and only one that is lower than the current rate; otherwise the candidate order
+    of the source stands, a stay with a rate before one without (a stay with no rate lowers the total by itself)."""
     current = plan.hotels[0].name if plan.hotels else ""
     current_price = plan.hotels[0].price_per_night.amount if plan.hotels and plan.hotels[0].price_per_night else None
     pool = [row for row in candidates if row.get("name") != current and _hotel_near(plan, row)]
+    lowered = message.lower()
+    named = [row for row in pool if len(row.get("name") or "") >= 4 and str(row["name"]).lower() in lowered]
+    if named:
+        return named[0]
     if cheaper:
         pool.sort(key=lambda row: _hotel_price(row) if _hotel_price(row) is not None else float("inf"))
         if current_price is not None:
             pool = [row for row in pool if (_hotel_price(row) or current_price) < current_price]
+    else:
+        pool.sort(key=lambda row: _hotel_price(row) is None)
     return pool[0] if pool else None
 
 
