@@ -78,6 +78,8 @@ FLIGHT_NO_LONGER_FITS = "The earlier flight no longer fits the new dates and no 
 NOTHING_DIFFERS = "Nothing in the trip details differs from the plan, so nothing was changed."
 #: the fares are for the trip as it was planned when the source has none for the details the traveller changed
 FARE_KEPT = "No flight for the new trip details came back; the earlier fare is kept."
+#: the stay's rate is for the party it was planned for when the source has none for the new party size
+STAY_RATE_KEPT = "No hotel price for the new trip details came back; the earlier rate is kept."
 #: the answer to a request for other dates when the form holds the plan's dates: the trip form is where dates change
 CHAT_DATES_REPLY = (
     "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
@@ -287,8 +289,10 @@ class ModifyPath:
             # The hotel selected or named is the one to swap, unless the sentence says to keep it.
             or (referred_stay is not None and not _keeps_the_hotel(about_stay))
         )
-        if not (hotel_requested or date_changed):
-            # Nothing asks for another hotel and no date moves: the hotel agent has no work to do.
+        # The stay is quoted for who travels: another party size asks the hotel source again for the stay the plan has.
+        requote_stay = "party" in form_changes and bool(plan.hotels)
+        if not (hotel_requested or date_changed or requote_stay):
+            # Nothing asks for another hotel and no date or party size moves: the hotel agent has no work to do.
             agent_names.discard(AgentName.HOTEL)
         if date_requested and not date_changed and referred is None and not is_replan_message(message):
             elsewhere = {part for part in affected if not part.startswith("day_")} - {"dates"}
@@ -415,7 +419,9 @@ class ModifyPath:
                 kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
                 updated.hotels = [kept]
                 if not refreshed:
-                    updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
+                    updated.data_quality.gaps.append(
+                        _gap("hotels", STAY_PRICE_NOT_REFRESHED if date_changed else STAY_RATE_KEPT)
+                    )
             else:
                 choice = _swap_choice(updated, candidates, cheaper=cheaper, message=message)
                 swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
