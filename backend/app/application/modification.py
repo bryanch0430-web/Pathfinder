@@ -1472,18 +1472,33 @@ _NEGATION = re.compile(r"\b(?:not|never|no longer|dont)\b|n't\b", re.IGNORECASE)
 _REFUSAL = re.compile(r"\b(?:not|never|no longer|dont|no need|no reason|without)\b|n't\b", re.IGNORECASE)
 #: "don't forget to switch the hotel" asks for the change
 _DONT_FORGET = re.compile(r"\b(?:don'?t|do not|never)\s+(?:forget|hesitate|fail)\s+to\b", re.IGNORECASE)
-
-
-def _refused(message: str, at: int) -> bool:
-    """The change word at ``at`` is refused: a negation stands in its clause, in front of it."""
-    clause = re.split(r"[,;.:!?]", message[max(at - 24, 0) : at])[-1]
-    return _REFUSAL.search(_DONT_FORGET.sub(" ", clause)) is not None
+#: where a clause ends: punctuation, a dash, or a word that starts a new statement ("I don't like this hotel so swap it")
+_CLAUSE_END = re.compile(
+    r"[,;.:!?–—]|\s-+\s|\b(?:so|therefore|hence|thus|and|but|then|because|since|please|cos|cuz|"
+    r"(?:can|could|would|will)\s+you)\b",
+    re.IGNORECASE,
+)
+#: how many words in front of a change word a negation can stand and still refuse it ("no need to", "don't want to")
+_REFUSAL_REACH = 3
 #: wording that changes the hotel: "swap the hotel", "a different room", "switch to a ryokan"
 _CHANGE_HOTEL = re.compile(
     r"\b(?:swap|switch|change|replace|upgrade|downgrade|another|different|other|cheaper|nicer|better)\b"
-    rf"[^.,;]{{0,20}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b[^.,;]{{0,20}}?\b(?:instead|swap|switch|change)\b",
+    rf"[^.,;]{{0,20}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b[^.,;]{{0,20}}?\b(?P<verb>instead|swap|switch|change)\b",
     re.IGNORECASE,
 )
+
+
+def _refused(message: str, found: re.Match[str]) -> bool:
+    """The change ``found`` is refused: a negation stands within three words in front of it, in its own clause.
+
+    "don't change the hotel" and "no need to swap it" refuse. A complaint does not: in "I don't like this hotel so
+    swap it" the clause of the command begins after "so" (or the comma, the dash, "but"), and a negation farther
+    back is about something else."""
+    verb = found.start("verb") if found.group("verb") else found.start()
+    clause = max((cut.end() for cut in _CLAUSE_END.finditer(message, 0, verb)), default=0)
+    # "I don't want a hotel swap": the hotel word in front of the change word is part of the change
+    ahead = message[clause : found.start() if found.start() >= clause else verb]
+    return _REFUSAL.search(" ".join(_DONT_FORGET.sub(" ", ahead).split()[-_REFUSAL_REACH:])) is not None
 
 
 def _keeps_the_hotel(message: str) -> bool:
@@ -1508,7 +1523,7 @@ def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
     if "hotel" not in affected or _keeps_the_hotel(message):
         return False
     # "don't change the hotel", "no need to swap the room": a change word with a refusal in front of it is a keep
-    changes = [found for found in _CHANGE_HOTEL.finditer(message) if not _refused(message, found.start())]
+    changes = [found for found in _CHANGE_HOTEL.finditer(message) if not _refused(message, found)]
     if asks_for_new_dates(message):
         return bool(changes)
     return bool(changes) or _CHANGE_HOTEL.search(message) is None
