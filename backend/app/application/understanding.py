@@ -320,36 +320,45 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
     Order matters: an explicit destination cue ("to Kyoto", "Kyoto trip") beats a
     bare mention anywhere else in the sentence, and the origin is excluded at
     every step. Otherwise "a Kyoto trip from Hong Kong" resolves to Hong Kong,
-    because a bare city scan finds the origin first.
+    because a bare city scan finds the origin first. Within a step the place the
+    sentence names first wins, whichever cue comes first in the list: "4 days in
+    Kyoto with a day trip to Osaka" is Kyoto.
     """
     origin_lower = (origin or "").strip().lower()
-    cities = [(city, city.lower()) for city in CITY_HINTS]
+    cities = [(city, city.lower()) for city in CITY_HINTS if city.lower() != origin_lower]
 
     # 1. Explicit destination cue: "<to|in|visit|explore|around> <city>".
-    for prep in prepositions:
-        for city, needle in cities:
-            if needle == origin_lower:
-                continue
-            if re.search(rf"\b{prep}\s+{re.escape(needle)}\b", lower):
-                return city
+    cued = [
+        (_on_the_way(lower, match.start()), match.start(), city)
+        for prep in prepositions
+        for city, needle in cities
+        if (match := re.search(rf"\b{prep}\s+{re.escape(needle)}\b", lower))
+    ]
+    if cued:
+        return min(cued)[2]
 
     # 2. "<city> trip/itinerary/holiday" names the destination without a cue.
-    for city, needle in cities:
-        if needle == origin_lower:
-            continue
-        if re.search(rf"\b{re.escape(needle)}\s+(?:trip|itinerary|holiday|vacation|break)\b", lower):
-            return city
+    named = [
+        (match.start(), city)
+        for city, needle in cities
+        if (match := re.search(rf"\b{re.escape(needle)}\s+(?:trip|itinerary|holiday|vacation|break)\b", lower))
+    ]
+    if named:
+        return min(named)[1]
 
     # 3. Any city mention that is neither the origin nor directly after "from".
+    mentioned: list[tuple[int, str]] = []
     for city, needle in cities:
-        if needle == origin_lower:
-            continue
         for match in re.finditer(rf"\b{re.escape(needle)}\b", lower):
             if re.search(r"\bfrom\s+$", lower[max(0, match.start() - 8) : match.start()]):
                 continue
-            return city
+            mentioned.append((match.start(), city))
+            break
+    if mentioned:
+        return min(mentioned)[1]
 
     # 4. Unknown place names still work through the preposition patterns.
+    unknown: list[tuple[bool, int, str]] = []
     for prep in prepositions:
         pattern = re.compile(
             rf"\b{prep}\s+([a-z][a-z .'-]{{2,40}}?)(?=\s+(?:for|from|with|on|in|next|this|under|budget|and)\b|[,.!?]|$)"
@@ -364,9 +373,16 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
                 and first_word not in _VERBS_AFTER_TO
                 and first_word not in prepositions
             ):
-                return candidate.title()
+                unknown.append((_on_the_way(lower, match.start()), match.start(), candidate.title()))
+                break
             start = match.start() + 1  # "want to go to Porto": the first "to" is no cue, the next one is
-    return None
+    return min(unknown)[2] if unknown else None
+
+
+def _on_the_way(lower: str, position: int) -> bool:
+    """Whether the cue at `position` follows "stopover" or "layover": "Stopover in Dubai on the way to Sydney" is a trip
+    to Sydney, and Dubai is the destination only when the sentence names no other place."""
+    return re.search(r"\b(?:stop-?over|layover|stop)\s+$", lower[max(0, position - 10) : position]) is not None
 
 
 #: A verb that follows "to" in "love to see Lyon": the place comes after it, so it is not part of the name.
@@ -415,6 +431,47 @@ _GENERIC_PLACES = {
     "above",
     "there",
     "here",
+    # nouns and words that follow "in" or "to" and are no place: "6 days in total", "in the city", "in winter", "in euros"
+    "total",
+    "city",
+    "town",
+    "area",
+    "country",
+    "general",
+    "advance",
+    "end",
+    "middle",
+    "rest",
+    "old town",
+    "city centre",
+    "city center",
+    "centre",
+    "center",
+    "downtown",
+    "suburbs",
+    "countryside",
+    "station",
+    "airport",
+    "winter",
+    "summer",
+    "spring",
+    "autumn",
+    "fall",
+    "euro",
+    "euros",
+    "dollar",
+    "dollars",
+    "pound",
+    "pounds",
+    "yen",
+    "english",
+    "french",
+    "german",
+    "spanish",
+    "italian",
+    "japanese",
+    "chinese",
+    "korean",
 }
 
 
@@ -454,7 +511,7 @@ _FROM_PHRASE = re.compile(rf"\bfrom\s+({_NAME_START}[a-z][a-z {_APOSTROPHES}-]{{
 _NAME_ENDS = frozenset(
     "and or but via at by around then after before while because so since if when as until till which that where "
     "to for on in into onto next this with without towards toward near than from only just please thanks instead "
-    "again also too maybe about during over under through now today tomorrow tonight soon".split()
+    "again also too maybe about during over under through now today tomorrow tonight soon not".split()
 )
 #: Words that do not continue a place name once it has begun: a pronoun, an auxiliary, a determiner, an adverb, a number
 #: or a weekday ("Leeds we are 4 people", "London is out", "Paris direct", "Leeds Friday"). A name may begin with one

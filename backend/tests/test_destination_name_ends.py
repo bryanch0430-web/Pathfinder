@@ -35,3 +35,54 @@ def test_the_name_of_a_place_ends_where_it_ends(sentence: str, place: str) -> No
 @pytest.mark.parametrize("sentence", ["i want to go to", "i would love to go", "go to now", "in a week"])
 def test_a_cue_with_no_place_after_it_names_none(sentence: str) -> None:
     assert _find_place(sentence, CUES) is None
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "i want 6 days in total",
+        "only 2 days in total",
+        "i only have 2 days in total",
+        "only 2 days in the city",
+        "let's do 4 days in the city",
+        "forget the day trip, we will stay in the city",
+        "ignore the signs in the old town, they are mostly wrong",
+        "swap the hotel for something closer to the station",
+        "is venice worth visiting in winter?",
+        "keep the budget in general",
+        "book it well in advance",
+        "all prices in euros please",
+        "reply in french",
+    ],
+)
+def test_a_noun_that_is_no_place_is_not_read_as_the_destination(sentence: str) -> None:
+    """"6 days in total" was a new trip to Total and "only 2 days in the city" one to The City."""
+    assert _find_place(sentence, CUES) is None
+
+
+@pytest.mark.parametrize(
+    ("sentence", "place"),
+    [
+        ("let's do 4 days in kyoto with a day trip to osaka", "Kyoto"),
+        ("let's do 4 days in kyoto and a day trip to nara", "Kyoto"),
+        ("3 days in rome, then a train to florence", "Rome"),
+        ("a trip to porto and then 2 days in lisbon", "Porto"),
+        ("visit lyon, then go to dijon", "Lyon"),
+    ],
+)
+def test_the_first_place_a_sentence_names_is_the_destination_whichever_cue_comes_first_in_the_list(sentence: str, place: str) -> None:
+    """The cues were tried in the order of the list, so a later "to Osaka" beat an earlier "in Kyoto"."""
+    assert _find_place(sentence, CUES) == place
+
+
+@pytest.mark.parametrize(
+    ("sentence", "place"),
+    [
+        ("stopover in dubai on the way from london to sydney", "Sydney"),
+        ("stopover in hong kong on the way to london", "London"),
+        ("a layover in tokyo, then 5 days in seoul", "Seoul"),
+        ("layover in doha from 2pm to 11pm", "Doha"),
+    ],
+)
+def test_a_stopover_is_not_the_destination(sentence: str, place: str) -> None:
+    assert _find_place(sentence, CUES) == place
