@@ -143,10 +143,15 @@ Response: `text/event-stream`. Each frame is `event: <name>` followed by a singl
 The `diff` of a `plan` event lists what an edit changed, one entry per change with a `kind`: `added`,
 `changed` and `removed` for stops, `dates` (the trip moved; `from` and `to` are the date ranges), `stay`
 (the hotel's nights), `hotel_price` (the same hotel at another rate), `hotel`, `flight`, `weather` (the
-forecast changed) and `cost`. An edit that only moves the dates is a new version like any other, so the
+forecast changed), `cost`, and `party`, `origin` and `budget` (the details of the trip form). An edit that only moves the dates is a new version like any other, so the
 version it left stays available. What an edit could not do (for example, that no cheaper verified hotel was
 returned) is told in the reply and is not kept as a data gap of the plan. An edit that changes nothing is not a new
 version: its reason is the reply, and the version it read keeps the summary it had in `revisions`.
+
+The page's `Re-plan with the updated details.` compares the trip form with the plan. Another place in the form is a
+new trip (`reason_code` `replan_destination`); other dates move the trip; another party size, departure city or
+budget is applied to the plan and the stay and the fares are priced again for it (the stay is kept with its marks);
+a form that holds nothing the plan does not is answered with a plain reply and changes nothing.
 
 Messages for one trip run one after another. A message that waits for an earlier one gets
 keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`, `turn_timeout` after that)

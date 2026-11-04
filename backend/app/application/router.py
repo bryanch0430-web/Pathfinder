@@ -183,6 +183,15 @@ def replans_new_dates(message: str, context: TripContext, plan_summary: dict[str
     return form is not None and [form.start.isoformat(), form.end.isoformat()] != list(plan_summary.get("dates") or [])
 
 
+def replans_new_destination(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
+    """The page's "generate again" message while the trip form names another place than the plan is for."""
+    if plan_summary is None or not is_replan_message(message):
+        return False
+    planned = str(plan_summary.get("destination") or "").strip().casefold()
+    named = (context.destination or "").strip().casefold()
+    return bool(planned and named and planned != named)
+
+
 class RuleRouter:
     def route(
         self,

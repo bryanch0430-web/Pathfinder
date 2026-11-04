@@ -70,6 +70,10 @@ HOTEL_SEARCH = "hotels.search"
 NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel stays."
 #: the flight of the earlier dates is gone from a trip that moved, and none came back for the new ones
 FLIGHT_NO_LONGER_FITS = "The earlier flight no longer fits the new dates and no flight for them came back."
+#: the page's "generate again" when the trip form has nothing the plan does not
+NOTHING_DIFFERS = "Nothing in the trip details differs from the plan, so nothing was changed."
+#: the fares are for the trip as it was planned when the source has none for the details the traveller changed
+FARE_KEPT = "No flight for the new trip details came back; the earlier fare is kept."
 #: the answer to a request for other dates when the form holds the plan's dates: the trip form is where dates change
 CHAT_DATES_REPLY = (
     "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
@@ -141,6 +145,14 @@ class ModifyPath:
                 "is at most 60 days long. Correct them in the trip details and ask again."
             )
         dates_move = bool(new_range and new_range != plan.dates) and date_requested
+        # The page's "generate again" is a request to plan again with the trip details: what the form has that the plan
+        # does not (apart from its dates, above) is what changes.
+        replanning = is_replan_message(message)
+        form_changes = _form_differences(plan, context) if replanning else []
+        if replanning and not dates_move and not form_changes:
+            answer = plan.model_copy(deep=True)
+            answer.change_summary = NOTHING_DIFFERS
+            return answer, []
         # A request for the dates or the length of the trip is about the whole trip, whatever row is selected or named
         # in it ("keep this hotel but move to March", "make it 4 days, Senso-ji must stay"). A bare span ("two days
         # later") is about the trip too, unless it is said of a row: "it", "this" or a name in the plan.
@@ -176,7 +188,12 @@ class ModifyPath:
             # must not silently add an agent the router did not name.
             narrowed = [part for part in affected if part in route_parts or part.startswith("day_")]
             affected = narrowed or route_parts
-        if not affected:
+        if form_changes:
+            # No stop is meant by the page's message. The stay and the fares depend on who travels and from where.
+            affected = [part for part in affected if part != "attraction"]
+            if {"party", "origin"} & set(form_changes):
+                affected += [part for part in ("hotel", "ticket") if part not in affected]
+        if not affected and not form_changes:
             affected = ["dates"] if dates_move else ["attraction"]
         if re.search(r"\b(hours?|minutes?)\b", message.lower()) and not re.search(
             r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
@@ -188,7 +205,7 @@ class ModifyPath:
             if part == "dates" and not dates_move:
                 continue
             agent_names |= PART_AGENTS.get(part, {AgentName.ATTRACTION})
-        if not agent_names:
+        if not agent_names and not form_changes:
             agent_names = {AgentName.ATTRACTION}
         budget_mode = "budget" in affected or bool(
             re.search(
@@ -255,7 +272,7 @@ class ModifyPath:
         date_changed = dates_move
         # Only an edit that asks for another hotel or the budget may change which hotel it is. When the
         # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
-        hotel_requested = (
+        hotel_requested = not replanning and (
             "budget" in affected
             or budget_mode
             or _asks_for_another_hotel(message, affected)
@@ -534,6 +551,16 @@ class ModifyPath:
                     updated.tickets = built
             if date_changed and old_plan.tickets and not updated.tickets:
                 updated.data_quality.gaps.append(_gap("tickets", FLIGHT_NO_LONGER_FITS))
+            elif form_changes and old_plan.tickets and not flights:
+                updated.data_quality.gaps.append(_gap("tickets", FARE_KEPT))
+
+        if form_changes:
+            # What the traveller put in the trip form is what the plan is for now.
+            if context.party_size:
+                updated.party_size = context.party_size
+            if context.origin.strip():
+                updated.origin = context.origin.strip()
+            draft.description = _details_sentence(context, form_changes)
 
         if referred:
             keep_only(old_plan, updated, referred)
@@ -1458,6 +1485,35 @@ def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
     if asks_for_new_dates(message):
         return bool(changes)
     return bool(changes) or _CHANGE_HOTEL.search(message) is None
+
+
+def _form_differences(plan: TripPlan, context: TripContext) -> list[str]:
+    """What the trip form says that the plan does not keep: the party, the departure city and the budget (the dates
+    are read apart). Hotel style, preferences and the like are not details of the plan."""
+    found: list[str] = []
+    if context.party_size and context.party_size != plan.party_size:
+        found.append("party")
+    origin = context.origin.strip()
+    if origin and origin.casefold() != (plan.origin or "").strip().casefold():
+        found.append("origin")
+    if context.budget is not None and (
+        plan.budget is None
+        or (context.budget, context.currency.upper()) != (plan.budget.amount, plan.budget.currency.upper())
+    ):
+        found.append("budget")
+    return found
+
+
+def _details_sentence(context: TripContext, changes: list[str]) -> str:
+    """The version's summary when the page's "generate again" carried other details than the plan had."""
+    parts = []
+    if "party" in changes:
+        parts.append(f"{context.party_size} traveller{'s' if context.party_size != 1 else ''}")
+    if "origin" in changes:
+        parts.append(f"departure from {context.origin.strip()}")
+    if "budget" in changes:
+        parts.append(f"a budget of {context.currency.upper()} {context.budget or 0:,.0f}")
+    return "Updated the plan to the trip details: " + ", ".join(parts) + "."
 
 
 def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:

@@ -22,7 +22,14 @@ from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
 from app.application.modification import ModifyPath, plan_shape
 from app.application.planning import PlanPath
-from app.application.router import MODIFY_VERBS, System1Router, language_route, looks_like_question, replans_new_dates
+from app.application.router import (
+    MODIFY_VERBS,
+    System1Router,
+    language_route,
+    looks_like_question,
+    replans_new_dates,
+    replans_new_destination,
+)
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
 from app.application.validation import is_edit_outcome
@@ -365,7 +372,19 @@ class TurnService:
                 and looks_like_question(message)
                 and not re.search(MODIFY_VERBS, message.lower())
             )
-            if plan is not None and replans_new_dates(message, context, plan.summary_for_prompt()):
+            if plan is not None and replans_new_destination(message, context, plan.summary_for_prompt()):
+                # "Generate again" from the page, after the traveller named another place in the trip form: that is
+                # a new trip (a plan for one city is not moved to another), whatever a model made of the sentence.
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.PLAN,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "replan_destination",
+                        "affected_parts": [],
+                    }
+                )
+            elif plan is not None and replans_new_dates(message, context, plan.summary_for_prompt()):
                 # "Generate again" from the page, after the traveller put other dates in the trip form: the
                 # trip is moved, whatever a model made of the sentence (a new trip would drop the locked stops).
                 decision = decision.model_copy(
@@ -915,6 +934,17 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
         elif kind == "stay" and not any(other.get("kind") == "dates" for other in diff):
             # On a plain move the stay follows the trip, and the sentence above says so.
             moved.append(f"The stay at {entry.get('name')} now runs {entry.get('to')}.")
+        elif kind == "party":
+            moved.append(
+                f"The party changed from {entry.get('from')} to {entry.get('to')} traveller"
+                f"{'' if entry.get('to') == 1 else 's'}."
+            )
+        elif kind == "origin":
+            moved.append(
+                f"The departure city changed from {entry.get('from') or 'none'} to {entry.get('to') or 'none'}."
+            )
+        elif kind == "budget":
+            moved.append(f"The budget changed from {entry.get('from')} to {entry.get('to')}.")
         elif kind == "hotel_price":
             moved.append(
                 f"The nightly rate at {entry.get('name')} changed from {entry.get('from')} to {entry.get('to')}."
@@ -1009,6 +1039,7 @@ def _why_lines(tracer: Any) -> list[str]:
     known = {
         "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
         "replan_dates": "The trip details held other dates than the plan, so the trip was moved, not planned again.",
+        "replan_destination": "The trip details named another place than the plan is for, so a new trip was planned.",
         "scoped_item_action": "A stop was selected, so only that stop could change.",
         "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
         "security_blocklist": "The message was blocked before any planning.",

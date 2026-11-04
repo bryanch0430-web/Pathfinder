@@ -1,0 +1,167 @@
+"""The page's "Re-plan with the updated details." compares the trip form with the plan and does what the form asks.
+
+Before, only other dates were applied. A changed destination, party size, budget or departure city was ignored with
+"I could not tell which stop you meant" (the message named no stop), and a changed destination leaked into the edit:
+the flight of a Kyoto plan was replaced by one to Tokyo. Now: another place is a new trip; another party size,
+departure city or budget prices the hotel and the fares again and keeps the stay with its marks; nothing different says so.
+"""
+
+from __future__ import annotations
+
+from datetime import timedelta
+from typing import Any
+
+from app.application.router import REPLAN_MESSAGE
+from app.config import Settings
+from tests.test_modify_dates import START, WEEK_LATER, Trip, accept_the_garden_inn, reply_of, run_trip
+
+NOT_A_STOP = "could not tell which stop"
+NOTHING_DIFFERS = "Nothing in the trip details differs from the plan, so nothing was changed."
+
+
+def _fill(trip: Trip, **fields: Any) -> None:
+    """What the page's Save does: the form takes other values, the plan keeps its own."""
+    context = trip.store.get_context(trip.session_id)
+    for name, value in fields.items():
+        setattr(context, name, value)
+    trip.store.save_context(context)
+
+
+def _route(events: list) -> dict:
+    return next(event.data for event in events if event.event == "route")
+
+
+def test_another_destination_in_the_form_is_a_new_trip(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, destination="Tokyo")
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event == "error"]
+        assert (_route(events)["intent"], _route(events)["reason_code"]) == ("plan", "replan_destination")
+        latest = trip.store.get_plan(trip.session_id)
+        assert latest.destination.name == "Tokyo" and latest.trip_id != trip.plan.trip_id
+        assert NOT_A_STOP not in reply_of(events)
+        assert not [item for day in latest.days for item in day.items if item.locked or item.confirmed]
+
+    run_trip(settings, scenario, prepare=accept_the_garden_inn)
+
+
+def test_another_destination_and_other_dates_do_not_put_a_flight_to_the_new_city_on_the_old_plan(
+    settings: Settings,
+) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, destination="Tokyo", start_date=WEEK_LATER[0], end_date=WEEK_LATER[1], days=3)
+
+        await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert latest.destination.name == "Tokyo"
+        assert latest.trip_id != trip.plan.trip_id, "a plan for Kyoto is not moved to Tokyo under its own id"
+
+    run_trip(settings, scenario)
+
+
+def test_another_party_size_prices_the_plan_again_and_keeps_the_stay_with_its_marks(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, party_size=5)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event == "error"]
+        assert _route(events)["intent"] == "modify"
+        latest = trip.store.get_plan(trip.session_id)
+        assert latest.trip_id == trip.plan.trip_id and latest.version == 2
+        assert (trip.plan.party_size, latest.party_size) == (2, 5)
+        assert (latest.hotels[0].name, latest.hotels[0].confirmed, latest.hotels[0].locked) == (
+            "Kyoto Garden Inn",
+            True,
+            True,
+        )
+        assert NOT_A_STOP not in reply_of(events)
+        assert "5 travellers" in reply_of(events)
+        data = next(event.data for event in events if event.event == "plan")
+        assert {"kind": "party", "from": 2, "to": 5} in data["diff"]
+
+    run_trip(settings, scenario, prepare=accept_the_garden_inn)
+
+
+def test_another_departure_city_is_applied_to_the_plan_and_the_fares(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, origin="Singapore")
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert (trip.plan.origin, latest.origin) == ("Hong Kong", "Singapore")
+        assert latest.version == 2 and NOT_A_STOP not in reply_of(events)
+        assert "Singapore" in reply_of(events)
+
+    run_trip(settings, scenario)
+
+
+def test_another_budget_is_applied_to_the_plan_and_the_cost(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, budget=60000.0)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.budget.amount, latest.cost.budget) == (60000.0, 60000.0)
+        assert latest.version == 2 and NOT_A_STOP not in reply_of(events)
+        assert "budget" in reply_of(events)
+        currency = trip.plan.budget.currency
+        assert next(c for c in latest.constraints if c.text.startswith("Stay within")).text == f"Stay within {currency} 60,000"
+
+    run_trip(settings, scenario)
+
+
+def test_other_dates_and_another_party_size_are_both_applied(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, party_size=4, start_date=WEEK_LATER[0], end_date=WEEK_LATER[1], days=3)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.dates.start, latest.dates.end) == WEEK_LATER and latest.party_size == 4
+        assert latest.trip_id == trip.plan.trip_id and latest.version == 2
+        assert "The trip dates changed from" in reply_of(events)
+
+    run_trip(settings, scenario)
+
+
+def test_nothing_different_in_the_form_is_said_and_asks_no_agent(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert reply_of(events) == NOTHING_DIFFERS
+        assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
+        assert not [span for span in next(e.data for e in events if e.event == "trace")["spans"] if span["name"] == "modify.agents"]
+
+    run_trip(settings, scenario)
+
+
+def test_a_form_that_differs_in_something_the_plan_does_not_keep_is_not_a_difference(settings: Settings) -> None:
+    """Preferences, hotel style or language in the form are not details of the plan: nothing to re-plan."""
+
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, hotel_style="luxury", preferences=["museums"])
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert reply_of(events) == NOTHING_DIFFERS
+
+    run_trip(settings, scenario)
+
+
+def test_the_form_in_the_other_dates_flow_still_moves_the_trip(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        trip.save_form(START + timedelta(days=7), START + timedelta(days=9))
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert latest.version == 2 and latest.trip_id == trip.plan.trip_id
+        assert reply_of(events).startswith("Updated to version 2. The trip dates changed from ")
+
+    run_trip(settings, scenario)
