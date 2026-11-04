@@ -99,6 +99,31 @@ def test_a_length_for_the_place_of_the_plan_or_for_no_place_still_edits_the_plan
     assert "dates" in decision.affected_parts
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "I want 6 days in total",
+        "6 days in total",
+        "only 2 days in total",
+        "I only have 2 days in total",
+        "only 2 days in the city",
+        "let's do 4 days in the city",
+        "let's do 4 days in Kyoto with a day trip to Osaka",
+        "let's do 4 days in Kyoto and a day trip to Nara",
+    ],
+)
+def test_a_length_with_a_noun_that_is_no_place_or_a_day_trip_elsewhere_still_edits_the_plan(
+    settings: Settings, message: str
+) -> None:
+    """"6 days in total" was a new trip to Total, "in the city" one to The City, and a day trip to Osaka made the
+    sentence about Osaka, not about the four days in Kyoto."""
+    context, decision = _route(settings, message)
+
+    assert context.destination == "Kyoto"
+    assert decision.intent == Intent.MODIFY, (message, decision.reason_code)
+    assert "dates" in decision.affected_parts
+
+
 @pytest.mark.parametrize("message", ["make it 4 days", "shift the trip by a week", "add two more days", "extend my stay"])
 def test_a_sentence_that_changes_the_trip_edits_it_whatever_the_form_says(settings: Settings, message: str) -> None:
     gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
