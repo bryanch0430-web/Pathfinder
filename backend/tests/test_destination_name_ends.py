@@ -123,3 +123,17 @@ def test_a_verb_after_to_is_still_no_place(sentence: str) -> None:
 def test_a_verb_after_to_is_not_a_destination(sentence: str, place: str | None) -> None:
     """"safe to drink in Mexico City" was a trip to Drink."""
     assert _find_place(sentence, CUES) == place
+
+
+@pytest.mark.parametrize(
+    ("sentence", "place"),
+    [
+        ("i live in london and want to go to rome", "Rome"),
+        ("we are based in paris, planning a week in rome", "Rome"),
+        ("i live in tampa and want 4 days in kyoto", "Kyoto"),
+        ("i want to live in lisbon for a month", "Lisbon"),
+    ],
+)
+def test_where_the_traveller_lives_is_the_destination_only_when_the_sentence_names_no_other_place(sentence: str, place: str) -> None:
+    """The place named first wins, but "I live in London and want to go to Rome" is a trip to Rome."""
+    assert _find_place(sentence, CUES) == place

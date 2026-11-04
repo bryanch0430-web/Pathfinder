@@ -543,6 +543,21 @@ def test_a_question_a_known_flight_or_a_place_that_is_not_a_travel_phrase_still_
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "We want to travel from Osaka to Kyoto on day 3",
+        "Travel from Osaka to Nara on the second day",
+        "Head from Kyoto to Nara on day 2",
+        "Heads up, set from Osaka to Kyoto",
+        "Set the dinner from Osaka cuisine to sushi",
+    ],
+)
+def test_a_bare_travel_head_or_set_before_from_is_an_instruction_for_a_day_not_a_departure(text: str) -> None:
+    """Only "travel to Rome from London" (through a place) and "set off from" say where the trip leaves from."""
+    assert _origin(text) == "" and _origin(text, stored=HK) == HK
+
+
+@pytest.mark.parametrize(
     "city",
     [
         "Long Beach", "Miami Beach", "West Palm Beach", "Virginia Beach", "Daytona Beach", "Myrtle Beach", "Huntington Beach",
