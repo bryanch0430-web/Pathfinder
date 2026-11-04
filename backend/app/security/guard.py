@@ -99,11 +99,14 @@ def screen_turn(message: str, settings: Settings) -> ScreenResult:
     turn (`recent_turns`) put its words on one line, so a line break inside a phrase ("Ignore all previous
     <newline>instructions") is a space there. A reader also draws a zero-width space or a soft hyphen as nothing
     and reads a full-width letter as the plain one, as the fence does when it looks for its tags, so the message is
-    read that way too. A pattern that matches any of these readings flags the turn, and a high-severity one blocks it.
+    read that way too: with what is drawn as nothing left out (a letter hidden in a word) and with each run of it
+    read as the one space it may stand for between two words. A pattern that matches any of these readings flags the
+    turn, and a high-severity one blocks it.
     """
     read = strip_fence_tags(message)
     replayed = strip_fence_tags(" ".join(message.split()))
-    return _screen(list(dict.fromkeys([message, read, replayed, _as_a_reader_sees_it(read)])), settings)
+    readings = [message, read, replayed, _as_a_reader_sees_it(read), _as_a_reader_sees_it(read, gap=" ")]
+    return _screen(list(dict.fromkeys(readings)), settings)
 
 
 def _screen(texts: list[str], settings: Settings) -> ScreenResult:
@@ -148,6 +151,9 @@ _SHOWN_AS_NOTHING = frozenset({"Cf", "Cc", "Mn", "Me"})
 #: in the default-ignorable ranges (Unicode reserves them to be invisible once they are assigned) and the blank
 #: Braille pattern.
 _DRAWN_AS_NOTHING = ((0x2065, 0x2065), (0xFFF0, 0xFFF8), (0xE0000, 0xE0FFF), (0x2800, 0x2800))
+#: The combining marks that a reader draws as nothing, unlike an accent, which marks the letter before it: the
+#: grapheme joiner, the Khmer inherent vowels, the Mongolian and the other variation selectors.
+_INVISIBLE_MARKS = ((0x34F, 0x34F), (0x17B4, 0x17B5), (0x180B, 0x180D), (0x180F, 0x180F), (0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 
 #: The fence's tags in a text's skeleton (below): any case, any spacing, slashes and backslashes (JSON writes
 #: `</` as `<\/`), attributes. It runs to the next closing bracket, or to the end of the text when the tag is
@@ -161,23 +167,32 @@ _TAG = re.compile(
 
 
 @lru_cache(maxsize=4096)
-def _as_seen(char: str) -> str:
-    """What a reader sees of one character: its compatibility form, less what shows as nothing."""
-    return "".join(
+def _as_seen(char: str, gap: str = "") -> str:
+    """What a reader sees of one character: its compatibility form, less what shows as nothing.
+
+    A character that shows as nothing as a whole and is not a mark on the letter before it (an accent) may stand for
+    the space between two words: with a `gap` it is read as that.
+    """
+    seen = "".join(
         part
         for part in unicodedata.normalize("NFKD", char)
         if part not in _FILLERS
         and unicodedata.category(part) not in _SHOWN_AS_NOTHING
         and not any(low <= ord(part) <= high for low, high in _DRAWN_AS_NOTHING)
     )
+    if seen or not gap:
+        return seen
+    marks_a_letter = unicodedata.category(char) in {"Mn", "Me"} and not any(low <= ord(char) <= high for low, high in _INVISIBLE_MARKS)
+    return "" if marks_a_letter else gap
 
 
-def _skeleton(text: str) -> tuple[str, array[int]]:
+def _skeleton(text: str, gap: str = "") -> tuple[str, array[int]]:
     """`text` as a reader sees it, and for each of its characters the index in `text` it came from.
 
     Compatibility forms are folded (a fullwidth less-than sign is `<`), and what shows as nothing is left
     out: format characters such as zero-width spaces and bidirectional marks, controls other than tab and
-    line feed, combining marks and the Hangul fillers. A tag spelled with any of them is a tag here.
+    line feed, combining marks and the Hangul fillers. A tag spelled with any of them is a tag here. With a
+    `gap`, each of them that is not a mark on a letter is read as that text instead of being left out.
     """
     seen: list[str] = []
     came_from = array("I")
@@ -186,19 +201,22 @@ def _skeleton(text: str) -> tuple[str, array[int]]:
             if (char >= " " and char != "\x7f") or char in "\t\n":
                 seen.append(char)
                 came_from.append(index)
+            elif gap:
+                seen.append(gap)
+                came_from.append(index)
             continue
-        folded = _as_seen(char)
+        folded = _as_seen(char, gap)
         if folded:
             seen.append(folded)
             came_from.extend(repeat(index, len(folded)))
     return "".join(seen), came_from
 
 
-def _as_a_reader_sees_it(text: str) -> str:
-    """`text` on one line, as a reader sees it: what shows as nothing left out and compatibility forms folded."""
+def _as_a_reader_sees_it(text: str, gap: str = "") -> str:
+    """`text` on one line, as a reader sees it: what shows as nothing left out (or read as a `gap`) and compatibility forms folded."""
     if len(text) > FENCE_ANALYSIS_LIMIT:
         return text  # as `strip_fence_tags`: a text this long is not read
-    return " ".join(_skeleton(text)[0].split())
+    return " ".join(_skeleton(text, gap)[0].split())
 
 
 def strip_fence_tags(text: str) -> str:
