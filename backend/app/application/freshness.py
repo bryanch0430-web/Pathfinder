@@ -10,7 +10,8 @@ logged). Every other section of the plan is left as it was.
 A section whose source failed when the plan was made has no fetch time to compare. When the plan
 holds none of it and names a retryable gap for it, it is asked for again the same way: when the plan
 is reopened or a turn reads it (while its source stays down, no more often than every
-``RETRY_AFTER_SECONDS``) and whenever the traveller asks to refresh.
+``RETRY_AFTER_SECONDS``) and whenever the traveller asks to refresh. An outdated section that its source
+could not renew is kept to the same record: it stays flagged as outdated, and is asked again no sooner.
 """
 
 from __future__ import annotations
@@ -41,15 +42,20 @@ from app.domain.models import (
     utcnow,
 )
 from app.domain.ports import Tracer
-from app.infrastructure.observability import start_trace
+from app.infrastructure.observability import NoopTracer, start_trace
 
 logger = logging.getLogger(__name__)
 
 SECTIONS = ("weather", "tickets", "hotels")
 LABELS = {"weather": "weather forecast", "tickets": "flight fares", "hotels": "hotel prices"}
 
-#: A section that never arrived is asked for again at most this often (seconds) unless the traveller asks.
+#: A section that never arrived, or that its source could not renew, is asked for again at most this often
+#: (seconds) unless the traveller asks.
 RETRY_AFTER_SECONDS = 600
+NOT_ASKED_YET = (
+    f"The source was asked less than {RETRY_AFTER_SECONDS // 60} minutes ago and had nothing newer; "
+    "the earlier data is kept."
+)
 
 
 class _OwnSourceOnly:
@@ -176,6 +182,21 @@ class FreshnessService:
                 due.append(section)
         return due
 
+    def _to_fetch(
+        self, plan: TripPlan, outdated: dict[str, datetime], now: datetime, *, requested: bool
+    ) -> tuple[list[str], list[str]]:
+        """The outdated sections to ask for again now, and the missing ones to ask for. An outdated section
+        that was asked and could not be renewed waits ``RETRY_AFTER_SECONDS`` (it is flagged meanwhile), unless
+        the traveller asked to refresh."""
+        never = datetime.min.replace(tzinfo=timezone.utc)
+        renew = [
+            section
+            for section in outdated
+            if requested or (now - self._tried.get((plan.trip_id, section), never)).total_seconds() > RETRY_AFTER_SECONDS
+        ]
+        absent = [section for section in self._missing_due(plan, now, requested=requested) if section not in outdated]
+        return renew, absent
+
     def needs_check(self, plan: TripPlan, *, requested: bool = False) -> bool:
         now = _aware(self.clock())
         outdated = outdated_sections(plan, self.settings, now)
@@ -205,7 +226,7 @@ class FreshnessService:
             return None
         now = _aware(self.clock())
         outdated = outdated_sections(plan, self.settings, now)
-        absent = [section for section in self._missing_due(plan, now, requested=requested) if section not in outdated]
+        renew, absent = self._to_fetch(plan, outdated, now, requested=requested)
         stale_marks = any(
             mark.status == "outdated" and mark.section not in outdated for mark in plan.data_quality.freshness
         )
@@ -225,7 +246,7 @@ class FreshnessService:
         )
         request_context = self._agent_context(updated, context)
         with tracer.span("freshness", outdated=sorted(outdated), missing=sorted(absent)) as span:
-            sections = [*outdated, *absent]
+            sections = [*renew, *absent]
             prices_before = _prices(updated)
             checks_before = _derived_checks(updated, request_context)
             answers = await asyncio.gather(
@@ -238,8 +259,11 @@ class FreshnessService:
                 if not (mark.status == "outdated" and mark.section not in outdated)
             }
             refreshed = [section for section, (note, _) in fetched.items() if note is None]
+            for section in renew:
+                if section not in refreshed:
+                    self._tried[(plan.trip_id, section)] = now  # asked, and not renewed: not asked again for a while
             for section in outdated:
-                note = fetched[section][0]
+                note = fetched[section][0] if section in fetched else NOT_ASKED_YET
                 marks[section] = FreshnessMark(
                     section=section,  # type: ignore[arg-type]
                     status="refreshed" if note is None else "outdated",
@@ -306,7 +330,10 @@ class FreshnessService:
         if plan is None or not self.needs_check(plan) or self.session_busy(plan.session_id):
             return plan
         request_id = new_id("req")
-        tracer = start_trace(self.settings, request_id)
+        now = _aware(self.clock())
+        renew, absent = self._to_fetch(plan, outdated_sections(plan, self.settings, now), now, requested=False)
+        # A look at the trip that asks no source has nothing to record, however often the page looks.
+        tracer = start_trace(self.settings, request_id) if renew or absent else NoopTracer()
         context = self.store.get_context(plan.session_id) if self.store is not None else None
         try:
             outcome = await self.check(plan, context=context, tracer=tracer, request_id=request_id, save=False)

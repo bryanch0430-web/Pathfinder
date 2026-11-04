@@ -50,7 +50,8 @@ Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`)
 forecast, fare or stay again and saves the result as the next version. A forecast, fare or stay that
 failed when the plan was made (the plan holds none of it and names a retryable data gap for it) is fetched
 again the same way, when the trip is opened or a message about it is worked on; while its source stays down
-it is asked again no more often than every ten minutes. A source is always asked about the trip of the
+it is asked again no more often than every ten minutes, and so is an outdated section that its source could
+not renew (it stays flagged as outdated meanwhile). A source is always asked about the trip of the
 plan (its destination, dates, party size, budget and currency), whatever the trip's form says by now. `Refresh the data` in the chat asks for such a
 section at once and says which sections are still missing. While a message for the trip
 is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
