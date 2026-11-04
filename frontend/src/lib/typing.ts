@@ -24,6 +24,11 @@ export function splitList(text: string): string[] {
     .filter(Boolean);
 }
 
+/** `entries` as the server keeps them: at most `limit` of them, each cut to `maxLength` characters (code points, as the server counts). */
+export function limitList(entries: string[], limit: number, maxLength: number): string[] {
+  return entries.slice(0, limit).map((entry) => Array.from(entry).slice(0, maxLength).join(""));
+}
+
 /**
  * `current` followed by the tags in `text`, without repeats. Text typed or pasted into a tag field may hold
  * several tags: "," from a keyboard and "，" or "、" from a Chinese or Japanese input method all separate them.
