@@ -29,6 +29,7 @@ from app.application.router import (
     looks_like_question,
     replans_new_dates,
     replans_new_destination,
+    same_destination,
 )
 from app.application.toolbox import Toolbox
 from app.application.understanding import understand
@@ -918,8 +919,8 @@ class TurnService:
 
 
 def _same_place(first: str, second: str) -> bool:
-    """The saved plan and the new trip are for one place (a name is compared as the traveller typed it)."""
-    return bool(first.strip()) and first.strip().casefold() == (second or "").strip().casefold()
+    """The saved plan and the new trip are for one place."""
+    return same_destination(first, second)
 
 
 def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
