@@ -321,6 +321,31 @@ export function usePathfinder(locale: string): PathfinderHook {
     }
   }, [withTimeout]);
 
+  /**
+   * Whether a refusal was the stored sign-in having ended, which is dropped here if so (and the header with it). With a
+   * sign-in stored the server refuses an account's trip as 404, and a profile that needs its bearer as 401: neither
+   * says that the sign-in ended, so the server is asked.
+   */
+  const refusedForSignIn = useCallback(
+    async (cause: unknown): Promise<boolean> => {
+      if (!(cause instanceof ApiError) || ![401, 403, 404].includes(cause.status)) return false;
+      return Boolean(readStoredValue("auth")) && (await signInEnded());
+    },
+    [signInEnded],
+  );
+
+  /** `failureOf` for a call made on the open trip, in the page's own words when a sign-in is why the trip is refused. */
+  const failureOfCall = useCallback(
+    async (cause: unknown, fallback: MessageKey): Promise<Failure> => {
+      if (await refusedForSignIn(cause)) return "errors.signInEnded";
+      if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403) && mayBeAccountTrip()) {
+        return "errors.signInToOpen";
+      }
+      return failureOf(cause, fallback);
+    },
+    [refusedForSignIn],
+  );
+
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
     retryRef.current = null;
@@ -415,11 +440,12 @@ export function usePathfinder(locale: string): PathfinderHook {
         setReady(true);
       }
       if (cause instanceof ApiError && (cause.status === 404 || cause.status === 403)) {
-        // The server answers 404 both for a trip that is gone and for one that is not this
-        // identity's: when it may be an account's, say so and keep it.
-        if (mayBeAccountTrip()) {
-          if (latest) setError("errors.signInToOpen");
-          if (latest && sessionRef.current === null) writeStoredValue("session", id);
+        // The server answers 404 both for a trip that is gone and for one that is not this identity's. When it may
+        // be an account's, because the sign-in has just ended or ended before, say so and keep it.
+        const ended = await refusedForSignIn(cause);
+        if (ended || mayBeAccountTrip()) {
+          if (ticket === navRef.current) setError(ended ? "errors.signInEnded" : "errors.signInToOpen");
+          if (ticket === navRef.current && sessionRef.current === null) writeStoredValue("session", id);
           return "needs-sign-in";
         }
         return "missing";
@@ -454,6 +480,8 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
         return created.session.id;
       } catch (cause) {
+        // A sign-in that has ended is dropped, so Retry makes the trip as the guest.
+        await refusedForSignIn(cause);
         // No trip was made: the one that is open stays, and the traveller is told.
         if (creatingTicket.current === navRef.current) {
           setError(unreachableOf(cause));
@@ -470,7 +498,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     })();
     creatingRef.current = making;
     return making;
-  }, [carryPlanLocale, showTrip, withTimeout]);
+  }, [carryPlanLocale, refusedForSignIn, showTrip, withTimeout]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -585,11 +613,12 @@ export function usePathfinder(locale: string): PathfinderHook {
         setContextState(data.context);
         return true;
       } catch (cause) {
-        if (sessionRef.current === id) fail(failureOf(cause, "errors.saveDetails"), again);
+        const failure = await failureOfCall(cause, "errors.saveDetails");
+        if (sessionRef.current === id) fail(failure, again);
         return false;
       }
     },
-    [fail],
+    [fail, failureOfCall],
   );
   const saveContext = useCallback((): Promise<boolean> => persistContext(() => saveContext()), [persistContext]);
 
@@ -732,7 +761,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       } catch (cause) {
         if (!controller.signal.aborted) {
           failed = true;
-          setError(failureOf(cause, "errors.turn"));
+          const failure = await failureOfCall(cause, "errors.turn");
+          if (!controller.signal.aborted) setError(failure);
         }
       } finally {
         // Only a turn that failed is something Retry sends again.
@@ -749,7 +779,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         if (!controller.signal.aborted && sessionRef.current === id) await refresh();
       }
     },
-    [adoptPlanLocale, locale, refresh],
+    [adoptPlanLocale, failureOfCall, locale, refresh],
   );
 
   const generate = useCallback(async (): Promise<void> => {
@@ -806,12 +836,11 @@ export function usePathfinder(locale: string): PathfinderHook {
           setFeedbackAdded(result.preferences_added ?? []);
         }
       } catch (cause) {
-        if (sessionRef.current === id) {
-          fail(failureOf(cause, "errors.feedback"), () => feedback(useful, starsOverride));
-        }
+        const failure = await failureOfCall(cause, "errors.feedback");
+        if (sessionRef.current === id) fail(failure, () => feedback(useful, starsOverride));
       }
     },
-    [fail, feedbackStars],
+    [fail, failureOfCall, feedbackStars],
   );
 
   const reload = useCallback(async () => {
@@ -831,9 +860,10 @@ export function usePathfinder(locale: string): PathfinderHook {
       setClarifyValues({});
       setError(null);
     } catch (cause) {
-      if (sessionRef.current === id) fail(failureOf(cause, "errors.clearChat"), () => clearChat());
+      const failure = await failureOfCall(cause, "errors.clearChat");
+      if (sessionRef.current === id) fail(failure, () => clearChat());
     }
-  }, [fail]);
+  }, [fail, failureOfCall]);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
