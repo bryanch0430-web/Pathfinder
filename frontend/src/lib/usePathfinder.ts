@@ -702,6 +702,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       shownRef.current.busy = true;
       setBusy(true);
       clearBanner();
+      // The text is on its way, so it is no longer a draft (Retry sends the text that came back into the box).
+      setDrafts((current) => (current[id] === message ? { ...current, [id]: "" } : current));
       setNotice(null);
       setChangedIds([]);
       setHotelChanged(false);
@@ -739,8 +741,12 @@ export function usePathfinder(locale: string): PathfinderHook {
       let streamingId: string | null = null;
       const controller = new AbortController();
       abortRef.current = controller;
-      // A failed turn is what Retry sends again, whatever failed while it was running.
-      const failTurn = (failure: Failure) => showBanner(failure, { kind: "turn", run: () => sendRef.current(message) });
+      // A failed turn is what Retry sends again, whatever failed while it was running. Its text goes back into the box of
+      // its trip, unless something else was typed there since, so it is not lost when the banner goes.
+      const failTurn = (failure: Failure) => {
+        showBanner(failure, { kind: "turn", run: () => sendRef.current(message) });
+        setDrafts((current) => (current[id] ? current : { ...current, [id]: message }));
+      };
       try {
         await streamChat(
           {
