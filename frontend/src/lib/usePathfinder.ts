@@ -30,7 +30,7 @@ import type {
 import { describeFailure, failureOf, unreachableOf, type Failure } from "./failure";
 import { useI18n, type MessageKey } from "./i18n";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
-import { clearStoredValue, forgetSignIn, readStoredValue, writeStoredValue } from "./storage";
+import { forgetSignIn, forgetTrip, readStoredValue, rememberedTrip, rememberTrip, writeStoredValue } from "./storage";
 import { writeTrips } from "./tripsStore";
 
 /**
@@ -357,7 +357,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setHotelChanged(false);
     setVersions(trip.versions);
     setMessages(trip.messages);
-    writeStoredValue("session", id);
+    rememberTrip(id);
     sessionRef.current = id;
     chosenWhileOpening.current = null;
     setSessionId(id);
@@ -408,7 +408,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     try {
       // This window's own trip when it has one: the stored pointer is shared with every window and names the trip that
       // was opened last, in whichever window.
-      const id = sessionRef.current ?? readStoredValue("session");
+      const id = sessionRef.current ?? rememberedTrip();
       const signedIn = Boolean(readStoredValue("auth"));
       let lost: string | null = null;
       // The stored sign-in had ended and was dropped here: the page says so once the trip is on screen.
@@ -439,7 +439,7 @@ export function usePathfinder(locale: string): PathfinderHook {
             continue;
           }
           // The server says this trip is gone or is not this browser's: forget it.
-          clearStoredValue("session");
+          forgetTrip();
           lost = id;
           break;
         }
@@ -510,7 +510,7 @@ export function usePathfinder(locale: string): PathfinderHook {
           if (ticket === navRef.current) {
             showBanner(ended ? "errors.signInEnded" : "errors.signInToOpen", { kind: "open", run: () => openSession(id) });
           }
-          if (ticket === navRef.current && sessionRef.current === null) writeStoredValue("session", id);
+          if (ticket === navRef.current && sessionRef.current === null) rememberTrip(id);
           return "needs-sign-in";
         }
         return "missing";
@@ -519,7 +519,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       // Retry asks for this one again. With no trip open, a reload tries it again.
       if (latest) {
         showBanner(unreachableOf(cause), { kind: "open", run: () => openSession(id) });
-        if (sessionRef.current === null) writeStoredValue("session", id);
+        if (sessionRef.current === null) rememberTrip(id);
       }
       return "unavailable";
     }
@@ -971,7 +971,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     // The traveller opened another trip while the delete was on its way: that trip stays as it is.
     if (ticket !== navRef.current) return "left";
     forgetTripView();
-    clearStoredValue("session");
+    forgetTrip();
     sessionRef.current = null;
     setSessionId(null);
     setPlan(null);

@@ -41,9 +41,10 @@ an anonymous profile (random browser token), remembered preferences, and **Clear
 for saved trips/preferences.
 
 The open trips are tabs kept in the browser, shared by every window of it. A window writes a
-tab's label only when the plan it shows changes, and follows a sign-in or sign-out made in
-another window. A message typed and not sent stays with its own trip, through a visit to
-another page and the reload after signing in or out, and the text of a send that failed
+tab's label only when the plan it shows changes, follows a sign-in or sign-out made in
+another window, and comes back to its own trip, not the one opened last in any window, when
+the page is reloaded. A message typed and not sent stays with its own trip, through a visit
+to another page and the reload after signing in or out, and the text of a send that failed
 comes back into the box. The answer to something started in one trip is dropped when
 another trip has been opened since, and **Retry** repeats the action that failed (a turn,
 saving the details, a rating, clearing the chat, opening a trip), not the last message.
