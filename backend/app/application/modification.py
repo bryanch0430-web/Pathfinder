@@ -524,21 +524,16 @@ class ModifyPath:
                         if replaced:
                             draft.description = f"Replaced {before} with {target_item.name}."
                         else:
-                            detail = (
-                                f"No verified {cuisine} restaurant came back, so {before} stayed as it was"
-                                if cuisine
-                                else (
+                            if cuisine:
+                                outcome = f"No verified {cuisine} restaurant came back, so {before} stayed as it was."
+                            else:
+                                detail = (
                                     f"I could not find a verified {wanted_text!r} in the configured sources"
                                     if wanted_text
                                     else f"No verified alternative for {before!r} came back from the configured sources"
                                 )
-                            )
-                            updated.data_quality.gaps.append(
-                                _gap(
-                                    "attractions",
-                                    f"{detail}, so that stop stayed as it was.",
-                                )
-                            )
+                                outcome = f"{detail}, so that stop stayed as it was."
+                            updated.data_quality.gaps.append(_gap("attractions", outcome))
 
         if AgentName.TICKET in agent_names and referred is None:
             ticket_result = results.get("ticket")
