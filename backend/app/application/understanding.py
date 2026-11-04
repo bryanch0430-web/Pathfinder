@@ -388,7 +388,9 @@ def _on_the_way(lower: str, position: int) -> bool:
 #: A verb that follows "to" in "love to see Lyon" (not after "in" or "visit": "3 days in Do Son"): the place comes after it,
 #: so it is not part of the name.
 _VERBS_AFTER_TO = frozenset(
-    "visit see explore go travel fly stay spend try get be have do take discover check tour enjoy relax".split()
+    "visit see explore go travel fly stay spend try get be have do take discover check tour enjoy relax drink walk eat "
+    "sleep swim hike shop wait stop start finish cook order call scan confirm ask say tell show know make find pick "
+    "keep join meet send".split()
 )
 
 
