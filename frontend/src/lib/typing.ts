@@ -5,10 +5,11 @@
  * Enter as a keydown with `isComposing` true and end the composition after it. WebKit (Safari, and
  * every browser on iOS) ends the composition first, so the same Enter arrives with `isComposing`
  * false and the legacy key code 229. Both are checked, so the Enter does not send a message, sign
- * in or add a tag in either order.
+ * in or add a tag in either order. The Escape that cancels a composition comes the same way and
+ * must not close the dialog the text is typed in.
  */
-export function isImeKey(event: { nativeEvent: KeyboardEvent }): boolean {
-  const key = event.nativeEvent;
+export function isImeKey(event: { nativeEvent: KeyboardEvent } | KeyboardEvent): boolean {
+  const key = "nativeEvent" in event ? event.nativeEvent : event;
   return key.isComposing || key.keyCode === 229;
 }
 

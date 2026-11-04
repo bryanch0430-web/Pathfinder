@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import { Icon, type IconName } from "./icons";
 import { useI18n } from "../lib/i18n";
+import { isImeKey } from "../lib/typing";
 
 type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info" | "busy" | "ink";
 
@@ -283,6 +284,8 @@ export function useModalBehaviour<T extends HTMLElement>(open: boolean, onClose:
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     modal?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
+      // A key pressed to work an input method (Escape cancelling a composition, Tab choosing a candidate) is its own.
+      if (isImeKey(event)) return;
       if (event.key === "Escape") {
         closeRef.current();
         return;
