@@ -139,7 +139,7 @@ Response: `text/event-stream`. Each frame is `event: <name>` followed by a singl
 | `token` | `{text}` — streamed prose for ask/clarify/modify |
 | `plan` | `{plan: TripPlan, diff: []}` |
 | `clarify` | `{question, slots, labels, options, reason_code}` |
-| `error` | `{code, message, retryable}` |
+| `error` | `{code, message, retryable}`, with `kind` and `source` added for a data source failure. The two frames the stream itself sends, `turn_timeout` and `stream_error`, are `{code, message, detail}` with no `retryable`. Codes and what follows an `error`: section 8 |
 | `trace` | `{request_id, spans, generations, tool_calls}` |
 | `done` | `{request_id, intent, session_id}` |
 
@@ -162,8 +162,8 @@ day is named with that day; locked and confirmed stops put back by a rebuild who
 them are named in a `transfers` data gap.
 
 Messages for one trip run one after another. A message that waits for an earlier one gets
-keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`, `turn_timeout` after that)
-starts when its own turn does, so waiting never counts against it.
+keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`; after it the stream ends with an
+`error` frame whose code is `turn_timeout`) starts when its own turn does, so waiting never counts against it.
 
 A blocked injection returns `route` with `blocked: true`, a `token` safe reply and
 `done`; no planning runs. A schema failure after bounded repair returns `error` with
@@ -171,9 +171,13 @@ A blocked injection returns `route` with `blocked: true`, a `token` safe reply a
 
 ### curl
 
+A guest session answers only to the guest token it was created with, so the request carries it as
+`X-Client-Token` (without it the answer is `404`):
+
 ```bash
 curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
   -H "Content-Type: application/json" \
+  -H "X-Client-Token: <the guest token the session was created with>" \
   -d '{"session_id":"sess_x","message":"What is the weather on day 2?","locale":"en"}'
 ```
 
@@ -294,17 +298,23 @@ It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to wri
 
 ## 8. Error codes
 
+The `code` of an `error` event. After an `error` the turn's `trace` and `done` events still follow, except for
+`session_not_found`, `turn_timeout` and `stream_error`: those end the stream, and nothing follows them. A
+message with details missing is not an error: it is answered with a `clarify` event, and a message the blocklist
+stops with `route` (`blocked: true`), a `token` and `done`.
+
 | Code | Meaning | Retryable |
 |---|---|---|
-| `security_blocked` | blocklist hit | no |
+| `security_blocked` | a tool was called that the path is not allowed to use (the toolbox's allowlist); the traveller reads "This request was stopped by a safety check." | no |
 | `canary_leak` | output contained the canary | no |
-| `clarification_required` | missing slots (normally a `clarify` event) | yes |
 | `plan_invalid` | validation failed after repair, or the destination could not be located | yes (no when the lookup cap refused the lookup) |
 | `tool_budget_exceeded` | the turn reached the per-turn lookup cap (`MAX_TOOL_CALLS_PER_TURN`) | no |
 | `plan_conflict` | another turn on the same trip saved its version first (turns on one trip otherwise run one after another) | yes |
-| `session_not_found` | the trip was deleted before the turn began, for instance while the message waited for an earlier one; nothing is saved and no trip is made in its place | no |
+| `session_not_found` | the trip was deleted before the turn began, for instance while the message waited for an earlier one; nothing is saved and no trip is made in its place. The stream carries this `error` alone | no |
 | `provider_error` | data source failure (kind attached) | depends |
 | `internal_error` | unexpected failure, no internals leaked to the user | yes |
+| `turn_timeout` | the turn did not finish within `TURN_DEADLINE_SECONDS` and was stopped. Sent by the stream, as `{code, message, detail}` (`detail` says how many seconds) with no `retryable` field; the message asks the traveller to try again | not sent |
+| `stream_error` | the turn failed in a way it did not report itself. Sent by the stream, as `{code, message, detail}` with the traveller-safe text in `detail` and no `retryable` field | not sent |
 
 ## 9. Rate limits
 
