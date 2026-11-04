@@ -50,3 +50,66 @@ def test_a_refused_hotel_change_leaves_the_hotel_while_the_trip_moves(settings: 
 )
 def test_a_hotel_change_that_is_asked_for_is_still_made(message: str) -> None:
     assert _asks_for_another_hotel(message, affected_parts_for(message)) is True
+
+
+# -- a complaint in front of the command is not a refusal of it ---------------------------------------------------
+
+COMPLAINT_THEN_COMMAND = [
+    "I don't like this hotel so swap it",
+    "I do not like the hotel but swap the room",
+    "not happy with the hotel please change it",
+    "we can't afford this hotel so change the hotel",
+    "this hotel isn't great so upgrade the room",
+    "I never liked this hotel - switch hotels",
+    "I can't stay there then upgrade the room",
+    "I don't like this hotel and I want to swap the hotel",
+    "the hotel isn't near the station therefore change the room",
+    "I don't like this hotel because it is noisy, swap the hotel",
+    "I didn't like the room — find another hotel",
+    "no breakfast included so pick a different hotel",
+    "not happy with the hotel can you swap it",
+]
+
+
+@pytest.mark.parametrize("message", COMPLAINT_THEN_COMMAND)
+def test_a_complaint_in_front_of_a_swap_command_does_not_refuse_it(message: str) -> None:
+    assert _asks_for_another_hotel(message, affected_parts_for(message)) is True
+
+
+def test_a_complaint_in_front_of_a_swap_command_swaps_the_hotel_while_the_trip_moves(settings: Settings) -> None:
+    plan, updated, diff, _ = _edit(settings, "move the trip a week later, I don't like this hotel so swap it")
+
+    assert updated.hotels[0].name != plan.hotels[0].name
+    assert any(change["kind"] == "hotel" for change in diff)
+    assert (updated.dates.start, updated.dates.end) == WEEK_LATER
+
+
+@pytest.mark.parametrize("message", ["I don't like this hotel so swap it", "this hotel isn't great so upgrade the room"])
+def test_a_complaint_then_a_command_swaps_the_hotel(settings: Settings, message: str) -> None:
+    plan, updated, diff, _ = _edit(settings, message, form=None)
+
+    assert updated.hotels[0].name != plan.hotels[0].name, updated.change_summary
+    assert any(change["kind"] == "hotel" for change in diff)
+    assert updated.version == plan.version + 1
+
+
+# A refusal stays one while the negation is next to the change word, with whatever clause comes before it.
+REFUSED_NEXT_TO_THE_COMMAND = [
+    "I don't want to swap the hotel",
+    "I'd rather not change the hotel",
+    "we don't want a different hotel",
+    "I don't need a different room",
+    "there's no need to switch the hotel",
+    "no need for another hotel",
+    "not another hotel",
+    "never change the hotel",
+    "please don't change the hotel",
+    "I don't like this hotel, but do not swap the hotel",
+    "the hotel is fine so don't change the hotel",
+    "I don't like the noise but I'd prefer not to change the hotel",
+]
+
+
+@pytest.mark.parametrize("message", REFUSED_NEXT_TO_THE_COMMAND)
+def test_a_negation_next_to_the_change_word_still_refuses_it(message: str) -> None:
+    assert _asks_for_another_hotel(message, affected_parts_for(message)) is False
