@@ -152,6 +152,10 @@ The page's `Re-plan with the updated details.` compares the trip form with the p
 new trip (`reason_code` `replan_destination`); other dates move the trip; another party size, departure city or
 budget is applied to the plan and the stay and the fares are priced again for it (the stay is kept with its marks);
 a form that holds nothing the plan does not is answered with a plain reply and changes nothing.
+A trip moved to other weekdays drops the opening-hours lines its stops carry for other weekdays (their hours are
+unknown) and names those stops in an `attractions` data gap, and a stop whose stored hours say it is closed on its new
+day is named with that day; locked and confirmed stops put back by a rebuild whose travel time does not fit between
+them are named in a `transfers` data gap.
 
 Messages for one trip run one after another. A message that waits for an earlier one gets
 keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`, `turn_timeout` after that)
