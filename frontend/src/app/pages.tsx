@@ -21,7 +21,7 @@ import {
   runEval,
   saveProfilePreferences,
 } from "../lib/api";
-import { failureText } from "../lib/failure";
+import { describeFailure, failureOf, type Failure } from "../lib/failure";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { readStoredValue } from "../lib/storage";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
@@ -30,13 +30,14 @@ import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../des
 export function SavedPage() {
   const { t } = useI18n();
   const [trips, setTrips] = useState<Awaited<ReturnType<typeof getSavedTrips>>["trips"]>([]);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as a message key, so that a language switch translates it too.
+  const [error, setError] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getSavedTrips(ensureClientToken())
       .then((data) => setTrips(data.trips))
-      .catch((cause) => setError(failureText(cause, t, "errors.savedTrips")))
+      .catch((cause) => setError(failureOf(cause, "errors.savedTrips")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -44,7 +45,7 @@ export function SavedPage() {
   if (error) {
     return (
       <main className="pf-saved">
-        <Banner>{error}</Banner>
+        <Banner>{describeFailure(error, t)}</Banner>
       </main>
     );
   }
@@ -57,16 +58,17 @@ export function EvaluationPage() {
   const [runs, setRuns] = useState<EvalRunSummary[]>([]);
   const [latest, setLatest] = useState<EvalRun | null>(null);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as a message key, so that a language switch translates it too.
+  const [error, setError] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
 
   // On the evaluation routes a 401 means the admin token, not the traveller's sign-in.
-  const failure = (cause: unknown, key: MessageKey) => failureText(cause, t, key, "eval.adminRequired");
+  const failure = (cause: unknown, key: MessageKey) => failureOf(cause, key, "eval.adminRequired");
 
   const load = async () => {
     // Every evaluation route needs the admin token, so without one a request can only be refused.
     if (!adminHeader()["X-Admin-Token"]) {
-      setError(t("eval.adminRequired"));
+      setError("eval.adminRequired");
       setLoading(false);
       return;
     }
@@ -130,7 +132,7 @@ export function EvaluationPage() {
   if (!datasets.length && error) {
     return (
       <main className="pf-eval">
-        <Banner>{error}</Banner>
+        <Banner>{describeFailure(error, t)}</Banner>
       </main>
     );
   }
@@ -147,7 +149,7 @@ export function EvaluationPage() {
       runs={runs}
       latest={latest}
       running={running}
-      error={error}
+      error={error === null ? null : describeFailure(error, t)}
       onRun={(dataset, tag) => void handleRun(dataset, tag)}
       onExport={(runId) => void handleExport(runId)}
       onSelectRun={(runId) => void handleSelectRun(runId)}
@@ -160,13 +162,14 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const [config, setConfig] = useState<Parameters<typeof SettingsView>[0]["config"]>(null);
   const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as a message key, so that a language switch translates it too.
+  const [error, setError] = useState<Failure | null>(null);
   const clientToken = ensureClientToken();
 
   useEffect(() => {
     getConfig()
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
-      .catch((cause) => setError(failureText(cause, t, "errors.config")));
+      .catch((cause) => setError(failureOf(cause, "errors.config")));
     // No built-in admin token: the admin request is only sent when one is stored.
     const adminToken = readStoredValue("admin") || "";
     if (adminToken) {
@@ -185,7 +188,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
     setError(null);
     void saveProfilePreferences(clientToken, preferences)
       .then((data) => setProfile(data.profile))
-      .catch((cause) => setError(failureText(cause, t, "errors.preferences")));
+      .catch((cause) => setError(failureOf(cause, "errors.preferences")));
   };
 
   const handleClearMemory = () => {
@@ -194,7 +197,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
     void clearMemory(clientToken)
       .then(() => getProfile(clientToken))
       .then(setProfile)
-      .catch((cause) => setError(failureText(cause, t, "errors.memory")));
+      .catch((cause) => setError(failureOf(cause, "errors.memory")));
   };
 
   // A failure shows above the form instead of replacing it, so what was typed stays and Save can be pressed again.
@@ -204,7 +207,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
       injections={injections}
       profile={profile}
       signedIn={signedIn}
-      error={error}
+      error={error === null ? null : describeFailure(error, t)}
       onSavePreferences={handleSavePreferences}
       onClearMemory={handleClearMemory}
     />
