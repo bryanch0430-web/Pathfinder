@@ -13,19 +13,28 @@ from typing import Any, Iterable
 from app.config import Settings
 from app.domain.models import Severity
 
+#: "canary" is the name of the planted token, and also of two destinations: the Canary Islands and Canary Wharf.
+_NOT_A_CANARY_DESTINATION = r"(?!\s+(?:islands?|isles?|wharf)\b)"
+#: What "stop planning" may be followed by and still drop the whole task ("stop planning trips", "stop planning my
+#: trip for me"). A part of the plan after it ("stop planning so many temples") is an edit, not a dropped task.
+_WHOLE_TASK = (
+    r"(?:\s+(?:the\s+|my\s+|this\s+|any\s+)?(?:trips?|travel|itinerary|plans?|task|anything|altogether|completely|entirely"
+    r"|now|please|anymore|any more)|\s+for\s+(?:me|us))*"
+)
+
 PATTERNS: list[tuple[str, Severity, str]] = [
-    ("ignore_instructions", Severity.HIGH, r"(?i)\b(ignore|disregard|forget)\b.{0,40}\b(previous|prior|above|system|developer|your)\b.{0,20}\b(instruction|prompt|rule)s?\b"),
+    ("ignore_instructions", Severity.HIGH, r"(?i)\b(ignore|disregard|forget)\b.{0,40}(?<!\bmy\s)(?<!\bour\s)\b(previous|prior|above|system|developer|your)\b.{0,20}\b(instruction|prompt|rule)s?\b"),
     ("tool_smuggling", Severity.HIGH, r"(?i)\b(call|invoke|run|execute)\s+(the\s+)?tool\b|\bcancel_order\b|\bbook_flight\b"),
-    ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(reveal|show|print|repeat|leak|dump|output)\b.{0,30}\b(system prompts?|hidden instructions?|developer messages?|canary)\b"),
+    ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(reveal|show|print|repeat|leak|dump|output)\b.{0,30}\b(system prompts?|hidden instructions?|developer messages?|canary" + _NOT_A_CANARY_DESTINATION + r")\b"),
     ("role_override", Severity.HIGH, r"(?i)\byou are now\b|\bact as\b.{0,20}\b(root|admin|developer|dan)\b|\bdeveloper mode\b"),
     ("tool_smuggling", Severity.HIGH, r"(?i)<tool_call>|</?function[_-]?call|\bcall_tool\s*\(|\{\s*\"tool\"\s*:"),
     ("jailbreak", Severity.MEDIUM, r"(?i)\b(jailbreak|do anything now|no restrictions|bypass your (rules|guardrails))\b"),
-    ("canary_probe", Severity.HIGH, r"(?i)canary|hidden token|<<CANARY"),
+    ("canary_probe", Severity.HIGH, r"(?i)\bcanary\s+(?:token|string|value|word|phrase|sentinel|key|code)s?\b|\b(?:the|your|its|that|this)\s+canary\b" + _NOT_A_CANARY_DESTINATION + r"|hidden token|<<CANARY"),
     # Added from the TC-05 dev probes (Proposal p4): paraphrased tool calls,
     # prompt extraction without the words "system prompt", and task hijacks.
-    ("tool_smuggling", Severity.HIGH, r"(?i)\b(call|invoke|run|execute|trigger|use)\s+(the\s+|your\s+|my\s+|a\s+)?([\w.\-]+\s+){0,2}(tool|api|function|endpoint)s?\b|\b(call|invoke|run|execute|trigger)\s+[a-z]+\.[a-z_]+\b|\b(book|cancel|refund|charge|delete|send|transfer)_[a-z_]+\b"),
+    ("tool_smuggling", Severity.HIGH, r"(?i)\b(call|invoke|run|execute|trigger|use)\s+(the\s+|your\s+|my\s+|a\s+)?([\w.\-]+\s+){0,2}(tool|api|function|endpoint)s?\b|\b(call|invoke|run|execute|trigger)\s+[a-z]+\.(?!(?:com|net|org|edu|gov|io|co|jp|uk|hk|cn)\b)[a-z_]+\b|\b(book|cancel|refund|charge|delete|send|transfer)_[a-z_]+\b"),
     ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(repeat|print|show|output|quote|paste|copy|recite|reveal|dump)\b.{0,30}\b(everything|all|anything|whatever|the text|the words)\b.{0,20}\b(above|before)\s+(this|that|my|the first)\b|\bwhat\b.{0,15}\bwere you (told|instructed|given|programmed)\b|\bquote (it|them|that) (word for word|verbatim)\b|\b(secret|sentinel|hidden)\s+(strings?|tokens?|words?|values?|keys?|phrases?)\b"),
-    ("task_hijack", Severity.HIGH, r"(?i)\b(stop|quit|abandon|ignore|forget)\s+(\w+\s+){0,3}?(planning|(trip|travel|itinerary)\s+(task|planning))\b.{0,60}?\b(instead|and\s+(just\s+|only\s+)?(write|tell|summari[sz]e|translate|reply|output|chat|say))\b|\byour (only|new|real) (job|task|role|purpose)\b|\bfrom now on,? every (message|reply|answer|response)\b"),
+    ("task_hijack", Severity.HIGH, r"(?i)\b(stop|quit|abandon|ignore|forget)\s+(\w+\s+){0,3}?(planning|(trip|travel|itinerary)\s+(task|planning))\b" + _WHOLE_TASK + r"(?:[\s,;:-]*\b(?:instead|and\s+(?:just\s+|only\s+)?(?:write|tell|summari[sz]e|translate|reply|output|chat|say))|\s*[.!?;]\s*.{0,60}?\binstead)\b|\byour (only|new|real) (job|task|role|purpose)\b|\bfrom now on,? every message\b"),
 ]
 
 #: Fetched text (web rows, place descriptions, notes) addressed to a model. Used
@@ -37,6 +46,10 @@ INDIRECT_PATTERNS: list[tuple[str, str]] = [
     ("indirect_injection", r"(?i)(^|[.!?\]\->:]\s*|\[)\s*(ai|llm|gpt|chatbot|bots?|assistants?|system|language models?|planner model|(ai|llm) (agents?|assistants?|models?|planners?))\s*[:,]"),
     ("indirect_injection", r"(?i)\b(ai|llm|bots?|assistants?|language models?|chatbots?)(\s+(agents?|models?|planners?|assistants?))?\s+(reading|seeing|processing)\s+this\b|\b(ai|bot|assistant|model|llm|agent)\s+(instruction|directive|command|note)s?\s*[:\]]"),
     ("indirect_injection", r"(?i)\b(reply|respond|answer|output)\s+only\b|\b(reply|respond)\s+with\b|\bdo not (answer|describe|tell|reply)\b|\bignore the (traveller|user|question)"),
+    # Wider than the traveller's screen: a traveller may say "ignore my previous instructions about the hotel" or
+    # "from now on, every reply in Cantonese", a page may not.
+    ("ignore_instructions", r"(?i)\b(ignore|disregard|forget)\b.{0,40}\b(previous|prior|above|system|developer|your)\b.{0,20}\b(instruction|prompt|rule)s?\b"),
+    ("task_hijack", r"(?i)\bfrom now on,? every (message|reply|answer|response)\b"),
     # Broader than task_hijack: a traveller may say "forget the trip to Nara and ...", a page may not.
     ("indirect_injection", r"(?i)\b(stop|quit|abandon|ignore|forget|drop)\s+(\w+\s+){0,3}?(planning|itinerar(y|ies)|the (trip|plan|task))\b.{0,60}?\b(instead|and\s+(just\s+|only\s+)?(write|tell|summari[sz]e|translate|reply|output|chat|say))\b"),
 ]
@@ -87,6 +100,11 @@ def _screen(texts: list[str], settings: Settings) -> ScreenResult:
                 result.max_severity = Severity.HIGH
             elif severity == Severity.MEDIUM and result.max_severity != Severity.HIGH:
                 result.max_severity = Severity.MEDIUM
+    # The planted token itself, whatever it is set to, is never something a traveller types.
+    if settings.canary_token and any(settings.canary_token in text for text in texts):
+        if "canary_probe" not in result.categories:
+            result.categories.append("canary_probe")
+        result.max_severity = Severity.HIGH
     # A high-severity attempt is refused. Medium stays data, but is logged.
     result.blocked = result.max_severity == Severity.HIGH
     return result

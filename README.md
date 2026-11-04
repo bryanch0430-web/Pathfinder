@@ -339,7 +339,11 @@ The planner chooses *which* verified stops belong to a day; the scheduler owns t
 - A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
   calls, in the message as typed and as the model will read it (a fence tag typed inside a word
   is taken out first, and a line break counts as a space, as it does when a later prompt repeats
-  the turn). Suspected injections are logged as **category + count only**.
+  the turn). It aims at the assistant's own instructions and token, so a traveller's correction
+  ("ignore my previous instructions about the hotel"), a reply language ("from now on, every
+  reply in Cantonese"), a part of the plan dropped ("stop planning so many temples and add a
+  cafe instead") and the Canary Islands or Canary Wharf pass. Suspected injections are logged as
+  **category + count only**.
 - Each path has an allowlist (`PATH_ALLOWLIST` in `application/toolbox.py`). `ask` can
   never run a pre-planning agent.
 - A canary token is planted in every system prompt; any output containing it is blocked.
