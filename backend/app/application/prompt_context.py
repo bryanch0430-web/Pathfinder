@@ -93,11 +93,18 @@ def plan_outline(summary: dict[str, Any] | None, *, ids: bool = False, times: bo
     return "\n".join(lines)
 
 
-def recent_turns(history: Sequence[Message], current: str, *, limit: int = 4, chars: int = 200) -> str:
-    """Earlier turns only: the current message is sent once, inside its fence."""
+def earlier_turns(history: Sequence[Message], current: str) -> list[Message]:
+    """The earlier turns a prompt may repeat: the turn is stored before it is answered, and the current message
+    is sent once, inside its fence, so a last row that is that message is left out."""
     rows = replayable(history)
     if rows and rows[-1].role == "user" and rows[-1].content.strip() == (current or "").strip():
         rows = rows[:-1]
+    return rows
+
+
+def recent_turns(history: Sequence[Message], current: str, *, limit: int = 4, chars: int = 200) -> str:
+    """Earlier turns only: the current message is sent once, inside its fence."""
+    rows = earlier_turns(history, current)
     lines = [f"{row.role}: {strip_fence_tags(' '.join(row.content.split()))[:chars]}" for row in rows[-limit:]]
     return "\n".join(lines) or "(none)"
 
