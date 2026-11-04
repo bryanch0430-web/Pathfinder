@@ -37,6 +37,9 @@ from app.domain.models import (
     PREFERENCE_MAX_LENGTH,
     PreferenceProfile,
     PREFERENCES_MAX,
+    TRIP_FIELD_MAX_LENGTH,
+    TRIP_LINE_MAX_LENGTH,
+    TRIP_LINES_MAX,
     TripContext,
     TripPlan,
     User,
@@ -81,20 +84,26 @@ class CreateSessionRequest(BaseModel):
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
+#: One text of the trip form, and one line of its lists. A request over the limits is refused, not cut; what
+#: the system writes into the form is cut to them (`TripContext.fit_to_limits`), so the page can send it back.
+FormText = Annotated[str, StringConstraints(max_length=TRIP_FIELD_MAX_LENGTH)]
+FormLine = Annotated[str, StringConstraints(max_length=TRIP_LINE_MAX_LENGTH)]
+
+
 class ContextPatch(BaseModel):
-    destination: str | None = None
-    origin: str | None = None
+    destination: FormText | None = None
+    origin: FormText | None = None
     start_date: date | None = None
     end_date: date | None = None
     days: int | None = Field(default=None, ge=1, le=60)
     party_size: int | None = Field(default=None, ge=1, le=20)
     budget: float | None = Field(default=None, ge=0)
-    currency: str | None = None
-    hotel_style: str | None = None
-    pace: str | None = None
-    preferences: list[str] | None = None
-    hard_constraints: list[str] | None = None
-    language: str | None = None
+    currency: FormText | None = None
+    hotel_style: FormText | None = None
+    pace: FormText | None = None
+    preferences: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
+    hard_constraints: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
+    language: FormText | None = None
     plan_locale: Literal["en", "zh-Hant"] | None = None
 
 

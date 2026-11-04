@@ -469,6 +469,14 @@ class TripPlan(BaseModel):
 # Conversation, context, memory
 # ---------------------------------------------------------------------------
 
+#: What a trip's form keeps, whoever writes it: TRIP_LINES_MAX preferences and as many constraints of
+#: TRIP_LINE_MAX_LENGTH characters, and TRIP_FIELD_MAX_LENGTH characters in each of its other texts. A request over
+#: them is refused (PATCH /api/journeys/{id}/state); what the system itself writes, and a form stored before the
+#: limits, is cut to them (`TripContext.fit_to_limits`), so the page can always send back the form it was shown.
+TRIP_LINES_MAX = 50
+TRIP_LINE_MAX_LENGTH = 200
+TRIP_FIELD_MAX_LENGTH = 120
+
 
 class TripContext(BaseModel):
     session_id: str
@@ -488,6 +496,25 @@ class TripContext(BaseModel):
     #: the plan's display language; the English plan stays the source of truth
     plan_locale: Literal["en", "zh-Hant"] = "en"
     updated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def _within_limits(self) -> "TripContext":
+        return self.fit_to_limits()
+
+    def fit_to_limits(self) -> "TripContext":
+        """Cut the form to the limits above, in place: the newest lines of a long list, the first characters of a
+        long text. The store does this before it writes (the understanding step appends to the lists in place, so
+        nothing else sees what it left) and a form read back is cut the same way, so one stored before the limits
+        cannot slow the service. The work is bounded by the limits, not by what the form held."""
+        self.destination = self.destination[:TRIP_FIELD_MAX_LENGTH]
+        self.origin = self.origin[:TRIP_FIELD_MAX_LENGTH]
+        self.currency = self.currency[:TRIP_FIELD_MAX_LENGTH]
+        self.hotel_style = self.hotel_style[:TRIP_FIELD_MAX_LENGTH]
+        self.pace = self.pace[:TRIP_FIELD_MAX_LENGTH]
+        self.language = self.language[:TRIP_FIELD_MAX_LENGTH]
+        self.preferences = [line[:TRIP_LINE_MAX_LENGTH] for line in self.preferences[-TRIP_LINES_MAX:]]
+        self.hard_constraints = [line[:TRIP_LINE_MAX_LENGTH] for line in self.hard_constraints[-TRIP_LINES_MAX:]]
+        return self
 
     def missing_slots(self) -> list[str]:
         missing: list[str] = []
@@ -612,10 +639,9 @@ class PreferenceProfile(BaseModel):
 
     @model_validator(mode="after")
     def _fit(self) -> "PreferenceProfile":
-        kept: list[str] = []
-        for value in map(fit_preference, self.preferences):
-            if value and value not in kept:
-                kept.append(value)
+        # A dict keeps the first of each repeat in order, in one pass: a profile stored before the limits
+        # may hold any number of phrases, and `value not in kept` took seconds on thousands of them.
+        kept = list(dict.fromkeys(value for value in map(fit_preference, self.preferences) if value))
         self.preferences = kept[-PREFERENCES_MAX:]
         return self
 
