@@ -520,6 +520,7 @@ export default function App() {
                   onClearScope={() => pf.selectItem(null)}
                   error={pf.sessionId ? pf.error : null}
                   disabled={!pf.sessionId}
+                  tripId={pf.sessionId}
                   onRetry={() => void pf.retry()}
                   onClear={() => void pf.clearChat()}
                   trace={pf.trace}
