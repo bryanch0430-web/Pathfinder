@@ -926,9 +926,22 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
                 else "The forecast was removed: it was for the earlier dates."
             )
         elif kind == "hotel":
-            hotel = f"Hotel changed from {entry.get('from') or 'the previous hotel'} to {entry.get('to') or 'a new hotel'}."
+            was, now = entry.get("from"), entry.get("to")
+            if was and not now:
+                why = "a one-day trip has no overnight stay" if len(plan.days) <= 1 else "no hotel for the new dates came back"
+                hotel = f"The hotel {was} was removed: {why}."
+            elif now and not was:
+                hotel = f"A hotel was added: {now}."
+            else:
+                hotel = f"Hotel changed from {was} to {now}."
         elif kind == "flight":
-            extras.append(f"Flight changed from {entry.get('from') or 'the previous option'} to {entry.get('to') or 'a new option'}.")
+            was, now = entry.get("from"), entry.get("to")
+            if was and not now:
+                extras.append(f"The flight {was} was removed: no flight for the new dates came back.")
+            elif now and not was:
+                extras.append(f"A flight was added: {now}.")
+            else:
+                extras.append(f"Flight changed from {was} to {now}.")
         elif kind == "cost":
             try:
                 before = float(entry.get("from") or 0)

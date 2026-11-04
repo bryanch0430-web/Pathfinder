@@ -68,6 +68,8 @@ PAST_DATES = "The new dates are in the past."
 HOTEL_SEARCH = "hotels.search"
 #: said (and then not kept: it is an edit outcome) when a request for another or a cheaper hotel found none
 NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel stays."
+#: the flight of the earlier dates is gone from a trip that moved, and none came back for the new ones
+FLIGHT_NO_LONGER_FITS = "The earlier flight no longer fits the new dates and no flight for them came back."
 #: the answer to a request for other dates when the form holds the plan's dates: the trip form is where dates change
 CHAT_DATES_REPLY = (
     "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
@@ -299,6 +301,9 @@ class ModifyPath:
                 rebuilt.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
             if new_range.start < date.today():
                 rebuilt.data_quality.gaps.append(_gap("dates", PAST_DATES))
+            if plan.tickets and not rebuilt.tickets and not any(g.section == "tickets" for g in rebuilt.data_quality.gaps):
+                # A source that answered with no flight (and said nothing was wrong) still leaves the fare gone.
+                rebuilt.data_quality.gaps.append(_gap("tickets", FLIGHT_NO_LONGER_FITS))
             rebuilt = await self.carry_protected(plan, rebuilt, context=context, toolbox=toolbox)
             return rebuilt, diff_plans(old_plan, rebuilt)
 
@@ -528,9 +533,7 @@ class ModifyPath:
                 if built:
                     updated.tickets = built
             if date_changed and old_plan.tickets and not updated.tickets:
-                updated.data_quality.gaps.append(
-                    _gap("tickets", "The earlier flight no longer fits the new dates and no flight for them came back.")
-                )
+                updated.data_quality.gaps.append(_gap("tickets", FLIGHT_NO_LONGER_FITS))
 
         if referred:
             keep_only(old_plan, updated, referred)
