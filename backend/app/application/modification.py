@@ -133,8 +133,6 @@ class ModifyPath:
         memory_summaries: list[str] | None = None,
         scope_item_id: str | None = None,
     ) -> tuple[TripPlan, list[dict[str, Any]]]:
-        draft = await self._extract(message, plan, context, route_parts)
-        shape = interpret_plan(message, draft.new_values)
         # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
         # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
         # two nights" or "a later flight" name a part of the trip (Proposal DB-09), not new dates.
@@ -144,6 +142,15 @@ class ModifyPath:
             new_range, form_is_a_trip = None, False
         else:
             form_is_a_trip = True
+        # The page's "generate again" is a request to plan again with the trip details: what the form has that the plan
+        # does not (apart from its dates, above) is what changes.
+        replanning = is_replan_message(message)
+        form_changes = _form_differences(plan, context) if replanning else []
+        if replanning and form_is_a_trip and new_range == plan.dates and not form_changes:
+            # The page's own message needs no writer to be read when the form holds nothing the plan does not.
+            return _nothing_differs(plan)
+        draft = await self._extract(message, plan, context, route_parts)
+        shape = interpret_plan(message, draft.new_values)
         date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
         if date_requested and not form_is_a_trip:
             raise PlanInvalidError(
@@ -151,14 +158,8 @@ class ModifyPath:
                 "is at most 60 days long. Correct them in the trip details and ask again."
             )
         dates_move = bool(new_range and new_range != plan.dates) and date_requested
-        # The page's "generate again" is a request to plan again with the trip details: what the form has that the plan
-        # does not (apart from its dates, above) is what changes.
-        replanning = is_replan_message(message)
-        form_changes = _form_differences(plan, context) if replanning else []
         if replanning and not dates_move and not form_changes:
-            answer = plan.model_copy(deep=True)
-            answer.change_summary = NOTHING_DIFFERS
-            return answer, []
+            return _nothing_differs(plan)
         # A request for the dates or the length of the trip is about the whole trip, whatever row is selected or named
         # in it ("keep this hotel but move to March", "make it 4 days, Senso-ji must stay"). A bare span ("two days
         # later") is about the trip too, unless it is said of a row: "it", "this" or a name in the plan.
@@ -1637,6 +1638,13 @@ def _form_differences(plan: TripPlan, context: TripContext) -> list[str]:
     ):
         found.append("budget")
     return found
+
+
+def _nothing_differs(plan: TripPlan) -> tuple[TripPlan, list[dict[str, Any]]]:
+    """The answer to the page's "generate again" when the form holds nothing the plan does not: the plan, as it was."""
+    answer = plan.model_copy(deep=True)
+    answer.change_summary = NOTHING_DIFFERS
+    return answer, []
 
 
 def _details_sentence(context: TripContext, changes: list[str]) -> str:
