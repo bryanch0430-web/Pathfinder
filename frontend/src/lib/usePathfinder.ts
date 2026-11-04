@@ -585,6 +585,9 @@ export function usePathfinder(locale: string): PathfinderHook {
   const languageNotice = planLanguageNotice(planLocale, translation, translationLoading, translationFailed);
 
   const setContext = useCallback((patch: Partial<TripContext>) => {
+    // At once, not at the next render: a save made by the same handler (the form adds the tag still in its field and then
+    // saves) must see it.
+    contextRef.current = { ...contextRef.current, ...patch };
     setContextState((current) => ({ ...current, ...patch }));
   }, []);
 

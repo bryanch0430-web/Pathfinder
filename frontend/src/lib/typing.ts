@@ -12,6 +12,17 @@ export function isImeKey(event: { nativeEvent: KeyboardEvent }): boolean {
   return key.isComposing || key.keyCode === 229;
 }
 
+/** What separates the entries of a list typed in one field: "," from a keyboard, "，" and "、" from a Chinese or Japanese input method. */
+const LIST_SEPARATORS = /[,，、]/;
+
+/** The entries in `text`, trimmed and without the empty ones. */
+export function splitList(text: string): string[] {
+  return text
+    .split(LIST_SEPARATORS)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 /**
  * `current` followed by the tags in `text`, without repeats. Text typed or pasted into a tag field may hold
  * several tags: "," from a keyboard and "，" or "、" from a Chinese or Japanese input method all separate them.
@@ -19,7 +30,7 @@ export function isImeKey(event: { nativeEvent: KeyboardEvent }): boolean {
  */
 export function addTags(current: string[], text: string, limit = Infinity, maxLength = Infinity): string[] {
   const next = [...current];
-  for (const tag of text.split(/[,，、]/)) {
+  for (const tag of text.split(LIST_SEPARATORS)) {
     const clean = Array.from(tag.trim()).slice(0, maxLength).join("").trim();
     if (clean && !next.includes(clean) && next.length < limit) next.push(clean);
   }

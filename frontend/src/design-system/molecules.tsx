@@ -11,7 +11,7 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
-import { addTags, isImeKey } from "../lib/typing";
+import { addTags, isImeKey, splitList } from "../lib/typing";
 import type {
   AgentState,
   ClarifyPayload,
@@ -146,12 +146,6 @@ export function TripContextForm({
   const [prefInput, setPrefInput] = useState("");
   const [constraintText, setConstraintText] = useState((values.hard_constraints ?? []).join(", "));
 
-  const parseList = (text: string) =>
-    text
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-
   useEffect(() => {
     setPreferenceTags(values.preferences ?? []);
   }, [values.preferences]);
@@ -192,6 +186,10 @@ export function TripContextForm({
     onChange({ preferences: merged });
     setPrefInput("");
   };
+  // Text still in the tag field is a tag the traveller meant to add: saving or planning takes it along.
+  const addPendingPreference = () => {
+    if (prefInput.trim()) addPreference();
+  };
   const removePreference = (value: string) => {
     const next = preferenceTags.filter((entry) => entry !== value);
     setPreferenceTags(next);
@@ -204,7 +202,7 @@ export function TripContextForm({
 
   useEffect(() => {
     const external = values.hard_constraints ?? [];
-    const local = parseList(constraintText);
+    const local = splitList(constraintText);
     if (external.join("\u0000") !== local.join("\u0000")) {
       setConstraintText(external.join(", "));
     }
@@ -219,6 +217,7 @@ export function TripContextForm({
       }}
       onSubmit={(event) => {
         event.preventDefault();
+        addPendingPreference();
         onSubmit();
       }}
     >
@@ -279,7 +278,7 @@ export function TripContextForm({
               id={`${id}-budget`}
               type="number"
               min={0}
-              step={100}
+              step="any"
               value={values.budget ?? ""}
               onChange={(event) => onChange({ budget: event.target.value ? Number(event.target.value) : null })}
               placeholder="400000"
@@ -353,12 +352,7 @@ export function TripContextForm({
               value={constraintText}
               onChange={(event) => {
                 setConstraintText(event.target.value);
-                onChange({
-                  hard_constraints: event.target.value
-                    .split(",")
-                    .map((value) => value.trim())
-                    .filter(Boolean),
-                });
+                onChange({ hard_constraints: splitList(event.target.value) });
               }}
               // The planner reads "must include …" in English, so the example stays English.
               placeholder="must include Fushimi Inari"
@@ -368,7 +362,16 @@ export function TripContextForm({
       </div>
       <div className="pf-row pf-row--between">
         {onSave ? (
-          <Button variant="ghost" size="sm" loading={saving} onClick={onSave} type="button">
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={saving}
+            onClick={() => {
+              addPendingPreference();
+              onSave();
+            }}
+            type="button"
+          >
             {t("form.save")}
           </Button>
         ) : (
