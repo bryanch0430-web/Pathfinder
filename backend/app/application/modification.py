@@ -276,11 +276,16 @@ class ModifyPath:
         date_changed = dates_move
         # Only an edit that asks for another hotel or the budget may change which hotel it is. When the
         # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
+        referred_stay = plan.find_hotel(referred) if referred is not None else None
+        # The stay's own name stands for the word hotel ("keep Kyoto Garden Inn" keeps it like "keep the hotel").
+        stay = referred_stay or (plan.hotels[0] if plan.hotels else None)
+        about_stay = _stay_as_word(message, stay.name) if stay is not None else message
         hotel_requested = not replanning and (
             "budget" in affected
             or budget_mode
-            or _asks_for_another_hotel(message, affected)
-            or (referred is not None and plan.find_hotel(referred) is not None)
+            or _asks_for_another_hotel(about_stay, affected)
+            # The hotel selected or named is the one to swap, unless the sentence says to keep it.
+            or (referred_stay is not None and not _keeps_the_hotel(about_stay))
         )
         if not (hotel_requested or date_changed):
             # Nothing asks for another hotel and no date moves: the hotel agent has no work to do.
@@ -1487,6 +1492,11 @@ def _keeps_the_hotel(message: str) -> bool:
         not _NEGATION.search(message[max(found.start() - 24, 0) : found.start()])
         for found in _KEEP_HOTEL.finditer(message)
     )
+
+
+def _stay_as_word(message: str, name: str) -> str:
+    """The message with the stay's name read as the word hotel: "keep Kyoto Garden Inn" is "keep the hotel"."""
+    return re.sub(re.escape(name), "the hotel", message, flags=re.IGNORECASE) if name.strip() else message
 
 
 def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
