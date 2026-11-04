@@ -44,7 +44,7 @@ import {
   suggestPlaces,
 } from "./lib/api";
 import { downloadPlanMarkdown } from "./lib/export";
-import { failureText } from "./lib/failure";
+import { describeFailure, failureOf, type Failure } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { useI18n, type Locale } from "./lib/i18n";
 import { planLocaleFor } from "./lib/planLocale";
@@ -70,7 +70,8 @@ interface ShareState {
   copied: boolean;
   revoked: boolean;
   revoking: boolean;
-  error: string | null;
+  /** Kept as a message key, so that a language switch translates it too. */
+  error: Failure | null;
 }
 
 const CLOSED_SHARE: ShareState = {
@@ -128,7 +129,7 @@ export default function App() {
   const [trending, setTrending] = useState<TrendingPlace[]>([]);
   const [trendingTrace, setTrendingTrace] = useState<TrendingTrace | null>(null);
   const [trendingLoading, setTrendingLoading] = useState(true);
-  const [trendingError, setTrendingError] = useState<string | null>(null);
+  const [trendingError, setTrendingError] = useState<Failure | null>(null);
   const [trendingInput, setTrendingInput] = useState("");
   const [trendingQuery, setTrendingQuery] = useState("");
   const [fx, setFx] = useState<FxSnapshot | null>(null);
@@ -177,7 +178,7 @@ export default function App() {
     } catch (cause) {
       if (ticket !== trendingTicket.current) return;
       setTrending([]);
-      setTrendingError(failureText(cause, t, "errors.trending"));
+      setTrendingError(failureOf(cause, "errors.trending"));
     } finally {
       if (ticket === trendingTicket.current) setTrendingLoading(false);
     }
@@ -388,7 +389,7 @@ export default function App() {
       }
       update({ loading: false, url, expiresAt: result.expires_at ?? null, copied });
     } catch (cause) {
-      update({ loading: false, error: failureText(cause, t, "errors.share") });
+      update({ loading: false, error: failureOf(cause, "errors.share") });
     }
   };
 
@@ -398,7 +399,7 @@ export default function App() {
       await navigator.clipboard.writeText(share.url);
       setShare((current) => ({ ...current, copied: true, error: null }));
     } catch {
-      setShare((current) => ({ ...current, error: t("errors.copy") }));
+      setShare((current) => ({ ...current, error: "errors.copy" }));
     }
   };
 
@@ -413,7 +414,7 @@ export default function App() {
       setShare((current) => ({
         ...current,
         revoking: false,
-        error: failureText(cause, t, "errors.revoke"),
+        error: failureOf(cause, "errors.revoke"),
       }));
     }
   };
@@ -475,7 +476,7 @@ export default function App() {
       items={trending}
       trace={trendingTrace}
       loading={trendingLoading}
-      error={trendingError}
+      error={trendingError === null ? null : describeFailure(trendingError, t)}
       onRefresh={() => void loadTrending()}
       query={trendingInput}
       onQueryChange={setTrendingInput}
@@ -644,7 +645,7 @@ export default function App() {
         copied={share.copied}
         revoked={share.revoked}
         revoking={share.revoking}
-        error={share.error}
+        error={share.error === null ? null : describeFailure(share.error, t)}
         onCopy={() => void copyShareLink()}
         onRevoke={() => void turnOffShareLink()}
       />
