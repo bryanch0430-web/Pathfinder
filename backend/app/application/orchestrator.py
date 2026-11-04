@@ -93,6 +93,23 @@ def _note_failure(tracer: Any, exc: BaseException) -> None:
         pass
 
 
+@contextmanager
+def _early_exit(tracer: Any, developer_token: Any, ended: str) -> Iterator[None]:
+    """A turn that ends before the pipeline starts (a blocked message, a question about the assistant): its
+    trace is finished however it ends, as ``ended`` when it is told to the end, as "closed" when the consumer
+    stops reading first."""
+    status = "closed"
+    try:
+        yield
+        status = ended
+    except Exception:
+        status = "error"
+        raise
+    finally:
+        reset_developer_view(developer_token)
+        tracer.finish(status=status)
+
+
 class TurnService:
     def __init__(
         self,
@@ -263,21 +280,21 @@ class TurnService:
         )
 
         if screen.blocked:
-            self.store.add_message(
-                Message(session_id=session_id, role="assistant", content=SAFE_REPLY, intent=Intent.UNCLEAR)
-            )
-            yield TurnEvent(
-                event="route",
-                data={
-                    "intent": "unclear",
-                    "confidence": 1.0,
-                    "need_clarification": False,
-                    "blocked": True,
-                    "reason_code": "security_blocklist",
-                },
-            )
-            yield TurnEvent(event="token", data={"text": SAFE_REPLY})
-            tracer.finish(status="blocked")
+            with _early_exit(tracer, developer_token, "blocked"):
+                self.store.add_message(
+                    Message(session_id=session_id, role="assistant", content=SAFE_REPLY, intent=Intent.UNCLEAR)
+                )
+                yield TurnEvent(
+                    event="route",
+                    data={
+                        "intent": "unclear",
+                        "confidence": 1.0,
+                        "need_clarification": False,
+                        "blocked": True,
+                        "reason_code": "security_blocklist",
+                    },
+                )
+                yield TurnEvent(event="token", data={"text": SAFE_REPLY})
             yield TurnEvent(
                 event="done",
                 data={"request_id": request_id, "intent": "unclear", "session_id": session_id, "blocked": True},
@@ -288,24 +305,24 @@ class TurnService:
         # answer them here, with no model call, no web search and no latency.
         identity = identity_reply(message)
         if identity:
-            self.store.add_message(
-                Message(session_id=session_id, role="assistant", content=identity, intent=Intent.ASK)
-            )
-            yield TurnEvent(
-                event="route",
-                data={
-                    "intent": "ask",
-                    "confidence": 1.0,
-                    "threshold": 0.0,
-                    "need_clarification": False,
-                    "reason_code": "identity",
-                    "related_to_plan": False,
-                },
-            )
-            for chunk in _chunks(identity):
-                yield TurnEvent(event="token", data={"text": chunk})
-            self.store.touch_session(session_id)
-            tracer.finish(status="ok")
+            with _early_exit(tracer, developer_token, "ok"):
+                self.store.add_message(
+                    Message(session_id=session_id, role="assistant", content=identity, intent=Intent.ASK)
+                )
+                yield TurnEvent(
+                    event="route",
+                    data={
+                        "intent": "ask",
+                        "confidence": 1.0,
+                        "threshold": 0.0,
+                        "need_clarification": False,
+                        "reason_code": "identity",
+                        "related_to_plan": False,
+                    },
+                )
+                for chunk in _chunks(identity):
+                    yield TurnEvent(event="token", data={"text": chunk})
+                self.store.touch_session(session_id)
             yield TurnEvent(
                 event="done",
                 data={"request_id": request_id, "intent": "ask", "session_id": session_id},
