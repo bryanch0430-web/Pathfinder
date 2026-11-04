@@ -54,8 +54,10 @@ from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, p
 #: nothing else and is trimmed, so a session made with any other token could not be opened again.
 TOKEN_MAX_LENGTH = 120
 TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
-#: A JSON escape for half of a surrogate pair: the only way such a character reaches a JSON body.
-_SURROGATE_ESCAPE = re.compile(rb"\\u[dD][89a-fA-F][0-9a-fA-F]{2}")
+#: How a lone surrogate reaches a JSON body: the escape of one half of a pair, or (from an encoder that does not
+#: check) the character itself. `json.loads` reads UTF-8, UTF-16 and UTF-32 and lets both through, so the body
+#: is searched as it is read and not as the bytes it was sent in.
+_SURROGATE = re.compile(r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}|[\ud800-\udfff]")
 UNREADABLE_TEXT = "The request contains a character that cannot be read. Please retype that text."
 
 
@@ -68,7 +70,11 @@ async def refuse_unreadable_text(request: Request) -> None:
     if request.method not in {"POST", "PUT", "PATCH"} or "json" not in request.headers.get("content-type", ""):
         return
     body = await request.body()
-    if not _SURROGATE_ESCAPE.search(body):
+    try:
+        text = body.decode(json.detect_encoding(body), "surrogatepass")  # the way json.loads reads the bytes
+    except UnicodeDecodeError:
+        return  # not text that can be read: the route says so
+    if not _SURROGATE.search(text):
         return
     try:
         parsed = json.loads(body)
