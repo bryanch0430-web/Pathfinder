@@ -370,7 +370,7 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
             if (
                 _valid_place(candidate)
                 and candidate.lower() != origin_lower
-                and first_word not in _VERBS_AFTER_TO
+                and not (prep == "to" and first_word in _VERBS_AFTER_TO)
                 and first_word not in prepositions
             ):
                 unknown.append((_on_the_way(lower, match.start()), match.start(), candidate.title()))
@@ -385,7 +385,8 @@ def _on_the_way(lower: str, position: int) -> bool:
     return re.search(r"\b(?:stop-?over|layover|stop)\s+$", lower[max(0, position - 10) : position]) is not None
 
 
-#: A verb that follows "to" in "love to see Lyon": the place comes after it, so it is not part of the name.
+#: A verb that follows "to" in "love to see Lyon" (not after "in" or "visit": "3 days in Do Son"): the place comes after it,
+#: so it is not part of the name.
 _VERBS_AFTER_TO = frozenset(
     "visit see explore go travel fly stay spend try get be have do take discover check tour enjoy relax".split()
 )
