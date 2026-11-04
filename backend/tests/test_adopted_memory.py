@@ -71,3 +71,32 @@ def test_remembering_for_no_owner_writes_no_profile(settings: Settings, containe
     assert memory.remember_preferences("", TripContext(session_id="s", preferences=["food"])) is None
 
     assert container.store.get_preferences("") is None
+
+
+def test_preferences_a_turn_learns_after_sign_in_moved_its_trip_go_to_the_account(settings: Settings, monkeypatch) -> None:
+    """The traveller signs in from another window while a message is being understood: the turn read its
+    trip before that, but what it learns belongs to the owner the trip has when it is learned."""
+    from app.application import orchestrator
+
+    ledger = RunLedger()
+    try:
+        rig = build_rig(settings, "Kyoto", ledger)
+        session_id = _session(ledger, "guest-midturn")
+        understood = orchestrator.understand
+
+        async def understand_after_sign_in(*args, **kwargs):
+            assert ledger.store.adopt_sessions("guest-midturn", "user_mid") == 1  # what signing in does
+            return await understood(*args, **kwargs)
+
+        monkeypatch.setattr(orchestrator, "understand", understand_after_sign_in)
+        rig.llm.route = {"intent": "unclear", "confidence": 0.95}
+
+        events = asyncio.run(_say(rig, session_id))
+        account = ledger.store.get_preferences("user:user_mid")
+        old_guest = ledger.store.get_preferences("guest-midturn")
+    finally:
+        ledger.close()
+
+    assert "error" not in {event.event for event in events}
+    assert account is not None and {"vegetarian", "museums"} <= set(account.preferences)
+    assert old_guest is None  # nothing is left on the guest token after sign-in

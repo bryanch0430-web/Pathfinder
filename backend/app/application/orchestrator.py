@@ -350,7 +350,8 @@ class TurnService:
                     pass
                 context = self._save_changes(as_read, context)
                 if context.preferences:
-                    self._remember_in_background(session.owner, context)
+                    # The owner as it is now: signing in may have moved the trip while the message was understood.
+                    self._remember_in_background(self._memory_owner(session_id), context)
 
             with tracer.span("route"):
                 decision = await self.router.route(
