@@ -86,3 +86,23 @@ def test_the_first_place_a_sentence_names_is_the_destination_whichever_cue_comes
 )
 def test_a_stopover_is_not_the_destination(sentence: str, place: str) -> None:
     assert _find_place(sentence, CUES) == place
+
+
+@pytest.mark.parametrize(
+    ("sentence", "place"),
+    [
+        ("3 days in do son", "Do Son"),
+        ("a week in go cong", "Go Cong"),
+        ("explore go vap", "Go Vap"),
+        ("visit be island", "Be Island"),
+        ("a weekend in see island", "See Island"),
+    ],
+)
+def test_a_place_whose_first_word_is_a_verb_is_read_after_in_visit_and_explore(sentence: str, place: str) -> None:
+    """A verb after "to" is a verb ("love to see Lyon", "want to go"); after "in", "visit" or "explore" it begins a name."""
+    assert _find_place(sentence, CUES) == place
+
+
+@pytest.mark.parametrize("sentence", ["i want to go", "i would love to see", "we want to do", "we would like to try"])
+def test_a_verb_after_to_is_still_no_place(sentence: str) -> None:
+    assert _find_place(sentence, CUES) is None
