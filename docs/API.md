@@ -90,9 +90,10 @@ tell a strong one from a weak one: whoever sends the same string opens the same 
 random value (the page uses a UUID), never `undefined` or a name. A trip made with a valid bearer
 belongs to the account and is stored under its `user:<id>` token, whatever guest token the request names.
 
-A JSON body that holds a lone UTF-16 surrogate escape (such as `\ud800` with no second half, which a broken
-input method or a string cut inside an emoji sends) is refused with `422` and a plain `detail`, on every route,
-before anything is stored or counted. Two halves that make up one character are read as that character.
+A JSON body that holds a lone UTF-16 surrogate (an escape such as `\ud800` with no second half, which a broken
+input method or a string cut inside an emoji sends, or the character itself) is refused with `422` and a plain
+`detail`, on every route and whether the body is UTF-8, UTF-16 or UTF-32, before anything is stored or counted.
+Two halves that make up one character are read as that character.
 
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.

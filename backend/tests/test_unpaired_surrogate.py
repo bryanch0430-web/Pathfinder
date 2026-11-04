@@ -105,3 +105,51 @@ def test_text_in_other_scripts_is_still_echoed_in_an_ordinary_refusal(client: Te
 def test_a_request_with_no_body_or_a_body_that_is_not_json_is_left_to_the_route(client: TestClient) -> None:
     assert client.get("/api/ready").status_code == 200
     assert _send(client, "post", "/api/journeys", "{not json " + LONE).status_code == 422
+
+
+# -- a body that is not UTF-8 -------------------------------------------------------------------
+# json.loads reads UTF-8, UTF-16 and UTF-32 bodies (and, for a surrogate, the bytes of the surrogate itself), so a
+# lone surrogate has to be looked for in the text as it is read, not in the bytes as they were sent.
+
+ENCODINGS = ["utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le", "utf-32-be"]
+
+
+def _send_bytes(client: TestClient, method: str, path: str, body: bytes, headers: dict[str, str] | None = None):
+    return client.request(method, path, content=body, headers={"content-type": "application/json", **(headers or {})})
+
+
+@pytest.mark.parametrize("encoding", ENCODINGS)
+def test_a_lone_surrogate_in_a_body_in_utf_16_or_utf_32_is_refused(
+    client: TestClient, session_id: str, encoding: str
+) -> None:
+    body = f'{{"destination": "Kyoto {LONE}"}}'.encode(encoding)
+
+    _assert_refused(_send_bytes(client, "patch", f"/api/journeys/{session_id}/state", body, GUEST))
+
+
+def test_the_chat_stream_and_the_charset_of_the_content_type_make_no_difference(client: TestClient) -> None:
+    body = f'{{"message": "Swap the hotel {LONE} please", "client_token": "g"}}'.encode("utf-16")
+
+    refused = client.post("/api/turn/stream", content=body, headers={"content-type": "application/json; charset=utf-16"})
+
+    _assert_refused(refused)
+    _assert_refused(_send_bytes(client, "post", "/api/turn/stream", body))
+
+
+def test_a_lone_surrogate_sent_as_its_own_three_bytes_is_refused(client: TestClient, session_id: str) -> None:
+    """The bytes of U+D800 (what a UTF-8 encoder that does not check would write) are read as that surrogate."""
+    body = b'{"destination": "Kyoto \xed\xa0\x80"}'
+
+    _assert_refused(_send_bytes(client, "patch", f"/api/journeys/{session_id}/state", body, GUEST))
+
+
+@pytest.mark.parametrize("encoding", ENCODINGS)
+def test_a_body_in_utf_16_or_utf_32_is_still_read_when_it_holds_no_lone_surrogate(
+    client: TestClient, session_id: str, encoding: str
+) -> None:
+    body = '{"destination": "Kyoto \U0001F600 \\ud83d\\ude00"}'.encode(encoding)
+
+    response = _send_bytes(client, "patch", f"/api/journeys/{session_id}/state", body, GUEST)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["context"]["destination"] == "Kyoto \U0001F600 \U0001F600"
