@@ -1899,7 +1899,8 @@
           "session_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 80
               },
               {
                 "type": "null"
@@ -1920,7 +1921,8 @@
           "session_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 80
               },
               {
                 "type": "null"
@@ -1936,6 +1938,7 @@
           },
           "locale": {
             "type": "string",
+            "maxLength": 35,
             "title": "Locale",
             "default": "en"
           },
@@ -1948,7 +1951,8 @@
           "scope_item_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 80
               },
               {
                 "type": "null"
@@ -1983,6 +1987,7 @@
         "properties": {
           "session_id": {
             "type": "string",
+            "maxLength": 80,
             "title": "Session Id"
           },
           "client_token": {
@@ -2213,15 +2218,18 @@
         "properties": {
           "dataset_id": {
             "type": "string",
+            "maxLength": 80,
             "title": "Dataset Id"
           },
           "experiment_tag": {
             "type": "string",
+            "maxLength": 80,
             "title": "Experiment Tag",
             "default": "baseline-v1"
           },
           "split": {
             "type": "string",
+            "maxLength": 80,
             "title": "Split",
             "default": "all"
           }
@@ -2253,6 +2261,7 @@
           },
           "reason_code": {
             "type": "string",
+            "maxLength": 80,
             "title": "Reason Code",
             "default": ""
           },

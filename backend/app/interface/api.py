@@ -13,10 +13,12 @@ from pathlib import Path
 from typing import Annotated, Any, AsyncIterator, Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.application.legs import legs_for_plan
 from app.application.orchestrator import user_facing_error
@@ -46,6 +48,7 @@ from app.domain.models import (
     USER_PREFIX,
 )
 from app.evaluation import export_markdown
+from app.interface.body_limit import BodyLimit
 from app.interface.cache_control import PrivateResponses
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
@@ -54,6 +57,13 @@ from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, p
 #: nothing else and is trimmed, so a session made with any other token could not be opened again.
 TOKEN_MAX_LENGTH = 120
 TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
+#: What a request may carry in its other free texts. Some are stored with a message or a rating and sent back with
+#: the trip, so none may be longer than anything the page sends: an id (of a session or a stop), a locale tag (BCP 47
+#: allows 35 characters), the label of a stop, the reason code of a rating.
+ID_MAX_LENGTH = 80
+LOCALE_MAX_LENGTH = 35
+LABEL_MAX_LENGTH = 200
+REASON_MAX_LENGTH = 80
 #: How a lone surrogate reaches a JSON body: the escape of one half of a pair, or (from an encoder that does not
 #: check) the character itself. `json.loads` reads UTF-8, UTF-16 and UTF-32 and lets both through, so the body
 #: is searched as it is read and not as the bytes it was sent in.
@@ -67,7 +77,7 @@ async def refuse_unreadable_text(request: Request) -> None:
     Python reads such an escape into a string that cannot be written as UTF-8, so it would fail wherever the
     text is stored or sent back, with a 500. Two halves that make up one character are fine.
     """
-    if request.method not in {"POST", "PUT", "PATCH"} or "json" not in request.headers.get("content-type", ""):
+    if request.method not in {"POST", "PUT", "PATCH"} or "json" not in request.headers.get("content-type", "").lower():
         return
     body = await request.body()
     try:
@@ -114,16 +124,21 @@ class ContextPatch(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    session_id: str | None = None
+    session_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
     message: str = Field(min_length=1, max_length=6000)
-    locale: str = "en"
+    locale: str = Field(default="en", max_length=LOCALE_MAX_LENGTH)
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
-    scope_item_id: str | None = None
+    scope_item_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
     #: human-readable label for the selected stop ("Day 1 · HK City Sightseeing"),
-    #: stored with the message so the transcript keeps the context
+    #: stored with the message so the transcript keeps the context; a longer one is cut, not refused
     scope_label: str | None = None
     #: When true, the trace event includes each model's reasoning text.
     developer: bool = False
+
+    @field_validator("scope_label")
+    @classmethod
+    def _cut_label(cls, value: str | None) -> str | None:
+        return value[:LABEL_MAX_LENGTH] if value else value
 
 
 class ProfilePatch(BaseModel):
@@ -145,25 +160,25 @@ class AuthRequest(BaseModel):
     password: str = Field(min_length=8, max_length=200)
     display_name: str = Field(default="", max_length=80)
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
-    session_id: str | None = None
+    session_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
 
 
 class ClaimRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(max_length=ID_MAX_LENGTH)
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
 class FeedbackRequest(BaseModel):
     useful: bool
     stars: int | None = Field(default=None, ge=1, le=5)
-    reason_code: str = ""
+    reason_code: str = Field(default="", max_length=REASON_MAX_LENGTH)
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
 class EvalRunRequest(BaseModel):
-    dataset_id: str
-    experiment_tag: str = "baseline-v1"
-    split: str = "all"
+    dataset_id: str = Field(max_length=ID_MAX_LENGTH)
+    experiment_tag: str = Field(default="baseline-v1", max_length=ID_MAX_LENGTH)
+    split: str = Field(default="all", max_length=ID_MAX_LENGTH)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -182,6 +197,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         dependencies=[Depends(refuse_unreadable_text)],
     )
+    app.add_middleware(BodyLimit)
     app.add_middleware(PrivateResponses)
     app.add_middleware(
         CORSMiddleware,
@@ -190,6 +206,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_: Request, exc: RequestValidationError) -> JSONResponse:
+        """FastAPI's own answer, which repeats the value that was refused (`input`). A body that is not text cannot
+        be written back, which made the answer itself fail with a 500: there, where and why is all it says."""
+        errors = exc.errors()
+        try:
+            detail = jsonable_encoder(errors)
+        except UnicodeDecodeError:
+            detail = jsonable_encoder([{key: error[key] for key in ("loc", "msg", "type") if key in error} for error in errors])
+        return JSONResponse(status_code=422, content={"detail": detail})
+
     # Per app instance, so every app (and every test app) starts with empty counters.
     app.state.rate_limits = RateLimits(
         auth=SlidingWindowLimiter(settings.rate_limit_auth_per_minute),
