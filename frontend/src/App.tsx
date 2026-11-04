@@ -296,12 +296,22 @@ export default function App() {
     };
   }, [pf.sessionId, trips]);
 
+  // The button that scrapped a trip is gone with it, and focus would fall to the page: it goes to the tab of the trip that
+  // takes over once that is shown.
+  const focusTabOfNextTrip = useRef(false);
+  useEffect(() => {
+    if (!focusTabOfNextTrip.current || !pf.sessionId) return;
+    focusTabOfNextTrip.current = false;
+    document.getElementById(tripTabId(pf.sessionId))?.focus();
+  }, [pf.sessionId]);
+
   const scrapActiveTrip = async (ask = true) => {
     const id = pf.sessionId;
     if (!id || (ask && !window.confirm(t("plan.scrapConfirm")))) return;
     // The trip is deleted first: when the server refuses, it keeps its tab and the page says so.
     const outcome = await pf.scrapTrip();
     if (outcome === "kept") return;
+    focusTabOfNextTrip.current = outcome === "gone";
     const remaining = writeTrips((current) => current.filter((trip) => trip.id !== id));
     // Already on another trip, which stays. Otherwise the next tab that still opens takes over, and a tab
     // for a trip that is gone is dropped on the way.

@@ -781,7 +781,7 @@ export function TripWorkspace({
         </div>
         {languageNotice}
         <div className="pf-workspace__meta">
-          <MiniStat icon="calendar" label={t("workspace.dates")} value={t("workspace.days", { count: plan.days.length })} />
+          <MiniStat icon="calendar" label={t("workspace.dates")} value={t(plan.days.length === 1 ? "workspace.daysOne" : "workspace.days", { count: plan.days.length })} />
           <MiniStat icon="users" label={t("workspace.party")} value={String(plan.party_size)} />
           {plan.budget ? <MiniStat icon="wallet" label={t("workspace.budget")} value={`${plan.cost.currency} ${plan.budget.amount.toLocaleString()}`} /> : null}
           {onRefresh ? <Button size="sm" variant="ghost" iconLeft="refresh" onClick={onRefresh}>{t("workspace.refresh")}</Button> : null}
@@ -1603,7 +1603,7 @@ export function TrendingRail({
                 <Badge tone="brand">{t(item.plans === 1 ? "trending.plansOne" : "trending.plans", { count: item.plans })}</Badge>
               </div>
               <span className="pf-trending__meta">
-                {t("workspace.days", { count: item.days })}{item.year ? ` · ${item.year}` : ""}
+                {t(item.days === 1 ? "workspace.daysOne" : "workspace.days", { count: item.days })}{item.year ? ` · ${item.year}` : ""}
               </span>
               {item.places.length ? (
                 <div className="pf-trending__places">
@@ -1697,7 +1697,7 @@ export function SavedTripsView({
               </div>
               <Text size="sm" tone="secondary">{trip.summary}</Text>
               <div className="pf-row pf-row--between">
-                <Text size="xs" tone="tertiary">{trip.days ? t("workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
+                <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
                 <Badge tone="warning">{trip.stars ? `${trip.stars}★` : `${Math.round(trip.rating * 5)}★`}</Badge>
               </div>
             </button>
@@ -1761,14 +1761,14 @@ export function EvalDashboard({
             <Text size="sm" weight="semibold">{t("eval.experiment")}</Text>
             <Text size="xs" tone="tertiary">{t("eval.experimentBody")}</Text>
           </div>
-          <Badge tone="neutral">{t("eval.runs", { count: runs.length })}</Badge>
+          <Badge tone="neutral">{t(runs.length === 1 ? "eval.runsOne" : "eval.runs", { count: runs.length })}</Badge>
         </div>
         <div className="pf-run-form">
           <label className="pf-field">
             <span className="pf-field__label">{t("eval.dataset")}</span>
             <Select value={dataset} onChange={(event) => setDataset(event.target.value)}>
               {datasets.map((item) => (
-                <option key={item.id} value={item.id}>{item.name} · {t("eval.cases", { count: item.item_count })}</option>
+                <option key={item.id} value={item.id}>{item.name} · {t(item.item_count === 1 ? "eval.casesOne" : "eval.cases", { count: item.item_count })}</option>
               ))}
             </Select>
           </label>
@@ -1847,7 +1847,7 @@ export function EvalDashboard({
                     <span className="pf-small">{item.name}</span>
                   </span>
                   <span className="pf-row" style={{ gap: 8 }}>
-                    <span className="pf-small pf-muted">{t("eval.cases", { count: item.item_count })}</span>
+                    <span className="pf-small pf-muted">{t(item.item_count === 1 ? "eval.casesOne" : "eval.cases", { count: item.item_count })}</span>
                     <Badge tone={item.frozen ? "success" : "warning"}>{item.frozen ? t("eval.frozen") : t("eval.draft")}</Badge>
                   </span>
                 </div>
@@ -2277,100 +2277,101 @@ export function SettingsView({
         </div>
         <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
       </div>
-      {config ? (
-        <>
-          <div className="pf-card pf-eval__panel">
-            <div className="pf-row pf-row--between">
-              <Text size="sm" weight="semibold">{t("settings.profile")}</Text>
-              <Badge tone={signedIn ? "success" : "neutral"} dot>{signedIn ? t("settings.account") : t("settings.anonymous")}</Badge>
-            </div>
-            <Text size="xs" tone="tertiary">
-              {signedIn ? t("settings.signedIn") : t("settings.guest")}
-            </Text>
-            <div className="pf-form-grid">
-              <Field
-                label={t("settings.preferences")}
-                hint={t("settings.preferencesLimit", { max: MAX_PREFERENCES, length: MAX_PREFERENCE_LENGTH })}
-                wide
-                htmlFor="pf-profile-preferences"
-              >
-                <div className="pf-preference-tags">
-                  {preferences.map((preference) => (
-                    <span className="pf-preference-tag" key={preference}>
-                      {preference}
-                      <button
-                        type="button"
-                        aria-label={t("common.remove", { value: preference })}
-                        onClick={() => removePreference(preference)}
-                      >
-                        <Icon name="close" size={11} />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    id="pf-profile-preferences"
-                    className="pf-preference-tags__input"
-                    value={prefInput}
-                    aria-label={t("settings.addPreference")}
-                    readOnly={preferences.length >= MAX_PREFERENCES}
-                    placeholder={
-                      preferences.length >= MAX_PREFERENCES
-                        ? t("settings.preferencesFull")
-                        : preferences.length
-                          ? t("settings.addAnother")
-                          : t("settings.preferencesExample")
-                    }
-                    onChange={(event) => setPrefInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
-                        event.preventDefault();
-                        addPreference();
-                      }
-                      if (event.key === "Backspace" && !prefInput && preferences.length) {
-                        setPreferences((current) => current.slice(0, -1));
-                      }
-                    }}
-                  />
-                </div>
-              </Field>
-            </div>
-            <div className="pf-row pf-row--between">
-              <Text size="xs" tone="tertiary">
-                {profile
-                  ? t("settings.profileCounts", {
-                      chats: profile.sessions,
-                      trips: profile.saved_trips,
-                      destinations: profile.destinations.length,
-                    })
-                  : t("settings.loadingProfile")}
-              </Text>
-              <div className="pf-row" style={{ gap: 6 }}>
-                {onSavePreferences ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      const next = addTags(preferences, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH);
-                      addPreference();
-                      onSavePreferences(next);
-                    }}
+      {/* The profile does not depend on the server's configuration, so it stays when the configuration cannot be loaded. */}
+      <div className="pf-card pf-eval__panel">
+        <div className="pf-row pf-row--between">
+          <Text size="sm" weight="semibold">{t("settings.profile")}</Text>
+          <Badge tone={signedIn ? "success" : "neutral"} dot>{signedIn ? t("settings.account") : t("settings.anonymous")}</Badge>
+        </div>
+        <Text size="xs" tone="tertiary">
+          {signedIn ? t("settings.signedIn") : t("settings.guest")}
+        </Text>
+        <div className="pf-form-grid">
+          <Field
+            label={t("settings.preferences")}
+            hint={t("settings.preferencesLimit", { max: MAX_PREFERENCES, length: MAX_PREFERENCE_LENGTH })}
+            wide
+            htmlFor="pf-profile-preferences"
+          >
+            <div className="pf-preference-tags">
+              {preferences.map((preference) => (
+                <span className="pf-preference-tag" key={preference}>
+                  {preference}
+                  <button
+                    type="button"
+                    aria-label={t("common.remove", { value: preference })}
+                    onClick={() => removePreference(preference)}
                   >
-                    {t("settings.savePreferences")}
-                  </Button>
-                ) : null}
-                {onClearMemory ? (
-                  <Button size="sm" variant="ghost" onClick={onClearMemory}>
-                    {t("settings.clearMemory")}
-                  </Button>
-                ) : null}
-              </div>
+                    <Icon name="close" size={11} />
+                  </button>
+                </span>
+              ))}
+              <input
+                id="pf-profile-preferences"
+                className="pf-preference-tags__input"
+                value={prefInput}
+                aria-label={t("settings.addPreference")}
+                readOnly={preferences.length >= MAX_PREFERENCES}
+                placeholder={
+                  preferences.length >= MAX_PREFERENCES
+                    ? t("settings.preferencesFull")
+                    : preferences.length
+                      ? t("settings.addAnother")
+                      : t("settings.preferencesExample")
+                }
+                onChange={(event) => setPrefInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
+                    event.preventDefault();
+                    addPreference();
+                  }
+                  if (event.key === "Backspace" && !prefInput && preferences.length) {
+                    setPreferences((current) => current.slice(0, -1));
+                  }
+                }}
+              />
             </div>
-            {profile?.destinations.length ? (
-              <Text size="xs" tone="tertiary">
-                {t("settings.recent", { destinations: profile.destinations.join(" · ") })}
-              </Text>
+          </Field>
+        </div>
+        <div className="pf-row pf-row--between">
+          <Text size="xs" tone="tertiary">
+            {profile
+              ? t("settings.profileCounts", {
+                  chats: profile.sessions,
+                  trips: profile.saved_trips,
+                  destinations: profile.destinations.length,
+                })
+              : t("settings.loadingProfile")}
+          </Text>
+          <div className="pf-row" style={{ gap: 6 }}>
+            {onSavePreferences ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const next = addTags(preferences, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH);
+                  addPreference();
+                  onSavePreferences(next);
+                }}
+              >
+                {t("settings.savePreferences")}
+              </Button>
+            ) : null}
+            {onClearMemory ? (
+              <Button size="sm" variant="ghost" onClick={onClearMemory}>
+                {t("settings.clearMemory")}
+              </Button>
             ) : null}
           </div>
+        </div>
+        {profile?.destinations.length ? (
+          <Text size="xs" tone="tertiary">
+            {t("settings.recent", { destinations: profile.destinations.join(" · ") })}
+          </Text>
+        ) : null}
+      </div>
+      {config ? (
+        <>
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {Object.entries(config.thresholds).map(([key, value]) => (
