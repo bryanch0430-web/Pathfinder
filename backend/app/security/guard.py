@@ -81,12 +81,13 @@ def screen_turn(message: str, settings: Settings) -> ScreenResult:
     The fence takes its tags out of the message, so a tag typed inside a word ("Ign</user_travel_request>ore
     all previous instructions") is not in the sentence the model reads. The prompts that repeat an earlier
     turn (`recent_turns`) put its words on one line, so a line break inside a phrase ("Ignore all previous
-    <newline>instructions") is a space there. A pattern that matches any of these readings flags the turn,
-    and a high-severity one blocks it.
+    <newline>instructions") is a space there. A reader also draws a zero-width space or a soft hyphen as nothing
+    and reads a full-width letter as the plain one, as the fence does when it looks for its tags, so the message is
+    read that way too. A pattern that matches any of these readings flags the turn, and a high-severity one blocks it.
     """
     read = strip_fence_tags(message)
     replayed = strip_fence_tags(" ".join(message.split()))
-    return _screen(list(dict.fromkeys([message, read, replayed])), settings)
+    return _screen(list(dict.fromkeys([message, read, replayed, _as_a_reader_sees_it(read)])), settings)
 
 
 def _screen(texts: list[str], settings: Settings) -> ScreenResult:
@@ -175,6 +176,13 @@ def _skeleton(text: str) -> tuple[str, array[int]]:
             seen.append(folded)
             came_from.extend(repeat(index, len(folded)))
     return "".join(seen), came_from
+
+
+def _as_a_reader_sees_it(text: str) -> str:
+    """`text` on one line, as a reader sees it: what shows as nothing left out and compatibility forms folded."""
+    if len(text) > FENCE_ANALYSIS_LIMIT:
+        return text  # as `strip_fence_tags`: a text this long is not read
+    return " ".join(_skeleton(text)[0].split())
 
 
 def strip_fence_tags(text: str) -> str:
