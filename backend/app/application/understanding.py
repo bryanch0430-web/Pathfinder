@@ -449,6 +449,17 @@ _NAME_ENDS = frozenset(
     "to for on in into onto next this with without towards toward near than from only just please thanks instead "
     "again also too maybe about during over under through now today tomorrow tonight soon".split()
 )
+#: Words that do not continue a place name once it has begun: a pronoun, an auxiliary, a determiner, an adverb, a number
+#: or a weekday ("Leeds we are 4 people", "London is out", "Paris direct", "Leeds Friday"). A name may begin with one
+#: ("Can Tho"). The words are checked after the first one of a name only.
+_NOT_A_CONTINUATION = frozenset(
+    (
+        "i me we us you he she they it my our your his her their its the a an this that these those is are was were be am "
+        "will would can could shall should must might do does did have has had want wants need needs plan plans direct "
+        "directly nonstop round one two three four five six seven eight nine ten "
+        "monday tuesday wednesday thursday friday saturday sunday"
+    ).split()
+)
 #: Cities and airports the assistant knows by name, and the airport codes the flight source resolves.
 _KNOWN_CITIES = {city.lower(): city for city in CITY_HINTS}
 _AIRPORT_CODES = frozenset(code for codes in AIRPORTS.values() for code in codes)
@@ -548,13 +559,23 @@ def _known_place(candidate: str) -> str | None:
     return None
 
 
+def _known_prefix(lowered: list[str]) -> str | None:
+    """The longest city the assistant knows that the words begin with: "New York" for "new york jfk"."""
+    for size in range(len(lowered), 0, -1):
+        city = _KNOWN_CITIES.get(" ".join(lowered[:size]))
+        if city:
+            return city
+    return None
+
+
 def _name_words(phrase: str) -> tuple[list[str], int, bool]:
     """The words of `phrase` up to the first one that ends a place name, how many characters they take, and whether
     a word that ends a name was found (else the phrase may stop in the middle of a word)."""
     words: list[str] = []
     used = 0
     for word in re.finditer(r"\S+", phrase):
-        if word.group().lower() in _NAME_ENDS or not any(char.isalpha() for char in word.group()):
+        token = word.group().lower()
+        if token in _NAME_ENDS or (words and token in _NOT_A_CONTINUATION) or not any(char.isalpha() for char in token):
             return words, used, True
         words.append(word.group().translate(_ASCII_APOSTROPHE).strip("'-"))
         used = word.end()
@@ -567,13 +588,16 @@ def _origin_name(words: list[str]) -> tuple[str, bool] | None:
         return None
     name = " ".join(words)
     lowered = [word.lower() for word in words]
-    if not _valid_place(name) or lowered[0] in _NOT_A_NAME_START:
+    if not _valid_place(name) or lowered[0] in _NOT_A_NAME_START or lowered[0] in NUMBER_WORDS:
         return None
     if lowered[0] in _NOT_AN_ORIGIN or lowered[-1] in _NOT_AN_ORIGIN or lowered == ["airport"]:
         return None
     known = _known_place(name)
     if known:
         return known, True
+    city = _known_prefix(lowered)
+    if city:  # "London Heathrow", "New York JFK" are the city; "Kyoto Station" and "Tokyo Tower" are no city to leave from
+        return (city, True) if lowered[-1] not in _NOT_A_CITY_ENDS else None
     if len(words) > 3 or lowered[-1] in _NOT_A_CITY_ENDS:
         return None
     return name.title(), False

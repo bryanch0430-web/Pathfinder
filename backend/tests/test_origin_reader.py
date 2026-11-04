@@ -446,6 +446,45 @@ def test_a_curly_apostrophe_or_okina_is_part_of_the_name_and_is_stored_as_an_asc
 
 
 @pytest.mark.parametrize(
+    ("text", "city"),
+    [
+        ("Flying from London we want 4 days in Rome", "London"),
+        ("Flying from London my wife and I want Rome", "London"),
+        ("Flights from London are cheaper on Tuesday", "London"),
+        ("For a honeymoon, the best flights from London are on Tuesday", "London"),
+        ("We are leaving from London is out", "London"),
+        ("Flying from London Heathrow", "London"),
+        ("Flights from New York JFK to Rome", "New York"),
+        ("Flying from Paris direct", "Paris"),
+        ("Flying from London round trip", "London"),
+        ("Flying from Leeds we are 4 people", "Leeds"),
+        ("Flying from Leeds my wife and I want Rome", "Leeds"),
+        ("Leaving from Boston the 5th", "Boston"),
+        ("Flying from Leeds Friday to Rome", "Leeds"),
+        ("Flying from Hong Kong Island to Rome", "Hong Kong"),
+    ],
+)
+def test_a_departure_city_ends_where_the_words_that_follow_it_are_not_part_of_a_name(text: str, city: str) -> None:
+    """A known city followed by a pronoun, an auxiliary, a determiner, a number, a weekday or the name of an airport is the
+    city; the tail was kept as part of the name ("London We Want") and replaced the stored city."""
+    assert _origin(text) == city
+    assert _origin(text, stored=HK) == city
+
+
+@pytest.mark.parametrize(
+    ("text", "city"),
+    [("Flying from Can Tho to Hanoi", "Can Tho"), ("Flying from Do Son to Hanoi", "Do Son"), ("Flying from Will Point to Hanoi", "Will Point")],
+)
+def test_a_name_may_begin_with_a_word_that_does_not_continue_one(text: str, city: str) -> None:
+    assert _origin(text) == city
+
+
+@pytest.mark.parametrize("text", ["Flying from Kyoto Station to Rome", "Flying from Tokyo Tower to Rome", "Flying from Kyoto cuisine to Rome"])
+def test_a_building_or_a_part_of_a_known_city_is_still_no_departure_city(text: str) -> None:
+    assert _origin(text) == "" and _origin(text, stored=HK) == HK
+
+
+@pytest.mark.parametrize(
     "unit",
     [
         "3 days from Hong Kong ",
