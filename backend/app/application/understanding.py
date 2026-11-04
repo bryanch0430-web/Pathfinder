@@ -467,8 +467,8 @@ _KNOWN_CITIES = {city.lower(): city for city in CITY_HINTS}
 _AIRPORT_CODES = frozenset(code for codes in AIRPORTS.values() for code in codes)
 #: Words right before "from" that say the traveller leaves from the place after it ...
 _DEPARTURE_VERBS = frozenset(
-    "fly flying flew flown depart departing departure departures leave leaving left commute commuting travelling "
-    "traveling coming arrive arriving originate originating".split()
+    "fly flying flew flown depart departing departure departures leave leaving left commute commuting travel travelling "
+    "traveling coming arrive arriving originate originating set setting head heading heads".split()
 )
 #: ... or that a flight, a train or someone else does ("the bus leaves from Shinjuku"), or the traveller is there at the
 #: start or on the way back ("starting from Kyoto", "returning from Tokyo"). The city is then a guess, so it is
@@ -479,7 +479,7 @@ _TRAVEL_WORDS = _DEPARTURE_VERBS | _THIRD_PERSON | _WEAK_VERBS
 _RETURN_WORDS = frozenset("return returning returned back".split())
 #: Words between such a verb and "from" that say nothing more ("flying out from", "fly back from").
 _VERB_FILLERS = frozenset(
-    "out off back straight directly now again only just also usually always soon together away then all still".split()
+    "out off in back straight directly now again only just also usually always soon together away then all still".split()
 )
 #: "flights from Osaka" is a departure; "a flight from Osaka to Tokyo on day 3" and "the flight from Osaka" are not.
 _FLIGHT_NOUNS = frozenset(["flight", "flights"])
@@ -549,6 +549,8 @@ _STATED_ORIGIN = (
 _SENTENCE_END = re.compile(r"[.!?;]")
 #: How much of the sentence before "from" is read, which keeps the work in proportion to the message.
 _LOOKBACK = 300
+#: A day of the plan, said after a "from" phrase: "on day 1".
+_ON_A_DAY = re.compile(r"\bday\s*\d", re.IGNORECASE)
 #: "to <place>" right after a "from" phrase: "a 3-day trip to Kyoto from Singapore to Tokyo".
 _ONWARD = re.compile(r"\s+to\s+([a-z][a-z .'-]{1,40})", re.IGNORECASE)
 
@@ -623,7 +625,7 @@ def _stated_origin(text: str) -> str | None:
 
 
 def _words(text: str) -> list[str]:
-    return [word.strip(",:()\"'").lower() for word in text.split()]
+    return [word.strip(",:()\"'").lower() for word in text.replace("\u2019", "'").split()]
 
 
 def _is_request(lead: list[str]) -> bool:
@@ -638,10 +640,29 @@ def _is_question(lead: list[str]) -> bool:
     return bool(words) and words[0] in _QUESTION_STARTS and not _is_request(lead)
 
 
-def _departing(before: list[str]) -> str | None:
+def _departing(before: list[str], *, through_a_place: bool = True) -> str | None:
     """How the words before "from" say that the traveller leaves: "leave" for a travel verb or "flights" right before
-    it, "return" for a start or a way back ("returning from", "fly back from"), "other" for a verb that is about a
-    flight, a train or another person ("it leaves from"), None for none of them."""
+    it or before a short place ("flights to Rome from", "arriving in Rome from"; not when `through_a_place` is False),
+    "return" for a start or a way back ("returning from", "fly back from"), "guess" for where the traveller is from or
+    starts ("we start from", "I'm from", "by train from"), "other" for a verb that is about a flight, a train or another
+    person ("it leaves from"), None for none."""
+    said = _departing_right_before(before)
+    for size in range(2, 5):  # a preposition and up to three words of a place: "flights to Rome from London"
+        if said is None and through_a_place and len(before) >= size and before[-size] in _GAP_PREPOSITIONS:
+            said = _departing_right_before(before[:-size], gap=True)
+    return said
+
+
+#: What may stand between a flight or a travel verb and "from": "flights to Rome from", "arriving in Rome from".
+_GAP_PREPOSITIONS = frozenset("to into in".split())
+_INDEFINITE = frozenset("a an one any another".split())
+_STARTS = frozenset("start starts begin begins beginning".split())
+_THE_TRAVELLER = frozenset("i we they trip journey tour holiday vacation".split())
+_BY = frozenset("by".split())
+_VEHICLES = frozenset("train car bus coach ferry".split())
+
+
+def _departing_right_before(before: list[str], *, gap: bool = False) -> str | None:
     index = len(before) - 1
     while index >= 0 and before[index] in _VERB_FILLERS and len(before) - 1 - index < 2:
         index -= 1
@@ -649,8 +670,16 @@ def _departing(before: list[str]) -> str | None:
         return None
     word = before[index]
     if word in _FLIGHT_NOUNS:
-        if index and before[index - 1] in _DETERMINERS:
+        if index and before[index - 1] in _DETERMINERS and not (gap and before[index - 1] in _INDEFINITE):
             return None
+    elif word in _STARTS:  # "we start from", "our trip starts from"
+        return "guess" if index and before[index - 1] in _THE_TRAVELLER else None
+    elif word in {"plane", "air"} and index and before[index - 1] in _BY:
+        return "leave"
+    elif word in _VEHICLES and index and before[index - 1] in _BY:
+        return "guess"
+    elif word in {"i'm", "we're"} or (index and (before[index - 1], word) in {("i", "am"), ("we", "are")}):
+        return "guess"  # "I'm from London": where the traveller is from, not for certain where the trip leaves from
     elif word not in _TRAVEL_WORDS:
         return None
     if word in _WEAK_VERBS or any(back in _RETURN_WORDS for back in before[max(index - 1, 0) :]):
@@ -701,7 +730,8 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
     if _is_question(lead):
         return None
     before = _words(text[max(start, match.start() - _LOOKBACK) : match.start()])
-    departing = _departing(before)
+    # "We arrive in Kyoto from Osaka on day 1" is a day of the plan; "flights to Rome from London" is a departure.
+    departing = _departing(before, through_a_place=_ON_A_DAY.search(text, match.start(), match.end() + 80) is None)
     if departing == "leave":
         return "replace"
     trip, near, short = _trips(before)
@@ -710,7 +740,7 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
     asks = index < len(ends) and text[ends[index]] == "?" and not _is_request(lead)  # the sentence ends with a ?
     if departing == "return":
         return None if asks else "fill any"
-    if departing is None:
+    if departing in (None, "guess"):
         onward = _ONWARD.match(text, match.start(1) + used)
         goes_to_a_known_city = bool(onward and _known_place(" ".join(_name_words(onward.group(1))[0])))
         if trip and (known or (near and goes_to_a_known_city)):
@@ -720,6 +750,8 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
             return "replace"
     if asks:
         return None
+    if departing == "guess":
+        return "fill any"
     leading = [word for word in before if word not in _LEAD_FILLERS]
     if departing == "other" or any(word in _PLAN_VERBS for word in lead) or _STAY.search(" ".join(before)) or not leading:
         return "fill"

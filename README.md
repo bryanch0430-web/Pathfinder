@@ -614,15 +614,18 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   are HS256 JWTs; change `AUTH_SECRET` outside a local demo.
 - **Origin is required for planning.** It is a gate slot, so a plan without a departure
   city asks for it instead of silently skipping tickets. A message sets it only when it says so:
-  after a travel word right before "from" ("flying from", "leaving from", "flights from"), in
+  after a travel word right before "from" ("flying from", "leaving from", "flights from") or
+  before a short place ("flights to Rome from X", "arriving in Rome from X"), in
   "a trip from X to Y", in a statement ("my departure city is X", "change the origin to X") or
   in an explicit change ("actually, plan it from X", "start from X instead"). These replace the
   departure city a trip has. A planning request ("plan Kyoto from X"), a stay ("a week in
-  Paris from X") or a bare "from X" only gives a trip that has none a city the assistant
+  Paris from X"), where the traveller is from or starts ("I'm from X", "we start from X", "by
+  train from X") or a bare "from X" only gives a trip that has none a city the assistant
   knows, and a question never does. "From scratch", a weekday, "home", an airline, a station
   ("how far is the temple from Kyoto Station?"), "a day trip from Kyoto to Nara" and "from
-  the list above" never name one, and the name ends at "and", "via", "at" or "around" ("flying
-  from Leeds via Dubai" is Leeds). Any other city is read by the writer model when one is
+  the list above" never name one, and the name ends at "and", "via", "at" or "around" or at a pronoun, a
+  weekday or an airport name ("flying from Leeds via Dubai", "London we want 4 days" and
+  "London Heathrow" are Leeds and London). Any other city is read by the writer model when one is
   configured, else asked for.
 - **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
   not live providers; live behaviour is captured separately in traces and screenshots.
