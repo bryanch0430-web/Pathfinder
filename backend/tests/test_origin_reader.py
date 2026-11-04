@@ -427,6 +427,29 @@ def test_a_reader_that_reads_hostile_text_takes_time_in_proportion_to_it() -> No
         assert time.process_time() - started < 2.0, text[:30]
 
 
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "3 days from Hong Kong ",
+        "Plan from Kyoto from Kyoto ",
+        "from Tokyo to Rome ",
+        "how far is it from Aaa? ",
+        "Plan 3 days in Rome from Osaka ",
+    ],
+)
+def test_a_trip_with_a_departure_city_reads_a_long_message_of_from_phrases_in_time_in_proportion_to_it(unit: str) -> None:
+    """Every "from" phrase is read against the sentence around it, and the work for one is bounded by the look-back
+    window, not by the length of the sentence: 96,000 characters without a full stop were once 10 seconds."""
+    import time
+
+    text = (unit * 96_000)[:96_000]
+    started = time.process_time()
+
+    _origin(text, stored=HK)
+
+    assert time.process_time() - started < 2.0, unit
+
+
 def _gateway_for_tests() -> LLMGateway:
     settings = Settings(_env_file=None, environment="test", llm_api_key="", llm_base_url="", xai_api_key="")
     return _gateway(settings)
