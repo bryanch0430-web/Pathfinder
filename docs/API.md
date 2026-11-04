@@ -44,7 +44,8 @@ version 1, and the session shows that trip: `versions` and `revisions` list its 
 them. The versions of the earlier trip are no longer listed or served, so no number is offered twice. A new trip for
 the place the saved plan is for keeps the stay the traveller accepted and their locked and confirmed stops. A length
 or date said in plain words (`only 2 days`, `let's do 4 days`, `end the trip on day 2`) is a request for other dates
-of the same trip, never a new one.
+of the same trip, never a new one, unless it names another place than the plan's (`I want 4 nights in Osaka` plans a
+trip to Osaka).
 
 Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
 forecast, fare or stay again and saves the result as the next version. A forecast, fare or stay that
