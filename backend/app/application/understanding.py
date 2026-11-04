@@ -440,8 +440,10 @@ def _valid_place(candidate: str) -> bool:
 #: The apostrophes a name may hold: the typewriter one, the curly ones a phone types and the Hawaiian okina ("Coeur d’Alene").
 _APOSTROPHES = "'’‘ʼʻ"
 _ASCII_APOSTROPHE = str.maketrans(_APOSTROPHES, "'" * len(_APOSTROPHES))
+#: A name may begin with an abbreviation and its full stop, which is no end of a sentence: "St. Louis", "Ft. Lauderdale".
+_NAME_START = r"(?:(?:st|ft|mt)\.\s*)?"
 #: "from <words>": the words end where the place name ends (`_NAME_ENDS`), which the pattern cannot say.
-_FROM_PHRASE = re.compile(rf"\bfrom\s+([a-z][a-z {_APOSTROPHES}-]{{1,40}})", re.IGNORECASE)
+_FROM_PHRASE = re.compile(rf"\bfrom\s+({_NAME_START}[a-z][a-z {_APOSTROPHES}-]{{1,40}})", re.IGNORECASE)
 #: The words that end a place name: a conjunction, a preposition or a word about the time ("Leeds via Dubai",
 #: "Chicago and staying in Rome", "Leeds around noon").
 _NAME_ENDS = frozenset(
@@ -514,14 +516,19 @@ _LEAD_FILLERS = frozenset("and but so also please actually hi hello hey ok okay 
 _NOT_A_NAME_START = frozenset(
     "the a an my our your this that these those his her their its some any each every".split()
 )
-#: A name that is a day, a month, a home or work, a terminal or an airline, or says nothing, is no city to leave from.
-_NOT_AN_ORIGIN = frozenset(
+#: A name that is a day or a month is no city to leave from, but a word of a longer name may be one ("Cape May", "Sun City").
+_NOT_A_DAY = frozenset(
     (
         "monday mon tuesday tue tues wednesday wed thursday thu thur thurs friday fri saturday sat sunday sun "
         "january jan february feb march mar april apr may june jun july jul august aug september sept sep october oct "
-        "november nov december dec home work office school scratch terminal gate airline airlines airways carrier "
-        "carriers abroad overseas somewhere anywhere everywhere nowhere here there noon midnight unknown none tbd tba "
-        "flexible same different"
+        "november nov december dec"
+    ).split()
+)
+#: A name that is, or begins or ends with, a home or work, a terminal or an airline, or says nothing, is no city to leave from.
+_NOT_AN_ORIGIN = frozenset(
+    (
+        "home work office school scratch terminal gate airline airlines airways carrier carriers abroad overseas "
+        "somewhere anywhere everywhere nowhere here there noon midnight unknown none tbd tba flexible same different"
     ).split()
 )
 #: The last word of a name that is a building, a part of a city or what comes from one, not a city.
@@ -529,13 +536,15 @@ _NOT_A_CITY_ENDS = frozenset(
     "station tower castle temple shrine hotel hostel museum market park bridge street road avenue square palace mall "
     "centre center hospital university stadium harbour harbor pier beach cuisine style food prices guide insurance".split()
 )
+#: Of those, the words that end the name of a city too when a name the assistant does not know comes before them.
+_CITY_NAME_ENDS = frozenset("beach station harbor harbour park".split())
 #: A departure city that is stated: "my departure city is Osaka", "change the origin to Osaka", "use Osaka as the origin".
 _ORIGIN_NOUN = r"(?:origin|departure\s+(?:city|airport|point)|home\s+(?:city|airport)|starting\s+(?:point|city))"
-_NAME = rf"([a-z][a-z {_APOSTROPHES}-]{{1,40}})"
+_NAME = rf"({_NAME_START}[a-z][a-z {_APOSTROPHES}-]{{1,40}})"
 _STATED_ORIGIN = (
     re.compile(rf"\b{_ORIGIN_NOUN}\s*(?:(?:is|are|will be|should be)\b|[=:])\s*{_NAME}", re.IGNORECASE),
     re.compile(rf"\b(?:change|set|switch|update)\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\s+(?:to|as)\s+{_NAME}", re.IGNORECASE),
-    re.compile(rf"\buse\s+([a-z][a-z {_APOSTROPHES}-]{{1,40}}?)\s+as\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\b", re.IGNORECASE),
+    re.compile(rf"\buse\s+({_NAME_START}[a-z][a-z {_APOSTROPHES}-]{{1,40}}?)\s+as\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\b", re.IGNORECASE),
 )
 _SENTENCE_END = re.compile(r"[.!?;]")
 #: How much of the sentence before "from" is read, which keeps the work in proportion to the message.
@@ -590,7 +599,7 @@ def _origin_name(words: list[str]) -> tuple[str, bool] | None:
     lowered = [word.lower() for word in words]
     if not _valid_place(name) or lowered[0] in _NOT_A_NAME_START or lowered[0] in NUMBER_WORDS:
         return None
-    if lowered[0] in _NOT_AN_ORIGIN or lowered[-1] in _NOT_AN_ORIGIN or lowered == ["airport"]:
+    if lowered[0] in _NOT_AN_ORIGIN or lowered[-1] in _NOT_AN_ORIGIN or lowered == ["airport"] or name.lower() in _NOT_A_DAY:
         return None
     known = _known_place(name)
     if known:
@@ -598,8 +607,8 @@ def _origin_name(words: list[str]) -> tuple[str, bool] | None:
     city = _known_prefix(lowered)
     if city:  # "London Heathrow", "New York JFK" are the city; "Kyoto Station" and "Tokyo Tower" are no city to leave from
         return (city, True) if lowered[-1] not in _NOT_A_CITY_ENDS else None
-    if len(words) > 3 or lowered[-1] in _NOT_A_CITY_ENDS:
-        return None
+    if lowered[-1] in _NOT_A_CITY_ENDS and (len(words) == 1 or lowered[-1] not in _CITY_NAME_ENDS):
+        return None  # "Station" alone and "Boston Hotel" are no city; "Long Beach", "Bar Harbor" and "College Station" are
     return name.title(), False
 
 
@@ -739,6 +748,9 @@ def _find_origin(text: str, stored: str = "", destination: str = "") -> str | No
         # A name that stops inside a word ("Montr", before an accent) is not a name that was read.
         if not ended and match.group(1)[-1].isalpha() and text[match.end(1) : match.end(1) + 1].isalnum():
             continue
+        after = match.start(1) + used
+        if len(words) > 1 and words[-1].lower() in _MONTH_WORDS and text[after : after + 4].strip()[:1].isdigit():
+            words = words[:-1]  # "Boston May 3": the date is not part of the name
         place = _origin_name(words)
         if place is None:
             continue
