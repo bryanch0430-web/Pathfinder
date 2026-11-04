@@ -324,8 +324,8 @@ export default function App() {
   const scrapActiveTrip = async (ask = true) => {
     const id = pf.sessionId;
     if (!id || (ask && !window.confirm(t("plan.scrapConfirm")))) return;
-    // The trip is deleted first: when the server refuses, it keeps its tab and the page says so.
-    const outcome = await pf.scrapTrip();
+    // The trip is deleted first: when the server refuses, it keeps its tab and the page says so, and Retry scraps it again.
+    const outcome = await pf.scrapTrip(() => scrapActiveTrip(false));
     if (outcome === "kept") return;
     focusTabOfNextTrip.current = outcome === "gone";
     const remaining = writeTrips((current) => current.filter((trip) => trip.id !== id));

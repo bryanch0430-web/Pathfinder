@@ -167,8 +167,8 @@ export interface PathfinderHook {
   retry: () => Promise<void>;
   reload: () => Promise<void>;
   clearChat: () => Promise<void>;
-  /** Deletes the open trip. See `ScrapOutcome`. */
-  scrapTrip: () => Promise<ScrapOutcome>;
+  /** Deletes the open trip. See `ScrapOutcome`. When the server refuses, Retry does `again`. */
+  scrapTrip: (again?: () => Promise<unknown>) => Promise<ScrapOutcome>;
   /** Stops the reply being streamed, if there is one. */
   abort: () => void;
   openSession: (id: string) => Promise<OpenOutcome>;
@@ -941,7 +941,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     abortRef.current?.abort();
   }, []);
 
-  const scrapTrip = useCallback(async (): Promise<ScrapOutcome> => {
+  const scrapTrip = useCallback(async (again?: () => Promise<unknown>): Promise<ScrapOutcome> => {
     const id = sessionRef.current;
     if (!id) return "kept";
     const ticket = ++navRef.current;
@@ -954,7 +954,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       // Only a 404 means the trip is already gone. Any other answer leaves it where it is, and the page says so.
       if (!(cause instanceof ApiError && cause.status === 404)) {
         if (ticket === navRef.current) {
-          showBanner("errors.scrap");
+          // Retry scraps the trip again, with what follows a scrap (the caller's `again`); it does not reload the page.
+          showBanner("errors.scrap", again ? { kind: "scrap", run: again } : null);
           await refresh();
         }
         return "kept";
