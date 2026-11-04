@@ -1410,6 +1410,16 @@ _KEEP_HOTEL = re.compile(
     re.IGNORECASE,
 )
 _NEGATION = re.compile(r"\b(?:not|never|no longer|dont)\b|n't\b", re.IGNORECASE)
+#: a negation, or a word that waves a change away ("no need to", "without"), right in front of a change word
+_REFUSAL = re.compile(r"\b(?:not|never|no longer|dont|no need|no reason|without)\b|n't\b", re.IGNORECASE)
+#: "don't forget to switch the hotel" asks for the change
+_DONT_FORGET = re.compile(r"\b(?:don'?t|do not|never)\s+(?:forget|hesitate|fail)\s+to\b", re.IGNORECASE)
+
+
+def _refused(message: str, at: int) -> bool:
+    """The change word at ``at`` is refused: a negation stands in its clause, in front of it."""
+    clause = re.split(r"[,;.:!?]", message[max(at - 24, 0) : at])[-1]
+    return _REFUSAL.search(_DONT_FORGET.sub(" ", clause)) is not None
 #: wording that changes the hotel: "swap the hotel", "a different room", "switch to a ryokan"
 _CHANGE_HOTEL = re.compile(
     r"\b(?:swap|switch|change|replace|upgrade|downgrade|another|different|other|cheaper|nicer|better)\b"
@@ -1434,7 +1444,11 @@ def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
     """
     if "hotel" not in affected or _keeps_the_hotel(message):
         return False
-    return not asks_for_new_dates(message) or _CHANGE_HOTEL.search(message) is not None
+    # "don't change the hotel", "no need to swap the room": a change word with a refusal in front of it is a keep
+    changes = [found for found in _CHANGE_HOTEL.finditer(message) if not _refused(message, found.start())]
+    if asks_for_new_dates(message):
+        return bool(changes)
+    return bool(changes) or _CHANGE_HOTEL.search(message) is None
 
 
 def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:
