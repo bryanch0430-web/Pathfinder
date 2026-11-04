@@ -344,6 +344,13 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
                 "to": _span(new.dates.start, new.dates.end),
             }
         )
+    # Who travels, from where and on what budget: the details the page's "generate again" carries.
+    if old.party_size != new.party_size:
+        changes.append({"kind": "party", "from": old.party_size, "to": new.party_size})
+    if (old.origin or "") != (new.origin or ""):
+        changes.append({"kind": "origin", "from": old.origin or "", "to": new.origin or ""})
+    if old.budget != new.budget:
+        changes.append({"kind": "budget", "from": _rate(old.budget), "to": _rate(new.budget)})
     old_hotel = old.hotels[0].name if old.hotels else ""
     new_hotel = new.hotels[0].name if new.hotels else ""
     if old_hotel != new_hotel:
