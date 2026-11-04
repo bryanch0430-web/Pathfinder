@@ -7,12 +7,14 @@ page then showed a data gap for a plan whose data is complete, on every later vi
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.application.validation import tidy_data_gaps
 from app.config import Settings
-from app.domain.models import DataGap, EvalCase, FailureKind
+from app.domain.models import DataGap, DateRange, DayPlan, Destination, EvalCase, FailureKind, TripPlan
 from app.eval_efficiency import accepted_plan, case_context
 from app.interface.api import create_app
 from tests.test_modify_dates import WEEK_LATER, plan_event, reply_of, run_trip
@@ -111,3 +113,101 @@ def test_a_trip_opened_with_the_outcome_stored_as_a_gap_shows_no_such_gap(settin
         itinerary = client.get(f"/api/journeys/{session_id}/itinerary", headers=guest).json()["plan"]
 
     assert _hotel_gaps(opened) == [] and _hotel_gaps(itinerary) == []
+
+
+# -- the other outcomes of an edit: a stop that was not found, not told apart, or already there -------------
+
+#: (message, the stop selected before it, the route the router gives, how the reply begins)
+OUTCOMES = [
+    pytest.param(
+        "Remove the museum on day 2",
+        None,
+        None,
+        "No unlocked stop matched that removal, so the itinerary stayed as it was.",
+        id="a removal that matched no stop",
+    ),
+    pytest.param(
+        "Replace that one with something else",
+        None,
+        "modify",
+        "I could not tell which stop you meant.",
+        id="no stop that could be told apart",
+    ),
+    pytest.param(
+        "Replace this with kiyomizu dera",
+        "Gion",
+        None,
+        "Kiyomizu-dera is already in the plan on Day 1 at 09:00, so it cannot be added twice.",
+        id="a stop that is already in the plan",
+    ),
+    pytest.param(
+        "Replace this with an Italian restaurant",
+        "Gion",
+        None,
+        "No verified italian restaurant came back, so Gion stayed as it was",
+        id="no restaurant of the kind asked for",
+    ),
+    pytest.param(
+        "Replace this with something else",
+        "Gion",
+        None,
+        "No verified alternative for 'Gion' came back from the configured sources",
+        id="no alternative for the selected stop",
+    ),
+]
+
+
+def _stop_gaps(plan) -> list[str]:
+    return [gap.message for gap in plan.data_quality.gaps if gap.section == "attractions"]
+
+
+@pytest.mark.parametrize(("message", "selected", "route", "reply_begins"), OUTCOMES)
+def test_an_edit_that_could_not_be_done_is_answered_and_not_kept_as_a_data_gap(
+    settings: Settings, message: str, selected: str | None, route: str | None, reply_begins: str
+) -> None:
+    async def scenario(trip) -> None:
+        stop = next((i.id for d in trip.plan.days for i in d.items if i.name == selected), None) if selected else None
+        if route:
+            trip.rig.llm.route = {"intent": route, "confidence": 0.95}
+
+        events = await trip.turn(message, scope_item_id=stop)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert reply_of(events).startswith(reply_begins)
+        assert stored.version == trip.plan.version, "nothing in the plan changed"
+        assert _stop_gaps(stored) == []
+
+        await trip.turn(SWAP)
+        assert _stop_gaps(trip.store.get_plan(trip.session_id)) == [], "a later edit that works does not bring it back"
+
+    run_trip(settings, scenario)
+
+
+def test_the_gaps_such_edits_left_in_a_stored_plan_are_not_shown_but_the_plans_own_are() -> None:
+    plan = TripPlan(
+        session_id="s",
+        destination=Destination(name="Kyoto"),
+        dates=DateRange(start=date(2030, 1, 1), end=date(2030, 1, 1)),
+        days=[DayPlan(date=date(2030, 1, 1), title="Day")],
+    )
+    outcomes = [
+        "No unlocked stop matched that removal, so the itinerary stayed as it was.",
+        "I could not tell which stop you meant. Name it or give its number in the day, or select it first; "
+        "the itinerary stayed as it was.",
+        "Gion is already in the plan on Day 1 at 09:00, so it cannot be added twice. Name a different replacement, "
+        "or ask me to remove the existing one first.",
+        "No verified italian restaurant came back, so Gion stayed as it was, so that stop stayed as it was.",
+        "No verified alternative for 'Gion' came back from the configured sources, so that stop stayed as it was.",
+    ]
+    real = "Google Places timed out, so the list of attractions may be incomplete."
+    plan.data_quality.gaps = [DataGap(section="attractions", kind=FailureKind.NO_DATA, message=m) for m in outcomes] + [
+        DataGap(section="attractions", kind=FailureKind.TIMEOUT, message=real),
+        DataGap(section="meals", kind=FailureKind.NO_DATA, message="No vegetarian restaurant came back from the place sources, so no meal stop is suggested."),
+    ]
+
+    shown = tidy_data_gaps(plan, drop_edit_gaps=True)
+
+    assert [gap.message for gap in shown.data_quality.gaps] == [
+        real,
+        "No vegetarian restaurant came back from the place sources, so no meal stop is suggested.",
+    ]

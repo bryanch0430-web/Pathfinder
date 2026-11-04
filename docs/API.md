@@ -147,7 +147,8 @@ The `diff` of a `plan` event lists what an edit changed, one entry per change wi
 (the hotel's nights), `hotel_price` (the same hotel at another rate), `hotel`, `flight`, `weather` (the
 forecast changed), `cost`, and `party`, `origin` and `budget` (the details of the trip form). An edit that only moves the dates is a new version like any other, so the
 version it left stays available. What an edit could not do (for example, that no cheaper verified hotel was
-returned) is told in the reply and is not kept as a data gap of the plan. An edit that changes nothing is not a new
+returned, that no stop matched a removal, or that a place is already in the plan) is told in the reply and is
+not kept as a data gap of the plan. An edit that changes nothing is not a new
 version: its reason is the reply, and the version it read keeps the summary it had in `revisions`.
 
 The page's `Re-plan with the updated details.` compares the trip form with the plan. Another place in the form is a
