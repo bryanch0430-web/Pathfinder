@@ -487,6 +487,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     if (!id) return;
     try {
       const data = await patchContext(id, { plan_locale: value });
+      // The answer came after another trip was opened: it is not for the view that is open now.
+      if (sessionRef.current !== id) return;
       setContextState(data.context);
     } catch {
       // The view still switches; the session keeps its stored locale until the next save.
@@ -560,9 +562,11 @@ export function usePathfinder(locale: string): PathfinderHook {
         hard_constraints: context.hard_constraints,
       };
       const data = await patchContext(id, patch);
+      // The answer came after another trip was opened: its details are not this view's.
+      if (sessionRef.current !== id) return;
       setContextState(data.context);
     } catch (cause) {
-      setError(failureOf(cause, "errors.saveDetails"));
+      if (sessionRef.current === id) setError(failureOf(cause, "errors.saveDetails"));
       throw cause;
     }
   }, [context]);
@@ -727,11 +731,14 @@ export function usePathfinder(locale: string): PathfinderHook {
   );
 
   const generate = useCallback(async () => {
+    const id = sessionRef.current;
     try {
       await saveContext();
     } catch {
       return;
     }
+    // Another trip was opened while the details were being saved: the plan is not asked for there.
+    if (sessionRef.current !== id) return;
     await send(plan ? "Re-plan with the updated details." : "Plan my trip.");
   }, [plan, saveContext, send]);
 
@@ -760,6 +767,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     setHotelChanged(false);
     try {
       const data = await getPlan(id, version);
+      // The answer came after another trip was opened: that version is not a plan of this one.
+      if (sessionRef.current !== id) return;
       setPlan(data.plan);
     } catch {
       // Keep the current plan.
@@ -773,13 +782,15 @@ export function usePathfinder(locale: string): PathfinderHook {
       try {
         const rating = starsOverride ?? feedbackStars;
         const result = await postFeedback(id, useful, rating);
+        // The answer came after another trip was opened: the verdict belongs to the trip that was rated.
+        if (sessionRef.current !== id) return;
         setFeedbackVerdict(useful ? "useful" : "not_useful");
         if (useful) {
           setFeedbackSaved(true);
           setFeedbackAdded(result.preferences_added ?? []);
         }
       } catch (cause) {
-        setError(failureOf(cause, "errors.feedback"));
+        if (sessionRef.current === id) setError(failureOf(cause, "errors.feedback"));
       }
     },
     [feedbackStars],
@@ -795,12 +806,14 @@ export function usePathfinder(locale: string): PathfinderHook {
     if (!id) return;
     try {
       await clearMessages(id);
+      // The answer came after another trip was opened: its chat is not the one that was cleared.
+      if (sessionRef.current !== id) return;
       setMessages([]);
       setClarify(null);
       setClarifyValues({});
       setError(null);
     } catch (cause) {
-      setError(failureOf(cause, "errors.clearChat"));
+      if (sessionRef.current === id) setError(failureOf(cause, "errors.clearChat"));
     }
   }, []);
 
