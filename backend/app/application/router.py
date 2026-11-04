@@ -192,11 +192,11 @@ def replans_new_dates(message: str, context: TripContext, plan_summary: dict[str
 
 
 def same_destination(first: str, second: str) -> bool:
-    """Two spellings of one destination: the same text, or the same first part ("Kyoto" and "Kyoto, Japan")."""
-    one, other = " ".join((first or "").split()).casefold(), " ".join((second or "").split()).casefold()
-    if not one or not other:
-        return False
-    return one == other or one.split(",")[0].strip() == other.split(",")[0].strip()
+    """Two spellings of one destination: the same words, or the words of one are the start of the other ("Kyoto",
+    "Kyoto, Japan" and "Kyoto Japan"; "New York" and "New York City"). Names that go on differently are two places
+    ("Paris, France" and "Paris, Texas")."""
+    one, other = (re.sub(r"[\s,]+", " ", name or "").strip().casefold().split() for name in (first, second))
+    return bool(one and other) and one[: len(other)] == other[: len(one)]
 
 
 def names_another_place(context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
