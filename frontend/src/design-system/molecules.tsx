@@ -12,7 +12,7 @@ import {
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX } from "../lib/limits";
-import { addTags, isImeKey, splitList } from "../lib/typing";
+import { addTags, isImeKey, limitList, splitList } from "../lib/typing";
 import type {
   AgentState,
   ClarifyPayload,
@@ -355,7 +355,7 @@ export function TripContextForm({
               value={constraintText}
               onChange={(event) => {
                 setConstraintText(event.target.value);
-                onChange({ hard_constraints: splitList(event.target.value) });
+                onChange({ hard_constraints: limitList(splitList(event.target.value), TRIP_LINES_MAX, TRIP_LINE_MAX_LENGTH) });
               }}
               // The planner reads "must include …" in English, so the example stays English.
               placeholder="must include Fushimi Inari"

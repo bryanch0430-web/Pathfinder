@@ -31,3 +31,4 @@ def test_the_trip_form_stops_at_them() -> None:
 
     assert "addTags(preferenceTags, prefInput, TRIP_LINES_MAX, TRIP_LINE_MAX_LENGTH)" in form
     assert form.count("maxLength={TRIP_FIELD_MAX_LENGTH}") == 2  # the destination and the departure city
+    assert "limitList(splitList(event.target.value), TRIP_LINES_MAX, TRIP_LINE_MAX_LENGTH)" in form  # the constraints
