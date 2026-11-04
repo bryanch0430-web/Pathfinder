@@ -569,6 +569,70 @@ def test_a_date_after_the_name_is_not_part_of_it() -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "For this trip, how long is the train from Osaka to Kyoto?",
+        "On our trip, what's the best way to get from Tokyo to Osaka?",
+        "Planning a trip, is it cheaper to fly from London or Paris?",
+        "Our trip to Kyoto: what is the distance from Osaka?",
+        "The trip would be easier if the airport were closer, how far is it from Tokyo?",
+        "A trip from Tokyo to Osaka by train, how long?",
+        "Round trip from Tokyo to Osaka?",
+        "Return trip from Osaka to Tokyo costs how much?",
+    ],
+)
+def test_a_question_never_gives_or_replaces_the_departure_city_whatever_trip_word_comes_before_it(text: str) -> None:
+    """The question is asked anywhere in the sentence: after a comma or a colon as well as at its start."""
+    assert _origin(text) == "" and _origin(text, stored=HK) == HK
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "For our trip, souvenirs from Osaka are a must",
+        "Since it is a holiday, the bus from Tokyo is slow",
+        "In this journey, the fares from Seoul look high",
+        "Trip tip: the express train from Osaka is cheaper",
+        "My holiday plan: pick up a rental car from London",
+        "During the trip I want to take a train from Osaka to Nara",
+        "On this trip we want to eat the ramen from Osaka",
+    ],
+)
+def test_a_trip_word_in_another_part_of_the_sentence_does_not_make_a_from_phrase_the_departure_city(text: str) -> None:
+    """The README says a trip from X to Y names the departure city, not that any trip word anywhere before "from" does."""
+    assert _origin(text) == "" and _origin(text, stored=HK) == HK
+
+
+@pytest.mark.parametrize("text", ["We are leaving from Kyoto on the 8th", "Flights from Kyoto on day 5 please", "Fly out from Kyoto on the 9th"])
+def test_the_departure_city_is_never_the_destination_the_trip_has(text: str) -> None:
+    context = TripContext(session_id="s", destination="Kyoto", origin=HK)
+
+    _apply_rules(text, context, TODAY)
+
+    assert (context.origin, context.destination) == (HK, "Kyoto")
+
+
+@pytest.mark.parametrize(
+    ("text", "place"),
+    [
+        ("4 days in Rome, returning from Rome on the 8th", "Rome"),
+        ("Plan a trip to Paris, leaving from Paris on Friday", "Paris"),
+        ("A week in Barcelona, flights from Barcelona on the 9th", "Barcelona"),
+        ("A week in Barcelona, departing from Barcelona on the 9th", "Barcelona"),
+        ("3 nights in Seoul. We'll fly out from Seoul on Monday", "Seoul"),
+        ("Plan 4 days in Rome, starting from Rome", "Rome"),
+    ],
+)
+def test_a_message_that_names_one_city_as_the_destination_and_as_the_departure_is_a_trip_to_it(text: str, place: str) -> None:
+    """The departure city was read and then the city was left out of the destination, which stayed empty."""
+    context = TripContext(session_id="s")
+
+    _apply_rules(text, context, TODAY)
+
+    assert (context.origin, context.destination) == ("", place)
+
+
+@pytest.mark.parametrize(
     "unit",
     [
         "3 days from Hong Kong ",
