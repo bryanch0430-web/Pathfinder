@@ -106,3 +106,20 @@ def test_a_place_whose_first_word_is_a_verb_is_read_after_in_visit_and_explore(s
 @pytest.mark.parametrize("sentence", ["i want to go", "i would love to see", "we want to do", "we would like to try"])
 def test_a_verb_after_to_is_still_no_place(sentence: str) -> None:
     assert _find_place(sentence, CUES) is None
+
+
+@pytest.mark.parametrize(
+    ("sentence", "place"),
+    [
+        ("is tap water safe to drink in mexico city?", "Mexico City"),
+        ("is it safe to walk around naples at night?", "Naples"),
+        ("pretend you are a local and tell me what to eat", None),
+        ("which endpoint of the camino is better to start from, sarria or saint jean?", None),
+        ("i want to stop planning for today, we can continue tomorrow", None),
+        ("please call the hotel to confirm the late check-in", None),
+        ("use the tool at the desk to scan the ticket", None),
+    ],
+)
+def test_a_verb_after_to_is_not_a_destination(sentence: str, place: str | None) -> None:
+    """"safe to drink in Mexico City" was a trip to Drink."""
+    assert _find_place(sentence, CUES) == place
