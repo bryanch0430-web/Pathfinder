@@ -485,6 +485,64 @@ def test_a_building_or_a_part_of_a_known_city_is_still_no_departure_city(text: s
 
 
 @pytest.mark.parametrize(
+    ("text", "city"),
+    [
+        ("Flights to Rome from London", "London"),
+        ("Cheap flights to Rome from London in May", "London"),
+        ("I need a flight to Rome from London", "London"),
+        ("We want to fly to Cusco from Lima", "Lima"),
+        ("Fly to Rome from London on the 5th", "London"),
+        ("Travel to Rome from London in June", "London"),
+        ("We are travelling to Rome from London", "London"),
+        ("We will fly into Rome from London", "London"),
+        ("We are arriving in Rome from Boston on Friday", "Boston"),
+        ("We're flying in from Boston, 4 days in Rome", "Boston"),
+        ("We're coming in from London for Rome", "London"),
+        ("We set off from Paris for Rome", "Paris"),
+        ("Setting off from London to Rome on Monday", "London"),
+        ("by plane from London to Rome", "London"),
+        ("We go by plane from Leeds to Rome", "Leeds"),
+    ],
+)
+def test_a_flight_or_a_travel_verb_reaches_from_through_a_short_place(text: str, city: str) -> None:
+    """"Flights to Rome from London" names the departure city as much as "flights from London" does."""
+    assert _origin(text, destination="Rome") == city
+    assert _origin(text, stored=HK, destination="Rome") == city
+
+
+@pytest.mark.parametrize(
+    ("text", "city"),
+    [
+        ("We start from Amsterdam and drive to Berlin", "Amsterdam"),
+        ("Our trip starts from Leeds and goes to Rome", "Leeds"),
+        ("I'm from London, planning 5 days in Rome", "London"),
+        ("We're from Leeds and want a week in Rome", "Leeds"),
+        ("We are from Leeds and want a week in Rome", "Leeds"),
+        ("We go by train from Leeds to Rome", "Leeds"),
+    ],
+)
+def test_where_the_traveller_is_from_or_starts_fills_a_missing_departure_city_but_never_replaces_one(text: str, city: str) -> None:
+    assert _origin(text, destination="Rome") == city
+    assert _origin(text, stored=HK, destination="Rome") == HK
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Is there a flight to Osaka from Kyoto on day 3?",
+        "How much are flights to Rome from London?",
+        "Can I get a flight to Rome from London?",
+        "Book the flight to Osaka from Kyoto on day 3",
+        "Show me hotels in Rome from London",
+        "Are you from London?",
+        "Where is the train to Osaka from Kyoto Station?",
+    ],
+)
+def test_a_question_a_known_flight_or_a_place_that_is_not_a_travel_phrase_still_names_no_departure(text: str) -> None:
+    assert _origin(text) == "" and _origin(text, stored=HK) == HK
+
+
+@pytest.mark.parametrize(
     "city",
     [
         "Long Beach", "Miami Beach", "West Palm Beach", "Virginia Beach", "Daytona Beach", "Myrtle Beach", "Huntington Beach",
