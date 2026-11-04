@@ -104,16 +104,6 @@ _NEW_DATES = [
         # "move it to 12-14 December", "go on 20 March instead"
         rf"\b{_SHIFT}\b.{{0,24}}?\b(?:to|in|on|until|for)\s+(?:{_WHEN})",
         rf"\b(?:go|travel|leave|fly|switch)\b.{{0,24}}?\b(?:to|in|on|for)\s+(?:{_WHEN}).{{0,12}}\binstead\b",
-        # The length said in plain words, with no change verb: "only 2 days", "I only have 2 days now"
-        rf"\bonly\s+(?:(?:have|need|want|got|do)\s+)?{_LENGTH}\b",
-        # "let's do 4 days", "let's stay 4 nights", "we want 5 days", "I'd like 4 days", "can it be 4 days"
-        rf"\b(?:let'?s|we|i)(?:'d|'ll| would| will)?\s+(?:only\s+)?(?:do|stay|want|need|like|take|have|go for)\s+"
-        rf"{_LENGTH}\b{_NOT_A_TRIP_TO}",
-        rf"\b(?:can|could|would|will|should)\s+(?:it|the trip|this|we)\s+(?:only\s+)?(?:be|do|stay|have)\s+"
-        rf"{_LENGTH}\b{_NOT_A_TRIP_TO}",
-        # "5 days instead of 3", "4 nights please", "2 days only", "3 days is enough", "6 days in total"
-        rf"\b{_NUMBER}[\s-]+(?:days?|nights?)(?:\s+(?:trip|stay|holiday|vacation|itinerary))?\s+"
-        r"(?:instead|only|please|in total|total|is enough|are enough|would be (?:better|enough|plenty)|will do|is plenty)\b",
         # "reduce it to 3 days", "keep it to 2 days", "make that 4 days", "make it a weekend trip"
         r"\b(?:make|turn|change|cut|stretch|reduce|trim|shrink|limit|keep|squeeze)\s+(?:it|that|the trip|the stay|this)\s+"
         rf"(?:(?:in)?to\s+|(?:down|up) to\s+|at\s+)?(?:(?:an?\s+)?(?:long\s+)?(?:weekend|week|fortnight)\b|{_LENGTH}\b)",
@@ -143,6 +133,24 @@ _NEW_DATES = [
 ]
 
 
+#: A length said in plain words, with no change verb: "only 2 days", "let's do 4 days", "we want 5 days", "can it be
+#: 4 days", "4 nights please". These are kept apart from the sentences above because a new trip says the same thing
+#: ("I want 4 nights in Osaka"): they ask for other dates only while the sentence names no other place than the plan's.
+_LENGTH_SAID = [
+    re.compile(pattern)
+    for pattern in (
+        rf"\bonly\s+(?:(?:have|need|want|got|do)\s+)?{_LENGTH}\b",
+        rf"\b(?:let'?s|we|i)(?:'d|'ll| would| will)?\s+(?:only\s+)?(?:do|stay|want|need|like|take|have|go for)\s+"
+        rf"{_LENGTH}\b{_NOT_A_TRIP_TO}",
+        rf"\b(?:can|could|would|will|should)\s+(?:it|the trip|this|we)\s+(?:only\s+)?(?:be|do|stay|have)\s+"
+        rf"{_LENGTH}\b{_NOT_A_TRIP_TO}",
+        # "5 days instead of 3", "2 days only", "3 days is enough", "6 days in total"
+        rf"\b{_NUMBER}[\s-]+(?:days?|nights?)(?:\s+(?:trip|stay|holiday|vacation|itinerary))?\s+"
+        r"(?:instead|only|please|in total|total|is enough|are enough|would be (?:better|enough|plenty)|will do|is plenty)\b",
+    )
+]
+
+
 def is_replan_message(message: str) -> bool:
     """The page's "generate again" message (see REPLAN_MESSAGE)."""
     return (message or "").strip().rstrip(".").casefold() == REPLAN_MESSAGE.rstrip(".").casefold()
@@ -163,7 +171,7 @@ def asks_for_trip_dates(message: str) -> bool:
     """True when the sentence is about the dates or the length of the whole trip ("shift the trip by a week", "make
     it 4 days"), whatever row it names. A bare span ("two days later") is not by itself: it may move one row."""
     lower = (message or "").lower()
-    return any(pattern.search(lower) for pattern in _NEW_DATES)
+    return any(pattern.search(lower) for pattern in (*_NEW_DATES, *_LENGTH_SAID))
 
 
 def asks_for_new_dates(message: str) -> bool:
@@ -183,13 +191,40 @@ def replans_new_dates(message: str, context: TripContext, plan_summary: dict[str
     return form is not None and [form.start.isoformat(), form.end.isoformat()] != list(plan_summary.get("dates") or [])
 
 
+def same_destination(first: str, second: str) -> bool:
+    """Two spellings of one destination: the same text, or the same first part ("Kyoto" and "Kyoto, Japan")."""
+    one, other = " ".join((first or "").split()).casefold(), " ".join((second or "").split()).casefold()
+    if not one or not other:
+        return False
+    return one == other or one.split(",")[0].strip() == other.split(",")[0].strip()
+
+
+def names_another_place(context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
+    """The trip details name another place than the plan is for. The understanding step has read the message into
+    them by now, so a sentence about "4 nights in Osaka" leaves Osaka here."""
+    if plan_summary is None:
+        return False
+    planned, named = str(plan_summary.get("destination") or ""), context.destination or ""
+    return bool(planned.strip() and named.strip()) and not same_destination(planned, named)
+
+
 def replans_new_destination(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
     """The page's "generate again" message while the trip form names another place than the plan is for."""
-    if plan_summary is None or not is_replan_message(message):
+    return is_replan_message(message) and names_another_place(context, plan_summary)
+
+
+def asks_for_other_dates(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:
+    """``asks_for_new_dates`` for a traveller who has a plan. A length said in plain words ("I want 4 nights",
+    "only 2 days") is a new trip when the sentence names another place than the plan's ("I want 4 nights in Osaka")."""
+    lower = (message or "").lower()
+    if not asks_for_new_dates(lower):
         return False
-    planned = str(plan_summary.get("destination") or "").strip().casefold()
-    named = (context.destination or "").strip().casefold()
-    return bool(planned and named and planned != named)
+    says_a_length_only = (
+        any(pattern.search(lower) for pattern in _LENGTH_SAID)
+        and not any(pattern.search(lower) for pattern in _NEW_DATES)
+        and not any(pattern.search(lower) for pattern in _SPAN_DATES)
+    )
+    return not (says_a_length_only and names_another_place(context, plan_summary))
 
 
 class RuleRouter:
@@ -214,7 +249,7 @@ class RuleRouter:
         is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
         modify_hit = (
             bool(re.search(MODIFY_VERBS, lower))
-            or asks_for_new_dates(lower)
+            or asks_for_other_dates(lower, context, plan_summary)
             or is_replan_message(text)
             or _MAKE_THE_TRIP.search(lower) is not None
         )
@@ -583,7 +618,7 @@ def rules_decide_alone(
     plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
     modify_hit = (
         bool(re.search(_WORD_MODIFY, lower))
-        or asks_for_new_dates(lower)
+        or asks_for_other_dates(lower, context, plan_summary)
         or is_replan_message(text)
         or _MAKE_THE_TRIP.search(lower) is not None
     )
