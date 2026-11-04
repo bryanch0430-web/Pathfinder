@@ -625,7 +625,9 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   ("how far is the temple from Kyoto Station?"), "a day trip from Kyoto to Nara" and "from
   the list above" never name one, and the name ends at "and", "via", "at" or "around" or at a pronoun, a
   weekday or an airport name ("flying from Leeds via Dubai", "London we want 4 days" and
-  "London Heathrow" are Leeds and London). Any other city is read by the writer model when one is
+  "London Heathrow" are Leeds and London). The departure city is never the destination ("flights
+  from Kyoto on day 5" on a trip to Kyoto names none), and a trip word in another part of the
+  sentence does not make a "from" phrase one. Any other city is read by the writer model when one is
   configured, else asked for.
 - **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
   not live providers; live behaviour is captured separately in traces and screenshots.

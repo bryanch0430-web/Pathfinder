@@ -236,10 +236,11 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     # destination / origin. The origin is resolved first: "a Kyoto trip from
     # Hong Kong" must not treat the departure city as the destination.
     previous_destination = context.destination
-    origin = _find_origin(text, context.origin, context.destination)
+    named = _find_place(lower, _PLACE_CUES)
+    origin = _find_origin(text, context.origin, context.destination, named or "")
     if origin:
         context.origin = origin
-    destination = _find_place(lower, ["to", "in", "visit", "explore", "around"], origin)
+    destination = _find_place(lower, _PLACE_CUES, origin) if origin else named
     if destination:
         context.destination = destination
     destination_changed = bool(destination and destination.strip().lower() != previous_destination.strip().lower())
@@ -307,6 +308,10 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         context.language = "zh-Hant" if re.search(r"[台灣台裏裡]", text) else "zh-Hans"
     else:
         context.language = context.language or "en"
+
+
+#: The words after which a place in a sentence is read as the destination.
+_PLACE_CUES = ["to", "in", "visit", "explore", "around"]
 
 
 def _find_place(lower: str, prepositions: list[str], origin: str | None = None) -> str | None:
@@ -695,6 +700,20 @@ def _short_trip(before: list[str], index: int) -> bool:
     return not (before[index - 1] == "day" and many)  # "a 5 day trip" is not
 
 
+#: A comma, a colon or a dash with blanks ends a clause: "For our trip, souvenirs from Osaka are a must".
+_CLAUSE_BREAK = re.compile(r"[,:;]|\s[-\u2013\u2014]+\s")
+#: A trip word names the trip a "from" phrase is about only within this many words before it ("a 3-day trip to Kyoto from X").
+_TRIP_REACH = 6
+
+
+def _clause_words(window: str) -> list[str]:
+    """The words of `window` since its last comma, colon or dash: the clause the "from" phrase that follows is in."""
+    last = None
+    for last in _CLAUSE_BREAK.finditer(window):
+        pass
+    return _words(window[last.end() :] if last else window)
+
+
 def _trips(before: list[str]) -> tuple[bool, bool, bool]:
     """Whether `before` names a trip, names one in its last two words, and names a short trip from a place."""
     trip = near = short = False
@@ -729,17 +748,25 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
     lead = _words(text[start : min(match.start(), start + _LOOKBACK)])[:6]
     if _is_question(lead):
         return None
-    before = _words(text[max(start, match.start() - _LOOKBACK) : match.start()])
+    window = text[max(start, match.start() - _LOOKBACK) : match.start()]
+    before = _words(window)
+    clause = _clause_words(window)
+    if _is_question(clause[:6]):  # "Planning a trip, is it cheaper to fly from London or Paris?"
+        return None
     # "We arrive in Kyoto from Osaka on day 1" is a day of the plan; "flights to Rome from London" is a departure.
     departing = _departing(before, through_a_place=_ON_A_DAY.search(text, match.start(), match.end() + 80) is None)
     if departing == "leave":
         return "replace"
-    trip, near, short = _trips(before)
+    # A trip word counts when it is near the "from" phrase in its clause; "we are from X" is weak by itself and takes
+    # the trip word of the sentence ("A trip to Rome, we are from Singapore").
+    trip, near, short = _trips(before if departing == "guess" else clause[-_TRIP_REACH:])
     if any(word in _EDIT_WORDS for word in before[-4:]) or short:
         return None
     asks = index < len(ends) and text[ends[index]] == "?" and not _is_request(lead)  # the sentence ends with a ?
     if departing == "return":
         return None if asks else "fill any"
+    if asks:  # a question asks about a city; it does not say where the trip leaves from
+        return None
     if departing in (None, "guess"):
         onward = _ONWARD.match(text, match.start(1) + used)
         goes_to_a_known_city = bool(onward and _known_place(" ".join(_name_words(onward.group(1))[0])))
@@ -748,17 +775,15 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
         window = (max(start, match.start() - _LOOKBACK), min(stop, match.end() + _LOOKBACK))
         if known and _CHANGE_CUE.search(text, *window) and _changes_the_trip(before):
             return "replace"
-    if asks:
-        return None
     if departing == "guess":
         return "fill any"
     leading = [word for word in before if word not in _LEAD_FILLERS]
-    if departing == "other" or any(word in _PLAN_VERBS for word in lead) or _STAY.search(" ".join(before)) or not leading:
+    if departing == "other" or any(word in _PLAN_VERBS for word in clause[:6]) or _STAY.search(" ".join(before)) or not leading:
         return "fill"
     return None
 
 
-def _find_origin(text: str, stored: str = "", destination: str = "") -> str | None:
+def _find_origin(text: str, stored: str = "", destination: str = "", named: str = "") -> str | None:
     """The departure city that `text` names, or None.
 
     A sentence names it when it says so ("my departure city is Osaka", "change the origin to Osaka"); or a travel verb
@@ -769,12 +794,15 @@ def _find_origin(text: str, stored: str = "", destination: str = "") -> str | No
     Kong" only give a trip that has none a city the assistant knows, never the destination, and a question never gives
     one ("how far is the temple from Kyoto Station?"). Nothing else after "from" is a departure city: not "scratch",
     a weekday, "home", an airline, a station, nor "a day trip from Kyoto to Nara". The name ends at a conjunction or
-    a preposition ("Chicago and staying in Rome" is Chicago).
+    a preposition ("Chicago and staying in Rome" is Chicago). It is never the destination the trip has (`destination`)
+    or the only place the message names (`named`): "flights from Kyoto on day 5" on a trip to Kyoto, and "4 days in
+    Rome, returning from Rome", name none; "I live in Osaka, flights from Osaka to Leeds" leaves from Osaka.
     """
     stated = _stated_origin(text)
     if stated:
         return stated
     ends = [match.start() for match in _SENTENCE_END.finditer(text)]
+    only_place: bool | None = None  # whether `named` is the one place the message names, worked out when a phrase names it
     for match in _FROM_PHRASE.finditer(text):
         words, used, ended = _name_words(match.group(1))
         # A name that stops inside a word ("Montr", before an accent) is not a name that was read.
@@ -787,12 +815,18 @@ def _find_origin(text: str, stored: str = "", destination: str = "") -> str | No
         if place is None:
             continue
         name, known = place
+        if name.lower() == destination.strip().lower():
+            continue
+        if named and name.lower() == named.lower():
+            if only_place is None:
+                only_place = _find_place(text.lower(), _PLACE_CUES, name) is None
+            if only_place:
+                continue
         evidence = _evidence(text, match, used, ends, known)
         if evidence == "replace":
             return name
         if (evidence == "fill any" or (evidence == "fill" and known)) and not stored.strip():
-            if name.lower() != destination.strip().lower():
-                return name
+            return name
     return None
 
 
