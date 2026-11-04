@@ -371,6 +371,8 @@ export async function streamChat(
   let buffer = "";
   // A line ends with LF, CR or CRLF. After a CR at the end of a chunk, an LF opening the next chunk is the other half of a CRLF.
   let afterCR = false;
+  // The server ends every reply with `done`, or with `error` when it failed.
+  let finished = false;
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -389,6 +391,7 @@ export async function streamChat(
         else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
       }
       if (!dataLines.length) continue;
+      if (event === "done" || event === "error") finished = true;
       try {
         handlers.onEvent(event, JSON.parse(dataLines.join("\n")) as Record<string, unknown>);
       } catch (error) {
@@ -396,6 +399,9 @@ export async function streamChat(
       }
     }
   }
+  // A body that ends with neither is a page a proxy answered with, or a connection cut short: nothing says what became of
+  // the turn, so it failed (unless the traveller stopped it).
+  if (!finished && !signal?.aborted) throw new ApiError("The reply ended before the server finished it.", 0);
 }
 
 export type { ClarifyPayload, EvalRun, PlanLocale, PlanTranslation, RunTrace, TripPlan };
