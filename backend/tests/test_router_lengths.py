@@ -154,3 +154,36 @@ def test_no_length_statement_is_left_to_a_new_trip_decided_by_the_rules_alone(se
         alone = rules_first_applies(message, ruled, context=FORM, plan_summary=PLAN, settings=settings)
 
         assert not (alone and ruled.intent is Intent.PLAN), message
+
+
+PACE_WORDS = [
+    "make the trip slower",
+    "make the plan lighter",
+    "make this trip easier",
+    "make our holiday calmer",
+    "make the trip a bit quieter",
+    "make my trip faster",
+]
+
+
+@pytest.mark.parametrize("message", PACE_WORDS)
+def test_making_the_trip_slower_or_lighter_is_not_read_as_an_edit_that_names_no_stop(message: str) -> None:
+    """The edit path cannot apply a pace word to the trip; routed there it answered "I could not tell which stop you meant"."""
+    decision = RuleRouter().route(message=message, context=FORM, plan_summary=PLAN, history=[])
+
+    assert decision.intent is not Intent.MODIFY, decision
+
+
+@pytest.mark.parametrize("message", PACE_WORDS)
+def test_a_turn_that_asks_for_a_slower_trip_does_not_answer_with_a_stop_it_could_not_find(
+    settings: Settings, message: str
+) -> None:
+    from tests.test_modify_dates import Trip, reply_of, run_trip
+
+    async def scenario(trip: Trip) -> None:
+        events = await trip.turn(message)
+
+        assert "could not tell which stop" not in reply_of(events), reply_of(events)
+        assert trip.store.get_plan(trip.session_id).version == 1
+
+    run_trip(settings, scenario)
