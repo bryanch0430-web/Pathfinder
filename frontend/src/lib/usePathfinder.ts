@@ -129,6 +129,9 @@ export interface PathfinderHook {
   languageNotice: PlanLanguageNotice;
   versions: SessionState["versions"];
   messages: ChatMessage[];
+  /** The message typed in the box of the open trip and not sent. Each trip keeps its own while the page stays open. */
+  draft: string;
+  setDraft: (value: string) => void;
   busy: boolean;
   agents: Record<string, AgentState>;
   progress: number;
@@ -207,6 +210,14 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [versions, setVersions] = useState<SessionState["versions"]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // The message typed and not sent, per trip. It is held here and not by the chat panel, which a visit to another page
+  // and the loading screen of a reload take away.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftKey = sessionId ?? "";
+  const setDraft = useCallback(
+    (value: string) => setDrafts((current) => ({ ...current, [draftKey]: value })),
+    [draftKey],
+  );
   const [busy, setBusy] = useState(false);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [progress, setProgress] = useState(0);
@@ -972,6 +983,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     languageNotice,
     versions,
     messages,
+    draft: drafts[draftKey] ?? "",
+    setDraft,
     busy,
     agents,
     progress,
