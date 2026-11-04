@@ -307,7 +307,10 @@ export default function App() {
     // for a trip that is gone is dropped on the way.
     if (outcome === "left") return;
     for (const trip of remaining) {
-      if ((await openTrip(trip.id)) !== "missing") return;
+      // A tab that needs a sign-in stays in the bar but is not one to land on: the next tab is tried, and a new trip
+      // is made when none opens. Only a server that cannot be reached, or a newer ask of the traveller, ends it here.
+      const opened = await openTrip(trip.id);
+      if (opened !== "missing" && opened !== "needs-sign-in") return;
     }
     await createTripTab();
   };
@@ -335,9 +338,6 @@ export default function App() {
     displayName: string,
   ) => {
     const guestToken = readStoredValue("client") || "";
-    if (!readStoredValue("guest")) {
-      writeStoredValue("guest", guestToken);
-    }
     const payload = {
       email,
       password,
@@ -346,6 +346,9 @@ export default function App() {
       session_id: pf.sessionId,
     };
     const result = mode === "login" ? await login(payload) : await register(payload);
+    // Only a sign-in the server accepted marks this browser as one that may hold an account's trips; a refused
+    // attempt leaves it a browser where a trip the server does not know is simply gone.
+    if (!readStoredValue("guest")) writeStoredValue("guest", guestToken);
     writeStoredValue("auth", result.token);
     writeStoredValue("client", result.profile_token);
     setAuthUser(result.user);
