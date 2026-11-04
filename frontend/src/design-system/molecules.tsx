@@ -11,6 +11,7 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX } from "../lib/limits";
 import { addTags, isImeKey, splitList } from "../lib/typing";
 import type {
   AgentState,
@@ -181,7 +182,7 @@ export function TripContextForm({
   }, [values.destination, canSuggest]);
 
   const addPreference = () => {
-    const merged = addTags(preferenceTags, prefInput);
+    const merged = addTags(preferenceTags, prefInput, TRIP_LINES_MAX, TRIP_LINE_MAX_LENGTH);
     setPreferenceTags(merged);
     onChange({ preferences: merged });
     setPrefInput("");
@@ -229,6 +230,7 @@ export function TripContextForm({
             onChange={(event) => onChange({ destination: event.target.value })}
             placeholder="Kyoto"
             autoComplete="off"
+            maxLength={TRIP_FIELD_MAX_LENGTH}
             list={`${id}-destination-options`}
           />
           <datalist id={`${id}-destination-options`}>
@@ -244,6 +246,7 @@ export function TripContextForm({
             onChange={(event) => onChange({ origin: event.target.value })}
             placeholder="Hong Kong"
             autoComplete="off"
+            maxLength={TRIP_FIELD_MAX_LENGTH}
           />
         </Field>
         <Field label={t("form.start")} required htmlFor={`${id}-start`}>
