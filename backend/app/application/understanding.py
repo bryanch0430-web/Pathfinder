@@ -346,15 +346,38 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
 
     # 4. Unknown place names still work through the preposition patterns.
     for prep in prepositions:
-        match = re.search(
-            rf"\b{prep}\s+([a-z][a-z .'-]{{2,40}}?)(?=\s+(?:for|from|with|on|in|next|this|under|budget|and)\b|[,.!?]|$)",
-            lower,
+        pattern = re.compile(
+            rf"\b{prep}\s+([a-z][a-z .'-]{{2,40}}?)(?=\s+(?:for|from|with|on|in|next|this|under|budget|and)\b|[,.!?]|$)"
         )
-        if match:
-            candidate = match.group(1).strip(" .")
-            if _valid_place(candidate) and candidate.lower() != origin_lower:
+        start = 0
+        while (match := pattern.search(lower, start)) is not None:
+            candidate = _until_name_ends(match.group(1).strip(" ."))
+            first_word = candidate.split()[0].lower() if candidate else ""
+            if (
+                _valid_place(candidate)
+                and candidate.lower() != origin_lower
+                and first_word not in _VERBS_AFTER_TO
+                and first_word not in prepositions
+            ):
                 return candidate.title()
+            start = match.start() + 1  # "want to go to Porto": the first "to" is no cue, the next one is
     return None
+
+
+#: A verb that follows "to" in "love to see Lyon": the place comes after it, so it is not part of the name.
+_VERBS_AFTER_TO = frozenset(
+    "visit see explore go travel fly stay spend try get be have do take discover check tour enjoy relax".split()
+)
+
+
+def _until_name_ends(phrase: str) -> str:
+    """The words of `phrase` before the first one that ends a place name: "nagoya please" is Nagoya."""
+    words: list[str] = []
+    for word in phrase.split():
+        if word.lower().strip(".,!?'-") in _NAME_ENDS:
+            break
+        words.append(word)
+    return " ".join(words)
 
 
 _GENERIC_PLACES = {
