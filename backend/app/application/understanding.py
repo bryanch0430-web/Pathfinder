@@ -526,6 +526,8 @@ _STATED_ORIGIN = (
 _SENTENCE_END = re.compile(r"[.!?;]")
 #: How much of the sentence before "from" is read, which keeps the work in proportion to the message.
 _LOOKBACK = 300
+#: "to <place>" right after a "from" phrase: "a 3-day trip to Kyoto from Singapore to Tokyo".
+_ONWARD = re.compile(r"\s+to\s+([a-z][a-z .'-]{1,40})", re.IGNORECASE)
 
 
 def _known_place(candidate: str) -> str | None:
@@ -669,15 +671,16 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
     trip, near, short = _trips(before)
     if any(word in _EDIT_WORDS for word in before[-4:]) or short:
         return None
-    asks = text[start:stop].rstrip().endswith("?") and not _is_request(lead)
+    asks = index < len(ends) and text[ends[index]] == "?" and not _is_request(lead)  # the sentence ends with a ?
     if departing == "return":
         return None if asks else "fill any"
     if departing is None:
-        onward = re.match(r"\s+to\s+([a-z][a-z .'-]{1,40})", text[match.start(1) + used :], re.IGNORECASE)
+        onward = _ONWARD.match(text, match.start(1) + used)
         goes_to_a_known_city = bool(onward and _known_place(" ".join(_name_words(onward.group(1))[0])))
         if trip and (known or (near and goes_to_a_known_city)):
             return "replace"
-        if known and _CHANGE_CUE.search(text[start:stop]) and _changes_the_trip(before):
+        window = (max(start, match.start() - _LOOKBACK), min(stop, match.end() + _LOOKBACK))
+        if known and _CHANGE_CUE.search(text, *window) and _changes_the_trip(before):
             return "replace"
     if asks:
         return None
