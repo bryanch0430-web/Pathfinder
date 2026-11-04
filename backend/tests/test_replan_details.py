@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+import pytest
+
 from app.application.router import REPLAN_MESSAGE
 from app.config import Settings
 from app.domain.models import Money
@@ -48,6 +50,46 @@ def test_another_destination_in_the_form_is_a_new_trip(settings: Settings) -> No
         assert not [item for day in latest.days for item in day.items if item.locked or item.confirmed]
 
     run_trip(settings, scenario, prepare=accept_the_garden_inn)
+
+
+MISSING = {
+    "origin": {"origin": ""},
+    "party_size": {"party_size": None},
+    "budget": {"budget": None},
+    "dates": {"start_date": None, "end_date": None, "days": None},
+}
+
+
+@pytest.mark.parametrize("slot", list(MISSING))
+def test_another_destination_in_a_form_that_lacks_what_a_new_trip_needs_asks_for_it(settings: Settings, slot: str) -> None:
+    """A new trip has a gate: it asks for the departure city, the party, the budget and the dates before it plans."""
+
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, destination="Tokyo", **MISSING[slot])
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event == "error"], slot
+        asked = next(event.data for event in events if event.event == "clarify")
+        assert slot in asked["slots"], asked
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.trip_id, latest.destination.name, latest.version) == (trip.plan.trip_id, "Kyoto", 1)
+        assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
+        assert not [event for event in events if event.event == "plan"]
+
+    run_trip(settings, scenario)
+
+
+def test_another_destination_with_the_form_complete_is_still_planned_without_asking(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, destination="Tokyo")
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert not [event for event in events if event.event in {"clarify", "error"}]
+        assert trip.store.get_plan(trip.session_id).destination.name == "Tokyo"
+
+    run_trip(settings, scenario)
 
 
 def test_another_destination_and_other_dates_do_not_put_a_flight_to_the_new_city_on_the_old_plan(
