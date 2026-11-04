@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import calendar
+from bisect import bisect_left
 from datetime import date, timedelta
 
 from app.application.llm_gateway import LLMGateway
@@ -235,7 +236,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     # destination / origin. The origin is resolved first: "a Kyoto trip from
     # Hong Kong" must not treat the departure city as the destination.
     previous_destination = context.destination
-    origin = _find_origin(text, context.origin)
+    origin = _find_origin(text, context.origin, context.destination)
     if origin:
         context.origin = origin
     destination = _find_place(lower, ["to", "in", "visit", "explore", "around"], origin)
@@ -389,13 +390,17 @@ _GENERIC_PLACES = {
 }
 
 
+#: Whole names that are no place: a weekday ("from Monday to Friday"), home, work and "from scratch".
+_NOT_A_PLACE = frozenset("monday tuesday wednesday thursday friday saturday sunday home work scratch".split())
+
+
 def _valid_place(candidate: str) -> bool:
     value = candidate.strip().lower()
     if len(value) < 3 or value in _GENERIC_PLACES:
         return False
     if value.removeprefix("the ") in _GENERIC_PLACES:
         return False
-    if value in MONTHS:
+    if value in MONTHS or value in _NOT_A_PLACE:
         return False
     # Relative time expressions are never places: "in three months" used to be
     # parsed as the destination "Three Months".
@@ -409,31 +414,100 @@ def _valid_place(candidate: str) -> bool:
     return True
 
 
-#: "from <words>" up to the word that ends a place name.
-_FROM_PHRASE = re.compile(
-    r"\bfrom\s+([a-z][a-z .'-]{2,40}?)(?=\s+(?:to|for|on|in|next|this|with)\b|[,.!?]|$)", re.IGNORECASE
+#: "from <words>": the words end where the place name ends (`_NAME_ENDS`), which the pattern cannot say.
+_FROM_PHRASE = re.compile(r"\bfrom\s+([a-z][a-z '-]{1,40})", re.IGNORECASE)
+#: The words that end a place name: a conjunction, a preposition or a word about the time ("Leeds via Dubai",
+#: "Chicago and staying in Rome", "Leeds around noon").
+_NAME_ENDS = frozenset(
+    "and or but via at by around then after before while because so since if when as until till which that where "
+    "to for on in into onto next this with without towards toward near than from only just please thanks instead "
+    "again also too maybe about during over under through now today tomorrow tonight soon".split()
 )
 #: Cities and airports the assistant knows by name, and the airport codes the flight source resolves.
 _KNOWN_CITIES = {city.lower(): city for city in CITY_HINTS}
 _AIRPORT_CODES = frozenset(code for codes in AIRPORTS.values() for code in codes)
-#: Words right before "from" that say where the traveller leaves from ...
-_TRAVEL_WORDS = frozenset(
-    "flight flights fly flying flew flown depart departs departing departure departures leave leaves leaving left "
-    "travel travels travelling traveling commute commutes commuting coming arrive arrives arriving "
-    "originate originates originating".split()
+#: Words right before "from" that say the traveller leaves from the place after it ...
+_DEPARTURE_VERBS = frozenset(
+    "fly flying flew flown depart departing departure departures leave leaving left commute commuting travelling "
+    "traveling coming arrive arriving originate originating".split()
 )
-#: ... that the sentence is about a trip ...
+#: ... or that a flight, a train or someone else does ("the bus leaves from Shinjuku"), or the traveller is there at the
+#: start or on the way back ("starting from Kyoto", "returning from Tokyo"). The city is then a guess, so it is
+#: a departure city for a trip that has none, and never replaces the one a trip has.
+_THIRD_PERSON = frozenset("departs leaves commutes travels comes arrives originates".split())
+_WEAK_VERBS = frozenset("starting returning returned".split())
+_TRAVEL_WORDS = _DEPARTURE_VERBS | _THIRD_PERSON | _WEAK_VERBS
+_RETURN_WORDS = frozenset("return returning returned back".split())
+#: Words between such a verb and "from" that say nothing more ("flying out from", "fly back from").
+_VERB_FILLERS = frozenset(
+    "out off back straight directly now again only just also usually always soon together away then all still".split()
+)
+#: "flights from Osaka" is a departure; "a flight from Osaka to Tokyo on day 3" and "the flight from Osaka" are not.
+_FLIGHT_NOUNS = frozenset(["flight", "flights"])
+_DETERMINERS = frozenset(
+    "a an the this that these those our my your his her their one any each every another same which what".split()
+)
+#: A trip word means the sentence is about a trip, unless it is a short one from the place the traveller stays in.
 _TRIP_WORDS = frozenset("trip trips journey holiday vacation getaway honeymoon".split())
-#: ... and that something in the plan is being changed, which "from Kyoto" then describes.
+_SHORT_TRIPS = frozenset("day side half-day one-day 1-day same-day overnight".split())
+_MANY_DAYS = frozenset("two three four five six seven eight nine ten".split())
+#: Words that say that something in the plan is being changed, which "from Kyoto" then describes.
 _EDIT_WORDS = frozenset("change swap switch replace update move shift modify edit redo adjust".split())
+#: A planning request ("Plan Kyoto from Singapore") and a stay ("a week in Paris from New York") give a trip with no
+#: departure city one it knows.
+_PLAN_VERBS = frozenset("plan planning book organise organize arrange create build design generate prepare".split())
+_STAY = re.compile(
+    r"\b(?:[2-9]|\d\d|two|three|four|five|six|seven|eight|nine|ten)[\s-]*(?:days?|nights?|weeks?)\b"
+    r"|\b(?:a|an|one)[\s-]*(?:week|fortnight)\b|\bweekend\b",
+    re.IGNORECASE,
+)
+#: An explicit change of the departure city: "Actually, plan it from Singapore", "Start from Singapore instead".
+_CHANGE_CUE = re.compile(r"\b(?:actually|instead|rather)\b", re.IGNORECASE)
+_CUE_FILLERS = frozenset("actually instead rather please ok okay so well now just then and but also sorry no yes".split())
+_AT_THE_START = frozenset("start begin go plan planning".split())
+_THE_TRIP = frozenset("it this that everything again over things".split())
+#: The first word of a sentence that asks something, and of one that asks the assistant to do something.
+_QUESTION_STARTS = frozenset(
+    "how what what's whats where when which who whose why is are was were do does did has have had can could would "
+    "will should shall may might".split()
+)
+_ASKING_TO_DO = frozenset("can could would will shall".split())
+_LEAD_FILLERS = frozenset("and but so also please actually hi hello hey ok okay well then oh um uh yes yeah sure thanks".split())
 #: A place name does not begin with one of these.
 _NOT_A_NAME_START = frozenset(
     "the a an my our your this that these those his her their its some any each every".split()
 )
+#: A name that is a day, a month, a home or work, a terminal or an airline, or says nothing, is no city to leave from.
+_NOT_AN_ORIGIN = frozenset(
+    (
+        "monday mon tuesday tue tues wednesday wed thursday thu thur thurs friday fri saturday sat sunday sun "
+        "january jan february feb march mar april apr may june jun july jul august aug september sept sep october oct "
+        "november nov december dec home work office school scratch terminal gate airline airlines airways carrier "
+        "carriers abroad overseas somewhere anywhere everywhere nowhere here there noon midnight unknown none tbd tba "
+        "flexible same different"
+    ).split()
+)
+#: The last word of a name that is a building, a part of a city or what comes from one, not a city.
+_NOT_A_CITY_ENDS = frozenset(
+    "station tower castle temple shrine hotel hostel museum market park bridge street road avenue square palace mall "
+    "centre center hospital university stadium harbour harbor pier beach cuisine style food prices guide insurance".split()
+)
+#: A departure city that is stated: "my departure city is Osaka", "change the origin to Osaka", "use Osaka as the origin".
+_ORIGIN_NOUN = r"(?:origin|departure\s+(?:city|airport|point)|home\s+(?:city|airport)|starting\s+(?:point|city))"
+_NAME = r"([a-z][a-z '-]{1,40})"
+_STATED_ORIGIN = (
+    re.compile(rf"\b{_ORIGIN_NOUN}\s*(?:(?:is|are|will be|should be)\b|[=:])\s*{_NAME}", re.IGNORECASE),
+    re.compile(rf"\b(?:change|set|switch|update)\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\s+(?:to|as)\s+{_NAME}", re.IGNORECASE),
+    re.compile(rf"\buse\s+([a-z][a-z '-]{{1,40}}?)\s+as\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\b", re.IGNORECASE),
+)
+_SENTENCE_END = re.compile(r"[.!?;]")
+#: How much of the sentence before "from" is read, which keeps the work in proportion to the message.
+_LOOKBACK = 300
 
 
 def _known_place(candidate: str) -> str | None:
-    """The city or airport at the start of `candidate` that the assistant knows: "Hong Kong airport" is Hong Kong."""
+    """The city or airport that `candidate` names, when the assistant knows it: "Hong Kong airport" is Hong
+    Kong, but "Kyoto Station" and "Kyoto cuisine" are no city."""
     words = candidate.split()
     if len(words) == 1 and words[0] in _AIRPORT_CODES:
         return words[0]  # an airport code, typed in capitals
@@ -441,42 +515,187 @@ def _known_place(candidate: str) -> str | None:
     for size in range(len(lowered), 0, -1):
         city = _KNOWN_CITIES.get(" ".join(lowered[:size]))
         if city:
-            return city
+            rest = lowered[size:]
+            return city if not rest or (rest[-1] == "airport" and len(rest) <= 2) else None
     return None
 
 
-def _find_origin(text: str, stored: str = "") -> str | None:
-    """The departure city, when the sentence says that a "from <place>" phrase names it.
+def _name_words(phrase: str) -> tuple[list[str], int, bool]:
+    """The words of `phrase` up to the first one that ends a place name, how many characters they take, and whether
+    a word that ends a name was found (else the phrase may stop in the middle of a word)."""
+    words: list[str] = []
+    used = 0
+    for word in re.finditer(r"\S+", phrase):
+        if word.group().lower() in _NAME_ENDS or not any(char.isalpha() for char in word.group()):
+            return words, used, True
+        words.append(word.group().strip("'-"))
+        used = word.end()
+    return words, used, False
 
-    A word after "from" is not a city because it follows "from": "from scratch", "from then on" and "from the
-    beginning" say other things. The phrase names the departure city when a travel word comes right before it
-    (flying, leaving, departing, travelling from ...); or the sentence is about a trip and the place is a city
-    the assistant knows, or the trip goes on to one ("a 5-day trip from Leeds to Paris"); or the place is a
-    city or airport the assistant knows and the trip has no departure city yet. A word that changes the plan
-    right before it ("swap the hotel from Kyoto") says it does not. A phrase that does not name the departure
-    city never replaces the one a trip has.
+
+def _origin_name(words: list[str]) -> tuple[str, bool] | None:
+    """The departure city that `words` name and whether the assistant knows it; None when they name no city."""
+    if not words or len(words) > 4:
+        return None
+    name = " ".join(words)
+    lowered = [word.lower() for word in words]
+    if not _valid_place(name) or lowered[0] in _NOT_A_NAME_START:
+        return None
+    if lowered[0] in _NOT_AN_ORIGIN or lowered[-1] in _NOT_AN_ORIGIN or lowered == ["airport"]:
+        return None
+    known = _known_place(name)
+    if known:
+        return known, True
+    if len(words) > 3 or lowered[-1] in _NOT_A_CITY_ENDS:
+        return None
+    return name.title(), False
+
+
+def _stated_origin(text: str) -> str | None:
+    """The city a sentence says is the departure city: "my departure city is Osaka", "change the origin to Osaka"."""
+    for pattern in _STATED_ORIGIN:
+        for match in pattern.finditer(text):
+            place = _origin_name(_name_words(match.group(1))[0])
+            if place:
+                return place[0]
+    return None
+
+
+def _words(text: str) -> list[str]:
+    return [word.strip(",:()\"'").lower() for word in text.split()]
+
+
+def _is_request(lead: list[str]) -> bool:
+    """Whether a sentence that begins with `lead` asks the assistant to do something ("can you plan Kyoto from Osaka?")."""
+    words = [word for word in lead if word not in _LEAD_FILLERS]
+    return bool(words) and words[0] in _ASKING_TO_DO and words[1:2] == ["you"]
+
+
+def _is_question(lead: list[str]) -> bool:
+    """Whether a sentence that begins with `lead` asks something ("how far is the hotel from the station?")."""
+    words = [word for word in lead if word not in _LEAD_FILLERS]
+    return bool(words) and words[0] in _QUESTION_STARTS and not _is_request(lead)
+
+
+def _departing(before: list[str]) -> str | None:
+    """How the words before "from" say that the traveller leaves: "leave" for a travel verb or "flights" right before
+    it, "return" for a start or a way back ("returning from", "fly back from"), "other" for a verb that is about a
+    flight, a train or another person ("it leaves from"), None for none of them."""
+    index = len(before) - 1
+    while index >= 0 and before[index] in _VERB_FILLERS and len(before) - 1 - index < 2:
+        index -= 1
+    if index < 0:
+        return None
+    word = before[index]
+    if word in _FLIGHT_NOUNS:
+        if index and before[index - 1] in _DETERMINERS:
+            return None
+    elif word not in _TRAVEL_WORDS:
+        return None
+    if word in _WEAK_VERBS or any(back in _RETURN_WORDS for back in before[max(index - 1, 0) :]):
+        return "return"
+    return "other" if word in _THIRD_PERSON else "leave"
+
+
+def _short_trip(before: list[str], index: int) -> bool:
+    """Whether the trip word at `index` is a short trip from the place the traveller stays in ("a day trip from Kyoto")."""
+    if index == 0 or before[index - 1] not in _SHORT_TRIPS:
+        return False
+    many = index > 1 and (before[index - 2] in _MANY_DAYS or (before[index - 2].isdigit() and int(before[index - 2]) > 1))
+    return not (before[index - 1] == "day" and many)  # "a 5 day trip" is not
+
+
+def _trips(before: list[str]) -> tuple[bool, bool, bool]:
+    """Whether `before` names a trip, names one in its last two words, and names a short trip from a place."""
+    trip = near = short = False
+    for index, word in enumerate(before):
+        if word in _TRIP_WORDS:
+            if _short_trip(before, index):
+                short = True
+            else:
+                trip = True
+                near = near or index >= len(before) - 2
+    return trip, near, short
+
+
+def _changes_the_trip(before: list[str]) -> bool:
+    """Whether the words before "from" are about the trip as a whole ("plan it", "start", "make it") and not about a
+    part of it ("show me restaurants", "pick a hotel")."""
+    words = [word for word in before if word not in _CUE_FILLERS]
+    if not words or words[-1] in _AT_THE_START:
+        return True
+    if len(words) > 1 and words[-1] in _THE_TRIP and words[-2] in (_AT_THE_START | {"make", "do"}):
+        return True
+    return any(word in {"plan", "planning"} for word in words[:6])
+
+
+def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known: bool) -> str | None:
+    """What the sentence around a "from" phrase says about the place after it: "replace" when it is the departure city
+    whatever the trip has; "fill" when it is the departure city of a trip that has none, if the assistant knows the
+    place; "fill any" when that holds for a place of any name; None when it is not the departure city."""
+    index = bisect_left(ends, match.start())
+    start = ends[index - 1] + 1 if index else 0
+    stop = ends[index] + 1 if index < len(ends) else len(text)
+    lead = _words(text[start : min(match.start(), start + _LOOKBACK)])[:6]
+    if _is_question(lead):
+        return None
+    before = _words(text[max(start, match.start() - _LOOKBACK) : match.start()])
+    departing = _departing(before)
+    if departing == "leave":
+        return "replace"
+    trip, near, short = _trips(before)
+    if any(word in _EDIT_WORDS for word in before[-4:]) or short:
+        return None
+    asks = text[start:stop].rstrip().endswith("?") and not _is_request(lead)
+    if departing == "return":
+        return None if asks else "fill any"
+    if departing is None:
+        onward = re.match(r"\s+to\s+([a-z][a-z .'-]{1,40})", text[match.start(1) + used :], re.IGNORECASE)
+        goes_to_a_known_city = bool(onward and _known_place(" ".join(_name_words(onward.group(1))[0])))
+        if trip and (known or (near and goes_to_a_known_city)):
+            return "replace"
+        if known and _CHANGE_CUE.search(text[start:stop]) and _changes_the_trip(before):
+            return "replace"
+    if asks:
+        return None
+    leading = [word for word in before if word not in _LEAD_FILLERS]
+    if departing == "other" or any(word in _PLAN_VERBS for word in lead) or _STAY.search(" ".join(before)) or not leading:
+        return "fill"
+    return None
+
+
+def _find_origin(text: str, stored: str = "", destination: str = "") -> str | None:
+    """The departure city that `text` names, or None.
+
+    A sentence names it when it says so ("my departure city is Osaka", "change the origin to Osaka"); or a travel verb
+    or "flights" comes right before "from" ("flying from", "leaving from", "flights from"); or the sentence is about a
+    trip ("a 5-day trip from Leeds to Paris"). Those, and an explicit change ("Actually, plan it from Singapore",
+    "start from Singapore instead"), replace the departure city a trip has. A planning request ("Plan Kyoto from
+    Singapore"), a stay ("a week in Paris from New York"), a way back ("returning from Tokyo") and a bare "from Hong
+    Kong" only give a trip that has none a city the assistant knows, never the destination, and a question never gives
+    one ("how far is the temple from Kyoto Station?"). Nothing else after "from" is a departure city: not "scratch",
+    a weekday, "home", an airline, a station, nor "a day trip from Kyoto to Nara". The name ends at a conjunction or
+    a preposition ("Chicago and staying in Rome" is Chicago).
     """
+    stated = _stated_origin(text)
+    if stated:
+        return stated
+    ends = [match.start() for match in _SENTENCE_END.finditer(text)]
     for match in _FROM_PHRASE.finditer(text):
-        candidate = match.group(1).strip(" .")
-        if not _valid_place(candidate):
+        words, used, ended = _name_words(match.group(1))
+        # A name that stops inside a word ("Montr", before an accent) is not a name that was read.
+        if not ended and match.group(1)[-1].isalpha() and text[match.end(1) : match.end(1) + 1].isalnum():
             continue
-        clause = re.split(r"[.!?;]", text[: match.start()])[-1]
-        before = [word.strip(",:()\"'").lower() for word in clause.split()]
-        travelling = any(word in _TRAVEL_WORDS for word in before[-3:])
-        if not travelling and any(word in _EDIT_WORDS for word in before[-4:]):
+        place = _origin_name(words)
+        if place is None:
             continue
-        known = _known_place(candidate)
-        words = candidate.split()
-        if known:
-            if travelling or any(word in _TRIP_WORDS for word in before) or not stored.strip():
-                return known
-            continue
-        if len(words) > 4 or words[0].lower() in _NOT_A_NAME_START:
-            continue
-        onward = re.match(r"\s+to\s+([a-z][a-z .'-]{1,40})", text[match.end() :], re.IGNORECASE)
-        goes_to_a_known_city = bool(onward and _known_place(onward.group(1).strip(" .")))
-        if travelling or (goes_to_a_known_city and any(word in _TRIP_WORDS for word in before[-2:])):
-            return candidate.title()
+        name, known = place
+        evidence = _evidence(text, match, used, ends, known)
+        if evidence == "replace":
+            return name
+        if (evidence == "fill any" or (evidence == "fill" and known)) and not stored.strip():
+            if name.lower() != destination.strip().lower():
+                return name
     return None
 
 
