@@ -134,6 +134,38 @@ def test_two_spellings_of_one_destination(first: str, second: str, same: bool) -
     assert same_destination(first, second) is same
 
 
+@pytest.mark.parametrize(
+    ("first", "second", "same"),
+    [
+        # one name is the start of the other: the same place, spelled longer
+        ("Kyoto", "Kyoto Japan", True),
+        ("Kyoto Japan", "Kyoto", True),
+        ("Kyoto, Japan", "Kyoto Japan", True),
+        ("New York", "New York City", True),
+        ("Paris", "Paris, France", True),
+        # both go on, differently: two places that share a first part
+        ("Paris, France", "Paris, Texas", False),
+        ("Portland, Oregon", "Portland, Maine", False),
+        ("Portland, OR, USA", "Portland, Maine", False),
+        ("New York", "New Yorkshire", False),
+        ("San Jose, California", "San Jose, Costa Rica", False),
+        ("Kyoto, Osaka", "Osaka", False),
+    ],
+)
+def test_names_that_share_a_first_part_but_go_on_differently_are_two_places(first: str, second: str, same: bool) -> None:
+    assert same_destination(first, second) is same
+    assert same_destination(second, first) is same
+
+
+def test_the_page_generate_again_message_makes_a_trip_to_the_other_region_a_new_trip() -> None:
+    message = "Re-plan with the updated details."
+    plan = {**PLAN, "destination": "Portland, Oregon"}
+
+    assert replans_new_destination(message, _form("Portland, Maine"), plan) is True
+    assert replans_new_destination(message, _form("Portland, Oregon"), plan) is False
+    assert replans_new_destination(message, _form("Portland"), plan) is False
+
+
 def test_the_page_generate_again_message_keeps_the_trip_when_the_form_spells_the_place_longer() -> None:
     message = "Re-plan with the updated details."
 
