@@ -137,13 +137,34 @@ export default function App() {
   // Counts the changes of who the page acts as (sign-in, sign-out, a sign-in that ended). What the page shows for an
   // identity is keyed by it, so the next person on a shared computer never reads the last one's lists.
   const [identityEpoch, setIdentityEpoch] = useState(0);
+  // The account menu shows the sign-in the browser holds now: it is asked for when the page opens and whenever the
+  // sign-in changes, in this window or in another.
+  const authTicket = useRef(0);
+  const syncAuthUser = useCallback(() => {
+    const ticket = ++authTicket.current;
+    if (!readStoredValue("auth")) {
+      setAuthUser(null);
+      return;
+    }
+    void me()
+      .then((data) => {
+        if (ticket === authTicket.current) setAuthUser(data.user);
+      })
+      .catch((cause) => {
+        // Only the server saying the sign-in is no longer valid signs the traveller out; an
+        // outage or a slow answer keeps the stored sign-in for the next try.
+        if (ticket !== authTicket.current || !(cause instanceof ApiError && cause.status === 401)) return;
+        // A `user:` profile token is refused without its bearer, so fall back to the guest token.
+        forgetSignIn();
+      });
+  }, []);
   useEffect(
     () =>
       subscribeIdentity(() => {
-        setAuthUser(null);
+        syncAuthUser();
         setIdentityEpoch((count) => count + 1);
       }),
-    [],
+    [syncAuthUser],
   );
   const [authOpen, setAuthOpen] = useState(false);
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
@@ -230,17 +251,8 @@ export default function App() {
   }, [pf.plan?.destination.name, pf.context.preferences]);
 
   useEffect(() => {
-    if (!readStoredValue("auth")) return;
-    void me()
-      .then((data) => setAuthUser(data.user))
-      .catch((cause) => {
-        // Only the server saying the sign-in is no longer valid signs the traveller out; an
-        // outage or a slow answer keeps the stored sign-in for the next try.
-        if (!(cause instanceof ApiError && cause.status === 401)) return;
-        // A `user:` profile token is refused without its bearer, so fall back to the guest token.
-        forgetSignIn();
-      });
-  }, []);
+    syncAuthUser();
+  }, [syncAuthUser]);
 
   // The open trip whose tab this window has seen: if the tab then goes missing, another window may have scrapped the trip.
   const seenTab = useRef<string | null>(null);

@@ -366,7 +366,9 @@ export function usePathfinder(locale: string): PathfinderHook {
     setOpening(false);
     setError(null);
     try {
-      const id = readStoredValue("session");
+      // This window's own trip when it has one: the stored pointer is shared with every window and names the trip that
+      // was opened last, in whichever window.
+      const id = sessionRef.current ?? readStoredValue("session");
       const signedIn = Boolean(readStoredValue("auth"));
       let lost: string | null = null;
       // The stored sign-in had ended and was dropped here: the page says so once the trip is on screen.
