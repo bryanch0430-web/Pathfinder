@@ -152,6 +152,14 @@ export default function App() {
   const [trips, setTrips] = useState<Trip[]>(readTrips);
   useEffect(() => subscribeTrips(setTrips), []);
 
+  // The rail follows the destination being typed in the trip form, but asks again only once the typing has stopped.
+  const typedDestination = pf.context.destination || "";
+  const [trendingDestination, setTrendingDestination] = useState(typedDestination);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setTrendingDestination(typedDestination), 500);
+    return () => window.clearTimeout(timer);
+  }, [typedDestination]);
+
   // Only the latest ask is shown, so an answer meant for the identity that has gone cannot come back.
   const trendingTicket = useRef(0);
   const loadTrending = useCallback(async () => {
@@ -161,7 +169,7 @@ export default function App() {
     try {
       const data = await getTrending(trendingQuery, {
         clientToken: readStoredValue("client") || "",
-        destination: pf.context.destination || "",
+        destination: trendingDestination,
       });
       if (ticket !== trendingTicket.current) return;
       setTrending(data.items ?? []);
@@ -173,7 +181,7 @@ export default function App() {
     } finally {
       if (ticket === trendingTicket.current) setTrendingLoading(false);
     }
-  }, [trendingQuery, pf.context.destination, identityEpoch]);
+  }, [trendingQuery, trendingDestination, identityEpoch]);
 
   // The list was ranked for the identity that has gone: it is dropped, and the effect below asks again.
   useEffect(() => {
@@ -202,11 +210,22 @@ export default function App() {
       return;
     }
     const destination = pf.plan.destination.name;
+    // Only the latest ask is shown: the notes of the trip that was open before arrive late and are not this one's.
+    let cancelled = false;
     setGuidesLoading(true);
     void getGuides(destination, pf.context.preferences.join(" "))
-      .then((data) => setGuides(data.items))
-      .catch(() => setGuides([]))
-      .finally(() => setGuidesLoading(false));
+      .then((data) => {
+        if (!cancelled) setGuides(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setGuides([]);
+      })
+      .finally(() => {
+        if (!cancelled) setGuidesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [pf.plan?.destination.name, pf.context.preferences]);
 
   useEffect(() => {
