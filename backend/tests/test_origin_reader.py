@@ -485,6 +485,32 @@ def test_a_building_or_a_part_of_a_known_city_is_still_no_departure_city(text: s
 
 
 @pytest.mark.parametrize(
+    "city",
+    [
+        "Long Beach", "Miami Beach", "West Palm Beach", "Virginia Beach", "Daytona Beach", "Myrtle Beach", "Huntington Beach",
+        "College Station", "Bar Harbor", "Cape May", "Sun City", "Sun Valley", "St. Louis", "St. Petersburg", "Ft. Lauderdale",
+        "Santa Cruz de Tenerife",
+    ],
+)
+def test_a_real_city_whose_name_holds_a_building_a_calendar_word_or_a_full_stop_is_a_departure_city(city: str) -> None:
+    """The filters for "Kyoto Station" and "Monday" are for those; they took Long Beach, Cape May and St. Louis too."""
+    for text in (f"Flying from {city} to Rome", f"Flights from {city} to Honolulu next month"):
+        assert _origin(text) == city.title(), text
+        assert _origin(text, stored=HK) == city.title(), text
+
+
+@pytest.mark.parametrize("name", ["Monday", "May", "Sat", "Sun", "home", "scratch", "Kyoto Station", "Tokyo Tower", "Kyoto cuisine", "Station", "Beach"])
+def test_a_calendar_word_a_home_a_building_or_a_part_of_a_city_alone_is_still_no_departure_city(name: str) -> None:
+    assert _origin(f"Flying from {name} to Rome") == ""
+    assert _origin(f"Flying from {name} to Rome", stored=HK) == HK
+
+
+def test_a_date_after_the_name_is_not_part_of_it() -> None:
+    assert _origin("Flying from Boston May 3 to Rome", stored=HK) == "Boston"
+    assert _origin("Flying from Cape May to Rome on May 3", stored=HK) == "Cape May"
+
+
+@pytest.mark.parametrize(
     "unit",
     [
         "3 days from Hong Kong ",
