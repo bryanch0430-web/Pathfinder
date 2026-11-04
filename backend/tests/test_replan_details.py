@@ -13,6 +13,9 @@ from typing import Any
 
 from app.application.router import REPLAN_MESSAGE
 from app.config import Settings
+from app.domain.models import Money
+from app.evaluation import SandboxHotels
+from app.infrastructure.providers.fx import FxService
 from tests.test_modify_dates import START, WEEK_LATER, Trip, accept_the_garden_inn, reply_of, run_trip
 
 NOT_A_STOP = "could not tell which stop"
@@ -84,6 +87,106 @@ def test_another_party_size_prices_the_plan_again_and_keeps_the_stay_with_its_ma
         assert {"kind": "party", "from": 2, "to": 5} in data["diff"]
 
     run_trip(settings, scenario, prepare=accept_the_garden_inn)
+
+
+class _PartyHotels(SandboxHotels):
+    """A hotel source whose quote is for the party it is asked about (the real one sends adults=party_size)."""
+
+    def __init__(self, destination: str) -> None:
+        super().__init__(destination)
+        self.asked: list[int | None] = []
+
+    async def search(self, **kwargs: Any):
+        self.asked.append(kwargs.get("party_size"))
+        rows = await super().search(**kwargs)
+        for row in rows:
+            row.nightly_price = Money(amount=row.nightly_price.amount * (kwargs.get("party_size") or 1), currency="USD")
+        return rows
+
+
+def _hotel_line(plan) -> float:
+    return next(line.amount for line in plan.cost.lines if line.label.startswith("Hotel"))
+
+
+def test_another_party_size_asks_the_hotel_source_again_and_quotes_the_stay_for_the_new_party(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        source = _PartyHotels("Kyoto")
+        trip.rig.plan_path.registry.hotels = [source]
+        _fill(trip, party_size=5)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert source.asked == [5]
+        latest = trip.store.get_plan(trip.session_id)
+        stay = latest.hotels[0]
+        assert (stay.name, stay.confirmed, stay.locked, stay.id) == (
+            "Kyoto Garden Inn",
+            True,
+            True,
+            trip.plan.hotels[0].id,
+        )
+        assert (trip.plan.hotels[0].price_per_night.amount, stay.price_per_night.amount) == (90, 450)
+        nights = len(latest.days) - 1
+        assert _hotel_line(latest) == round(FxService().convert(450, "USD", latest.cost.currency) * nights, 2)
+        assert "5 travellers" in reply_of(events)
+        assert "The nightly rate at Kyoto Garden Inn changed from USD 90 to USD 450." in reply_of(events)
+
+    run_trip(settings, scenario, prepare=accept_the_garden_inn)
+
+
+def test_another_party_size_quotes_the_stay_the_planner_picked_too(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        source = _PartyHotels("Kyoto")
+        trip.rig.plan_path.registry.hotels = [source]
+        _fill(trip, party_size=5)
+
+        await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert source.asked == [5]
+        assert (trip.plan.hotels[0].name, trip.plan.hotels[0].price_per_night.amount) == ("The Kyoto Grand", 120)
+        assert (latest.hotels[0].name, latest.hotels[0].price_per_night.amount) == ("The Kyoto Grand", 600)
+
+    run_trip(settings, scenario)
+
+
+def test_a_party_size_whose_stay_price_does_not_come_back_keeps_the_old_rate_and_says_so(settings: Settings) -> None:
+    class _Unpriced(_PartyHotels):
+        async def search(self, **kwargs: Any):
+            rows = await super().search(**kwargs)
+            return [row for row in rows if row.name != "Kyoto Garden Inn"]
+
+    async def scenario(trip: Trip) -> None:
+        trip.rig.plan_path.registry.hotels = [_Unpriced("Kyoto")]
+        _fill(trip, party_size=5)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert (latest.hotels[0].name, latest.hotels[0].price_per_night.amount) == ("Kyoto Garden Inn", 90)
+        assert [gap.message for gap in latest.data_quality.gaps if gap.section == "hotels"] == [
+            "No hotel price for the new trip details came back; the earlier rate is kept."
+        ]
+        assert "5 travellers" in reply_of(events)
+
+    run_trip(settings, scenario, prepare=accept_the_garden_inn)
+
+
+def test_another_departure_city_does_not_ask_the_hotel_source(settings: Settings) -> None:
+    """The stay is quoted for who travels, not from where: only the fares are asked again."""
+
+    async def scenario(trip: Trip) -> None:
+        source = _PartyHotels("Kyoto")
+        trip.rig.plan_path.registry.hotels = [source]
+        _fill(trip, origin="Singapore")
+
+        await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        assert source.asked == []
+        assert latest.hotels[0].price_per_night.amount == trip.plan.hotels[0].price_per_night.amount
+
+    run_trip(settings, scenario)
 
 
 def test_another_departure_city_is_applied_to_the_plan_and_the_fares(settings: Settings) -> None:

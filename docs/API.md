@@ -163,8 +163,9 @@ not kept as a data gap of the plan. An edit that changes nothing is not a new
 version: its reason is the reply, and the version it read keeps the summary it had in `revisions`.
 
 The page's `Re-plan with the updated details.` compares the trip form with the plan. Another place in the form is a
-new trip (`reason_code` `replan_destination`); other dates move the trip; another party size, departure city or
-budget is applied to the plan and the stay and the fares are priced again for it (the stay is kept with its marks);
+new trip (`reason_code` `replan_destination`); other dates move the trip; another party size is applied to the plan
+and the stay and the fares are priced again for it (the stay is kept with its marks), another departure city prices
+the fares again, and another budget is checked against the cost;
 a form that holds nothing the plan does not is answered with a plain reply and changes nothing.
 A trip moved to other weekdays drops the opening-hours lines its stops carry for other weekdays (their hours are
 unknown) and names those stops in an `attractions` data gap, and a stop whose stored hours say it is closed on its new
