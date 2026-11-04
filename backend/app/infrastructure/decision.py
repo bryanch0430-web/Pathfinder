@@ -17,12 +17,12 @@ from typing import Any, Sequence
 
 import httpx
 
-from app.application.prompt_context import trip_state
+from app.application.prompt_context import earlier_turns, trip_state
 from app.application.prompts import PromptLibrary
 from app.application.router import affected_parts_for
 from app.config import Settings
 from app.domain.models import Intent, Message, RouteDecision, TripContext
-from app.security import fence_user_message, replayable, strip_fence_tags, strip_fence_tags_deep
+from app.security import fence_user_message, strip_fence_tags, strip_fence_tags_deep
 
 INTENT_CRITERIA: dict[str, str] = {
     "plan": "Create a brand-new itinerary from scratch",
@@ -58,7 +58,7 @@ class JevDecisionClient:
         plan_summary: dict[str, Any] | None,
         history: Sequence[Message],
     ) -> dict[str, Any]:
-        history_lines = [f"{item.role}: {strip_fence_tags(item.content)[:280]}" for item in replayable(history)[-6:]]
+        history_lines = [f"{item.role}: {strip_fence_tags(item.content)[:280]}" for item in earlier_turns(history, message)[-6:]]
         state = (
             f"Trip context: {trip_state(context)}\n"
             f"Current plan: {json.dumps(strip_fence_tags_deep(plan_summary)) if plan_summary else 'none'}\n"
