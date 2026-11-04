@@ -254,14 +254,16 @@ class FreshnessService:
                 result = fetched[section][1]
                 if result is not None:
                     self._settle_filled(updated, section, result)
-            if _prices(updated) != prices_before:
+            priced_again = _prices(updated) != prices_before
+            if priced_again:
                 updated.cost = self.planner._cost(
                     request_context,
                     updated.hotels[0] if updated.hotels else None,
                     updated.tickets,
                     updated.dates,
                 )
-            if filled:
+            if filled or priced_again:
+                # The checks that read the plan's own data (the budget among them) follow the cost they read.
                 updated.constraints = _recheck_derived(updated, request_context, checks_before)
             span.attrs["refreshed"] = refreshed
         if not (outdated or refreshed or requested or stale_marks):
