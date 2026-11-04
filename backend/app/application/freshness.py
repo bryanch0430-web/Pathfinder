@@ -339,20 +339,21 @@ class FreshnessService:
         return outcome.plan
 
     def _agent_context(self, plan: TripPlan, context: TripContext | None) -> TripContext:
-        """The trip as the plan states it: its dates, origin and party size."""
-        base = context or TripContext(
-            session_id=plan.session_id,
-            budget=plan.budget.amount if plan.budget else None,
-            currency=plan.cost.currency or self.settings.default_currency,
-        )
+        """The trip as the plan states it: its destination, dates, origin, party size, budget and currency.
+
+        The stored form may say something else by now (a Save that did not re-plan, a question about another
+        city), and a source is asked about the trip that was planned, whose cost is worked out in its currency."""
+        base = context or TripContext(session_id=plan.session_id)
         return base.model_copy(
             update={
-                "destination": base.destination or plan.destination.name,
+                "destination": plan.destination.name,
                 "origin": plan.origin or base.origin,
                 "start_date": plan.dates.start,
                 "end_date": plan.dates.end,
                 "days": len(plan.dates.dates),
                 "party_size": plan.party_size,
+                "budget": plan.budget.amount if plan.budget else None,
+                "currency": plan.cost.currency or self.settings.default_currency,
             }
         )
 
