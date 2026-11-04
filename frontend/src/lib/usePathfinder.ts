@@ -715,6 +715,13 @@ export function usePathfinder(locale: string): PathfinderHook {
       let streamingId: string | null = null;
       const controller = new AbortController();
       abortRef.current = controller;
+      // A failed turn is what Retry sends again, whatever failed while it was running.
+      const failTurn = (failure: Failure) => {
+        failed = true;
+        lastMessage.current = message;
+        retryRef.current = null;
+        setError(failure);
+      };
       try {
         await streamChat(
           {
@@ -795,10 +802,7 @@ export function usePathfinder(locale: string): PathfinderHook {
                 setLive((current) => [...current, { id: `${event}-${current.length}-${Date.now()}`, title, body }]);
               }
               if (event === "trace") setTrace(data as unknown as RunTrace);
-              if (event === "error") {
-                failed = true;
-                setError(data.message ? { text: String(data.message) } : "errors.turn");
-              }
+              if (event === "error") failTurn(data.message ? { text: String(data.message) } : "errors.turn");
             },
           },
           controller.signal,
@@ -807,7 +811,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         if (!controller.signal.aborted) {
           failed = true;
           const failure = await failureOfCall(cause, "errors.turn");
-          if (!controller.signal.aborted) setError(failure);
+          if (!controller.signal.aborted) failTurn(failure);
         }
       } finally {
         // Only a turn that failed is something Retry sends again.
