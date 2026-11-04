@@ -394,12 +394,16 @@ class TurnService:
             if plan is not None and replans_new_destination(message, context, plan.summary_for_prompt()):
                 # "Generate again" from the page, after the traveller named another place in the trip form: that is
                 # a new trip (a plan for one city is not moved to another), whatever a model made of the sentence.
+                # A new trip has its gate: what the form lacks (the departure city, the party, the budget, the dates)
+                # is asked for, as for any new trip, and not planned without.
+                missing = context.missing_slots()
                 decision = decision.model_copy(
                     update={
                         "intent": Intent.PLAN,
                         "confidence": max(decision.confidence, 0.9),
-                        "need_clarification": False,
-                        "reason_code": "replan_destination",
+                        "need_clarification": bool(missing),
+                        "reason_code": "missing_" + "_".join(missing[:2]) if missing else "replan_destination",
+                        "missing_slots": missing,
                         "affected_parts": [],
                     }
                 )

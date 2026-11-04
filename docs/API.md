@@ -163,7 +163,8 @@ not kept as a data gap of the plan. An edit that changes nothing is not a new
 version: its reason is the reply, and the version it read keeps the summary it had in `revisions`.
 
 The page's `Re-plan with the updated details.` compares the trip form with the plan. Another place in the form is a
-new trip (`reason_code` `replan_destination`); other dates move the trip; another party size is applied to the plan
+new trip (`reason_code` `replan_destination`; a form that lacks the departure city, the party, the budget or the dates is
+asked for them first, as for any new trip); other dates move the trip; another party size is applied to the plan
 and the stay and the fares are priced again for it (the stay is kept with its marks), another departure city prices
 the fares again, and another budget is checked against the cost;
 a form that holds nothing the plan does not is answered with a plain reply and changes nothing.
