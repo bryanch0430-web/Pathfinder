@@ -229,6 +229,11 @@ class ModifyPath:
             agent_names |= PART_AGENTS["dates"]
             if "attraction" not in affected:
                 agent_names.discard(AgentName.ATTRACTION)
+        place = _stay_as_a_place(plan, message, scope_item_id)
+        if place is not None:
+            # "add a cafe near Kyoto Garden Inn" is about the cafe: the stay is "the hotel" from here on, so it is
+            # neither the stop to edit nor, by the words of its name ("Garden"), a wish for a garden.
+            message = _stay_as_word(message, place.name)
         # Naming a hotel or a stop in a request for other dates does not turn it into a single-row edit.
         referred = None if dates_move or whole_trip else resolve_referred(plan, message, scope_item_id)
         # A pace or meal rule is about the whole plan. A selected chip must
@@ -797,9 +802,9 @@ def _requested_alternative_text(message: str) -> str | None:
     phrase = cleaned[best[0] + best[1] :].strip(" .,?!")
     if not phrase:
         return None
-    # "something quieter", "anything else" are preferences, not place names.
+    # "something quieter", "anything else" are preferences, not place names, and "closer to the hotel" is a distance.
     if phrase.lower().startswith(
-        ("some", "any", "else", "other", "another", "different", "cheap", "better", "nice", "quiet")
+        ("some", "any", "else", "other", "another", "different", "cheap", "better", "nice", "quiet", "the hotel")
     ):
         return None
     return phrase
@@ -1494,13 +1499,24 @@ _CHANGE_HOTEL = re.compile(
 )
 
 
+#: a change aimed at the stay itself, read with its name as "the hotel": "swap the hotel", "drop my room", "a different
+#: hotel", "the hotel instead", "swap it"
+_AIMED_AT_STAY = re.compile(
+    rf"\b(?:swap|switch|change|replace|upgrade|downgrade|remove|drop|cancel|delete)\s+(?:\w+\s+){{0,2}}?{_HOTEL_NOUN}\b"
+    rf"|\b(?:another|different|other|cheaper|nicer|better)\s+(?:\w+\s+)?{_HOTEL_NOUN}\b"
+    rf"|\b{_HOTEL_NOUN}\b\s+(?:instead|swap|switch|change)\b"
+    r"|\b(?P<pronoun>(?:swap|switch|change|replace|upgrade|downgrade)\s+(?:it|this|that))\b",
+    re.IGNORECASE,
+)
+
+
 def _refused(message: str, found: re.Match[str]) -> bool:
     """The change ``found`` is refused: a negation stands within three words in front of it, in its own clause.
 
     "don't change the hotel" and "no need to swap it" refuse. A complaint does not: in "I don't like this hotel so
     swap it" the clause of the command begins after "so" (or the comma, the dash, "but"), and a negation farther
     back is about something else."""
-    verb = found.start("verb") if found.group("verb") else found.start()
+    verb = found.start("verb") if found.groupdict().get("verb") else found.start()
     clause = max((cut.end() for cut in _CLAUSE_END.finditer(message, 0, verb)), default=0)
     # "I don't want a hotel swap": the hotel word in front of the change word is part of the change
     ahead = message[clause : found.start() if found.start() >= clause else verb]
@@ -1518,6 +1534,29 @@ def _keeps_the_hotel(message: str) -> bool:
 def _stay_as_word(message: str, name: str) -> str:
     """The message with the stay's name read as the word hotel: "keep Kyoto Garden Inn" is "keep the hotel"."""
     return re.sub(re.escape(name), "the hotel", message, flags=re.IGNORECASE) if name.strip() else message
+
+
+def _aims_at_the_stay(about: str, *, selected_stop: bool) -> bool:
+    """The sentence (the stay's name read as "the hotel") asks to change the stay: a change word aimed at it that is not
+    refused, or a keep that is. With a stop selected on the page "it" and "this" are that stop."""
+    aimed = any(
+        not _refused(about, found) and not (selected_stop and found.groupdict().get("pronoun"))
+        for found in _AIMED_AT_STAY.finditer(about)
+    )
+    return aimed or (_KEEP_HOTEL.search(about) is not None and not _keeps_the_hotel(about))
+
+
+def _stay_as_a_place(plan: TripPlan, message: str, scope_item_id: str | None) -> HotelStay | None:
+    """The stay the sentence names without asking to change it ("add a cafe near Kyoto Garden Inn"), else None.
+
+    A name stands for the stay only when a change is aimed at it. The stay selected on the page is always the one
+    meant."""
+    named = _name_mentioned(plan, message)
+    stay = plan.find_hotel(named) if named else None
+    if stay is None or stay.id == scope_item_id:
+        return None
+    selected_stop = bool(scope_item_id and plan.find_item(scope_item_id))
+    return None if _aims_at_the_stay(_stay_as_word(message, stay.name), selected_stop=selected_stop) else stay
 
 
 def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
