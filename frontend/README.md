@@ -40,6 +40,13 @@ The chat header has a trash button that clears only the message history. Setting
 an anonymous profile (random browser token), remembered preferences, and **Clear memory**
 for saved trips/preferences.
 
+The open trips are tabs kept in the browser, shared by every window of it. A window writes a
+tab's label only when the plan it shows changes, and follows a sign-in or sign-out made in
+another window. A message typed and not sent stays with its own trip. The answer to
+something started in one trip is dropped when another trip has been opened since, and
+**Retry** repeats the action that failed (a turn, saving the details, a rating, clearing the
+chat, opening a trip), not the last message.
+
 ## Storybook first
 
 1. `src/design-system/tokens.css` — primitive tokens + `--pf-*` semantic aliases.
