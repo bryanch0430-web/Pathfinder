@@ -127,6 +127,10 @@ _OPENING_ANGLE = re.compile(f"[{_OPENING}]")
 #: their category): the fillers of Hangul, which are letters that draw no mark.
 _FILLERS = frozenset("\u115f\u1160\u3164\uffa0")
 _SHOWN_AS_NOTHING = frozenset({"Cf", "Cc", "Mn", "Me"})
+#: Code points that no category calls invisible and that a reader draws as nothing all the same: the unassigned ones
+#: in the default-ignorable ranges (Unicode reserves them to be invisible once they are assigned) and the blank
+#: Braille pattern.
+_DRAWN_AS_NOTHING = ((0x2065, 0x2065), (0xFFF0, 0xFFF8), (0xE0000, 0xE0FFF), (0x2800, 0x2800))
 
 #: The fence's tags in a text's skeleton (below): any case, any spacing, slashes and backslashes (JSON writes
 #: `</` as `<\/`), attributes. It runs to the next closing bracket, or to the end of the text when the tag is
@@ -145,7 +149,9 @@ def _as_seen(char: str) -> str:
     return "".join(
         part
         for part in unicodedata.normalize("NFKD", char)
-        if part not in _FILLERS and unicodedata.category(part) not in _SHOWN_AS_NOTHING
+        if part not in _FILLERS
+        and unicodedata.category(part) not in _SHOWN_AS_NOTHING
+        and not any(low <= ord(part) <= high for low, high in _DRAWN_AS_NOTHING)
     )
 
 
