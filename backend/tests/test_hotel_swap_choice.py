@@ -108,3 +108,53 @@ def test_a_swap_to_a_hotel_with_a_price_adds_no_such_gap(settings: Settings) -> 
 
     assert not [g for g in updated.data_quality.gaps if g.section == "hotels"]
     assert "price was not returned" not in _describe_diff(diff, updated)
+
+
+# -- a hotel named as the one the traveller does not want, or as too dear, is not the one chosen ----------------------
+
+
+@pytest.mark.parametrize(
+    "message, expected",
+    [
+        ("swap the hotel, not the Hilton Kyoto", "Kyoto Garden Inn"),
+        ("swap the hotel but I don't want the Hilton Kyoto", "Kyoto Garden Inn"),
+        ("anything but the Hilton Kyoto please swap the hotel", "Kyoto Garden Inn"),
+        ("swap the hotel for another one, other than Ryokan Sakura", "Kyoto Garden Inn"),
+        ("swap the hotel for something cheaper than Hilton Kyoto", "Hostel Nomad"),
+        ("change the hotel, Hilton Kyoto is too expensive", "Kyoto Garden Inn"),
+        ("cheaper hotel, the Hilton Kyoto was too dear", "Hostel Nomad"),
+        ("swap the hotel to a cheaper one, not Hostel Nomad", "Kyoto Garden Inn"),
+        ("swap the hotel, I don't like the Hilton Kyoto", "Kyoto Garden Inn"),
+        ("swap the hotel for Ryokan Sakura instead of the Hilton Kyoto", "Ryokan Sakura"),
+        ("swap the hotel for the Hilton Kyoto, not Ryokan Sakura", "Hilton Kyoto"),
+        ("swap the hotel for the Hilton Kyoto but not the Hostel Nomad", "Hilton Kyoto"),
+        ("the Hilton Kyoto is very nice, swap the hotel to it", "Hilton Kyoto"),
+        ("swap the hotel for the Hilton Kyoto, it is not too dear", "Hilton Kyoto"),
+        ("I am not happy with this hotel so swap the hotel for the Hilton Kyoto", "Hilton Kyoto"),
+    ],
+)
+def test_a_hotel_named_as_the_one_not_wanted_is_not_chosen(settings: Settings, message: str, expected: str) -> None:
+    plan, updated, _ = _swap(settings, message, _Hotels(EXTRA))
+
+    assert plan.hotels[0].name == "The Kyoto Grand"
+    assert updated.hotels[0].name == expected
+
+
+@pytest.mark.parametrize(
+    "message, expected",
+    [
+        # a hotel named for a cheaper swap that is dearer than the stay is not chosen; one that is cheaper is
+        ("swap the hotel for something cheaper, maybe the Hilton Kyoto", "Hostel Nomad"),
+        ("swap the hotel for something cheaper, like Kyoto Garden Inn", "Kyoto Garden Inn"),
+        ("swap the hotel for something cheaper, like Ryokan Sakura", "Hostel Nomad"),
+        # a word like lower or less in a sentence that names the hotel does not make the swap a cheaper one
+        ("swap the hotel for the Hilton Kyoto, on a lower floor please", "Hilton Kyoto"),
+        ("swap the hotel for the Hilton Kyoto, I have less time", "Hilton Kyoto"),
+    ],
+)
+def test_a_hotel_named_for_a_cheaper_swap_is_cheaper_than_the_stay(settings: Settings, message: str, expected: str):
+    plan, updated, _ = _swap(settings, message, _Hotels(EXTRA))
+
+    assert updated.hotels[0].name == expected
+    if "cheaper" in message and "Hilton" not in expected:
+        assert updated.hotels[0].price_per_night.amount < plan.hotels[0].price_per_night.amount
