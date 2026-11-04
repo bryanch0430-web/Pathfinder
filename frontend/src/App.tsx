@@ -160,11 +160,15 @@ export default function App() {
   }, []);
   useEffect(
     () =>
-      subscribeIdentity(() => {
+      subscribeIdentity((change) => {
         syncAuthUser();
         setIdentityEpoch((count) => count + 1);
+        // Signed out in another window: the trip this window shows may be the account's, which it can no longer open, and
+        // every action on it would fail. The window starts again the way a log-out here does. A sign-in that ended here
+        // keeps its banner, and the window that signed out reloads by itself.
+        if (change === "elsewhere" && !readStoredValue("auth")) void pf.reload();
       }),
-    [syncAuthUser],
+    [syncAuthUser, pf.reload],
   );
   const [authOpen, setAuthOpen] = useState(false);
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
