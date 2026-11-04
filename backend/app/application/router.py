@@ -78,6 +78,9 @@ _ORDINAL = r"\d{1,2}(?:st|nd|rd|th)?"
 _WHEN = rf"(?:{_ORDINAL}(?:\s*(?:-|–|to|until|and)\s*{_ORDINAL})?\s+)?{_MONTH}\b|next (?:week|month|year)\b"
 _SHIFT = r"(?:move|shift|push|slide)"
 _TRIP = r"(?:trip|holiday|vacation|stay|itinerary|plan|everything|whole)"
+#: "4 days", "a 2 day", "three nights": a length of the trip; "a 4 day trip to Osaka" is a new trip, not a length
+_LENGTH = rf"(?:an?\s+)?{_NUMBER}[\s-]+(?:days?|nights?)"
+_NOT_A_TRIP_TO = r"(?!\s+(?:trip|stay|holiday|vacation|getaway|break|visit|itinerary)\s+(?:to|in|at|for)\b)"
 #: Sentences that ask for other dates or another length for the whole trip. A day, a night or "later" on
 #: its own names a part of the trip ("add a temple on day 2", "swap the hotel for the last two nights",
 #: "a later flight") and does not match.
@@ -104,6 +107,41 @@ _NEW_DATES = [
         # "move it to 12-14 December", "go on 20 March instead"
         rf"\b{_SHIFT}\b.{{0,24}}?\b(?:to|in|on|until|for)\s+(?:{_WHEN})",
         rf"\b(?:go|travel|leave|fly|switch)\b.{{0,24}}?\b(?:to|in|on|for)\s+(?:{_WHEN}).{{0,12}}\binstead\b",
+        # The length said in plain words, with no change verb: "only 2 days", "I only have 2 days now"
+        rf"\bonly\s+(?:(?:have|need|want|got|do)\s+)?{_LENGTH}\b",
+        # "let's do 4 days", "let's stay 4 nights", "we want 5 days", "I'd like 4 days", "can it be 4 days"
+        rf"\b(?:let'?s|we|i)(?:'d|'ll| would| will)?\s+(?:only\s+)?(?:do|stay|want|need|like|take|have|go for)\s+"
+        rf"{_LENGTH}\b{_NOT_A_TRIP_TO}",
+        rf"\b(?:can|could|would|will|should)\s+(?:it|the trip|this|we)\s+(?:only\s+)?(?:be|do|stay|have)\s+"
+        rf"{_LENGTH}\b{_NOT_A_TRIP_TO}",
+        # "5 days instead of 3", "4 nights please", "2 days only", "3 days is enough", "6 days in total"
+        rf"\b{_NUMBER}[\s-]+(?:days?|nights?)(?:\s+(?:trip|stay|holiday|vacation|itinerary))?\s+"
+        r"(?:instead|only|please|in total|total|is enough|are enough|would be (?:better|enough|plenty)|will do|is plenty)\b",
+        # "reduce it to 3 days", "keep it to 2 days", "make that 4 days", "make it a weekend trip"
+        r"\b(?:make|turn|change|cut|stretch|reduce|trim|shrink|limit|keep|squeeze)\s+(?:it|that|the trip|the stay|this)\s+"
+        rf"(?:(?:in)?to\s+|(?:down|up) to\s+|at\s+)?(?:(?:an?\s+)?(?:long\s+)?(?:weekend|week|fortnight)\b|{_LENGTH}\b)",
+        # "make the trip longer", "make it a bit shorter"
+        r"\b(?:make|keep)\s+(?:it|that|the trip|the stay|this trip|my trip|this)\s+"
+        r"(?:a\s+(?:bit|little)\s+|slightly\s+|much\s+)?(?:longer|shorter)\b",
+        # "the trip should be 6 days", "the trip should start on the 20th"
+        rf"\b(?:trip|holiday|vacation|stay)\s+(?:should|must|needs? to|has to)\s+"
+        rf"(?:be\s+(?:{_NUMBER}|an?\s+(?:long\s+)?(?:weekend|week))|start|begin|end|finish)\b",
+        # "end the trip on day 2", "stop after day 2"
+        r"\b(?:end|finish|stop)\b(?:\s+\w+){0,3}?\s+(?:on|after|by)\s+day\s+\d+\b",
+        # "add one night", "remove a night", "trim a day off the trip", "cut one day", "add 2 days at the end"; a day
+        # or a night that is followed by a thing ("a night market", "a day trip to Nara") names a stop
+        rf"\b(?:add|remove|drop|cut|lose|trim|take off|knock off|shave)\s+(?:an?|one|{_NUMBER})\s+(?:extra\s+|more\s+)?"
+        r"(?:days?|nights?)(?=\s*(?:[.,!?;]|$)|\s+(?:please|more|to|onto|off|from|before|after)\b|"
+        r"\s+at\s+the\s+(?:start|beginning|end)\b)",
+        # "two more days", "one more night please", "a few more days"
+        rf"\b(?:{_NUMBER}|an?|a few|several|a couple of)\s+(?:more|extra|additional)\s+(?:days?|nights?)\b"
+        r"(?!\s+(?:trip|tour|pass|ticket|market|hike|cruise|excursion)\b)",
+        # "travel the week after", "go the week before"
+        r"\b(?:travel|go|leave|fly)\b.{0,12}\bthe\s+(?:week|month|weekend)\s+(?:after|before)\b",
+        # "change to next month"
+        r"\bchange\s+(?:it\s+|the trip\s+)?to\s+next\s+(?:week|month|year)\b",
+        # "trip dates 3 to 5 May", "travel dates 12-14 December"
+        rf"\b(?:trip|travel)\s+dates?\s+(?:{_ORDINAL}|{_MONTH})\b",
     )
 ]
 
@@ -150,7 +188,12 @@ class RuleRouter:
 
         affected = ["dates"] if replans_new_dates(text, context, plan_summary) else _affected_parts(lower)
         is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
-        modify_hit = bool(re.search(MODIFY_VERBS, lower)) or asks_for_new_dates(lower) or is_replan_message(text)
+        modify_hit = (
+            bool(re.search(MODIFY_VERBS, lower))
+            or asks_for_new_dates(lower)
+            or is_replan_message(text)
+            or _MAKE_THE_TRIP.search(lower) is not None
+        )
         plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*(day|night)s?\b", lower))
         travel_hit = bool(re.search(r"\b(trip|travel|holiday|vacation|visit|go to|going to)\b", lower))
 
@@ -449,8 +492,17 @@ def _affected_parts(lower: str) -> list[str]:
 def _looks_like_new_trip(lower: str) -> bool:
     return bool(
         re.search(r"\b(new|another|different)\s+(trip|itinerary|plan)\b", lower)
-        or re.search(r"\b(plan|make|create|build)\b.{0,20}\b(trip|itinerary)\b", lower)
+        or re.search(r"\b(plan|create|build)\b.{0,20}\b(trip|itinerary)\b", lower)
+        # "make a trip to Rome" is a new trip; "make the trip longer" and "make this trip cheaper" name the one that exists
+        or re.search(r"\bmake\b(?!\s+(?:it|that|this|the|my|our)\b).{0,20}\b(trip|itinerary)\b", lower)
     )
+
+
+#: "make this trip cheaper", "make the trip a bit slower": a change of the trip that exists, with no change verb
+_MAKE_THE_TRIP = re.compile(
+    r"\bmake\s+(?:this|that|the|my|our)\s+(?:trip|itinerary|plan|stay|holiday|vacation)\s+(?:a\s+(?:bit|little)\s+)?"
+    r"(?:cheaper|longer|shorter|slower|faster|easier|calmer|quieter|lighter)\b"
+)
 
 
 def affected_parts_for(message: str) -> list[str]:
@@ -505,7 +557,12 @@ def rules_decide_alone(
     is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
     command_question = bool(re.match(_COMMAND_QUESTION, lower))
     plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
-    modify_hit = bool(re.search(_WORD_MODIFY, lower)) or asks_for_new_dates(lower) or is_replan_message(text)
+    modify_hit = (
+        bool(re.search(_WORD_MODIFY, lower))
+        or asks_for_new_dates(lower)
+        or is_replan_message(text)
+        or _MAKE_THE_TRIP.search(lower) is not None
+    )
     if decision.intent == Intent.ASK:
         return (
             is_question
