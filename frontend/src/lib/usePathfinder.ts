@@ -256,16 +256,29 @@ export function usePathfinder(locale: string): PathfinderHook {
     [setUiLocale],
   );
 
-  /** A new session starts in English; carry the 繁 choice over to it. Returns the context to show. */
-  const carryPlanLocale = useCallback(async (id: string, context: TripContext): Promise<TripContext> => {
-    if (uiLocaleRef.current !== "zh-Hant" || context.plan_locale === "zh-Hant") return context;
-    try {
-      return (await withTimeout((signal) => patchContext(id, { plan_locale: "zh-Hant" }, signal))).context;
-    } catch {
-      // The view still switches; the session keeps its stored locale until the next save.
-      return { ...context, plan_locale: "zh-Hant" };
-    }
-  }, [withTimeout]);
+  /**
+   * A new session starts in English; carry the 繁 choice over to it. A language chosen while no trip was shown is
+   * passed as `wanted` for the trip that arrives. Returns the context to show.
+   */
+  const carryPlanLocale = useCallback(
+    async (
+      id: string,
+      context: TripContext,
+      wanted: PlanLocale | null = uiLocaleRef.current === "zh-Hant" ? "zh-Hant" : null,
+    ): Promise<TripContext> => {
+      if (!wanted || context.plan_locale === wanted) return context;
+      try {
+        return (await withTimeout((signal) => patchContext(id, { plan_locale: wanted }, signal))).context;
+      } catch {
+        // The view still switches; the session keeps its stored locale until the next save.
+        return { ...context, plan_locale: wanted };
+      }
+    },
+    [withTimeout],
+  );
+  // The plan language the traveller chose while no trip was shown (the page was still opening): it is theirs, not the
+  // trip's own, once the trip arrives.
+  const chosenWhileOpening = useRef<PlanLocale | null>(null);
 
   /**
    * Forgets what the page shows of the trip being left besides its plan and messages: a failed turn's
@@ -318,6 +331,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setMessages(trip.messages);
     writeStoredValue("session", id);
     sessionRef.current = id;
+    chosenWhileOpening.current = null;
     setSessionId(id);
   }, [forgetTripView]);
 
@@ -375,7 +389,11 @@ export function usePathfinder(locale: string): PathfinderHook {
       let signInLost = false;
       for (let attempt = 0; id && attempt < 2; attempt += 1) {
         try {
-          const data = await withTimeout((signal) => getSession(id, signal));
+          const loaded = await withTimeout((signal) => getSession(id, signal));
+          if (ticket !== navRef.current) return;
+          const wanted = chosenWhileOpening.current;
+          chosenWhileOpening.current = null;
+          const data = wanted ? { ...loaded, context: await carryPlanLocale(id, loaded.context, wanted) } : loaded;
           if (ticket !== navRef.current) return;
           showTrip(id, data);
           if (signInLost) setError("errors.signInEnded");
@@ -401,6 +419,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
       }
       const created = await withTimeout((signal) => createSession(clientToken(), signal));
+      chosenWhileOpening.current = null;
       const context = await carryPlanLocale(created.session.id, created.context);
       if (ticket !== navRef.current) return;
       showTrip(created.session.id, { context, plan: null, versions: [], messages: [] });
@@ -546,7 +565,11 @@ export function usePathfinder(locale: string): PathfinderHook {
   const setPlanLocale = useCallback(async (value: PlanLocale) => {
     setPlanLocaleState(value);
     const id = sessionRef.current;
-    if (!id) return;
+    if (!id) {
+      // No trip is shown yet: the trip that arrives is shown in this language.
+      chosenWhileOpening.current = value;
+      return;
+    }
     try {
       const data = await patchContext(id, { plan_locale: value });
       // The answer came after another trip was opened: it is not for the view that is open now.
