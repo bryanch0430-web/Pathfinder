@@ -951,11 +951,16 @@ export function usePathfinder(locale: string): PathfinderHook {
     try {
       await discardSession(id);
     } catch (cause) {
-      // Only a 404 means the trip is already gone. Any other answer leaves it where it is, and the page says so.
-      if (!(cause instanceof ApiError && cause.status === 404)) {
+      // Only a 404 means the trip is already gone, and not when the sign-in that has ended is why the server does not know
+      // it: the account still has the trip. Any other answer leaves it where it is, and the page says so.
+      const notFound = cause instanceof ApiError && cause.status === 404;
+      const ended = notFound && (await refusedForSignIn(cause));
+      if (!notFound || ended) {
         if (ticket === navRef.current) {
           // Retry scraps the trip again, with what follows a scrap (the caller's `again`); it does not reload the page.
-          showBanner("errors.scrap", again ? { kind: "scrap", run: again } : null);
+          // With the sign-in gone it would be refused as the guest and take for gone a trip that is not.
+          if (ended) showBanner("errors.signInEnded");
+          else showBanner("errors.scrap", again ? { kind: "scrap", run: again } : null);
           await refresh();
         }
         return "kept";
@@ -975,7 +980,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setHotelChanged(false);
     setActiveVersion(1);
     return "gone";
-  }, [forgetTripView, refresh, showBanner]);
+  }, [forgetTripView, refresh, refusedForSignIn, showBanner]);
 
   return {
     ready,
