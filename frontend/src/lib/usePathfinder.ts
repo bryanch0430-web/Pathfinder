@@ -101,6 +101,15 @@ export type OpenOutcome = "opened" | "missing" | "needs-sign-in" | "unavailable"
  */
 export type ScrapOutcome = "gone" | "kept" | "left";
 
+/** What a banner is about, so that a later action can tell whether the banner still concerns what the traveller is doing. */
+type BannerKind = "open" | "save" | "generate" | "rate" | "clear" | "turn" | "scrap";
+
+/** What Retry does for the banner that is shown: `run` does again what failed. */
+interface RetryTarget {
+  kind: BannerKind;
+  run: () => Promise<unknown>;
+}
+
 export interface PathfinderHook {
   ready: boolean;
   /** A trip is being opened or made. The trip that is shown stays on screen until the new one arrives. */
@@ -220,7 +229,6 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [hotelChanged, setHotelChanged] = useState(false);
   const [ready, setReady] = useState(false);
   const [opening, setOpening] = useState(false);
-  const lastMessage = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const sessionRef = useRef<string | null>(null);
   // Every open, new trip and reload takes the next number, and only the latest is shown when its answer
@@ -228,8 +236,13 @@ export function usePathfinder(locale: string): PathfinderHook {
   const navRef = useRef(0);
   const creatingRef = useRef<Promise<string | null> | null>(null);
   const creatingTicket = useRef(0);
-  // What the Retry button does for an error that is not a failed turn: ask for the trip again.
-  const retryRef = useRef<(() => Promise<unknown>) | null>(null);
+  // What the Retry button does for the banner that is shown, whatever failed: a turn, saving the details, opening a trip.
+  // With nothing to do again it asks for the trip again. It is set and cleared with the banner (`showBanner`, `clearBanner`)
+  // and with nothing else, or Retry would do what a banner that is gone was about.
+  const retryRef = useRef<RetryTarget | null>(null);
+  // The latest `send`. A target stored when a turn failed calls through here, not the `send` of the render in which it
+  // was stored: the interface language may have changed since.
+  const sendRef = useRef<(message: string) => Promise<void>>(async () => undefined);
   // What `send` reads of the trip shown. It is a ref so that a handler made before the trip changed (the trending
   // list makes a trip and then sends its first message) still sends as the trip shown now, not as the one before.
   const shownRef = useRef<{ busy: boolean; plan: TripPlan | null; selectedItem: PlanItem | null }>({
@@ -281,14 +294,27 @@ export function usePathfinder(locale: string): PathfinderHook {
   const chosenWhileOpening = useRef<PlanLocale | null>(null);
 
   /**
+   * Shows a banner. Retry does `target`; with none it asks for the trip again. What Retry did for the banner before
+   * goes with it, so that a banner never has the Retry of another.
+   */
+  const showBanner = useCallback((failure: Failure, target: RetryTarget | null = null) => {
+    retryRef.current = target;
+    setError(failure);
+  }, []);
+
+  /** Hides the banner and its Retry together. */
+  const clearBanner = useCallback(() => {
+    retryRef.current = null;
+    setError(null);
+  }, []);
+
+  /**
    * Forgets what the page shows of the trip being left besides its plan and messages: a failed turn's
-   * banner and the text Retry would send again, a clarifying question, the last turn's trace and steps.
+   * banner and its Retry, a clarifying question, the last turn's trace and steps.
    */
   const forgetTripView = useCallback(() => {
     shownRef.current = { busy: false, plan: null, selectedItem: null };
-    lastMessage.current = "";
-    retryRef.current = null;
-    setError(null);
+    clearBanner();
     setNotice(null);
     setClarify(null);
     setClarifyValues({});
@@ -297,17 +323,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setLive([]);
     setSelectedItem(null);
     setFeedbackStars(null);
-  }, []);
-
-  /**
-   * Shows why something other than a turn failed. Retry does `again`; with nothing to do again it asks for the trip
-   * again. The text of an earlier failed turn is forgotten, or Retry would send it for this failure.
-   */
-  const fail = useCallback((failure: Failure, again: (() => Promise<unknown>) | null = null) => {
-    lastMessage.current = "";
-    retryRef.current = again;
-    setError(failure);
-  }, []);
+  }, [clearBanner]);
 
   /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
   const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages">) => {
@@ -375,10 +391,8 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
-    retryRef.current = null;
-    lastMessage.current = "";
+    clearBanner();
     setOpening(false);
-    setError(null);
     try {
       // This window's own trip when it has one: the stored pointer is shared with every window and names the trip that
       // was opened last, in whichever window.
@@ -396,14 +410,14 @@ export function usePathfinder(locale: string): PathfinderHook {
           const data = wanted ? { ...loaded, context: await carryPlanLocale(id, loaded.context, wanted) } : loaded;
           if (ticket !== navRef.current) return;
           showTrip(id, data);
-          if (signInLost) setError("errors.signInEnded");
+          if (signInLost) showBanner("errors.signInEnded");
           setReady(true);
           return;
         } catch (cause) {
           if (ticket !== navRef.current) return;
           if (!(cause instanceof ApiError && (cause.status === 404 || cause.status === 403))) {
             // The server is down or slow, not forgetting the trip: keep the id and say so.
-            setError(unreachableOf(cause));
+            showBanner(unreachableOf(cause));
             setReady(true);
             return;
           }
@@ -429,15 +443,15 @@ export function usePathfinder(locale: string): PathfinderHook {
         writeTrips((current) => current.filter((trip) => trip.id !== gone));
         setNotice("errors.tripGone");
       }
-      if (signInLost) setError("errors.signInEnded");
+      if (signInLost) showBanner("errors.signInEnded");
       setReady(true);
     } catch (cause) {
       if (ticket !== navRef.current) return;
       // A server that never answered is an outage like any other.
-      setError(cause instanceof ApiError && cause.status === 0 ? "errors.reconnect" : failureOf(cause, "errors.backend"));
+      showBanner(cause instanceof ApiError && cause.status === 0 ? "errors.reconnect" : failureOf(cause, "errors.backend"));
       setReady(true);
     }
-  }, [carryPlanLocale, showTrip, signInEnded, withTimeout]);
+  }, [carryPlanLocale, clearBanner, showBanner, showTrip, signInEnded, withTimeout]);
 
   useEffect(() => {
     void bootstrap();
@@ -456,12 +470,10 @@ export function usePathfinder(locale: string): PathfinderHook {
       // banner of a trip that could not be opened, whose Retry would switch to it.
       setOpening(false);
       setReady(true);
-      setError(null);
-      retryRef.current = null;
-      lastMessage.current = "";
+      clearBanner();
       return "opened";
     }
-    setError(null);
+    clearBanner();
     setOpening(true);
     try {
       const data = await withTimeout((signal) => getSession(id, signal));
@@ -482,7 +494,10 @@ export function usePathfinder(locale: string): PathfinderHook {
         // be an account's, because the sign-in has just ended or ended before, say so and keep it.
         const ended = await refusedForSignIn(cause);
         if (ended || mayBeAccountTrip()) {
-          if (ticket === navRef.current) setError(ended ? "errors.signInEnded" : "errors.signInToOpen");
+          // Retry tries to open this trip again, not whatever failed before.
+          if (ticket === navRef.current) {
+            showBanner(ended ? "errors.signInEnded" : "errors.signInToOpen", { kind: "open", run: () => openSession(id) });
+          }
           if (ticket === navRef.current && sessionRef.current === null) writeStoredValue("session", id);
           return "needs-sign-in";
         }
@@ -491,13 +506,12 @@ export function usePathfinder(locale: string): PathfinderHook {
       // The server is down or slow: the trip is not gone. The trip that is open stays as it is, and
       // Retry asks for this one again. With no trip open, a reload tries it again.
       if (latest) {
-        setError(unreachableOf(cause));
-        retryRef.current = () => openSession(id);
+        showBanner(unreachableOf(cause), { kind: "open", run: () => openSession(id) });
         if (sessionRef.current === null) writeStoredValue("session", id);
       }
       return "unavailable";
     }
-  }, [showTrip, withTimeout]);
+  }, [clearBanner, refusedForSignIn, showBanner, showTrip, withTimeout]);
 
   const newPlan = useCallback((): Promise<string | null> => {
     const pending = creatingRef.current;
@@ -522,8 +536,7 @@ export function usePathfinder(locale: string): PathfinderHook {
         await refusedForSignIn(cause);
         // No trip was made: the one that is open stays, and the traveller is told.
         if (creatingTicket.current === navRef.current) {
-          setError(unreachableOf(cause));
-          retryRef.current = () => newPlan();
+          showBanner(unreachableOf(cause), { kind: "open", run: () => newPlan() });
         }
         return null;
       } finally {
@@ -536,7 +549,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     })();
     creatingRef.current = making;
     return making;
-  }, [carryPlanLocale, refusedForSignIn, showTrip, withTimeout]);
+  }, [carryPlanLocale, refusedForSignIn, showBanner, showTrip, withTimeout]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -635,7 +648,7 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   /** Saves the form on the open trip. When it fails, Retry does `again`. True when the details are saved. */
   const persistContext = useCallback(
-    async (again: () => Promise<unknown>): Promise<boolean> => {
+    async (again: RetryTarget): Promise<boolean> => {
       const id = sessionRef.current;
       if (!id) return false;
       const form = contextRef.current;
@@ -659,25 +672,25 @@ export function usePathfinder(locale: string): PathfinderHook {
         return true;
       } catch (cause) {
         const failure = await failureOfCall(cause, "errors.saveDetails");
-        if (sessionRef.current === id) fail(failure, again);
+        if (sessionRef.current === id) showBanner(failure, again);
         return false;
       }
     },
-    [fail, failureOfCall],
+    [failureOfCall, showBanner],
   );
-  const saveContext = useCallback((): Promise<boolean> => persistContext(() => saveContext()), [persistContext]);
+  const saveContext = useCallback(
+    (): Promise<boolean> => persistContext({ kind: "save", run: () => saveContext() }),
+    [persistContext],
+  );
 
   const send = useCallback(
     async (message: string) => {
       const id = sessionRef.current;
       const { busy, plan, selectedItem } = shownRef.current;
       if (!id || busy) return;
-      lastMessage.current = message;
-      retryRef.current = null;
-      let failed = false;
       shownRef.current.busy = true;
       setBusy(true);
-      setError(null);
+      clearBanner();
       setNotice(null);
       setChangedIds([]);
       setHotelChanged(false);
@@ -716,12 +729,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const controller = new AbortController();
       abortRef.current = controller;
       // A failed turn is what Retry sends again, whatever failed while it was running.
-      const failTurn = (failure: Failure) => {
-        failed = true;
-        lastMessage.current = message;
-        retryRef.current = null;
-        setError(failure);
-      };
+      const failTurn = (failure: Failure) => showBanner(failure, { kind: "turn", run: () => sendRef.current(message) });
       try {
         await streamChat(
           {
@@ -809,13 +817,10 @@ export function usePathfinder(locale: string): PathfinderHook {
         );
       } catch (cause) {
         if (!controller.signal.aborted) {
-          failed = true;
           const failure = await failureOfCall(cause, "errors.turn");
           if (!controller.signal.aborted) failTurn(failure);
         }
       } finally {
-        // Only a turn that failed is something Retry sends again.
-        if (!failed && sessionRef.current === id) lastMessage.current = "";
         // A newer stream (in the trip opened since) owns the busy state and the controller.
         const superseded = abortRef.current !== null && abortRef.current !== controller;
         if (!superseded) {
@@ -828,12 +833,13 @@ export function usePathfinder(locale: string): PathfinderHook {
         if (!controller.signal.aborted && sessionRef.current === id) await refresh();
       }
     },
-    [adoptPlanLocale, failureOfCall, locale, refresh],
+    [adoptPlanLocale, clearBanner, failureOfCall, locale, refresh, showBanner],
   );
+  sendRef.current = send;
 
   const generate = useCallback(async (): Promise<void> => {
     // Not saved, or the traveller opened another trip while the details were being saved: nothing is planned.
-    if (!(await persistContext(() => generate()))) return;
+    if (!(await persistContext({ kind: "generate", run: () => generate() }))) return;
     await send(plan ? "Re-plan with the updated details." : "Plan my trip.");
   }, [persistContext, plan, send]);
 
@@ -886,10 +892,10 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
       } catch (cause) {
         const failure = await failureOfCall(cause, "errors.feedback");
-        if (sessionRef.current === id) fail(failure, () => feedback(useful, starsOverride));
+        if (sessionRef.current === id) showBanner(failure, { kind: "rate", run: () => feedback(useful, starsOverride) });
       }
     },
-    [fail, failureOfCall, feedbackStars],
+    [failureOfCall, feedbackStars, showBanner],
   );
 
   const reload = useCallback(async () => {
@@ -907,12 +913,12 @@ export function usePathfinder(locale: string): PathfinderHook {
       setMessages([]);
       setClarify(null);
       setClarifyValues({});
-      setError(null);
+      clearBanner();
     } catch (cause) {
       const failure = await failureOfCall(cause, "errors.clearChat");
-      if (sessionRef.current === id) fail(failure, () => clearChat());
+      if (sessionRef.current === id) showBanner(failure, { kind: "clear", run: () => clearChat() });
     }
-  }, [fail, failureOfCall]);
+  }, [clearBanner, failureOfCall, showBanner]);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
@@ -931,7 +937,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       // Only a 404 means the trip is already gone. Any other answer leaves it where it is, and the page says so.
       if (!(cause instanceof ApiError && cause.status === 404)) {
         if (ticket === navRef.current) {
-          fail("errors.scrap");
+          showBanner("errors.scrap");
           await refresh();
         }
         return "kept";
@@ -951,7 +957,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setHotelChanged(false);
     setActiveVersion(1);
     return "gone";
-  }, [fail, forgetTripView, refresh]);
+  }, [forgetTripView, refresh, showBanner]);
 
   return {
     ready,
@@ -997,13 +1003,16 @@ export function usePathfinder(locale: string): PathfinderHook {
     setStars: setFeedbackStars,
     retry: async () => {
       const again = retryRef.current;
-      if (again) {
-        // The banner goes while the action is done again, and comes back if it fails again.
-        retryRef.current = null;
-        setError(null);
-        await again();
-      } else if (lastMessage.current) await send(lastMessage.current);
-      else await reload();
+      // A turn is being answered: it is not sent over itself, so a failed turn's banner waits for the answer to end and a
+      // second press of the Retry that sent it does nothing.
+      if (shownRef.current.busy && (!again || again.kind === "turn")) return;
+      if (!again) {
+        await reload();
+        return;
+      }
+      // The banner goes while the action is done again, and comes back if it fails again.
+      clearBanner();
+      await again.run();
     },
     reload,
     clearChat,
