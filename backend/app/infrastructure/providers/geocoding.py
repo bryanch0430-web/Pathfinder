@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData, operator_text
 from app.domain.models import FailureKind, GeoLocation, GeoPoint
 from app.infrastructure.http import request_json
+
+logger = logging.getLogger(__name__)
 
 _GEOCODE_CACHE: dict[tuple[str, str], GeoLocation] = {}
 
@@ -217,11 +220,29 @@ class GeocoderChain:
                 continue
             except ProviderError as exc:
                 failures.append((source.name, exc))
+            except Exception as exc:
+                # An HTTP 200 whose body this service cannot read (a row without coordinates, a latitude that is
+                # text) is that source failing like any other, and the next source is still asked.
+                failures.append((source.name, self._unreadable(source.name, exc)))
         if fallback is not None:
             return fallback
         if failures:
             raise self._failure(failures)
         return None
+
+    @staticmethod
+    def _unreadable(source: str, exc: Exception) -> ProviderError:
+        """The failure of a source whose answer was of the wrong shape. The message is ours; what was wrong goes in
+        the detail, for the trace, and asking again would get the same answer."""
+        what = f"{type(exc).__name__}: {' '.join(str(exc).split())[:300]}"
+        logger.warning("%s answered in a shape this service cannot read: %s", source, what)
+        return ProviderError(
+            f"{source} answered in a shape this service cannot read",
+            kind=FailureKind.PARSE,
+            source=source,
+            retryable=False,
+            detail=what,
+        )
 
     def _failure(self, failures: list[tuple[str, ProviderError]]) -> ProviderError:
         """One typed error for a chain whose every source failed.
