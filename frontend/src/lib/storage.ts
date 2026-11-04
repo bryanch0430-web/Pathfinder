@@ -112,6 +112,54 @@ export function clearStoredValue(name: StorageKey): void {
   }
 }
 
+/** `sessionStorage` or null, which some privacy modes and sandboxed frames make throw. */
+function safeSessionStorage(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The trip this window has open. `pathfinder.session` is shared by every window and names the trip opened last in any
+ * of them, so a reload of the page would jump to another window's trip. `sessionStorage` belongs to the window and
+ * survives a reload, so the window's own trip is kept there as well and read first. A browser that will not keep it
+ * leaves the shared pointer, which is all these three used to be.
+ */
+const WINDOW_TRIP_KEY = `${STORAGE_PREFIX}.window-trip`;
+
+/** The trip this window had open, else the one opened last in any window; null when there is none. Never throws. */
+export function rememberedTrip(): string | null {
+  try {
+    const own = safeSessionStorage()?.getItem(WINDOW_TRIP_KEY);
+    if (own) return own;
+  } catch {
+    // Unreadable: the shared pointer is all there is.
+  }
+  return readStoredValue("session");
+}
+
+/** Remember `id` as the trip this window has open and as the one opened last. Never throws. */
+export function rememberTrip(id: string): void {
+  writeStoredValue("session", id);
+  try {
+    safeSessionStorage()?.setItem(WINDOW_TRIP_KEY, id);
+  } catch {
+    // Full or blocked: after a reload this window comes back to the trip opened last, as it did before.
+  }
+}
+
+/** Forget the trip this window has open and the one opened last. Never throws. */
+export function forgetTrip(): void {
+  clearStoredValue("session");
+  try {
+    safeSessionStorage()?.removeItem(WINDOW_TRIP_KEY);
+  } catch {
+    // Blocked: nothing more we can do.
+  }
+}
+
 /** Where a change of the sign-in was made: in this window, or in another window of the browser. */
 export type IdentityChange = "here" | "elsewhere";
 
