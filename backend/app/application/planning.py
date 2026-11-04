@@ -78,6 +78,7 @@ class PlanPath:
         trip_id: str | None = None,
         change_summary: str = "",
         keep_hotel: HotelStay | None = None,
+        pick_hotel: Callable[[list[dict]], dict | None] | None = None,
     ) -> TripPlan:
         fx = getattr(self.registry, "fx", None)
         if fx is not None:
@@ -154,6 +155,7 @@ class PlanPath:
             toolbox=toolbox,
             transfers=getattr(self.registry, "transfers", None),
             keep_hotel=keep_hotel,
+            pick_hotel=pick_hotel,
         )
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(

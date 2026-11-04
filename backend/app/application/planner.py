@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
 
@@ -154,6 +155,7 @@ class Planner:
         toolbox=None,
         transfers=None,
         keep_hotel: HotelStay | None = None,
+        pick_hotel: Callable[[list[dict]], dict | None] | None = None,
     ) -> TripPlan:
         places = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("places", []))
         meals = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("meals", []))
@@ -211,6 +213,9 @@ class Planner:
         meal_days = {index: rows for index, rows in assignment.items() if dates[index] not in blocked}
         meal_plan = self._assign_meals(meals, meal_days, destination)
         hotel = self._choose_hotel(hotels, draft)
+        if pick_hotel is not None:
+            # An edit that asked for another stay says which: none (nothing better came back) leaves `keep_hotel`.
+            hotel = pick_hotel(hotels)
 
         async def day_schedule(index: int, day_places: list[dict]) -> tuple[list[PlanItem], list[str]]:
             lunch = meal_plan.get(index, {}).get("lunch")
@@ -285,7 +290,7 @@ class Planner:
 
         hotel_stay = self._build_hotel(hotel, date_range)
         stay_gap: DataGap | None = None
-        if keep_hotel is not None and day_count > 1:
+        if keep_hotel is not None and day_count > 1 and (pick_hotel is None or hotel is None):
             # An edit that changes the trip's length keeps the stay the traveller already has, not a new pick.
             hotel_stay, refreshed = self.keep_stay(keep_hotel, hotels, date_range)
             if not refreshed:
