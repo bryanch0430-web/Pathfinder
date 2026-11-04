@@ -437,8 +437,11 @@ def _valid_place(candidate: str) -> bool:
     return True
 
 
+#: The apostrophes a name may hold: the typewriter one, the curly ones a phone types and the Hawaiian okina ("Coeur d’Alene").
+_APOSTROPHES = "'’‘ʼʻ"
+_ASCII_APOSTROPHE = str.maketrans(_APOSTROPHES, "'" * len(_APOSTROPHES))
 #: "from <words>": the words end where the place name ends (`_NAME_ENDS`), which the pattern cannot say.
-_FROM_PHRASE = re.compile(r"\bfrom\s+([a-z][a-z '-]{1,40})", re.IGNORECASE)
+_FROM_PHRASE = re.compile(rf"\bfrom\s+([a-z][a-z {_APOSTROPHES}-]{{1,40}})", re.IGNORECASE)
 #: The words that end a place name: a conjunction, a preposition or a word about the time ("Leeds via Dubai",
 #: "Chicago and staying in Rome", "Leeds around noon").
 _NAME_ENDS = frozenset(
@@ -517,11 +520,11 @@ _NOT_A_CITY_ENDS = frozenset(
 )
 #: A departure city that is stated: "my departure city is Osaka", "change the origin to Osaka", "use Osaka as the origin".
 _ORIGIN_NOUN = r"(?:origin|departure\s+(?:city|airport|point)|home\s+(?:city|airport)|starting\s+(?:point|city))"
-_NAME = r"([a-z][a-z '-]{1,40})"
+_NAME = rf"([a-z][a-z {_APOSTROPHES}-]{{1,40}})"
 _STATED_ORIGIN = (
     re.compile(rf"\b{_ORIGIN_NOUN}\s*(?:(?:is|are|will be|should be)\b|[=:])\s*{_NAME}", re.IGNORECASE),
     re.compile(rf"\b(?:change|set|switch|update)\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\s+(?:to|as)\s+{_NAME}", re.IGNORECASE),
-    re.compile(rf"\buse\s+([a-z][a-z '-]{{1,40}}?)\s+as\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\b", re.IGNORECASE),
+    re.compile(rf"\buse\s+([a-z][a-z {_APOSTROPHES}-]{{1,40}}?)\s+as\s+(?:the\s+|my\s+|our\s+)?{_ORIGIN_NOUN}\b", re.IGNORECASE),
 )
 _SENTENCE_END = re.compile(r"[.!?;]")
 #: How much of the sentence before "from" is read, which keeps the work in proportion to the message.
@@ -553,7 +556,7 @@ def _name_words(phrase: str) -> tuple[list[str], int, bool]:
     for word in re.finditer(r"\S+", phrase):
         if word.group().lower() in _NAME_ENDS or not any(char.isalpha() for char in word.group()):
             return words, used, True
-        words.append(word.group().strip("'-"))
+        words.append(word.group().translate(_ASCII_APOSTROPHE).strip("'-"))
         used = word.end()
     return words, used, False
 

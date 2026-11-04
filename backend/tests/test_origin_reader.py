@@ -428,6 +428,24 @@ def test_a_reader_that_reads_hostile_text_takes_time_in_proportion_to_it() -> No
 
 
 @pytest.mark.parametrize(
+    ("text", "city"),
+    [
+        ("Flying from Coeur d\u2019Alene to Seattle", "Coeur D'Alene"),
+        ("Flying from Cote d\u2019Ivoire to Paris", "Cote D'Ivoire"),
+        ("Flying from Val d\u2019Isere to Lyon", "Val D'Isere"),
+        ("Flying from Hawai\u2018i to Tokyo", "Hawai'I"),
+        ("Flying from Hawai\u02bbi to Tokyo", "Hawai'I"),
+        ("Flying from Coeur d\u02bcAlene to Seattle", "Coeur D'Alene"),
+        ("Flying from Coeur d'Alene to Seattle", "Coeur D'Alene"),
+    ],
+)
+def test_a_curly_apostrophe_or_okina_is_part_of_the_name_and_is_stored_as_an_ascii_one(text: str, city: str) -> None:
+    """Phones type the curly form; the name was cut at it and the stump ("Coeur D") replaced the stored city."""
+    assert _origin(text) == city
+    assert _origin(text, stored=HK) == city
+
+
+@pytest.mark.parametrize(
     "unit",
     [
         "3 days from Hong Kong ",
