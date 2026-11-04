@@ -204,24 +204,39 @@ export default function App() {
   // The open trip whose tab this window has seen: if the tab then goes missing, another window may have scrapped the trip.
   const seenTab = useRef<string | null>(null);
 
+  // The destination of the plan this window shows. It is the label of the open trip's tab.
+  const planName = pf.plan?.destination.name;
+  const planNameRef = useRef(planName);
+  planNameRef.current = planName;
+
+  // The label follows the plan this window shows, and only a change of that plan here writes it. It is never a
+  // reaction to the list changing: another window may show an older plan of the same trip, and two windows that
+  // each put back their own name would rewrite each other's label for ever.
+  useEffect(() => {
+    const activeId = pf.sessionId;
+    if (!activeId || !planName) return;
+    writeTrips((current) =>
+      current.map((trip) => (trip.id === activeId && trip.label !== planName ? { ...trip, label: planName } : trip)),
+    );
+  }, [pf.sessionId, planName]);
+
+  // The open trip always has its tab. This runs again whenever the list changes, so a tab that another window's
+  // write or a cleared store took away comes back. A tab that is there is left as it is.
   useEffect(() => {
     const activeId = pf.sessionId;
     if (!activeId) return;
-    const known = trips.find((trip) => trip.id === activeId);
-    const label = pf.plan?.destination.name || known?.label || UNTITLED_TRIP;
-    if (known) seenTab.current = activeId;
-    // The open trip always has its tab, with its destination as the label. This runs again whenever the list
-    // changes, so a tab that another window's write or a cleared store took away comes back.
-    if (known?.label === label) return;
-    const register = () =>
-      writeTrips((current) => {
-        const stored = current.find((trip) => trip.id === activeId);
-        return stored
-          ? current.map((trip) => (trip.id === activeId ? { ...trip, label } : trip))
-          : [...current, { id: activeId, label }];
-      });
-    if (known || seenTab.current !== activeId) {
-      register();
+    if (trips.some((trip) => trip.id === activeId)) {
+      seenTab.current = activeId;
+      return;
+    }
+    const putBack = () =>
+      writeTrips((current) =>
+        current.some((trip) => trip.id === activeId)
+          ? current
+          : [...current, { id: activeId, label: planNameRef.current || UNTITLED_TRIP }],
+      );
+    if (seenTab.current !== activeId) {
+      putBack();
       return;
     }
     // The tab was there and is gone. A trip that another window scrapped is left for the next tab instead of
@@ -233,12 +248,12 @@ export default function App() {
     ).then((gone) => {
       if (cancelled) return;
       if (gone) void scrapActiveTrip(false);
-      else register();
+      else putBack();
     });
     return () => {
       cancelled = true;
     };
-  }, [pf.sessionId, pf.plan?.destination.name, trips]);
+  }, [pf.sessionId, trips]);
 
   const scrapActiveTrip = async (ask = true) => {
     const id = pf.sessionId;
