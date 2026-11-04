@@ -1656,17 +1656,48 @@ def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:
     return _row_near(plan.destination.geo, row, km)
 
 
+#: a word in front of a hotel's name that takes it out of the wishes: "not the Hilton", "other than the Hilton"
+_NOT_THAT_HOTEL = re.compile(
+    r"\b(?:not|no|never|but|than|except|avoid|without|skip|instead of|apart from|aside from)\b|n't\b", re.IGNORECASE
+)
+#: after a hotel's name: "the Hilton was too dear", "the Hilton isn't great"
+_COMPLAINT_AFTER = re.compile(
+    r"\s+(?:(?:is|was|are|were)\s+(?:too|not)\b|(?:isn|wasn|aren|weren)'t\b)"
+)
+
+
+def _not_wanted(lowered: str, name: str) -> bool:
+    """Every mention of the hotel ``name`` in the lower-cased sentence turns it down or complains of it."""
+    mentions = list(re.finditer(re.escape(name), lowered))
+    return bool(mentions) and all(
+        _NOT_THAT_HOTEL.search(" ".join(re.split(r"[,;.:!?–—]|\s-+\s", lowered[: found.start()])[-1].split()[-6:]))
+        or _COMPLAINT_AFTER.match(lowered, found.end())
+        for found in mentions
+    )
+
+
 def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool, message: str = "") -> dict | None:
     """The stay that replaces the plan's own when the traveller asks for another or a cheaper one, or None.
 
-    Another hotel than the one the plan has, near the city. One the sentence names is the one asked for. For
-    "cheaper" the lowest rate first, and only one that is lower than the current rate; otherwise the candidate order
-    of the source stands, a stay with a rate before one without (a stay with no rate lowers the total by itself)."""
+    Another hotel than the one the plan has, near the city. One the sentence names is the one asked for, unless it names
+    it as one it does not want ("not the Hilton", "the Hilton was too dear"); asked for a cheaper stay, it has to be lower
+    than the current rate. For "cheaper" the lowest rate first, and only one that is lower than the current rate;
+    otherwise the candidate order of the source stands, a stay with a rate before one without (a stay with no rate
+    lowers the total by itself)."""
     current = plan.hotels[0].name if plan.hotels else ""
     current_price = plan.hotels[0].price_per_night.amount if plan.hotels and plan.hotels[0].price_per_night else None
-    pool = [row for row in candidates if row.get("name") != current and _hotel_near(plan, row)]
     lowered = message.lower()
+    pool = [
+        row
+        for row in candidates
+        if row.get("name") != current
+        and _hotel_near(plan, row)
+        and not (len(row.get("name") or "") >= 4 and _not_wanted(lowered, str(row["name"]).lower()))
+    ]
     named = [row for row in pool if len(row.get("name") or "") >= 4 and str(row["name"]).lower() in lowered]
+    if current_price is not None and re.search(r"\bcheap", lowered):
+        # Asked for a cheaper stay by name: the name is not a way round the rate it has to be lower than.
+        named = [row for row in named if (_hotel_price(row) or current_price) < current_price]
     if named:
         return named[0]
     if cheaper:
