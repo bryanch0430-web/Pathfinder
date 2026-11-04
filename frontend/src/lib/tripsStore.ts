@@ -112,14 +112,18 @@ export function readTrips(): Trip[] {
   return found.trips;
 }
 
+const sameTabs = (a: Trip[], b: Trip[]) =>
+  a.length === b.length && a.every((trip, index) => trip.id === b[index].id && trip.label === b[index].label);
+
 /**
  * Change the tabs: `update` gets the tabs as stored right now, and what it returns is saved and announced.
- * Returning the list it was given changes nothing and announces nothing.
+ * Returning the list it was given, or one with the same tabs and labels, changes nothing and announces nothing:
+ * a write that changes nothing would still make every other window read the list again.
  */
 export function writeTrips(update: (current: Trip[]) => Trip[]): Trip[] {
   const current = readTrips();
   const next = update(current);
-  if (next === current) return current;
+  if (next === current || sameTabs(next, current)) return current;
   save(next);
   for (const listener of listeners) listener(next);
   return next;
