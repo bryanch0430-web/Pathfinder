@@ -100,9 +100,6 @@ _NEW_DATES = [
         # "make it 4 days", "make it a 4-day trip", "change it to 5 days", "cut it down to 2 days"
         rf"\b(?:make|turn|change|cut|stretch)\s+(?:it|the trip|the stay|this)\s+(?:(?:in)?to\s+|(?:down|up) to\s+)?"
         rf"(?:an?\s+)?{_NUMBER}[\s-]+(?:days?|nights?)\b",
-        # "a week later", "two days earlier", "back 3 days"
-        rf"\b{_SPAN}\s+(?:later|earlier|sooner|longer|shorter|back|forward)\b",
-        rf"\b(?:back|forward|ahead)\s+(?:by\s+)?{_SPAN}\b",
         r"\b(?:number|length) of (?:the )?(?:days|nights|trip|stay)\b",
         # "move it to 12-14 December", "go on 20 March instead"
         rf"\b{_SHIFT}\b.{{0,24}}?\b(?:to|in|on|until|for)\s+(?:{_WHEN})",
@@ -151,10 +148,28 @@ def is_replan_message(message: str) -> bool:
     return (message or "").strip().rstrip(".").casefold() == REPLAN_MESSAGE.rstrip(".").casefold()
 
 
+#: A span of time that moves the trip ("a week later", "two days earlier", "back 3 days") or one row of it ("move it a
+#: day later", "move Gion a day later"): it says which only together with what it is said of.
+_SPAN_DATES = [
+    re.compile(pattern)
+    for pattern in (
+        rf"\b{_SPAN}\s+(?:later|earlier|sooner|longer|shorter|back|forward)\b",
+        rf"\b(?:back|forward|ahead)\s+(?:by\s+)?{_SPAN}\b",
+    )
+]
+
+
+def asks_for_trip_dates(message: str) -> bool:
+    """True when the sentence is about the dates or the length of the whole trip ("shift the trip by a week", "make
+    it 4 days"), whatever row it names. A bare span ("two days later") is not by itself: it may move one row."""
+    lower = (message or "").lower()
+    return any(pattern.search(lower) for pattern in _NEW_DATES)
+
+
 def asks_for_new_dates(message: str) -> bool:
     """True when the sentence asks to move the trip or change its length ("shift the trip by a week")."""
     lower = (message or "").lower()
-    return any(pattern.search(lower) for pattern in _NEW_DATES)
+    return asks_for_trip_dates(lower) or any(pattern.search(lower) for pattern in _SPAN_DATES)
 
 
 def replans_new_dates(message: str, context: TripContext, plan_summary: dict[str, Any] | None) -> bool:

@@ -28,7 +28,7 @@ from app.application.planner import (
     _pace,
 )
 from app.application.prompt_context import plan_outline, trip_slots
-from app.application.router import asks_for_new_dates, is_replan_message
+from app.application.router import asks_for_new_dates, asks_for_trip_dates, is_replan_message
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
 from app.application.trip_rules import blocked_dates, travel_windows
@@ -137,7 +137,15 @@ class ModifyPath:
                 "is at most 60 days long. Correct them in the trip details and ask again."
             )
         dates_move = bool(new_range and new_range != plan.dates) and date_requested
-        if dates_move or is_replan_message(message):
+        # A request for the dates or the length of the trip is about the whole trip, whatever row is selected or named
+        # in it ("keep this hotel but move to March", "make it 4 days, Senso-ji must stay"). A bare span ("two days
+        # later") is about the trip too, unless it is said of a row: "it", "this" or a name in the plan.
+        whole_trip = date_requested and (
+            is_replan_message(message)
+            or asks_for_trip_dates(message)
+            or not (re.search(r"\b(?:it|this|that|these|those|them)\b", message.lower()) or _name_mentioned(plan, message))
+        )
+        if dates_move or whole_trip:
             # A request for the whole trip is not about the stop the traveller has selected.
             scope_item_id = None
         if dates_move:
@@ -195,7 +203,7 @@ class ModifyPath:
             if "attraction" not in affected:
                 agent_names.discard(AgentName.ATTRACTION)
         # Naming a hotel or a stop in a request for other dates does not turn it into a single-row edit.
-        referred = None if dates_move else resolve_referred(plan, message, scope_item_id)
+        referred = None if dates_move or whole_trip else resolve_referred(plan, message, scope_item_id)
         # A pace or meal rule is about the whole plan. A selected chip must
         # not turn it into a question about one stop.
         if shape.requested and _name_mentioned(plan, message) is None:
