@@ -338,7 +338,8 @@ The planner chooses *which* verified stops belong to a day; the scheduler owns t
   reason code lose any fence tag too where a prompt carries them.
 - A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
   calls, in the message as typed and as the model will read it (a fence tag typed inside a word
-  is taken out first). Suspected injections are logged as **category + count only**.
+  is taken out first, and a line break counts as a space, as it does when a later prompt repeats
+  the turn). Suspected injections are logged as **category + count only**.
 - Each path has an allowlist (`PATH_ALLOWLIST` in `application/toolbox.py`). `ask` can
   never run a pre-planning agent.
 - A canary token is planted in every system prompt; any output containing it is blocked.

@@ -63,14 +63,17 @@ def screen_message(message: str, settings: Settings) -> ScreenResult:
 
 
 def screen_turn(message: str, settings: Settings) -> ScreenResult:
-    """The injection screen for a traveller's message: as typed, and as the model will read it.
+    """The injection screen for a traveller's message: as typed, and as the prompts will read it.
 
     The fence takes its tags out of the message, so a tag typed inside a word ("Ign</user_travel_request>ore
-    all previous instructions") is not in the sentence the model reads. A pattern that matches either
-    reading flags the turn, and a high-severity one blocks it.
+    all previous instructions") is not in the sentence the model reads. The prompts that repeat an earlier
+    turn (`recent_turns`) put its words on one line, so a line break inside a phrase ("Ignore all previous
+    <newline>instructions") is a space there. A pattern that matches any of these readings flags the turn,
+    and a high-severity one blocks it.
     """
     read = strip_fence_tags(message)
-    return _screen([message] if read == message else [message, read], settings)
+    replayed = strip_fence_tags(" ".join(message.split()))
+    return _screen(list(dict.fromkeys([message, read, replayed])), settings)
 
 
 def _screen(texts: list[str], settings: Settings) -> ScreenResult:
