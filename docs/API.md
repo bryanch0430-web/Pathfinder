@@ -33,7 +33,7 @@ a `data_quality.gap` on the plan, not a failed health check.
 | POST | `/api/account/attach` | `{session_id, client_token}` — the guest token the session was created with | `{claimed}` |
 | POST | `/api/journeys` | `{client_token}` | `{session, context}` |
 | GET | `/api/journeys/{id}` | — | `{session, context, plan, versions, messages}` |
-| PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id`; `null` leaves a field unchanged. At most 50 `preferences` and 50 `hard_constraints` of at most 200 characters each, and at most 120 characters in any other text; more is refused with `422`, not cut | `{context}` |
+| PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id` and `updated_at`; `null` leaves a field unchanged. At most 50 `preferences` and 50 `hard_constraints` of at most 200 characters each, and at most 120 characters in any other text; more is refused with `422`, not cut | `{context}` |
 | GET | `/api/journeys/{id}/itinerary` | `?version=` optional: a version of the session's newest trip (`404` when it has none by that number) | `{plan}` |
 | GET | `/api/journeys/{id}/revisions` | — | `{versions}`: the versions of the session's newest trip, newest first |
 | GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
@@ -95,7 +95,14 @@ belongs to the account and is stored under its `user:<id>` token, whatever guest
 A JSON body that holds a lone UTF-16 surrogate (an escape such as `\ud800` with no second half, which a broken
 input method or a string cut inside an emoji sends, or the character itself) is refused with `422` and a plain
 `detail`, on every route and whether the body is UTF-8, UTF-16 or UTF-32, before anything is stored or counted.
-Two halves that make up one character are read as that character.
+Two halves that make up one character are read as that character (a media type such as `Application/JSON` is read like
+`application/json`).
+
+Every free text of a request has a limit: a session or stop id 80 characters, a `locale` 35, a rating's `reason_code` 80,
+and the trip form's texts as in section 2; a longer one is refused with `422`, except the `scope_label` of a chat
+message (the name of the selected stop), which is cut to 200 characters. A body of more than 1 MiB (about ten times the
+largest the page sends) is answered `413` before it is read, and so is a body sent in chunks that grows past it. A body that cannot
+be read as text answers `422` with where and why (`loc`, `msg`, `type`), without the value that was refused.
 
 Shared trips are redacted before storage: no budget, party size, session id or client token
 is exposed. The share URL is read-only and does not require an account.
@@ -139,10 +146,12 @@ Response: `text/event-stream`. Each frame is `event: <name>` followed by a singl
 | `agent` | `{agent, phase: "start"|"done", status?, elapsed_ms?, summary?, failures?}` |
 | `token` | `{text}` — streamed prose for ask/clarify/modify |
 | `plan` | `{plan: TripPlan, diff: []}` |
-| `clarify` | `{question, slots, labels, options, reason_code}` |
+| `clarify` | `{question, slots, labels, options, choices, reason_code}` |
 | `error` | `{code, message, retryable}`, with `kind` and `source` added for a data source failure. The two frames the stream itself sends, `turn_timeout` and `stream_error`, are `{code, message, detail}` with no `retryable`. Codes and what follows an `error`: section 8 |
-| `trace` | `{request_id, spans, generations, tool_calls}` |
-| `done` | `{request_id, intent, session_id}` |
+| `tool` | `{name, status, latency_ms, note}` (and `args` in the developer view), one for each lookup a path makes |
+| `locale` | `{plan_locale}` — the plan's language, after a request to change it |
+| `trace` | `{request_id, spans, generations, tool_calls, why}` |
+| `done` | `{request_id, intent, session_id}`, with `blocked: true` for a message the injection screen refused |
 
 The `diff` of a `plan` event lists what an edit changed, one entry per change with a `kind`: `added`,
 `changed` and `removed` for stops, `dates` (the trip moved; `from` and `to` are the date ranges), `stay`
