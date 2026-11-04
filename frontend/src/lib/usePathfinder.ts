@@ -251,9 +251,10 @@ export function usePathfinder(locale: string): PathfinderHook {
   // With nothing to do again it asks for the trip again. It is set and cleared with the banner (`showBanner`, `clearBanner`)
   // and with nothing else, or Retry would do what a banner that is gone was about.
   const retryRef = useRef<RetryTarget | null>(null);
-  // The latest `send`. A target stored when a turn failed calls through here, not the `send` of the render in which it
-  // was stored: the interface language may have changed since.
+  // The latest `send` and `generate`. A target stored when a turn failed calls through here, not the callback of the
+  // render in which it was stored: the interface language may have changed since.
   const sendRef = useRef<(message: string) => Promise<void>>(async () => undefined);
+  const generateRef = useRef<() => Promise<void>>(async () => undefined);
   // What `send` reads of the trip shown. It is a ref so that a handler made before the trip changed (the trending
   // list makes a trip and then sends its first message) still sends as the trip shown now, not as the one before.
   const shownRef = useRef<{ busy: boolean; plan: TripPlan | null; selectedItem: PlanItem | null }>({
@@ -856,9 +857,10 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   const generate = useCallback(async (): Promise<void> => {
     // Not saved, or the traveller opened another trip while the details were being saved: nothing is planned.
-    if (!(await persistContext({ kind: "generate", run: () => generate() }))) return;
+    if (!(await persistContext({ kind: "generate", run: () => generateRef.current() }))) return;
     await send(plan ? "Re-plan with the updated details." : "Plan my trip.");
   }, [persistContext, plan, send]);
+  generateRef.current = generate;
 
   const submitClarify = useCallback(async (message?: string) => {
     if (message && message.trim()) {
