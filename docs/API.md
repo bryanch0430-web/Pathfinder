@@ -156,7 +156,7 @@ Response: `text/event-stream`. Each frame is `event: <name>` followed by a singl
 The `diff` of a `plan` event lists what an edit changed, one entry per change with a `kind`: `added`,
 `changed` and `removed` for stops, `dates` (the trip moved; `from` and `to` are the date ranges), `stay`
 (the hotel's nights), `hotel_price` (the same hotel at another rate), `hotel`, `flight`, `weather` (the
-forecast changed), `cost`, and `party`, `origin` and `budget` (the details of the trip form). An edit that only moves the dates is a new version like any other, so the
+forecast changed), `cost` (with the currency of each total, `from_currency` and `currency`, since the trip form can change it), and `party`, `origin` and `budget` (the details of the trip form). An edit that only moves the dates is a new version like any other, so the
 version it left stays available. What an edit could not do (for example, that no cheaper verified hotel was
 returned, that no stop matched a removal, or that a place is already in the plan) is told in the reply and is
 not kept as a data gap of the plan. An edit that changes nothing is not a new

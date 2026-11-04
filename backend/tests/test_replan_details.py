@@ -219,6 +219,23 @@ def test_another_budget_is_applied_to_the_plan_and_the_cost(settings: Settings) 
     run_trip(settings, scenario)
 
 
+def test_another_currency_in_the_form_tells_each_total_in_its_own_currency(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, currency="HKD", budget=30000.0)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        latest = trip.store.get_plan(trip.session_id)
+        was = trip.plan.cost
+        assert (latest.cost.currency, was.currency) == ("HKD", trip.plan.budget.currency) and was.currency != "HKD"
+        assert f"Total cost changed from {was.currency} {was.total:,.0f} to HKD {latest.cost.total:,.0f}" in reply_of(
+            events
+        )
+        assert f"from HKD {was.total:,.0f}" not in reply_of(events)
+
+    run_trip(settings, scenario)
+
+
 def test_other_dates_and_another_party_size_are_both_applied(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
         _fill(trip, party_size=4, start_date=WEEK_LATER[0], end_date=WEEK_LATER[1], days=3)

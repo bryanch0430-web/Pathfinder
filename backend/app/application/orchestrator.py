@@ -997,8 +997,10 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
             try:
                 before = float(entry.get("from") or 0)
                 after = float(entry.get("to") or 0)
+                # Each total in its own currency: a trip priced in USD that the form moved to HKD did not get dearer.
+                was = entry.get("from_currency") or entry.get("currency", "")
                 extras.append(
-                    f"Total cost changed from {entry.get('currency', '')} {before:,.0f} to "
+                    f"Total cost changed from {was} {before:,.0f} to "
                     f"{entry.get('currency', '')} {after:,.0f} ({entry.get('status', 'unknown')})."
                 )
             except (TypeError, ValueError):
