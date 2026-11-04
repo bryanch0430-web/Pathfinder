@@ -112,18 +112,21 @@ export function clearStoredValue(name: StorageKey): void {
   }
 }
 
+/** Where a change of the sign-in was made: in this window, or in another window of the browser. */
+export type IdentityChange = "here" | "elsewhere";
+
 /** Told when the sign-in is dropped here, so what the page shows for the account can be dropped with it. */
-const identityListeners = new Set<() => void>();
+const identityListeners = new Set<(change: IdentityChange) => void>();
 
 /**
  * Call `listener` whenever the sign-in changes in this browser: dropped in this window, or made or dropped in another
- * (the browser only fires `storage` in the other windows). Returns the function that stops it.
+ * (the browser only fires `storage` in the other windows). It is told which. Returns the function that stops it.
  */
-export function subscribeIdentity(listener: () => void): () => void {
+export function subscribeIdentity(listener: (change: IdentityChange) => void): () => void {
   identityListeners.add(listener);
   const onStorage = (event: StorageEvent) => {
     // A null key means the whole storage was cleared.
-    if (event.key === null || event.key === storageKey("auth")) listener();
+    if (event.key === null || event.key === storageKey("auth")) listener("elsewhere");
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -142,7 +145,7 @@ export function forgetSignIn(): void {
   const guest = readStoredValue("guest");
   if (guest) writeStoredValue("client", guest);
   else if (readStoredValue("client")?.startsWith("user:")) clearStoredValue("client");
-  for (const listener of identityListeners) listener();
+  for (const listener of identityListeners) listener("here");
 }
 
 /**
