@@ -398,6 +398,7 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
                 "from": old.cost.total,
                 "to": new.cost.total,
                 "status": new.cost.status,
+                "from_currency": old.cost.currency,
                 "currency": new.cost.currency,
             }
         )
