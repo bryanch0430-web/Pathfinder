@@ -33,7 +33,7 @@ a `data_quality.gap` on the plan, not a failed health check.
 | POST | `/api/account/attach` | `{session_id, client_token}` — the guest token the session was created with | `{claimed}` |
 | POST | `/api/journeys` | `{client_token}` | `{session, context}` |
 | GET | `/api/journeys/{id}` | — | `{session, context, plan, versions, messages}` |
-| PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id`; `null` leaves a field unchanged | `{context}` |
+| PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id`; `null` leaves a field unchanged. At most 50 `preferences` and 50 `hard_constraints` of at most 200 characters each, and at most 120 characters in any other text; more is refused with `422`, not cut | `{context}` |
 | GET | `/api/journeys/{id}/itinerary` | `?version=` optional: a version of the session's newest trip (`404` when it has none by that number) | `{plan}` |
 | GET | `/api/journeys/{id}/revisions` | — | `{versions}`: the versions of the session's newest trip, newest first |
 | GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
@@ -57,7 +57,7 @@ is being worked on, the plan is returned as stored and nothing is saved, so that
 message saved a newer version while the refresh was being fetched, the newer version is returned,
 even when the refresh found nothing. A
 `PATCH` made while a message is being understood is kept: the turn saves only what the message changed,
-on top of the form as it is stored then. A `PATCH` stores the form and leaves the plan alone; the page's
+on top of the form as it is stored then. What a message adds to the form is cut to the limits above, the oldest lines first, as is a form stored before them. A `PATCH` stores the form and leaves the plan alone; the page's
 `Re-plan with the updated details.` is what moves the trip to the dates the form then holds. That is an
 edit of the same trip, a new version that keeps the stops and the hotel, not a new trip. A message cannot
 change the stored dates (`understand` keeps a stored range): a request such as `move it to 12-14 December`,

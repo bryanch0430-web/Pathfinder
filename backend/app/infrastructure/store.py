@@ -510,6 +510,9 @@ class SQLiteStore:
             conn.execute("UPDATE journeys SET updated_at=? WHERE id=?", (_now(), session_id))
 
     def save_context(self, context: TripContext) -> None:
+        """Store a trip's form, cut to the form's limits first (in place, so the caller holds what is stored):
+        every writer ends here, and the understanding step appends to the lists without a check of its own."""
+        context.fit_to_limits()
         with self._lock, self._connect() as conn:
             conn.execute(
                 "INSERT INTO journey_state (session_id, data, updated_at) VALUES (?,?,?) "

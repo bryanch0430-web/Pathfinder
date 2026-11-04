@@ -124,13 +124,11 @@ class MemoryService:
         if not owner:
             return None
         existing = self.store.get_preferences(owner)
-        values = list(existing.preferences) if existing else []
-        for preference in context.preferences:
-            if preference not in values:
-                values.append(preference)
+        # The profile fits what it is given: no repeats, 20 phrases of 80 characters, the newest kept. That
+        # takes one pass over the trip's list, however long it is (a loop with `not in` took seconds on thousands).
         profile = PreferenceProfile(
             client_token=owner,
-            preferences=values,
+            preferences=[*(existing.preferences if existing else []), *context.preferences],
             updated_at=utcnow(),
         )
         self.store.upsert_preferences(profile)
