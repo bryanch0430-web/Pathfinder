@@ -213,7 +213,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     )
     if not budget_match:
         budget_match = re.search(
-            r"(?<![0-9,])([0-9][0-9,]*(?:\.[0-9]+)?)\s*(USD|EUR|GBP|JPY|HKD|CNY|SGD|THB|TWD|KRW|AUD|CAD)\b",
+            r"(?<![0-9])(?<![0-9],)([0-9][0-9,]*(?:\.[0-9]+)?)\s*(USD|EUR|GBP|JPY|HKD|CNY|SGD|THB|TWD|KRW|AUD|CAD)\b",
             text,
             re.IGNORECASE,
         )
