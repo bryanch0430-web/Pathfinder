@@ -569,10 +569,11 @@ def _looks_like_new_trip(lower: str) -> bool:
     )
 
 
-#: "make this trip cheaper", "make the trip a bit slower": a change of the trip that exists, with no change verb
+#: "make this trip cheaper", "make the trip a bit shorter": a change of the trip that exists, with no change verb. A pace
+#: word ("slower", "lighter") is not here: the edit cannot apply it, and it would answer "I could not tell which stop".
 _MAKE_THE_TRIP = re.compile(
     r"\bmake\s+(?:this|that|the|my|our)\s+(?:trip|itinerary|plan|stay|holiday|vacation)\s+(?:a\s+(?:bit|little)\s+)?"
-    r"(?:cheaper|longer|shorter|slower|faster|easier|calmer|quieter|lighter)\b"
+    r"(?:cheaper|longer|shorter)\b"
 )
 
 
