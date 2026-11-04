@@ -329,7 +329,7 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
 
     # 1. Explicit destination cue: "<to|in|visit|explore|around> <city>".
     cued = [
-        (_on_the_way(lower, match.start()), match.start(), city)
+        (_side_mention(lower, match.start()), match.start(), city)
         for prep in prepositions
         for city, needle in cities
         if (match := re.search(rf"\b{prep}\s+{re.escape(needle)}\b", lower))
@@ -373,16 +373,17 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
                 and not (prep == "to" and first_word in _VERBS_AFTER_TO)
                 and first_word not in prepositions
             ):
-                unknown.append((_on_the_way(lower, match.start()), match.start(), candidate.title()))
+                unknown.append((_side_mention(lower, match.start()), match.start(), candidate.title()))
                 break
             start = match.start() + 1  # "want to go to Porto": the first "to" is no cue, the next one is
     return min(unknown)[2] if unknown else None
 
 
-def _on_the_way(lower: str, position: int) -> bool:
-    """Whether the cue at `position` follows "stopover" or "layover": "Stopover in Dubai on the way to Sydney" is a trip
-    to Sydney, and Dubai is the destination only when the sentence names no other place."""
-    return re.search(r"\b(?:stop-?over|layover|stop)\s+$", lower[max(0, position - 10) : position]) is not None
+def _side_mention(lower: str, position: int) -> bool:
+    """Whether the cue at `position` follows "stopover", "layover" or "live in": "Stopover in Dubai on the way to
+    Sydney" and "I live in London and want to go to Rome" are trips to Sydney and to Rome, and Dubai and London are the
+    destination only when the sentence names no other place."""
+    return re.search(r"\b(?:stop-?over|layover|stop|live|lives|living|based|born|grew up)\s+$", lower[max(0, position - 12) : position]) is not None
 
 
 #: A verb that follows "to" in "love to see Lyon" (not after "in" or "visit": "3 days in Do Son"): the place comes after it,
@@ -390,7 +391,7 @@ def _on_the_way(lower: str, position: int) -> bool:
 _VERBS_AFTER_TO = frozenset(
     "visit see explore go travel fly stay spend try get be have do take discover check tour enjoy relax drink walk eat "
     "sleep swim hike shop wait stop start finish cook order call scan confirm ask say tell show know make find pick "
-    "keep join meet send".split()
+    "keep join meet send live work move study retire relocate".split()
 )
 
 
@@ -532,8 +533,8 @@ _KNOWN_CITIES = {city.lower(): city for city in CITY_HINTS}
 _AIRPORT_CODES = frozenset(code for codes in AIRPORTS.values() for code in codes)
 #: Words right before "from" that say the traveller leaves from the place after it ...
 _DEPARTURE_VERBS = frozenset(
-    "fly flying flew flown depart departing departure departures leave leaving left commute commuting travel travelling "
-    "traveling coming arrive arriving originate originating set setting head heading heads".split()
+    "fly flying flew flown depart departing departure departures leave leaving left commute commuting travelling "
+    "traveling coming arrive arriving originate originating setting heading".split()
 )
 #: ... or that a flight, a train or someone else does ("the bus leaves from Shinjuku"), or the traveller is there at the
 #: start or on the way back ("starting from Kyoto", "returning from Tokyo"). The city is then a guess, so it is
@@ -721,6 +722,9 @@ def _departing(before: list[str], *, through_a_place: bool = True) -> str | None
 #: What may stand between a flight or a travel verb and "from": "flights to Rome from", "arriving in Rome from".
 _GAP_PREPOSITIONS = frozenset("to into in".split())
 _INDEFINITE = frozenset("a an one any another".split())
+#: Verbs that say the traveller leaves only through a place ("travel to Rome from London"), not right before "from"
+#: ("Travel from Osaka to Nara on the second day" tells what to do on a day).
+_ONLY_THROUGH_A_PLACE = frozenset(["travel"])
 _STARTS = frozenset("start starts begin begins beginning".split())
 _THE_TRAVELLER = frozenset("i we they trip journey tour holiday vacation".split())
 _BY = frozenset("by".split())
@@ -745,7 +749,9 @@ def _departing_right_before(before: list[str], *, gap: bool = False) -> str | No
         return "guess"
     elif word in {"i'm", "we're"} or (index and (before[index - 1], word) in {("i", "am"), ("we", "are")}):
         return "guess"  # "I'm from London": where the traveller is from, not for certain where the trip leaves from
-    elif word not in _TRAVEL_WORDS:
+    elif word == "set" and before[index + 1 : index + 2] == ["off"]:  # "we set off from Paris"
+        return "leave"
+    elif word not in _TRAVEL_WORDS and not (gap and word in _ONLY_THROUGH_A_PLACE):
         return None
     if word in _WEAK_VERBS or any(back in _RETURN_WORDS for back in before[max(index - 1, 0) :]):
         return "return"
