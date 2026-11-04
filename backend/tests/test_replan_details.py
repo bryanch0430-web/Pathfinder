@@ -244,6 +244,50 @@ def test_nothing_different_in_the_form_is_said_and_asks_no_agent(settings: Setti
     run_trip(settings, scenario)
 
 
+def _spans_and_generations(events: list) -> tuple[list[str], list[str]]:
+    trace = next(event.data for event in events if event.event == "trace")
+    return [span["name"] for span in trace["spans"]], [row["purpose"] for row in trace["generations"]]
+
+
+def test_nothing_different_in_the_form_spends_no_model_call_to_say_so(settings: Settings) -> None:
+    """The page's own message needs no writer to be read when the form holds nothing the plan does not."""
+
+    async def scenario(trip: Trip) -> None:
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        spans, purposes = _spans_and_generations(events)
+        assert reply_of(events) == NOTHING_DIFFERS
+        assert "llm.modify.extract" not in spans and "modify.extract" not in purposes, (spans, purposes)
+
+    run_trip(settings, scenario)
+
+
+def test_a_form_that_differs_in_something_the_plan_does_not_keep_spends_no_model_call_either(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, pace="relaxed", hard_constraints=["no early mornings"], hotel_style="luxury", preferences=["museums"])
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        spans, purposes = _spans_and_generations(events)
+        assert reply_of(events) == NOTHING_DIFFERS
+        assert "llm.modify.extract" not in spans and "modify.extract" not in purposes, (spans, purposes)
+        assert [row["version"] for row in trip.store.list_versions(trip.session_id)] == [1]
+
+    run_trip(settings, scenario)
+
+
+def test_a_form_that_differs_in_something_the_plan_keeps_still_reads_the_message_as_before(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        _fill(trip, party_size=3)
+
+        events = await trip.turn(REPLAN_MESSAGE)
+
+        assert "3 travellers" in reply_of(events)
+        assert trip.store.get_plan(trip.session_id).party_size == 3
+
+    run_trip(settings, scenario)
+
+
 def test_a_form_that_differs_in_something_the_plan_does_not_keep_is_not_a_difference(settings: Settings) -> None:
     """Preferences, hotel style or language in the form are not details of the plan: nothing to re-plan."""
 
