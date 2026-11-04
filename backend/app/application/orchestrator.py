@@ -450,6 +450,7 @@ class TurnService:
                     session_id=session_id,
                     tracer=tracer,
                     request_id=request_id,
+                    previous=plan,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -679,8 +680,14 @@ class TurnService:
         session = self.store.get_session(session_id)
         return session.owner if session else ""
 
-    async def _plan(self, *, context, session_id, tracer, request_id) -> AsyncIterator[TurnEvent]:
+    async def _plan(self, *, context, session_id, tracer, request_id, previous=None) -> AsyncIterator[TurnEvent]:
         matches = self.memory.recall(context, owner=self._memory_owner(session_id))
+        # A new trip for the place the saved plan is for keeps what the traveller protected in it: the stay they
+        # accepted and their locked or confirmed stops. A trip to another place has nothing to carry.
+        carries = previous is not None and _same_place(previous.destination.name, context.destination)
+        stay = previous.hotels[0] if carries and previous.hotels else None
+        if stay is not None and not (stay.confirmed or stay.locked):
+            stay = None
         if matches:
             tracer.metadata["memory_matches"] = [round(score, 3) for score, _ in matches]
         queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
@@ -706,6 +713,7 @@ class TurnService:
                 emit=emit,
                 memory_summaries=self.memory.memory_summaries(matches),
                 version=1,
+                keep_hotel=stay,
             )
         )
         try:
@@ -715,6 +723,8 @@ class TurnService:
         finally:
             await _settle(task)  # first: a path that is not stopped keeps working whatever else goes wrong here
             reset_live_emit(live)
+        if carries:
+            plan = await self.modify_path.carry_protected(previous, plan, context=context, toolbox=toolbox)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
         self.store.add_message(
             Message(session_id=session_id, role="assistant", content=plan.summary, intent=Intent.PLAN)
@@ -868,6 +878,11 @@ class TurnService:
             },
         )
         yield TurnEvent(event="token", data={"text": question})
+
+
+def _same_place(first: str, second: str) -> bool:
+    """The saved plan and the new trip are for one place (a name is compared as the traveller typed it)."""
+    return bool(first.strip()) and first.strip().casefold() == (second or "").strip().casefold()
 
 
 def _describe_diff(diff: list[dict[str, Any]], plan) -> str:

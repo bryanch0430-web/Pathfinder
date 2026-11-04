@@ -277,25 +277,7 @@ class ModifyPath:
             )
             if new_range.start < date.today():
                 rebuilt.data_quality.gaps.append(_gap("dates", PAST_DATES))
-            rule_texts = [*context.hard_constraints, *context.preferences]
-            plan_dates = [day.date for day in rebuilt.days]
-            blocked = blocked_dates(rule_texts, plan_dates)
-            before = rebuilt.model_copy(deep=True)
-            kept_notes = _carry_protected(plan, rebuilt, blocked)
-            rebuilt.data_quality.gaps += [_gap("attractions", text) for text in kept_notes]
-            if kept_notes:
-                # The stops put back belong to their new days: their transfers, and the checks that read the days.
-                await refresh_transfers(
-                    before,
-                    rebuilt,
-                    toolbox=toolbox,
-                    source=getattr(self.plan_path.registry, "transfers", None),
-                    buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
-                )
-                rebuilt.constraints = _recheck(rebuilt, context, blocked, travel_windows(rule_texts, plan_dates))
-            errors = validate_plan(rebuilt, self.settings)
-            if errors:
-                rebuilt = await repair_plan(rebuilt, errors, self.gateway, self.settings)
+            rebuilt = await self.carry_protected(plan, rebuilt, context=context, toolbox=toolbox)
             return rebuilt, diff_plans(old_plan, rebuilt)
 
         destination = GeoLocation(
@@ -619,6 +601,32 @@ class ModifyPath:
                 else "Nothing in the plan matched that request, so it is unchanged."
             )
         return updated, diff
+
+    async def carry_protected(
+        self, old: TripPlan, rebuilt: TripPlan, *, context: TripContext, toolbox: Toolbox
+    ) -> TripPlan:
+        """Put the locked and confirmed stops of ``old`` into a plan built again, with the transfers, the checks and
+        the validation that go with them. A plan built again for the same place keeps what the traveller protected."""
+        rule_texts = [*context.hard_constraints, *context.preferences]
+        plan_dates = [day.date for day in rebuilt.days]
+        blocked = blocked_dates(rule_texts, plan_dates)
+        before = rebuilt.model_copy(deep=True)
+        kept_notes = _carry_protected(old, rebuilt, blocked)
+        rebuilt.data_quality.gaps += [_gap("attractions", text) for text in kept_notes]
+        if kept_notes:
+            # The stops put back belong to their new days: their transfers, and the checks that read the days.
+            await refresh_transfers(
+                before,
+                rebuilt,
+                toolbox=toolbox,
+                source=getattr(self.plan_path.registry, "transfers", None),
+                buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
+            )
+            rebuilt.constraints = _recheck(rebuilt, context, blocked, travel_windows(rule_texts, plan_dates))
+        errors = validate_plan(rebuilt, self.settings)
+        if errors:
+            rebuilt = await repair_plan(rebuilt, errors, self.gateway, self.settings)
+        return rebuilt
 
     async def _extract(
         self,
