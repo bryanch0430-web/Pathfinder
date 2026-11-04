@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from app.application.agents import _same_place
 from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
-from app.application.opening_hours import lines_for, only_other_weekdays
+from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
 from app.application.planning import PlanPath
 from app.application.planner import (
     NO_STOPS_NOTE,
@@ -401,6 +401,7 @@ class ModifyPath:
                 updated.hotels[0].check_in = new_range.start
                 updated.hotels[0].check_out = new_range.end
             updated.tickets = [ticket for ticket in updated.tickets if _ticket_within(ticket, new_range)]
+            updated.data_quality.gaps += [_gap("attractions", text) for text in _hours_after_a_move(updated)]
 
         if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
@@ -674,6 +675,7 @@ class ModifyPath:
                 buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
             )
             rebuilt.constraints = _recheck(rebuilt, context, blocked, travel_windows(rule_texts, plan_dates))
+            rebuilt.data_quality.gaps += [_gap("transfers", text) for text in _tight_hops(rebuilt)]
         errors = validate_plan(rebuilt, self.settings)
         if errors:
             rebuilt = await repair_plan(rebuilt, errors, self.gateway, self.settings)
@@ -1500,6 +1502,49 @@ def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
     if asks_for_new_dates(message):
         return bool(changes)
     return bool(changes) or _CHANGE_HOTEL.search(message) is None
+
+
+def _hours_after_a_move(plan: TripPlan) -> list[str]:
+    """What a trip moved to other weekdays can no longer say of its stops' opening hours.
+
+    A stop carries the hours of the weekday it was planned for. A line for another weekday is dropped (the hours are
+    unknown now) and the stops are named; a stop whose stored hours say it is closed on its new day is named with it."""
+    closed: list[str] = []
+    unknown: list[str] = []
+    for day in plan.days:
+        for item in day.items:
+            if item.hours_status != "stated":
+                continue
+            if windows_on(item.opening_hours, day.date) == []:
+                closed.append(f"{item.name} is closed on {day.date:%A} {day.date}, its source says, yet it is in the plan that day.")
+            elif only_other_weekdays(item.opening_hours, day.date):
+                item.opening_hours, item.hours_status = [], "unknown"
+                unknown.append(item.name)
+    if unknown:
+        closed.append(
+            "Opening hours were stated for other days of the week than the new dates; check them for "
+            + ", ".join(unknown)
+            + "."
+        )
+    return closed
+
+
+def _tight_hops(plan: TripPlan) -> list[str]:
+    """The stops that start sooner after the stop before them than the travel between the two takes."""
+    found: list[str] = []
+    for number, day in enumerate(plan.days, start=1):
+        ordered = sorted(day.items, key=lambda item: item.start)
+        for before, after in zip(ordered, ordered[1:]):
+            leg = after.transfer
+            if leg is None or leg.from_item_id != before.id:
+                continue
+            need = leg.minutes + leg.delay_minutes
+            if _clock_minutes(after.start) < _clock_minutes(before.end) + need:
+                found.append(
+                    f"Day {number}: {before.name} ends {before.end} and {after.name} starts {after.start}, but the "
+                    f"travel between them takes about {need} min. Locked and confirmed stops keep their times."
+                )
+    return found
 
 
 def _first_flight(plan: TripPlan) -> tuple[str, str] | None:
