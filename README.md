@@ -374,7 +374,7 @@ Rules enforced by the structure:
 - `interface/` contains no business logic; it maps HTTP/SSE to the orchestrator.
 - Every external call goes through `Toolbox`, which enforces the path allowlist and logs
   the call.
-- One turn is one trace: JSONL in `data/traces/` and Langfuse when configured.
+- One turn is one trace: a JSON file per turn in `data/traces/` (written for every turn that gets as far as a trace) and Langfuse when configured.
 
 Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The A-grade gap analysis against
 comparable GitHub projects (RAG, reranking, route optimization, sharing) is in
@@ -675,7 +675,7 @@ Pathfinder/
 | Tool-call cap | 150 per tool path | `MAX_TOOL_CALLS_PER_TURN`; the plan, an edit, a question and the refresh of an outdated plan each count their own, so one request can make up to twice the cap. A refused lookup shows as a data gap; 0 turns the cap off |
 | Freshness | weather 6 h, tickets 24 h, hotels 7 d, attractions 30 d | timestamps on every item |
 | Privacy | no identity data in long-term memory | schema + aggregate injection log |
-| Observability | one trace per turn | JSONL always; Langfuse when keys are set (an exception's text stays in the JSONL, Langfuse gets its class) |
+| Observability | one trace per turn | a JSON file per turn in `data/traces/`; Langfuse when keys are set (an exception's text stays in the file, Langfuse gets its class) |
 
 ---
 

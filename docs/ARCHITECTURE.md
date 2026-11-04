@@ -172,11 +172,12 @@ is converted into a safe error and logged.
 
 Every turn has a `TraceRecorder`: spans for understand/route/geocode/agents/tools/planner,
 generation records (purpose, model, tokens, latency) and metadata (intent, confidence,
-memory match scores). JSONL is always written to `data/traces/<request_id>.json`.
+memory match scores). One JSON document per turn is written to `data/traces/<request_id>.json` (none for a turn that ends
+with `session_not_found`, none for a look at a trip that asks no source, and none when the folder cannot be written).
 When Langfuse keys exist, a background thread posts trace/span/generation records to the
 ingestion API. Observability failures never break a turn.
 
-The `status` of a trace (the JSONL file, and `pathfinder.status` in Langfuse) says how the turn ended: `ok`,
+The `status` of a trace (the JSON file, and `pathfinder.status` in Langfuse) says how the turn ended: `ok`,
 `error` (it ended in an error event), `blocked` (a safety check stopped it), `cancelled` (the turn deadline or a
 disconnect cut it off) or `closed` (its consumer closed the stream before the turn ended).
 
