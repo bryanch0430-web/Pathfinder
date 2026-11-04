@@ -30,6 +30,7 @@ from app.infrastructure.store import PlanConflict
 from app.domain.models import (
     AgentResult,
     ConstraintCheck,
+    DataStatus,
     FreshnessMark,
     GeoLocation,
     Money,
@@ -118,11 +119,11 @@ def missing_sections(plan: TripPlan) -> list[str]:
 
     ``section_stamps`` sees only data that exists, so a section whose source failed when the plan was
     made would never be outdated. It is missing when the plan holds none of it (a forecast counts only
-    when it covers every day) and names a retryable gap for it: a source that answered "no data" is not
-    asked again.
+    when it covers every day, and a seasonal reference that stood in for a source that failed is not one)
+    and names a retryable gap for it: a source that answered "no data" is not asked again.
     """
     holds = {
-        "weather": all(day.weather is not None for day in plan.days),
+        "weather": all(day.weather is not None and day.weather.status == DataStatus.OK for day in plan.days),
         "tickets": any(ticket.mode == "flight" for ticket in plan.tickets),
         "hotels": bool(plan.hotels),
     }
