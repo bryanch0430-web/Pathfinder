@@ -112,6 +112,17 @@ export function clearStoredValue(name: StorageKey): void {
   }
 }
 
+/** Told when the sign-in is dropped, so what the page shows for the account can be dropped with it. */
+const identityListeners = new Set<() => void>();
+
+/** Call `listener` whenever the sign-in is dropped in this window. Returns the function that stops it. */
+export function subscribeIdentity(listener: () => void): () => void {
+  identityListeners.add(listener);
+  return () => {
+    identityListeners.delete(listener);
+  };
+}
+
 /**
  * Forget the account's sign-in in this browser and go back to the guest token. A browser with no guest token
  * to go back to drops the `user:` profile token too, so the next trip starts with a fresh guest token
@@ -122,6 +133,7 @@ export function forgetSignIn(): void {
   const guest = readStoredValue("guest");
   if (guest) writeStoredValue("client", guest);
   else if (readStoredValue("client")?.startsWith("user:")) clearStoredValue("client");
+  for (const listener of identityListeners) listener();
 }
 
 /**

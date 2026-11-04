@@ -48,7 +48,7 @@ import { failureText } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { useI18n, type Locale } from "./lib/i18n";
 import { planLocaleFor } from "./lib/planLocale";
-import { forgetSignIn, readStoredValue, writeStoredValue } from "./lib/storage";
+import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
@@ -133,6 +133,17 @@ export default function App() {
   const [trendingQuery, setTrendingQuery] = useState("");
   const [fx, setFx] = useState<FxSnapshot | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  // Counts the changes of who the page acts as (sign-in, sign-out, a sign-in that ended). What the page shows for an
+  // identity is keyed by it, so the next person on a shared computer never reads the last one's lists.
+  const [identityEpoch, setIdentityEpoch] = useState(0);
+  useEffect(
+    () =>
+      subscribeIdentity(() => {
+        setAuthUser(null);
+        setIdentityEpoch((count) => count + 1);
+      }),
+    [],
+  );
   const [authOpen, setAuthOpen] = useState(false);
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);
@@ -141,7 +152,10 @@ export default function App() {
   const [trips, setTrips] = useState<Trip[]>(readTrips);
   useEffect(() => subscribeTrips(setTrips), []);
 
+  // Only the latest ask is shown, so an answer meant for the identity that has gone cannot come back.
+  const trendingTicket = useRef(0);
   const loadTrending = useCallback(async () => {
+    const ticket = ++trendingTicket.current;
     setTrendingLoading(true);
     setTrendingError(null);
     try {
@@ -149,15 +163,23 @@ export default function App() {
         clientToken: readStoredValue("client") || "",
         destination: pf.context.destination || "",
       });
+      if (ticket !== trendingTicket.current) return;
       setTrending(data.items ?? []);
       setTrendingTrace(data.trace ?? null);
     } catch (cause) {
+      if (ticket !== trendingTicket.current) return;
       setTrending([]);
       setTrendingError(failureText(cause, t, "errors.trending"));
     } finally {
-      setTrendingLoading(false);
+      if (ticket === trendingTicket.current) setTrendingLoading(false);
     }
-  }, [trendingQuery, pf.context.destination]);
+  }, [trendingQuery, pf.context.destination, identityEpoch]);
+
+  // The list was ranked for the identity that has gone: it is dropped, and the effect below asks again.
+  useEffect(() => {
+    setTrending([]);
+    setTrendingTrace(null);
+  }, [identityEpoch]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setTrendingQuery(trendingInput), 300);
@@ -197,7 +219,6 @@ export default function App() {
         if (!(cause instanceof ApiError && cause.status === 401)) return;
         // A `user:` profile token is refused without its bearer, so fall back to the guest token.
         forgetSignIn();
-        setAuthUser(null);
       });
   }, []);
 
@@ -308,6 +329,7 @@ export default function App() {
     writeStoredValue("auth", result.token);
     writeStoredValue("client", result.profile_token);
     setAuthUser(result.user);
+    setIdentityEpoch((count) => count + 1);
     setAuthOpen(false);
     if (pf.sessionId) {
       try {
@@ -380,7 +402,6 @@ export default function App() {
   const handleLogout = () => {
     // Under both prefixes, so the legacy-key migration cannot sign the user back in.
     forgetSignIn();
-    setAuthUser(null);
     void pf.reload();
   };
 
@@ -588,9 +609,9 @@ export default function App() {
           />
         )
       ) : null}
-      {tab === "saved" ? <SavedPage /> : null}
+      {tab === "saved" ? <SavedPage key={identityEpoch} /> : null}
       {tab === "evaluation" ? <EvaluationPage /> : null}
-      {tab === "settings" ? <SettingsPage signedIn={Boolean(authUser)} /> : null}
+      {tab === "settings" ? <SettingsPage key={identityEpoch} signedIn={Boolean(authUser)} /> : null}
       </div>
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} />
