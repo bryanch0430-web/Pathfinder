@@ -129,7 +129,8 @@ export interface PathfinderHook {
   changedIds: string[];
   hotelChanged: boolean;
   setContext: (patch: Partial<TripContext>) => void;
-  saveContext: () => Promise<void>;
+  /** Saves the details form on the open trip. False when it is not saved: the traveller is told and Retry saves again. */
+  saveContext: () => Promise<boolean>;
   generate: () => Promise<void>;
   send: (message: string) => Promise<void>;
   setClarifyValue: (slot: string, value: string) => void;
@@ -224,6 +225,9 @@ export function usePathfinder(locale: string): PathfinderHook {
     selectedItem: null,
   });
   shownRef.current = { busy, plan, selectedItem };
+  // The details form as it is now, for a save made from a handler that was created before the last keystroke.
+  const contextRef = useRef(context);
+  contextRef.current = context;
 
   /**
    * Follow a language the traveller asked for in chat: zh-Hant shows the interface in 繁; English leaves 繁 for
@@ -269,6 +273,16 @@ export function usePathfinder(locale: string): PathfinderHook {
     setFeedbackStars(null);
   }, []);
 
+  /**
+   * Shows why something other than a turn failed. Retry does `again`; with nothing to do again it asks for the trip
+   * again. The text of an earlier failed turn is forgotten, or Retry would send it for this failure.
+   */
+  const fail = useCallback((failure: Failure, again: (() => Promise<unknown>) | null = null) => {
+    lastMessage.current = "";
+    retryRef.current = again;
+    setError(failure);
+  }, []);
+
   /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
   const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages">) => {
     if (sessionRef.current !== id) {
@@ -310,6 +324,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const bootstrap = useCallback(async () => {
     const ticket = ++navRef.current;
     retryRef.current = null;
+    lastMessage.current = "";
     setOpening(false);
     setError(null);
     try {
@@ -545,31 +560,38 @@ export function usePathfinder(locale: string): PathfinderHook {
     setContextState((current) => ({ ...current, ...patch }));
   }, []);
 
-  const saveContext = useCallback(async () => {
-    const id = sessionRef.current;
-    if (!id) return;
-    try {
-      const patch: ContextPatch = {
-        destination: context.destination,
-        origin: context.origin,
-        start_date: context.start_date,
-        end_date: context.end_date,
-        party_size: context.party_size,
-        budget: context.budget,
-        currency: context.currency,
-        hotel_style: context.hotel_style,
-        preferences: context.preferences,
-        hard_constraints: context.hard_constraints,
-      };
-      const data = await patchContext(id, patch);
-      // The answer came after another trip was opened: its details are not this view's.
-      if (sessionRef.current !== id) return;
-      setContextState(data.context);
-    } catch (cause) {
-      if (sessionRef.current === id) setError(failureOf(cause, "errors.saveDetails"));
-      throw cause;
-    }
-  }, [context]);
+  /** Saves the form on the open trip. When it fails, Retry does `again`. True when the details are saved. */
+  const persistContext = useCallback(
+    async (again: () => Promise<unknown>): Promise<boolean> => {
+      const id = sessionRef.current;
+      if (!id) return false;
+      const form = contextRef.current;
+      try {
+        const patch: ContextPatch = {
+          destination: form.destination,
+          origin: form.origin,
+          start_date: form.start_date,
+          end_date: form.end_date,
+          party_size: form.party_size,
+          budget: form.budget,
+          currency: form.currency,
+          hotel_style: form.hotel_style,
+          preferences: form.preferences,
+          hard_constraints: form.hard_constraints,
+        };
+        const data = await patchContext(id, patch);
+        // The answer came after another trip was opened: its details are not this view's.
+        if (sessionRef.current !== id) return false;
+        setContextState(data.context);
+        return true;
+      } catch (cause) {
+        if (sessionRef.current === id) fail(failureOf(cause, "errors.saveDetails"), again);
+        return false;
+      }
+    },
+    [fail],
+  );
+  const saveContext = useCallback((): Promise<boolean> => persistContext(() => saveContext()), [persistContext]);
 
   const send = useCallback(
     async (message: string) => {
@@ -730,17 +752,11 @@ export function usePathfinder(locale: string): PathfinderHook {
     [adoptPlanLocale, locale, refresh],
   );
 
-  const generate = useCallback(async () => {
-    const id = sessionRef.current;
-    try {
-      await saveContext();
-    } catch {
-      return;
-    }
-    // Another trip was opened while the details were being saved: the plan is not asked for there.
-    if (sessionRef.current !== id) return;
+  const generate = useCallback(async (): Promise<void> => {
+    // Not saved, or the traveller opened another trip while the details were being saved: nothing is planned.
+    if (!(await persistContext(() => generate()))) return;
     await send(plan ? "Re-plan with the updated details." : "Plan my trip.");
-  }, [plan, saveContext, send]);
+  }, [persistContext, plan, send]);
 
   const submitClarify = useCallback(async (message?: string) => {
     if (message && message.trim()) {
@@ -776,7 +792,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, []);
 
   const feedback = useCallback(
-    async (useful: boolean, starsOverride?: number | null) => {
+    async (useful: boolean, starsOverride?: number | null): Promise<void> => {
       const id = sessionRef.current;
       if (!id) return;
       try {
@@ -790,10 +806,12 @@ export function usePathfinder(locale: string): PathfinderHook {
           setFeedbackAdded(result.preferences_added ?? []);
         }
       } catch (cause) {
-        if (sessionRef.current === id) setError(failureOf(cause, "errors.feedback"));
+        if (sessionRef.current === id) {
+          fail(failureOf(cause, "errors.feedback"), () => feedback(useful, starsOverride));
+        }
       }
     },
-    [feedbackStars],
+    [fail, feedbackStars],
   );
 
   const reload = useCallback(async () => {
@@ -801,7 +819,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     await bootstrap();
   }, [bootstrap]);
 
-  const clearChat = useCallback(async () => {
+  const clearChat = useCallback(async (): Promise<void> => {
     const id = sessionRef.current;
     if (!id) return;
     try {
@@ -813,9 +831,9 @@ export function usePathfinder(locale: string): PathfinderHook {
       setClarifyValues({});
       setError(null);
     } catch (cause) {
-      if (sessionRef.current === id) setError(failureOf(cause, "errors.clearChat"));
+      if (sessionRef.current === id) fail(failureOf(cause, "errors.clearChat"), () => clearChat());
     }
-  }, []);
+  }, [fail]);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
@@ -834,7 +852,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       // Only a 404 means the trip is already gone. Any other answer leaves it where it is, and the page says so.
       if (!(cause instanceof ApiError && cause.status === 404)) {
         if (ticket === navRef.current) {
-          setError("errors.scrap");
+          fail("errors.scrap");
           await refresh();
         }
         return "kept";
@@ -854,7 +872,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setHotelChanged(false);
     setActiveVersion(1);
     return "gone";
-  }, [forgetTripView, refresh]);
+  }, [fail, forgetTripView, refresh]);
 
   return {
     ready,
@@ -899,8 +917,13 @@ export function usePathfinder(locale: string): PathfinderHook {
     feedback,
     setStars: setFeedbackStars,
     retry: async () => {
-      if (retryRef.current) await retryRef.current();
-      else if (lastMessage.current) await send(lastMessage.current);
+      const again = retryRef.current;
+      if (again) {
+        // The banner goes while the action is done again, and comes back if it fails again.
+        retryRef.current = null;
+        setError(null);
+        await again();
+      } else if (lastMessage.current) await send(lastMessage.current);
       else await reload();
     },
     reload,
