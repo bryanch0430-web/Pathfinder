@@ -66,6 +66,8 @@ from app.security import fence_user_message
 PAST_DATES = "The new dates are in the past."
 #: the hotel lookup, as the toolbox names it when the per-turn cap refuses it
 HOTEL_SEARCH = "hotels.search"
+#: said (and then not kept: it is an edit outcome) when a request for another or a cheaper hotel found none
+NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel stays."
 #: the answer to a request for other dates when the form holds the plan's dates: the trip form is where dates change
 CHAT_DATES_REPLY = (
     "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
@@ -269,8 +271,12 @@ class ModifyPath:
                 answer = plan.model_copy(deep=True)
                 answer.change_summary = CHAT_DATES_REPLY
                 return answer, []
+        cheaper = budget_mode or bool(re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower()))
         if date_changed and len(new_range.dates) != len(plan.days):
-            # A different length is a different shape; rebuild with the same id and version + 1.
+            # A different length is a different shape; rebuild with the same id and version + 1. The stay the
+            # traveller has is kept unless they asked for another or a cheaper one, and then it is chosen as an edit
+            # of the same length chooses it: another hotel, a lower rate for "cheaper", else the stay it had.
+            asked = hotel_requested and bool(plan.hotels)
             rebuilt = await self.plan_path.run(
                 context=context,
                 session_id=plan.session_id,
@@ -281,8 +287,16 @@ class ModifyPath:
                 version=plan.version + 1,
                 trip_id=plan.trip_id,
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
-                keep_hotel=None if hotel_requested or not plan.hotels else plan.hotels[0],
+                keep_hotel=plan.hotels[0] if plan.hotels else None,
+                pick_hotel=(lambda rows: _swap_choice(plan, rows, cheaper=cheaper)) if asked else None,
             )
+            if (
+                asked
+                and rebuilt.hotels
+                and rebuilt.hotels[0].name == plan.hotels[0].name
+                and HOTEL_SEARCH not in getattr(toolbox, "refused", ())
+            ):
+                rebuilt.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
             if new_range.start < date.today():
                 rebuilt.data_quality.gaps.append(_gap("dates", PAST_DATES))
             rebuilt = await self.carry_protected(plan, rebuilt, context=context, toolbox=toolbox)
@@ -363,27 +377,13 @@ class ModifyPath:
         if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
             candidates = (hotels.payload.get("hotels") if hotels else []) or []
-            current = updated.hotels[0].name if updated.hotels else ""
-            current_price = (
-                updated.hotels[0].price_per_night.amount
-                if updated.hotels and updated.hotels[0].price_per_night
-                else None
-            )
             if updated.hotels and not hotel_requested:
                 kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
                 updated.hotels = [kept]
                 if not refreshed:
                     updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
             else:
-                cheaper = budget_mode or bool(
-                    re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower())
-                )
-                pool = [row for row in candidates if row.get("name") != current and _hotel_near(updated, row)]
-                if cheaper:
-                    pool.sort(key=lambda row: _hotel_price(row) if _hotel_price(row) is not None else float("inf"))
-                    if current_price is not None:
-                        pool = [row for row in pool if (_hotel_price(row) or current_price) < current_price]
-                choice = pool[0] if pool else None
+                choice = _swap_choice(updated, candidates, cheaper=cheaper)
                 swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
                 # A lookup the cap refused returned nothing because it was never made: its gap says so, once.
                 searched = HOTEL_SEARCH not in getattr(toolbox, "refused", ())
@@ -397,9 +397,7 @@ class ModifyPath:
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     if searched:
-                        updated.data_quality.gaps.append(
-                            _gap("hotels", "No cheaper verified hotel was returned; the current hotel stays.")
-                        )
+                        updated.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
                 elif len(updated.days) > 1 and searched:
                     # There is no current hotel to keep: the trip has nights and no stay to put in them.
                     updated.data_quality.gaps.append(
@@ -1462,6 +1460,21 @@ def _asks_for_another_hotel(message: str, affected: list[str]) -> bool:
 def _hotel_near(plan: TripPlan, row: dict, km: float = 40) -> bool:
     """A stay in another country is not a candidate for this city."""
     return _row_near(plan.destination.geo, row, km)
+
+
+def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool) -> dict | None:
+    """The stay that replaces the plan's own when the traveller asks for another or a cheaper one, or None.
+
+    Another hotel than the one the plan has, near the city. For "cheaper" the lowest rate first, and only one that
+    is lower than the current rate; otherwise the candidate order of the source stands."""
+    current = plan.hotels[0].name if plan.hotels else ""
+    current_price = plan.hotels[0].price_per_night.amount if plan.hotels and plan.hotels[0].price_per_night else None
+    pool = [row for row in candidates if row.get("name") != current and _hotel_near(plan, row)]
+    if cheaper:
+        pool.sort(key=lambda row: _hotel_price(row) if _hotel_price(row) is not None else float("inf"))
+        if current_price is not None:
+            pool = [row for row in pool if (_hotel_price(row) or current_price) < current_price]
+    return pool[0] if pool else None
 
 
 def _row_near(anchor, row: dict, km: float) -> bool:
