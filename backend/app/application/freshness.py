@@ -231,7 +231,7 @@ class FreshnessService:
         stale_marks = any(
             mark.status == "outdated" and mark.section not in outdated for mark in plan.data_quality.freshness
         )
-        for section in absent:
+        for section in [*renew, *absent]:
             # Noted before the fetch, so a second request arriving meanwhile does not ask again.
             self._tried[(plan.trip_id, section)] = now
         self._tried = {
@@ -250,9 +250,15 @@ class FreshnessService:
             sections = [*renew, *absent]
             prices_before = _prices(updated)
             checks_before = _derived_checks(updated, request_context)
-            answers = await asyncio.gather(
-                *(self._refetch(section, updated, request_context, toolbox, now) for section in sections)
-            )
+            try:
+                answers = await asyncio.gather(
+                    *(self._refetch(section, updated, request_context, toolbox, now) for section in sections)
+                )
+            except BaseException:
+                # Cancelled (the reply was stopped) or failed: nothing was asked to the end, so another look may ask.
+                for section in sections:
+                    self._tried.pop((plan.trip_id, section), None)
+                raise
             fetched = dict(zip(sections, answers))
             marks = {
                 mark.section: mark
@@ -260,9 +266,9 @@ class FreshnessService:
                 if not (mark.status == "outdated" and mark.section not in outdated)
             }
             refreshed = [section for section, (note, _) in fetched.items() if note is None]
-            for section in renew:
-                if section not in refreshed:
-                    self._tried[(plan.trip_id, section)] = now  # asked, and not renewed: not asked again for a while
+            for section in refreshed:
+                self._tried.pop((plan.trip_id, section), None)  # renewed or filled: nothing to wait for
+            # A section asked and not renewed keeps the record made before the fetch: not asked again for a while.
             for section in outdated:
                 note = fetched[section][0] if section in fetched else NOT_ASKED_YET
                 marks[section] = FreshnessMark(

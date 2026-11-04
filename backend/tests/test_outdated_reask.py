@@ -128,3 +128,63 @@ def test_a_look_at_the_trip_that_asks_nothing_writes_no_trace_file(settings: Set
         shown = scene.reopen(shown)
 
     assert _traces(settings) == written
+
+
+# -- the record is made when the source is asked, not when the answer is in --------------------------------
+
+
+class Slow(Nothing):
+    """A hotel source that takes a moment to say it has nothing."""
+
+    async def search(self, **_: Any) -> list:
+        self.asked += 1
+        await asyncio.sleep(0.05)
+        return []
+
+
+def test_two_reopenings_at_once_ask_a_source_that_cannot_renew_an_outdated_section_only_once(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    scene = _scene(settings, offline_gateway)
+    slow = Slow()
+    scene.service.registry.hotels = [slow]
+
+    async def both() -> None:
+        await asyncio.gather(scene.service.on_reopen(scene.plan), scene.service.on_reopen(scene.plan))
+
+    asyncio.run(both())
+
+    assert slow.asked == 1
+
+
+def test_a_look_that_is_cancelled_before_the_source_answered_does_not_keep_the_next_one_from_asking(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    scene = _scene(settings, offline_gateway)
+    slow = Slow()
+    scene.service.registry.hotels = [slow]
+
+    async def cancelled_then_again() -> None:
+        look = asyncio.ensure_future(scene.service.on_reopen(scene.plan))
+        await asyncio.sleep(0.01)  # the source has been asked and has not answered
+        look.cancel()
+        await asyncio.gather(look, return_exceptions=True)
+        await scene.service.on_reopen(scene.plan)
+
+    asyncio.run(cancelled_then_again())
+
+    assert slow.asked == 2
+
+
+def test_what_was_asked_long_ago_is_forgotten_and_what_was_asked_lately_is_not(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    scene = _scene(settings, offline_gateway)
+    now = scene.clock[0]
+    scene.service._tried[("another-trip", "hotels")] = now - timedelta(seconds=RETRY_AFTER_SECONDS + 60)
+    scene.service._tried[("a-trip-asked-lately", "hotels")] = now - timedelta(seconds=60)
+
+    scene.reopen(scene.plan)
+
+    assert ("another-trip", "hotels") not in scene.service._tried
+    assert ("a-trip-asked-lately", "hotels") in scene.service._tried
