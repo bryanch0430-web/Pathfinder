@@ -570,6 +570,8 @@ export default function App() {
                   error={pf.sessionId ? pf.error : null}
                   disabled={!pf.sessionId}
                   tripId={pf.sessionId}
+                  draft={pf.draft}
+                  onDraftChange={pf.setDraft}
                   onRetry={() => void pf.retry()}
                   onClear={() => void pf.clearChat()}
                   trace={pf.trace}

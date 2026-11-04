@@ -414,6 +414,8 @@ export function ChatPanel({
   live,
   disabled = false,
   tripId = null,
+  draft: heldDraft,
+  onDraftChange,
 }: {
   messages: ChatMessage[];
   onSend: (message: string) => void;
@@ -436,20 +438,28 @@ export function ChatPanel({
   disabled?: boolean;
   /** The trip the chat belongs to. A message typed and not sent stays with its trip, not with the next one opened. */
   tripId?: string | null;
+  /**
+   * The message typed in the box and not sent, and the call that changes it. The page holds the drafts of its trips, so
+   * that they outlive the panel; without `onDraftChange` the panel keeps a draft per trip itself.
+   */
+  draft?: string;
+  onDraftChange?: (value: string) => void;
 }) {
   const { t } = useI18n();
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [ownDrafts, setOwnDrafts] = useState<Record<string, string>>({});
   const draftKey = tripId ?? "";
-  const draft = drafts[draftKey] ?? "";
-  const setDraft = (value: string) => setDrafts((current) => ({ ...current, [draftKey]: value }));
+  const draft = onDraftChange ? (heldDraft ?? "") : (ownDrafts[draftKey] ?? "");
+  const setDraft = (value: string) =>
+    onDraftChange ? onDraftChange(value) : setOwnDrafts((current) => ({ ...current, [draftKey]: value }));
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  // The box grows with what is typed in it: it is measured again for the draft of the trip that is shown now.
+  // The box grows with what is typed in it: it is measured again whenever the draft changes, as when the trip shown
+  // changes or a message that was not sent comes back.
   useEffect(() => {
     const box = composerRef.current;
     if (!box) return;
     box.style.height = "auto";
     box.style.height = `${Math.min(box.scrollHeight, 168)}px`;
-  }, [draftKey]);
+  }, [draft]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastContent = messages[messages.length - 1]?.content ?? "";
   useEffect(() => {
