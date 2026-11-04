@@ -243,13 +243,22 @@ def _restore_facts(original: TripPlan, candidate: TripPlan) -> None:
 
 
 def is_edit_outcome(gap: DataGap) -> bool:
-    """A gap that says what an edit could not do (no stop found, nothing cheaper came back), not what the
-    plan lacks. The reply to that message tells it; the plan does not keep it."""
+    """A gap that says what an edit could not do (no stop found, a removal that matched none, two stops that
+    could not be told apart, a place already in the plan, nothing cheaper came back), not what the plan lacks.
+    The reply to that message tells it; the plan does not keep it. The messages are `ModifyPath`'s: each of its
+    attraction outcomes says the itinerary or the stop "stayed as it was", or that a place "cannot be added twice"."""
     text = f"{gap.section} {gap.message}".lower()
     if gap.section == "hotels":
         return "no cheaper verified hotel" in text
     return gap.section == "attractions" and any(
-        phrase in text for phrase in ("could not find", "no alternative stop", "no verified stop")
+        phrase in text
+        for phrase in (
+            "could not find",
+            "no alternative stop",
+            "no verified stop",
+            "stayed as it was",
+            "cannot be added twice",
+        )
     )
 
 
