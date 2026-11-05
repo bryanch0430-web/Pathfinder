@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -175,22 +176,28 @@ class ProbeStore(SQLiteStore):
     """Scratch store that also keeps the tool log in memory for the allowlist check."""
 
     def __init__(self, path: Path):
-        self._open: dict[bool, _KeptOpen] = {}
+        self._open: dict[tuple[bool, int], _KeptOpen] = {}
+        self._open_lock = threading.Lock()
         super().__init__(path)
         self.tool_log: list[dict[str, str]] = []
 
     def _connect(self, autocommit: bool = False):
-        # A throwaway scratch database: one connection per mode, no fsync.
-        if autocommit not in self._open:
-            conn = super()._connect(autocommit)
-            conn.execute("PRAGMA synchronous=OFF")
-            self._open[autocommit] = _KeptOpen(conn)
-        return self._open[autocommit]
+        # A throwaway scratch database: one connection per mode and thread, no fsync. The turn's background
+        # preference write runs in a worker thread; sharing one connection with the turn made their transactions
+        # commit each other's ("cannot commit - no transaction is active", a row read back empty).
+        key = (autocommit, threading.get_ident())
+        with self._open_lock:
+            if key not in self._open:
+                conn = super()._connect(autocommit)
+                conn.execute("PRAGMA synchronous=OFF")
+                self._open[key] = _KeptOpen(conn)
+            return self._open[key]
 
     def close(self) -> None:
-        for kept in self._open.values():
-            kept.conn.close()
-        self._open.clear()
+        with self._open_lock:
+            for kept in self._open.values():
+                kept.conn.close()
+            self._open.clear()
 
     def log_tool_call(self, **row: Any) -> None:
         self.tool_log.append({"request_id": row["request_id"], "tool": row["tool"], "status": row["status"]})
