@@ -1,6 +1,6 @@
 # Optional local hybrid RAG (BM25 + BGE-small + optional BGE reranker).
 # Install with: pip install -r requirements-rag.txt
 # Without these packages the app falls back to the lexical retriever.
-torch>=2.0
+torch>=2.15.0
 transformers>=4.48,<6
 numpy>=1.26
