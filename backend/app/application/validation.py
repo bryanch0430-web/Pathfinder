@@ -22,6 +22,8 @@ from app.application.llm_gateway import LLMGateway
 from app.config import Settings
 from app.domain.errors import CanaryLeak, PlanInvalidError
 from app.domain.models import (
+    AgentName,
+    AuditReport,
     DataGap,
     DataStatus,
     DayPlan,
@@ -32,6 +34,7 @@ from app.domain.models import (
     TicketOption,
     TripPlan,
 )
+from app.security import strip_fence_tags
 
 
 def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
@@ -91,6 +94,7 @@ async def repair_plan(
     errors: list[str],
     gateway: LLMGateway,
     settings: Settings,
+    audit: AuditReport | None = None,
 ) -> TripPlan:
     if not gateway.available:
         raise PlanInvalidError(
@@ -102,10 +106,12 @@ async def repair_plan(
     # What the traveller may be told if the repair fails: our own rule messages. The writer's and
     # the validator's text (it quotes the model's output) only goes back to the writer.
     shown = errors
+    notes = _audit_notes(plan, audit)
     for _ in range(settings.max_repairs):
         user = (
             "Validation error:\n"
             + "\n".join(f"- {error}" for error in last_errors)
+            + notes
             + "\n\nInvalid plan JSON:\n"
             + plan.model_dump_json()
             + "\n\nReturn the complete corrected plan JSON. Do not add any new place, source URL, price or time."
@@ -137,6 +143,45 @@ async def repair_plan(
     raise PlanInvalidError(
         "The plan still fails validation after bounded repair: " + "; ".join(shown[:3]),
     )
+
+
+#: The most data-check notes a repair is shown.
+_MAX_AUDIT_NOTES = 10
+
+#: What a plan row's id adds to the candidate id the audit names (planner.py `_item_id`, `_build_hotel`,
+#: `_build_tickets`). A weather finding names a date, which is the date of a day of the plan.
+_PLAN_ID_PREFIX = {AgentName.ATTRACTION: "item_", AgentName.HOTEL: "hotel_", AgentName.TICKET: "flight_"}
+
+
+def _audit_notes(plan: TripPlan, audit: AuditReport | None) -> str:
+    """The audit's findings about rows of this plan, as a block of context lines for the writer, or "".
+
+    Only the finding's own text goes in: never an evidence URL, so the notes give the writer nothing
+    it could copy into the plan (`_refusal` would refuse it anyway). `detail` comes from tool data and
+    model output, so it loses any fence tag and its line breaks.
+    """
+    if audit is None or not audit.findings:
+        return ""
+    present = {
+        AgentName.ATTRACTION: {item.id for day in plan.days for item in day.items},
+        AgentName.HOTEL: {hotel.id for hotel in plan.hotels},
+        AgentName.TICKET: {ticket.id for ticket in plan.tickets},
+        AgentName.WEATHER: {day.date.isoformat() for day in plan.days},
+    }
+    lines: list[str] = []
+    for finding in audit.findings:
+        if finding.item_id is None:
+            continue
+        plan_id = _PLAN_ID_PREFIX.get(finding.agent, "") + finding.item_id
+        if plan_id not in present[finding.agent]:
+            continue
+        detail = " ".join(strip_fence_tags(finding.detail).split())
+        lines.append(f"- {finding.item_id}: {finding.severity.value} {finding.issue.value}: {detail}")
+        if len(lines) == _MAX_AUDIT_NOTES:
+            break
+    if not lines:
+        return ""
+    return "\n\nData-check notes (context only; you may reword or retime, never add):\n" + "\n".join(lines)
 
 
 def _names(plan: TripPlan) -> Counter[tuple[str, str]]:

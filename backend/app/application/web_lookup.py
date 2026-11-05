@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
+from app.application.toolbox import LoggedWebSource, Toolbox
+from app.config import Settings
 from app.domain.errors import ProviderError, ToolBudgetExceeded
 from app.domain.models import DataGap, FailureKind
 from app.infrastructure.providers.websearch import WebAnswer, WebResult
@@ -97,6 +99,39 @@ def relevance(row: WebResult, *, city: str, section: str) -> float:
     if 0 <= row.authority <= 4:
         score += 0.05 * row.authority
     return round(min(1.0, score), 2)
+
+
+def _grok_source(registry: Any, settings: Settings) -> Any | None:
+    """The slow search, used only when DeepSeek relevance is zero.
+
+    ``grok_search_enabled`` still gates the question-answering path. This
+    fallback constructs the client from the xAI key when that flag is off,
+    and returns None when the key is missing.
+    """
+    configured = list(getattr(registry, "web_deep", None) or [])
+    if configured:
+        return configured[0]
+    from app.infrastructure.providers.websearch import GrokSearchSource
+
+    source = GrokSearchSource(settings)
+    return source if source.available else None
+
+
+def web_sources(registry: Any, settings: Settings, toolbox: Toolbox | None) -> tuple[Any | None, Any | None]:
+    """The DeepSeek and Grok search sources, or None for one that is not available.
+
+    With a toolbox, each source comes wrapped so that its calls are tool calls: logged,
+    traced as ``tool.web.search`` and counted against the turn's cap.
+    """
+    web = list(getattr(registry, "web", None) or [])
+    deepseek = web[0] if web else None
+    grok = _grok_source(registry, settings)
+    if deepseek is None and grok is None:
+        return None, None
+    if toolbox is not None:
+        deepseek = LoggedWebSource(deepseek, toolbox) if deepseek is not None else None
+        grok = LoggedWebSource(grok, toolbox) if grok is not None else None
+    return deepseek, grok
 
 
 def inadequate_gap(section: str, city: str) -> DataGap:

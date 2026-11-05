@@ -23,7 +23,7 @@ LANGUAGE_RULE = (
 
 #: Prompts whose reply is a typed decision, never text the traveller reads. They
 #: skip the language rule; the persona, security rule and sentinel stay.
-MACHINE_PROMPTS = frozenset({"router"})
+MACHINE_PROMPTS = frozenset({"router", "audit"})
 #: Prompts that set their own output language (the plan translator writes Chinese).
 OWN_LANGUAGE_PROMPTS = frozenset({"translate"})
 

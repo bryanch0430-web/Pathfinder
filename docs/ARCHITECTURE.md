@@ -68,6 +68,20 @@ start/finish frames reach the browser before the plan is ready.
 2. Start `AttractionAgent`, `HotelAgent`, `WeatherAgent`, `TicketAgent` concurrently.
 3. `asyncio.wait` with `preplan_budget_seconds`; unfinished agents are cancelled and
    converted to `AgentResult(status=UNAVAILABLE, DataGap(TIMEOUT))`.
+   Only when `enable_preplan_audit` is on (default off): an `audit` progress event, one
+   writer call (`preplan.audit`, `audit_timeout_seconds`) that checks the four agents'
+   results and returns typed findings, then at most `audit_max_follow_ups` logged
+   `web.search` follow-ups (together bounded by `audit_follow_up_seconds`) whose results
+   are reference material only. The same `AuditReport` goes to `Planner.compose` (blocked
+   candidates are dropped within a cap, except a place the traveller named and the stay
+   they keep; the findings are shown to the writer, and their evidence URLs are kept out
+   of the plan's notes and summary) and to `repair_plan`. The audit fails open: any failure
+   gives a skipped report and the trip still plans; a canary leak is re-raised. With the
+   flag off there is no audit event and no extra call. The modify path's own edits are not
+   audited (they run the agents through `PlanPath.run_agents`). A rebuild that goes through
+   `PlanPath.run` is a plan-path run and is audited too when the flag is on: the modify
+   path's rebuild for a change of trip length (`modification.py`) and the orchestrator's
+   new trip to the same place that keeps a confirmed or locked stay (`keep_hotel`).
 4. `Planner.compose` builds candidate ids; the writer (if present) may only return
    `{summary, day_titles, assignments, hotel_id}`; every id is validated.
 5. Deterministic schedule assigns times, travel estimates, meals and cost.

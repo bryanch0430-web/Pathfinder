@@ -132,6 +132,13 @@ class Settings(BaseSettings):
     router_rules_first: bool = True
     max_repairs: int = 2
     preplan_budget_seconds: float = 90.0
+    # LLM audit of the four pre-planning agents' results (plan path only). Off by default; it
+    # fails open, so a failed audit never blocks a trip.
+    enable_preplan_audit: bool = False
+    audit_timeout_seconds: float = 20.0
+    audit_follow_up_seconds: float = 15.0
+    audit_max_follow_ups: int = Field(3, ge=0, le=5)
+    audit_max_items_per_agent: int = Field(15, ge=1)
     agent_timeout_seconds: float = 30.0
     http_timeout_seconds: float = 15.0
     #: Retries of a request to the main data sources: flights, hotels, routes, places, the forecast,

@@ -28,11 +28,14 @@ from app.application.transfers import (
 )
 from app.application.trip_rules import DayWindow, blocked_dates, travel_windows
 from app.application.trip_rules import must_include as _must_include
+from app.application.validation import _URL
 from app.config import Settings
 from app.domain.errors import CanaryLeak
 from app.domain.models import (
     AgentResult,
     AgentStatus,
+    AuditReport,
+    AuditSeverity,
     ConstraintCheck,
     ConstraintStatus,
     CostBreakdown,
@@ -156,12 +159,42 @@ class Planner:
         transfers=None,
         keep_hotel: HotelStay | None = None,
         pick_hotel: Callable[[list[dict]], dict | None] | None = None,
+        audit: AuditReport | None = None,
     ) -> TripPlan:
         places = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("places", []))
         meals = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("meals", []))
         hotels = list(results.get("hotel", AgentResult(agent="hotel", status=AgentStatus.UNAVAILABLE)).payload.get("hotels", []))
+        must_see = _must_see(context)
+        attraction_payload = results.get("attraction").payload if results.get("attraction") else {}
+        wishes = {str(key): value for key, value in (attraction_payload.get("wishes") or {}).items()}
+        wish_failures = {str(key): str(value) for key, value in (attraction_payload.get("wish_failures") or {}).items()}
+        # A named must-include is placed before the rest, so a short trip with
+        # more candidates than slots never drops the stop the traveller asked for.
+        required = must_see + _required_names(context) + [name for name in wishes.values() if name]
+        audit_brief: list[dict] = []
+        if audit is not None and audit.findings:
+            # A capped block drops the candidate before the model sees it and
+            # before the deterministic fallback, so it holds without a model too.
+            # A place the traveller named, and the stay they keep, are never dropped:
+            # their finding stays in the brief as a warning.
+            audit_blocked = set(audit.blocked_ids)
+            if required:
+                audit_blocked -= {
+                    str(row.get("id")) for row in [*places, *meals]
+                    if _is_must_see(str(row.get("name", "")), required)
+                }
+            if keep_hotel is not None:
+                audit_blocked -= {str(row.get("id")) for row in hotels if row.get("name") == keep_hotel.name}
+            places, _ = apply_audit_blocks(places, audit_blocked)
+            meals, _ = apply_audit_blocks(meals, audit_blocked)
+            hotels, _ = apply_audit_blocks(hotels, audit_blocked)
         flights = list(results.get("ticket", AgentResult(agent="ticket", status=AgentStatus.UNAVAILABLE)).payload.get("flights", []))
         weather_rows = list(results.get("weather", AgentResult(agent="weather", status=AgentStatus.UNAVAILABLE)).payload.get("days", []))
+        if audit is not None and audit.findings:
+            # Flights and weather are not blocked here; a weather item's id is its date.
+            kept_ids = {str(row.get("id")) for row in [*places, *meals, *hotels, *flights] if row.get("id")}
+            kept_ids |= {str(row.get("date")) for row in weather_rows if row.get("date")}
+            audit_brief = _audit_brief(audit, kept_ids)
         weather_by_date = {row.get("date"): row for row in weather_rows if row.get("date")}
 
         known_place_ids = {row["id"] for row in places}
@@ -176,21 +209,20 @@ class Planner:
             flights=flights,
             weather_rows=weather_rows,
             memory_summaries=memory_summaries,
+            audit_brief=audit_brief,
         )
+        evidence_urls = {ref["url"] for entry in audit_brief for ref in entry["evidence"] if ref.get("url")}
+        if draft is not None and evidence_urls:
+            # Audit evidence is reference material for the planner, not a link for the traveller.
+            notes_kept = [text for text in (_drop_urls(note, evidence_urls) for note in draft.notes) if text]
+            draft = draft.model_copy(update={"notes": notes_kept, "summary": _drop_urls(draft.summary, evidence_urls)})
 
         dates = list(date_range.dates)
         day_count = len(dates)
         pace = _pace(context)
-        must_see = _must_see(context)
         rule_texts = [*context.hard_constraints, *context.preferences]
         blocked = blocked_dates(rule_texts, dates)
         windows = travel_windows(rule_texts, dates)
-        attraction_payload = results.get("attraction").payload if results.get("attraction") else {}
-        wishes = {str(key): value for key, value in (attraction_payload.get("wishes") or {}).items()}
-        wish_failures = {str(key): str(value) for key, value in (attraction_payload.get("wish_failures") or {}).items()}
-        # A named must-include is placed before the rest, so a short trip with
-        # more candidates than slots never drops the stop the traveller asked for.
-        required = must_see + _required_names(context) + [name for name in wishes.values() if name]
         if required:
             places.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), required) else 1)
         diet = _diet(context)
@@ -389,6 +421,7 @@ class Planner:
         flights: list[dict],
         weather_rows: list[dict],
         memory_summaries: list[str],
+        audit_brief: list[dict] | None = None,
     ) -> PlannerDraft | None:
         if not self.gateway.available:
             return None
@@ -440,6 +473,9 @@ class Planner:
                 "hotels": [row["id"] for row in hotels],
             },
         }
+        if audit_brief:
+            # Untrusted text (tool data, an LLM's detail): fenced below with the rest of the payload.
+            payload["audit"] = audit_brief
         try:
             data = await self.gateway.json(
                 "planner",
@@ -706,6 +742,69 @@ class Planner:
             status=status,  # type: ignore[arg-type]
             notes=unknown,
         )
+
+
+def apply_audit_blocks(rows: list[dict], blocked: set[str]) -> tuple[list[dict], set[str]]:
+    """Drop the audit's blocked rows from one candidate section, within a cap.
+
+    Only ids that are in this section count. They are removed only when that is at
+    most half the section and at least one row remains; otherwise nothing is removed
+    and the findings stay as warnings for the planner.
+    """
+    hits = {str(row.get("id")) for row in rows if str(row.get("id")) in blocked}
+    if not hits or len(hits) > len(rows) // 2 or len(hits) >= len(rows):
+        return rows, set()
+    return [row for row in rows if str(row.get("id")) not in hits], hits
+
+
+AUDIT_BRIEF_LIMIT = 20
+_SEVERITY_ORDER = {AuditSeverity.BLOCK: 0, AuditSeverity.WARN: 1, AuditSeverity.INFO: 2}
+
+
+def _drop_urls(text: str, urls: set[str]) -> str:
+    """``text`` without the URLs in ``urls`` (compared case-insensitively, trailing .,;:) aside)."""
+    wanted = {url.lower() for url in urls}
+
+    def replace(match: re.Match[str]) -> str:
+        found = match.group(0)
+        core = found.rstrip(".,;:)")
+        return found[len(core):] if core.lower() in wanted else found
+
+    dropped = _URL.sub(replace, text)
+    if dropped == text:
+        return text
+    return re.sub(r"[ \t]{2,}", " ", dropped).strip()
+
+
+def _audit_brief(audit: AuditReport, kept_ids: set[str]) -> list[dict]:
+    """The audit findings the planner sees: those about a kept candidate or a whole section.
+
+    At most AUDIT_BRIEF_LIMIT entries, blocks first, then warnings, then notes, in report order within each.
+    """
+    brief: list[dict] = []
+    ordered = sorted(enumerate(audit.findings), key=lambda pair: _SEVERITY_ORDER.get(pair[1].severity, 3))
+    for index, finding in ordered:
+        if len(brief) >= AUDIT_BRIEF_LIMIT:
+            break
+        if finding.item_id is not None and finding.item_id not in kept_ids:
+            continue
+        evidence = [
+            {"title": ref.title, "url": ref.url}
+            for entry in audit.evidence
+            if entry.finding_index == index
+            for ref in entry.references
+        ]
+        brief.append(
+            {
+                "agent": str(finding.agent),
+                "item_id": finding.item_id,
+                "issue": str(finding.issue),
+                "severity": str(finding.severity),
+                "detail": finding.detail,
+                "evidence": evidence,
+            }
+        )
+    return brief
 
 
 def _summary(

@@ -665,6 +665,58 @@ class AgentResult(BaseModel):
     partial: bool = False
 
 
+class AuditSeverity(StrEnum):
+    INFO = "info"
+    WARN = "warn"
+    BLOCK = "block"
+
+
+class AuditIssue(StrEnum):
+    SUSPECT = "suspect_fact"
+    STALE = "stale"
+    OFF_REQUEST = "off_request"
+    INCONSISTENT = "inconsistent"
+    MISSING = "missing"
+
+
+class AuditFollowUp(BaseModel):
+    """A web search the audit asks for to check one finding."""
+
+    query: str = Field(min_length=3, max_length=160)
+
+
+class AuditFinding(BaseModel):
+    agent: AgentName
+    item_id: str | None = None
+    issue: AuditIssue
+    severity: AuditSeverity
+    detail: str = Field(max_length=300)
+    follow_up: AuditFollowUp | None = None
+
+
+class FollowUpEvidence(BaseModel):
+    """What a follow-up search found: reference material only, never a price or a temperature."""
+
+    finding_index: int
+    query: str
+    references: list[SourceRef] = Field(default_factory=list)
+    gap: DataGap | None = None
+
+
+class AuditReport(BaseModel):
+    findings: list[AuditFinding] = Field(default_factory=list)
+    evidence: list[FollowUpEvidence] = Field(default_factory=list)
+    #: Why the audit did not run or finished early; the trip plans either way.
+    skipped: str | None = None
+
+    @property
+    def blocked_ids(self) -> set[str]:
+        return {
+            f.item_id for f in self.findings
+            if f.severity == AuditSeverity.BLOCK and f.item_id is not None
+        }
+
+
 class PlaceCandidate(BaseModel):
     name: str
     category: str = "attraction"
