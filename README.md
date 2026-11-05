@@ -316,8 +316,10 @@ The planner chooses *which* verified stops belong to a day; the scheduler owns t
   moves the traveller along them. A straight dashed line appears only when the provider
   returns nothing for that pair.
 - **Pace shapes the day.** `slow pace` → at most 3 stops, 2 h each, 15 min of slack;
-  balanced → 4 stops; fast → 5. Empty days are rebalanced so a day is not left with one
-  stop while another has three.
+  balanced → 4 stops; fast → 5. Days are rebalanced so a day is not left with one
+  stop while another has three, and no day with room is left empty while another has two
+  or more. A longer trip asks for three place candidates a day (at least 10, at most 20,
+  one page of Google Places); with fewer places than days the rest stay open.
 - **Early slots are data-driven, not site-specific.** The first stop opens the day at
   08:00 when the traveller named it (`I want Fushimi Inari` → `must-see:` preference), when
   the source says it opens by 08:30, when its review count marks it as a place crowds
