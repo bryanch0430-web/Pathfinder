@@ -14,7 +14,7 @@ import json
 import re
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.application.llm_gateway import LLMGateway
 from app.config import Settings
@@ -34,8 +34,36 @@ _URL_IN_QUERY = re.compile(r"(?i)https?://|www\.")
 _SEVERITY_ORDER = {AuditSeverity.BLOCK: 0, AuditSeverity.WARN: 1, AuditSeverity.INFO: 2}
 
 
+_QUERY_MIN, _QUERY_MAX, _DETAIL_MAX = 3, 160, 300
+
+
 class _AuditDraft(BaseModel):
-    findings: list[AuditFinding]
+    """The model's raw reply. Deliberately lenient: the gateway re-asks the writer when this schema
+    fails, so a too-long field must not fail it. Each finding is checked on its own in ``_sanitise``."""
+
+    findings: list[Any]
+
+
+def _parse_finding(raw: Any) -> AuditFinding | None:
+    """One finding from the raw reply, or None when it cannot be made valid (only it is dropped)."""
+    if not isinstance(raw, dict):
+        return None
+    data = dict(raw)
+    detail = data.get("detail")
+    if isinstance(detail, str):
+        data["detail"] = detail[:_DETAIL_MAX]
+    follow_up = data.get("follow_up")
+    if isinstance(follow_up, dict):
+        query = follow_up.get("query")
+        query = query.strip() if isinstance(query, str) else ""
+        ok = _QUERY_MIN <= len(query) <= _QUERY_MAX and not _URL_IN_QUERY.search(query)
+        data["follow_up"] = {"query": query} if ok else None
+    else:
+        data["follow_up"] = None
+    try:
+        return AuditFinding.model_validate(data)
+    except ValidationError:
+        return None
 
 
 def _rows(result: AgentResult | None, agent: AgentName) -> list[dict]:
@@ -75,6 +103,12 @@ def _price(row: dict) -> Any:
     return price
 
 
+def _hours(value: Any) -> list:
+    if isinstance(value, str):
+        return [value] if value else []
+    return value[:2] if isinstance(value, list) else []
+
+
 def _item(row: dict, agent: AgentName) -> dict:
     if agent == AgentName.WEATHER:
         day = _row_id(row, agent)
@@ -92,7 +126,7 @@ def _item(row: dict, agent: AgentName) -> dict:
         "rating": row.get("rating"),
         "review_count": row.get("review_count"),
         "address": row.get("address"),
-        "opening_hours": (row.get("opening_hours") or [])[:2],
+        "opening_hours": _hours(row.get("opening_hours")),
         "price": _price(row),
         "source_titles": [
             str(ref.get("title") or "") for ref in (row.get("source_refs") or []) if isinstance(ref, dict)
@@ -138,16 +172,17 @@ def _audit_payload(
 
 
 def _sanitise(
-    findings: list[AuditFinding],
+    raw_findings: list[Any],
     known: dict[AgentName, set[str]],
     settings: Settings,
 ) -> list[AuditFinding]:
     kept: list[AuditFinding] = []
-    for finding in findings:
+    for raw in raw_findings:
+        finding = _parse_finding(raw)
+        if finding is None:
+            continue
         if finding.item_id is not None and finding.item_id not in known.get(finding.agent, set()):
             continue
-        if finding.follow_up is not None and _URL_IN_QUERY.search(finding.follow_up.query):
-            finding = finding.model_copy(update={"follow_up": None})
         kept.append(finding)
     # Follow-ups are capped; the most severe findings keep theirs (stable within a severity).
     wanting = sorted(

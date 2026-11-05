@@ -239,3 +239,63 @@ def test_audit_payload_is_bounded(settings):
     assert len(sent["agents"]["attraction"]["items"]) == 15
     assert sent["trip"]["destination"] == "Tokyo"
     assert sent["agents"]["ticket"]["status"] == "unavailable"
+
+
+# ---- Task 2 fix round 1: a bad field drops that field or finding, never the whole audit ----
+
+
+def test_audit_drops_overlong_follow_up_query(settings):
+    report, llm = _run(settings, _reply(_finding("p1", "block", {"query": "q" * 161})))
+    assert len(report.findings) == 1
+    assert report.findings[0].follow_up is None
+    assert report.skipped is None
+    assert llm.purposes == ["preplan.audit"]
+
+
+def test_audit_drops_too_short_follow_up_query(settings):
+    report, llm = _run(settings, _reply(_finding("p1", "warn", {"query": " a "})))
+    assert len(report.findings) == 1
+    assert report.findings[0].follow_up is None
+    assert llm.purposes == ["preplan.audit"]
+
+
+def test_audit_truncates_overlong_detail(settings):
+    finding = _finding("p1", "block")
+    finding["detail"] = "d" * 450
+    report, llm = _run(settings, _reply(finding))
+    assert len(report.findings) == 1
+    assert report.findings[0].detail == "d" * 300
+    assert llm.purposes == ["preplan.audit"]
+
+
+def test_audit_drops_only_the_invalid_finding(settings):
+    bad_severity = _finding("p1")
+    bad_severity["severity"] = "critical"
+    bad_issue = _finding("p1")
+    bad_issue["issue"] = "weird"
+    bad_agent = _finding("p1", agent="spaceship")
+    report, llm = _run(settings, _reply(bad_severity, _finding("p1", "block"), bad_issue, bad_agent, "oops"))
+    assert [f.severity for f in report.findings] == [AuditSeverity.BLOCK]
+    assert report.skipped is None
+    assert llm.purposes == ["preplan.audit"]
+
+
+def test_audit_payload_opening_hours_string_is_not_sliced(settings):
+    results = _results()
+    results["attraction"].payload["places"][0]["opening_hours"] = "Mon-Sun 9-5"
+    seen: list[str] = []
+
+    class Recording:
+        name = "rec"
+        available = True
+
+        async def complete(self, *, user, **_):
+            seen.append(user)
+            return LLMResult(text='{"findings": []}', model="rec")
+
+    asyncio.run(audit_results(
+        results=results, context=_context(), date_range=_range(),
+        gateway=_gateway(settings, Recording()), settings=settings,
+    ))
+    item = json.loads(seen[0])["agents"]["attraction"]["items"][0]
+    assert item["opening_hours"] == ["Mon-Sun 9-5"]
