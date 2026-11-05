@@ -299,3 +299,31 @@ def test_audit_payload_opening_hours_string_is_not_sliced(settings):
     ))
     item = json.loads(seen[0])["agents"]["attraction"]["items"][0]
     assert item["opening_hours"] == ["Mon-Sun 9-5"]
+
+
+# ---- empty-days fix round 1: one audit call sees a long trip's whole attraction pool ----
+
+
+def test_audit_sees_twenty_places_and_six_meals_with_the_default_cap(settings):
+    from app.application.agents import MAX_PLACE_CANDIDATES
+
+    seen: list[str] = []
+
+    class Recording:
+        name = "rec"
+        available = True
+
+        async def complete(self, *, user, **_):
+            seen.append(user)
+            return LLMResult(text='{"findings": []}', model="rec")
+
+    results = _results(places=MAX_PLACE_CANDIDATES)
+    meals = [dict(row, id=f"m{i + 1}", name=f"Meal {i + 1}") for i, row in enumerate(_results(places=6)["attraction"].payload["places"])]
+    results["attraction"].payload["meals"] = meals
+    report = asyncio.run(audit_results(
+        results=results, context=_context(), date_range=_range(),
+        gateway=_gateway(settings, Recording()), settings=settings,
+    ))
+    assert report.skipped is None
+    ids = [item["id"] for item in json.loads(seen[0])["agents"]["attraction"]["items"]]
+    assert ids == [f"p{i + 1}" for i in range(MAX_PLACE_CANDIDATES)] + [f"m{i + 1}" for i in range(6)]

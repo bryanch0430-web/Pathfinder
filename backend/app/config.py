@@ -138,7 +138,9 @@ class Settings(BaseSettings):
     audit_timeout_seconds: float = 20.0
     audit_follow_up_seconds: float = 15.0
     audit_max_follow_ups: int = Field(3, ge=0, le=5)
-    audit_max_items_per_agent: int = Field(15, ge=1)
+    #: 26 = the attraction agent's most place candidates (agents.MAX_PLACE_CANDIDATES, 20) plus its 6
+    #: restaurants, so one audit call sees a long trip's whole attraction pool.
+    audit_max_items_per_agent: int = Field(26, ge=1)
     agent_timeout_seconds: float = 30.0
     http_timeout_seconds: float = 15.0
     #: Retries of a request to the main data sources: flights, hotels, routes, places, the forecast,

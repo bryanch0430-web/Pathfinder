@@ -305,3 +305,21 @@ def test_nominatim_asks_for_at_most_its_documented_forty(settings: Settings, mon
         asyncio.run(source.search(destination="Kyoto", geo=None, category="attraction", limit=limit))
         assert calls[-1]["params"]["limit"] == expected
     assert len(calls) == 5
+
+
+def test_a_budget_cut_keeps_the_scaled_limit_when_the_trip_is_given_by_length(settings: Settings) -> None:
+    """`partial_result` reads the trip's dates as `run` does: a start date and a length count too."""
+    from app.application.agents import place_candidate_limit
+
+    context = TripContext(session_id="s", destination="Kyoto", start_date=START, days=13)
+    progress = [
+        PlaceCandidate(
+            name=f"{WORDS[i]} Garden", geo=GeoPoint(lat=35.0 + i * 0.01, lng=135.0), rating=4.5,
+            source_refs=[SourceRef(title=str(i), url=f"https://example.com/{i}", source="guide")],
+        ).model_dump(mode="json")
+        for i in range(20)
+    ]
+    agent = AttractionAgent(SimpleNamespace(places=[], notes=[], geocoder=None, web=[], web_deep=[]), settings)
+    result = agent.partial_result(progress, centre=GeoPoint(lat=35.0, lng=135.0), elapsed_ms=1, context=context)
+    assert result is not None
+    assert len(result.payload["places"]) == place_candidate_limit(13) > 10

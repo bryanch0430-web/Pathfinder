@@ -479,11 +479,8 @@ class AttractionAgent(BaseAgent):
                 located.append(PlaceCandidate.model_validate(row))
         wished = [place for place in located if "requested" in place.tags]
         rest = _merge_places([place for place in located if place.geo and "requested" not in place.tags])
-        days = (
-            (context.end_date - context.start_date).days + 1
-            if context is not None and context.start_date and context.end_date
-            else 0
-        )
+        trip = context.date_range() if context is not None else None
+        days = len(trip.dates) if trip is not None else 0
         found = [place for place in _choose_places(rest, wished, limit=place_candidate_limit(days)) if place.geo]
         if not found:
             return None

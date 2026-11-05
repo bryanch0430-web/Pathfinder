@@ -84,10 +84,10 @@ start/finish frames reach the browser before the plan is ready.
    new trip to the same place that keeps a confirmed or locked stay (`keep_hotel`).
 4. `Planner.compose` builds candidate ids; the writer (if present) may only return
    `{summary, day_titles, assignments, hotel_id}`; every id is validated.
-5. Deterministic schedule assigns times, travel estimates, meals and cost. Before it, no day
-   with room is left empty while another holds two or more stops (the fullest day gives up
-   its outlier); days still without a stop (not kept free, not a flight day) become one
-   `attractions` data gap. The attraction agent asks for `max(10, 3 × days)` places, at most 20.
+5. Deterministic schedule assigns times, travel estimates, meals and cost. Before it, empty days
+   with room are filled from days holding two or more stops (the fullest day gives up its
+   outlier); later moves for opening hours or time can still empty a day, so days without a
+   stop at the end (not kept free, not a flight day) become one `attractions` data gap. The attraction agent asks for `max(10, 3 × days)` places, at most 20.
 6. `validate_plan`; on failure `repair_plan` (≤2) with a grounding check that forbids new
    names and new source URLs; otherwise `PlanInvalidError`.
 7. Persist; version 1.
