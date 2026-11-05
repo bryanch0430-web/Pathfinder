@@ -36,7 +36,7 @@ from app.application.transfers import LATEST_END, refresh_transfers, with_transf
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
-from app.domain.errors import CanaryLeak, PlanInvalidError
+from app.domain.errors import TOOL_LIMIT_MESSAGE, CanaryLeak, PlanInvalidError
 from app.domain.models import (
     AgentName,
     ConstraintCheck,
@@ -68,6 +68,8 @@ from app.security import fence_user_message
 PAST_DATES = "The new dates are in the past."
 #: the hotel lookup, as the toolbox names it when the per-turn cap refuses it
 HOTEL_SEARCH = "hotels.search"
+#: the place lookup, as the toolbox names it when the per-turn cap refuses it
+PLACES_SEARCH = "places.search"
 #: said (and then not kept: it is an edit outcome) when a request for another or a cheaper hotel found none
 NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel stays."
 #: said when the stay an edit put in the plan came with no price, so the total leaves it out
@@ -470,7 +472,9 @@ class ModifyPath:
             meals = payload.get("meals") or []
             if add_requested:
                 added = _add_attractions(updated, places, message)
-                if not added:
+                if not added and _lookup_limit(toolbox, places):
+                    updated.data_quality.gaps.append(_limit_gap("attractions"))
+                elif not added:
                     wanted = [
                         word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())
                     ]
@@ -532,6 +536,8 @@ class ModifyPath:
                             cuisine=cuisine,
                         )
                         closure = _CLOSURE.search(message) is not None
+                        # The search the cap refused found nothing because it was never made.
+                        limited = not replaced and _lookup_limit(toolbox, meals if cuisine else places)
                         if closure:
                             # A reported closure is a disruption on the plan's record,
                             # whether or not a replacement was found.
@@ -542,6 +548,7 @@ class ModifyPath:
                                     affected_item_ids=[target_item.id],
                                     resolution=(
                                         f"Replaced with {target_item.name}." if replaced
+                                        else f"{TOOL_LIMIT_MESSAGE} The stop is still in the plan." if limited
                                         else "No verified alternative came back; the stop is still in the plan."
                                     ),
                                     resolved=replaced,
@@ -549,6 +556,8 @@ class ModifyPath:
                             )
                         if replaced:
                             draft.description = f"Replaced {before} with {target_item.name}."
+                        elif limited:
+                            updated.data_quality.gaps.append(_limit_gap("attractions"))
                         else:
                             if cuisine:
                                 outcome = f"No verified {cuisine} restaurant came back, so {before} stayed as it was."
@@ -2066,6 +2075,19 @@ def _gap(section: str, message: str):
     from app.domain.models import DataGap, FailureKind
 
     return DataGap(section=section, kind=FailureKind.NO_DATA, message=message, retryable=False)
+
+
+def _lookup_limit(toolbox: Toolbox, found: list) -> bool:
+    """The place search found nothing because the per-turn cap refused it: the request never asked the source."""
+    return not found and PLACES_SEARCH in getattr(toolbox, "refused", ())
+
+
+def _limit_gap(section: str):
+    """What an edit says when the cap refused its lookup: the limit, as the planning path says it, and not a source's
+    answer."""
+    from app.domain.models import DataGap, FailureKind
+
+    return DataGap(section=section, kind=FailureKind.BLOCKED, message=TOOL_LIMIT_MESSAGE, retryable=False)
 
 
 def _merge_notes(notes: list[str], description: str) -> list[str]:

@@ -27,6 +27,7 @@ from app.application.planner import Planner, _constraints, _reservations
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.infrastructure.store import PlanConflict
+from app.domain.errors import TOOL_LIMIT_MESSAGE
 from app.domain.models import (
     AgentResult,
     ConstraintCheck,
@@ -425,7 +426,11 @@ class FreshnessService:
             logger.warning("refreshing %s failed: %s", section, exc)
             return "The source could not be reached; the earlier data is kept.", None
         apply = {"weather": _apply_weather, "tickets": _apply_fares, "hotels": _apply_hotels}[section]
-        return apply(plan, result.payload, now), result
+        note = apply(plan, result.payload, now)
+        if note is not None and agent.tools & set(toolbox.refused):
+            # The source was never asked: what it "no longer quotes" is not its answer, the request's own limit is.
+            note = TOOL_LIMIT_MESSAGE
+        return note, result
 
 
 def _apply_weather(plan: TripPlan, payload: dict[str, Any], now: datetime) -> str | None:
