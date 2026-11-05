@@ -33,6 +33,7 @@ from app.domain.errors import CanaryLeak
 from app.domain.models import (
     AgentResult,
     AgentStatus,
+    AuditReport,
     ConstraintCheck,
     ConstraintStatus,
     CostBreakdown,
@@ -156,12 +157,26 @@ class Planner:
         transfers=None,
         keep_hotel: HotelStay | None = None,
         pick_hotel: Callable[[list[dict]], dict | None] | None = None,
+        audit: AuditReport | None = None,
     ) -> TripPlan:
         places = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("places", []))
         meals = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("meals", []))
         hotels = list(results.get("hotel", AgentResult(agent="hotel", status=AgentStatus.UNAVAILABLE)).payload.get("hotels", []))
+        audit_brief: list[dict] = []
+        if audit is not None and audit.findings:
+            # A capped block drops the candidate before the model sees it and
+            # before the deterministic fallback, so it holds without a model too.
+            blocked = audit.blocked_ids
+            places, _ = apply_audit_blocks(places, blocked)
+            meals, _ = apply_audit_blocks(meals, blocked)
+            hotels, _ = apply_audit_blocks(hotels, blocked)
         flights = list(results.get("ticket", AgentResult(agent="ticket", status=AgentStatus.UNAVAILABLE)).payload.get("flights", []))
         weather_rows = list(results.get("weather", AgentResult(agent="weather", status=AgentStatus.UNAVAILABLE)).payload.get("days", []))
+        if audit is not None and audit.findings:
+            # Flights and weather are not blocked here; a weather item's id is its date.
+            kept_ids = {str(row.get("id")) for row in [*places, *meals, *hotels, *flights] if row.get("id")}
+            kept_ids |= {str(row.get("date")) for row in weather_rows if row.get("date")}
+            audit_brief = _audit_brief(audit, kept_ids)
         weather_by_date = {row.get("date"): row for row in weather_rows if row.get("date")}
 
         known_place_ids = {row["id"] for row in places}
@@ -176,6 +191,7 @@ class Planner:
             flights=flights,
             weather_rows=weather_rows,
             memory_summaries=memory_summaries,
+            audit_brief=audit_brief,
         )
 
         dates = list(date_range.dates)
@@ -389,6 +405,7 @@ class Planner:
         flights: list[dict],
         weather_rows: list[dict],
         memory_summaries: list[str],
+        audit_brief: list[dict] | None = None,
     ) -> PlannerDraft | None:
         if not self.gateway.available:
             return None
@@ -440,6 +457,9 @@ class Planner:
                 "hotels": [row["id"] for row in hotels],
             },
         }
+        if audit_brief:
+            # Untrusted text (tool data, an LLM's detail): fenced below with the rest of the payload.
+            payload["audit"] = audit_brief
         try:
             data = await self.gateway.json(
                 "planner",
@@ -706,6 +726,44 @@ class Planner:
             status=status,  # type: ignore[arg-type]
             notes=unknown,
         )
+
+
+def apply_audit_blocks(rows: list[dict], blocked: set[str]) -> tuple[list[dict], set[str]]:
+    """Drop the audit's blocked rows from one candidate section, within a cap.
+
+    Only ids that are in this section count. They are removed only when that is at
+    most half the section and at least one row remains; otherwise nothing is removed
+    and the findings stay as warnings for the planner.
+    """
+    hits = {str(row.get("id")) for row in rows if str(row.get("id")) in blocked}
+    if not hits or len(hits) > len(rows) // 2 or len(hits) >= len(rows):
+        return rows, set()
+    return [row for row in rows if str(row.get("id")) not in hits], hits
+
+
+def _audit_brief(audit: AuditReport, kept_ids: set[str]) -> list[dict]:
+    """The audit findings the planner sees: those about a kept candidate or a whole section."""
+    brief: list[dict] = []
+    for index, finding in enumerate(audit.findings):
+        if finding.item_id is not None and finding.item_id not in kept_ids:
+            continue
+        evidence = [
+            {"title": ref.title, "url": ref.url}
+            for entry in audit.evidence
+            if entry.finding_index == index
+            for ref in entry.references
+        ]
+        brief.append(
+            {
+                "agent": str(finding.agent),
+                "item_id": finding.item_id,
+                "issue": str(finding.issue),
+                "severity": str(finding.severity),
+                "detail": finding.detail,
+                "evidence": evidence,
+            }
+        )
+    return brief
 
 
 def _summary(

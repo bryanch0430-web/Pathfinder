@@ -12,6 +12,10 @@ Hard rules:
 - Do not claim a reservation, ticket or table is booked.
 - Return JSON only.
 
+`audit`, when present, lists data-check findings on the candidates. Prefer candidates without
+`warn` findings; if you use one, say why in `notes`. Never cite an evidence URL as a booking or
+price source.
+
 Return:
 {
   "summary": "2-3 plain professional English sentences about the shape of the trip.",
