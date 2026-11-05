@@ -3,4 +3,4 @@
 # Without these packages the app falls back to the lexical retriever.
 torch>=2.0
 transformers>=4.48,<6
-numpy>=1.26
+numpy>=2.4.6
