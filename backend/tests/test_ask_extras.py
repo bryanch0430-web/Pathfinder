@@ -156,6 +156,7 @@ def test_follow_up_reuses_the_previous_exchange(settings: Settings) -> None:
     from types import SimpleNamespace
 
     from app.application.asking import FOLLOW_UP_WORDS, _plan_facts
+    from app.application.prompt_context import conversation_block
 
     plan = _plan(settings)
     item = plan.days[0].items[0]
@@ -169,6 +170,6 @@ def test_follow_up_reuses_the_previous_exchange(settings: Settings) -> None:
 
     facts = _plan_facts("really?", plan, history, item.id)
 
-    assert "recent_turns" in facts, "a bare follow-up must carry the previous exchange"
-    assert facts["recent_turns"][-1]["content"].startswith("Ocean Park")
+    assert facts.get("follow_up"), "a bare follow-up continues the previous exchange"
+    assert conversation_block(history, "really?").splitlines()[-1].startswith("assistant: Ocean Park")
     assert facts.get("item", {}).get("id") == item.id

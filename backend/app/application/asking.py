@@ -8,13 +8,13 @@ from datetime import date
 from typing import Any
 
 from app.application.llm_gateway import LLMGateway
-from app.application.prompt_context import compact_json, plan_outline
+from app.application.prompt_context import compact_json, conversation_block, earlier_turns, plan_outline, with_conversation
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
 from app.domain.models import FailureKind, TripContext, TripPlan
 from app.infrastructure.http import classify_exception
-from app.security import fence_user_message, replayable, strip_fence_tags
+from app.security import fence_user_message, strip_fence_tags
 
 WEATHER_WORDS = r"\b(weather|rain|forecast|temperature|hot|cold|typhoon)\b"
 DISTANCE_WORDS = (
@@ -90,6 +90,9 @@ class AskPath:
                 return str(updates[-1].content), True, "plan"
             return "No itinerary changes have been made yet. This is still the first version.", True, "plan"
 
+        # Every answer the writer phrases reads the recent conversation, with or without a plan: a follow-up
+        # ("and the weather there?", "really?") names its subject only in an earlier turn.
+        conversation = conversation_block(history or [], question)
         facts = _plan_facts(question, plan, history, scope_item_id) if plan else {}
         related = _relates_to_plan(question, plan, facts, scope_item_id)
         if not related:
@@ -133,7 +136,7 @@ class AskPath:
         if facts.get("missing") and "distances" not in facts:
             return _fallback_answer(facts, "plan"), related, "plan"
         if facts and not needs_live_tool:
-            text = await self._phrase(question, plan, facts, "plan")
+            text = await self._phrase(question, plan, facts, "plan", conversation)
             return text, related, "plan"
 
         tool_name, tool_result, source = await self._one_tool(
@@ -150,15 +153,15 @@ class AskPath:
             # web results and place detail, but not for an anonymous "tool" blob.
             named = {"web", "web_answer", "place_detail"}
             key = tool_name if tool_name in named else "tool"
-            text = await self._phrase(question, plan, {key: tool_result}, source or tool_name)
+            text = await self._phrase(question, plan, {key: tool_result}, source or tool_name, conversation)
             return text, related, source or tool_name
         if facts:
-            text = await self._phrase(question, plan, facts, "plan")
+            text = await self._phrase(question, plan, facts, "plan", conversation)
             return text, related, "plan"
         if plan is not None and not related:
             # Not about this trip and no tool applies: one writer call with no
             # facts, which says the plan does not hold it rather than guessing.
-            text = await self._phrase(question, plan, {}, "none")
+            text = await self._phrase(question, plan, {}, "none", conversation)
             return text, False, "none"
         if plan is not None:
             # Nothing matched a specific trigger, but the plan itself is context:
@@ -171,7 +174,7 @@ class AskPath:
             ]
             if weather_rows:
                 fallback.setdefault("weather", weather_rows)
-            text = await self._phrase(question, plan, fallback, "plan")
+            text = await self._phrase(question, plan, fallback, "plan", conversation)
             return text, True, "plan"
         text = (
             "There is no plan yet, so I have nothing to answer from. "
@@ -303,9 +306,10 @@ class AskPath:
         plan: TripPlan | None,
         facts: dict,
         source: str,
+        conversation: str = "",
     ) -> str:
         if self.gateway.available:
-            user = ask_prompt(question, plan, facts, source)
+            user = ask_prompt(question, plan, facts, source, conversation)
             try:
                 data = await self.gateway.json("ask", user=user, purpose="ask.answer")
                 answer = str(data.get("answer") or "").strip()
@@ -318,12 +322,13 @@ class AskPath:
         return _fallback_answer(facts, source)
 
 
-def ask_prompt(question: str, plan: TripPlan | None, facts: dict, source: str) -> str:
+def ask_prompt(question: str, plan: TripPlan | None, facts: dict, source: str, conversation: str = "") -> str:
     """The writer's input for one answer (Proposal TC-10: only what the answer reads).
 
     The question is sent once, fenced. The plan is a day-by-day outline, or just
     its header line when the facts already carry the itinerary rows. Facts are
-    compact JSON without empty values.
+    compact JSON without empty values. ``conversation`` is the recent conversation
+    block (`conversation_block`), which never holds the question itself.
     """
     if plan is None:
         outline = "none"
@@ -334,6 +339,7 @@ def ask_prompt(question: str, plan: TripPlan | None, facts: dict, source: str) -
     return (
         f"Plan: {outline}\n"
         f"Facts (source: {source}): {compact_json(facts)[:12000]}\n\n"
+        + with_conversation(conversation)
         + fence_user_message(question)
     )
 
@@ -389,14 +395,12 @@ def _plan_facts(
     lower = question.lower()
     facts: dict[str, Any] = {}
     if re.search(FOLLOW_UP_WORDS, lower) or len(lower.strip(" ?!")) <= 8:
-        # "really?" / "why?" has no subject of its own: carry the previous
-        # exchange so the answer continues that topic instead of the itinerary.
-        turns = replayable(history or [])[-2:]
-        if turns:
-            facts["recent_turns"] = [
-                {"role": getattr(m, "role", ""), "content": strip_fence_tags(str(getattr(m, "content", "")))[:400]}
-                for m in turns
-            ]
+        # "really?" / "why?" has no subject of its own: the answer continues the
+        # previous exchange, which the prompt's recent conversation block holds,
+        # instead of describing the itinerary. The flag says so; the turns are
+        # not repeated here.
+        if earlier_turns(history or [], question):
+            facts["follow_up"] = True
         scoped = _scoped_item(plan, scope_item_id)
         if scoped is not None:
             facts["item"] = scoped.model_dump(mode="json", exclude=_ITEM_SCHEDULE_FIELDS)
@@ -480,7 +484,7 @@ def _plan_facts(
     change_words = re.search(r"\b(added|changed|updated|so far|last change|what did you|diff|edit)\b", lower)
     if history and change_words:
         recent = []
-        for message in replayable(history)[-8:]:
+        for message in earlier_turns(history, question)[-8:]:
             role = getattr(message, "role", "")
             content = strip_fence_tags(str(getattr(message, "content", "")))[:500]
             meta = getattr(message, "meta", {}) or {}

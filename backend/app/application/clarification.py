@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+from typing import Sequence
 
 from app.application.llm_gateway import LLMGateway
-from app.application.prompt_context import trip_state
+from app.application.prompt_context import conversation_block, trip_state, with_conversation
 from app.domain.errors import CanaryLeak
-from app.domain.models import RouteDecision, TripContext
+from app.domain.models import Message, RouteDecision, TripContext
 from app.security import fence_user_message, strip_fence_tags, strip_fence_tags_deep
 
 SLOT_PHRASES = {
@@ -41,6 +42,7 @@ class Clarifier:
         message: str,
         context: TripContext,
         decision: RouteDecision,
+        history: Sequence[Message] = (),
     ) -> tuple[str, list[str]]:
         missing = context.missing_slots() or decision.missing_slots
         normalised: list[str] = []
@@ -56,6 +58,7 @@ class Clarifier:
                 f"Known context: {trip_state(context)}\n"
                 f"Missing slots: {strip_fence_tags_deep(missing)}\n"
                 f"Router reason: {strip_fence_tags(decision.reason_code)}\n\n"
+                + with_conversation(conversation_block(history, message))
                 + fence_user_message(message)
             )
             try:

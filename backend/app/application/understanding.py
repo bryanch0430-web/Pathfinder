@@ -12,11 +12,12 @@ import re
 import calendar
 from bisect import bisect_left
 from datetime import date, timedelta
+from typing import Sequence
 
 from app.application.llm_gateway import LLMGateway
-from app.application.prompt_context import trip_state
+from app.application.prompt_context import conversation_block, trip_state, with_conversation
 from app.domain.errors import CanaryLeak
-from app.domain.models import TripContext, fit_preference
+from app.domain.models import Message, TripContext, fit_preference
 from app.infrastructure.providers.flights import AIRPORTS
 from app.security import fence_user_message
 
@@ -120,6 +121,7 @@ async def understand(
     gateway: LLMGateway,
     *,
     today: date | None = None,
+    history: Sequence[Message] = (),
 ) -> TripContext:
     today = today or date.today()
     updated = context.model_copy(deep=True)
@@ -142,7 +144,8 @@ async def understand(
             f"Current date: {today.isoformat()}\n"
             f"Existing context: {trip_state(updated)}\n"
             f"Still missing: {missing}\n\n"
-            "Traveller message:\n" + fence_user_message(message)
+            + with_conversation(conversation_block(history, message))
+            + "Traveller message:\n" + fence_user_message(message)
         )
         try:
             data = await gateway.json("understand", user=prompt, purpose="understand")

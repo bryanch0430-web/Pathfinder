@@ -11,7 +11,7 @@ import re
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Sequence
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +29,7 @@ from app.application.planner import (
     _pace,
     _reservations,
 )
-from app.application.prompt_context import plan_outline, trip_slots
+from app.application.prompt_context import conversation_block, plan_outline, trip_slots, with_conversation
 from app.application.router import asks_for_new_dates, asks_for_trip_dates, is_replan_message
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
@@ -47,6 +47,7 @@ from app.domain.models import (
     GeoPoint,
     HotelStay,
     ItemType,
+    Message,
     Money,
     PlaceCandidate,
     PlanItem,
@@ -134,6 +135,7 @@ class ModifyPath:
         emit,
         memory_summaries: list[str] | None = None,
         scope_item_id: str | None = None,
+        history: Sequence[Message] = (),
     ) -> tuple[TripPlan, list[dict[str, Any]]]:
         # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
         # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
@@ -151,7 +153,7 @@ class ModifyPath:
         if replanning and form_is_a_trip and new_range == plan.dates and not form_changes:
             # The page's own message needs no writer to be read when the form holds nothing the plan does not.
             return _nothing_differs(plan)
-        draft = await self._extract(message, plan, context, route_parts)
+        draft = await self._extract(message, plan, context, route_parts, history=history)
         shape = interpret_plan(message, draft.new_values)
         date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
         if date_requested and not form_is_a_trip:
@@ -713,13 +715,17 @@ class ModifyPath:
         plan: TripPlan,
         context: TripContext,
         route_parts: list[str],
+        *,
+        history: Sequence[Message] = (),
     ) -> ChangeDraft:
         if self.gateway.available:
             # Proposal TC-10: the item ids, days and times an edit can target, and
             # the trip slots, not the stored context or the plan's status fields.
+            # The earlier turns say what "add it" or "that hotel" is.
             user = (
                 f"Current plan:\n{plan_outline(plan.summary_for_prompt(), ids=True)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
+                + with_conversation(conversation_block(history, message))
                 + fence_user_message(message)
             )
             try:

@@ -3,8 +3,8 @@
 The router prompt already left it out of its earlier turns, because the turn is stored before it is answered and
 so is the last row of the history. The System 1 model's state repeated it under "Recent history", outside the
 fence, for a message flagged medium (the blocklist also flags ordinary sentences, so those turns are replayed).
-The facts of a follow-up answer still carry the question as the last of the two turns they replay: that is pinned
-by test_replayed_text_fenced.py and left as it is.
+A follow-up answer now reads the same earlier turns (`conversation_block`, test_conversation_context.py), so its
+question is no longer repeated outside the fence either.
 """
 
 from __future__ import annotations

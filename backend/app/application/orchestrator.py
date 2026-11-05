@@ -8,7 +8,7 @@ import asyncio
 import logging
 import re
 from contextlib import aclosing, asynccontextmanager, contextmanager
-from typing import Any, AsyncIterator, Callable, Iterator
+from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 
 import httpx
 
@@ -359,9 +359,12 @@ class TurnService:
                 self.store.touch_session(session_id)
                 return
 
+            # The stored turns, this one last, read once: the router and every step that acts on the turn see the
+            # recent conversation from them (the steps through `conversation_block`, without this message).
+            history = self.store.list_messages(session_id, limit=10)
             with tracer.span("understand"):
                 try:
-                    context = await understand(message, context, self.gateway)
+                    context = await understand(message, context, self.gateway, history=history)
                 except CanaryLeak:
                     raise
                 except Exception:
@@ -376,7 +379,7 @@ class TurnService:
                     message=message,
                     context=context,
                     plan_summary=plan.summary_for_prompt() if plan else None,
-                    history=self.store.list_messages(session_id, limit=10),
+                    history=history,
                 )
             scoped_action = (
                 scope_item_id
@@ -473,6 +476,7 @@ class TurnService:
                     session_id=session_id,
                     tracer=tracer,
                     request_id=request_id,
+                    history=history,
                 ):
                     yield event
                 self.store.touch_session(session_id)
@@ -509,6 +513,7 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     scope_item_id=scope_item_id,
+                    history=history,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -522,6 +527,7 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     scope_item_id=scope_item_id,
+                    history=history,
                 ):
                     yield event
         except GeneratorExit:
@@ -800,6 +806,7 @@ class TurnService:
         tracer,
         request_id,
         scope_item_id: str | None = None,
+        history: Sequence[Message] = (),
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
@@ -830,6 +837,7 @@ class TurnService:
                     self.memory.recall(context, owner=self._memory_owner(session_id))
                 ),
                 scope_item_id=scope_item_id,
+                history=history,
             )
         )
         try:
@@ -883,6 +891,7 @@ class TurnService:
         tracer,
         request_id,
         scope_item_id: str | None = None,
+        history: Sequence[Message] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         toolbox = Toolbox(
             path="ask",
@@ -897,7 +906,7 @@ class TurnService:
             context=context,
             toolbox=toolbox,
             emit=None,
-            history=self.store.list_messages(session_id, limit=8),
+            history=list(history) if history is not None else self.store.list_messages(session_id, limit=8),
             scope_item_id=scope_item_id,
         )
         if plan is not None and not related and "does not contain" not in answer:
@@ -915,8 +924,10 @@ class TurnService:
             yield TurnEvent(event="token", data={"text": chunk})
         self.store.touch_session(session_id)
 
-    async def _clarify(self, *, message, context, decision, session_id, tracer, request_id) -> AsyncIterator[TurnEvent]:
-        question, slots = await self.clarifier.ask(message=message, context=context, decision=decision)
+    async def _clarify(
+        self, *, message, context, decision, session_id, tracer, request_id, history: Sequence[Message] = ()
+    ) -> AsyncIterator[TurnEvent]:
+        question, slots = await self.clarifier.ask(message=message, context=context, decision=decision, history=history)
         self.store.add_message(
             Message(session_id=session_id, role="assistant", content=question, intent=Intent.UNCLEAR)
         )
