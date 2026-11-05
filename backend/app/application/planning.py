@@ -15,16 +15,19 @@ from app.application.agents import (
     TicketAgent,
     WeatherAgent,
 )
+from app.application.audit_followup import run_follow_ups
+from app.application.auditor import audit_results
 from app.application.hk_disruptions import apply_hong_kong_disruptions
 from app.application.planner import Planner
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
-from app.domain.errors import PlanInvalidError, ProviderNoData, ToolBudgetExceeded, operator_text
+from app.domain.errors import CanaryLeak, PlanInvalidError, ProviderNoData, ToolBudgetExceeded, operator_text
 from app.domain.models import (
     AgentName,
     AgentResult,
     AgentStatus,
+    AuditReport,
     DataGap,
     FailureKind,
     GeoPoint,
@@ -141,6 +144,27 @@ class PlanPath:
             emit=emit,
         )
 
+        audit: AuditReport | None = None
+        if self.settings.enable_preplan_audit:
+            emit("progress", {"phase": "audit", "message": "Checking the gathered data.", "progress": 60})
+            try:
+                audit = await audit_results(
+                    results=agent_results,
+                    context=context,
+                    date_range=date_range,
+                    gateway=self.planner.gateway,
+                    settings=self.settings,
+                )
+                audit = await run_follow_ups(
+                    audit, registry=self.registry, toolbox=toolbox, city=context.destination, settings=self.settings
+                )
+            except CanaryLeak:
+                raise
+            except Exception as exc:
+                # Both calls fail open already; this guards against a bug in them.
+                logger.warning("pre-planning audit failed open: %s", type(exc).__name__)
+                audit = AuditReport(skipped=f"audit failed: {type(exc).__name__}")
+
         emit("progress", {"phase": "planner", "message": "Composing the itinerary from verified facts.", "progress": 70})
         plan = await self.planner.compose(
             session_id=session_id,
@@ -156,6 +180,7 @@ class PlanPath:
             transfers=getattr(self.registry, "transfers", None),
             keep_hotel=keep_hotel,
             pick_hotel=pick_hotel,
+            audit=audit,
         )
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(
@@ -164,7 +189,7 @@ class PlanPath:
         errors = validate_plan(plan, self.settings)
         if errors:
             emit("progress", {"phase": "repair", "message": "Repairing the itinerary.", "progress": 85})
-            plan = await repair_plan(plan, errors, self.planner.gateway, self.settings)
+            plan = await repair_plan(plan, errors, self.planner.gateway, self.settings, audit=audit)
         plan = tidy_data_gaps(plan)
         elevation_source = getattr(self.registry, "elevation", None)
         if self.settings.enable_elevation and elevation_source is not None:
