@@ -41,6 +41,11 @@ export interface MapPin {
 export interface MapEngine {
   fit(points: LatLng[], padding: [number, number, number, number]): void;
   panTo(point: LatLng): void;
+  /** Jump without an animated pan; used by camera follow so it cannot restart an animation. */
+  setCenter(point: LatLng): void;
+  /** True during a user drag, and briefly after, so follow never fights the user. */
+  isDragging(): boolean;
+  getZoom(): number;
   setZoom(zoom: number): void;
   zoomIn(): void;
   zoomOut(): void;

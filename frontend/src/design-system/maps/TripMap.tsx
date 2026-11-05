@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { IconButton } from "../atoms";
-import { getMapKeys, type MapLeg } from "../../lib/api";
+import { getMapKeys, type MapLeg, type MapStep } from "../../lib/api";
 import { createGoogleEngine, loadGoogleMaps } from "./google";
 import type { MapEngine, MapPin, MapPolyline } from "./engine";
 import { kmBetween, modeForDistance, MODE, type LatLng, type TravelMode } from "./geo";
@@ -14,39 +14,34 @@ import { clockText, minutesOf } from "./time";
 import { pinHtml, pinSvg, tokenHtml, tokenSvg, type PinVisual } from "./pins";
 import { hotelScopeItem } from "../scope";
 import { useI18n } from "../../lib/i18n";
+import { buildGeometry, offsetPath, pointAlong, type RouteGeometry } from "../../lib/mapGeometry";
 import type { DayPlan, PlanItem, TripPlan } from "../types";
 
 const HAS_GEO = (item: PlanItem): item is PlanItem & { geo: NonNullable<PlanItem["geo"]> } => Boolean(item.geo);
 
+/** Non-walking steps inside a WALK route (ferry, cable car, tram). */
+const STEP_COLOR: Record<string, string> = {
+  ferry: "#6D28D9",
+  cable: "#7C3AED",
+  tram: "#B45309",
+  transit: "#1D4ED8",
+};
+
+const FERRY_ICON = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">' +
+    '<circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#6D28D9" stroke-width="2"/>' +
+    '<path d="M7 17l1.5-3.8h13L23 17" fill="none" stroke="#6D28D9" stroke-width="1.7"/>' +
+    '<path d="M6 17c2 1.9 3.8 1.9 5.8 0s3.8-1.9 5.8 0 3.8 1.9 5.8 0" fill="none" stroke="#6D28D9" stroke-width="1.7"/>' +
+    '<path d="M12 13V9.5h6V13" fill="none" stroke="#6D28D9" stroke-width="1.7"/>' +
+    "</svg>"
+)}`;
+
+const prefersReducedMotion = (): boolean =>
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /** Cheap identity for a pin's icon, so playback does not re-encode unchanged pins. */
-/** Point at fraction `t` of a polyline, measured by distance. */
-function pointAlong(path: LatLng[], t: number): LatLng {
-  if (path.length === 0) return { lat: 0, lng: 0 };
-  if (path.length === 1) return path[0];
-  const clamped = Math.min(1, Math.max(0, t));
-  const lengths: number[] = [];
-  let total = 0;
-  for (let index = 1; index < path.length; index += 1) {
-    const step = kmBetween(path[index - 1], path[index]);
-    lengths.push(step);
-    total += step;
-  }
-  if (total === 0) return path[0];
-  let remaining = clamped * total;
-  for (let index = 0; index < lengths.length; index += 1) {
-    if (remaining <= lengths[index]) {
-      const local = lengths[index] === 0 ? 0 : remaining / lengths[index];
-      const from = path[index];
-      const to = path[index + 1];
-      return {
-        lat: from.lat + (to.lat - from.lat) * local,
-        lng: from.lng + (to.lng - from.lng) * local,
-      };
-    }
-    remaining -= lengths[index];
-  }
-  return path[path.length - 1];
-}
 
 const visualKey = (visual: PinVisual): string =>
   `${visual.label}|${visual.variant}|${visual.active ? 1 : 0}|${visual.dimmed ? 1 : 0}|${visual.updated ? 1 : 0}|${visual.now ? 1 : 0}|${visual.visited ? 1 : 0}`;
@@ -111,23 +106,30 @@ export function TripMap(props: TripMapProps) {
 
   const fitKey = useRef("");
   const lastSelected = useRef<string | null>(null);
-  const lastNow = useRef<string | null>(null);
   const lastLeg = useRef<string | null>(null);
   const selectRef = useRef(onSelectItem);
   selectRef.current = onSelectItem;
 
   const tokenPin = useRef<MapPin | null>(null);
   const tokenPos = useRef<LatLng | null>(null);
-  const tokenRaf = useRef<number | null>(null);
+  const tokenTarget = useRef<LatLng | null>(null);
+  const motionRaf = useRef<number | null>(null);
   const tokenMode = useRef("");
+  const followRef = useRef(follow);
+  const selectedRef = useRef(selectedItemId);
+  followRef.current = follow;
+  selectedRef.current = selectedItemId;
   const pinRefs = useRef(new Map<string, { pin: MapPin; item: PlanItem; key: string }>());
   const hotelPinRef = useRef<MapPin | null>(null);
   const routeRef = useRef<{
     casing: MapPolyline | null;
     legs: Array<{
+      casing: MapPolyline;
       line: MapPolyline;
+      extras: Array<{ casing: MapPolyline; line: MapPolyline; color: string; mode: string }>;
       color: string;
       path: LatLng[];
+      geometry: RouteGeometry;
       fromId: string;
       toId: string;
       doneAt: number;
@@ -174,10 +176,11 @@ export function TripMap(props: TripMapProps) {
 
     return () => {
       cancelled = true;
-      if (tokenRaf.current !== null) cancelAnimationFrame(tokenRaf.current);
-      tokenRaf.current = null;
+      if (motionRaf.current !== null) cancelAnimationFrame(motionRaf.current);
+      motionRaf.current = null;
       tokenPin.current = null;
       tokenPos.current = null;
+      tokenTarget.current = null;
       engine?.destroy();
       engineRef.current = null;
     };
@@ -196,6 +199,7 @@ export function TripMap(props: TripMapProps) {
     // The token lived in the cleared layer set; the token effect rebuilds it.
     tokenPin.current = null;
     tokenPos.current = null;
+    tokenTarget.current = null;
 
     const withGeo = points.filter(HAS_GEO);
     const routeGeo = routePoints.filter(HAS_GEO);
@@ -219,12 +223,32 @@ export function TripMap(props: TripMapProps) {
       const modeOf = (value: string): TravelMode =>
         value === "transit" ? "metro" : value === "drive" ? "drive" : "walk";
       const drawn: Array<{
+        casing: MapPolyline;
         line: MapPolyline;
+        extras: Array<{ casing: MapPolyline; line: MapPolyline; color: string; mode: string }>;
         color: string;
         path: LatLng[];
+        geometry: RouteGeometry;
         fromId: string;
         toId: string;
         doneAt: number;
+        source: string;
+      }> = [];
+      // A hotel -> stop leg and its return use the same road. Count the pair so
+      // the second one can be drawn a few metres beside the first instead of
+      // hiding under it (the token still follows the true path).
+      const seenPairs = new Map<string, number>();
+      const pending: Array<{
+        path: LatLng[];
+        color: string;
+        done: boolean;
+        fromId: string;
+        toId: string;
+        doneAt: number;
+        source: string;
+        original: LatLng[];
+        steps: MapStep[];
+        shift: number;
       }> = [];
 
       const draw = (
@@ -232,20 +256,37 @@ export function TripMap(props: TripMapProps) {
         mode: TravelMode,
         fromId: string,
         toId: string,
-        doneAt: number
+        doneAt: number,
+        source: string,
+        steps: MapStep[] = []
       ) => {
         if (path.length < 2) return;
-        const color = MODE[mode].color;
-        const done = now >= doneAt;
-        // White casing keeps the coloured route readable on any basemap.
-        engine.polyline(path, { color: "#FFFFFF", weight: 7, opacity: 0.9 });
-        const line = engine.polyline(path, {
-          color,
-          weight: done ? 4 : 3,
-          opacity: done ? 0.95 : 0.58,
-          dashed: !done,
+        const pair = fromId <= toId ? `${fromId}|${toId}` : `${toId}|${fromId}`;
+        const repeat = seenPairs.get(pair) ?? 0;
+        seenPairs.set(pair, repeat + 1);
+        const reversed = fromId > toId;
+        const side = repeat % 2 === 1 ? 1 : -1;
+        // Offset by ~4 screen pixels, so the separation is visible at any zoom
+        // without pushing the line onto a different street when zoomed in.
+        const zoom = engine.getZoom();
+        const metresPerPixel = (156543.03392 * Math.cos((path[0].lat * Math.PI) / 180)) / 2 ** zoom;
+        const shift =
+          repeat === 0
+            ? 0
+            : side * (reversed ? -1 : 1) * 4 * metresPerPixel * Math.ceil(repeat / 2);
+        const linePath = shift === 0 ? path : offsetPath(path, shift);
+        pending.push({
+          path: linePath,
+          color: MODE[mode].color,
+          done: now >= doneAt,
+          fromId,
+          toId,
+          doneAt,
+          source,
+          original: path,
+          steps,
+          shift,
         });
-        drawn.push({ line, color, path, fromId, toId, doneAt });
       };
 
       if (legs.length) {
@@ -254,16 +295,92 @@ export function TripMap(props: TripMapProps) {
           if (!path) continue;
           const target = itemsById.get(leg.to_id);
           const doneAt = target ? minutesOf(target.start) ?? 0 : lastEnd;
-          draw(path, modeOf(leg.mode), leg.from_id, leg.to_id, doneAt);
+          draw(path, modeOf(leg.mode), leg.from_id, leg.to_id, doneAt, leg.source, leg.steps ?? []);
         }
       } else {
         for (let index = 1; index < routeGeo.length; index += 1) {
           const from = routeGeo[index - 1];
           const to = routeGeo[index];
           const mode = modeForDistance(kmBetween(from.geo, to.geo));
-          draw([from.geo, to.geo], mode, from.id, to.id, minutesOf(to.start) ?? 0);
+          draw([from.geo, to.geo], mode, from.id, to.id, minutesOf(to.start) ?? 0, "estimate");
         }
       }
+
+      // All casings first, then all coloured lines: one leg's white outline can
+      // never cover the next leg's coloured line at a shared corner.
+      const casings = pending.map((entry) =>
+        engine.polyline(entry.path, { color: "#FFFFFF", weight: 10, opacity: 0.98 })
+      );
+      for (let index = 0; index < pending.length; index += 1) {
+        const entry = pending[index];
+        const line = engine.polyline(entry.path, {
+          color: entry.color,
+          weight: 6,
+          // Solid and bold: the route is the thing the eye should find first.
+          // "Ahead" is a lighter tint of the same solid line, never a dash pattern.
+          opacity: entry.done ? 0.95 : 0.72,
+          dashed: false,
+        });
+        // The token follows the original road, not the visual offset.
+        drawn.push({
+          casing: casings[index],
+          line,
+          extras: [],
+          color: entry.color,
+          path: entry.original,
+          geometry: buildGeometry(entry.original),
+          fromId: entry.fromId,
+          toId: entry.toId,
+          doneAt: entry.doneAt,
+          source: entry.source,
+        });
+      }
+
+      // Non-walking steps inside a WALK route: draw them over the base line so a
+      // ferry crossing is visibly a ferry, never a footpath across water.
+      const extraPaths: Array<{ index: number; path: LatLng[]; color: string; mode: string }> = [];
+      pending.forEach((entry, index) => {
+        for (const step of entry.steps) {
+          if (step.mode === "walk" || step.path.length < 2) continue;
+          let stepPath: LatLng[] = step.path.map(([lat, lng]) => ({ lat, lng }));
+          if (entry.shift !== 0) stepPath = offsetPath(stepPath, entry.shift);
+          extraPaths.push({
+            index,
+            path: stepPath,
+            color: STEP_COLOR[step.mode] ?? STEP_COLOR.transit,
+            mode: step.mode,
+          });
+        }
+      });
+      const extraCasings = extraPaths.map((item) =>
+        engine.polyline(item.path, { color: "#FFFFFF", weight: 10, opacity: 0.98 })
+      );
+      extraPaths.forEach((item, index) => {
+        const line = engine.polyline(item.path, {
+          color: item.color,
+          weight: 7,
+          opacity: 0.95,
+          // Solid violet + ferry icon: unambiguous without relying on colour alone.
+          dashed: false,
+        });
+        drawn[item.index].extras.push({
+          casing: extraCasings[index],
+          line,
+          color: item.color,
+          mode: item.mode,
+        });
+        if (item.mode === "ferry") {
+          const midpoint = pointAlong(buildGeometry(item.path), 0.5);
+          engine.pin(midpoint, {
+            anchor: [-15, -15],
+            size: 30,
+            svgIcon: FERRY_ICON,
+            interactive: false,
+            z: 850,
+            title: token?.label ?? "Ferry",
+          });
+        }
+      });
       routeRef.current = { casing: null, legs: drawn };
     }
 
@@ -381,14 +498,45 @@ export function TripMap(props: TripMapProps) {
       hotelPinRef.current.setHtml(pinHtml(visual));
     }
 
+    // One route leg at full strength: the one being travelled (or the next one
+    // from the active stop). Everything else recedes so the eye has one line.
+    const active =
+      token && token.moving && token.fromId && token.toId
+        ? { fromId: token.fromId, toId: token.toId }
+        : currentItemId
+          ? routeRef.current.legs.find((leg) => leg.fromId === currentItemId) ?? null
+          : null;
+    const hasActive = Boolean(active);
     for (const leg of routeRef.current.legs) {
       const done = clock >= leg.doneAt;
+      const isActive = Boolean(
+        active && leg.fromId === active.fromId && leg.toId === active.toId
+      );
+      const faded = hasActive && !isActive;
+      leg.casing.setStyle({
+        color: "#FFFFFF",
+        weight: isActive ? 11 : faded ? 6 : 10,
+        opacity: isActive ? 0.98 : faded ? 0.5 : 0.95,
+      });
       leg.line.setStyle({
         color: leg.color,
-        weight: done ? 4 : 3,
-        opacity: done ? 0.95 : 0.58,
-        dashed: !done,
+        weight: isActive ? 7 : faded ? 3 : 6,
+        opacity: isActive ? 0.98 : faded ? 0.2 : done ? 0.9 : 0.72,
+        dashed: false,
       });
+      for (const extra of leg.extras) {
+        extra.casing.setStyle({
+          color: "#FFFFFF",
+          weight: isActive ? 11 : faded ? 6 : 10,
+          opacity: isActive ? 0.98 : faded ? 0.5 : 0.95,
+        });
+        extra.line.setStyle({
+          color: extra.color,
+          weight: isActive ? 8 : faded ? 3.5 : 7,
+          opacity: isActive ? 0.98 : faded ? 0.2 : 0.95,
+          dashed: false,
+        });
+      }
     }
 
     if (selectedItemId !== lastSelected.current) {
@@ -399,7 +547,7 @@ export function TripMap(props: TripMapProps) {
         engine.setZoom(15);
       }
     }
-  }, [layersBuilt, clock, currentItemId, selectedItemId, updatedIds, hotelChanged, status, points]);
+  }, [layersBuilt, clock, currentItemId, selectedItemId, updatedIds, hotelChanged, status, points, token]);
 
   // --- playback token ----------------------------------------------------
   useEffect(() => {
@@ -410,8 +558,7 @@ export function TripMap(props: TripMapProps) {
       tokenPin.current?.remove();
       tokenPin.current = null;
       tokenPos.current = null;
-      if (tokenRaf.current !== null) cancelAnimationFrame(tokenRaf.current);
-      tokenRaf.current = null;
+      tokenTarget.current = null;
       return;
     }
 
@@ -423,8 +570,8 @@ export function TripMap(props: TripMapProps) {
           (entry) => entry.fromId === token.fromId && entry.toId === token.toId
         )
       : undefined;
-    if (movingLeg && movingLeg.path.length > 1) {
-      target = pointAlong(movingLeg.path, token.progress);
+    if (movingLeg && movingLeg.geometry.points.length > 1) {
+      target = pointAlong(movingLeg.geometry, token.progress);
     }
     const modeKey = `${token.mode}:${token.moving ? "move" : "stop"}`;
 
@@ -446,50 +593,65 @@ export function TripMap(props: TripMapProps) {
         tokenPin.current.setHtml(tokenHtml(token.mode, token.moving));
         tokenPin.current.setIcon(tokenSvg(token.mode, token.moving));
       }
-      const from = tokenPos.current ?? target;
-      const distance = kmBetween(from, target);
-      if (tokenRaf.current !== null) cancelAnimationFrame(tokenRaf.current);
-      if (distance > 50) {
+      if (kmBetween(tokenPos.current ?? target, target) > 50) {
         tokenPin.current.moveTo(target);
         tokenPos.current = target;
-      } else {
-        const duration = Math.max(70, 230 / speed);
-        const started = performance.now();
-        const step = (time: number) => {
-          const progress = Math.min(1, (time - started) / duration);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          const next = {
-            lat: from.lat + (target.lat - from.lat) * eased,
-            lng: from.lng + (target.lng - from.lng) * eased,
-          };
-          tokenPin.current?.moveTo(next);
-          tokenPos.current = next;
-          if (progress < 1) {
-            tokenRaf.current = requestAnimationFrame(step);
-          } else {
-            tokenRaf.current = null;
-          }
-        };
-        tokenRaf.current = requestAnimationFrame(step);
       }
     }
+    // The motion loop follows this target every frame, so a new target never
+    // restarts an easing animation and the token does not trail the clock.
+    tokenTarget.current = target;
 
-    // Pan once when a new leg starts, so the replay stays visible without the
-    // camera fighting the user's own drag on every tick.
+    // One animated pan when a new leg starts; with follow on, the motion loop
+    // owns the camera so the two never fight.
     const legKey = `${token.fromId ?? ""}|${token.toId ?? ""}|${token.moving ? "go" : "stay"}`;
-    if (token.moving && legKey !== lastLeg.current && !selectedItemId) {
+    if (token.moving && legKey !== lastLeg.current && !selectedItemId && !follow) {
       lastLeg.current = legKey;
       engine.panTo(target);
     }
-
-    if (follow && !selectedItemId) {
-      const key = `${token.position[0].toFixed(5)},${token.position[1].toFixed(5)}`;
-      if (lastNow.current !== key) {
-        lastNow.current = key;
-        engine.panTo(target);
-      }
-    }
   }, [token, follow, speed, status, generation, layersBuilt, legs, selectedItemId]);
+
+  // --- token motion + follow, once per frame, outside React ---------------
+  useEffect(() => {
+    if (status !== "ready") return;
+    const reduced = prefersReducedMotion();
+    let lastCamera = 0;
+    const step = (now: number) => {
+      const target = tokenTarget.current;
+      const position = tokenPos.current;
+      const engine = engineRef.current;
+      if (target && position && engine) {
+        const distance = kmBetween(position, target);
+        if (distance > 0.0005) {
+          const k = reduced ? 1 : 0.42;
+          const next = {
+            lat: position.lat + (target.lat - position.lat) * k,
+            lng: position.lng + (target.lng - position.lng) * k,
+          };
+          tokenPin.current?.moveTo(next);
+          tokenPos.current = next;
+          if (
+            followRef.current &&
+            !selectedRef.current &&
+            !engine.isDragging() &&
+            (reduced || now - lastCamera >= 33)
+          ) {
+            lastCamera = now;
+            engine.setCenter(next);
+          }
+        } else if (distance > 0) {
+          tokenPin.current?.moveTo(target);
+          tokenPos.current = target;
+        }
+      }
+      motionRaf.current = requestAnimationFrame(step);
+    };
+    motionRaf.current = requestAnimationFrame(step);
+    return () => {
+      if (motionRaf.current !== null) cancelAnimationFrame(motionRaf.current);
+      motionRaf.current = null;
+    };
+  }, [status, generation]);
 
   return (
     <div className="pf-map__canvas">

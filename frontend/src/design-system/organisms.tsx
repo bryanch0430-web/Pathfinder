@@ -1363,7 +1363,7 @@ export function MapPanel({
         currentName={currentItem?.name ?? null}
         speed={speed}
         token={tracker}
-        follow={follow}
+        follow={follow && playing}
         updatedIds={updatedSet}
         hotelChanged={hotelChanged}
         legs={legs}

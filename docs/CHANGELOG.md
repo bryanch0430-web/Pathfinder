@@ -5,6 +5,15 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.4.0 — 2026-11-05 21:45
+
+Map-honesty release: route geometry says what it is, and the map shows one leg at a time.
+
+- **A walk that includes a ferry is a walk plus a ferry.** Google's per-step data is read for every leg; a `ferry`, `cable` or `tram` step inside a WALK route is no longer passed off as a footpath. The crossing is drawn as a solid violet segment with a ferry icon, and the map legend names it Ferry. (`e3411b0`)
+- **The active leg is the only one at full strength.** The leg being travelled is bold; the other legs fade and thin out. Duplicate legs on the same road are offset so both stay visible, and every casing is drawn under every coloured line. (`e3411b0`)
+- **The map does not invent a trip back to the stay.** Only the scheduled stop-to-stop chain is drawn; hotel → first stop and last stop → hotel legs are gone unless the itinerary really includes them. (`e3411b0`)
+- **Camera follow runs only while playback runs**, so a paused map shows the whole day instead of a token close-up. (`e3411b0`)
+
 ## Unreleased — 2026-11-03
 
 Hardening release: limits, expiry and a language switcher that works.

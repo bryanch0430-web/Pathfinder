@@ -8,10 +8,10 @@ export interface LatLng {
 export type TravelMode = "walk" | "metro" | "drive" | "flight";
 
 export const MODE: Record<TravelMode, { label: string; color: string; icon: "walk" | "train" | "car" | "plane" }> = {
-  walk: { label: "Walk", color: "#7A746B", icon: "walk" },
-  metro: { label: "Metro", color: "#0B7FA6", icon: "train" },
-  drive: { label: "Drive", color: "#C25A1F", icon: "car" },
-  flight: { label: "Flight", color: "#E08E2B", icon: "plane" },
+  walk: { label: "Walk", color: "#0F766E", icon: "walk" },
+  metro: { label: "Transit", color: "#1D4ED8", icon: "train" },
+  drive: { label: "Drive", color: "#C2410C", icon: "car" },
+  flight: { label: "Flight", color: "#B45309", icon: "plane" },
 };
 
 export function kmBetween(a: LatLng, b: LatLng): number {

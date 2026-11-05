@@ -786,6 +786,15 @@ class NoteItem(BaseModel):
     fetched_at: datetime = Field(default_factory=utcnow)
 
 
+class RouteStep(BaseModel):
+    """One step inside a routed leg. WALK routes can include a ferry step."""
+
+    mode: str = "walk"
+    minutes: int | None = None
+    polyline: list[GeoPoint] = Field(default_factory=list)
+    instruction: str = ""
+
+
 class RouteLeg(BaseModel):
     from_geo: GeoPoint
     to_geo: GeoPoint
@@ -794,6 +803,7 @@ class RouteLeg(BaseModel):
     mode: str = "walk"
     source: str = "estimate"
     polyline: list[GeoPoint] = Field(default_factory=list)
+    steps: list[RouteStep] = Field(default_factory=list)
     # Set by a source that returns many legs in one result (routes.segments), so
     # a plan can name the exact leg it used. Read as attributes only: they are
     # left out of JSON dumps, so prompts and API payloads keep their shape.
