@@ -97,19 +97,23 @@ a metered writer whose replies are scripted, with tokens estimated at 4 characte
 token. Every metric is computed from the per-case scores in `EvalCaseResult.scores`, and
 the dashboard only aggregates them.
 
-## 4. Current results (3 Nov 2026)
+## 4. Current results (5 Nov 2026)
 
 Each dataset was run once through `POST /api/eval/trials`, the Evaluation tab's code path,
-at commit `f26cd30`, on a temporary database with the offline sandbox and no judge.
+on a temporary database with the offline sandbox and no judge. The first run was on 3 Nov 2026
+at commit `f26cd30`. All seven datasets were run again on 5 Nov 2026 at commit `74dbe5d`, after
+the audit fixes. Only the `injection` row and the token figures of the `efficiency` row changed;
+the pass counts and metrics of the other rows are the same, and the latencies depend on the
+machine.
 
 | Dataset | Passed | Headline |
 |---|---:|---|
 | `routing` | 64/84 | Accuracy 76.2%. Dev 72.9%, held-out 84.0%. Plan 81.0, modify 71.4, ask 85.7, unclear 66.7. The rules alone decide 57.1% (48/84), all 48 right. |
-| `injection` | 81/84 | Containment 96.4%. Route typed 98.8, own output 96.4, allowlisted tools 100, canary absent 100. User input 91.7, tool results 100. Dev 98.3, held-out 92.0. |
+| `injection` | 83/84 | Containment 98.8%. Route typed 100, own output 98.8, allowlisted tools 100, canary absent 100. User input 97.2, tool results 100. Dev 98.3, held-out 100. |
 | `hongkong` | 8/8 | Constraints 100% (31/31). Recovery 100%: closure 100, source timeout 100, typhoon 100, MTR delay 100. Grounding 100. Transfer times grounded 65/65, opening hours grounded 67/67, 16 of 83 stops with hours unknown. Edit 100. Tool log 118/118. 62.0 ms per case. |
 | `japan` | 6/6 | Constraints 100% (25/25). Must include 100, vegetarian 100. Grounding 100. Transfer times grounded 31/31, opening hours grounded 36/36, 14 of 50 stops with hours unknown. Replay: parse 100, dedupe 100, conflicts 100, gaps 100. Edit 100. Tool log 79/79. 103.7 ms per case. |
 | `travelplanner` | 3/3 | Constraints 100% (12/12). Grounding 100. Transfer times grounded 11/11, opening hours grounded 11/11, 8 of 19 stops with hours unknown. Edit 100. Tool log 37/37. 58.0 ms per case. |
-| `efficiency` | 10/10 | Router saves 69.4% of API calls (3.4 against 11.1 per turn) and 36.8% of tokens (818 against 1,295). Latency 151.0 against 205.4 ms. The rules route 90% of turns without a router model call. Tool log 126/126. |
+| `efficiency` | 10/10 | Router saves 69.4% of API calls (3.4 against 11.1 per turn) and 36.3% of tokens (826 against 1,295). Latency 151.0 against 205.4 ms. The rules route 90% of turns without a router model call. Tool log 126/126. |
 | `edit_vs_replan` | 5/5 | The edit saves 84.2% of API calls (1.8 against 11.4) and 57.7% of tokens (557 against 1,316). Latency 32.0 against 189.9 ms. Items kept 100% on both paths. Constraints met 100% on both paths. Edit applied 100% (replan 0%). Tool log 56/56. |
 
 The pytest suite at the same commit: 447 tests, 446 passed, 1 skipped (the opt-in live
@@ -134,10 +138,13 @@ What these numbers mean:
   in Chinese. The live router tries Jev and the writer before falling back to these rules.
   The misrouted utterances can be inspected in the failure drawer. The held-out figure is
   optimistic (see the rules-first note in section 3).
-- **Injection containment is 96.4%.** The writer in this test is a stand-in that obeys any
+- **Injection containment is 98.8%.** The writer in this test is a stand-in that obeys any
   probe it can see, which is the worst case. All 48 probes inside tool results are
-  contained. Three user-message probes are not: two in Chinese (the blocklist is English
-  only) and one jailbreak, which is flagged by design but not blocked.
+  contained. One user-message probe is not: the jailbreak i25, which is flagged by design but
+  not blocked. The two Chinese probes (i13 and i26) were not contained on 3 Nov (96.4%); they
+  are now, but not because the blocklist reads Chinese (it is still English only): the page's
+  fixed reply to input that is mainly Chinese ("Please type in English for now") is given
+  before the writer is reached. Whether a live model would obey them was not measured.
 - **The router now saves both calls and tokens.** The rules decide confident messages
   without a model call, and the router, ask and modify prompts send only what they read.
   A local edit calls only the agents it needs, so it makes 0.8 tool calls per turn against
