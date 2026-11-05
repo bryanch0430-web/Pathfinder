@@ -240,7 +240,65 @@ review flags for each planning case.
   `judge_independence` = 0% and flags every case. With the default settings both are
   DeepSeek.
 
-## 8. Limitations
+## 8. Pre-planning audit experiment
+
+`ENABLE_PREPLAN_AUDIT` (off by default) adds one writer call on the plan path: it audits
+the four agents' results before the planner runs, and its block findings drop candidates
+before the planner sees them. This experiment asks whether that call earns its cost.
+
+**Hypothesis.** With the audit on, plans need fewer validation errors fixed by repair,
+and fewer bad stops (closed, stale or off-request candidates) reach the plan.
+
+**Method.** `backend/scripts/audit_ab.py` plans the same planning cases (`hongkong`,
+`japan`, then `travelplanner`, in fixture order) twice: every case with the flag off,
+then every case with it on. Each run uses the sandbox providers of §6 and the **real
+configured writer**, the one the app would use. The script refuses to start without
+one: it prints `needs a live LLM key`, exits with 1 and writes nothing. It changes no
+app code. While a run is going, it wraps that run's `Planner.compose` and
+`planning.repair_plan` and records every writer call's purpose.
+
+```bash
+cd backend
+PYTHONPATH=. python scripts/audit_ab.py --cases 10 --out ../var/audit_ab.csv
+```
+
+**Columns** (one row per case and flag):
+
+| Column | Source |
+|---|---|
+| `case_id`, `flag` | the eval case id; `enable_preplan_audit` for the run |
+| `llm_calls`, `prompt_tokens`, `completion_tokens` | the run's own gateway counters (`calls`, token totals as the vendor reports them) |
+| `wall_ms` | wall-clock time of `PlanPath.run` |
+| `findings` | findings in the AuditReport the planner received (0 with the flag off) |
+| `blocked_removed` | candidates the planner dropped for block findings: compose's own `apply_audit_blocks` rule, replayed on the same agent results and report |
+| `follow_ups` | evidence entries in that report, one per follow-up the audit asked for |
+| `validation_errors_before_repair` | errors `validate_plan` handed to `repair_plan` (0 when no repair was needed) |
+| `repair_rounds` | writer calls with purpose `plan.repair`. A JSON retry inside a round (`plan.repair.repair`) is not counted |
+| `plan_valid` | a plan came back and `validate_plan` finds no error in it |
+
+**Cost per planned trip with the flag on**: +1 writer call (`preplan.audit`), up to +3
+web searches (`audit_max_follow_ups`), and up to +35 s in the worst case (the 20 s audit
+timeout plus the 15 s follow-up deadline).
+
+**Reading the CSV.** Pair each case's `False` and `True` rows. The hypothesis holds if
+`validation_errors_before_repair` and `repair_rounds` go down with the flag on and
+`plan_valid` does not get worse. The difference in `llm_calls`, the token columns and
+`wall_ms` is the price. `findings` and `blocked_removed` show how much the audit acted on.
+There is no column for bad stops itself. `blocked_removed` counts the candidates the
+audit kept out of the plan, but whether those candidates were really bad needs a person
+to check them. A case that failed to plan has `plan_valid` False, and the script prints
+its error.
+
+Caveats: the sandbox has no web source configured. A follow-up uses the Grok search only
+when an xAI key is set; otherwise each follow-up comes back as a "no web search" gap. A
+Hong Kong case's fault is injected, but the venue-closure edit of §6 is not run, and
+neither is the judge. Ten cases is a small sample, so read the result as a direction, not
+a measurement.
+
+**Status: the live run has not been done.** It costs writer tokens and needs the owner's
+go-ahead (`--cases 10`). There are no results yet.
+
+## 9. Limitations
 
 - The sandbox cannot replace live evaluation. It cannot show that Google Places, SerpApi
   or Open-Meteo answer correctly today. The Japan replay responses are built from the

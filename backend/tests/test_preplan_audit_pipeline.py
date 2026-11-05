@@ -136,3 +136,56 @@ def test_audit_bug_fails_open(settings: Settings, monkeypatch: pytest.MonkeyPatc
     plan, _, phases = _plan(settings, audit=True)
     assert isinstance(plan, TripPlan)
     assert phases[-1] == "ready"
+
+
+def test_audit_ab_refuses_without_model(offline_gateway: LLMGateway, tmp_path, capsys) -> None:
+    """The A/B script needs a live writer: with NullLLM it stops before any work or file."""
+    from scripts.audit_ab import main
+
+    out = tmp_path / "ab.csv"
+    code = main(["--cases", "1", "--out", str(out)], gateway=offline_gateway)
+    assert code != 0
+    assert "needs a live LLM key" in capsys.readouterr().out
+    assert not out.exists()
+
+
+def test_audit_ab_rows_offline(settings: Settings, tmp_path) -> None:
+    """The script end to end on the MeteredLLM writer: no network, one row per (case, flag)."""
+    import csv
+
+    from scripts.audit_ab import COLUMNS, main
+
+    reply = json.dumps({"findings": [{
+        "agent": "attraction", "item_id": None, "issue": "stale", "severity": "warn",
+        "detail": "opening hours may be out of date", "follow_up": {"query": "opening hours this month"},
+    }]})
+    gateway = LLMGateway(MeteredLLM(replies={"preplan.audit": reply}), PromptLibrary(settings), NoopTracer(), settings)
+    out = tmp_path / "ab.csv"
+    assert main(["--cases", "1", "--out", str(out)], gateway=gateway) == 0
+    with out.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert tuple(rows[0]) == COLUMNS
+    off, on = rows
+    assert (off["flag"], on["flag"]) == ("False", "True")
+    assert off["case_id"] == on["case_id"]
+    assert int(on["llm_calls"]) == int(off["llm_calls"]) + 1
+    assert (off["findings"], off["follow_ups"]) == ("0", "0")
+    # The follow-up ran with no web search configured: one evidence entry (a gap), no network.
+    assert (on["findings"], on["blocked_removed"], on["follow_ups"]) == ("1", "0", "1")
+    assert int(on["prompt_tokens"]) > int(off["prompt_tokens"])
+    assert off["plan_valid"] == on["plan_valid"] == "True"
+
+
+def test_audit_ab_blocked_removed_replays_the_cap() -> None:
+    """blocked_removed counts what compose drops: a block within the cap, none past it."""
+    from app.domain.models import AgentResult, AgentStatus, AuditFinding, AuditReport
+    from scripts.audit_ab import blocked_removed
+
+    def block(item_id: str) -> AuditFinding:
+        return AuditFinding(agent="attraction", item_id=item_id, issue="suspect_fact", severity="block", detail="x")
+
+    places = [{"id": f"p{i}"} for i in range(4)]
+    results = {"attraction": AgentResult(agent="attraction", status=AgentStatus.OK, payload={"places": places})}
+    assert blocked_removed(AuditReport(findings=[block("p0")]), results) == 1
+    assert blocked_removed(AuditReport(findings=[block(f"p{i}") for i in range(3)]), results) == 0
+    assert blocked_removed(None, results) == 0
