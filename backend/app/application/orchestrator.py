@@ -453,6 +453,8 @@ class TurnService:
                     }
                 )
             intent = decision.intent
+            if plan is not None and intent != Intent.PLAN:
+                context = self._put_back_the_place(as_read, context)
             tracer.metadata.update(
                 {
                     "intent": decision.intent.value,
@@ -716,6 +718,19 @@ class TurnService:
             changed = current
         self.store.save_context(changed)
         return changed
+
+    def _put_back_the_place(self, as_read: TripContext, read: TripContext) -> TripContext:
+        """A question or an edit does not move a trip that has a plan to the place its sentence names or seems to name:
+        the form's destination, and the dates and length worked out from it, go back to what the form held before the
+        message. A field the traveller saved meanwhile (it no longer holds what this message left) is not touched."""
+        current = self.store.get_context(read.session_id)
+        if current is None or read.destination == as_read.destination:
+            return read
+        for name in ("destination", "start_date", "end_date", "days"):
+            if getattr(current, name) == getattr(read, name):
+                setattr(current, name, getattr(as_read, name))
+        self.store.save_context(current)
+        return current
 
     def _memory_owner(self, session_id: str) -> str:
         """Whose saved trips the planner may recall: the session's owner only."""
