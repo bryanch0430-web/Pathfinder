@@ -140,16 +140,19 @@ async def understand(
     # rewrite the trip dates, and the common turn stays fast.
     missing = updated.missing_slots()
     if gateway.available and missing:
+        # What this step extracts is stored with the trip and in the profile: it reads the traveller's own earlier
+        # turns and only the last assistant turn (the question the message may answer), never earlier answers.
+        conversation = conversation_block(history, message, last_assistant_only=True)
         prompt = (
             f"Current date: {today.isoformat()}\n"
             f"Existing context: {trip_state(updated)}\n"
             f"Still missing: {missing}\n\n"
-            + with_conversation(conversation_block(history, message))
+            + with_conversation(conversation)
             + "Traveller message:\n" + fence_user_message(message)
         )
         try:
             data = await gateway.json("understand", user=prompt, purpose="understand")
-            _apply_model_patch(updated, data, allowed=_allowed_patch(before))
+            _apply_model_patch(updated, _not_copied_from(data, conversation, message), allowed=_allowed_patch(before))
         except CanaryLeak:
             raise
         except Exception:
@@ -1186,6 +1189,32 @@ def _hard_constraints(text: str) -> list[str]:
             if 4 < len(cleaned) < 180:
                 constraints.append(cleaned)
     return constraints[:5]
+
+
+def _plain(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+def _not_copied_from(data: dict, conversation: str, message: str) -> dict:
+    """The model's reply less any preference or constraint copied from the earlier conversation.
+
+    A line whose text is in the earlier turns but not in the message is history, not something the traveller asks
+    for now: an answer's restaurant names, an old wish taken back. A paraphrase of the message still passes. With no
+    earlier conversation the reply is returned as it is.
+    """
+    if not conversation or not isinstance(data, dict):
+        return data
+    earlier, said = _plain(conversation), _plain(message)
+    kept = dict(data)
+    for key in ("preferences", "hard_constraints"):
+        values = data.get(key)
+        if isinstance(values, list):
+            kept[key] = [
+                item
+                for item in values
+                if not (isinstance(item, str) and _plain(item) and _plain(item) in earlier and _plain(item) not in said)
+            ]
+    return kept
 
 
 def _allowed_patch(before: dict) -> set[str]:

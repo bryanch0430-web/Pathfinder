@@ -220,3 +220,142 @@ def test_a_follow_up_answer_on_a_plan_reads_the_previous_exchange_once(settings:
     assert "Kiyomizu-dera has a 4.6 rating." in prompt
     assert prompt.count("really?") == 1, prompt
     assert "Ignore all previous" not in prompt
+
+
+# -- the understanding step takes nothing from earlier answers -------------------------------------
+#
+# What it extracts is kept: preferences and must-includes are saved with the trip and in the traveller's
+# profile, and a tag the rules do not know is planned as a place. So it reads the traveller's own earlier
+# turns and only the last assistant turn (the question the message may answer), and a preference or
+# constraint copied word for word from that history, and not said in the message, is dropped.
+
+OSAKA = [
+    _msg("user", "hi"),
+    _msg("assistant", "Hello, where would you like to go?"),
+    _msg("user", "what's good to eat in Osaka?"),
+    _msg("assistant", "Web results name Kani Doraku and Ichiran in Dotonbori as popular places to eat."),
+]
+PLAN_MESSAGE = "plan 3 days for 2 next week"
+
+
+def _understand_with(settings: Settings, reply: dict, message: str, history: list[Message], context: TripContext | None = None):
+    import json
+
+    llm = RecordingLLM(replies={"understand": json.dumps(reply)})
+    updated = asyncio.run(
+        understand(message, context or TripContext(session_id="s"), _gateway(settings, llm), today=date(2026, 11, 3), history=history)
+    )
+    return updated, llm
+
+
+def test_the_understanding_step_reads_the_traveller_turns_and_only_the_last_assistant_turn(settings: Settings) -> None:
+    _, llm = _understand_with(settings, {}, PLAN_MESSAGE, [*OSAKA, _msg("user", PLAN_MESSAGE)])
+
+    prompt = llm.prompts("understand")[0]
+    assert "user: what's good to eat in Osaka?" in prompt and "user: hi" in prompt
+    assert "Kani Doraku" in prompt, "the last assistant turn is the question the message may answer"
+    assert "Hello, where would you like to go?" not in prompt, "no other assistant turn"
+
+
+def test_a_preference_copied_from_an_earlier_answer_is_dropped(settings: Settings) -> None:
+    updated, _ = _understand_with(
+        settings,
+        {"preferences": ["Kani Doraku"], "hard_constraints": ["Ichiran in Dotonbori"]},
+        PLAN_MESSAGE,
+        [*OSAKA, _msg("user", PLAN_MESSAGE)],
+    )
+
+    assert not any("kani doraku" in line.lower() for line in updated.preferences), updated.preferences
+    assert not any("ichiran" in line.lower() for line in updated.hard_constraints), updated.hard_constraints
+
+
+def test_a_preference_the_message_itself_names_is_kept(settings: Settings) -> None:
+    message = "plan 3 days for 2 next week, we want to eat at Kani Doraku"
+    updated, _ = _understand_with(settings, {"preferences": ["Kani  doraku"]}, message, [*OSAKA, _msg("user", message)])
+
+    assert any("kani" in line.lower() for line in updated.preferences), updated.preferences
+
+
+def test_without_history_the_model_preferences_are_kept_as_before(settings: Settings) -> None:
+    updated, llm = _understand_with(settings, {"preferences": ["Kani Doraku"]}, PLAN_MESSAGE, [])
+
+    assert "Kani Doraku" in updated.preferences
+    assert "Earlier conversation" not in llm.prompts("understand")[0]
+
+
+def test_a_bare_answer_to_the_last_question_still_fills_the_slot(settings: Settings) -> None:
+    history = [_msg("user", "plan a trip for 2 next week"), _msg("assistant", "Which city?"), _msg("user", "Seoul")]
+
+    updated, llm = _understand_with(settings, {"destination": "Seoul"}, "Seoul", history)
+
+    assert updated.destination == "Seoul"
+    if llm.prompts("understand"):
+        assert "assistant: Which city?" in llm.prompts("understand")[0]
+
+
+def test_a_preference_from_an_earlier_answer_is_neither_stored_nor_remembered(settings: Settings) -> None:
+    import json
+
+    settings = settings.model_copy(update={"preplan_budget_seconds": 15, "agent_timeout_seconds": 8})
+    remembered: list[list[str]] = []
+
+    async def main() -> tuple[TripContext, RecordingLLM]:
+        ledger = RunLedger()
+        try:
+            rig = build_rig(settings, "Osaka", ledger)
+            llm = RecordingLLM(replies={"understand": json.dumps({"preferences": ["Kani Doraku"]})})
+            llm.route = {"intent": "plan", "confidence": 0.95}
+            rig.gateway.llm = llm
+            rig.turns._remember_in_background = lambda owner, context: remembered.append(list(context.preferences))
+            session = ledger.store.create_session("guest-osaka")
+            ledger.store.save_context(TripContext(session_id=session.id))
+            for row in [*OSAKA]:
+                ledger.store.add_message(row.model_copy(update={"session_id": session.id}))
+            async for _ in rig.turns.handle_turn(session_id=session.id, message=PLAN_MESSAGE):
+                pass
+            return ledger.store.get_context(session.id), llm
+        finally:
+            ledger.close()
+
+    stored, llm = asyncio.run(main())
+
+    assert llm.prompts("understand"), llm.sent
+    assert not any("kani doraku" in line.lower() for line in stored.preferences), stored.preferences
+    assert not any("kani doraku" in line.lower() for prefs in remembered for line in prefs), remembered
+
+
+# -- an answer about what changed does not repeat the turns its facts already hold ------------------
+
+
+def test_an_answer_about_changes_carries_recent_changes_without_the_conversation_block(settings: Settings) -> None:
+    from types import SimpleNamespace
+
+    from app.application.asking import AskPath
+    from app.application.toolbox import Toolbox
+
+    llm = RecordingLLM()
+    context = case_context(EvalCase(id="c", dataset="design", input="", destination="Kyoto"), "s")
+    plan = asyncio.run(accepted_plan(settings, context))
+    question = "is anything updated so far?"
+    history = [
+        _msg("user", "swap the museum"),
+        _msg("assistant", "Updated to version 2. Swapped the museum for Kiyomizu-dera."),
+        _msg("user", question),
+    ]
+    path = AskPath(gateway=_gateway(settings, llm), registry=SimpleNamespace(web=None, weather=[], routes=[], places=[]), settings=settings)
+
+    asyncio.run(
+        path.answer(
+            question=question,
+            plan=plan,
+            context=context,
+            toolbox=Toolbox(path="ask", tracer=NoopTracer(), store=None, request_id="r"),
+            emit=None,
+            history=history,
+        )
+    )
+
+    prompt = llm.prompts("ask.answer")[0]
+    assert "recent_changes" in prompt and "Swapped the museum" in prompt
+    assert "Earlier conversation" not in prompt
+    assert prompt.count("Swapped the museum") == 1

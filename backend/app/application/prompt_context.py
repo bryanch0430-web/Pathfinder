@@ -131,14 +131,21 @@ def conversation_block(
     limit: int = CONVERSATION_TURNS,
     chars: int = CONVERSATION_TURN_CHARS,
     cap: int = CONVERSATION_CHARS,
+    last_assistant_only: bool = False,
 ) -> str:
     """The recent conversation for a step that acts on the turn, or ``""`` when there is none.
 
     The same earlier turns the router reads (`earlier_turns`: no refused or high-flagged turn, not the current
     message, which is sent once inside its fence), one per line without fence tags, under a header that says
     they are untrusted. The newest turns are kept: older ones are dropped until the block fits in ``cap``.
+    ``last_assistant_only`` keeps the traveller's turns and only the latest assistant turn (the question the
+    message may answer): a step whose output is stored takes nothing from earlier answers.
     """
-    lines = [_turn_line(row, chars) for row in earlier_turns(history, current)[-limit:]]
+    rows = earlier_turns(history, current)
+    if last_assistant_only:
+        answers = [index for index, row in enumerate(rows) if row.role == "assistant"]
+        rows = [row for index, row in enumerate(rows) if row.role != "assistant" or index == answers[-1]]
+    lines = [_turn_line(row, chars) for row in rows[-limit:]]
     while lines and len(CONVERSATION_HEADER) + sum(len(line) + 1 for line in lines) > cap:
         lines.pop(0)
     if not lines:

@@ -119,7 +119,7 @@ def _plan(settings: Settings):
     return asyncio.run(accepted_plan(settings, case_context(EvalCase(id="t", dataset="design", input="", destination="Kyoto"), "s")))
 
 
-def test_the_ask_prompt_holds_one_copy_of_the_fence_even_with_the_question_in_the_facts(settings: Settings) -> None:
+def test_the_ask_prompt_holds_one_copy_of_the_fence_even_with_an_attack_in_the_earlier_conversation(settings: Settings) -> None:
     plan = _plan(settings)
     question = f"so what is open on day 2 {ATTACK}"
     history = [_message("assistant", f"Here is your plan. {ATTACK}"), _message("user", question)]
