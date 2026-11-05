@@ -168,6 +168,26 @@ def _urls(plan: TripPlan) -> set[str]:
     return found
 
 
+_URL_PARTS = re.compile(r"([^:/?#]+)://([^/?#@]*@)?([^/?#]*)([^?#]*)(\??[^#]*)", re.IGNORECASE)
+
+
+def _same_url(url: str) -> str:
+    """A URL as a re-typed copy of it would still read: scheme and host in lower case, no trailing slash, no #fragment.
+
+    The path and the query keep their case and every character, so a different page is a different URL."""
+    match = _URL_PARTS.fullmatch(url.partition("#")[0])
+    if match is None:
+        return url
+    scheme, userinfo, host, path, query = match.groups()
+    return f"{scheme.lower()}://{userinfo or ''}{host.lower()}{path.rstrip('/')}{query}"
+
+
+def _new_urls(original: TripPlan, candidate: TripPlan) -> set[str]:
+    """The URLs of a repaired plan that are not in the original, not counting a copy of one the original has."""
+    known = {_same_url(url) for url in _urls(original)}
+    return {url for url in _urls(candidate) if _same_url(url) not in known}
+
+
 def _refusal(original: TripPlan, candidate: TripPlan) -> str | None:
     """Why a repaired plan is refused outright: it took a stop, hotel or ticket out of the plan, put one
     in, or brought a URL the original did not have. A repair fixes what is wrong; it adds nothing."""
@@ -175,7 +195,7 @@ def _refusal(original: TripPlan, candidate: TripPlan) -> str | None:
     dropped = sorted((before - after).elements())
     if dropped:
         return "repair removed from the original plan: " + ", ".join(name for _, name in dropped[:5])
-    if after - before or _urls(candidate) - _urls(original):
+    if after - before or _new_urls(original, candidate):
         return "repair introduced a fact or source that was not in the original plan"
     return None
 
