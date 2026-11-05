@@ -145,6 +145,6 @@ def test_a_question_about_another_city_does_not_fetch_that_citys_stay_into_the_p
     finally:
         ledger.close()
 
-    assert isinstance(form, TripContext) and form.destination == "Osaka", "the question moved the form to Osaka"
+    assert isinstance(form, TripContext) and form.destination == "Kyoto", "the question left the form on the plan's place"
     assert stored.destination.name == "Kyoto"
     assert asked == {"hotels": ["Kyoto"], "tickets": ["Kyoto"]}
