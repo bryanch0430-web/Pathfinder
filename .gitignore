@@ -30,6 +30,7 @@ htmlcov/
 *.egg-info/
 
 # local tooling
+/pathfinder.bat
 .tmp/
 .refs/
 .cache/
