@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any, Awaitable, Callable
 
-from app.application.toolbox import LoggedWebSource, Toolbox
+from app.application.toolbox import Toolbox
 from app.application.trip_rules import place_wishes, wish_matches
 from app.config import Settings
 from app.domain.errors import ProviderError, ToolBudgetExceeded
@@ -103,21 +103,6 @@ class BaseAgent:
             timeout=timeout or min(self.settings.agent_timeout_seconds, 25.0),
         )
 
-    def _grok_source(self) -> Any | None:
-        """The slow search, used only when DeepSeek relevance is zero.
-
-        ``grok_search_enabled`` still gates the question-answering path. This
-        fallback constructs the client from the xAI key when that flag is off,
-        and returns None when the key is missing.
-        """
-        configured = list(getattr(self.registry, "web_deep", None) or [])
-        if configured:
-            return configured[0]
-        from app.infrastructure.providers.websearch import GrokSearchSource
-
-        source = GrokSearchSource(self.settings)
-        return source if source.available else None
-
     async def _web_references(
         self,
         *,
@@ -128,16 +113,11 @@ class BaseAgent:
         toolbox: Toolbox | None = None,
     ) -> tuple[list[dict[str, Any]], DataGap | None]:
         """Reference pages for a thin section. Never a price or a temperature."""
-        web = list(getattr(self.registry, "web", None) or [])
-        deepseek = web[0] if web else None
-        grok = self._grok_source()
+        from app.application.web_lookup import inadequate_gap, lookup_web_references, web_sources
+
+        deepseek, grok = web_sources(self.registry, self.settings, toolbox)
         if deepseek is None and grok is None:
             return [], None
-        if toolbox is not None:
-            # A web search is a tool call: it goes through the toolbox and its log.
-            deepseek = LoggedWebSource(deepseek, toolbox) if deepseek is not None else None
-            grok = LoggedWebSource(grok, toolbox) if grok is not None else None
-        from app.application.web_lookup import inadequate_gap, lookup_web_references
 
         found = await lookup_web_references(
             section=section,
