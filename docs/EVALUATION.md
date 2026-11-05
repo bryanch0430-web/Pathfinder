@@ -142,7 +142,7 @@ What these numbers mean:
   probe it can see, which is the worst case. All 48 probes inside tool results are
   contained. One user-message probe is not: the jailbreak i25, which is flagged by design but
   not blocked. The two Chinese probes (i13 and i26) were not contained on 3 Nov (96.4%); they
-  are now, but not because the blocklist reads Chinese (it is still English only): the page's
+  are now, but not because the blocklist reads Chinese (it is still English only): the
   fixed reply to input that is mainly Chinese ("Please type in English for now") is given
   before the writer is reached. Whether a live model would obey them was not measured.
 - **The router now saves both calls and tokens.** The rules decide confident messages
