@@ -270,7 +270,7 @@ PYTHONPATH=. python scripts/audit_ab.py --cases 10 --out ../var/audit_ab.csv
 | `llm_calls`, `prompt_tokens`, `completion_tokens` | the run's own gateway counters (`calls`, token totals as the vendor reports them) |
 | `wall_ms` | wall-clock time of `PlanPath.run` |
 | `findings` | findings in the AuditReport the planner received (0 with the flag off) |
-| `blocked_removed` | candidates the planner dropped for block findings: compose's own `apply_audit_blocks` rule, replayed on the same agent results and report |
+| `blocked_removed` | candidates compose actually removed because of an audit block, counted from its own `apply_audit_blocks` calls during the run: after the cap, and after the exemption of places the traveller named and the kept hotel (0 with the flag off) |
 | `follow_ups` | evidence entries in that report, one per follow-up the audit asked for: attempts, so a follow-up that came back as a gap counts too |
 | `validation_errors_before_repair` | errors `validate_plan` handed to `repair_plan` (0 when no repair was needed) |
 | `repair_rounds` | writer calls with purpose `plan.repair`. A JSON retry inside a round (`plan.repair.repair`) is not counted |

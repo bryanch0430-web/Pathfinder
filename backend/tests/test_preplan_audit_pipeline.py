@@ -199,16 +199,60 @@ def test_audit_ab_rows_offline(settings: Settings, tmp_path) -> None:
     assert off["plan_valid"] == on["plan_valid"] == "True"
 
 
-def test_audit_ab_blocked_removed_replays_the_cap() -> None:
-    """blocked_removed counts what compose drops: a block within the cap, none past it."""
-    from app.domain.models import AgentResult, AgentStatus, AuditFinding, AuditReport
-    from scripts.audit_ab import blocked_removed
+def _ab_row(settings: Settings, blocked: list[str], *, constraints: list[str] | None = None, flag: bool = True):
+    """One A/B run on the script's own run_case: an audit blocking ``blocked`` (place ids), MeteredLLM writer."""
+    from app.domain.models import EvalCase
+    from scripts.audit_ab import run_case
 
-    def block(item_id: str) -> AuditFinding:
-        return AuditFinding(agent="attraction", item_id=item_id, issue="suspect_fact", severity="block", detail="x")
+    reply = json.dumps({"findings": [
+        {"agent": "attraction", "item_id": item_id, "issue": "suspect_fact", "severity": "block",
+         "detail": "closed permanently", "follow_up": None}
+        for item_id in blocked
+    ]})
+    case = EvalCase(
+        id="blocks", dataset="test", input="plan", destination=DESTINATION, origin="Hong Kong",
+        days=3, party_size=1, budget=3000, constraints=constraints or [],
+    )
+    return asyncio.run(run_case(case, flag, MeteredLLM(replies={"preplan.audit": reply}), settings))
 
-    places = [{"id": f"p{i}"} for i in range(4)]
-    results = {"attraction": AgentResult(agent="attraction", status=AgentStatus.OK, payload={"places": places})}
-    assert blocked_removed(AuditReport(findings=[block("p0")]), results) == 1
-    assert blocked_removed(AuditReport(findings=[block(f"p{i}") for i in range(3)]), results) == 0
-    assert blocked_removed(None, results) == 0
+
+def test_audit_ab_counts_a_block_within_the_cap(settings: Settings) -> None:
+    """The sandbox offers four places: one block is within the cap, and compose drops it."""
+    assert _ab_row(settings, ["p1"]).blocked_removed == 1
+
+
+def test_audit_ab_counts_nothing_past_the_cap(settings: Settings) -> None:
+    """Three of four places blocked is past the cap: compose drops none, so none are counted."""
+    assert _ab_row(settings, ["p1", "p2", "p3"]).blocked_removed == 0
+
+
+def test_audit_ab_counts_nothing_for_a_place_the_traveller_named(settings: Settings) -> None:
+    """compose keeps a blocked place the traveller asked for, so the script must not count it."""
+    row = _ab_row(settings, ["p1"], constraints=["Must include Kiyomizu-dera"])
+    assert row.findings == 1
+    assert row.blocked_removed == 0
+
+
+def test_audit_ab_counts_nothing_with_the_flag_off(settings: Settings) -> None:
+    assert _ab_row(settings, ["p1"], flag=False).blocked_removed == 0
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_audit_ab_restores_the_planner_hook(settings: Settings, monkeypatch: pytest.MonkeyPatch, fail: bool) -> None:
+    """The recording wrapper is in place only for the run, and is put back after a run or a failed one."""
+    from app.application import planner as planner_module
+
+    original = planner_module.apply_audit_blocks
+    inside: list[bool] = []
+    run = PlanPath.run
+
+    async def spy(self, **kwargs):
+        inside.append(planner_module.apply_audit_blocks is not original)
+        if fail:
+            raise RuntimeError("plan failed")
+        return await run(self, **kwargs)
+
+    monkeypatch.setattr(PlanPath, "run", spy)
+    _ab_row(settings, ["p1"])
+    assert inside == [True]
+    assert planner_module.apply_audit_blocks is original

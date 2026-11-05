@@ -9,8 +9,9 @@ on the evaluation sandbox (``evaluation.SandboxRegistry``, the setup of
 ``enable_preplan_audit=False`` and once with it True. One CSV row per (case, flag).
 
 Nothing in app/ is changed to observe a run. For the length of one run the script wraps
-``Planner.compose`` on that run's planner (to read the AuditReport and agent results the
-planner received) and ``planning.repair_plan`` (to read the validation errors handed to
+``Planner.compose`` on that run's planner (to read the AuditReport the planner received),
+``planner.apply_audit_blocks`` (to count the candidates compose really removed for the
+audit's blocks) and ``planning.repair_plan`` (to read the validation errors handed to
 repair), and puts a recording proxy around the writer (to read each call's purpose).
 """
 
@@ -29,9 +30,10 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.application import planner as planner_module  # noqa: E402
 from app.application import planning  # noqa: E402
 from app.application.llm_gateway import LLMGateway  # noqa: E402
-from app.application.planner import Planner, apply_audit_blocks  # noqa: E402
+from app.application.planner import Planner  # noqa: E402
 from app.application.planning import PlanPath  # noqa: E402
 from app.application.prompts import PromptLibrary  # noqa: E402
 from app.application.validation import validate_plan  # noqa: E402
@@ -68,7 +70,7 @@ class Observed:
 
     purposes: list[str] = field(default_factory=list)
     audit: AuditReport | None = None
-    results: dict[str, Any] = field(default_factory=dict)
+    blocked_removed: int = 0
     repair_errors: int | None = None
 
 
@@ -123,22 +125,6 @@ def load_planning_cases(limit: int, datasets: tuple[str, ...] = PLANNING_DATASET
     return cases[: max(limit, 0)]
 
 
-def blocked_removed(audit: AuditReport | None, results: dict[str, Any]) -> int:
-    """Candidates the planner dropped for the audit's blocks: compose's own rule, replayed."""
-    if audit is None or not audit.findings:
-        return 0
-    blocked = audit.blocked_ids
-
-    def rows(agent: str, key: str) -> list[dict]:
-        result = results.get(agent)
-        return list((getattr(result, "payload", None) or {}).get(key, []))
-
-    removed = 0
-    for agent, key in (("attraction", "places"), ("attraction", "meals"), ("hotel", "hotels")):
-        removed += len(apply_audit_blocks(rows(agent, key), blocked)[1])
-    return removed
-
-
 def build_row(
     case_id: str, flag: bool, gateway: LLMGateway, observed: Observed, wall_ms: int, plan_valid: bool
 ) -> Row:
@@ -151,7 +137,7 @@ def build_row(
         completion_tokens=gateway.completion_tokens,
         wall_ms=wall_ms,
         findings=len(audit.findings) if audit else 0,
-        blocked_removed=blocked_removed(audit, observed.results),
+        blocked_removed=observed.blocked_removed,
         follow_ups=len(audit.evidence) if audit else 0,
         validation_errors_before_repair=observed.repair_errors or 0,
         # One round = one repair request; "plan.repair.repair" is a JSON retry inside a round.
@@ -181,7 +167,6 @@ async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings) -> Row:
 
     async def observed_compose(**kwargs: Any) -> Any:
         observed.audit = kwargs.get("audit")
-        observed.results = dict(kwargs.get("results") or {})
         return await compose(**kwargs)
 
     planner.compose = observed_compose  # type: ignore[method-assign]
@@ -201,12 +186,21 @@ async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings) -> Row:
     )
     log = ToolLog()
     repair = planning.repair_plan
+    apply_blocks = planner_module.apply_audit_blocks
 
     async def observed_repair(plan: Any, errors: list[str], *args: Any, **kwargs: Any) -> Any:
         observed.repair_errors = len(errors)
         return await repair(plan, errors, *args, **kwargs)
 
+    def observed_blocks(rows: list[dict], blocked: set[str]) -> tuple[list[dict], set[str]]:
+        # compose calls this once per section, after the cap and after exempting the
+        # places the traveller named and the kept hotel: what it returns is what it removed.
+        kept, removed = apply_blocks(rows, blocked)
+        observed.blocked_removed += len(removed)
+        return kept, removed
+
     planning.repair_plan = observed_repair  # type: ignore[assignment]
+    planner_module.apply_audit_blocks = observed_blocks  # type: ignore[assignment]
     started = time.perf_counter()
     plan = None
     try:
@@ -222,6 +216,7 @@ async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings) -> Row:
         print(f"{case.id} flag={flag}: plan failed: {type(exc).__name__}: {str(exc)[:160]}", file=sys.stderr)
     finally:
         planning.repair_plan = repair  # type: ignore[assignment]
+        planner_module.apply_audit_blocks = apply_blocks  # type: ignore[assignment]
     wall_ms = int((time.perf_counter() - started) * 1000)
     plan_valid = plan is not None and not validate_plan(plan, settings)
     return build_row(case.id, flag, gateway, observed, wall_ms, plan_valid)
