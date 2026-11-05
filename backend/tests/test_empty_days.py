@@ -1,7 +1,7 @@
 """A long trip is not left with empty days while other days hold several stops, and the days that stay empty are said.
 
-The live case: a 13-day trip got its places packed onto the first six days by the model, and the
-other seven came back with no stop.
+The live case: a 13-day trip got its places packed onto the first six days by the model, the
+other seven came back with no stop, and the plan still said "No data gaps".
 """
 
 import asyncio
@@ -14,13 +14,17 @@ import pytest
 
 from app.application.agents import AgentContext, AttractionAgent, _choose_places
 from app.application.llm_gateway import LLMGateway
-from app.application.planner import Planner, PlannerAssignment, PlannerDraft
+from app.application.planner import Planner, PlannerAssignment, PlannerDraft, _gaps
 from app.application.prompts import PromptLibrary
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.models import (
+    AgentName,
     AgentResult,
+    AgentStatus,
+    DataGap,
     DateRange,
+    FailureKind,
     GeoLocation,
     GeoPoint,
     PlaceCandidate,
@@ -132,6 +136,64 @@ def test_a_day_with_two_stops_is_not_split_while_no_day_is_empty(settings: Setti
     )
     assignment = planner._assign_places(places, 4, draft, pace="balanced")
     assert [len(assignment[index]) for index in range(4)] == [3, 2, 2, 2]
+
+
+# --- fewer places than days: the rest stay open, and the plan says so -------
+
+
+def test_fewer_places_than_days_leaves_the_rest_open_and_says_so(settings: Settings) -> None:
+    places = _places(10)
+    plan = _compose(settings, places, 13, {"assignments": _packed([p["id"] for p in places])})
+    covered = [day for day in plan.days if _stops(day)]
+    assert len(covered) == 10
+    names = [name for day in plan.days for name in _stops(day)]
+    assert len(names) == len(set(names)) == 10  # nothing padded, nothing repeated
+    gaps = [gap for gap in plan.data_quality.gaps if gap.section == "attractions"]
+    assert [(gap.kind, gap.message) for gap in gaps] == [
+        (FailureKind.NO_DATA, "Only 10 of 13 days have verified stops; the rest are open.")
+    ]
+
+
+def test_the_open_days_gap_survives_tidying(settings: Settings) -> None:
+    from app.application.validation import tidy_data_gaps
+
+    places = _places(10)
+    plan = _compose(settings, places, 13, {"assignments": _packed([p["id"] for p in places])})
+    for drop in (False, True):
+        tidy = tidy_data_gaps(plan.model_copy(deep=True), drop_edit_gaps=drop)
+        assert any(gap.message.startswith("Only 10 of 13 days") for gap in tidy.data_quality.gaps)
+
+
+# --- no empty day: nothing new ------------------------------------------------
+
+
+def test_a_plan_with_no_empty_day_gets_no_new_gap(settings: Settings) -> None:
+    results = _agents()
+    failure = DataGap(section="attractions", kind=FailureKind.TIMEOUT, message="google-places timed out.")
+    results["attraction"].failures = [failure]
+    plan = _compose(settings, _places(4), 3, None, results=results)
+    assert all(_stops(day) for day in plan.days)
+    assert failure in plan.data_quality.gaps
+    assert plan.data_quality.gaps == _gaps(results)  # the agents' gaps only, in their order
+
+
+def test_a_day_kept_free_is_not_an_open_day(settings: Settings) -> None:
+    results = _agents()
+    plan = _compose(settings, _places(6), 4, None, hard_constraints=["Day 4 is a free day"], results=results)
+    assert plan.days[3].items == []
+    assert [len(_stops(day)) > 0 for day in plan.days] == [True, True, True, False]
+    assert plan.data_quality.gaps == _gaps(results)
+
+
+def test_no_places_at_all_is_reported_by_the_agent_gap_only(settings: Settings) -> None:
+    """With no places the attraction agent's own gap says it; the open-days gap does not repeat it."""
+    results = _agents()
+    results["attraction"] = AgentResult(
+        agent=AgentName.ATTRACTION, status=AgentStatus.UNAVAILABLE, payload={"places": [], "meals": []}
+    )
+    plan = _compose(settings, [], 3, None, results=results)
+    assert plan.data_quality.gaps == _gaps(results)
+    assert "attraction agent returned no usable data." in [gap.message for gap in plan.data_quality.gaps]
 
 
 # --- attraction agent: the candidate pool scales with the trip ---------------
