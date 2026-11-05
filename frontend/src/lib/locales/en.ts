@@ -343,6 +343,7 @@ export const EN = {
   "form.preferencesHint": "Enter or comma adds a tag",
   "form.constraints": "Hard constraints",
   "form.constraintsHint": "Must include, avoid, accessibility",
+  "form.linesLimit": "Limit reached: at most {max} lines are kept. Remove one to add another.",
   "form.save": "Save details",
   "form.generate": "Generate itinerary",
 

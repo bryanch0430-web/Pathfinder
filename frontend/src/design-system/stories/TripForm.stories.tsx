@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { TripContextForm } from "../molecules";
 import { sampleContext } from "../fixtures";
+import { TRIP_LINES_MAX } from "../../lib/limits";
 import type { TripContext } from "../types";
 
 const meta: Meta = { title: "Molecules/Trip Context Form" };
@@ -11,6 +12,27 @@ type Story = StoryObj;
 export const Playground: Story = {
   render: () => {
     const [values, setValues] = useState<Partial<TripContext>>(sampleContext);
+    return (
+      <div className="pf-card" style={{ padding: 24, maxWidth: 560 }}>
+        <TripContextForm
+          values={values}
+          onChange={(patch) => setValues((current) => ({ ...current, ...patch }))}
+          onSubmit={() => undefined}
+          onSave={() => undefined}
+        />
+      </div>
+    );
+  },
+};
+
+/** Fifty preferences and fifty constraints: both fields say the list is full instead of dropping the next line. */
+export const AtLineLimit: Story = {
+  render: () => {
+    const [values, setValues] = useState<Partial<TripContext>>({
+      ...sampleContext,
+      preferences: Array.from({ length: TRIP_LINES_MAX }, (_, index) => `preference ${index + 1}`),
+      hard_constraints: Array.from({ length: TRIP_LINES_MAX }, (_, index) => `constraint ${index + 1}`),
+    });
     return (
       <div className="pf-card" style={{ padding: 24, maxWidth: 560 }}>
         <TripContextForm

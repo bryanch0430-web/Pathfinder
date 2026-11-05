@@ -121,6 +121,21 @@ export function ChatBubble({
   );
 }
 
+/**
+ * Tells the traveller that a list of the trip form is full. The form keeps no more than TRIP_LINES_MAX lines,
+ * and without this note a line typed after the last one is dropped without a word. The region is always in the
+ * page and only its text comes and goes, which is what makes a screen reader announce it; the words, not a
+ * colour, carry the message.
+ */
+function LimitNote({ full }: { full: boolean }) {
+  const { t } = useI18n();
+  return (
+    <span className="pf-field__hint pf-field__limit" role="status">
+      {full ? t("form.linesLimit", { max: TRIP_LINES_MAX }) : null}
+    </span>
+  );
+}
+
 export function TripContextForm({
   values,
   onChange,
@@ -346,6 +361,7 @@ export function TripContextForm({
                 }}
               />
             </div>
+            <LimitNote full={preferenceTags.length >= TRIP_LINES_MAX} />
           </Field>
         ) : null}
         {!compact ? (
@@ -360,6 +376,7 @@ export function TripContextForm({
               // The planner reads "must include …" in English, so the example stays English.
               placeholder="must include Fushimi Inari"
             />
+            <LimitNote full={splitList(constraintText).length >= TRIP_LINES_MAX} />
           </Field>
         ) : null}
       </div>
