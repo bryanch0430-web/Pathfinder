@@ -38,7 +38,6 @@ from app.application.validation import validate_plan  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.domain.models import AuditReport, EvalCase, TripContext  # noqa: E402
 from app.eval_checks import RecordingToolbox, ToolLog  # noqa: E402
-from app.eval_metering import RunLedger  # noqa: E402
 from app.evaluation import DATASETS, FIXTURES, SandboxRegistry  # noqa: E402
 from app.infrastructure.llm import NullLLM, OpenAICompatibleLLM  # noqa: E402
 from app.infrastructure.observability import NoopTracer  # noqa: E402
@@ -161,7 +160,7 @@ def build_row(
     )
 
 
-async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings, ledger: RunLedger) -> Row:
+async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings) -> Row:
     """One planning case on the sandbox (EvalService._planning_case's setup) with the given flag."""
     settings = base.model_copy(
         update={
@@ -175,7 +174,6 @@ async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings, ledger:
     registry = SandboxRegistry(
         settings, case.destination or "Kyoto", fault=case.fault, fault_detail=case.fault_detail, start=start
     )
-    ledger.instrument(registry)
     observed = Observed()
     gateway = LLMGateway(_RecordingLLM(llm, observed.purposes), PromptLibrary(settings), NoopTracer(), settings)
     planner = Planner(gateway, settings, registry.fx)
@@ -202,7 +200,6 @@ async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings, ledger:
         hard_constraints=case.constraints,
     )
     log = ToolLog()
-    ledger.track(log)
     repair = planning.repair_plan
 
     async def observed_repair(plan: Any, errors: list[str], *args: Any, **kwargs: Any) -> Any:
@@ -226,20 +223,15 @@ async def run_case(case: EvalCase, flag: bool, llm: Any, base: Settings, ledger:
     finally:
         planning.repair_plan = repair  # type: ignore[assignment]
     wall_ms = int((time.perf_counter() - started) * 1000)
-    ledger.tokens += gateway.prompt_tokens + gateway.completion_tokens
     plan_valid = plan is not None and not validate_plan(plan, settings)
     return build_row(case.id, flag, gateway, observed, wall_ms, plan_valid)
 
 
 async def run_ab(cases: list[EvalCase], llm: Any, settings: Settings) -> list[Row]:
     rows: list[Row] = []
-    ledger = RunLedger()
-    try:
-        for flag in (False, True):
-            for case in cases:
-                rows.append(await run_case(case, flag, llm, settings, ledger))
-    finally:
-        ledger.close()
+    for flag in (False, True):
+        for case in cases:
+            rows.append(await run_case(case, flag, llm, settings))
     return rows
 
 

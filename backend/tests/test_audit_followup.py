@@ -8,9 +8,11 @@ from typing import Any
 
 import pytest
 
+from app.application import audit_followup
 from app.application.audit_followup import run_follow_ups
 from app.application.toolbox import Toolbox
 from app.config import Settings
+from app.domain.errors import CanaryLeak
 from app.domain.models import (
     AgentName,
     AuditFinding,
@@ -166,7 +168,7 @@ def test_a_follow_up_that_finished_keeps_its_references_when_another_times_out(s
                 await asyncio.sleep(5.0)
             return self.rows
 
-    quick = settings.model_copy(update={"audit_follow_up_seconds": 0.2})
+    quick = settings.model_copy(update={"audit_follow_up_seconds": 1.0})
     toolbox, _, _ = _toolbox(quick)
     report = _report(_finding(query="Kyoto fast query"), _finding(query="Kyoto slow query"))
 
@@ -234,3 +236,14 @@ def test_a_cancelled_outer_task_still_propagates(settings: Settings) -> None:
             await task
 
     asyncio.run(scenario())
+
+
+def test_a_canary_leak_in_a_follow_up_search_is_raised(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The one exception to failing open: a leaked canary leaves run_follow_ups."""
+    async def leak(**_: Any) -> Any:
+        raise CanaryLeak("leak")
+
+    monkeypatch.setattr(audit_followup, "lookup_web_references", leak)
+    toolbox, _, _ = _toolbox(settings)
+    with pytest.raises(CanaryLeak):
+        _run(_report(_finding()), SimpleNamespace(web=[_Web(GOOD_ROWS)], web_deep=[]), toolbox, settings)

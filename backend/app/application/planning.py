@@ -155,15 +155,21 @@ class PlanPath:
                     gateway=self.planner.gateway,
                     settings=self.settings,
                 )
+            except CanaryLeak:
+                raise
+            except Exception as exc:
+                # The audit fails open already; this guards against a bug in it.
+                logger.warning("pre-planning audit failed open: %s", type(exc).__name__)
+                audit = AuditReport(skipped=f"audit failed: {type(exc).__name__}")
+            try:
                 audit = await run_follow_ups(
                     audit, registry=self.registry, toolbox=toolbox, city=context.destination, settings=self.settings
                 )
             except CanaryLeak:
                 raise
             except Exception as exc:
-                # Both calls fail open already; this guards against a bug in them.
-                logger.warning("pre-planning audit failed open: %s", type(exc).__name__)
-                audit = AuditReport(skipped=f"audit failed: {type(exc).__name__}")
+                # A bug in the follow-ups keeps the findings the audit returned.
+                logger.warning("pre-planning audit follow-ups failed open: %s", type(exc).__name__)
 
         emit("progress", {"phase": "planner", "message": "Composing the itinerary from verified facts.", "progress": 70})
         plan = await self.planner.compose(

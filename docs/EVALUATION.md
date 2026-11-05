@@ -271,14 +271,18 @@ PYTHONPATH=. python scripts/audit_ab.py --cases 10 --out ../var/audit_ab.csv
 | `wall_ms` | wall-clock time of `PlanPath.run` |
 | `findings` | findings in the AuditReport the planner received (0 with the flag off) |
 | `blocked_removed` | candidates the planner dropped for block findings: compose's own `apply_audit_blocks` rule, replayed on the same agent results and report |
-| `follow_ups` | evidence entries in that report, one per follow-up the audit asked for |
+| `follow_ups` | evidence entries in that report, one per follow-up the audit asked for: attempts, so a follow-up that came back as a gap counts too |
 | `validation_errors_before_repair` | errors `validate_plan` handed to `repair_plan` (0 when no repair was needed) |
 | `repair_rounds` | writer calls with purpose `plan.repair`. A JSON retry inside a round (`plan.repair.repair`) is not counted |
 | `plan_valid` | a plan came back and `validate_plan` finds no error in it |
 
-**Cost per planned trip with the flag on**: +1 writer call (`preplan.audit`), up to +3
-web searches (`audit_max_follow_ups`), and up to +35 s in the worst case (the 20 s audit
-timeout plus the 15 s follow-up deadline).
+**Cost per planned trip with the flag on**: +1 to +3 writer calls (`preplan.audit`; the
+gateway asks again under `preplan.audit.repair` when a reply is not valid JSON or does
+not fit the schema, up to `max_repairs` times, all inside the 20 s audit budget, and
+`llm_calls` counts every one), up to +3 web searches (`audit_max_follow_ups`), and up to
++35 s in the worst case (the 20 s audit timeout plus the 15 s follow-up deadline). The
+token columns are the gateway's only: a Grok search is a provider call, not a gateway
+call, so its cost is not in them.
 
 **Reading the CSV.** Pair each case's `False` and `True` rows. The hypothesis holds if
 `validation_errors_before_repair` and `repair_rounds` go down with the flag on and

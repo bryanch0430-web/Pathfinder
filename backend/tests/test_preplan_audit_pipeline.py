@@ -118,11 +118,12 @@ def test_block_finding_reaches_the_planner(settings: Settings) -> None:
     assert places[target] not in _plan_names(plan)
 
 
-def test_canary_leak_from_audit_propagates(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    async def leak(**_):
+@pytest.mark.parametrize("name", ["audit_results", "run_follow_ups"])
+def test_canary_leak_from_audit_propagates(settings: Settings, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    async def leak(*_, **__):
         raise CanaryLeak("leak")
 
-    monkeypatch.setattr(planning, "audit_results", leak)
+    monkeypatch.setattr(planning, name, leak)
     with pytest.raises(CanaryLeak):
         _plan(settings, audit=True)
 
@@ -136,6 +137,28 @@ def test_audit_bug_fails_open(settings: Settings, monkeypatch: pytest.MonkeyPatc
     plan, _, phases = _plan(settings, audit=True)
     assert isinstance(plan, TripPlan)
     assert phases[-1] == "ready"
+
+
+def test_a_follow_up_bug_keeps_the_audit_findings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The follow-ups failing unexpectedly keeps the report the audit returned: its block still applies."""
+    results: dict = {}
+    baseline, _, _ = _plan(settings, capture=results)
+    places = _places(results)
+    target = next(pid for pid, name in places.items() if name in _plan_names(baseline))
+    reply = json.dumps({"findings": [{
+        "agent": "attraction", "item_id": target, "issue": "suspect_fact", "severity": "block",
+        "detail": "closed permanently", "follow_up": None,
+    }]})
+
+    async def broken(*_, **__):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(planning, "run_follow_ups", broken)
+    plan, llm, phases = _plan(settings, audit=True, replies={"preplan.audit": reply})
+    assert isinstance(plan, TripPlan)
+    assert phases[-1] == "ready"
+    assert llm.purposes.count("preplan.audit") == 1
+    assert places[target] not in _plan_names(plan)
 
 
 def test_audit_ab_refuses_without_model(offline_gateway: LLMGateway, tmp_path, capsys) -> None:
