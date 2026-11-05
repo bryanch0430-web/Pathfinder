@@ -246,6 +246,11 @@
   line-height: 1.4;
 }
 
+/* The live region of a full list is always there; while it is empty it must not add to the field's gap. */
+.pf-field__limit:empty {
+  margin-top: -6px;
+}
+
 .pf-field__error {
   color: var(--p30-tone-feedback-danger);
   font-size: var(--p30-type-size-body-xs);

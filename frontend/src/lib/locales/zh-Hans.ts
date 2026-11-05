@@ -341,6 +341,7 @@ export const ZH_HANS: Messages = {
   "form.preferencesHint": "按 Enter 或逗号添加标签",
   "form.constraints": "硬性约束",
   "form.constraintsHint": "必去、避开、无障碍需求",
+  "form.linesLimit": "已达上限：最多保留 {max} 条。删除一条后才能再添加。",
   "form.save": "保存信息",
   "form.generate": "生成行程",
 

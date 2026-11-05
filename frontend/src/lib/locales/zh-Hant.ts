@@ -343,6 +343,7 @@ export const ZH_HANT: Messages = {
   "form.preferencesHint": "按 Enter 或逗號新增標籤",
   "form.constraints": "必要條件",
   "form.constraintsHint": "必去、避開、無障礙需求",
+  "form.linesLimit": "已達上限：最多保留 {max} 項。刪除一項後才能再新增。",
   "form.save": "儲存資料",
   "form.generate": "產生行程",
 
