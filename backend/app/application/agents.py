@@ -138,6 +138,19 @@ class BaseAgent:
 #: bound keeps a runaway agent from making the partial result slow to build.
 MAX_PROGRESS_ROWS = 60
 
+#: Place candidates the planner gets: ten for a short trip, three a day for a longer one, never more
+#: than one page of the main place source serves (Google Places text search answers 20 at most; asking
+#: more would take a second, paged request).
+MIN_PLACE_CANDIDATES = 10
+PLACES_PER_DAY = 3
+MAX_PLACE_CANDIDATES = 20
+
+
+def place_candidate_limit(days: int) -> int:
+    """How many place candidates a trip of `days` days asks for and keeps."""
+    return min(max(MIN_PLACE_CANDIDATES, days * PLACES_PER_DAY), MAX_PLACE_CANDIDATES)
+
+
 #: Lookups in a row that may fail before the agent stops asking the geocoder. Each can take the
 #: whole lookup timeout, so asking a dead service about every guide place would outlast the
 #: pre-planning budget before its failure was ever reported.
@@ -179,6 +192,7 @@ class AttractionAgent(BaseAgent):
         places: list[PlaceCandidate] = []
         restaurants: list[PlaceCandidate] = []
         notes: list[dict[str, Any]] = []
+        wanted = place_candidate_limit(len(request.date_range.dates))
 
         for source in self.registry.places:
             if not getattr(source, "available", True):
@@ -191,7 +205,7 @@ class AttractionAgent(BaseAgent):
                     destination=request.context.destination,
                     geo=request.destination.geo,
                     category="attraction",
-                    limit=10,
+                    limit=wanted,
                     query=request.extra.get("places_query"),
                 )
                 if results:
@@ -291,7 +305,7 @@ class AttractionAgent(BaseAgent):
                 sources.extend(match.source_refs)
             self._keep_wish(request, wish, match, wish_failures.get(wish))
 
-        places = _choose_places(places, wished)
+        places = _choose_places(places, wished, limit=wanted)
         # A guide place that came back located another way (the traveller named it, and a place source gave its
         # coordinates) is in the plan: it was not left out, whatever the geocoder said of the guide's entry.
         for place in places:
@@ -465,7 +479,9 @@ class AttractionAgent(BaseAgent):
                 located.append(PlaceCandidate.model_validate(row))
         wished = [place for place in located if "requested" in place.tags]
         rest = _merge_places([place for place in located if place.geo and "requested" not in place.tags])
-        found = [place for place in _choose_places(rest, wished) if place.geo]
+        trip = context.date_range() if context is not None else None
+        days = len(trip.dates) if trip is not None else 0
+        found = [place for place in _choose_places(rest, wished, limit=place_candidate_limit(days)) if place.geo]
         if not found:
             return None
         meals = [meal for meal in _merge_places(meals) if meal.geo][:6]
@@ -913,12 +929,14 @@ def _unchecked_message(count: int, failure: ProviderError) -> str:
     return f"{cause}; ask again to retry." if failure.retryable else f"{cause}."
 
 
-def _choose_places(places: list[PlaceCandidate], wished: list[PlaceCandidate]) -> list[PlaceCandidate]:
-    """The places that go to the planner: the ten best rated with coordinates, the ones the traveller named first."""
+def _choose_places(
+    places: list[PlaceCandidate], wished: list[PlaceCandidate], *, limit: int = MIN_PLACE_CANDIDATES
+) -> list[PlaceCandidate]:
+    """The places that go to the planner: the `limit` best rated with coordinates, the ones the traveller named first."""
     places = sorted(places, key=lambda p: (p.rating or 0, p.review_count or 0), reverse=True)
-    places = [p for p in places if p.geo is not None][:10] or places[:10]
+    places = [p for p in places if p.geo is not None][:limit] or places[:limit]
     if wished:
-        places = _merge_places(wished + places)[: max(10, len(wished))]
+        places = _merge_places(wished + places)[: max(limit, len(wished))]
     return places
 
 

@@ -51,6 +51,7 @@ from app.domain.models import (
     GeoLocation,
     GeoPoint,
     HotelStay,
+    ItemType,
     Money,
     NoteItem,
     PlanItem,
@@ -356,6 +357,10 @@ class Planner:
                     message=f"No {diet} restaurant came back from the place sources, so no meal stop is suggested.",
                 )
             )
+        open_days = _open_days_gap(days, blocked=blocked, windows=windows)
+        if open_days is not None and (places or not any(gap.section == "attractions" for gap in gaps)):
+            # With no place at all the attraction agent's own gap already says why.
+            gaps.append(open_days)
         sources_used = sorted({ref.source for result in results.values() for ref in result.sources})
         notes = [note for result in results.values() for note in result.notes]
         if diet_note:
@@ -558,6 +563,15 @@ class Planner:
             assignment[low].append(assignment[high].pop())
             counts[low] += 1
             counts[high] -= 1
+        # A model can also pack every place onto the first days of a long trip. No day with room is left
+        # empty while another holds two or more stops: the fullest day gives up the stop farthest from
+        # the rest of its day. With fewer places than days some days stay empty; nothing is invented.
+        while True:
+            empty = [i for i in range(day_count) if not assignment[i] and caps[i] > 0]
+            fullest = max(range(day_count), key=lambda i: len(assignment[i]), default=None)
+            if not empty or fullest is None or len(assignment[fullest]) < 2:
+                break
+            assignment[empty[0]].append(_outlier(assignment[fullest]))
 
         # Geographic order inside each day.
         for index, rows in assignment.items():
@@ -934,6 +948,23 @@ def _centroid(points: list[dict | None]) -> dict | None:
         "lat": sum(point["lat"] for point in valid) / len(valid),
         "lng": sum(point["lng"] for point in valid) / len(valid),
     }
+
+
+def _outlier(rows: list[dict]) -> dict:
+    """Remove and return the stop that adds most travel to its day: the one farthest from the others' centre.
+
+    Without coordinates to compare, the day's last stop. A tie goes to the later stop.
+    """
+    def distance(position: int) -> float:
+        centre = _centroid([row.get("geo") for index, row in enumerate(rows) if index != position])
+        geo = rows[position].get("geo") or {}
+        if centre is None or geo.get("lat") is None or geo.get("lng") is None:
+            return -1.0
+        return haversine_km(centre["lat"], centre["lng"], geo["lat"], geo["lng"])
+
+    scores = [distance(position) for position in range(len(rows))]
+    best = max(scores)
+    return rows.pop(len(rows) - 1 - scores[::-1].index(best))
 
 
 def _closest(rows: list[dict], centre: dict) -> dict:
@@ -1540,6 +1571,25 @@ def _gaps(results: dict[str, AgentResult]) -> list[DataGap]:
                     )
                 )
     return gaps
+
+
+def _open_days_gap(
+    days: list[DayPlan], *, blocked: dict[date, str], windows: dict[date, DayWindow]
+) -> DataGap | None:
+    """A gap naming how many days have a verified stop, when some have none.
+
+    A day kept free on purpose, or shaped by a flight, is not counted (as in `_constraints`); a meal is not a stop.
+    """
+    counted = [day for day in days if day.date not in blocked and day.date not in windows]
+    covered = sum(1 for day in counted if any(item.type is not ItemType.MEAL for item in day.items))
+    if covered == len(counted):
+        return None
+    message = (
+        f"Only {covered} of {len(counted)} days have verified stops; the rest are open."
+        if covered
+        else "No day has a verified stop; the days are open."
+    )
+    return DataGap(section="attractions", kind=FailureKind.NO_DATA, message=message)
 
 
 def _dedupe(values: list[str]) -> list[str]:

@@ -42,6 +42,12 @@ TYPE_LABELS = {
 }
 
 
+#: The most results one request returns: Google Places text search (`maxResultCount`, 1-20) and
+#: Nominatim search (`limit`, "cannot be more than 40").
+GOOGLE_MAX_RESULTS = 20
+NOMINATIM_MAX_RESULTS = 40
+
+
 class GooglePlacesSource:
     name = "google-places"
     #: its top text-search hit is the place asked for, even across languages.
@@ -78,7 +84,8 @@ class GooglePlacesSource:
             payload={
                 "textQuery": text_query,
                 "languageCode": "en",
-                "maxResultCount": max(limit * 2, 10),
+                # Text search serves one page of 20 at most; more would need a second, paged request.
+                "maxResultCount": min(max(limit * 2, 10), GOOGLE_MAX_RESULTS),
                 "includedType": "restaurant" if category in {"restaurant", "meal", "food"} else "tourist_attraction",
             },
             timeout=self.settings.http_timeout_seconds,
@@ -268,7 +275,7 @@ class NominatimPlacesSource:
         params = {
             "q": text,
             "format": "jsonv2",
-            "limit": max(limit * 2, 12),
+            "limit": min(max(limit * 2, 12), NOMINATIM_MAX_RESULTS),  # the API answers 40 at most
             "addressdetails": 1,
             "extratags": 1,
             "namedetails": 1,
