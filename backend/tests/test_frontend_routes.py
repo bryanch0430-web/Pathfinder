@@ -90,7 +90,7 @@ TS_TRIP_CONTEXT = {
     "session_id", "destination", "origin", "start_date", "end_date", "days", "party_size",
     "budget", "currency", "hotel_style", "pace", "preferences", "hard_constraints", "language",
 }
-TS_MAP_LEG = {"from_id", "to_id", "mode", "minutes", "km", "path", "source"}
+TS_MAP_LEG = {"from_id", "to_id", "mode", "minutes", "km", "path", "source", "steps"}
 
 
 def test_renamed_routes_accept_the_frontend_payloads_and_return_its_shapes(settings: Settings) -> None:

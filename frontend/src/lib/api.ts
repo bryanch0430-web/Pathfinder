@@ -118,6 +118,13 @@ export async function getConfig(): Promise<Record<string, unknown>> {
   return request("/api/runtime");
 }
 
+export interface MapStep {
+  mode: string;
+  minutes: number | null;
+  path: [number, number][];
+  instruction: string;
+}
+
 export interface MapLeg {
   from_id: string;
   to_id: string;
@@ -127,6 +134,8 @@ export interface MapLeg {
   /** [lat, lng] pairs of the real route geometry. */
   path: [number, number][];
   source: string;
+  /** Per-step detail; a WALK route can contain a ferry step. */
+  steps?: MapStep[];
 }
 
 /** Real route geometry per leg, including the legs to restaurants. */

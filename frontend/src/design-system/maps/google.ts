@@ -56,11 +56,35 @@ export function createGoogleEngine(el: HTMLElement, centre: LatLng): MapEngine {
     gestureHandling: "greedy",
     keyboardShortcuts: false,
     backgroundColor: "#f4f0e7",
+    // A quieter basemap so the bold route is what the eye lands on first.
+    styles: [
+      { featureType: "poi.business", elementType: "labels", stylers: [{ visibility: "off" }] },
+      { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+      // Basemap transit lines look like a route and compete with ours; the app
+      // draws the actual legs, so hide the decorative network.
+      { featureType: "transit", elementType: "geometry", stylers: [{ visibility: "off" }] },
+      { featureType: "road", elementType: "labels", stylers: [{ visibility: "simplified" }] },
+      { featureType: "road", elementType: "geometry", stylers: [{ lightness: 18 }] },
+      { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ lightness: 8 }] },
+      { elementType: "geometry", stylers: [{ saturation: -28 }] },
+      { elementType: "labels.text.fill", stylers: [{ color: "#6b7280" }] },
+    ],
   });
 
   (el as unknown as { __pfMap?: AnyMap }).__pfMap = map;
   g.maps.event.addListener(map, "idle", () => {
     el.dataset.zoom = String(map.getZoom() ?? "");
+  });
+
+  // Follow must never fight a drag: remember it, and hold off briefly afterwards.
+  let dragging = false;
+  let lastDragEnd = 0;
+  g.maps.event.addListener(map, "dragstart", () => {
+    dragging = true;
+  });
+  g.maps.event.addListener(map, "dragend", () => {
+    dragging = false;
+    lastDragEnd = performance.now();
   });
 
   const overlays: AnyMap[] = [];
@@ -175,6 +199,15 @@ export function createGoogleEngine(el: HTMLElement, centre: LatLng): MapEngine {
     },
     panTo(point) {
       map.panTo(point);
+    },
+    setCenter(point) {
+      map.setCenter(point);
+    },
+    isDragging() {
+      return dragging || performance.now() - lastDragEnd < 1200;
+    },
+    getZoom() {
+      return map.getZoom() ?? 12;
     },
     setZoom(zoom) {
       map.setZoom(zoom);

@@ -88,21 +88,19 @@ def _plan(hotel_geo: GeoPoint | None) -> TripPlan:
     )
 
 
-def test_legs_connect_hotel_stops_and_restaurants(settings: Settings) -> None:
+def test_legs_connect_only_the_scheduled_stops(settings: Settings) -> None:
     plan = _plan(GeoPoint(lat=35.0, lng=135.75))
     payload = asyncio.run(
         legs_for_plan(plan, routes=[FakeRoutes()], settings=settings, day="2027-04-01")
     )
     pairs = [(leg["from_id"], leg["to_id"]) for leg in payload["legs"]]
-    # hotel -> first stop -> lunch -> second stop -> hotel, in that order.
+    # The itinerary does not schedule hotel transfer, so the map must not invent
+    # a walk to/from the stay.
     assert pairs == [
-        ("hotel_x", "a1"),
         ("a1", "m1"),
         ("m1", "a2"),
-        ("a2", "hotel_x"),
     ]
     assert all(leg["source"] == "fake" for leg in payload["legs"])
-    assert payload["legs"][0]["path"][0] == [35.0, 135.75]
 
 
 def test_a_far_away_hotel_is_not_linked_as_a_local_leg(settings: Settings) -> None:

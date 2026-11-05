@@ -11,6 +11,8 @@ export function minutesOf(value?: string | null): number | null {
 }
 
 export function clockText(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  return `${String(hours).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  // Playback advances in fractional minutes; the label is whole minutes only.
+  const whole = Math.max(0, Math.floor(minutes));
+  const hours = Math.floor(whole / 60);
+  return `${String(hours).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
 }

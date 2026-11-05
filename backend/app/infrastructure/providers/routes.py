@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from app.config import Settings
-from app.domain.models import GeoPoint, RouteLeg
+from app.domain.models import GeoPoint, RouteLeg, RouteStep
 from app.infrastructure.http import haversine_km, request_json
 
 # --- the published transport model -------------------------------------------
@@ -32,6 +33,23 @@ def model_travel(km: float) -> tuple[str, int]:
     mode = transport_mode(km)
     minutes = max(2, round(km / TRANSPORT_SPEED_KMH[mode] * 60 + TRANSPORT_OVERHEAD_MIN[mode]))
     return mode, minutes
+
+
+def step_mode(instruction: str, travel_mode: str = "WALK") -> str:
+    """Google may fold a ferry (or cable car/tram) into a WALK route."""
+    text = (instruction or "").lower()
+    ferry_words = ("ferry" in text) or (
+        "pier" in text and any(word in text for word in ("take", "board", "terminal"))
+    )
+    if travel_mode.upper() == "FERRY" or ferry_words:
+        return "ferry"
+    if "cable car" in text or "funicular" in text or "gondola" in text:
+        return "cable"
+    if re.search(r"\btram\b", text):
+        return "tram"
+    if travel_mode.upper() in {"TRANSIT", "BUS", "RAIL", "SUBWAY"}:
+        return "transit"
+    return "walk"
 
 
 class TransportModelRoutes:
@@ -84,14 +102,19 @@ class GoogleRoutesSource:
         self.available = bool(self._key and settings.enable_routes)
 
     async def leg(self, origin: GeoPoint, destination: GeoPoint, *, mode: str = "walk") -> RouteLeg:
-        travel_mode = {"walk": "WALK", "drive": "DRIVE", "transit": "TRANSIT"}.get(mode, "WALK")
+        travel_mode = {"walk": "WALK", "bicycle": "BICYCLE", "drive": "DRIVE", "transit": "TRANSIT"}.get(mode, "WALK")
         data = await request_json(
             "POST",
             "https://routes.googleapis.com/directions/v2:computeRoutes",
             source=self.name,
             headers={
                 "X-Goog-Api-Key": self._key,
-                "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+                "X-Goog-FieldMask": (
+                    "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,"
+                    "routes.legs.steps.travelMode,routes.legs.steps.polyline.encodedPolyline,"
+                    "routes.legs.steps.staticDuration,routes.legs.steps.navigationInstruction,"
+                    "routes.legs.steps.transitDetails"
+                ),
                 "Content-Type": "application/json",
             },
             payload={
@@ -136,6 +159,30 @@ class GoogleRoutesSource:
             except ValueError:
                 minutes = None
         polyline = decode_polyline(str((route.get("polyline") or {}).get("encodedPolyline") or ""))
+        steps: list[RouteStep] = []
+        for raw_leg in route.get("legs") or []:
+            for raw_step in raw_leg.get("steps") or []:
+                instruction = str(
+                    (raw_step.get("navigationInstruction") or {}).get("instructions") or ""
+                )
+                step_seconds = str(raw_step.get("staticDuration") or "")
+                step_minutes = None
+                if step_seconds.endswith("s"):
+                    try:
+                        step_minutes = max(1, round(float(step_seconds[:-1]) / 60))
+                    except ValueError:
+                        step_minutes = None
+                step_polyline = decode_polyline(
+                    str((raw_step.get("polyline") or {}).get("encodedPolyline") or "")
+                )
+                steps.append(
+                    RouteStep(
+                        mode=step_mode(instruction, str(raw_step.get("travelMode") or "WALK")),
+                        minutes=step_minutes,
+                        polyline=step_polyline,
+                        instruction=instruction,
+                    )
+                )
         return RouteLeg(
             from_geo=origin,
             to_geo=destination,
@@ -144,6 +191,7 @@ class GoogleRoutesSource:
             mode=mode,
             source=self.name,
             polyline=polyline,
+            steps=steps,
         )
 
 
@@ -151,7 +199,7 @@ class GoogleRoutesSource:
         """N×N travel minutes between a day's stops (Route Matrix)."""
         if not self.available or len(points) < 2 or len(points) > 10:
             return None
-        travel_mode = {"walk": "WALK", "drive": "DRIVE", "transit": "TRANSIT"}.get(mode, "WALK")
+        travel_mode = {"walk": "WALK", "bicycle": "BICYCLE", "drive": "DRIVE", "transit": "TRANSIT"}.get(mode, "WALK")
         waypoints = [
             {"waypoint": {"location": {"latLng": {"latitude": point.lat, "longitude": point.lng}}}}
             for point in points
