@@ -4,7 +4,9 @@ Validation is deliberately boring and explicit. Repair re-shapes what is already
 present: it may change times, the dates of a stay or a ticket, and wording, and
 nothing else. It cannot add, drop or rename a stop, hotel or ticket, or bring a URL
 that was not in the original document, and every price, coordinate, source,
-forecast and data gap of a repaired plan is the original's.
+forecast and data gap of a repaired plan is the original's. Two faults in the original that this
+leaves unfixable are settled afterwards by code: an id shared by two rows, and a forecast filed
+under another day's date.
 """
 
 from __future__ import annotations
@@ -240,6 +242,53 @@ def _restore_facts(original: TripPlan, candidate: TripPlan) -> None:
     ):
         for before, after in _pairs(old_rows, new_rows):
             _keep(before, after)
+    _settle_ids(candidate)
+    _settle_forecasts(candidate)
+
+
+def _settle_ids(plan: TripPlan) -> None:
+    """Rows that came back sharing an id after the originals' ids were put back get distinct ones.
+
+    The ids are put back from the original so a repair cannot re-label a row, but an original that held one id twice
+    (a plan that did not come from the planner) would then never validate: the writer's own unique ids are overwritten.
+    The first row keeps the id; each later one takes the id with a number after it, one nothing else in the plan has."""
+    rows = [*(item for day in plan.days for item in day.items), *plan.hotels, *plan.tickets]
+    taken = {row.id for row in rows}
+    seen: set[str] = set()
+    for row in rows:
+        if row.id in seen:
+            number = 2
+            while f"{row.id}-{number}" in taken:
+                number += 1
+            row.id = f"{row.id}-{number}"
+            taken.add(row.id)
+        seen.add(row.id)
+
+
+def _settle_forecasts(plan: TripPlan) -> None:
+    """A forecast on a day that is not its date goes to the day it is for, or is dropped.
+
+    The forecast is put back from the original, so a writer cannot correct it. Moving a forecast the plan already
+    holds to its own date invents nothing. One that has no day to go to (or whose day has a forecast) is removed.
+    A day left without a forecast gets a gap that says so, and lets the next refresh ask the source again."""
+    days = {day.date: day for day in plan.days}
+    strays = [(day, weather) for day in plan.days if (weather := day.weather) is not None and weather.date != day.date]
+    for day, _ in strays:
+        day.weather = None
+    for day, weather in strays:
+        home = days.get(weather.date)
+        if home is not None and home.weather is None:
+            home.weather = weather
+    for day, weather in strays:
+        if day.weather is None:
+            plan.data_quality.gaps.append(
+                DataGap(
+                    section="weather",
+                    kind=FailureKind.NO_DATA,
+                    message=f"The forecast filed under {day.date} was for {weather.date}, so {day.date} has none.",
+                    retryable=True,
+                )
+            )
 
 
 def is_edit_outcome(gap: DataGap) -> bool:
