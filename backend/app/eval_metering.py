@@ -58,6 +58,7 @@ PROVIDER_METHODS = (
 INVOKED_STATUSES = frozenset({"ok", "error", "timeout"})
 
 DEFAULT_REPLIES: dict[str, str] = {
+    "preplan.audit": '{"findings": []}',
     "ask.answer": json.dumps({"answer": "The itinerary covers that; here is the relevant part."}),
     "clarify": json.dumps({"question": "Which part of the trip should I look at?", "slots": []}),
 }
