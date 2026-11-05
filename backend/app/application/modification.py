@@ -1479,11 +1479,12 @@ _KEEP_HOTEL = re.compile(
     rf"[^.,;]{{0,16}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b\s+(?:(?:stays?|remains?|is|are)\s+)?(?:unchanged|the same)\b",
     re.IGNORECASE,
 )
-_NEGATION = re.compile(r"\b(?:not|never|no longer|dont)\b|n't\b", re.IGNORECASE)
+#: the typewriter apostrophe and the curly one a phone types: "don't" and "don’t" are the same word
+_NEGATION = re.compile(r"\b(?:not|never|no longer|dont)\b|n['’]t\b", re.IGNORECASE)
 #: a negation, or a word that waves a change away ("no need to", "without"), right in front of a change word
-_REFUSAL = re.compile(r"\b(?:not|never|no longer|dont|no need|no reason|without)\b|n't\b", re.IGNORECASE)
+_REFUSAL = re.compile(r"\b(?:not|never|no longer|dont|no need|no reason|without)\b|n['’]t\b", re.IGNORECASE)
 #: "don't forget to switch the hotel" asks for the change
-_DONT_FORGET = re.compile(r"\b(?:don'?t|do not|never)\s+(?:forget|hesitate|fail)\s+to\b", re.IGNORECASE)
+_DONT_FORGET = re.compile(r"\b(?:don['’]?t|do not|never)\s+(?:forget|hesitate|fail)\s+to\b", re.IGNORECASE)
 #: where a clause ends: punctuation, a dash, or a word that starts a new statement ("I don't like this hotel so swap it")
 _CLAUSE_END = re.compile(
     r"[,;.:!?–—]|\s-+\s|\b(?:so|therefore|hence|thus|and|but|then|because|since|please|cos|cuz|"
@@ -1524,12 +1525,21 @@ def _refused(message: str, found: re.Match[str]) -> bool:
     return _REFUSAL.search(" ".join(_DONT_FORGET.sub(" ", ahead).split()[-_REFUSAL_REACH:])) is not None
 
 
+#: how many words in front of "keep the hotel" a negation can stand and still refuse it ("I don't really want to keep")
+_KEEP_REACH = 5
+
+
 def _keeps_the_hotel(message: str) -> bool:
-    """"keep the hotel", "same room" - unless it is refused ("I don't want to keep the hotel")."""
-    return any(
-        not _NEGATION.search(message[max(found.start() - 24, 0) : found.start()])
-        for found in _KEEP_HOTEL.finditer(message)
-    )
+    """"keep the hotel", "same room" - unless it is refused ("I don't want to keep the hotel").
+
+    The negation has to stand in the keep's own clause: "I don't like the area, but keep the hotel" keeps it."""
+    return any(not _negated_keep(message, found) for found in _KEEP_HOTEL.finditer(message))
+
+
+def _negated_keep(message: str, found: re.Match[str]) -> bool:
+    clause = max((cut.end() for cut in _CLAUSE_END.finditer(message, 0, found.start())), default=0)
+    ahead = " ".join(_DONT_FORGET.sub(" ", message[clause : found.start()]).split()[-_KEEP_REACH:])
+    return _NEGATION.search(ahead) is not None
 
 
 def _stay_as_word(message: str, name: str) -> str:
