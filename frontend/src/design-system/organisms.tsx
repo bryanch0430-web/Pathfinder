@@ -1296,6 +1296,10 @@ export function MapPanel({
     () => [...new Set(dayLegs.map((entry) => entry.mode))],
     [dayLegs],
   );
+  const hasFerry = useMemo(
+    () => legs.some((leg) => leg.steps?.some((step) => step.mode === "ferry")),
+    [legs],
+  );
 
   const autoAdvance = useRef(false);
 
@@ -1410,7 +1414,13 @@ export function MapPanel({
               {t(MODE_LABEL[mode])}
             </span>
           ))}
+          {hasFerry ? (
+            <span className="pf-route-legend__item">
+              <i className="pf-route-legend__line pf-route-legend__line--ferry" /> {t("map.ferry")}
+            </span>
+          ) : null}
         </div>
+        {hasFerry ? <Text size="xs" tone="tertiary">{t("map.ferryNote")}</Text> : null}
         {dayLegs.length ? (
           <div className="pf-route-legs">
             {dayLegs.slice(0, 3).map((entry) => (

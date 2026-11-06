@@ -105,7 +105,7 @@ export const EN = {
   "trace.summary": "{steps} steps · {calls} tool calls",
 
   "map.mode.walk": "Walk",
-  "map.mode.metro": "Metro",
+  "map.mode.metro": "Transit",
   "map.mode.drive": "Drive",
   "map.mode.flight": "Flight",
   "map.legReal": "to {name} · {minutes} min {mode}",
@@ -117,6 +117,8 @@ export const EN = {
   "map.selectDay": "Select a day",
   "map.counts": "{sights} sights · {meals} meals",
   "map.legend": "Route legend",
+  "map.ferry": "Ferry",
+  "map.ferryNote": "Purple segments are ferry crossings inside a walking leg.",
   "map.travelled": "travelled",
   "map.ahead": "ahead",
   "map.minutes": "{minutes} min",

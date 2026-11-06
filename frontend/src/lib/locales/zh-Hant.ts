@@ -105,7 +105,7 @@ export const ZH_HANT: Messages = {
   "trace.summary": "{steps} 個步驟 · {calls} 次工具呼叫",
 
   "map.mode.walk": "步行",
-  "map.mode.metro": "地鐵",
+  "map.mode.metro": "公共交通",
   "map.mode.drive": "駕車",
   "map.mode.flight": "航班",
   "map.legReal": "前往 {name} · {mode} {minutes} 分鐘",
@@ -117,6 +117,8 @@ export const ZH_HANT: Messages = {
   "map.selectDay": "選擇一天",
   "map.counts": "{sights} 個景點 · {meals} 餐",
   "map.legend": "路線圖例",
+  "map.ferry": "渡輪",
+  "map.ferryNote": "紫色線段是步行段中的渡輪航段。",
   "map.travelled": "已走過",
   "map.ahead": "前方",
   "map.minutes": "{minutes} 分鐘",

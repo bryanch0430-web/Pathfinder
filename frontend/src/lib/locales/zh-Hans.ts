@@ -103,7 +103,7 @@ export const ZH_HANS: Messages = {
   "trace.summary": "{steps} 个步骤 · {calls} 次工具调用",
 
   "map.mode.walk": "步行",
-  "map.mode.metro": "地铁",
+  "map.mode.metro": "公共交通",
   "map.mode.drive": "驾车",
   "map.mode.flight": "航班",
   "map.legReal": "前往 {name} · {mode} {minutes} 分钟",
@@ -115,6 +115,8 @@ export const ZH_HANS: Messages = {
   "map.selectDay": "选择一天",
   "map.counts": "{sights} 个景点 · {meals} 餐",
   "map.legend": "路线图例",
+  "map.ferry": "渡轮",
+  "map.ferryNote": "紫色线段是步行段中的渡轮航段。",
   "map.travelled": "已走过",
   "map.ahead": "前方",
   "map.minutes": "{minutes} 分钟",
