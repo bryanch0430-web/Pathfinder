@@ -868,3 +868,111 @@ def test_the_edit_run_is_annotated_with_its_result_type() -> None:
     from app.application.modification import EditResult, ModifyPath
 
     assert typing.get_type_hints(ModifyPath.run)["return"] is EditResult
+
+
+# -- fix round 2: only a place-like answer is captured -----------------------------------------------------------------
+
+
+def test_a_new_trip_request_while_the_question_is_pending_is_planned_and_not_kept_as_the_home(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "plan", "confidence": 0.95, "reason_code": "replan_destination"}
+
+        events = await trip.turn("plan a trip to Osaka")
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert (event_of(events, "route") or {}).get("intent") == "plan", events
+        assert "I noted that you live in" not in reply_of(events)
+        assert _home_notes(stored) == []
+
+        # The question is not pending any more: a later bare place name is not taken as the home.
+        trip.llm.route = {"intent": "unclear", "confidence": 0.5}
+        later = await trip.turn("Mong Kok")
+        assert (event_of(later, "route") or {}).get("reason_code") != "edit_answer"
+        assert _home_notes(trip.store.get_plan(trip.session_id)) == []
+
+    run_trip(settings, scenario, destination="Kyoto")
+
+
+@pytest.mark.parametrize(
+    ("message", "route"),
+    [
+        ("Let's go to Osaka instead", {"intent": "plan", "confidence": 0.95}),
+        ("actually make day 2 lighter", {"intent": "modify", "confidence": 0.95}),
+    ],
+)
+def test_a_new_request_while_the_question_is_pending_is_routed_normally(settings: Settings, message: str, route: dict) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = route
+
+        events = await trip.turn(message)
+
+        assert (event_of(events, "route") or {}).get("reason_code") != "edit_answer", events
+        assert "I noted that you live in" not in reply_of(events)
+        assert _home_notes(trip.store.get_plan(trip.session_id)) == []
+
+    run_trip(settings, scenario, destination="Kyoto")
+
+
+@pytest.mark.parametrize("answer", ["idk", "dunno", "whatever", "hmm"])
+def test_an_unsure_answer_is_asked_again_once_and_never_kept(settings: Settings, answer: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "unclear", "confidence": 0.5}
+
+        _clarified(await trip.turn(answer), HOME_AGAIN)
+        last = await trip.turn(answer)
+
+        assert event_of(last, "clarify") is None and "left the plan as it was" in reply_of(last)
+        assert _home_notes(trip.store.get_plan(trip.session_id)) == []
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "plan a trip to Osaka",
+        "Let's go to Osaka instead",
+        "actually make day 2 lighter",
+        "how about Osaka",
+        "the hotel",
+        "cheaper please",
+        "add more",
+        "idk",
+        "dunno",
+        "whatever",
+        "hmm",
+        "not sure",
+        "maybe",
+        "travel to Nara",
+    ],
+)
+def test_only_a_place_like_answer_reads_as_a_place(answer: str) -> None:
+    from app.application.modification import _reads_as_a_place
+
+    assert not _reads_as_a_place(answer)
+
+
+@pytest.mark.parametrize("answer", ["Mong Kok", "Tsim Sha Tsui, Kowloon", "Hong Kong", "Sai Ying Pun"])
+def test_a_place_name_still_reads_as_a_place(answer: str) -> None:
+    from app.application.modification import _reads_as_a_place
+
+    assert _reads_as_a_place(answer)
+
+
+def test_a_place_with_a_preference_keeps_both_and_not_the_trip_place(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "plan", "confidence": 0.9}
+
+        events = await trip.turn("Mong Kok, we're vegetarian")
+        context = trip.store.get_context(trip.session_id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert any("Mong Kok" in note for note in _home_notes(stored)), reply_of(events)
+        assert (context.destination, context.origin) == ("Kyoto", "Hong Kong")
+        assert "vegetarian" in context.preferences
+
+    run_trip(settings, scenario, destination="Kyoto")

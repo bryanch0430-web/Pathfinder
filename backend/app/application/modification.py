@@ -1643,8 +1643,25 @@ _DISMISSAL = re.compile(
 )
 #: words that make an answer something other than the name of a place: yes, no, unsure, a first-person verb
 _NOT_A_PLACE_WORDS = frozenset(
-    "i i'm im i've ive me my mine we we're our yes yeah yep yup ok okay sure unsure not no nope know don't dont "
-    "maybe perhaps idea think guess live living stay staying sorry thanks thank please what why how".split()
+    (
+        # yes, no, a doubt, a sentence about oneself
+        "i i'm im i've ive me my mine we we're our us yes yeah yep yup ok okay sure unsure not no nope know don't dont "
+        "maybe perhaps idea think guess live living stay staying sorry thanks thank please what why how idk dunno "
+        "whatever hm hmm hmmm umm um uh err "
+        # a new trip or a change of plan
+        "plan planning trip trips go going travel travelling traveling visit instead let's lets about actually "
+        "itinerary holiday vacation "
+        # an edit, and the words that compare one plan with another
+        "make add remove change swap replace switch drop delete keep more less lighter heavier fewer cheaper dearer "
+        "grander nicer better busier quieter shorter longer earlier later"
+    ).split()
+)
+#: a short reply to the home question that is no place: a yes, a no, a doubt ("idk", "not sure", "never mind")
+_SHORT_REPLY = re.compile(
+    r"^\s*(?:yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|idk|dunno|whatever|hm+|um+|maybe|perhaps|not\s+sure|"
+    r"i'?m\s+not\s+sure|i\s+don'?t\s+know|don'?t\s+know|no\s+idea|never\s*mind|forget\s+it|cancel|skip(?:\s+it)?|"
+    r"no\s+thanks|not\s+now|rather\s+not|leave\s+it)\s*[.!]*\s*$",
+    re.IGNORECASE,
 )
 #: the most words the name of an area or an address is given in
 _PLACE_WORDS_MAX = 6
@@ -1732,8 +1749,9 @@ def _stated_home(draft: ChangeDraft, message: str, history: Sequence[Message], *
         candidates.append(written)
     if lived_in:
         candidates.append(lived_in.group(1))
-    if asked_for_home and _reads_as_a_place(message):
-        candidates.append(message)
+    place = _place_part(message) if asked_for_home else None
+    if place:
+        candidates.append(place)
     said = [message, *(row.content for row in replayable(history) if row.role == "user")]
     said_folded = [" ".join(strip_fence_tags(line).split()).casefold() for line in said]
     for value in candidates:
@@ -1752,7 +1770,28 @@ def _reads_as_a_place(answer: str) -> bool:
     words = re.findall(r"[^\W\d_][\w'’.-]*|\d+[\w-]*", text)
     if not words or len(words) > _PLACE_WORDS_MAX or not re.search(r"[^\W\d_]{2}", text):
         return False
-    return not any(word.casefold().replace("’", "'") in _NOT_A_PLACE_WORDS for word in words)
+    if any(word.casefold().replace("’", "'").strip(".") in _NOT_A_PLACE_WORDS for word in words):
+        return False
+    # A part of the plan ("the hotel", "day 2", "a museum", "the budget") is not where the traveller lives.
+    return not affected_parts_for(text) and _SHORT_REPLY.search(text) is None
+
+
+def _place_part(answer: str) -> str | None:
+    """The place in an answer to the home question: the whole answer when it reads as a place, else its first clause
+    when that does and the rest asks for no change ("Mong Kok, we're vegetarian"); None otherwise."""
+    text = " ".join(strip_fence_tags(answer).split())
+    if _reads_as_a_place(text):
+        return text.strip(" .!")
+    head, _, rest = text.partition(",")
+    if rest and _reads_as_a_place(head) and not (_imperative_edit(rest) or re.search(r"\b(?:plan|trip|go|travel|instead)\b", rest, re.IGNORECASE)):
+        return head.strip(" .!")
+    return None
+
+
+def answers_the_home_question(answer: str) -> bool:
+    """The message is an answer to "Where do you live?": a place, "I live in X", or a short yes, no or doubt (which is
+    asked again or ends the edit). A request of its own ("plan a trip to Osaka", "make day 2 lighter") is not."""
+    return _place_part(answer) is not None or _only_says_the_home(answer) or _SHORT_REPLY.search(answer or "") is not None
 
 
 def _adds_the_home(message: str) -> bool:

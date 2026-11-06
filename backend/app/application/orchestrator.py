@@ -22,7 +22,7 @@ from app.application.freshness import FreshnessService
 from app.application.language import chinese_input_reply, refresh_reply, set_language_reply, unsupported_reply
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
-from app.application.modification import EditQuestion, ModifyPath, plan_shape
+from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
 from app.application.planning import PlanPath
 from app.application.router import (
     MODIFY_VERBS,
@@ -365,29 +365,38 @@ class TurnService:
             # The stored turns, this one last, read once: the router and every step that acts on the turn see the
             # recent conversation from them (the steps through `conversation_block`, without this message).
             history = self.store.list_messages(session_id, limit=10)
-            # The message may answer the question an edit asked on the turn before ("Where do you live?", then "Mong
-            # Kok", "Hong Kong" or "I live in Osaka"). It goes back to that edit whatever a router would make of it, and
-            # it is not read for the trip: a place in an answer to our own question is not a new destination or origin.
-            # A question is not an answer, and the page's "generate again" is the page's, not an answer.
-            answering = (
+            # The message may answer the question an edit asked on the turn before. A question is not an answer, and
+            # the page's "generate again" is the page's, not an answer.
+            pending = (
                 _pending_edit_question(history)
                 if plan is not None and not looks_like_question(message) and not is_replan_message(message)
                 else None
             )
-            if answering is None:
-                with tracer.span("understand"):
-                    try:
-                        context = await understand(message, context, self.gateway, history=history)
-                    except CanaryLeak:
-                        raise
-                    except Exception:
-                        pass
-                    context = self._save_changes(as_read, context)
-                    if context.preferences:
-                        # The owner as it is now: signing in may have moved the trip while the message was understood.
-                        self._remember_in_background(self._memory_owner(session_id), context)
+            # An answer to "Where do you live?" that is a place ("Mong Kok", "Hong Kong", "I live in Osaka"), or a short
+            # yes, no or doubt, goes back to that edit whatever a router would make of it. A request of its own ("plan
+            # a trip to Osaka", "make day 2 lighter") is understood and routed as any message is, and the question
+            # is dropped.
+            captured = pending is not None and pending.fact in HOME_FACTS and answers_the_home_question(message)
+            answering = pending if captured else None
+            with tracer.span("understand"):
+                try:
+                    context = await understand(message, context, self.gateway, history=history)
+                except CanaryLeak:
+                    raise
+                except Exception:
+                    pass
+                if captured:
+                    # A place in an answer to our own question is where the traveller lives, not where the trip goes
+                    # or starts: the trip keeps its destination, origin and dates; a wish in it ("we're vegetarian")
+                    # is kept.
+                    for name in ("destination", "origin", "start_date", "end_date", "days"):
+                        setattr(context, name, getattr(as_read, name))
+                context = self._save_changes(as_read, context)
+                if context.preferences:
+                    # The owner as it is now: signing in may have moved the trip while the message was understood.
+                    self._remember_in_background(self._memory_owner(session_id), context)
 
-            if answering is not None:
+            if captured:
                 decision = RouteDecision(
                     intent=Intent.MODIFY,
                     confidence=0.95,
@@ -477,6 +486,25 @@ class TurnService:
                         "confidence": max(decision.confidence, 0.9),
                         "need_clarification": False,
                         "reason_code": "scoped_item_question",
+                    }
+                )
+            if (
+                not captured
+                and pending is not None
+                and pending.fact not in HOME_FACTS
+                and decision.reason_code not in {"replan_destination", "replan_dates"}
+                and (decision.need_clarification or decision.intent in {Intent.UNCLEAR, Intent.MODIFY})
+            ):
+                # Another fact an edit asked for ("which stop?"): an answer the router reads as an edit, or is unsure
+                # of, completes that edit.
+                answering = pending
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "edit_answer",
+                        "missing_slots": [],
                     }
                 )
             intent = decision.intent
