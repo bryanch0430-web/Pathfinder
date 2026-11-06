@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Str
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from app.application.legs import legs_for_plan
+from app.application.legs import leg_options_for_plan, legs_for_plan
 from app.application.orchestrator import user_facing_error
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
@@ -668,6 +668,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings=settings,
             day=day,
         )
+
+    @app.get("/api/journeys/{session_id}/leg-options")
+    async def get_leg_options(
+        session_id: str, request: Request, from_id: str, to_id: str
+    ) -> dict[str, Any]:
+        """Walk / cycle / transit / taxi for one leg; read-only comparison."""
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        try:
+            return await leg_options_for_plan(
+                plan,
+                routes=c.registry.routes,
+                settings=settings,
+                from_id=from_id,
+                to_id=to_id,
+            )
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Both stops must be in the current plan")
 
     @app.post("/api/journeys/{session_id}/rating")
     async def feedback(

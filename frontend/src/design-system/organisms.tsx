@@ -23,6 +23,7 @@ import {
   PlaceCard,
   PlanFeedback,
   StatusSummary,
+  TravelOptions,
   TrendChart,
   TripContextForm,
   SearchField,
@@ -47,7 +48,7 @@ import type {
   VideoNote,
 } from "./types";
 import { hotelScopeItem } from "./scope";
-import { ApiError, getLegs, type MapLeg } from "../lib/api";
+import { ApiError, getLegOptions, getLegs, type LegOptions, type MapLeg } from "../lib/api";
 import { failureText } from "../lib/failure";
 import { safeHref } from "../lib/safeHref";
 import { addTags, isImeKey } from "../lib/typing";
@@ -1088,6 +1089,21 @@ export function MapPanel({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [follow, setFollow] = useState(true);
+  const [legTarget, setLegTarget] = useState<{ label: string } | null>(null);
+  const [legOptions, setLegOptions] = useState<LegOptions | null>(null);
+  const [legLoading, setLegLoading] = useState(false);
+  const [legError, setLegError] = useState<string | null>(null);
+
+  const openLegOptions = (fromId: string, toId: string, fromName: string, toName: string) => {
+    setLegTarget({ label: `${fromName} → ${toName}` });
+    setLegOptions(null);
+    setLegError(null);
+    setLegLoading(true);
+    getLegOptions(plan.session_id, fromId, toId)
+      .then((data) => setLegOptions(data))
+      .catch(() => setLegError(t("map.optionsError")))
+      .finally(() => setLegLoading(false));
+  };
   const day = plan.days.find((entry) => entry.date === activeDay) ?? plan.days[0];
   const centre = plan.destination.geo;
   const routePoints = useMemo(
@@ -1272,6 +1288,7 @@ export function MapPanel({
         km: entry.km ?? 0,
         minutes: entry.minutes ?? 0,
         real: entry.source !== "estimate",
+        longWalk: modeOf(entry.mode) === "walk" && (entry.minutes ?? 0) > 30,
       }));
     }
     const items = [...routePoints]
@@ -1288,6 +1305,7 @@ export function MapPanel({
         km,
         minutes: modeMinutes(km, mode),
         real: false,
+        longWalk: mode === "walk" && modeMinutes(km, mode) > 30,
       };
     });
   }, [legs, nameById, routePoints, t]);
@@ -1435,8 +1453,14 @@ export function MapPanel({
         {specialModes.length ? <Text size="xs" tone="tertiary">{t("map.specialNote")}</Text> : null}
         {dayLegs.length ? (
           <div className="pf-route-legs">
-            {dayLegs.slice(0, 3).map((entry) => (
-              <div className="pf-route-leg" key={`${entry.from.id}-${entry.to.id}`}>
+            {dayLegs.map((entry, index) => (
+              <button
+                type="button"
+                className="pf-route-leg"
+                key={`${entry.from.id}-${entry.to.id}-${index}`}
+                title={t("map.optionsTitle")}
+                onClick={() => openLegOptions(entry.from.id, entry.to.id, entry.from.name, entry.to.name)}
+              >
                 <span className="pf-route-leg__mode" style={{ color: MODE[entry.mode].color }}>
                   {t(MODE_LABEL[entry.mode])}
                 </span>
@@ -1446,12 +1470,15 @@ export function MapPanel({
                 <span className="pf-route-leg__time">
                   {entry.real ? t("map.minutes", { minutes: entry.minutes }) : t("map.minutesEstimate", { minutes: entry.minutes })}
                 </span>
-              </div>
+                {entry.longWalk ? (
+                  <span className="pf-route-leg__warn">{t("map.longWalk")}</span>
+                ) : null}
+              </button>
             ))}
-            {dayLegs.length > 3 ? (
-              <span className="pf-route-legs__more">{t("map.moreLegs", { count: dayLegs.length - 3 })}</span>
-            ) : null}
           </div>
+        ) : null}
+        {dayLegs.some((entry) => entry.longWalk) ? (
+          <Text size="xs" tone="tertiary">{t("map.longWalkNote")}</Text>
         ) : null}
         <div className="pf-map__timebar">
           <IconButton
@@ -1549,6 +1576,9 @@ export function MapPanel({
         <PlaceCard item={selected} weather={day?.weather ?? null} onClose={() => onSelectItem(null)} />
         <BudgetPanel cost={plan.cost} fx={fx} onOptimize={onOptimize} />
       </div>
+      <Dialog open={Boolean(legTarget)} onClose={() => setLegTarget(null)} title={t("map.optionsTitle")}>
+        <TravelOptions data={legOptions} loading={legLoading} error={legError} />
+      </Dialog>
     </section>
   );
 }

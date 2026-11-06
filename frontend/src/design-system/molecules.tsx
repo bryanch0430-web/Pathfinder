@@ -30,6 +30,61 @@ import type {
   Intent,
 } from "./types";
 
+export function TravelOptions({
+  data,
+  loading = false,
+  error = null,
+}: {
+  data: import("../lib/api").LegOptions | null;
+  loading?: boolean;
+  error?: string | null;
+}) {
+  const { t } = useI18n();
+  const labels: Record<string, MessageKey> = {
+    walk: "map.optionWalk",
+    cycle: "map.optionCycle",
+    transit: "map.optionTransit",
+    drive: "map.optionTaxi",
+  };
+  const icons = { walk: "walk", cycle: "bike", transit: "train", drive: "car" } as const;
+  if (loading) return <Text size="sm" tone="tertiary">{t("map.optionsLoading")}</Text>;
+  if (error) return <Text size="sm" tone="danger">{error}</Text>;
+  if (!data) return null;
+  return (
+    <div className="pf-travel-options">
+      <Text size="sm" tone="secondary">
+        {t("map.optionsFor", { from: data.from_name, to: data.to_name })}
+      </Text>
+      {data.options.map((option) => (
+        <div className="pf-travel-option" data-mode={option.mode} key={option.mode}>
+          <span className="pf-travel-option__icon">
+            <Icon name={icons[option.mode]} size={16} />
+          </span>
+          <div className="pf-stack pf-grow" style={{ gap: 1 }}>
+            <Text size="sm" weight="semibold">
+              {option.mode === "walk" && option.ferry
+                ? t("map.optionWalkFerry")
+                : t(labels[option.mode])}
+            </Text>
+            <Text size="xs" tone="tertiary">
+              {option.km !== null ? `${option.km} km · ` : ""}
+              {option.routed
+                ? t("map.optionRouted")
+                : option.mode === "walk"
+                  ? t("map.optionNoWalk")
+                  : t("map.optionEstimate")}
+            </Text>
+          </div>
+          <Text size="sm" weight="semibold">
+            {option.minutes !== null ? t("map.minutes", { minutes: option.minutes }) : "—"}
+          </Text>
+        </div>
+      ))}
+      <Text size="xs" tone="tertiary">{t("map.optionsNote")}</Text>
+    </div>
+  );
+}
+
 export function Field({
   label,
   hint,

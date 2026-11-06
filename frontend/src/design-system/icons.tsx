@@ -11,6 +11,7 @@ export type IconName =
   | "plane"
   | "train"
   | "walk"
+  | "bike"
   | "car"
   | "hotel"
   | "ticket"
@@ -118,6 +119,13 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="13" cy="4.5" r="2" />
       <path d="m10.5 21 2.2-5.4 2.1 2.1V21M9 11.5l3-2.4 3 3 2.5.8M12 9.1 9.8 14" />
+    </>
+  ),
+  bike: (
+    <>
+      <circle cx="5.5" cy="17" r="3" />
+      <circle cx="18.5" cy="17" r="3" />
+      <path d="M5.5 17 10 8h4l4.5 9M9 8h4M10 5h3" />
     </>
   ),
   car: (

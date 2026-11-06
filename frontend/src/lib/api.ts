@@ -145,6 +145,29 @@ export async function getLegs(sessionId: string, day?: string): Promise<MapLeg[]
   return data.legs ?? [];
 }
 
+/** One alternative in the "Getting there" comparison; never changes the plan. */
+export interface LegOption {
+  mode: "walk" | "cycle" | "transit" | "drive";
+  minutes: number | null;
+  km: number | null;
+  source: string;
+  routed: boolean;
+  ferry?: boolean;
+}
+
+export interface LegOptions {
+  from_id: string;
+  to_id: string;
+  from_name: string;
+  to_name: string;
+  options: LegOption[];
+}
+
+export function getLegOptions(sessionId: string, fromId: string, toId: string): Promise<LegOptions> {
+  const query = `from_id=${encodeURIComponent(fromId)}&to_id=${encodeURIComponent(toId)}`;
+  return request(`/api/journeys/${sessionId}/leg-options?${query}`);
+}
+
 export interface MapKeys {
   google: { key: string; enabled: boolean };
 }
