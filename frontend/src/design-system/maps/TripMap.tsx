@@ -336,7 +336,14 @@ export function TripMap(props: TripMapProps) {
 
       // Non-walking steps inside a WALK route: draw them over the base line so a
       // ferry crossing is visibly a ferry, never a footpath across water.
-      const extraPaths: Array<{ index: number; path: LatLng[]; color: string; mode: string }> = [];
+      const extraPaths: Array<{
+        index: number;
+        path: LatLng[];
+        color: string;
+        mode: string;
+        /** Google's own wording for the step, e.g. the ferry service it names. */
+        label: string;
+      }> = [];
       pending.forEach((entry, index) => {
         for (const step of entry.steps) {
           if (step.mode === "walk" || step.path.length < 2) continue;
@@ -347,12 +354,16 @@ export function TripMap(props: TripMapProps) {
             path: stepPath,
             color: STEP_COLOR[step.mode] ?? STEP_COLOR.transit,
             mode: step.mode,
+            label: step.instruction,
           });
         }
       });
       const extraCasings = extraPaths.map((item) =>
         engine.polyline(item.path, { color: "#FFFFFF", weight: 10, opacity: 0.98 })
       );
+      // One icon per service Google names, not per leg: two directions of the same
+      // crossing must not produce two icons. No distance threshold or city rule.
+      const ferryServices = new Set<string>();
       extraPaths.forEach((item, index) => {
         const line = engine.polyline(item.path, {
           color: item.color,
@@ -368,15 +379,19 @@ export function TripMap(props: TripMapProps) {
           mode: item.mode,
         });
         if (item.mode === "ferry") {
-          const midpoint = pointAlong(buildGeometry(item.path), 0.5);
-          engine.pin(midpoint, {
-            anchor: [-15, -15],
-            size: 30,
-            svgIcon: FERRY_ICON,
-            interactive: false,
-            z: 850,
-            title: token?.label ?? "Ferry",
-          });
+          const service = item.label.trim().toLowerCase() || "unnamed-ferry";
+          if (!ferryServices.has(service)) {
+            ferryServices.add(service);
+            const midpoint = pointAlong(buildGeometry(item.path), 0.5);
+            engine.pin(midpoint, {
+              anchor: [-15, -15],
+              size: 30,
+              svgIcon: FERRY_ICON,
+              interactive: false,
+              z: 850,
+              title: token?.label ?? "Ferry",
+            });
+          }
         }
       });
       routeRef.current = { casing: null, legs: drawn };
