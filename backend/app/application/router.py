@@ -548,15 +548,16 @@ def without_concessive_budget(lower: str) -> str:
     return _CONCESSIVE_BUDGET.sub(" ", lower)
 
 
+#: the hotel's class, not the pace: "make it more grand" (also "grrand"), "grander", "something more luxurious", "a luxury
+#: hotel", "upscale". "Grand" alone is a name ("The Kyoto Grand", "Grand Hyatt"), so it counts only after "more" or "so".
+#: The edit (modification.py) reads the same words.
+GRANDER_WORDS = r"\b(?:gr+and(?:er|est)|(?:more|so)\s+gr+and|(?:more\s+)?luxurious|luxury|upscale|fancier|posher)\b"
+
+
 def _affected_parts(lower: str) -> list[str]:
     parts: list[str] = []
     mapping = [
-        # "make it more grand", "something more luxurious": the hotel's class, not the pace
-        (
-            "hotel",
-            r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b"
-            r"|\b(gr+and(?:er|est)|(?:more|so)\s+gr+and|(?:more\s+)?luxurious|upscale|fancier|posher)\b",
-        ),
+        ("hotel", r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b|" + GRANDER_WORDS),
         ("ticket", r"\b(flight|fly|train|ticket|fare|seat|rail|shinkansen)\b"),
         ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity|eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe)\b"),
         ("weather", r"\b(weather|rain|forecast|typhoon|temperature)\b"),

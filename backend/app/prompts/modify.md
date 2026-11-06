@@ -22,5 +22,5 @@ Return:
   "is_question": false,
   "missing_info": null,
   "question": null,
-  "confidence": 0.0
+  "confidence": 0.8
 }

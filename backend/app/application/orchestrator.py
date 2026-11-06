@@ -27,6 +27,7 @@ from app.application.planning import PlanPath
 from app.application.router import (
     MODIFY_VERBS,
     System1Router,
+    is_replan_message,
     language_route,
     looks_like_question,
     replans_new_dates,
@@ -364,25 +365,46 @@ class TurnService:
             # The stored turns, this one last, read once: the router and every step that acts on the turn see the
             # recent conversation from them (the steps through `conversation_block`, without this message).
             history = self.store.list_messages(session_id, limit=10)
-            with tracer.span("understand"):
-                try:
-                    context = await understand(message, context, self.gateway, history=history)
-                except CanaryLeak:
-                    raise
-                except Exception:
-                    pass
-                context = self._save_changes(as_read, context)
-                if context.preferences:
-                    # The owner as it is now: signing in may have moved the trip while the message was understood.
-                    self._remember_in_background(self._memory_owner(session_id), context)
+            # The message may answer the question an edit asked on the turn before ("Where do you live?", then "Mong
+            # Kok", "Hong Kong" or "I live in Osaka"). It goes back to that edit whatever a router would make of it, and
+            # it is not read for the trip: a place in an answer to our own question is not a new destination or origin.
+            # A question is not an answer, and the page's "generate again" is the page's, not an answer.
+            answering = (
+                _pending_edit_question(history)
+                if plan is not None and not looks_like_question(message) and not is_replan_message(message)
+                else None
+            )
+            if answering is None:
+                with tracer.span("understand"):
+                    try:
+                        context = await understand(message, context, self.gateway, history=history)
+                    except CanaryLeak:
+                        raise
+                    except Exception:
+                        pass
+                    context = self._save_changes(as_read, context)
+                    if context.preferences:
+                        # The owner as it is now: signing in may have moved the trip while the message was understood.
+                        self._remember_in_background(self._memory_owner(session_id), context)
 
-            with tracer.span("route"):
-                decision = await self.router.route(
-                    message=message,
-                    context=context,
-                    plan_summary=plan.summary_for_prompt() if plan else None,
-                    history=history,
+            if answering is not None:
+                decision = RouteDecision(
+                    intent=Intent.MODIFY,
+                    confidence=0.95,
+                    need_clarification=False,
+                    reason_code="edit_answer",
+                    missing_slots=[],
+                    related_to_plan=True,
+                    rationale="answer to the question the previous edit asked",
                 )
+            else:
+                with tracer.span("route"):
+                    decision = await self.router.route(
+                        message=message,
+                        context=context,
+                        plan_summary=plan.summary_for_prompt() if plan else None,
+                        history=history,
+                    )
             scoped_action = (
                 scope_item_id
                 and plan is not None
@@ -455,24 +477,6 @@ class TurnService:
                         "confidence": max(decision.confidence, 0.9),
                         "need_clarification": False,
                         "reason_code": "scoped_item_question",
-                    }
-                )
-            # The message may answer the question an edit asked on the turn before ("Where do you live?", then
-            # "Mong Kok"): a bare answer the router is unsure of goes back to that edit, which reads it with its request.
-            answering = _pending_edit_question(history) if plan is not None else None
-            if (
-                answering is not None
-                and not looks_like_question(message)
-                and decision.reason_code not in {"replan_destination", "replan_dates"}
-                and (decision.need_clarification or decision.intent in {Intent.UNCLEAR, Intent.MODIFY})
-            ):
-                decision = decision.model_copy(
-                    update={
-                        "intent": Intent.MODIFY,
-                        "confidence": max(decision.confidence, 0.9),
-                        "need_clarification": False,
-                        "reason_code": "edit_answer",
-                        "missing_slots": [],
                     }
                 )
             intent = decision.intent
@@ -1007,7 +1011,7 @@ class TurnService:
                 # With no missing slots the question is about *intent*, so offer
                 # real messages instead of a Continue button that re-sends the
                 # same unclear request.
-                "choices": _clarify_choices(context, slots),
+                "choices": [] if plan is not None and not slots else _clarify_choices(context, slots),
                 "reason_code": decision.reason_code,
             },
         )

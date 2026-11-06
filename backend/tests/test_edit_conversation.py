@@ -661,3 +661,210 @@ def test_an_answer_that_waves_the_question_away_is_not_taken_as_the_home(setting
         assert not any(note.startswith("Home: ") for note in stored.data_quality.notes)
 
     run_trip(settings, scenario)
+
+
+# -- fix round 1 -------------------------------------------------------------------------------------------------------
+
+
+HOME_AGAIN = "Could you give the area or the address where you live? I'll add it to the plan."
+LEFT_AS_IT_WAS = "Understood, I left the plan as it was."
+
+
+async def _asked_home(trip: Trip) -> None:
+    trip.llm.route = {"intent": "modify", "confidence": 0.95}
+    _clarified(await trip.turn("add the place i live"), HOME_QUESTION)
+
+
+def _home_notes(plan: TripPlan) -> list[str]:
+    return [note for note in plan.data_quality.notes if note.startswith("Home: ")]
+
+
+@pytest.mark.parametrize("answer", ["No", "never mind"])
+def test_a_refusal_to_the_home_question_drops_the_edit_and_stores_no_home(settings: Settings, answer: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "unclear", "confidence": 0.5}
+
+        events = await trip.turn(answer)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert reply_of(events) == LEFT_AS_IT_WAS and event_of(events, "clarify") is None, reply_of(events)
+        assert _home_notes(stored) == [] and ids(stored) == ids(trip.plan)
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("answer", ["yes", "I'm not sure"])
+def test_an_answer_that_is_not_a_place_is_asked_again_once_then_dropped(settings: Settings, answer: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "unclear", "confidence": 0.5}
+
+        again = await trip.turn(answer)
+        _clarified(again, HOME_AGAIN)
+        assert _home_notes(trip.store.get_plan(trip.session_id)) == []
+
+        last = await trip.turn(answer)
+        assert event_of(last, "clarify") is None, "asked once more, not forever"
+        assert "left the plan as it was" in reply_of(last)
+        assert _home_notes(trip.store.get_plan(trip.session_id)) == []
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize(("answer", "home"), [("Mong Kok", "Mong Kok"), ("Tsim Sha Tsui, Kowloon", "Tsim Sha Tsui, Kowloon")])
+def test_a_place_name_is_still_taken_as_the_home(settings: Settings, answer: str, home: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "unclear", "confidence": 0.5}
+
+        events = await trip.turn(answer)
+
+        assert any(home in note for note in _home_notes(trip.store.get_plan(trip.session_id))), reply_of(events)
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("route", [{"intent": "plan", "confidence": 0.9}, {"intent": "ask", "confidence": 0.9}])
+def test_an_answer_goes_to_the_pending_edit_whatever_the_router_says_and_leaves_the_trip_alone(
+    settings: Settings, route: dict
+) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        before = trip.store.get_context(trip.session_id)
+        trip.llm.route = route
+
+        events = await trip.turn("Hong Kong")
+        after = trip.store.get_context(trip.session_id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert (event_of(events, "route") or {}).get("intent") == "modify", events
+        assert (after.destination, after.origin) == (before.destination, before.origin) == ("Kyoto", "Hong Kong")
+        assert stored.destination.name == trip.plan.destination.name and stored.trip_id == trip.plan.trip_id
+        assert any("Hong Kong" in note for note in _home_notes(stored))
+
+        trip.llm.route = {"intent": "ask", "confidence": 0.95}
+        later = await trip.turn("What is on day 1?")
+        assert (event_of(later, "route") or {}).get("intent") == "ask", "a later message routes as it would anyway"
+
+    run_trip(settings, scenario, destination="Kyoto")
+
+
+def test_i_live_in_osaka_as_the_answer_keeps_the_kyoto_trip(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        await _asked_home(trip)
+        trip.llm.route = {"intent": "plan", "confidence": 0.9}
+
+        events = await trip.turn("I live in Osaka")
+        context = trip.store.get_context(trip.session_id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert context.destination == "Kyoto" and stored.destination.name == trip.plan.destination.name, reply_of(events)
+        assert any("Osaka" in note for note in _home_notes(stored))
+
+    run_trip(settings, scenario, destination="Kyoto")
+
+
+def test_a_model_router_that_names_only_attractions_still_gets_the_grander_hotel(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        context = trip.store.get_context(trip.session_id)
+
+        updated, _ = await trip.rig.modify_path.run(
+            plan=trip.plan,
+            context=context,
+            message="can u make it more grrand",
+            route_parts=["attraction"],
+            toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="g"),
+            tracer=NoopTracer(),
+            emit=lambda *_: None,
+        )
+
+        assert updated.hotels[0].name == "Harbour Palace" and updated.cost.status != "over"
+        assert ids(updated) == ids(trip.plan), "no pace change"
+
+    run_trip(settings, scenario, hotels=_Upscale("Hong Kong"))
+
+
+def test_a_model_routed_turn_with_only_attractions_upgrades_the_hotel(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95, "affected_parts": ["attraction"]}
+
+        events = await trip.turn("can u make it more grrand")
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.hotels[0].name == "Harbour Palace", reply_of(events)
+        assert ids(stored) == ids(trip.plan)
+
+    run_trip(settings, scenario, hotels=_Upscale("Hong Kong"))
+
+
+def test_the_router_prompt_and_rules_read_grander_as_the_hotel(settings: Settings) -> None:
+    from app.application.modification import asks_for_a_grander_stay
+    from app.application.router import affected_parts_for
+
+    text = PromptLibrary(settings).raw("router")
+    assert "grander" in text and "hotel upgrade within the budget" in text
+    for message in ["a luxury hotel please", "make the hotel grander", "something more luxurious please"]:
+        assert asks_for_a_grander_stay(message) and "hotel" in affected_parts_for(message), message
+
+
+def test_an_anchored_edit_is_not_asked_the_writers_question(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(
+            trip.llm,
+            "modify.extract",
+            {"description": "Replace with a museum.", "affected_parts": ["attraction"], "question": "Which museum?", "confidence": 0.8},
+        )
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+
+        events = await trip.turn("replace this with a museum", scope_item_id=trip.stop_on(2).id)
+
+        assert event_of(events, "clarify") is None, reply_of(events)
+
+    run_trip(settings, scenario, places=DeepPlaces())
+
+
+def test_the_edit_prompt_example_has_a_realistic_confidence(settings: Settings) -> None:
+    assert '"confidence": 0.0' not in PromptLibrary(settings).raw("modify")
+
+
+def test_an_add_near_the_home_does_the_add_and_keeps_the_home(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(
+            trip.llm,
+            "modify.extract",
+            {"description": "Add a museum near home.", "affected_parts": ["attraction"], "new_values": {"home": "Mong Kok"}, "confidence": 0.8},
+        )
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+
+        events = await trip.turn("Add a museum near my home in Mong Kok")
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == trip.plan.version + 1, reply_of(events)
+        assert "itinerary is unchanged" not in reply_of(events)
+        assert any("Mong Kok" in note for note in _home_notes(stored))
+
+    run_trip(settings, scenario, places=DeepPlaces())
+
+
+def test_a_question_about_the_plan_offers_no_plan_from_scratch_choice(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "clarify", {"question": PLAN_QUESTION, "slots": []})
+        trip.llm.route = {"intent": "ask", "confidence": 0.7}
+
+        events = await trip.turn("Hmm, not sure yet", scope_item_id=trip.stop_on(2).id)
+
+        card = event_of(events, "clarify")
+        assert card is not None and not any(choice["label"] == "Plan my trip" for choice in card["choices"]), card
+
+    run_trip(settings, scenario)
+
+
+def test_the_edit_run_is_annotated_with_its_result_type() -> None:
+    import typing
+
+    from app.application.modification import EditResult, ModifyPath
+
+    assert typing.get_type_hints(ModifyPath.run)["return"] is EditResult

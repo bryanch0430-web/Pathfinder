@@ -31,7 +31,9 @@ from app.application.planner import (
 )
 from app.application.prompt_context import conversation_block, plan_outline, trip_slots, with_conversation
 from app.application.router import (
+    GRANDER_WORDS,
     MODIFY_VERBS,
+    affected_parts_for,
     asks_for_new_dates,
     asks_for_trip_dates,
     is_replan_message,
@@ -139,6 +141,13 @@ WHICH_EDIT_QUESTION = "Which stop or day should I change, and what should I chan
 LOW_EDIT_CONFIDENCE = 0.4
 #: the fact `HOME_QUESTION` asks for, as the stored question turn names it
 HOME_FACT = "home"
+#: asked once more, in other words, when the answer to `HOME_QUESTION` was not a place
+HOME_AGAIN_QUESTION = "Could you give the area or the address where you live? I'll add it to the plan."
+#: the fact `HOME_AGAIN_QUESTION` asks for: an answer that is again not a place drops the edit
+HOME_AGAIN_FACT = "home-again"
+HOME_FACTS = frozenset({HOME_FACT, HOME_AGAIN_FACT})
+#: the reply when the traveller turns the question down, or still gives no place after it was asked twice
+LEFT_AS_IT_WAS = "Understood, I left the plan as it was."
 
 
 @dataclass(frozen=True)
@@ -201,7 +210,7 @@ class ModifyPath:
         scope_item_id: str | None = None,
         history: Sequence[Message] = (),
         answering: EditQuestion | None = None,
-    ) -> tuple[TripPlan, list[dict[str, Any]]]:
+    ) -> EditResult:
         """Apply the smallest change the message asks for. ``answering`` is the question an earlier edit asked when the
         message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
         When a fact the change needs is missing, the result `asks` for it and the plan is unchanged."""
@@ -227,23 +236,39 @@ class ModifyPath:
             # The message answers the question an earlier edit asked ("Mong Kok" to "Where do you live?"): the rules
             # below read that edit together with its answer. The writer read both in the conversation.
             message = f"{answering.request} ({message.strip()})"
-        home = _stated_home(
-            draft, answer, history, asked_for_home=answering is not None and answering.fact == HOME_FACT
-        )
-        if home is not None and not replanning:
+        asked_for_home = answering is not None and answering.fact in HOME_FACTS
+        home = _stated_home(draft, answer, history, asked_for_home=asked_for_home)
+        # The home is what the edit adds ("add the place I live", the answer to "Where do you live?"), or only where
+        # something else is ("add a cafe near my home in Mong Kok"): then the other thing is added and the home noted.
+        home_is_the_add = asked_for_home or _adds_the_home(message) or (home is not None and _only_says_the_home(answer))
+        if home is not None and home_is_the_add and not replanning:
             return _home_noted(plan, home)
         if answering is not None and _DISMISSAL.search(answer) and not _imperative_edit(answer):
-            # "never mind" to the question: the edit it belonged to is dropped, and nothing is asked again.
-            unchanged = plan.model_copy(deep=True)
-            unchanged.change_summary = "Understood, I left the plan as it was."
-            return EditResult(unchanged, [])
+            # "No" or "never mind" to the question: the edit it belonged to is dropped, and nothing is asked again.
+            return _left_as_it_was(plan)
+        if asked_for_home and home is None and not (_imperative_edit(answer) or looks_like_question(answer)):
+            # "yes", "I'm not sure": not a place. Asked once more, in other words; after that the edit is dropped.
+            if answering.fact == HOME_FACT:
+                unchanged = plan.model_copy(deep=True)
+                unchanged.change_summary = HOME_AGAIN_QUESTION
+                return EditResult(
+                    unchanged, [], asks=EditQuestion(HOME_AGAIN_QUESTION, fact=HOME_AGAIN_FACT, request=answering.request)
+                )
+            return _left_as_it_was(plan)
+        noted_home = home
         more_stops = asks_for_more_stops(message)
         # "Make it grander": the hotel's class, an upgrade the budget can pay for, never the pace of the days.
         # The router stays the authority on scope: a router that named other parts than the hotel is not overruled.
+        # A router that named only the attractions for a sentence that names none ("can u make it more grrand") did
+        # not see the hotel in it; a bare "more grand" with attractions named stays the router's call.
         upscale = (
             not more_stops
             and asks_for_a_grander_stay(message)
-            and (not route_parts or bool({"hotel", "budget"} & set(route_parts)))
+            and (
+                not route_parts
+                or bool({"hotel", "budget"} & set(route_parts))
+                or (set(route_parts) <= {"attraction"} and _grander_without_a_stop(message))
+            )
         )
         if (more_stops or upscale) and not interpret_plan(message).requested:
             # "More stops" is an add, and "grander" is about the hotel. A pace the writer read into either ("3 places
@@ -303,7 +328,14 @@ class ModifyPath:
                 draft.is_question = False
         if not (dates_move or whole_trip or replanning):
             # An edit that needs a fact nobody gave ("add the place I live") asks for it, once, instead of refusing.
-            asked = _missing_fact_question(plan, message, draft, scope_item_id, anchored=more_stops or upscale or shape.requested)
+            asked = _missing_fact_question(
+                plan,
+                message,
+                draft,
+                scope_item_id,
+                anchored=more_stops or upscale or shape.requested,
+                home_wanted=noted_home is None and _adds_the_home(message),
+            )
             if asked is not None:
                 question, fact = asked
                 unchanged = plan.model_copy(deep=True)
@@ -846,6 +878,9 @@ class ModifyPath:
                 )
             ]
             updated.change_summary = news[-1].message if news else NOTHING_MATCHED
+        if noted_home is not None:
+            # Said where the traveller lives while asking for something else: the home is kept as a note as well.
+            _note_home(updated, noted_home)
         # The scope this edit really used, for the account of the decision: one row, one day, or the plan.
         if referred:
             return EditResult(updated, diff, scope="stop", selected=referred == scope_item_id)
@@ -1601,7 +1636,25 @@ _HOME_WORDS = re.compile(
     re.IGNORECASE,
 )
 #: an answer that waves the question away: it is not where the traveller lives
-_DISMISSAL = re.compile(r"\b(?:never\s*mind|forget\s+it|cancel|no\s+thanks|skip\s+it|not\s+now|nothing)\b", re.IGNORECASE)
+_DISMISSAL = re.compile(
+    r"^\s*(?:no|nope|nah|no\s+way)\b|\b(?:never\s*mind|forget\s+it|cancel|no\s+thanks|skip\s+it|not\s+now|nothing|"
+    r"rather\s+not|don'?t\s+want\s+to\s+say|leave\s+it)\b",
+    re.IGNORECASE,
+)
+#: words that make an answer something other than the name of a place: yes, no, unsure, a first-person verb
+_NOT_A_PLACE_WORDS = frozenset(
+    "i i'm im i've ive me my mine we we're our yes yeah yep yup ok okay sure unsure not no nope know don't dont "
+    "maybe perhaps idea think guess live living stay staying sorry thanks thank please what why how".split()
+)
+#: the most words the name of an area or an address is given in
+_PLACE_WORDS_MAX = 6
+#: the home as the thing to add: "add the place I live", "include my home", "put where I live in the plan"
+_ADD_THE_HOME = re.compile(
+    r"\b(?:add|include|insert|put)\s+(?:in\s+|back\s+)?(?:\w+\s+){0,1}?"
+    r"(?:(?:the\s+)?place\s+(?:where\s+)?i\s+(?:live|stay)|where\s+i\s+live|my\s+(?:home|house|flat|apartment))\b"
+    r"|\b(?:add|include|insert|put)\s+(?:it|that)\b",
+    re.IGNORECASE,
+)
 #: "I live in Mong Kok": the home, in the traveller's own words
 _I_LIVE_IN = re.compile(
     r"\bi\s+live\s+(?:in|at|near|on)\s+([^\W\d_][\w'’ -]{1,48}?)\s*(?:[,.;!?()]|$|\s+(?:and|but|so|even)\b)",
@@ -1632,18 +1685,24 @@ def _one_question(text: str | None) -> str | None:
 
 
 def _missing_fact_question(
-    plan: TripPlan, message: str, draft: ChangeDraft, scope_item_id: str | None, *, anchored: bool
+    plan: TripPlan,
+    message: str,
+    draft: ChangeDraft,
+    scope_item_id: str | None,
+    *,
+    anchored: bool,
+    home_wanted: bool = False,
 ) -> tuple[str, str] | None:
     """The one question an edit asks before it changes anything, and the fact it asks for; None when it can act.
 
     A home the traveller asked to add is asked for (no source knows it). A fact the writer says is missing is asked
     for in the writer's words. An imperative edit the writer could not read (it calls it a question, or gives a low
     confidence) is asked about when nothing on the page or in the message points at a stop, a day or a section."""
-    if _HOME_WORDS.search(message) and _imperative_edit(message):
+    if home_wanted:
         return _one_question(draft.question) or HOME_QUESTION, HOME_FACT
     missing = " ".join(strip_fence_tags(draft.missing_info or "").split())[:120]
-    # The writer's own question counts for a fact it says is missing, or for a command; a real question is answered.
-    if missing or (_one_question(draft.question) and _imperative_edit(message)):
+    # The writer's own question counts only for a fact it says is missing: an edit it could read is done, not asked.
+    if missing:
         fact = HOME_FACT if re.search(r"\b(?:live|lives|home|house|flat|address)\b", missing.lower()) else missing
         return _one_question(draft.question) or f"Could you tell me {missing.rstrip('.?')}?", fact
     if anchored or not _imperative_edit(message):
@@ -1673,7 +1732,7 @@ def _stated_home(draft: ChangeDraft, message: str, history: Sequence[Message], *
         candidates.append(written)
     if lived_in:
         candidates.append(lived_in.group(1))
-    if asked_for_home and not (looks_like_question(message) or _imperative_edit(message) or _DISMISSAL.search(message)):
+    if asked_for_home and _reads_as_a_place(message):
         candidates.append(message)
     said = [message, *(row.content for row in replayable(history) if row.role == "user")]
     said_folded = [" ".join(strip_fence_tags(line).split()).casefold() for line in said]
@@ -1684,13 +1743,46 @@ def _stated_home(draft: ChangeDraft, message: str, history: Sequence[Message], *
     return None
 
 
+def _reads_as_a_place(answer: str) -> bool:
+    """A bare answer that can be the name of an area or an address: letters, a few words, and none of the words of a
+    yes, a no, a doubt or a sentence about oneself ("I'm not sure", "yes", "ok", "don't know")."""
+    text = " ".join(strip_fence_tags(answer).split()).strip(" .!")
+    if not text or looks_like_question(text) or _imperative_edit(text) or _DISMISSAL.search(text):
+        return False
+    words = re.findall(r"[^\W\d_][\w'’.-]*|\d+[\w-]*", text)
+    if not words or len(words) > _PLACE_WORDS_MAX or not re.search(r"[^\W\d_]{2}", text):
+        return False
+    return not any(word.casefold().replace("’", "'") in _NOT_A_PLACE_WORDS for word in words)
+
+
+def _adds_the_home(message: str) -> bool:
+    """The home is the object of the add ("add the place I live"), not where something else is ("a cafe near my
+    home"). "add it" counts only in a message that also speaks of the home."""
+    return _HOME_WORDS.search(message) is not None and _imperative_edit(message) and _ADD_THE_HOME.search(message) is not None
+
+
+def _only_says_the_home(message: str) -> bool:
+    """The message says where the traveller lives and asks for nothing else ("I live in Mong Kok")."""
+    return _I_LIVE_IN.search(message) is not None and not _imperative_edit(message)
+
+
+def _left_as_it_was(plan: TripPlan) -> EditResult:
+    unchanged = plan.model_copy(deep=True)
+    unchanged.change_summary = LEFT_AS_IT_WAS
+    return EditResult(unchanged, [])
+
+
+def _note_home(plan: TripPlan, home: str) -> None:
+    note = f"Home: {home} (as the traveller said; not a verified stop, so it has no time in the plan)."
+    notes = [line for line in plan.data_quality.notes if not line.startswith("Home: ")] + [note]
+    plan.data_quality.notes = notes[-12:]
+
+
 def _home_noted(plan: TripPlan, home: str) -> EditResult:
     """The plan with the traveller's home as a note: a home is their own word, not a verified stop, so it gets no
     time slot, no source and no version of its own. The reply says so."""
     noted = plan.model_copy(deep=True)
-    note = f"Home: {home} (as the traveller said; not a verified stop, so it has no time in the plan)."
-    notes = [line for line in noted.data_quality.notes if not line.startswith("Home: ")] + [note]
-    noted.data_quality.notes = notes[-12:]
+    _note_home(noted, home)
     noted.change_summary = (
         f"I noted that you live in {home}. A home is not a verified place, so it is kept as a note on the plan "
         "rather than added as a stop; the itinerary is unchanged."
@@ -2111,9 +2203,15 @@ def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool, messa
 
 #: a grander stay: "make it more grand", "a grander hotel", "something more luxurious", "upscale". A name such as
 #: "Grand Hyatt" is not the word: "grand" alone counts only after "more" or "so".
-_GRANDER = re.compile(
-    r"\b(?:gr+and(?:er|est)|(?:more|so)\s+gr+and|(?:more\s+)?luxurious|luxury|upscale|fancier|posher)\b", re.IGNORECASE
-)
+_GRANDER = re.compile(GRANDER_WORDS, re.IGNORECASE)
+
+
+def _grander_without_a_stop(message: str) -> bool:
+    """Grander wording that names no stop and is a command or a plain class word: "can u make it more grrand",
+    "something more luxurious please". Not a bare "more grand", and not "a grander temple"."""
+    if "attraction" in affected_parts_for(message):
+        return False
+    return _imperative_edit(message) or re.search(r"\b(?:luxur\w*|upscale|fancier|posher|gr+ander|gr+andest)\b", message, re.IGNORECASE) is not None
 
 
 def asks_for_a_grander_stay(message: str) -> bool:
