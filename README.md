@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.6.1 | 2026-11-06 18:00 | Every leg visible; compare Walk / Transit / Taxi per leg |
 | v1.6.0 | 2026-11-06 14:13 | Chat remembers recent turns; honest budgets; edits ask instead of refusing |
 | v1.5.1 | 2026-11-06 11:16 | Transit legs read Transit; ferry segments in the legend |
 | v1.5.0 | 2026-11-06 01:54 | Long trips fill their days; pre-planning audit experiment (off) |
@@ -32,6 +33,16 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.6.1 — 6 November 2026, 18:00 HKT
+
+**Every scheduled leg is visible.** The map footer used to stop after three legs. It now lists every leg of the day in a scrollable area, and each row opens the “Getting there” comparison.
+
+**Walk, Cycle, Transit and Taxi are compared per leg.** The dialog shows time, distance and whether the option is a Google route or an estimate. Taxi uses Google’s drive route; it is a read-only comparison and never changes the itinerary or its timing.
+
+**Long walks are called out.** A walking leg over 30 minutes is marked “Long walk”, with a pointer to open it and compare transit or taxi, instead of presenting a 65-minute walk as if it were a normal transfer.
+
+**Ferry, cable car and tram are distinct.** Ferry is violet, cable car pink and tram amber, each with a legend entry and a note. A ferry icon appears once per ferry service Google names, not once per leg, so the two directions of one crossing do not draw two icons.
 
 ### v1.6.0 — 6 November 2026, 14:13 HKT
 

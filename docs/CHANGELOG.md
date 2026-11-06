@@ -5,6 +5,17 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.6.1 — 2026-11-06 18:00
+
+Every leg is visible and comparable, and special route segments say what they are.
+
+- **All legs, not three.** The map footer lists every scheduled leg in a scrollable area instead of truncating at three with “+1 more legs”. (`6b1eb45`)
+- **Walk / Cycle / Transit / Taxi per leg.** Clicking a leg opens a read-only comparison with time, distance and whether it is a Google route or an estimate; Taxi uses Google's drive route. It never changes the plan. (`6b1eb45`)
+- **Long walks are flagged.** A walking leg over 30 minutes is marked “Long walk”, with a pointer to compare transit or taxi. (`6b1eb45`)
+- **Ferry, cable car and tram have their own colours and legends.** Ferry violet, cable car pink, tram amber; only the modes used that day get a legend entry and a note. (`81f8f79`)
+- **One ferry icon per named service.** Two directions of the same ferry crossing no longer draw two icons; the rule uses Google's service wording, not a distance threshold or a city-specific rule. (`5ee6eb2`)
+- **The committed OpenAPI contract includes the new leg-options route.** (`6b1eb45`)
+
 ## v1.6.0 — 2026-11-06 14:13
 
 Conversation release: the chat uses the recent turns, budgets are handled honestly, and edits ask instead of refusing. Merge `bdc005a` of branch fix-history-budget.
