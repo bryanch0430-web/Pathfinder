@@ -26,6 +26,14 @@ from app.infrastructure.providers.places import (
 )
 
 
+#: When the trip budget leaves no stay under the nightly cap, this many of the cheapest are kept, marked over budget.
+OVER_BUDGET_KEPT = 3
+#: The note on a stay kept although its rate is over the trip budget's share for a night.
+OVER_BUDGET_NOTE = (
+    "Over the trip budget: one of the cheapest stays found. Indicative nightly rate; availability is not confirmed."
+)
+
+
 class SerpApiHotelSource:
     name = "serpapi-hotels"
 
@@ -72,37 +80,44 @@ class SerpApiHotelSource:
             return []
         nightly_cap = (budget * 0.45 / nights) if budget else None
         out: list[HotelCandidate] = []
+        over_cap: list[tuple[float, dict]] = []
         for row in properties[:20]:
-            coords = row.get("gps_coordinates") or {}
-            lat, lng = coords.get("latitude"), coords.get("longitude")
             price = _rate(row)
             if nightly_cap and price and price > nightly_cap * 1.15:
+                over_cap.append((price, row))
                 continue
-            link = row.get("link") or ""
-            refs = [
+            out.append(self._candidate(row, price, currency))
+        if not out and over_cap:
+            # The budget leaves no stay at all. The cheapest few are kept, marked over budget, so the trip still has
+            # a real hotel and its cost says "over" instead of the plan having none.
+            over_cap.sort(key=lambda pair: pair[0])
+            return [self._candidate(row, price, currency, over_budget=True) for price, row in over_cap[:OVER_BUDGET_KEPT]]
+        out.sort(key=lambda hotel: (hotel.rating or 0, -(hotel.nightly_price.amount if hotel.nightly_price else 10**9)), reverse=True)
+        return out[:8]
+
+    def _candidate(self, row: dict, price: float | None, currency: str, *, over_budget: bool = False) -> HotelCandidate:
+        coords = row.get("gps_coordinates") or {}
+        lat, lng = coords.get("latitude"), coords.get("longitude")
+        link = row.get("link") or ""
+        return HotelCandidate(
+            name=str(row.get("name") or "Hotel"),
+            area=str(row.get("neighborhood") or ""),
+            geo=GeoPoint(lat=float(lat), lng=float(lng)) if lat is not None and lng is not None else None,
+            nightly_price=Money(amount=price, currency=currency) if price is not None else None,
+            price_kind=PriceKind.REFERENCE if price is not None else PriceKind.NONE,
+            rating=_num(row.get("overall_rating")),
+            review_count=int(row["reviews"]) if row.get("reviews") is not None else None,
+            booking_url=link,
+            source_refs=[
                 SourceRef(
                     title=f"Google Hotels: {row.get('name', 'hotel')}",
                     url=link,
                     source=self.name,
                     fetched_at=utcnow(),
                 )
-            ]
-            out.append(
-                HotelCandidate(
-                    name=str(row.get("name") or "Hotel"),
-                    area=str(row.get("neighborhood") or ""),
-                    geo=GeoPoint(lat=float(lat), lng=float(lng)) if lat is not None and lng is not None else None,
-                    nightly_price=Money(amount=price, currency=currency) if price is not None else None,
-                    price_kind=PriceKind.REFERENCE if price is not None else PriceKind.NONE,
-                    rating=_num(row.get("overall_rating")),
-                    review_count=int(row["reviews"]) if row.get("reviews") is not None else None,
-                    booking_url=link,
-                    source_refs=refs,
-                    notes="Indicative nightly rate; availability is not confirmed.",
-                )
-            )
-        out.sort(key=lambda hotel: (hotel.rating or 0, -(hotel.nightly_price.amount if hotel.nightly_price else 10**9)), reverse=True)
-        return out[:8]
+            ],
+            notes=OVER_BUDGET_NOTE if over_budget else "Indicative nightly rate; availability is not confirmed.",
+        )
 
 
 class WikivoyageHotelSource:

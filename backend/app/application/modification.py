@@ -30,11 +30,16 @@ from app.application.planner import (
     _reservations,
 )
 from app.application.prompt_context import conversation_block, plan_outline, trip_slots, with_conversation
-from app.application.router import asks_for_new_dates, asks_for_trip_dates, is_replan_message
+from app.application.router import (
+    asks_for_new_dates,
+    asks_for_trip_dates,
+    is_replan_message,
+    without_concessive_budget,
+)
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
 from app.application.trip_rules import blocked_dates, travel_windows
-from app.application.validation import diff_plans, repair_plan, tidy_data_gaps, validate_plan
+from app.application.validation import diff_plans, is_edit_outcome, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
 from app.domain.errors import TOOL_LIMIT_MESSAGE, CanaryLeak, PlanInvalidError
 from app.domain.models import (
@@ -88,6 +93,8 @@ CHAT_DATES_REPLY = (
     "I cannot read new dates from a chat message. Change the start and end dates in the trip details, then "
     "generate the itinerary again; the plan is unchanged."
 )
+#: the reply to an edit that changed nothing and found nothing new to say
+NOTHING_MATCHED = "Nothing in the plan matched that request, so it is unchanged."
 
 AGENT_SECTION: dict[AgentName, str] = {
     AgentName.ATTRACTION: "attractions",
@@ -200,9 +207,10 @@ class ModifyPath:
             narrowed = [part for part in affected if part in route_parts or part.startswith("day_")]
             affected = narrowed or route_parts
         if form_changes:
-            # No stop is meant by the page's message. The stay and the fares depend on who travels and from where.
+            # No stop is meant by the page's message. The stay and the fares depend on who travels, from where, and on
+            # the budget (the hotel search is capped by it).
             affected = [part for part in affected if part != "attraction"]
-            if {"party", "origin"} & set(form_changes):
+            if {"party", "origin", "budget"} & set(form_changes):
                 affected += [part for part in ("hotel", "ticket") if part not in affected]
         if not affected and not form_changes:
             affected = ["dates"] if dates_move else ["attraction"]
@@ -218,10 +226,12 @@ class ModifyPath:
             agent_names |= PART_AGENTS.get(part, {AgentName.ATTRACTION})
         if not agent_names and not form_changes:
             agent_names = {AgentName.ATTRACTION}
+        # "even if it is over budget" grants leave to spend; it does not ask for a cheaper trip (router.py).
+        unconceded = without_concessive_budget(message.lower())
         budget_mode = "budget" in affected or bool(
             re.search(
                 r"\b(cheap|cheaper|optimis|optimiz|reduce|lower|afford|over budget|make it work)\b",
-                message.lower(),
+                unconceded,
             )
         )
         agent_names = lock_scope(
@@ -292,15 +302,22 @@ class ModifyPath:
         # The stay's own name stands for the word hotel ("keep Kyoto Garden Inn" keeps it like "keep the hotel").
         stay = referred_stay or (plan.hotels[0] if plan.hotels else None)
         about_stay = _stay_as_word(message, stay.name) if stay is not None else message
-        hotel_requested = not replanning and (
-            "budget" in affected
-            or budget_mode
-            or _asks_for_another_hotel(about_stay, affected)
-            # The hotel selected or named is the one to swap, unless the sentence says to keep it.
-            or (referred_stay is not None and not _keeps_the_hotel(about_stay))
+        budget_in_form = "budget" in form_changes
+        hotel_requested = (
+            not replanning
+            and (
+                "budget" in affected
+                or budget_mode
+                or _asks_for_another_hotel(about_stay, affected)
+                # The hotel selected or named is the one to swap, unless the sentence says to keep it.
+                or (referred_stay is not None and not _keeps_the_hotel(about_stay))
+            )
+            # Another budget in the trip form gives a plan without a stay the search it had none from.
+            or (budget_in_form and not plan.hotels)
         )
-        # The stay is quoted for who travels: another party size asks the hotel source again for the stay the plan has.
-        requote_stay = "party" in form_changes and bool(plan.hotels)
+        # The stay is quoted for who travels and searched within the budget: another party size or budget asks the
+        # hotel source again for the stay the plan has.
+        requote_stay = ("party" in form_changes or budget_in_form) and bool(plan.hotels)
         if not (hotel_requested or date_changed or requote_stay):
             # Nothing asks for another hotel and no date or party size moves: the hotel agent has no work to do.
             agent_names.discard(AgentName.HOTEL)
@@ -313,7 +330,9 @@ class ModifyPath:
                 answer = plan.model_copy(deep=True)
                 answer.change_summary = CHAT_DATES_REPLY
                 return answer, []
-        cheaper = budget_mode or bool(re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", message.lower()))
+        cheaper = budget_mode or bool(
+            re.search(r"\b(cheap|cheaper|budget|lower|reduce|less)\b", without_concessive_budget(message.lower()))
+        )
         if date_changed and len(new_range.dates) != len(plan.days):
             # A different length is a different shape; rebuild with the same id and version + 1. The stay the
             # traveller has is kept unless they asked for another or a cheaper one, and then it is chosen as an edit
@@ -452,9 +471,8 @@ class ModifyPath:
                         updated.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
                 elif len(updated.days) > 1 and searched:
                     # There is no current hotel to keep: the trip has nights and no stay to put in them.
-                    updated.data_quality.gaps.append(
-                        _gap("hotels", "No verified hotel was returned for the new dates.")
-                    )
+                    # "for the new dates" only when the dates moved: a budget edit keeps them.
+                    updated.data_quality.gaps.append(_gap("hotels", _no_hotel_message(date_changed, budget_mode or budget_in_form)))
 
         if AgentName.WEATHER in agent_names and referred is None:
             weather_result = results.get("weather")
@@ -618,25 +636,11 @@ class ModifyPath:
             updated.tickets,
             updated.dates,
         )
-        if budget_mode and updated.cost.status == "over":
-            budget = updated.cost.budget or 0.0
-            over = updated.cost.total - budget
-            biggest = max(updated.cost.lines, key=lambda line: line.amount, default=None)
-            detail = (
-                f" The largest line is {biggest.label} at "
-                f"{updated.cost.currency} {biggest.amount:,.0f}."
-                if biggest
-                else ""
-            )
-            updated.data_quality.gaps.append(
-                _gap(
-                    "budget",
-                    f"The cheapest verified combination is {updated.cost.currency} "
-                    f"{updated.cost.total:,.0f}, which is {over:,.0f} over the "
-                    f"{updated.cost.currency} {budget:,.0f} budget.{detail} "
-                    "A shorter stay, different dates, or a higher budget is needed.",
-                )
-            )
+        # A budget gap is a statement about this cost against the budget the trip has now: the one an earlier version
+        # wrote (for another budget or another cost) goes, and it is written again only if the plan is still over.
+        updated.data_quality.gaps = [gap for gap in updated.data_quality.gaps if gap.section != "budget"]
+        if updated.cost.status == "over":
+            updated.data_quality.gaps.append(_gap("budget", _over_budget_message(updated, cheapest=budget_mode)))
         rule_texts = [*context.hard_constraints, *context.preferences]
         plan_dates = [day.date for day in updated.days]
         updated.constraints = _constraints(
@@ -675,11 +679,21 @@ class ModifyPath:
             # Nothing actually moved. Keeping the version and naming the reason is
             # better than shipping "v2" and telling the traveller nothing changed.
             updated.version = plan.version
-            updated.change_summary = (
-                updated.data_quality.gaps[-1].message
-                if updated.data_quality.gaps
-                else "Nothing in the plan matched that request, so it is unchanged."
-            )
+            # Only what this turn found is the reason: a gap the plan already had was told when it was written. This
+            # turn's are the new ones, what this edit could not do, and the verdicts of the sections it fetched again.
+            # The recomputed budget gap is the reason only for a budget request.
+            before = {(gap.section, gap.message) for gap in plan.data_quality.gaps}
+            news = [
+                gap
+                for gap in updated.data_quality.gaps
+                if (gap.section != "budget" or budget_mode)
+                and (
+                    (gap.section, gap.message) not in before
+                    or is_edit_outcome(gap)
+                    or gap.section in refreshed_sections
+                )
+            ]
+            updated.change_summary = news[-1].message if news else NOTHING_MATCHED
         return updated, diff
 
     async def carry_protected(
@@ -2075,6 +2089,30 @@ def _ticket_within(ticket: TicketOption, date_range) -> bool:
     if not ticket.depart_at:
         return True
     return ticket.depart_at.date() == date_range.start
+
+
+def _no_hotel_message(dates_moved: bool, budget: bool) -> str:
+    """The gap of a trip with nights and no stay after an edit: "for the new dates" only when the dates moved."""
+    if dates_moved:
+        return "No verified hotel was returned for the new dates."
+    if budget:
+        return "No verified hotel was returned for this budget."
+    return "No verified hotel was returned."
+
+
+def _over_budget_message(plan: TripPlan, *, cheapest: bool) -> str:
+    """The budget gap of a plan whose cost is over its budget, in today's numbers. ``cheapest``: the edit looked for
+    the cheapest stay and fares, so the total is the cheapest verified combination."""
+    cost = plan.cost
+    budget = cost.budget or 0.0
+    over = cost.total - budget
+    biggest = max(cost.lines, key=lambda line: line.amount, default=None)
+    detail = f" The largest line is {biggest.label} at {cost.currency} {biggest.amount:,.0f}." if biggest else ""
+    lead = "The cheapest verified combination is" if cheapest else "The verified cost is"
+    return (
+        f"{lead} {cost.currency} {cost.total:,.0f}, which is {over:,.0f} over the {cost.currency} {budget:,.0f} "
+        f"budget.{detail} A shorter stay, different dates, or a higher budget is needed."
+    )
 
 
 def _gap(section: str, message: str):

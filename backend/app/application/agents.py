@@ -36,6 +36,7 @@ from app.domain.models import (
     utcnow,
 )
 from app.infrastructure.http import classify_exception, haversine_km
+from app.infrastructure.providers.hotels import OVER_BUDGET_NOTE
 
 
 @dataclass
@@ -622,6 +623,9 @@ class HotelAgent(BaseAgent):
             ),
             reverse=True,
         )
+        if candidates and all(hotel.notes == OVER_BUDGET_NOTE for hotel in candidates):
+            # Every stay is over the budget (the source kept its cheapest): the cheapest one is the honest pick.
+            candidates.sort(key=lambda h: h.nightly_price.amount if h.nightly_price else 10**9)
         priced = [hotel for hotel in candidates if hotel.nightly_price is not None]
         web_references: list[dict[str, Any]] = []
         if not priced:

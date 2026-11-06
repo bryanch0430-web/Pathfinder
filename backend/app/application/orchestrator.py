@@ -960,6 +960,8 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
     extras: list[str] = []
     hotel: str = ""
     moved: list[str] = []
+    # "for the new dates" only when the dates moved: a budget or party change keeps them.
+    for_new_dates = " for the new dates" if any(entry.get("kind") == "dates" for entry in diff) else ""
     for entry in diff:
         kind = entry.get("kind")
         if kind in {"added", "changed", "removed"}:
@@ -1007,7 +1009,11 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
         elif kind == "hotel":
             was, now = entry.get("from"), entry.get("to")
             if was and not now:
-                why = "a one-day trip has no overnight stay" if len(plan.days) <= 1 else "no hotel for the new dates came back"
+                why = (
+                    "a one-day trip has no overnight stay"
+                    if len(plan.days) <= 1
+                    else f"no hotel{for_new_dates} came back"
+                )
                 hotel = f"The hotel {was} was removed: {why}."
             elif now and not was:
                 hotel = f"A hotel was added: {now}."
@@ -1018,7 +1024,7 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
         elif kind == "flight":
             was, now = entry.get("from"), entry.get("to")
             if was and not now:
-                extras.append(f"The flight {was} was removed: no flight for the new dates came back.")
+                extras.append(f"The flight {was} was removed: no flight{for_new_dates} came back.")
             elif now and not was:
                 extras.append(f"A flight was added: {now}.")
             else:
