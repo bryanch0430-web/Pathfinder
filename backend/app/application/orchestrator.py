@@ -22,7 +22,7 @@ from app.application.freshness import FreshnessService
 from app.application.language import chinese_input_reply, refresh_reply, set_language_reply, unsupported_reply
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
-from app.application.modification import ModifyPath, plan_shape
+from app.application.modification import EditQuestion, ModifyPath, plan_shape
 from app.application.planning import PlanPath
 from app.application.router import (
     MODIFY_VERBS,
@@ -457,6 +457,24 @@ class TurnService:
                         "reason_code": "scoped_item_question",
                     }
                 )
+            # The message may answer the question an edit asked on the turn before ("Where do you live?", then
+            # "Mong Kok"): a bare answer the router is unsure of goes back to that edit, which reads it with its request.
+            answering = _pending_edit_question(history) if plan is not None else None
+            if (
+                answering is not None
+                and not looks_like_question(message)
+                and decision.reason_code not in {"replan_destination", "replan_dates"}
+                and (decision.need_clarification or decision.intent in {Intent.UNCLEAR, Intent.MODIFY})
+            ):
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "edit_answer",
+                        "missing_slots": [],
+                    }
+                )
             intent = decision.intent
             if plan is not None and intent != Intent.PLAN:
                 context = self._put_back_the_place(as_read, context)
@@ -479,6 +497,8 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     history=history,
+                    plan=plan,
+                    scope_item_id=scope_item_id,
                 ):
                     yield event
                 self.store.touch_session(session_id)
@@ -527,6 +547,7 @@ class TurnService:
                     request_id=request_id,
                     scope_item_id=scope_item_id,
                     history=history,
+                    answering=answering,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -820,6 +841,7 @@ class TurnService:
         request_id,
         scope_item_id: str | None = None,
         history: Sequence[Message] = (),
+        answering: EditQuestion | None = None,
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
@@ -851,15 +873,33 @@ class TurnService:
                 ),
                 scope_item_id=scope_item_id,
                 history=history,
+                answering=answering,
             )
         )
         try:
             async for event in _drain(queue, task):
                 yield event
-            updated, diff = await task
+            result = await task
         finally:
             await _settle(task)
             reset_live_emit(live)
+        asked = getattr(result, "asks", None)
+        if asked is not None:
+            # The edit needs a fact first: one question, with the clarify card, and nothing in the plan changes.
+            tracer.metadata["reason"] = "edit_needs_fact"
+            for event in self._ask_for_fact(asked, session_id=session_id):
+                yield event
+            self.store.touch_session(session_id)
+            return
+        updated, diff = result
+        # The scope the edit really used is what the account of the decision says, not the words of the message.
+        tracer.metadata.update(
+            {
+                "edit_scope": getattr(result, "scope", "plan"),
+                "edit_day": getattr(result, "day", None),
+                "edit_selected": bool(getattr(result, "selected", False)),
+            }
+        )
         # What the edit could not do (nothing cheaper came back) is the reply to it, not a fact about the plan's
         # data: it is told below and not kept as a data gap.
         outcomes = [gap for gap in updated.data_quality.gaps if is_edit_outcome(gap)]
@@ -938,9 +978,22 @@ class TurnService:
         self.store.touch_session(session_id)
 
     async def _clarify(
-        self, *, message, context, decision, session_id, tracer, request_id, history: Sequence[Message] = ()
+        self,
+        *,
+        message,
+        context,
+        decision,
+        session_id,
+        tracer,
+        request_id,
+        history: Sequence[Message] = (),
+        plan=None,
+        scope_item_id: str | None = None,
     ) -> AsyncIterator[TurnEvent]:
-        question, slots = await self.clarifier.ask(message=message, context=context, decision=decision, history=history)
+        # With a plan, an unclear message is asked about that plan and the stop selected on it.
+        question, slots = await self.clarifier.ask(
+            message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
+        )
         self.store.add_message(
             Message(session_id=session_id, role="assistant", content=question, intent=Intent.UNCLEAR)
         )
@@ -959,6 +1012,31 @@ class TurnService:
             },
         )
         yield TurnEvent(event="token", data={"text": question})
+
+    def _ask_for_fact(self, asked: EditQuestion, *, session_id: str) -> Iterator[TurnEvent]:
+        """An edit's question for a missing fact, asked as the clarify step asks: a stored turn and a clarify card. The
+        stored turn keeps the edit it belongs to, so the answer on the next turn completes that edit."""
+        self.store.add_message(
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content=asked.question,
+                intent=Intent.UNCLEAR,
+                meta={"edit_question": True, "fact": asked.fact, "request": asked.request[:600]},
+            )
+        )
+        yield TurnEvent(
+            event="clarify",
+            data={
+                "question": asked.question,
+                "slots": [],
+                "labels": [],
+                "options": {},
+                "choices": [],
+                "reason_code": "edit_needs_fact",
+            },
+        )
+        yield TurnEvent(event="token", data={"text": asked.question})
 
     def _budget_floor(self, currency: str) -> float:
         """The least a budget should allow per traveller per night, in ``currency``."""
@@ -1128,10 +1206,40 @@ async def _drain(
         yield TurnEvent(event=event_name, data=data)
 
 
+def _pending_edit_question(history: Sequence[Message]) -> EditQuestion | None:
+    """The question an edit asked on the turn before this one, when this message is the next turn, else None."""
+    rows = list(history)
+    if rows and rows[-1].role == "user":
+        rows = rows[:-1]
+    if not rows or rows[-1].role != "assistant" or not (rows[-1].meta or {}).get("edit_question"):
+        return None
+    meta = rows[-1].meta
+    return EditQuestion(rows[-1].content, fact=str(meta.get("fact") or ""), request=str(meta.get("request") or ""))
+
+
+def _scope_line(metadata: dict[str, Any]) -> str:
+    """What the edit could change, from the scope it really used; "" when no edit ran or nothing narrows it."""
+    scope = metadata.get("edit_scope")
+    selected = bool(metadata.get("edit_selected"))
+    day = metadata.get("edit_day")
+    if scope == "stop":
+        if selected:
+            return "A stop was selected, so only that stop could change."
+        return "The message named one stop, so only that stop could change."
+    if scope == "day" and day:
+        if selected:
+            return f"A stop on Day {day} was selected and the message asked for more stops, so only Day {day} could change."
+        return f"The message asked for more stops on Day {day}, so only Day {day} could change."
+    if scope == "plan" and metadata.get("reason") == "scoped_item_action":
+        return "A stop was selected, but the request was about the whole plan, so the edit was not limited to that stop."
+    return ""
+
+
 def _why_lines(tracer: Any) -> list[str]:
     """A traveller-facing account of the decision. Not the model's private draft."""
     reason = str(getattr(tracer, "metadata", {}).get("reason") or "")
     intent = str(getattr(tracer, "metadata", {}).get("intent") or "")
+    scoped = _scope_line(getattr(tracer, "metadata", {}) or {})
     known = {
         "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
         "replan_dates": "The trip details held other dates than the plan, so the trip was moved, not planned again.",
@@ -1140,9 +1248,13 @@ def _why_lines(tracer: Any) -> list[str]:
         "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
         "security_blocklist": "The message was blocked before any planning.",
         "identity": "This was a question about the assistant, so no trip was planned.",
+        "edit_needs_fact": "The change needs a fact the plan does not have, so it was asked for and nothing was edited.",
+        "edit_answer": "The message answered the question the previous edit asked, so that edit went ahead.",
     }
     lines: list[str] = []
-    if reason in known:
+    if scoped:
+        lines.append(scoped)
+    elif reason in known:
         lines.append(known[reason])
     elif intent:
         lines.append(f"Routed as {intent}" + (f" ({reason})." if reason else "."))

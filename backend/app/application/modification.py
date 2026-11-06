@@ -15,7 +15,7 @@ from typing import Any, Sequence
 
 from pydantic import BaseModel, Field
 
-from app.application.agents import _same_place
+from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_candidate_limit
 from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
@@ -31,9 +31,11 @@ from app.application.planner import (
 )
 from app.application.prompt_context import conversation_block, plan_outline, trip_slots, with_conversation
 from app.application.router import (
+    MODIFY_VERBS,
     asks_for_new_dates,
     asks_for_trip_dates,
     is_replan_message,
+    looks_like_question,
     without_concessive_budget,
 )
 from app.application.toolbox import Toolbox
@@ -68,7 +70,7 @@ from app.domain.models import (
 from app.domain.place_names import trusted_names
 from app.domain.ports import Tracer
 from app.infrastructure.http import haversine_km
-from app.security import fence_user_message
+from app.security import fence_user_message, replayable, strip_fence_tags
 
 #: said on the plan when the trip is moved to dates that have gone by (the form accepts them)
 PAST_DATES = "The new dates are in the past."
@@ -82,6 +84,8 @@ NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel st
 NEW_STAY_UNPRICED = "The new hotel's price was not returned, so the total does not include the stay."
 #: the flight of the earlier dates is gone from a trip that moved, and none came back for the new ones
 FLIGHT_NO_LONGER_FITS = "The earlier flight no longer fits the new dates and no flight for them came back."
+#: said (and then not kept: it is an edit outcome) when a request for a grander hotel found none the budget pays for
+NO_GRANDER_HOTEL = "No grander verified hotel within the budget was returned; the current hotel stays."
 #: the page's "generate again" when the trip form has nothing the plan does not
 NOTHING_DIFFERS = "Nothing in the trip details differs from the plan, so nothing was changed."
 #: the fares are for the trip as it was planned when the source has none for the details the traveller changed
@@ -121,6 +125,59 @@ class ChangeDraft(BaseModel):
     new_values: dict[str, Any] = Field(default_factory=dict)
     is_question: bool = False
     confidence: float = 0.0
+    #: a fact the change needs that neither the plan nor the conversation gives ("where the traveller lives")
+    missing_info: str | None = None
+    #: the one short question that asks for it
+    question: str | None = None
+
+
+#: the question for a home the traveller asked to add without saying where it is
+HOME_QUESTION = "Where do you live? I'll add it to the plan."
+#: the question for an edit the writer could not read and nothing on the page points at
+WHICH_EDIT_QUESTION = "Which stop or day should I change, and what should I change about it?"
+#: below this the writer's own confidence in its reading of an edit is too low to act on
+LOW_EDIT_CONFIDENCE = 0.4
+#: the fact `HOME_QUESTION` asks for, as the stored question turn names it
+HOME_FACT = "home"
+
+
+@dataclass(frozen=True)
+class EditQuestion:
+    """The one question an edit asks for a fact it needs, instead of changing the plan."""
+
+    question: str
+    #: what the question asks for ("home"), so the answer on the next turn can be read as that fact
+    fact: str = ""
+    #: the edit the answer completes
+    request: str = ""
+
+
+class EditResult(tuple):
+    """What an edit returns: the plan and the diff, as a pair, with the scope the edit really used.
+
+    ``scope`` is "stop" (one row, selected or named), "day" (more stops on one day) or "plan"; ``day`` is the day of a
+    day-scoped edit (1-based) and ``selected`` says whether the stop or day came from the stop selected on the page.
+    ``asks`` is set when the edit changed nothing because it needs a fact first: the plan is the one it read, with the
+    question as its change summary, so a caller that does not ask still shows the question as the reply."""
+
+    scope: str
+    day: int | None
+    selected: bool
+    asks: EditQuestion | None
+
+    def __new__(
+        cls,
+        plan: TripPlan,
+        diff: list[dict[str, Any]],
+        *,
+        scope: str = "plan",
+        day: int | None = None,
+        selected: bool = False,
+        asks: EditQuestion | None = None,
+    ):
+        result = super().__new__(cls, (plan, diff))
+        result.scope, result.day, result.selected, result.asks = scope, day, selected, asks
+        return result
 
 
 class ModifyPath:
@@ -143,7 +200,11 @@ class ModifyPath:
         memory_summaries: list[str] | None = None,
         scope_item_id: str | None = None,
         history: Sequence[Message] = (),
+        answering: EditQuestion | None = None,
     ) -> tuple[TripPlan, list[dict[str, Any]]]:
+        """Apply the smallest change the message asks for. ``answering`` is the question an earlier edit asked when the
+        message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
+        When a fact the change needs is missing, the result `asks` for it and the plan is unchanged."""
         # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
         # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
         # two nights" or "a later flight" name a part of the trip (Proposal DB-09), not new dates.
@@ -161,6 +222,35 @@ class ModifyPath:
             # The page's own message needs no writer to be read when the form holds nothing the plan does not.
             return _nothing_differs(plan)
         draft = await self._extract(message, plan, context, route_parts, history=history)
+        answer = message
+        if answering is not None and answering.request and not _imperative_edit(message):
+            # The message answers the question an earlier edit asked ("Mong Kok" to "Where do you live?"): the rules
+            # below read that edit together with its answer. The writer read both in the conversation.
+            message = f"{answering.request} ({message.strip()})"
+        home = _stated_home(
+            draft, answer, history, asked_for_home=answering is not None and answering.fact == HOME_FACT
+        )
+        if home is not None and not replanning:
+            return _home_noted(plan, home)
+        if answering is not None and _DISMISSAL.search(answer) and not _imperative_edit(answer):
+            # "never mind" to the question: the edit it belonged to is dropped, and nothing is asked again.
+            unchanged = plan.model_copy(deep=True)
+            unchanged.change_summary = "Understood, I left the plan as it was."
+            return EditResult(unchanged, [])
+        more_stops = asks_for_more_stops(message)
+        # "Make it grander": the hotel's class, an upgrade the budget can pay for, never the pace of the days.
+        # The router stays the authority on scope: a router that named other parts than the hotel is not overruled.
+        upscale = (
+            not more_stops
+            and asks_for_a_grander_stay(message)
+            and (not route_parts or bool({"hotel", "budget"} & set(route_parts)))
+        )
+        if (more_stops or upscale) and not interpret_plan(message).requested:
+            # "More stops" is an add, and "grander" is about the hotel. A pace the writer read into either ("3 places
+            # a day") is only a cap, which adds nothing and may even take a stop away.
+            draft.new_values = {
+                key: value for key, value in draft.new_values.items() if key not in {"places_per_day", "min_hours", "earliest"}
+            }
         shape = interpret_plan(message, draft.new_values)
         date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
         if date_requested and not form_is_a_trip:
@@ -184,7 +274,23 @@ class ModifyPath:
             scope_item_id = None
         if dates_move:
             draft.is_question = False
-        if scope_item_id and not draft.target_item_id and plan.find_item(scope_item_id):
+        # More stops for a day: the day the message names, else the day of the stop it names or the page selected
+        # ("can u add this days more stop" with "Day 9 · Lam Tsuen Wishing Tree" selected is about Day 9).
+        more_stops = more_stops and not (dates_move or whole_trip)
+        day_scope: int | None = None
+        day_from_selection = False
+        if more_stops:
+            named_day = _rule_day(message)
+            anchor = _name_mentioned(plan, message) or scope_item_id
+            anchored = plan.find_item(anchor) if anchor else None
+            if named_day and 1 <= named_day <= len(plan.days):
+                day_scope = named_day
+            elif anchored is not None:
+                day_scope = plan.days.index(anchored[0]) + 1
+                day_from_selection = anchor == scope_item_id
+            draft.target_item_id = None
+            draft.is_question = False
+        if scope_item_id and not more_stops and not draft.target_item_id and plan.find_item(scope_item_id):
             # The console's "About: Day 3 · X" chip is a real context signal.
             # "remove this" / "swap it" must resolve to that stop, and a real
             # imperative with a selected item is a change even if the writer
@@ -195,6 +301,14 @@ class ModifyPath:
                 message.lower(),
             ):
                 draft.is_question = False
+        if not (dates_move or whole_trip or replanning):
+            # An edit that needs a fact nobody gave ("add the place I live") asks for it, once, instead of refusing.
+            asked = _missing_fact_question(plan, message, draft, scope_item_id, anchored=more_stops or upscale or shape.requested)
+            if asked is not None:
+                question, fact = asked
+                unchanged = plan.model_copy(deep=True)
+                unchanged.change_summary = question
+                return EditResult(unchanged, [], asks=EditQuestion(question, fact=fact, request=message))
         if draft.is_question:
             raise PlanInvalidError(
                 "This message reads as a question, not a change. Ask it as a question and I will answer "
@@ -212,6 +326,8 @@ class ModifyPath:
             affected = [part for part in affected if part != "attraction"]
             if {"party", "origin", "budget"} & set(form_changes):
                 affected += [part for part in ("hotel", "ticket") if part not in affected]
+        if upscale and not form_changes and "hotel" not in affected:
+            affected.append("hotel")
         if not affected and not form_changes:
             affected = ["dates"] if dates_move else ["attraction"]
         if re.search(r"\b(hours?|minutes?)\b", message.lower()) and not re.search(
@@ -250,13 +366,22 @@ class ModifyPath:
             # neither the stop to edit nor, by the words of its name ("Garden"), a wish for a garden.
             message = _stay_as_word(message, place.name)
         # Naming a hotel or a stop in a request for other dates does not turn it into a single-row edit.
-        referred = None if dates_move or whole_trip else resolve_referred(plan, message, scope_item_id)
+        # More stops are added to a day: the stop selected or named only says which day.
+        referred = None if dates_move or whole_trip or more_stops else resolve_referred(plan, message, scope_item_id)
         # A pace or meal rule is about the whole plan. A selected chip must
         # not turn it into a question about one stop.
         if shape.requested and _name_mentioned(plan, message) is None:
             referred = None
             draft.is_question = False
             agent_names = set()
+        if more_stops and not shape.requested:
+            # New stops come from the place source, and nothing but that day changes.
+            agent_names = {AgentName.ATTRACTION}
+        if upscale and not shape.requested and not (referred and plan.find_hotel(referred)) and _name_mentioned(plan, message) is None:
+            # A grander stay is about the hotel, whatever stop is selected: only the hotel search runs again.
+            referred = None
+            draft.is_question = False
+            agent_names = {AgentName.HOTEL}
         if referred:
             # The traveller pointed at one row. No other row, hotel, or flight
             # may change, even if the router named a whole section.
@@ -265,7 +390,7 @@ class ModifyPath:
             agent_names = (
                 {AgentName.HOTEL} if plan.find_hotel(referred) else {AgentName.ATTRACTION}
             )
-        if budget_mode and context.budget is not None and not referred:
+        if budget_mode and context.budget is not None and not referred and not more_stops:
             # A budget request is not only a hotel request: the flight is often
             # the largest line, so both priced sections are re-run.
             agent_names.add(AgentName.HOTEL)
@@ -308,6 +433,7 @@ class ModifyPath:
             and (
                 "budget" in affected
                 or budget_mode
+                or upscale
                 or _asks_for_another_hotel(about_stay, affected)
                 # The hotel selected or named is the one to swap, unless the sentence says to keep it.
                 or (referred_stay is not None and not _keeps_the_hotel(about_stay))
@@ -380,7 +506,7 @@ class ModifyPath:
             agent_names |= PART_AGENTS["dates"]
         date_range = new_range or plan.dates
         lower_message = message.lower()
-        add_requested = _ADD_REQUEST.search(lower_message) is not None
+        add_requested = _ADD_REQUEST.search(lower_message) is not None or more_stops
         remove_requested = _REMOVE_REQUEST.search(lower_message) is not None
         # The agents whose data this edit needs (Proposal DB-09). A pace change
         # works from the plan alone, and taking a stop out needs no new places.
@@ -452,8 +578,11 @@ class ModifyPath:
                         _gap("hotels", STAY_PRICE_NOT_REFRESHED if date_changed else STAY_RATE_KEPT)
                     )
             else:
-                choice = _swap_choice(updated, candidates, cheaper=cheaper, message=message)
-                swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
+                if upscale and not cheaper:
+                    swapped = self._grander_stay(updated, candidates, context)
+                else:
+                    choice = _swap_choice(updated, candidates, cheaper=cheaper, message=message)
+                    swapped = self.planner._build_hotel(choice, updated.dates) if choice else None
                 # A lookup the cap refused returned nothing because it was never made: its gap says so, once.
                 searched = HOTEL_SEARCH not in getattr(toolbox, "refused", ())
                 if swapped is not None:
@@ -468,7 +597,9 @@ class ModifyPath:
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     if searched:
-                        updated.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
+                        updated.data_quality.gaps.append(
+                            _gap("hotels", NO_GRANDER_HOTEL if upscale and not cheaper else NO_CHEAPER_HOTEL)
+                        )
                 elif len(updated.days) > 1 and searched:
                     # There is no current hotel to keep: the trip has nights and no stay to put in them.
                     # "for the new dates" only when the dates moved: a budget edit keeps them.
@@ -491,20 +622,41 @@ class ModifyPath:
             places = payload.get("places") or []
             meals = payload.get("meals") or []
             if add_requested:
-                added = _add_attractions(updated, places, message)
+                if places and not _fresh_places(updated, places, message) and AgentName.ATTRACTION in needed:
+                    # Every candidate the lookup returned is already in the plan: the source is asked again, for as
+                    # many as a trip may ask for, by the same agent through the same toolbox and its cap.
+                    places = await self._more_places(
+                        context=context,
+                        destination=destination,
+                        date_range=date_range,
+                        toolbox=toolbox,
+                        emit=emit,
+                        message=message,
+                    ) or places
+                before_add = {item.id for _, item in updated.iter_items()}
+                added = _add_attractions(updated, places, message, day=day_scope)
+                if added and more_stops:
+                    draft.description = _added_sentence(updated, before_add)
                 if not added and _lookup_limit(toolbox, places):
                     updated.data_quality.gaps.append(_limit_gap("attractions"))
                 elif not added:
                     wanted = [
                         word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())
                     ]
-                    detail = f"a verified {wanted[0]}" if wanted else "a verified stop"
-                    updated.data_quality.gaps.append(
-                        _gap(
-                            "attractions",
-                            f"I could not find {detail} from the configured sources, or the day had no free time slot; the itinerary stayed as it was.",
+                    if day_scope is not None:
+                        # Said of the day the traveller meant, and true whichever of the two stopped it.
+                        kind = wanted[0] if wanted else "stop"
+                        outcome = (
+                            f"I could not find another verified {kind} for Day {day_scope} that is not already in the "
+                            f"plan, or Day {day_scope} had no free time slot; the itinerary stayed as it was."
                         )
-                    )
+                    else:
+                        detail = f"a verified {wanted[0]}" if wanted else "a verified stop"
+                        outcome = (
+                            f"I could not find {detail} from the configured sources, or the day had no free time "
+                            "slot; the itinerary stayed as it was."
+                        )
+                    updated.data_quality.gaps.append(_gap("attractions", outcome))
             elif remove_requested:
                 removed = _remove_attraction(updated, draft, message)
                 if not removed:
@@ -694,7 +846,40 @@ class ModifyPath:
                 )
             ]
             updated.change_summary = news[-1].message if news else NOTHING_MATCHED
-        return updated, diff
+        # The scope this edit really used, for the account of the decision: one row, one day, or the plan.
+        if referred:
+            return EditResult(updated, diff, scope="stop", selected=referred == scope_item_id)
+        if day_scope is not None and more_stops:
+            return EditResult(updated, diff, scope="day", day=day_scope, selected=day_from_selection)
+        return EditResult(updated, diff)
+
+    def _grander_stay(self, plan: TripPlan, candidates: list[dict], context: TripContext) -> HotelStay | None:
+        """The stay of a higher class than the plan's (a higher rating, else a higher rate) that the budget can still
+        pay for, the best rated first; None when no candidate is one. Without a budget, any higher class will do."""
+        for row in _grander_candidates(plan, candidates):
+            stay = self.planner._build_hotel(row, plan.dates)
+            if stay is None:
+                continue
+            if context.budget is None or self.planner._cost(context, stay, plan.tickets, plan.dates).status != "over":
+                return stay
+        return None
+
+    async def _more_places(self, *, context, destination, date_range, toolbox: Toolbox, emit, message: str) -> list[dict]:
+        """The places of a second lookup with the largest candidate limit a trip may ask for, or [] when the first one
+        already asked for that many. The attraction agent runs again, so the toolbox and its per-turn cap apply."""
+        if place_candidate_limit(len(date_range.dates)) >= MAX_PLACE_CANDIDATES:
+            return []
+        results = await self.plan_path.run_agents(
+            context=context,
+            destination=destination,
+            date_range=date_range,
+            toolbox=toolbox,
+            emit=emit,
+            names={AgentName.ATTRACTION},
+            extra={**(_search_extra(message) or {}), "places_limit": MAX_PLACE_CANDIDATES},
+        )
+        result = results.get("attraction")
+        return (result.payload.get("places") if result else None) or []
 
     async def carry_protected(
         self, old: TripPlan, rebuilt: TripPlan, *, context: TripContext, toolbox: Toolbox
@@ -1396,6 +1581,173 @@ def _name_mentioned(plan: TripPlan, message: str) -> str | None:
     return found[0][1]
 
 
+#: a request for more stops, not for one stop: "add more stops", "can u add this days more stop", "one more attraction"
+_MORE_STOPS = re.compile(
+    r"\bmore\s+(?:\w+\s+){0,2}?(?:stops?|places?|sights?|attractions?|things\s+to\s+(?:do|see))\b"
+    r"|\b(?:another|one\s+more|an?\s+extra|extra)\s+(?:\w+\s+)?(?:stops?|places?|sights?|attractions?)\b",
+    re.IGNORECASE,
+)
+#: the day of the stop the page selected: "this day", "that day's", "this days", "the same day"
+_THIS_DAY = re.compile(r"\b(?:this|that|the\s+same|same)\s+days?(?:'s)?\b", re.IGNORECASE)
+#: wording that makes it something else than an add: a swap, a removal, or a cap ("only two stops")
+_NOT_AN_ADD = re.compile(
+    r"\b(?:swap|replace|switch|change|instead|remove|delete|drop|take\s+out|without|fewer|less|only)\b", re.IGNORECASE
+)
+#: a change verb, as the router reads one, and the other words of an edit ("put", "include")
+_EDIT_VERB = re.compile(rf"\b{MODIFY_VERBS}\b|\b(?:include|insert|put|delete|get\s+rid\s+of|take\s+out)\b", re.IGNORECASE)
+#: the traveller's own home, which no source knows: "the place I live", "where I live", "my flat"
+_HOME_WORDS = re.compile(
+    r"\b(?:(?:the\s+)?place\s+(?:where\s+)?i\s+(?:live|stay)|where\s+i\s+live|my\s+(?:home|house|flat|apartment))\b",
+    re.IGNORECASE,
+)
+#: an answer that waves the question away: it is not where the traveller lives
+_DISMISSAL = re.compile(r"\b(?:never\s*mind|forget\s+it|cancel|no\s+thanks|skip\s+it|not\s+now|nothing)\b", re.IGNORECASE)
+#: "I live in Mong Kok": the home, in the traveller's own words
+_I_LIVE_IN = re.compile(
+    r"\bi\s+live\s+(?:in|at|near|on)\s+([^\W\d_][\w'’ -]{1,48}?)\s*(?:[,.;!?()]|$|\s+(?:and|but|so|even)\b)",
+    re.IGNORECASE,
+)
+
+
+def asks_for_more_stops(message: str) -> bool:
+    """The message asks for more stops on a day ("add more stops", "add a museum to this day"), not to change one."""
+    lower = message.lower()
+    if _NOT_AN_ADD.search(lower):
+        return False
+    if _MORE_STOPS.search(lower):
+        return True
+    return _THIS_DAY.search(lower) is not None and _ADD_REQUEST.search(lower) is not None
+
+
+def _imperative_edit(message: str) -> bool:
+    """A command to change the plan ("add it", "can u add this", "change it"), not a wh-question about one."""
+    lower = message.lower().strip()
+    return bool(_EDIT_VERB.search(lower)) and not re.match(r"^(?:what|where|when|which|who|why|how)\b", lower)
+
+
+def _one_question(text: str | None) -> str | None:
+    """The writer's question as one line, or None when it gave none."""
+    line = " ".join(strip_fence_tags(text or "").split())[:240]
+    return line if "?" in line else None
+
+
+def _missing_fact_question(
+    plan: TripPlan, message: str, draft: ChangeDraft, scope_item_id: str | None, *, anchored: bool
+) -> tuple[str, str] | None:
+    """The one question an edit asks before it changes anything, and the fact it asks for; None when it can act.
+
+    A home the traveller asked to add is asked for (no source knows it). A fact the writer says is missing is asked
+    for in the writer's words. An imperative edit the writer could not read (it calls it a question, or gives a low
+    confidence) is asked about when nothing on the page or in the message points at a stop, a day or a section."""
+    if _HOME_WORDS.search(message) and _imperative_edit(message):
+        return _one_question(draft.question) or HOME_QUESTION, HOME_FACT
+    missing = " ".join(strip_fence_tags(draft.missing_info or "").split())[:120]
+    # The writer's own question counts for a fact it says is missing, or for a command; a real question is answered.
+    if missing or (_one_question(draft.question) and _imperative_edit(message)):
+        fact = HOME_FACT if re.search(r"\b(?:live|lives|home|house|flat|address)\b", missing.lower()) else missing
+        return _one_question(draft.question) or f"Could you tell me {missing.rstrip('.?')}?", fact
+    if anchored or not _imperative_edit(message):
+        return None
+    if scope_item_id and (plan.find_item(scope_item_id) or plan.find_hotel(scope_item_id)):
+        return None
+    if _name_mentioned(plan, message) or _rule_parts(message) or _MEAL_WORDS.search(message):
+        return None
+    unsure = "confidence" in draft.model_fields_set and draft.confidence < LOW_EDIT_CONFIDENCE
+    if draft.is_question or unsure:
+        return WHICH_EDIT_QUESTION, ""
+    return None
+
+
+def _stated_home(draft: ChangeDraft, message: str, history: Sequence[Message], *, asked_for_home: bool) -> str | None:
+    """Where the traveller lives, as the traveller wrote it, or None.
+
+    Read only when the message is about the home: it asks to add it, says "I live in ...", or answers the question
+    for it. The writer may name it from the conversation, but a name is kept only when one of the traveller's own
+    turns (not an answer of ours, not a refused turn) holds it: the address is never invented."""
+    lived_in = _I_LIVE_IN.search(message)
+    if not (asked_for_home or lived_in or _HOME_WORDS.search(message)):
+        return None
+    candidates: list[str] = []
+    written = draft.new_values.get("home")
+    if isinstance(written, str):
+        candidates.append(written)
+    if lived_in:
+        candidates.append(lived_in.group(1))
+    if asked_for_home and not (looks_like_question(message) or _imperative_edit(message) or _DISMISSAL.search(message)):
+        candidates.append(message)
+    said = [message, *(row.content for row in replayable(history) if row.role == "user")]
+    said_folded = [" ".join(strip_fence_tags(line).split()).casefold() for line in said]
+    for value in candidates:
+        text = " ".join(strip_fence_tags(value).split()).strip(" .,;:!?()")[:80]
+        if len(text) >= 2 and any(text.casefold() in line for line in said_folded):
+            return text
+    return None
+
+
+def _home_noted(plan: TripPlan, home: str) -> EditResult:
+    """The plan with the traveller's home as a note: a home is their own word, not a verified stop, so it gets no
+    time slot, no source and no version of its own. The reply says so."""
+    noted = plan.model_copy(deep=True)
+    note = f"Home: {home} (as the traveller said; not a verified stop, so it has no time in the plan)."
+    notes = [line for line in noted.data_quality.notes if not line.startswith("Home: ")] + [note]
+    noted.data_quality.notes = notes[-12:]
+    noted.change_summary = (
+        f"I noted that you live in {home}. A home is not a verified place, so it is kept as a note on the plan "
+        "rather than added as a stop; the itinerary is unchanged."
+    )
+    noted.updated_at = utcnow()
+    return EditResult(noted, [])
+
+
+def _already_planned(plan: TripPlan, row: dict) -> bool:
+    """The candidate is a place the plan already has, under this name or under another spelling of it."""
+    name = str(row.get("name") or "")
+    items = [item for _, item in plan.iter_items()]
+    if any(item.name.casefold() == name.casefold() for item in items):
+        return True
+    try:
+        candidate = PlaceCandidate.model_validate({**row, "category": row.get("category") or "attraction"})
+    except Exception:
+        return False
+    return any(
+        _same_place(
+            PlaceCandidate(
+                name=item.name,
+                category="restaurant" if item.type is ItemType.MEAL else "attraction",
+                geo=item.geo,
+                aliases=list(item.names.values()),
+            ),
+            candidate,
+        )
+        for item in items
+    )
+
+
+def _fresh_places(plan: TripPlan, places: list[dict], message: str) -> list[dict]:
+    """The verified candidates an add may use: not in the plan already, and of the kind the message names."""
+    wanted = [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
+    pool = []
+    for row in places:
+        if not row.get("name") or not row.get("source_refs") or _already_planned(plan, row):
+            continue
+        text = f"{row.get('name', '')} {row.get('description', '')}".lower()
+        if wanted and not any(word in text for word in wanted):
+            continue
+        pool.append(row)
+    return pool
+
+
+def _added_sentence(plan: TripPlan, before: set[str]) -> str:
+    """"Added X and Y to Day 2.": the stops an add put in, by day."""
+    by_day: dict[int, list[str]] = {}
+    for index, day in enumerate(plan.days, start=1):
+        for item in day.items:
+            if item.id not in before:
+                by_day.setdefault(index, []).append(item.name)
+    parts = [f"{' and '.join(names)} to Day {index}" for index, names in by_day.items()]
+    return f"Added {'; '.join(parts)}." if parts else ""
+
+
 def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
     """Put back every row except the one the traveller referred to."""
     changed_item = None
@@ -1524,7 +1876,8 @@ _CLAUSE_END = re.compile(
 _REFUSAL_REACH = 3
 #: wording that changes the hotel: "swap the hotel", "a different room", "switch to a ryokan"
 _CHANGE_HOTEL = re.compile(
-    r"\b(?:swap|switch|change|replace|upgrade|downgrade|another|different|other|cheaper|nicer|better)\b"
+    r"\b(?:swap|switch|change|replace|upgrade|downgrade|another|different|other|cheaper|nicer|better|grander"
+    r"|luxurious|upscale)\b"
     rf"[^.,;]{{0,20}}?\b{_HOTEL_NOUN}\b|\b{_HOTEL_NOUN}\b[^.,;]{{0,20}}?\b(?P<verb>instead|swap|switch|change)\b",
     re.IGNORECASE,
 )
@@ -1534,7 +1887,7 @@ _CHANGE_HOTEL = re.compile(
 #: hotel", "the hotel instead", "swap it"
 _AIMED_AT_STAY = re.compile(
     rf"\b(?:swap|switch|change|replace|upgrade|downgrade|remove|drop|cancel|delete)\s+(?:\w+\s+){{0,2}}?{_HOTEL_NOUN}\b"
-    rf"|\b(?:another|different|other|cheaper|nicer|better)\s+(?:\w+\s+)?{_HOTEL_NOUN}\b"
+    rf"|\b(?:another|different|other|cheaper|nicer|better|grander|luxurious|upscale)\s+(?:\w+\s+)?{_HOTEL_NOUN}\b"
     rf"|\b{_HOTEL_NOUN}\b\s+(?:instead|swap|switch|change)\b"
     r"|\b(?P<pronoun>(?:swap|switch|change|replace|upgrade|downgrade)\s+(?:it|this|that))\b",
     re.IGNORECASE,
@@ -1756,6 +2109,46 @@ def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool, messa
     return pool[0] if pool else None
 
 
+#: a grander stay: "make it more grand", "a grander hotel", "something more luxurious", "upscale". A name such as
+#: "Grand Hyatt" is not the word: "grand" alone counts only after "more" or "so".
+_GRANDER = re.compile(
+    r"\b(?:gr+and(?:er|est)|(?:more|so)\s+gr+and|(?:more\s+)?luxurious|luxury|upscale|fancier|posher)\b", re.IGNORECASE
+)
+
+
+def asks_for_a_grander_stay(message: str) -> bool:
+    """The message asks for a stay of a higher class ("grander", "more luxurious", "upscale"), and does not turn it
+    down ("no need for anything grander")."""
+    for found in _GRANDER.finditer(message):
+        clause = max((cut.end() for cut in _CLAUSE_END.finditer(message, 0, found.start())), default=0)
+        ahead = " ".join(_DONT_FORGET.sub(" ", message[clause : found.start()]).split()[-_KEEP_REACH:])
+        if _REFUSAL.search(ahead) is None:
+            return True
+    return False
+
+
+def _grander_candidates(plan: TripPlan, candidates: list[dict]) -> list[dict]:
+    """The candidates of a higher class than the plan's stay, best rated first: a higher rating, or with no rating to
+    compare, a higher nightly rate. A stay in another city, or the plan's own, is not one."""
+    current = plan.hotels[0] if plan.hotels else None
+    rate = current.price_per_night.amount if current and current.price_per_night else None
+    rating = current.rating if current else None
+    pool = []
+    for row in candidates:
+        if current is not None and row.get("name") == current.name or not _hotel_near(plan, row):
+            continue
+        row_rating = row.get("rating")
+        row_rate = _hotel_price(row)
+        higher_rated = isinstance(row_rating, (int, float)) and (rating is None or row_rating > rating)
+        dearer = row_rate is not None and rate is not None and row_rate > rate and not (
+            isinstance(row_rating, (int, float)) and rating is not None and row_rating < rating
+        )
+        if current is None or higher_rated or dearer:
+            pool.append(row)
+    pool.sort(key=lambda row: (-(row.get("rating") or 0), -(_hotel_price(row) or 0)))
+    return pool
+
+
 def _row_near(anchor, row: dict, km: float) -> bool:
     if anchor is None:
         return True
@@ -1839,18 +2232,10 @@ def _late_slot(day: DayPlan) -> tuple[str, str] | None:
     return "18:30", "19:30"
 
 
-def _add_attractions(plan: TripPlan, places: list[dict], message: str) -> list[str]:
-    """Add verified candidates instead of renaming every existing stop."""
-    existing = {item.name for day in plan.days for item in day.items if item.type.value == "attraction"}
-    wanted = [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
-    pool = []
-    for row in places:
-        if not row.get("name") or row.get("name") in existing or not row.get("source_refs"):
-            continue
-        text = f"{row.get('name', '')} {row.get('description', '')}".lower()
-        if wanted and not any(word in text for word in wanted):
-            continue
-        pool.append(row)
+def _add_attractions(plan: TripPlan, places: list[dict], message: str, *, day: int | None = None) -> list[str]:
+    """Add verified candidates instead of renaming every existing stop. ``day`` (1-based) is the day they go on, when
+    the edit is about one day; else the day the message names, else the day with the fewest stops."""
+    pool = _fresh_places(plan, places, message)
     if not pool:
         return []
 
@@ -1858,7 +2243,7 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str) -> list[s
         r"\b(?:two|2)\s+(?:more\s+)?(?:museums?|attractions?|stops?|places?)\b|\ba couple\b",
         message.lower(),
     ) else 1
-    day_number = _rule_day(message)
+    day_number = day or _rule_day(message)
     preferred = plan.days[day_number - 1] if day_number and 1 <= day_number <= len(plan.days) else None
     added: list[str] = []
     for row in pool[:count]:

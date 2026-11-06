@@ -194,6 +194,10 @@ class AttractionAgent(BaseAgent):
         restaurants: list[PlaceCandidate] = []
         notes: list[dict[str, Any]] = []
         wanted = place_candidate_limit(len(request.date_range.dates))
+        asked = request.extra.get("places_limit")
+        if isinstance(asked, int) and not isinstance(asked, bool):
+            # An edit whose candidates are all in the plan asks for more; never past the cap any trip has.
+            wanted = min(max(wanted, asked), MAX_PLACE_CANDIDATES)
 
         for source in self.registry.places:
             if not getattr(source, "available", True):

@@ -551,7 +551,12 @@ def without_concessive_budget(lower: str) -> str:
 def _affected_parts(lower: str) -> list[str]:
     parts: list[str] = []
     mapping = [
-        ("hotel", r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b"),
+        # "make it more grand", "something more luxurious": the hotel's class, not the pace
+        (
+            "hotel",
+            r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b"
+            r"|\b(gr+and(?:er|est)|(?:more|so)\s+gr+and|(?:more\s+)?luxurious|upscale|fancier|posher)\b",
+        ),
         ("ticket", r"\b(flight|fly|train|ticket|fare|seat|rail|shinkansen)\b"),
         ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity|eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe)\b"),
         ("weather", r"\b(weather|rain|forecast|typhoon|temperature)\b"),
