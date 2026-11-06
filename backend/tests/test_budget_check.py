@@ -76,7 +76,7 @@ def test_a_budget_too_small_for_the_trip_is_asked_about_and_no_agent_runs(settin
         assert asked is not None, [event.event for event in events]
         assert "HKD 5,000 for 2 people over 12 nights is about HKD 208 a night per person" in asked["question"]
         assert asked["slots"] == ["budget"]
-        assert asked["options"]["budget"] == ["HKD 42,000", "Keep HKD 5,000 and plan anyway"]
+        assert asked["options"]["budget"] == ["HKD 43,000", "Keep HKD 5,000 and plan anyway"]
         assert not [event for event in events if event.event in {"plan", "error"}]
         assert sum(ledger.made.values()) == 0, ledger.made
         assert ledger.store.get_plan(session_id) is None
@@ -195,8 +195,9 @@ def test_the_budget_options_scale_with_nights_and_party() -> None:
     short = TripContext(session_id="s", start_date=start, end_date=start + timedelta(days=2), days=3, party_size=1, currency="HKD")
     long = TripContext(session_id="s", start_date=start, end_date=start + timedelta(days=12), days=13, party_size=2, currency="HKD")
 
-    assert budget_options(long, 1170.0) == ["HKD 28,000", "HKD 56,000", "HKD 98,000"]
-    assert _amounts(budget_options(short, 1170.0)) == [2300, 4700, 8200]
+    # Rounded up to two significant figures: the lowest option is never below the floor for the trip.
+    assert budget_options(long, 1170.0) == ["HKD 29,000", "HKD 57,000", "HKD 99,000"]
+    assert _amounts(budget_options(short, 1170.0)) == [2400, 4700, 8200]
     assert _slot_options(["budget"], long, 1170.0)["budget"] == budget_options(long, 1170.0)
 
 
@@ -210,7 +211,7 @@ def test_the_missing_budget_question_offers_options_for_this_trip(settings: Sett
 
         asked = _clarify(events)
         assert asked is not None and "budget" in asked["slots"]
-        assert asked["options"]["budget"] == ["HKD 28,000", "HKD 56,000", "HKD 98,000"]
+        assert asked["options"]["budget"] == ["HKD 29,000", "HKD 57,000", "HKD 99,000"]
 
     _fresh(settings, scenario, budget=5000)
 
@@ -253,3 +254,115 @@ def test_the_marks_of_the_check_stay_out_of_the_prompts() -> None:
 
     context = TripContext(session_id="s", destination="Kyoto", budget=5000, budget_confirmed=True)
     assert "confirmed" not in trip_state(context)
+
+
+# -- fix round 1 ------------------------------------------------------------------------------------------------
+
+SHAPES = [(2, 1), (3, 1), (5, 4), (8, 3), (13, 2), (14, 6)]
+
+
+def _trip(days: int, party: int, *, budget: float | None = None, currency: str = "HKD", start: date | None = None):
+    start = start or date.today() + timedelta(days=30)
+    return TripContext(
+        session_id="s", destination="Kyoto", origin="Hong Kong", start_date=start,
+        end_date=start + timedelta(days=days - 1), days=days, party_size=party, budget=budget, currency=currency,
+    )
+
+
+@pytest.mark.parametrize("floor", [1170.0, 150.0, 23456.0, 999.0])
+@pytest.mark.parametrize(("days", "party"), SHAPES)
+def test_every_offered_budget_passes_the_check(days: int, party: int, floor: float) -> None:
+    today = date.today()
+    asked = budget_question(_trip(days, party, budget=1), floor=floor, today=today)
+    assert asked is not None
+    offered = [text for text in asked.options["budget"] if "anyway" not in text]
+    offered += budget_options(_trip(days, party), floor)
+
+    for text in offered:
+        chosen = _trip(days, party, budget=_amounts([text])[0])
+        assert budget_question(chosen, floor=floor, today=today) is None, (text, days, party, floor)
+
+
+def test_the_floor_reads_a_currency_with_a_rate_of_one_as_converted(settings: Settings) -> None:
+    fx = FxService()
+    fx._rates["PAB"] = 1.0  # pegged one to one: converting changes no number, and the rate is real
+    assert floor_per_person_night(settings, fx, "PAB") == 150
+    assert fx.has_rate("PAB") and fx.has_rate("hkd") and not fx.has_rate("XYZ")
+
+
+@pytest.mark.parametrize("floor", [0.0, 1170.0])
+def test_a_zero_budget_is_asked_about_even_with_the_check_off(floor: float) -> None:
+    asked = budget_question(_trip(5, 2, budget=0), floor=floor, today=date.today())
+
+    assert asked is not None and asked.slots == ["budget"]
+    assert "Keep HKD 0 and plan anyway" in asked.options["budget"]
+    assert all(_amounts([text])[0] > 0 for text in asked.options["budget"] if "anyway" not in text)
+    assert budget_question(_trip(5, 2, budget=1), floor=0.0, today=date.today()) is None
+
+
+def test_a_trip_under_way_is_not_asked_about_its_past_start_date() -> None:
+    today = date.today()
+    under_way = _trip(9, 2, budget=60000, start=today - timedelta(days=1))
+    over = _trip(3, 2, budget=60000, start=today - timedelta(days=10))
+
+    assert budget_question(under_way, floor=1170.0, today=today) is None
+    asked = budget_question(over, floor=1170.0, today=today)
+    assert asked is not None and asked.slots == ["dates"]
+
+
+def _asked(content: str):
+    from app.domain.models import Message
+
+    return Message(session_id="s", role="assistant", content=content)
+
+
+def _said(content: str):
+    from app.domain.models import Message
+
+    return Message(session_id="s", role="user", content=content)
+
+
+def test_an_anyway_in_a_chat_message_sets_no_mark(offline_gateway) -> None:
+    context = _trip(13, 2, budget=5000)
+    budget_asked = budget_question(context, floor=1170.0, today=date.today())
+    message = "keep the temple on day 2 anyway"
+
+    plain = asyncio.run(understand(message, context, offline_gateway))
+    after_question = asyncio.run(
+        understand(message, context, offline_gateway, history=[_asked(budget_asked.question), _said(message)])
+    )
+
+    for updated in (plain, after_question):
+        assert (updated.budget_confirmed, updated.past_dates_confirmed) == (False, False)
+
+
+@pytest.mark.parametrize("reply", ["plan anyway", "Keep it.", "yes, go ahead anyway", "keep it and plan anyway"])
+def test_a_bare_plan_anyway_answers_the_question_just_asked(offline_gateway, reply: str) -> None:
+    context = _trip(13, 2, budget=5000)
+    budget_asked = budget_question(context, floor=1170.0, today=date.today())
+    past = _trip(3, 2, budget=60000, start=date.today() - timedelta(days=10))
+    dates_asked = budget_question(past, floor=1170.0, today=date.today())
+
+    kept_budget = asyncio.run(
+        understand(reply, context, offline_gateway, history=[_asked(budget_asked.question), _said(reply)])
+    )
+    kept_dates = asyncio.run(understand(reply, past, offline_gateway, history=[_asked(dates_asked.question), _said(reply)]))
+    unasked = asyncio.run(understand(reply, context, offline_gateway, history=[_asked("Where to?"), _said(reply)]))
+
+    assert (kept_budget.budget_confirmed, kept_budget.past_dates_confirmed) == (True, False)
+    assert (kept_dates.budget_confirmed, kept_dates.past_dates_confirmed) == (False, True)
+    assert (unasked.budget_confirmed, unasked.past_dates_confirmed) == (False, False)
+
+
+def test_a_bare_plan_anyway_in_the_chat_after_the_question_plans(settings: Settings) -> None:
+    async def scenario(rig, ledger, session_id: str) -> None:
+        await _turn(rig, session_id, "Plan my trip.")
+
+        events = await _turn(rig, session_id, "plan anyway")
+
+        assert _clarify(events) is None, _clarify(events)
+        assert [event for event in events if event.event == "plan"]
+        context = ledger.store.get_context(session_id)
+        assert (context.budget_confirmed, context.past_dates_confirmed) == (True, False)
+
+    _fresh(settings, scenario, budget=5000)

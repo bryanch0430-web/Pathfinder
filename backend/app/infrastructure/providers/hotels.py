@@ -87,11 +87,13 @@ class SerpApiHotelSource:
                 over_cap.append((price, row))
                 continue
             out.append(self._candidate(row, price, currency))
-        if not out and over_cap:
-            # The budget leaves no stay at all. The cheapest few are kept, marked over budget, so the trip still has
-            # a real hotel and its cost says "over" instead of the plan having none.
+        if over_cap and not any(hotel.nightly_price is not None for hotel in out):
+            # The budget leaves no priced stay. The cheapest few are kept, marked over budget, so the trip still has a
+            # real rate and its cost says "over" instead of the plan having no stay or only one without a rate. A row
+            # without a rate (never capped) stays beside them.
             over_cap.sort(key=lambda pair: pair[0])
-            return [self._candidate(row, price, currency, over_budget=True) for price, row in over_cap[:OVER_BUDGET_KEPT]]
+            kept = [self._candidate(row, price, currency, over_budget=True) for price, row in over_cap[:OVER_BUDGET_KEPT]]
+            return kept + out[: 8 - len(kept)]
         out.sort(key=lambda hotel: (hotel.rating or 0, -(hotel.nightly_price.amount if hotel.nightly_price else 10**9)), reverse=True)
         return out[:8]
 

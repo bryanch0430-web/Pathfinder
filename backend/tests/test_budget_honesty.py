@@ -228,10 +228,18 @@ ROWS = [
 ]
 
 
+NO_PRICE = {**_row("No Price Inn", 0, 4.0), "rate_per_night": {}}
+
+
 @pytest.fixture()
-def serp(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> SerpApiHotelSource:
+def serp_rows() -> list[dict]:
+    return ROWS
+
+
+@pytest.fixture()
+def serp(settings: Settings, monkeypatch: pytest.MonkeyPatch, serp_rows: list[dict]) -> SerpApiHotelSource:
     async def fake_request_json(*_: Any, **__: Any) -> dict:
-        return {"properties": [dict(row) for row in ROWS]}
+        return {"properties": [dict(row) for row in serp_rows]}
 
     monkeypatch.setattr(hotels_module, "request_json", fake_request_json)
     return SerpApiHotelSource(settings.model_copy(update={"serpapi_key": "test-key"}))
@@ -277,6 +285,37 @@ def test_rows_within_the_cap_are_kept_as_before(serp: SerpApiHotelSource) -> Non
 def test_a_plan_on_a_budget_that_empties_the_search_still_gets_a_hotel_and_says_over(
     settings: Settings, serp: SerpApiHotelSource
 ) -> None:
+    _assert_a_priced_over_budget_stay(settings, serp)
+
+
+@pytest.mark.parametrize("serp_rows", [[*ROWS, NO_PRICE]])
+def test_an_unpriced_row_does_not_hide_the_cheapest_priced_ones(serp: SerpApiHotelSource) -> None:
+    found = _search(serp, 5000)
+
+    priced = [hotel for hotel in found if hotel.nightly_price is not None]
+    assert [hotel.nightly_price.amount for hotel in priced] == [650, 700, 800]
+    assert all("over the trip budget" in hotel.notes.lower() for hotel in priced)
+    unpriced = [hotel for hotel in found if hotel.nightly_price is None]
+    assert [hotel.name for hotel in unpriced] == ["No Price Inn"]
+    assert "over the trip budget" not in unpriced[0].notes.lower()
+
+
+@pytest.mark.parametrize("serp_rows", [[*ROWS, NO_PRICE]])
+def test_an_unpriced_row_beside_a_priced_one_within_the_cap_is_kept_as_before(serp: SerpApiHotelSource) -> None:
+    some = _search(serp, 20000)  # about HKD 862 a night: 650, 700 and 800 are within
+
+    assert [hotel.name for hotel in some] == ["Hotel Eight Hundred", "Hotel Seven Hundred", "No Price Inn", "Hotel Six Fifty"]
+    assert all(hotel.notes == "Indicative nightly rate; availability is not confirmed." for hotel in some)
+
+
+@pytest.mark.parametrize("serp_rows", [[*ROWS, NO_PRICE]])
+def test_a_plan_whose_search_has_an_unpriced_row_still_gets_a_priced_stay(
+    settings: Settings, serp: SerpApiHotelSource
+) -> None:
+    _assert_a_priced_over_budget_stay(settings, serp)
+
+
+def _assert_a_priced_over_budget_stay(settings: Settings, serp: SerpApiHotelSource) -> None:
     from app.application.llm_gateway import LLMGateway
     from app.application.planner import Planner
     from app.application.planning import PlanPath

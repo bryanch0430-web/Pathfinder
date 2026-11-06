@@ -119,6 +119,10 @@ class FxService:
         self.as_of = STATIC_AS_OF
         self._retry_at = self._clock() + FAILURE_BACKOFF_SECONDS
 
+    def has_rate(self, currency: str) -> bool:
+        """The exchange table holds a rate for ``currency`` (convert hands an amount back unchanged without one)."""
+        return bool(self._rates.get((currency or "").upper()))
+
     def convert(self, amount: float, from_currency: str, to_currency: str) -> float:
         source = from_currency.upper()
         target = to_currency.upper()

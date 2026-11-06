@@ -623,9 +623,11 @@ class HotelAgent(BaseAgent):
             ),
             reverse=True,
         )
-        if candidates and all(hotel.notes == OVER_BUDGET_NOTE for hotel in candidates):
-            # Every stay is over the budget (the source kept its cheapest): the cheapest one is the honest pick.
-            candidates.sort(key=lambda h: h.nightly_price.amount if h.nightly_price else 10**9)
+        priced_rows = [hotel for hotel in candidates if hotel.nightly_price is not None]
+        if priced_rows and all(hotel.notes == OVER_BUDGET_NOTE for hotel in priced_rows):
+            # Every priced stay is over the budget (the source kept its cheapest): the cheapest one is the honest pick,
+            # before a stay without a rate, which would leave the stay out of the total.
+            candidates.sort(key=lambda h: (h.nightly_price is None, h.nightly_price.amount if h.nightly_price else 0))
         priced = [hotel for hotel in candidates if hotel.nightly_price is not None]
         web_references: list[dict[str, Any]] = []
         if not priced:

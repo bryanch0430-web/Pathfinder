@@ -14,6 +14,7 @@ from bisect import bisect_left
 from datetime import date, timedelta
 from typing import Sequence
 
+from app.application.budget_check import asked_about
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import conversation_block, trip_state, with_conversation
 from app.domain.errors import CanaryLeak
@@ -160,17 +161,44 @@ async def understand(
             pass
 
     _normalise_dates(updated)
-    _apply_confirmations(message, labeled, context, updated)
+    _apply_confirmations(message, labeled, context, updated, history=history)
     return updated
 
 
 #: "plan anyway", "Keep HKD 5,000 and plan anyway", "go ahead anyway": the traveller keeps what the check before
-#: planning asked about (budget_check).
+#: planning asked about (budget_check). Read in a labeled clarify answer only.
 _ANYWAY = re.compile(r"\b(?:plan|go ahead|proceed|continue|keep)\b[^.;!?]{0,60}?\banyway\b", re.I)
+#: A whole chat reply that keeps what was asked about: "plan anyway", "keep it", "yes, go ahead anyway", "keep it and
+#: plan anyway". "keep the temple on day 2 anyway" is about the temple, not about the question.
+_BARE_KEEP = re.compile(
+    r"^\s*(?:(?:ok(?:ay)?|yes|yeah|yep|sure|fine)[\s,.!]+)?(?:please\s+)?"
+    r"(?:plan(?:\s+it)?|go\s+ahead|proceed|continue|"
+    r"keep(?:\s+(?:it|them|that|this|those|these(?:\s+dates)?|(?:the|my|our)\s+(?:budget|dates?)))?)"
+    r"(?:\s+(?:and\s+)?(?:plan(?:\s+it)?|go\s+ahead|proceed))?"
+    r"(?:\s+anyway)?(?:[\s,]+please)?[\s.!]*$",
+    re.I,
+)
 
 
-def _apply_confirmations(message: str, labeled: dict[str, str], before: TripContext, updated: TripContext) -> None:
-    """Mark what the traveller chose to keep, and clear a mark that another budget or start date no longer backs."""
+def _last_assistant(history: Sequence[Message]) -> str:
+    for turn in reversed(history):
+        if turn.role == "assistant":
+            return turn.content
+    return ""
+
+
+def _apply_confirmations(
+    message: str,
+    labeled: dict[str, str],
+    before: TripContext,
+    updated: TripContext,
+    *,
+    history: Sequence[Message] = (),
+) -> None:
+    """Mark what the traveller chose to keep, and clear a mark that another budget or start date no longer backs.
+
+    A mark is set by a labeled clarify answer that says "plan anyway", or by a bare "plan anyway" / "keep it" reply
+    to the turn that asked the question, and then only the mark of that question."""
     if (updated.budget, updated.currency.upper()) != (before.budget, before.currency.upper()):
         updated.budget_confirmed = False
     if updated.start_date != before.start_date:
@@ -181,9 +209,12 @@ def _apply_confirmations(message: str, labeled: dict[str, str], before: TripCont
         dates = " ".join(labeled.get(key, "") for key in ("dates", "date", "travel dates", "start date", "start_date"))
         if _ANYWAY.search(dates):
             updated.past_dates_confirmed = True
-    elif _ANYWAY.search(message):
-        updated.budget_confirmed = True
-        updated.past_dates_confirmed = True
+    elif _BARE_KEEP.match(message or ""):
+        asked = asked_about(_last_assistant(history))
+        if asked == "budget":
+            updated.budget_confirmed = True
+        elif asked == "dates":
+            updated.past_dates_confirmed = True
 
 
 def _apply_rules(message: str, context: TripContext, today: date) -> None:
