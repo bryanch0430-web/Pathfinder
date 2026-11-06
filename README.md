@@ -21,12 +21,81 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.6.0 | 2026-11-06 14:13 | Chat remembers recent turns; honest budgets; edits ask instead of refusing |
+| v1.5.1 | 2026-11-06 11:16 | Transit legs read Transit; ferry segments in the legend |
+| v1.5.0 | 2026-11-06 01:54 | Long trips fill their days; pre-planning audit experiment (off) |
+| v1.4.0 | 2026-11-05 21:45 | Honest route map: ferry segments, one leg at a time |
+| v1.3.1 | 2026-11-05 16:40 | Hardening: limits, expiry, honest failures, EN / 简 / 繁 |
 | v1.3.0 | 2026-11-03 11:55 | Edits match the request; pace and hours; map pin |
 | v1.2.0 | 2026-11-01 23:57 | Identity answers, useful clarify choices, label rows |
 | v1.1.0 | 2026-11-01 23:28 | Web search (DeepSeek, Grok opt-in), follow-ups, reviews, scoped stop |
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.6.0 — 6 November 2026, 14:13 HKT
+
+This release is about a chat that forgot what had just been said, repeated an old budget warning, and refused edits it could have asked about.
+
+**The chat uses the recent conversation.** The edit, clarify, understand and answer steps now see up to six earlier turns, each clipped, and not only the latest message. "where i live?" followed by "add it" is one request; before, the edit step saw only "add it" and replied "This message reads as a question, not a change." Earlier turns are given to the model as untrusted context, only for resolving words such as "it" or "that hotel". The understand step takes a trip detail from them only when the message refers back to it ("there", "same dates", or a bare answer to the last question), and never takes preferences or limits from them.
+
+**Budget warnings are worked out again on every edit.** A warning such as "HKD 5,118 … over the HKD 5,000 budget" was written once and then repeated as the reply to later edits, such as "more grand", even after the budget had been raised. Now every edit drops the old budget gap and writes one only if today's cost is over the current budget, and an edit that changes nothing replies with what happened in this turn only. A new budget in the trip form followed by "Re-plan with the updated details" searches hotels and flights again; before, only a new party size or departure city did. A budget word in a concessive clause ("add a museum even if it is over budget") no longer turns the edit into a budget search. "No hotel for the new dates" is said only when the dates moved.
+
+**A budget that cannot pay for the trip is asked about first.** HKD 5,000 for 12 nights left a nightly cap of about HKD 216, the hotel search dropped every result, and the plan had no hotel. Now a new trip with a budget of 0, or below USD 150 per traveller per night (converted to the trip's currency; `MIN_BUDGET_PER_PERSON_NIGHT`, 0 turns the check off), gets a question before any agent runs. It ends "Raise the budget, shorten the trip, or plan anyway with an over-budget hotel?" and offers a suggested budget or, for example, "Keep HKD 5,000 and plan anyway". The choice is kept, and the question comes back only when the budget or the currency changes. A trip whose dates have all gone by is asked about the same way. The clarify card's budget options now scale with nights and travellers, instead of the fixed 1,000 / 2,500 / 5,000. When every priced hotel is over the cap, the three cheapest are kept and marked over budget, instead of none.
+
+**Edits ask for a missing fact instead of refusing.** "Add the place I live" now gets "Where do you live? I'll add it to the plan.", and the answer ("Mong Kok") completes the edit. A home is not a verified place, so it is kept as a note on the plan ("Home: Mong Kok …") and not as a stop, and it is taken only from the traveller's own words. An answer that is not a place ("yes", "idk") is asked once more; "no" or "never mind" leaves the plan as it was. The answer never replaces the trip: "Hong Kong" given as the home on a Kyoto plan keeps the Kyoto trip. A new request sent instead of an answer ("plan a trip to Osaka") is handled as a new request. An imperative edit that names no stop, day or section and that the writer could not read gets "Which stop or day should I change, and what should I change about it?" With a plan open, an unclear message gets a question about that plan instead of "I have the trip details. Could you say what you want me to plan or change?"; with no plan, that line stays.
+
+**"Add more stops" with a stop selected adds them to that stop's day.** Before, the selection limited the edit to the one stop, the new stop went to the day with the fewest stops, the edit was then undone, and the reply said it "could not find a verified stop". Now the day named in the message, or else the day of the named or selected stop, gets the new stops. Places already in the plan are skipped, also under another spelling, and the place source is asked again with the larger candidate limit when its first list is used up. "More stops" is an add, not a pace cap; "only two stops each day" is still a cap. When nothing can be added, the reply names the day and the plan stays as it was. The decision note says which scope the edit really used, for example "The message asked for more stops on Day N, so only Day N could change."
+
+**Grander means the hotel.** "Make it more grand", "grander", "luxurious", "luxury" and "upscale" ask for a better-rated hotel within the budget, not a change of pace. Plain "grand" does not, so "Grand Hyatt" is only a name. If nothing fits, the reply is "No grander verified hotel within the budget was returned; the current hotel stays."
+
+Known gaps: a home answer that is an area named after a park or a temple ("Kowloon Park") is asked again (writing "I live in Kowloon Park" works); a bare "more grand" still changes the pace when the router names only attractions; with no plan, "I live in Mong Kok" is still read as the destination; "plan anyway" is not asked again when the party or the length changes later; "Re-plan" after lowering the form budget states the over-budget gap but asks nothing; the grander choice compares nightly rates without converting currencies.
+
+### v1.5.1 — 6 November 2026, 11:16 HKT
+
+**Transit legs are called Transit.** The planner's transit mode covers minibus and MTR together, so a leg that mixes them is labelled Transit on the map, not Metro (公共交通 in both Chinese scripts).
+
+**Ferry segments are explained.** When a walking leg contains a ferry step, the route legend shows a Ferry entry with a violet line and the note "Purple segments are ferry crossings inside a walking leg."
+
+### v1.5.0 — 6 November 2026, 01:54 HKT
+
+**Long trips get their days filled.** The attraction agent asked for 10 places whatever the trip's length. It now asks for three a day, at least 10 and at most 20 (one page of Google Places), so a 14-day trip asks for 20. Before the schedule is built, no day with room is left empty while another holds two or more stops: the fullest day gives up the stop farthest from the rest of its day. Days that still have no verified stop, because there were too few places or a stop moved for its opening hours, stay open, and the plan lists them as a data gap: "Only N of M days have verified stops; the rest are open." Days kept free on purpose and flight days are not counted. Nothing is invented to fill a day.
+
+**A pre-planning audit, as an experiment, off by default.** With `ENABLE_PREPLAN_AUDIT` on, one more writer call checks the four agents' results before the planner runs and returns typed findings (info, warn or block). It may ask for up to three follow-up web searches; they are logged and used as references only, never as a price. Blocked candidates are dropped only within a cap (at most half of a section, and at least one row stays), and never a place the traveller named or the hotel they keep. The findings go to the planner and to the repair step, and their evidence URLs are kept out of the plan's text. The audit fails open: if it fails, the trip still plans. With the flag on, a planned trip costs 1 to 3 more writer calls, up to 3 web searches and, in the worst case, up to 35 s more. With it off, nothing changes: no audit event and no extra call. Edits are not audited, except a rebuild for a new trip length.
+
+**The A/B run has not been done.** `backend/scripts/audit_ab.py` plans the same cases with the flag off and on and writes one CSV row per case and flag (calls, tokens, time, findings, blocked candidates, repair rounds, plan validity). It needs a live writer key and costs tokens, so it waits for the owner's go-ahead. There are no results yet; see `docs/EVALUATION.md` §8.
+
+### v1.4.0 — 5 November 2026, 21:45 HKT
+
+The map says what each leg really is, and shows one leg at a time.
+
+**A walk that includes a ferry is a walk plus a ferry.** Google's per-step route data is read for every leg. A ferry, cable car or tram step inside a walking route is no longer drawn as a footpath. A ferry crossing is a solid violet segment with a ferry icon.
+
+**Only the active leg is at full strength.** The leg being travelled is bold; the other legs fade and thin out. Two legs on the same road are offset so both stay visible, and every casing is drawn under every coloured line.
+
+**No invented trip back to the hotel.** Only the scheduled chain from stop to stop is drawn. The hotel → first stop and last stop → hotel legs are drawn only when the itinerary really includes them.
+
+**The camera follows only while playback runs**, so a paused map shows the whole day instead of a close-up of the token.
+
+### v1.3.1 — 5 November 2026, 16:40 HKT
+
+A hardening release. Seven independent testers, then three rounds of reviewers who tried to break the fixes, found most of these. The full list, with commits, is in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+**Trips belong to the browser or the account that made them.** Knowing a trip's id is no longer enough: the page sends a guest token with every request, in a header and never in a URL, and a guest trip answers only to that token. Signing up or in moves every guest trip of the browser to the account, not only the open one. Share links last 30 days (`SHARE_TTL_DAYS`), show their expiry and can be turned off; deleting a trip turns its links off. A deleted trip stays deleted, signing out sticks, and a sign-out in another window is followed.
+
+**Limits on what one request can cost.** Sign-in and sign-up allow 10 requests a minute per address, the chat stream and evaluation runs 30, and new trips, share links, place suggestions and the handbook 60; over the limit is HTTP 429 with `Retry-After`. A body over 1 MiB gets 413, and every free text has a limit. The trip form keeps at most 50 preferences and 50 constraints of 200 characters, and says so when a field is full. One 6,000-character message used to freeze the server for about 26 seconds; tags are now removed in time proportional to the text. The evaluation runs need the admin token, and an unset `ENVIRONMENT` now means production, so the backend will not start on the repository's public secrets. A turn that runs past 180 s ends with `turn_timeout`.
+
+**Failures are told as failures.** A source's own error text goes to the trace only; the traveller reads "A data source failed. Your plan was not changed." A map or geocoder outage is a failure, not "no such place", and a lookup the per-turn cap refused says "Not looked up: this request reached its limit of data lookups." A slow attraction search keeps what it already found. A repaired plan may change only times, stay dates and wording, and cannot drop a stop. A forecast, fare or stay that failed is fetched again on reopen (at most every ten minutes) and on "Refresh the data". Exchange rates are really cached for 12 hours.
+
+**Dates and length change the trip you have.** Moving the dates is a new version, and the reply names the dates. The hotel you accepted keeps its marks and is priced again for the new nights, and a locked or confirmed stop stays. "Only 2 days", "two more days" and "end the trip on day 2" change the existing trip instead of starting a new one. "18 to 23 November", "Nov 18-23" and "18/11 to 23/11" are read as written, day first. A trip moved to other weekdays drops opening hours stated for other days and names the stops.
+
+**The message is read more carefully.** "From scratch" is not a departure city, while Long Beach, St. Louis and Santa Cruz de Tenerife are read again. "Korea" is South Korea, not a village in Côte d'Ivoire. "Is it safe to drink in Mexico City" is no longer a trip to Drink. "I don't like the area, but keep the hotel" keeps it, and "swap this hotel" with the hotel selected works. The injection screen blocks a sentence split by tags, line breaks or hidden characters like the plain one, and lets ordinary sentences through, such as "Ignore my previous instructions about the hotel" or "Please call booking.com".
+
+**The page.** The whole console is translated into Simplified and Traditional Chinese, and a missing translation fails the typecheck. Trip tabs stay in sync across windows and survive a damaged store. The Enter that picks an input-method word no longer sends the message. Opening another trip cancels a reply still being written for the one you left. A server outage keeps the open trip and the sign-in. Retry repeats the action that failed, and a message typed and not sent stays with its trip. Dialogs take and return focus, the tab bars follow the ARIA tabs pattern, and the header wraps on a phone. The Slides button downloads a PowerPoint deck.
+
+**Hong Kong, evaluation and the build.** Hong Kong Observatory warnings move outdoor stops off a typhoon day, and an MTR delay is added to that day's transfers; the Hong Kong set passes 8/8. The router is scored on 84 labelled utterances (76.2% for the rules layer), and 84 injection probes are 96.4% contained. Against a full replan, an edit makes 84.2% fewer API calls and uses 57.7% fewer tokens. AMap is an opt-in fallback for mainland China (`AMAP_KEY`). CI runs the tests, builds Storybook, runs `npm audit` and `pip-audit`, and installs pinned backend packages; database upgrades are numbered migrations.
+
+Known gaps: one high `npm audit` advisory in the build tools (Vite and Storybook) needs a major Vite upgrade; TC-01 is not done and TC-02 and TC-07 are only partly covered; the rules-first router gate was designed with the whole routing set visible, so held-out routing accuracy is optimistic.
 
 ### v1.3.0 — 3 November 2026, 11:55 HKT
 

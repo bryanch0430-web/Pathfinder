@@ -5,6 +5,36 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.6.0 — 2026-11-06 14:13
+
+Conversation release: the chat uses the recent turns, budgets are handled honestly, and edits ask instead of refusing. Merge `bdc005a` of branch fix-history-budget.
+
+- **The acting steps see the recent conversation.** Edit, clarify, understand and answer get up to six earlier turns, clipped, as untrusted context; "where i live?" then "add it" is one request. The understand step takes a trip detail from them only when the message refers back, and never preferences or limits. (`4d75f2d`, `3826bf9`)
+- **The budget gap is recomputed on every edit.** An old "over the HKD 5,000 budget" gap is no longer repeated after the budget is raised, and a no-change reply uses only this turn's outcome. A form budget change re-runs hotels and flights on Re-plan; "even if it is over budget" does not make an edit a budget search; "for the new dates" only when the dates moved. (`166a755`)
+- **An all-over-budget hotel search keeps the cheapest.** When no priced hotel is inside the cap, the three cheapest are kept and marked over budget; unpriced hotels no longer hide them. (`166a755`, `a92ce7e`)
+- **A budget that cannot cover the trip is asked about before planning.** A budget of 0, or below `MIN_BUDGET_PER_PERSON_NIGHT` (USD 150 per traveller per night, converted), gets a suggested budget or "plan anyway"; the choice is kept until the budget or currency changes. A trip whose dates have all passed is asked about too. The card's budget options scale with nights and travellers, and every offered amount passes the check. (`da6a3db`, `a92ce7e`)
+- **Edits ask for a missing fact.** "Add the place I live" asks "Where do you live? I'll add it to the plan."; the answer completes the edit and is kept as a plan note, not a stop. A non-place answer is asked once more, a refusal leaves the plan unchanged, the answer never replaces the trip, and a new request sent instead is routed normally. An unreadable, unanchored edit asks which stop or day. (`e40399d`, `190c864`, `3015af8`)
+- **An unclear message with a plan gets a question about the plan**, not the fixed "Could you say what you want me to plan or change?" line, and the card offers no "Plan my trip". (`e40399d`, `190c864`)
+- **"Add more stops" with a stop selected adds to that stop's day,** skips places already planned and asks the place source again when its list is used up. The decision note names the scope the edit really used. (`e40399d`)
+- **Grander, luxurious, luxury and upscale mean a better hotel within the budget,** on every route, not a change of pace. (`e40399d`, `190c864`)
+- **Known gaps.** A home answer such as "Kowloon Park" is asked again; a bare "more grand" still follows the pace path when the router names only attractions; with no plan, "I live in X" sets the destination; "plan anyway" is not reset by a later party or length change.
+
+## v1.5.1 — 2026-11-06 11:16
+
+- **Every transit leg is called Transit,** not Metro, because the planner's transit mode covers minibus and MTR together (公共交通 in both Chinese scripts). (`24edcb8`)
+- **Ferry segments are in the legend.** A ferry step inside a walking leg adds a Ferry entry and the note "Purple segments are ferry crossings inside a walking leg." (`24edcb8`)
+
+## v1.5.0 — 2026-11-06 01:54
+
+Long trips fill their days, and a pre-planning audit is added as an experiment, off by default.
+
+- **A longer trip gets more place candidates.** The attraction agent asks for `max(10, 3 × days)` places, at most 20 (one page of Google Places); a 14-day trip asks for 20 instead of 10. (`63dbcc6`)
+- **No day is left empty while another holds two stops.** The fullest day gives up the stop farthest from the rest of its day. (`63dbcc6`)
+- **Empty days are a data gap.** Days that still have no verified stop (not kept free, not a flight day) are listed as "Only N of M days have verified stops; the rest are open." (`092da9a`, `b571337`)
+- **Pre-planning audit behind `ENABLE_PREPLAN_AUDIT` (default off).** One writer call checks the four agents' results and returns typed findings; up to three logged web-search follow-ups are references only. Blocks are dropped within a cap and never touch a named place or the kept hotel; the planner and repair see the findings; the audit fails open. With the flag off there is no extra call. (`359be8b`, `73d1cfe`, `e26faa2`, `ef34ef5`, `44cafae`, `e1b8d10`, `c5c7bd1`, `726f1bd`; merge `5b46897`, `c01f3d1`)
+- **The audit sees the whole larger candidate pool** (`AUDIT_MAX_ITEMS_PER_AGENT` 26). (`b571337`)
+- **A/B script, not yet run.** `backend/scripts/audit_ab.py` plans the same cases with the flag off and on and writes a CSV. The live run has not been done, so there are no results. (`e7d34e8`, `339ff8f`)
+
 ## v1.4.0 — 2026-11-05 21:45
 
 Map-honesty release: route geometry says what it is, and the map shows one leg at a time.
@@ -14,7 +44,7 @@ Map-honesty release: route geometry says what it is, and the map shows one leg a
 - **The map does not invent a trip back to the stay.** Only the scheduled stop-to-stop chain is drawn; hotel → first stop and last stop → hotel legs are gone unless the itinerary really includes them. (`e3411b0`)
 - **Camera follow runs only while playback runs**, so a paused map shows the whole day instead of a token close-up. (`e3411b0`)
 
-## Unreleased — 2026-11-03
+## v1.3.1 — 2026-11-05 16:40
 
 Hardening release: limits, expiry and a language switcher that works.
 
