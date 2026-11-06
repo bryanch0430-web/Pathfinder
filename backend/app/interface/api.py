@@ -586,10 +586,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = container(request)
         require_session(c, request, session_id)
         context = c.store.get_context(session_id) or TripContext(session_id=session_id)
+        was = (context.budget, context.currency.upper(), context.start_date)
         data = payload.model_dump(exclude_unset=True)
         for key, value in data.items():
             if value is not None:
                 setattr(context, key, value)
+        # "Plan anyway" was said of the budget and the start date the form had: other ones are checked again.
+        if (context.budget, context.currency.upper()) != was[:2]:
+            context.budget_confirmed = False
+        if context.start_date != was[2]:
+            context.past_dates_confirmed = False
         if context.start_date and context.end_date and context.end_date < context.start_date:
             raise HTTPException(status_code=422, detail="End date must not precede start date")
         if context.start_date and context.end_date:

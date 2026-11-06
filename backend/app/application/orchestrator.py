@@ -8,11 +8,13 @@ import asyncio
 import logging
 import re
 from contextlib import aclosing, asynccontextmanager, contextmanager
-from typing import Any, AsyncIterator, Callable, Iterator
+from datetime import date
+from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 
 import httpx
 
 from app.application.asking import AskPath
+from app.application.budget_check import PrePlanQuestion, budget_options, budget_question, floor_per_person_night
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
 from app.application.freshness import LABELS as FRESHNESS_LABELS
@@ -20,11 +22,12 @@ from app.application.freshness import FreshnessService
 from app.application.language import chinese_input_reply, refresh_reply, set_language_reply, unsupported_reply
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
-from app.application.modification import ModifyPath, plan_shape
+from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
 from app.application.planning import PlanPath
 from app.application.router import (
     MODIFY_VERBS,
     System1Router,
+    is_replan_message,
     language_route,
     looks_like_question,
     replans_new_dates,
@@ -359,25 +362,58 @@ class TurnService:
                 self.store.touch_session(session_id)
                 return
 
+            # The stored turns, this one last, read once: the router and every step that acts on the turn see the
+            # recent conversation from them (the steps through `conversation_block`, without this message).
+            history = self.store.list_messages(session_id, limit=10)
+            # The message may answer the question an edit asked on the turn before. A question is not an answer, and
+            # the page's "generate again" is the page's, not an answer.
+            pending = (
+                _pending_edit_question(history)
+                if plan is not None and not looks_like_question(message) and not is_replan_message(message)
+                else None
+            )
+            # An answer to "Where do you live?" that is a place ("Mong Kok", "Hong Kong", "I live in Osaka"), or a short
+            # yes, no or doubt, goes back to that edit whatever a router would make of it. A request of its own ("plan
+            # a trip to Osaka", "make day 2 lighter") is understood and routed as any message is, and the question
+            # is dropped.
+            captured = pending is not None and pending.fact in HOME_FACTS and answers_the_home_question(message)
+            answering = pending if captured else None
             with tracer.span("understand"):
                 try:
-                    context = await understand(message, context, self.gateway)
+                    context = await understand(message, context, self.gateway, history=history)
                 except CanaryLeak:
                     raise
                 except Exception:
                     pass
+                if captured:
+                    # A place in an answer to our own question is where the traveller lives, not where the trip goes
+                    # or starts: the trip keeps its destination, origin and dates; a wish in it ("we're vegetarian")
+                    # is kept.
+                    for name in ("destination", "origin", "start_date", "end_date", "days"):
+                        setattr(context, name, getattr(as_read, name))
                 context = self._save_changes(as_read, context)
                 if context.preferences:
                     # The owner as it is now: signing in may have moved the trip while the message was understood.
                     self._remember_in_background(self._memory_owner(session_id), context)
 
-            with tracer.span("route"):
-                decision = await self.router.route(
-                    message=message,
-                    context=context,
-                    plan_summary=plan.summary_for_prompt() if plan else None,
-                    history=self.store.list_messages(session_id, limit=10),
+            if captured:
+                decision = RouteDecision(
+                    intent=Intent.MODIFY,
+                    confidence=0.95,
+                    need_clarification=False,
+                    reason_code="edit_answer",
+                    missing_slots=[],
+                    related_to_plan=True,
+                    rationale="answer to the question the previous edit asked",
                 )
+            else:
+                with tracer.span("route"):
+                    decision = await self.router.route(
+                        message=message,
+                        context=context,
+                        plan_summary=plan.summary_for_prompt() if plan else None,
+                        history=history,
+                    )
             scoped_action = (
                 scope_item_id
                 and plan is not None
@@ -452,6 +488,25 @@ class TurnService:
                         "reason_code": "scoped_item_question",
                     }
                 )
+            if (
+                not captured
+                and pending is not None
+                and pending.fact not in HOME_FACTS
+                and decision.reason_code not in {"replan_destination", "replan_dates"}
+                and (decision.need_clarification or decision.intent in {Intent.UNCLEAR, Intent.MODIFY})
+            ):
+                # Another fact an edit asked for ("which stop?"): an answer the router reads as an edit, or is unsure
+                # of, completes that edit.
+                answering = pending
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "edit_answer",
+                        "missing_slots": [],
+                    }
+                )
             intent = decision.intent
             if plan is not None and intent != Intent.PLAN:
                 context = self._put_back_the_place(as_read, context)
@@ -473,6 +528,9 @@ class TurnService:
                     session_id=session_id,
                     tracer=tracer,
                     request_id=request_id,
+                    history=history,
+                    plan=plan,
+                    scope_item_id=scope_item_id,
                 ):
                     yield event
                 self.store.touch_session(session_id)
@@ -486,6 +544,17 @@ class TurnService:
                     plan = refreshed
                     if decision.intent == Intent.ASK:
                         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
+
+            if decision.intent == Intent.PLAN:
+                # A budget that cannot pay for the trip, or a start date that has gone by, is asked about before any
+                # agent runs: planning it would end in a trip with no hotel.
+                asked = budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
+                if asked is not None:
+                    tracer.metadata["reason"] = asked.reason_code
+                    for event in self._ask_before_planning(asked, context=context, session_id=session_id):
+                        yield event
+                    self.store.touch_session(session_id)
+                    return
 
             # A closed turn closes the path it is running here, in this task, so the path stops.
             if decision.intent == Intent.PLAN:
@@ -509,6 +578,8 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     scope_item_id=scope_item_id,
+                    history=history,
+                    answering=answering,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -522,6 +593,7 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     scope_item_id=scope_item_id,
+                    history=history,
                 ):
                     yield event
         except GeneratorExit:
@@ -800,6 +872,8 @@ class TurnService:
         tracer,
         request_id,
         scope_item_id: str | None = None,
+        history: Sequence[Message] = (),
+        answering: EditQuestion | None = None,
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
@@ -830,15 +904,34 @@ class TurnService:
                     self.memory.recall(context, owner=self._memory_owner(session_id))
                 ),
                 scope_item_id=scope_item_id,
+                history=history,
+                answering=answering,
             )
         )
         try:
             async for event in _drain(queue, task):
                 yield event
-            updated, diff = await task
+            result = await task
         finally:
             await _settle(task)
             reset_live_emit(live)
+        asked = getattr(result, "asks", None)
+        if asked is not None:
+            # The edit needs a fact first: one question, with the clarify card, and nothing in the plan changes.
+            tracer.metadata["reason"] = "edit_needs_fact"
+            for event in self._ask_for_fact(asked, session_id=session_id):
+                yield event
+            self.store.touch_session(session_id)
+            return
+        updated, diff = result
+        # The scope the edit really used is what the account of the decision says, not the words of the message.
+        tracer.metadata.update(
+            {
+                "edit_scope": getattr(result, "scope", "plan"),
+                "edit_day": getattr(result, "day", None),
+                "edit_selected": bool(getattr(result, "selected", False)),
+            }
+        )
         # What the edit could not do (nothing cheaper came back) is the reply to it, not a fact about the plan's
         # data: it is told below and not kept as a data gap.
         outcomes = [gap for gap in updated.data_quality.gaps if is_edit_outcome(gap)]
@@ -883,6 +976,7 @@ class TurnService:
         tracer,
         request_id,
         scope_item_id: str | None = None,
+        history: Sequence[Message] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         toolbox = Toolbox(
             path="ask",
@@ -897,7 +991,7 @@ class TurnService:
             context=context,
             toolbox=toolbox,
             emit=None,
-            history=self.store.list_messages(session_id, limit=8),
+            history=list(history) if history is not None else self.store.list_messages(session_id, limit=8),
             scope_item_id=scope_item_id,
         )
         if plan is not None and not related and "does not contain" not in answer:
@@ -915,8 +1009,23 @@ class TurnService:
             yield TurnEvent(event="token", data={"text": chunk})
         self.store.touch_session(session_id)
 
-    async def _clarify(self, *, message, context, decision, session_id, tracer, request_id) -> AsyncIterator[TurnEvent]:
-        question, slots = await self.clarifier.ask(message=message, context=context, decision=decision)
+    async def _clarify(
+        self,
+        *,
+        message,
+        context,
+        decision,
+        session_id,
+        tracer,
+        request_id,
+        history: Sequence[Message] = (),
+        plan=None,
+        scope_item_id: str | None = None,
+    ) -> AsyncIterator[TurnEvent]:
+        # With a plan, an unclear message is asked about that plan and the stop selected on it.
+        question, slots = await self.clarifier.ask(
+            message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
+        )
         self.store.add_message(
             Message(session_id=session_id, role="assistant", content=question, intent=Intent.UNCLEAR)
         )
@@ -926,15 +1035,64 @@ class TurnService:
                 "question": question,
                 "slots": slots,
                 "labels": [SLOT_LABELS.get(slot, slot) for slot in slots],
-                "options": _slot_options(slots, context.currency),
+                "options": _slot_options(slots, context, self._budget_floor(context.currency)),
                 # With no missing slots the question is about *intent*, so offer
                 # real messages instead of a Continue button that re-sends the
                 # same unclear request.
-                "choices": _clarify_choices(context, slots),
+                "choices": [] if plan is not None and not slots else _clarify_choices(context, slots),
                 "reason_code": decision.reason_code,
             },
         )
         yield TurnEvent(event="token", data={"text": question})
+
+    def _ask_for_fact(self, asked: EditQuestion, *, session_id: str) -> Iterator[TurnEvent]:
+        """An edit's question for a missing fact, asked as the clarify step asks: a stored turn and a clarify card. The
+        stored turn keeps the edit it belongs to, so the answer on the next turn completes that edit."""
+        self.store.add_message(
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content=asked.question,
+                intent=Intent.UNCLEAR,
+                meta={"edit_question": True, "fact": asked.fact, "request": asked.request[:600]},
+            )
+        )
+        yield TurnEvent(
+            event="clarify",
+            data={
+                "question": asked.question,
+                "slots": [],
+                "labels": [],
+                "options": {},
+                "choices": [],
+                "reason_code": "edit_needs_fact",
+            },
+        )
+        yield TurnEvent(event="token", data={"text": asked.question})
+
+    def _budget_floor(self, currency: str) -> float:
+        """The least a budget should allow per traveller per night, in ``currency``."""
+        return floor_per_person_night(self.settings, getattr(self.plan_path.planner, "fx", None), currency)
+
+    def _ask_before_planning(
+        self, asked: PrePlanQuestion, *, context: TripContext, session_id: str
+    ) -> Iterator[TurnEvent]:
+        """The check before planning asks its question as the clarify step does: a stored turn and a clarify card."""
+        self.store.add_message(
+            Message(session_id=session_id, role="assistant", content=asked.question, intent=Intent.UNCLEAR)
+        )
+        yield TurnEvent(
+            event="clarify",
+            data={
+                "question": asked.question,
+                "slots": asked.slots,
+                "labels": [SLOT_LABELS.get(slot, slot) for slot in asked.slots],
+                "options": asked.options,
+                "choices": [],
+                "reason_code": asked.reason_code,
+            },
+        )
+        yield TurnEvent(event="token", data={"text": asked.question})
 
 
 def _same_place(first: str, second: str) -> bool:
@@ -949,6 +1107,8 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
     extras: list[str] = []
     hotel: str = ""
     moved: list[str] = []
+    # "for the new dates" only when the dates moved: a budget or party change keeps them.
+    for_new_dates = " for the new dates" if any(entry.get("kind") == "dates" for entry in diff) else ""
     for entry in diff:
         kind = entry.get("kind")
         if kind in {"added", "changed", "removed"}:
@@ -996,7 +1156,11 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
         elif kind == "hotel":
             was, now = entry.get("from"), entry.get("to")
             if was and not now:
-                why = "a one-day trip has no overnight stay" if len(plan.days) <= 1 else "no hotel for the new dates came back"
+                why = (
+                    "a one-day trip has no overnight stay"
+                    if len(plan.days) <= 1
+                    else f"no hotel{for_new_dates} came back"
+                )
                 hotel = f"The hotel {was} was removed: {why}."
             elif now and not was:
                 hotel = f"A hotel was added: {now}."
@@ -1007,7 +1171,7 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
         elif kind == "flight":
             was, now = entry.get("from"), entry.get("to")
             if was and not now:
-                extras.append(f"The flight {was} was removed: no flight for the new dates came back.")
+                extras.append(f"The flight {was} was removed: no flight{for_new_dates} came back.")
             elif now and not was:
                 extras.append(f"A flight was added: {now}.")
             else:
@@ -1074,10 +1238,40 @@ async def _drain(
         yield TurnEvent(event=event_name, data=data)
 
 
+def _pending_edit_question(history: Sequence[Message]) -> EditQuestion | None:
+    """The question an edit asked on the turn before this one, when this message is the next turn, else None."""
+    rows = list(history)
+    if rows and rows[-1].role == "user":
+        rows = rows[:-1]
+    if not rows or rows[-1].role != "assistant" or not (rows[-1].meta or {}).get("edit_question"):
+        return None
+    meta = rows[-1].meta
+    return EditQuestion(rows[-1].content, fact=str(meta.get("fact") or ""), request=str(meta.get("request") or ""))
+
+
+def _scope_line(metadata: dict[str, Any]) -> str:
+    """What the edit could change, from the scope it really used; "" when no edit ran or nothing narrows it."""
+    scope = metadata.get("edit_scope")
+    selected = bool(metadata.get("edit_selected"))
+    day = metadata.get("edit_day")
+    if scope == "stop":
+        if selected:
+            return "A stop was selected, so only that stop could change."
+        return "The message named one stop, so only that stop could change."
+    if scope == "day" and day:
+        if selected:
+            return f"A stop on Day {day} was selected and the message asked for more stops, so only Day {day} could change."
+        return f"The message asked for more stops on Day {day}, so only Day {day} could change."
+    if scope == "plan" and metadata.get("reason") == "scoped_item_action":
+        return "A stop was selected, but the request was about the whole plan, so the edit was not limited to that stop."
+    return ""
+
+
 def _why_lines(tracer: Any) -> list[str]:
     """A traveller-facing account of the decision. Not the model's private draft."""
     reason = str(getattr(tracer, "metadata", {}).get("reason") or "")
     intent = str(getattr(tracer, "metadata", {}).get("intent") or "")
+    scoped = _scope_line(getattr(tracer, "metadata", {}) or {})
     known = {
         "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
         "replan_dates": "The trip details held other dates than the plan, so the trip was moved, not planned again.",
@@ -1086,9 +1280,13 @@ def _why_lines(tracer: Any) -> list[str]:
         "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
         "security_blocklist": "The message was blocked before any planning.",
         "identity": "This was a question about the assistant, so no trip was planned.",
+        "edit_needs_fact": "The change needs a fact the plan does not have, so it was asked for and nothing was edited.",
+        "edit_answer": "The message answered the question the previous edit asked, so that edit went ahead.",
     }
     lines: list[str] = []
-    if reason in known:
+    if scoped:
+        lines.append(scoped)
+    elif reason in known:
         lines.append(known[reason])
     elif intent:
         lines.append(f"Routed as {intent}" + (f" ({reason})." if reason else "."))
@@ -1139,7 +1337,8 @@ def _clarify_choices(context, slots: list[str]) -> list[dict[str, str]]:
     ]
 
 
-def _slot_options(slots: list[str], currency: str) -> dict[str, list[str]]:
+def _slot_options(slots: list[str], context: TripContext, floor: float) -> dict[str, list[str]]:
+    """The clarify card's choices per slot. The budget's are sized to the trip's nights and travellers."""
     options: dict[str, list[str]] = {}
     for slot in slots:
         if slot == "party_size":
@@ -1147,7 +1346,7 @@ def _slot_options(slots: list[str], currency: str) -> dict[str, list[str]]:
         elif slot in {"dates", "start_date", "end_date"}:
             options[slot] = ["This weekend", "Next month", "In three months"]
         elif slot == "budget":
-            options[slot] = [f"1000 {currency}", f"2500 {currency}", f"5000 {currency}"]
+            options[slot] = budget_options(context, floor)
         elif slot == "destination":
             options[slot] = ["Kyoto", "Tokyo", "Hong Kong"]
         elif slot == "origin":

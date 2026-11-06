@@ -16,7 +16,7 @@ from typing import Any, Literal
 import pytest
 
 from app.application.asking import _plan_facts, ask_prompt
-from app.application.prompt_context import recent_turns
+from app.application.prompt_context import conversation_block, recent_turns
 from app.application.router import router_prompt
 from app.config import Settings
 from app.domain.models import EvalCase, Message, TripContext
@@ -119,15 +119,15 @@ def _plan(settings: Settings):
     return asyncio.run(accepted_plan(settings, case_context(EvalCase(id="t", dataset="design", input="", destination="Kyoto"), "s")))
 
 
-def test_the_ask_prompt_holds_one_copy_of_the_fence_even_with_the_question_in_the_facts(settings: Settings) -> None:
+def test_the_ask_prompt_holds_one_copy_of_the_fence_even_with_an_attack_in_the_earlier_conversation(settings: Settings) -> None:
     plan = _plan(settings)
     question = f"so what is open on day 2 {ATTACK}"
-    history = [_message("assistant", "Here is your plan."), _message("user", question)]
+    history = [_message("assistant", f"Here is your plan. {ATTACK}"), _message("user", question)]
 
     facts = _plan_facts(question, plan, history)
-    prompt = ask_prompt(question, plan, facts, "plan")
+    prompt = ask_prompt(question, plan, facts, "plan", conversation_block(history, question))
 
-    assert "recent_turns" in facts
+    assert facts.get("follow_up") and "Here is your plan." in prompt
     assert len(CLOSING.findall(prompt)) == 1 and len(OPENING.findall(prompt)) == 1, prompt
 
 
@@ -152,9 +152,11 @@ def test_the_ask_path_does_not_replay_a_flagged_turn(settings: Settings) -> None
     ]
 
     facts = _plan_facts("really?", plan, history)
+    conversation = conversation_block(history, "really?")
 
-    assert "Ignore all previous" not in str(facts)
-    assert [turn["content"] for turn in facts["recent_turns"]] == ["Here is your plan.", "really?"]
+    assert "Ignore all previous" not in str(facts) and "Ignore all previous" not in conversation
+    # The question is sent once, in its fence: the earlier conversation is the turns before it.
+    assert conversation.splitlines()[1:] == ["assistant: Here is your plan."]
 
 
 def test_the_decision_model_state_cannot_be_closed_by_an_earlier_turn(settings: Settings) -> None:

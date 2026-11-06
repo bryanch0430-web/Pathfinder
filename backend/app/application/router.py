@@ -532,10 +532,32 @@ def _gate(
     return decision.model_copy(update={"intent": intent, "missing_slots": missing})
 
 
+#: A budget word in a concessive clause is not a request about the budget: "add the place I live even if it is over
+#: budget", "even it will out budget", "no matter the budget", "whatever it costs", "regardless of the price".
+_CONCESSIVE_BUDGET = re.compile(
+    r"\beven\s+(?:if|it|though|when)\b[^.,;!?]{0,60}?"
+    r"\b(?:over|out(?:\s+of)?|above|beyond|exceeds?|blows?)\s+(?:the\s+|my\s+|our\s+)?(?:budget|cost|price)\b"
+    r"|\bno\s+matter\s+(?:what\s+)?(?:the\s+|it\s+)?(?:budget|cost|costs|price)\b"
+    r"|\bwhatever\s+(?:it\s+costs?|the\s+(?:cost|price|budget))\b"
+    r"|\bregardless\s+of\s+(?:the\s+)?(?:budget|cost|price)\b"
+)
+
+
+def without_concessive_budget(lower: str) -> str:
+    """The lower-cased message without its concessive budget clauses (see _CONCESSIVE_BUDGET)."""
+    return _CONCESSIVE_BUDGET.sub(" ", lower)
+
+
+#: the hotel's class, not the pace: "make it more grand" (also "grrand"), "grander", "something more luxurious", "a luxury
+#: hotel", "upscale". "Grand" alone is a name ("The Kyoto Grand", "Grand Hyatt"), so it counts only after "more" or "so".
+#: The edit (modification.py) reads the same words.
+GRANDER_WORDS = r"\b(?:gr+and(?:er|est)|(?:more|so)\s+gr+and|(?:more\s+)?luxurious|luxury|upscale|fancier|posher)\b"
+
+
 def _affected_parts(lower: str) -> list[str]:
     parts: list[str] = []
     mapping = [
-        ("hotel", r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b"),
+        ("hotel", r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b|" + GRANDER_WORDS),
         ("ticket", r"\b(flight|fly|train|ticket|fare|seat|rail|shinkansen)\b"),
         ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity|eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe)\b"),
         ("weather", r"\b(weather|rain|forecast|typhoon|temperature)\b"),
@@ -543,7 +565,7 @@ def _affected_parts(lower: str) -> list[str]:
         ("dates", r"\b(date|dates|day|days|nights|extend|shorten|earlier|later)\b"),
     ]
     for name, pattern in mapping:
-        if re.search(pattern, lower):
+        if re.search(pattern, without_concessive_budget(lower) if name == "budget" else lower):
             parts.append(name)
     day_matches = re.findall(r"\bday\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", lower)
     if asks_for_new_dates(lower):

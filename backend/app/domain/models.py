@@ -11,7 +11,7 @@ from datetime import date, datetime, timezone
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_serializer, model_validator
 
 TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
@@ -478,6 +478,10 @@ TRIP_LINE_MAX_LENGTH = 200
 TRIP_FIELD_MAX_LENGTH = 120
 
 
+#: TripContext's marks of the check before planning (application/budget_check.py).
+_CHECK_MARKS = ("budget_confirmed", "past_dates_confirmed")
+
+
 class TripContext(BaseModel):
     session_id: str
     destination: str = ""
@@ -495,11 +499,27 @@ class TripContext(BaseModel):
     language: str = "en"
     #: the plan's display language; the English plan stays the source of truth
     plan_locale: Literal["en", "zh-Hant"] = "en"
+    #: The traveller chose to plan with this budget although it is below the per-night floor (or zero): the
+    #: check before planning does not ask again. Another budget clears it.
+    budget_confirmed: bool = False
+    #: The traveller chose to keep a start date that has gone by: the check before planning does not ask again.
+    past_dates_confirmed: bool = False
     updated_at: datetime = Field(default_factory=utcnow)
 
     @model_validator(mode="after")
     def _within_limits(self) -> "TripContext":
         return self.fit_to_limits()
+
+    @model_serializer(mode="wrap")
+    def _marks_only_when_set(self, handler: Any) -> Any:
+        """The check's marks are written only when set: a form without them dumps as it did before they existed, so
+        the stored form, the API's and the prompts' trip JSON are unchanged for every trip that was not asked about."""
+        data = handler(self)
+        if isinstance(data, dict):
+            for key in _CHECK_MARKS:
+                if key in data and not data[key]:
+                    del data[key]
+        return data
 
     def fit_to_limits(self) -> "TripContext":
         """Cut the form to the limits above, in place: the newest lines of a long list, the first characters of a

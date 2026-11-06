@@ -36,6 +36,7 @@ from app.domain.models import (
     utcnow,
 )
 from app.infrastructure.http import classify_exception, haversine_km
+from app.infrastructure.providers.hotels import OVER_BUDGET_NOTE
 
 
 @dataclass
@@ -193,6 +194,10 @@ class AttractionAgent(BaseAgent):
         restaurants: list[PlaceCandidate] = []
         notes: list[dict[str, Any]] = []
         wanted = place_candidate_limit(len(request.date_range.dates))
+        asked = request.extra.get("places_limit")
+        if isinstance(asked, int) and not isinstance(asked, bool):
+            # An edit whose candidates are all in the plan asks for more; never past the cap any trip has.
+            wanted = min(max(wanted, asked), MAX_PLACE_CANDIDATES)
 
         for source in self.registry.places:
             if not getattr(source, "available", True):
@@ -622,6 +627,11 @@ class HotelAgent(BaseAgent):
             ),
             reverse=True,
         )
+        priced_rows = [hotel for hotel in candidates if hotel.nightly_price is not None]
+        if priced_rows and all(hotel.notes == OVER_BUDGET_NOTE for hotel in priced_rows):
+            # Every priced stay is over the budget (the source kept its cheapest): the cheapest one is the honest pick,
+            # before a stay without a rate, which would leave the stay out of the total.
+            candidates.sort(key=lambda h: (h.nightly_price is None, h.nightly_price.amount if h.nightly_price else 0))
         priced = [hotel for hotel in candidates if hotel.nightly_price is not None]
         web_references: list[dict[str, Any]] = []
         if not priced:

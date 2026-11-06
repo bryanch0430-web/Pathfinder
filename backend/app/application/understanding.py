@@ -12,11 +12,13 @@ import re
 import calendar
 from bisect import bisect_left
 from datetime import date, timedelta
+from typing import Sequence
 
+from app.application.budget_check import asked_about
 from app.application.llm_gateway import LLMGateway
-from app.application.prompt_context import trip_state
+from app.application.prompt_context import conversation_block, trip_state, with_conversation
 from app.domain.errors import CanaryLeak
-from app.domain.models import TripContext, fit_preference
+from app.domain.models import Message, TripContext, fit_preference
 from app.infrastructure.providers.flights import AIRPORTS
 from app.security import fence_user_message
 
@@ -120,6 +122,7 @@ async def understand(
     gateway: LLMGateway,
     *,
     today: date | None = None,
+    history: Sequence[Message] = (),
 ) -> TripContext:
     today = today or date.today()
     updated = context.model_copy(deep=True)
@@ -138,15 +141,19 @@ async def understand(
     # rewrite the trip dates, and the common turn stays fast.
     missing = updated.missing_slots()
     if gateway.available and missing:
+        # What this step extracts is stored with the trip and in the profile: it reads the traveller's own earlier
+        # turns and only the last assistant turn (the question the message may answer), never earlier answers.
+        conversation = conversation_block(history, message, last_assistant_only=True)
         prompt = (
             f"Current date: {today.isoformat()}\n"
             f"Existing context: {trip_state(updated)}\n"
             f"Still missing: {missing}\n\n"
-            "Traveller message:\n" + fence_user_message(message)
+            + with_conversation(conversation)
+            + "Traveller message:\n" + fence_user_message(message)
         )
         try:
             data = await gateway.json("understand", user=prompt, purpose="understand")
-            _apply_model_patch(updated, data, allowed=_allowed_patch(before))
+            _apply_model_patch(updated, _not_copied_from(data, conversation, message), allowed=_allowed_patch(before))
         except CanaryLeak:
             raise
         except Exception:
@@ -154,7 +161,60 @@ async def understand(
             pass
 
     _normalise_dates(updated)
+    _apply_confirmations(message, labeled, context, updated, history=history)
     return updated
+
+
+#: "plan anyway", "Keep HKD 5,000 and plan anyway", "go ahead anyway": the traveller keeps what the check before
+#: planning asked about (budget_check). Read in a labeled clarify answer only.
+_ANYWAY = re.compile(r"\b(?:plan|go ahead|proceed|continue|keep)\b[^.;!?]{0,60}?\banyway\b", re.I)
+#: A whole chat reply that keeps what was asked about: "plan anyway", "keep it", "yes, go ahead anyway", "keep it and
+#: plan anyway". "keep the temple on day 2 anyway" is about the temple, not about the question.
+_BARE_KEEP = re.compile(
+    r"^\s*(?:(?:ok(?:ay)?|yes|yeah|yep|sure|fine)[\s,.!]+)?(?:please\s+)?"
+    r"(?:plan(?:\s+it)?|go\s+ahead|proceed|continue|"
+    r"keep(?:\s+(?:it|them|that|this|those|these(?:\s+dates)?|(?:the|my|our)\s+(?:budget|dates?)))?)"
+    r"(?:\s+(?:and\s+)?(?:plan(?:\s+it)?|go\s+ahead|proceed))?"
+    r"(?:\s+anyway)?(?:[\s,]+please)?[\s.!]*$",
+    re.I,
+)
+
+
+def _last_assistant(history: Sequence[Message]) -> str:
+    for turn in reversed(history):
+        if turn.role == "assistant":
+            return turn.content
+    return ""
+
+
+def _apply_confirmations(
+    message: str,
+    labeled: dict[str, str],
+    before: TripContext,
+    updated: TripContext,
+    *,
+    history: Sequence[Message] = (),
+) -> None:
+    """Mark what the traveller chose to keep, and clear a mark that another budget or start date no longer backs.
+
+    A mark is set by a labeled clarify answer that says "plan anyway", or by a bare "plan anyway" / "keep it" reply
+    to the turn that asked the question, and then only the mark of that question."""
+    if (updated.budget, updated.currency.upper()) != (before.budget, before.currency.upper()):
+        updated.budget_confirmed = False
+    if updated.start_date != before.start_date:
+        updated.past_dates_confirmed = False
+    if labeled:
+        if _ANYWAY.search(labeled.get("budget", "")):
+            updated.budget_confirmed = True
+        dates = " ".join(labeled.get(key, "") for key in ("dates", "date", "travel dates", "start date", "start_date"))
+        if _ANYWAY.search(dates):
+            updated.past_dates_confirmed = True
+    elif _BARE_KEEP.match(message or ""):
+        asked = asked_about(_last_assistant(history))
+        if asked == "budget":
+            updated.budget_confirmed = True
+        elif asked == "dates":
+            updated.past_dates_confirmed = True
 
 
 def _apply_rules(message: str, context: TripContext, today: date) -> None:
@@ -1183,6 +1243,32 @@ def _hard_constraints(text: str) -> list[str]:
             if 4 < len(cleaned) < 180:
                 constraints.append(cleaned)
     return constraints[:5]
+
+
+def _plain(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+def _not_copied_from(data: dict, conversation: str, message: str) -> dict:
+    """The model's reply less any preference or constraint copied from the earlier conversation.
+
+    A line whose text is in the earlier turns but not in the message is history, not something the traveller asks
+    for now: an answer's restaurant names, an old wish taken back. A paraphrase of the message still passes. With no
+    earlier conversation the reply is returned as it is.
+    """
+    if not conversation or not isinstance(data, dict):
+        return data
+    earlier, said = _plain(conversation), _plain(message)
+    kept = dict(data)
+    for key in ("preferences", "hard_constraints"):
+        values = data.get(key)
+        if isinstance(values, list):
+            kept[key] = [
+                item
+                for item in values
+                if not (isinstance(item, str) and _plain(item) and _plain(item) in earlier and _plain(item) not in said)
+            ]
+    return kept
 
 
 def _allowed_patch(before: dict) -> set[str]:
