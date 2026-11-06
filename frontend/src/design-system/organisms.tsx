@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { TripMap } from "./maps/TripMap";
-import { kmBetween, MODE, modeForDistance, type TravelMode } from "./maps/geo";
+import { kmBetween, MODE, modeForDistance, SEGMENT_COLOR, type TravelMode } from "./maps/geo";
 import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/time";
 import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, Input, Select, Text } from "./atoms";
 import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from "./elements";
@@ -1296,10 +1296,15 @@ export function MapPanel({
     () => [...new Set(dayLegs.map((entry) => entry.mode))],
     [dayLegs],
   );
-  const hasFerry = useMemo(
-    () => legs.some((leg) => leg.steps?.some((step) => step.mode === "ferry")),
-    [legs],
-  );
+  const specialModes = useMemo(() => {
+    const found = new Set<string>();
+    for (const leg of legs) {
+      for (const step of leg.steps ?? []) {
+        if (step.mode in SEGMENT_COLOR) found.add(step.mode);
+      }
+    }
+    return [...found];
+  }, [legs]);
 
   const autoAdvance = useRef(false);
 
@@ -1414,13 +1419,20 @@ export function MapPanel({
               {t(MODE_LABEL[mode])}
             </span>
           ))}
-          {hasFerry ? (
-            <span className="pf-route-legend__item">
-              <i className="pf-route-legend__line pf-route-legend__line--ferry" /> {t("map.ferry")}
+          {specialModes.map((mode) => (
+            <span className="pf-route-legend__item" key={mode}>
+              <i
+                className="pf-route-legend__line"
+                style={{
+                  borderColor: SEGMENT_COLOR[mode as keyof typeof SEGMENT_COLOR],
+                  borderTopWidth: 3,
+                }}
+              />
+              {t(mode === "ferry" ? "map.ferry" : mode === "cable" ? "map.cableCar" : "map.tram")}
             </span>
-          ) : null}
+          ))}
         </div>
-        {hasFerry ? <Text size="xs" tone="tertiary">{t("map.ferryNote")}</Text> : null}
+        {specialModes.length ? <Text size="xs" tone="tertiary">{t("map.specialNote")}</Text> : null}
         {dayLegs.length ? (
           <div className="pf-route-legs">
             {dayLegs.slice(0, 3).map((entry) => (

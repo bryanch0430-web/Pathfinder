@@ -9,7 +9,7 @@ import { IconButton } from "../atoms";
 import { getMapKeys, type MapLeg, type MapStep } from "../../lib/api";
 import { createGoogleEngine, loadGoogleMaps } from "./google";
 import type { MapEngine, MapPin, MapPolyline } from "./engine";
-import { kmBetween, modeForDistance, MODE, type LatLng, type TravelMode } from "./geo";
+import { kmBetween, modeForDistance, MODE, SEGMENT_COLOR, type LatLng, type TravelMode } from "./geo";
 import { clockText, minutesOf } from "./time";
 import { pinHtml, pinSvg, tokenHtml, tokenSvg, type PinVisual } from "./pins";
 import { hotelScopeItem } from "../scope";
@@ -21,10 +21,8 @@ const HAS_GEO = (item: PlanItem): item is PlanItem & { geo: NonNullable<PlanItem
 
 /** Non-walking steps inside a WALK route (ferry, cable car, tram). */
 const STEP_COLOR: Record<string, string> = {
-  ferry: "#6D28D9",
-  cable: "#7C3AED",
-  tram: "#B45309",
-  transit: "#1D4ED8",
+  ...SEGMENT_COLOR,
+  transit: MODE.metro.color,
 };
 
 const FERRY_ICON = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
