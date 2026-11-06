@@ -18,10 +18,15 @@ from app.domain.models import Message, TripContext
 from app.security import replayable, strip_fence_tags, strip_fence_tags_deep
 
 
+#: Marks the check before planning keeps on the trip; no prompt reads them.
+_NOT_FOR_PROMPTS = {"budget_confirmed", "past_dates_confirmed"}
+
+
 def trip_state(context: TripContext) -> str:
     """The stored trip as the JSON a prompt carries. The traveller's own words in it, the lines kept
     from earlier turns included, lose any fence tag, as every replayed text does."""
-    return json.dumps(strip_fence_tags_deep(context.model_dump(mode="json")), separators=(",", ":"), ensure_ascii=False)
+    data = context.model_dump(mode="json", exclude=_NOT_FOR_PROMPTS)
+    return json.dumps(strip_fence_tags_deep(data), separators=(",", ":"), ensure_ascii=False)
 
 
 def trip_slots(context: TripContext, *, preferences: bool = False) -> str:

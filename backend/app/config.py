@@ -156,6 +156,10 @@ class Settings(BaseSettings):
     max_tool_calls_per_turn: int = Field(150, ge=0)
     max_days: int = 14
     max_attractions_per_day: int = 4
+    #: The least a budget should allow per traveller per night, in US dollars (the exchange table's base; the
+    #: check converts it to the trip's currency). A new trip whose budget is below it, or zero, is asked about
+    #: before any agent runs. 0 turns the check off.
+    min_budget_per_person_night: float = Field(150, ge=0)
     memory_similarity_cutoff: float = 0.72
     search_window_months: int = 24
     default_currency: str = "HKD"

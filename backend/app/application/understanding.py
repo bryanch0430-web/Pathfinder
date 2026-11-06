@@ -160,7 +160,30 @@ async def understand(
             pass
 
     _normalise_dates(updated)
+    _apply_confirmations(message, labeled, context, updated)
     return updated
+
+
+#: "plan anyway", "Keep HKD 5,000 and plan anyway", "go ahead anyway": the traveller keeps what the check before
+#: planning asked about (budget_check).
+_ANYWAY = re.compile(r"\b(?:plan|go ahead|proceed|continue|keep)\b[^.;!?]{0,60}?\banyway\b", re.I)
+
+
+def _apply_confirmations(message: str, labeled: dict[str, str], before: TripContext, updated: TripContext) -> None:
+    """Mark what the traveller chose to keep, and clear a mark that another budget or start date no longer backs."""
+    if (updated.budget, updated.currency.upper()) != (before.budget, before.currency.upper()):
+        updated.budget_confirmed = False
+    if updated.start_date != before.start_date:
+        updated.past_dates_confirmed = False
+    if labeled:
+        if _ANYWAY.search(labeled.get("budget", "")):
+            updated.budget_confirmed = True
+        dates = " ".join(labeled.get(key, "") for key in ("dates", "date", "travel dates", "start date", "start_date"))
+        if _ANYWAY.search(dates):
+            updated.past_dates_confirmed = True
+    elif _ANYWAY.search(message):
+        updated.budget_confirmed = True
+        updated.past_dates_confirmed = True
 
 
 def _apply_rules(message: str, context: TripContext, today: date) -> None:

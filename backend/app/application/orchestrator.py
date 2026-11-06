@@ -8,11 +8,13 @@ import asyncio
 import logging
 import re
 from contextlib import aclosing, asynccontextmanager, contextmanager
+from datetime import date
 from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 
 import httpx
 
 from app.application.asking import AskPath
+from app.application.budget_check import PrePlanQuestion, budget_options, budget_question, floor_per_person_night
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
 from app.application.freshness import LABELS as FRESHNESS_LABELS
@@ -491,6 +493,17 @@ class TurnService:
                     if decision.intent == Intent.ASK:
                         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
 
+            if decision.intent == Intent.PLAN:
+                # A budget that cannot pay for the trip, or a start date that has gone by, is asked about before any
+                # agent runs: planning it would end in a trip with no hotel.
+                asked = budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
+                if asked is not None:
+                    tracer.metadata["reason"] = asked.reason_code
+                    for event in self._ask_before_planning(asked, context=context, session_id=session_id):
+                        yield event
+                    self.store.touch_session(session_id)
+                    return
+
             # A closed turn closes the path it is running here, in this task, so the path stops.
             if decision.intent == Intent.PLAN:
                 path = self._plan(
@@ -937,7 +950,7 @@ class TurnService:
                 "question": question,
                 "slots": slots,
                 "labels": [SLOT_LABELS.get(slot, slot) for slot in slots],
-                "options": _slot_options(slots, context.currency),
+                "options": _slot_options(slots, context, self._budget_floor(context.currency)),
                 # With no missing slots the question is about *intent*, so offer
                 # real messages instead of a Continue button that re-sends the
                 # same unclear request.
@@ -946,6 +959,30 @@ class TurnService:
             },
         )
         yield TurnEvent(event="token", data={"text": question})
+
+    def _budget_floor(self, currency: str) -> float:
+        """The least a budget should allow per traveller per night, in ``currency``."""
+        return floor_per_person_night(self.settings, getattr(self.plan_path.planner, "fx", None), currency)
+
+    def _ask_before_planning(
+        self, asked: PrePlanQuestion, *, context: TripContext, session_id: str
+    ) -> Iterator[TurnEvent]:
+        """The check before planning asks its question as the clarify step does: a stored turn and a clarify card."""
+        self.store.add_message(
+            Message(session_id=session_id, role="assistant", content=asked.question, intent=Intent.UNCLEAR)
+        )
+        yield TurnEvent(
+            event="clarify",
+            data={
+                "question": asked.question,
+                "slots": asked.slots,
+                "labels": [SLOT_LABELS.get(slot, slot) for slot in asked.slots],
+                "options": asked.options,
+                "choices": [],
+                "reason_code": asked.reason_code,
+            },
+        )
+        yield TurnEvent(event="token", data={"text": asked.question})
 
 
 def _same_place(first: str, second: str) -> bool:
@@ -1156,7 +1193,8 @@ def _clarify_choices(context, slots: list[str]) -> list[dict[str, str]]:
     ]
 
 
-def _slot_options(slots: list[str], currency: str) -> dict[str, list[str]]:
+def _slot_options(slots: list[str], context: TripContext, floor: float) -> dict[str, list[str]]:
+    """The clarify card's choices per slot. The budget's are sized to the trip's nights and travellers."""
     options: dict[str, list[str]] = {}
     for slot in slots:
         if slot == "party_size":
@@ -1164,7 +1202,7 @@ def _slot_options(slots: list[str], currency: str) -> dict[str, list[str]]:
         elif slot in {"dates", "start_date", "end_date"}:
             options[slot] = ["This weekend", "Next month", "In three months"]
         elif slot == "budget":
-            options[slot] = [f"1000 {currency}", f"2500 {currency}", f"5000 {currency}"]
+            options[slot] = budget_options(context, floor)
         elif slot == "destination":
             options[slot] = ["Kyoto", "Tokyo", "Hong Kong"]
         elif slot == "origin":
