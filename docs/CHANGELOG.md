@@ -15,6 +15,7 @@ Every leg is visible and comparable, and special route segments say what they ar
 - **Ferry, cable car and tram have their own colours and legends.** Ferry violet, cable car pink, tram amber; only the modes used that day get a legend entry and a note. (`81f8f79`)
 - **One ferry icon per named service.** Two directions of the same ferry crossing no longer draw two icons; the rule uses Google's service wording, not a distance threshold or a city-specific rule. (`5ee6eb2`)
 - **The committed OpenAPI contract includes the new leg-options route.** (`6b1eb45`)
+- **Known gaps.** The itinerary still keeps the walk the planner chose; the per-leg comparison does not rewrite it. Taxi is an estimate when Google Routes is unavailable, and choosing an option never changes the plan.
 
 ## v1.6.0 — 2026-11-06 14:13
 
