@@ -39,6 +39,7 @@ from app.application.understanding import understand
 from app.application.validation import is_edit_outcome
 from app.config import Settings
 from app.domain.errors import (
+    CallerKeyFailed,
     CanaryLeak,
     PathfinderError,
     PlanInvalidError,
@@ -65,6 +66,7 @@ logger = logging.getLogger(__name__)
 #: What a traveller is told when a data source fails or a turn crashes. Exception text is never
 #: shown: it can hold a source's error page, a URL with a key or a file path. It stays in the trace.
 SOURCE_FAILED = "A data source failed. Your plan was not changed."
+KEY_FAILED = "Your own API key failed, so this answer could not use your model. Check or replace the key in Settings."
 TURN_FAILED = "Something went wrong while handling this turn. You can retry."
 PLAN_CONFLICT = "Another change to this trip was still running. Please retry."
 TRIP_GONE = "This trip no longer exists, so nothing was changed. Start a new trip to continue."
@@ -83,6 +85,8 @@ def user_facing_error(exc: BaseException) -> str:
         return TOOL_LIMIT
     if isinstance(exc, SecurityBlocked):
         return BLOCKED
+    if isinstance(exc, CallerKeyFailed):
+        return KEY_FAILED
     if isinstance(exc, (ProviderError, httpx.HTTPError, asyncio.TimeoutError)):
         return SOURCE_FAILED
     if isinstance(exc, PathfinderError):

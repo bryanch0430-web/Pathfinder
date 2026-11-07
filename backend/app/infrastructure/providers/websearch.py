@@ -11,8 +11,9 @@ Two very different animals, so they are two sources rather than one chain:
   what you want for a broad "what is it like / is it worth it" question, and
   costs about twenty seconds. It is therefore never the default.
 
-Both are read-only and keyless-from-the-caller's point of view: each reuses a
-key the project already has (DeepSeek judge key, xAI writer key).
+Both are read-only. Each reuses a key the project already has (DeepSeek judge
+key, xAI writer key); Grok search uses the caller's own xAI key when they saved
+one for search.
 """
 
 from __future__ import annotations
@@ -20,8 +21,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from app.application.llm_selection import LLMSelector, SearchKey, current_search_key
 from app.config import Settings
+from app.domain.errors import ProviderError, ProviderNoData
 from app.infrastructure.http import request_json
+from app.security.scrub import scrub
+
+UNREADABLE_SEARCH_KEY = "Your saved xAI key can no longer be read. Remove it and add it again in Settings."
 
 
 @dataclass
@@ -122,36 +128,67 @@ def _deepseek_results(data: dict[str, Any]) -> Iterable[WebResult]:
 
 
 class GrokSearchSource:
-    """xAI Agent Tools web search: a model call that searches for itself."""
+    """xAI Agent Tools web search: a model call that searches for itself.
+
+    The caller's own xAI search key pays when the request has one (see ``current_search_key``), else
+    the operator's ``XAI_*`` key when ``GROK_SEARCH_ENABLED`` is on. Without a selector (evals, the
+    CLI) only the operator's key is used. A caller key that cannot be read is never replaced by the
+    operator's.
+    """
 
     name = "grok-web-search"
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, selector: LLMSelector | None = None):
         self.settings = settings
+        self.selector = selector
         self.base = (settings.xai_base_url or "https://api.x.ai/v1").rstrip("/")
         self.key = settings.xai_api_key
         self.model = settings.xai_model
         self.timeout = float(settings.grok_search_timeout_seconds or 90.0)
-        self.available = bool(self.key and self.model)
+
+    @property
+    def operator_available(self) -> bool:
+        return bool(self.settings.grok_search_enabled and self.key and self.model)
+
+    @property
+    def available(self) -> bool:
+        caller = self._caller_key()
+        if caller is not None:
+            return caller.usable
+        return self.operator_available
+
+    def _caller_key(self) -> SearchKey | None:
+        return current_search_key(self.selector) if self.selector is not None else None
 
     async def answer(self, *, query: str, timeout: float | None = None) -> WebAnswer:
-        if not self.available:
-            from app.domain.errors import ProviderNoData
-
+        caller = self._caller_key()
+        if caller is not None:
+            if not caller.usable:
+                raise ProviderNoData(UNREADABLE_SEARCH_KEY, source=self.name)
+            key, model = caller.api_key, caller.model
+        elif self.operator_available:
+            key, model = self.key, self.model
+        else:
             raise ProviderNoData("No xAI key or model is configured", source=self.name)
-        data = await request_json(
-            "POST",
-            f"{self.base}/responses",
-            source=self.name,
-            headers={"Authorization": f"Bearer {self.key}"},
-            payload={
-                "model": self.model,
-                "input": query[:2000],
-                "tools": [{"type": "web_search"}],
-            },
-            timeout=self.timeout if timeout is None else timeout,
-            retries=0,  # deliberate: a 90-second paid search is not repeated
-        )
+        try:
+            data = await request_json(
+                "POST",
+                f"{self.base}/responses",
+                source=self.name,
+                headers={"Authorization": f"Bearer {key}"},
+                payload={
+                    "model": model,
+                    "input": query[:2000],
+                    "tools": [{"type": "web_search"}],
+                },
+                timeout=self.timeout if timeout is None else timeout,
+                retries=0,  # deliberate: a 90-second paid search is not repeated
+                secrets=(key,) if caller is not None else (),
+            )
+        except ProviderError as exc:
+            if caller is not None:
+                exc.detail = scrub(exc.detail, [key])
+            raise
         return _grok_answer(data, self.name)
 
 

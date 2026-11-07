@@ -371,7 +371,9 @@ def _wikivoyage_places(settings: Settings):
 def _grok_answer(settings: Settings):
     from app.infrastructure.providers.websearch import GrokSearchSource
 
-    return GrokSearchSource(settings.model_copy(update={"xai_api_key": "k", "xai_model": "m"})).answer(query="Kyoto")
+    return GrokSearchSource(
+        settings.model_copy(update={"grok_search_enabled": True, "xai_api_key": "k", "xai_model": "m"})
+    ).answer(query="Kyoto")
 
 
 @pytest.mark.parametrize(

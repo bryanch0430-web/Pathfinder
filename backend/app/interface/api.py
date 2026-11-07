@@ -50,13 +50,11 @@ from app.domain.models import (
 from app.evaluation import export_markdown
 from app.interface.body_limit import BodyLimit
 from app.interface.cache_control import PrivateResponses
+from app.interface.caller_binding import CallerBinding
+from app.interface.identity_format import TOKEN_FORMAT, TOKEN_MAX_LENGTH
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
-#: A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is 36). A header carries
-#: nothing else and is trimmed, so a session made with any other token could not be opened again.
-TOKEN_MAX_LENGTH = 120
-TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
 #: What a request may carry in its other free texts. Some are stored with a message or a rating and sent back with
 #: the trip, so none may be longer than anything the page sends: an id (of a session or a stop), a locale tag (BCP 47
 #: allows 35 characters), the label of a stop, the reason code of a rating.
@@ -206,6 +204,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Outermost, so the whole request (a streamed answer and its child tasks included) knows its caller.
+    app.add_middleware(CallerBinding, settings=settings)
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_: Request, exc: RequestValidationError) -> JSONResponse:
         """FastAPI's own answer, which repeats the value that was refused (`input`). A body that is not text cannot

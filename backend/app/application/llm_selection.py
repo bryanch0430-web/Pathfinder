@@ -66,6 +66,8 @@ class Selection:
 class SearchKey:
     api_key: str = field(repr=False)
     model: str
+    #: False when the caller's xAI row cannot be decrypted: search fails for them, never using the operator key.
+    usable: bool = True
 
 
 @dataclass
@@ -194,7 +196,7 @@ class LLMSelector:
         try:
             api_key = self._box.decrypt(row.ciphertext)
         except UnreadableSecret:
-            return None
+            return SearchKey(api_key="", model="", usable=False)
         return SearchKey(api_key=api_key, model=row.model or PROVIDERS["xai"].default_model)
 
     def secret_for(self, credential_id: str) -> str:
