@@ -178,6 +178,55 @@ def test_openai_retries_without_temperature(settings: Settings) -> None:
     assert "temperature" in bodies[0] and "temperature" not in bodies[1]
 
 
+def _no_wait(monkeypatch) -> None:
+    import asyncio
+
+    async def no_wait(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", no_wait)
+
+
+def _replying(replies: list[httpx.Response], bodies: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return replies[len(bodies) - 1]
+
+    return handler
+
+
+def test_max_tokens_retry_then_429_then_success(settings: Settings, monkeypatch) -> None:
+    """A field retry is not a network retry: after the JSON-mode and max_tokens retries, a 429 is still retried."""
+    _no_wait(monkeypatch)
+    replies = [
+        httpx.Response(400, text="Unsupported parameter: 'response_format'"),
+        httpx.Response(400, text="Unsupported parameter: 'max_tokens'"),
+        httpx.Response(429, json={}),
+        httpx.Response(200, json=OPENAI_OK),
+    ]
+    bodies: list[dict] = []
+    adapter = OpenAICompatibleLLM(settings, base_url="https://x.test/v1", api_key="k-123456", model="m")
+    with use_transport(httpx.MockTransport(_replying(replies, bodies))):
+        assert _complete(adapter, json_mode=True).text == "OK"
+    assert len(bodies) == 4
+    assert "max_completion_tokens" in bodies[-1] and "response_format" not in bodies[-1]
+
+
+def test_field_retry_keeps_both_network_retries(settings: Settings, monkeypatch) -> None:
+    _no_wait(monkeypatch)
+    replies = [
+        httpx.Response(400, text="Unsupported parameter: 'max_tokens'"),
+        httpx.Response(429, json={}),
+        httpx.Response(429, json={}),
+        httpx.Response(200, json=OPENAI_OK),
+    ]
+    bodies: list[dict] = []
+    adapter = OpenAICompatibleLLM(settings, base_url="https://x.test/v1", api_key="k-123456", model="m")
+    with use_transport(httpx.MockTransport(_replying(replies, bodies))):
+        assert _complete(adapter).text == "OK"
+    assert len(bodies) == 4
+
+
 def test_default_transport_override_reaches_other_contexts(settings: Settings) -> None:
     adapter = OpenAICompatibleLLM(settings, base_url="https://x.test/v1", api_key="k-123456", model="m")
     with override_default_transport(httpx.MockTransport(lambda r: httpx.Response(200, json=OPENAI_OK))):

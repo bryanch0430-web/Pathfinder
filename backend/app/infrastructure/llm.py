@@ -96,9 +96,10 @@ class OpenAICompatibleLLM:
             "Content-Type": "application/json",
         }
         timeout = self.settings.llm_timeout_seconds
-        attempts = 0
+        # Counts only rate-limit, server-error and network retries. A field retry (a 400 naming a field we then
+        # drop or rename) happens at most once per field and never uses up these retries.
+        retries = 0
         while True:
-            attempts += 1
             try:
                 async with httpx.AsyncClient(timeout=timeout, transport=current_transport()) as client:
                     response = await client.post(url, headers=headers, json=payload)
@@ -123,17 +124,19 @@ class OpenAICompatibleLLM:
                 data = response.json()
                 return data if isinstance(data, dict) else {"data": data}
             except ProviderError as exc:
-                if exc.kind in {FailureKind.RATE_LIMIT, FailureKind.NETWORK, FailureKind.SERVER_ERROR} and attempts <= 2:
+                if exc.kind in {FailureKind.RATE_LIMIT, FailureKind.NETWORK, FailureKind.SERVER_ERROR} and retries < 2:
                     import asyncio
 
-                    await asyncio.sleep(0.6 * attempts)
+                    retries += 1
+                    await asyncio.sleep(0.6 * retries)
                     continue
                 raise
             except Exception as exc:
-                if attempts <= 2:
+                if retries < 2:
                     import asyncio
 
-                    await asyncio.sleep(0.6 * attempts)
+                    retries += 1
+                    await asyncio.sleep(0.6 * retries)
                     continue
                 raise ProviderError(
                     f"writer model failed for {purpose}: {exc.__class__.__name__}",
