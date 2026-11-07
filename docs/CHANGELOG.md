@@ -17,6 +17,16 @@ Bring your own model key, and a local model as the last resort.
 - **Local model fallback** through `LOCAL_LLM_BASE_URL` and `LOCAL_LLM_MODEL` (for example Ollama), probed and cached for about 60 seconds.
 - **New routes** under `/api/llm/*`, a key-test limit of 6 per minute (`RATE_LIMIT_KEY_TEST_PER_MINUTE`), and `BYOK_ENCRYPTION_KEY`, required in production.
 
+**Upgrading.** This release adds a Python dependency, `cryptography`, which encrypts the saved keys. An existing
+`backend\.venv` does not have it, and the backend stops with an `ImportError` until it does. Run this once after
+pulling, from the repository root:
+
+```powershell
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
+On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`.
+
 ---
 
 ## v1.6.1 — 2026-11-06 18:00

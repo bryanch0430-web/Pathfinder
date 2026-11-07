@@ -256,6 +256,15 @@ the four agents mark their sections unavailable and the planner returns an hones
 source-grounded plan with visible gaps. `.env` is git-ignored and is not part of this
 repository; create it from `.env.example` on each machine.
 
+**After pulling an update**, install any new Python dependency into the existing virtual environment
+once (bring-your-own keys added `cryptography`, without which the backend stops with an `ImportError`):
+
+```powershell
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
+On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`.
+
 `ENVIRONMENT` defaults to `production` when it is not set. Local work uses
 `ENVIRONMENT=development` (`scripts/dev.sh` and `scripts/dev.ps1` set it, and `.env.example`
 has it) and the tests use `ENVIRONMENT=test`; the built-in `AUTH_SECRET` and `ADMIN_TOKEN`
