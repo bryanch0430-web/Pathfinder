@@ -325,6 +325,9 @@ export const EN = {
   "keys.status.env": "Using the key set in the server's configuration",
   "keys.status.local": "Using the local model {model}",
   "keys.status.none": "No model: PathFinder uses its rule-based path",
+  "keys.status.problem.unreadable": "The chosen {provider} key can no longer be read. Remove it and add it again.",
+  "keys.status.problem.unknown_provider": "The chosen {provider} key is for a provider PathFinder no longer offers. Remove it.",
+  "keys.status.problem.other": "The chosen {provider} key cannot be used. Remove it and add it again.",
   "keys.useDefault": "Use the default",
   "keys.empty": "No saved keys yet.",
   "keys.inUse": "In use",
@@ -358,6 +361,11 @@ export const EN = {
   "keys.reason.network": "the provider could not be reached",
   "keys.reason.credit": "out of credit",
   "keys.reason.other": "an unknown error",
+  "keys.reason.server_error": "the provider had a server error",
+  "keys.reason.invalid_request": "the provider refused the request",
+  "keys.reason.no_data": "the provider did not find the model",
+  "keys.reason.unreadable": "your saved key can no longer be read",
+  "keys.prefixMismatch": "{provider} keys usually start with “{prefix}”. Check that this key is for {provider}.",
 
   "common.loadingApp": "Loading Pathfinder",
 

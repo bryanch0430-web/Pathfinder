@@ -325,6 +325,9 @@ export const ZH_HANT: Messages = {
   "keys.status.env": "正在使用伺服器組態中設定的金鑰",
   "keys.status.local": "正在使用本機模型 {model}",
   "keys.status.none": "沒有可用模型：PathFinder 使用其規則路徑",
+  "keys.status.problem.unreadable": "所選的 {provider} 金鑰已無法讀取。請刪除後重新新增。",
+  "keys.status.problem.unknown_provider": "所選的 {provider} 金鑰屬於 PathFinder 已不再支援的服務供應商。請刪除它。",
+  "keys.status.problem.other": "所選的 {provider} 金鑰無法使用。請刪除後重新新增。",
   "keys.useDefault": "使用預設值",
   "keys.empty": "還沒有儲存的金鑰。",
   "keys.inUse": "使用中",
@@ -358,6 +361,11 @@ export const ZH_HANT: Messages = {
   "keys.reason.network": "無法連線到服務供應商",
   "keys.reason.credit": "額度已用完",
   "keys.reason.other": "未知錯誤",
+  "keys.reason.server_error": "服務供應商發生伺服器錯誤",
+  "keys.reason.invalid_request": "服務供應商拒絕了該請求",
+  "keys.reason.no_data": "服務供應商找不到該模型",
+  "keys.reason.unreadable": "你儲存的金鑰已無法讀取",
+  "keys.prefixMismatch": "{provider} 金鑰通常以「{prefix}」開頭。請確認這個金鑰屬於 {provider}。",
 
   "common.loadingApp": "正在載入 Pathfinder",
 

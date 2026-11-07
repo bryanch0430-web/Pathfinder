@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import type { KeyBody, KeyTestResult, LlmKey, LlmProvider, LlmStatus } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import { providerLabel, statusLine } from "../lib/modelKeys";
+import { keyPrefixMismatch, providerLabel, statusLine } from "../lib/modelKeys";
 import { Badge, Button, Checkbox, Divider, Input, Select, Text } from "./atoms";
 import { Banner } from "./organisms";
 import { Field } from "./molecules";
@@ -79,6 +79,9 @@ export function ModelKeysCard({
 
   const changeProvider = (id: string) => {
     setProviderId(id);
+    // A key typed for one vendor is never sent to another one by accident.
+    setApiKey("");
+    setShowKey(false);
     setModel(providers.find((entry) => entry.id === id)?.default_model ?? "");
     setModels([]);
     setFormNote(null);
@@ -118,6 +121,10 @@ export function ModelKeysCard({
   };
 
   const noKey = !keys.some((key) => key.active);
+  const prefix = provider?.key_prefix ?? "";
+  const prefixWarning = provider && keyPrefixMismatch(apiKey, prefix)
+    ? t("keys.prefixMismatch", { provider: provider.label, prefix })
+    : null;
   const canSubmit = Boolean(providerId && apiKey.trim() && model.trim());
 
   return (
@@ -126,7 +133,7 @@ export function ModelKeysCard({
       {body ? <Text size="xs" tone="tertiary">{body}</Text> : null}
       {error ? <Banner>{error}</Banner> : null}
       {status ? (
-        <Badge tone={status.source === "none" ? "warning" : "success"} dot>
+        <Badge tone={status.source === "none" || status.problem ? "warning" : "success"} dot>
           {statusLine(status, t, providers)}
         </Badge>
       ) : null}
@@ -219,6 +226,7 @@ export function ModelKeysCard({
           label={t("keys.search")}
         />
       ) : null}
+      {prefixWarning ? <Banner tone="info">{prefixWarning}</Banner> : null}
       {formNote ? <Banner tone={formNote.tone}>{formNote.text}</Banner> : null}
       <div className="pf-row" style={{ gap: 6 }}>
         <Button size="sm" variant="secondary" loading={working === "test"} disabled={!canSubmit || busy || working !== null} onClick={() => void test()}>

@@ -247,6 +247,8 @@ export interface LlmStatus {
   source: "byok" | "server" | "env" | "local" | "none";
   provider: string;
   model: string;
+  /** Set when the chosen key cannot be used: "unreadable" or "unknown_provider". Empty or absent when it can. */
+  problem?: string;
   local: { configured: boolean; reachable: boolean; model: string };
 }
 

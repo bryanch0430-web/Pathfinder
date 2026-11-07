@@ -323,6 +323,9 @@ export const ZH_HANS: Messages = {
   "keys.status.env": "正在使用服务器配置中设置的密钥",
   "keys.status.local": "正在使用本地模型 {model}",
   "keys.status.none": "没有可用模型：PathFinder 使用其规则路径",
+  "keys.status.problem.unreadable": "所选的 {provider} 密钥已无法读取。请删除后重新添加。",
+  "keys.status.problem.unknown_provider": "所选的 {provider} 密钥属于 PathFinder 已不再支持的服务商。请删除它。",
+  "keys.status.problem.other": "所选的 {provider} 密钥无法使用。请删除后重新添加。",
   "keys.useDefault": "使用默认设置",
   "keys.empty": "还没有保存的密钥。",
   "keys.inUse": "使用中",
@@ -356,6 +359,11 @@ export const ZH_HANS: Messages = {
   "keys.reason.network": "无法连接到服务商",
   "keys.reason.credit": "额度已用完",
   "keys.reason.other": "未知错误",
+  "keys.reason.server_error": "服务商出现服务器错误",
+  "keys.reason.invalid_request": "服务商拒绝了该请求",
+  "keys.reason.no_data": "服务商找不到该模型",
+  "keys.reason.unreadable": "你保存的密钥已无法读取",
+  "keys.prefixMismatch": "{provider} 密钥通常以“{prefix}”开头。请确认这个密钥属于 {provider}。",
 
   "common.loadingApp": "正在加载 Pathfinder",
 
