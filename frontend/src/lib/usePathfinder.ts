@@ -4,6 +4,7 @@ import {
   clearMessages,
   createSession,
   discardSession,
+  getLlmProviders,
   getPlan,
   getSession,
   getTranslation,
@@ -29,6 +30,7 @@ import type {
 } from "../design-system/types";
 import { describeFailure, failureOf, unreachableOf, type Failure } from "./failure";
 import { useI18n, type MessageKey } from "./i18n";
+import { providerLabel, reasonKey } from "./modelKeys";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
 import { forgetSignIn, forgetTrip, readStoredValue, rememberedTrip, rememberTrip, writeStoredValue } from "./storage";
 import { writeTrips } from "./tripsStore";
@@ -229,7 +231,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [route, setRoute] = useState<RoutePayload | null>(null);
   // Kept as a message key where the page wrote the message, so a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
-  const [notice, setNotice] = useState<MessageKey | null>(null);
+  // A message key, or the "your key failed" notice, which carries the provider and a reason key (both translated when drawn).
+  const [notice, setNotice] = useState<MessageKey | { llmKey: { provider: string; reason: MessageKey } } | null>(null);
   const [selectedItem, setSelectedItem] = useState<PlanItem | null>(null);
   const [activeVersion, setActiveVersion] = useState(1);
   const [feedbackStars, setFeedbackStars] = useState<number | null>(null);
@@ -827,6 +830,18 @@ export function usePathfinder(locale: string): PathfinderHook {
                   : [data.note, data.args ? JSON.stringify(data.args) : ""].filter((part) => typeof part === "string" && part).join("\n");
                 setLive((current) => [...current, { id: `${event}-${current.length}-${Date.now()}`, title, body }]);
               }
+              if (event === "llm_key") {
+                // The traveller's own key failed and the turn fell back to the rule-based path: say which key and why.
+                const providerId = String(data.provider ?? "");
+                const reason = reasonKey(String(data.reason ?? "other"));
+                void getLlmProviders()
+                  .then((answer) => answer.providers)
+                  .catch(() => [])
+                  .then((providers) => {
+                    if (sessionRef.current !== id) return;
+                    setNotice({ llmKey: { provider: providerLabel(providerId, providers), reason } });
+                  });
+              }
               if (event === "trace") setTrace(data as unknown as RunTrace);
               if (event === "error") failTurn(data.message ? { text: String(data.message) } : "errors.turn");
             },
@@ -1009,7 +1024,12 @@ export function usePathfinder(locale: string): PathfinderHook {
     live,
     route,
     error: error === null ? null : describeFailure(error, t),
-    notice: notice === null ? null : t(notice),
+    notice:
+      notice === null
+        ? null
+        : typeof notice === "string"
+          ? t(notice)
+          : t("errors.llmKeyFailed", { provider: notice.llmKey.provider, reason: t(notice.llmKey.reason) }),
     selectedItem,
     activeVersion,
     feedbackStars,

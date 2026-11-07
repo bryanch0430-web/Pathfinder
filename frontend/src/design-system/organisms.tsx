@@ -6,6 +6,7 @@ import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, In
 import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from "./elements";
 import { timelineAt } from "../lib/mapTimeline";
 import { Icon } from "./icons";
+import { ModelKeysCard, type ModelKeysProps } from "./ModelKeys";
 import {
   AgentActivity,
   BudgetPanel,
@@ -2291,8 +2292,14 @@ export function SettingsView({
   signedIn = false,
   onClearMemory,
   onSavePreferences,
+  modelKeys,
+  serverKeys,
   error = null,
 }: {
+  /** The "Model & API keys" card's data and handlers; the card is left out without it. */
+  modelKeys?: Omit<ModelKeysProps, "title" | "body">;
+  /** The operator's own key card, for an admin token holder. */
+  serverKeys?: Omit<ModelKeysProps, "title" | "body">;
   config: {
     thresholds: Record<string, number | string>;
     freshness_hours: Record<string, number>;
@@ -2432,6 +2439,9 @@ export function SettingsView({
           </Text>
         ) : null}
       </div>
+      {/* The keys do not depend on the server's configuration either. */}
+      {modelKeys ? <ModelKeysCard {...modelKeys} title={t("keys.title")} body={t("keys.body")} /> : null}
+      {serverKeys ? <ModelKeysCard {...serverKeys} title={t("keys.serverTitle")} body={t("keys.serverBody")} /> : null}
       {config ? (
         <>
           <div className="pf-card pf-eval__panel">
@@ -2453,12 +2463,17 @@ export function SettingsView({
             ))}
           </div>
           <div className="pf-card pf-eval__panel">
-            <div className="pf-row pf-row--between">
-              <Text size="sm" weight="semibold">{t("settings.writer")}</Text>
-              <Badge tone={config.writer.available ? "success" : "warning"} dot>{config.writer.available ? t("settings.available") : t("settings.offline")}</Badge>
-            </div>
-            <Text size="sm" tone="secondary" className="pf-mono">{config.writer.model}</Text>
-            <Divider />
+            {/* With the keys card the writer is its status line; without it (no keys API) the old line stays. */}
+            {modelKeys ? null : (
+              <>
+                <div className="pf-row pf-row--between">
+                  <Text size="sm" weight="semibold">{t("settings.writer")}</Text>
+                  <Badge tone={config.writer.available ? "success" : "warning"} dot>{config.writer.available ? t("settings.available") : t("settings.offline")}</Badge>
+                </div>
+                <Text size="sm" tone="secondary" className="pf-mono">{config.writer.model}</Text>
+                <Divider />
+              </>
+            )}
             <Text size="sm" weight="semibold">{t("settings.providers")}</Text>
             {Object.entries(config.providers).map(([capability, chains]) => (
               <div className="pf-row pf-row--between" key={capability}>

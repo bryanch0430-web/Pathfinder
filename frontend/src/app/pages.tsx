@@ -16,6 +16,18 @@ import {
   getEvalRun,
   getEvalRuns,
   getInjections,
+  getLlmKeys,
+  getLlmProviders,
+  chooseLlmKey,
+  deleteLlmKey,
+  patchLlmKey,
+  retestLlmKey,
+  saveLlmKey,
+  testLlmKey,
+  type KeyScope,
+  type LlmKey,
+  type LlmProvider,
+  type LlmStatus,
   getProfile,
   getSavedTrips,
   runEval,
@@ -157,8 +169,75 @@ export function EvaluationPage() {
   );
 }
 
+type KeysCardData = NonNullable<Parameters<typeof SettingsView>[0]["modelKeys"]>;
+
+/**
+ * One "Model & API keys" card's data and handlers: the traveller's own (`scope` undefined) or the operator's
+ * (`"server"`). Every change reloads the list and status, so the card always shows what the server holds.
+ * A key typed into the card goes to the request body and nowhere else: it is not kept here or in storage.
+ */
+function useModelKeys(scope: KeyScope, providers: LlmProvider[], enabled = true): KeysCardData {
+  const [keys, setKeys] = useState<LlmKey[]>([]);
+  const [status, setStatus] = useState<LlmStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const { t } = useI18n();
+
+  const reload = () =>
+    getLlmKeys(scope)
+      .then((data) => {
+        setKeys(data.keys);
+        setStatus(data.status);
+      })
+      .catch((cause) => setFailure(failureOf(cause, "errors.keys", "errors.keyAction")));
+  useEffect(() => {
+    if (enabled) void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, enabled]);
+
+  /** Runs one request: busy while it runs, a failure shown on the card, `null` when it failed. */
+  const run = async <T,>(call: () => Promise<T>, refresh: boolean): Promise<T | null> => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      const value = await call();
+      if (refresh) await reload();
+      return value;
+    } catch (cause) {
+      setFailure(failureOf(cause, "errors.keyAction", "errors.keyAction"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return {
+    providers,
+    keys,
+    status,
+    busy,
+    error: failure === null ? null : describeFailure(failure, t),
+    onTest: (body) => run(() => testLlmKey(body, scope), false),
+    onSave: (body) => run(() => saveLlmKey(body, scope), true).then((saved) => (saved ? { warning: saved.warning } : null)),
+    onRetest: (id) => run(() => retestLlmKey(id, scope), true).then((done) => done?.result ?? null),
+    onPatch: async (id, body) => void (await run(() => patchLlmKey(id, body, scope), true)),
+    onChoose: async (id) => void (await run(() => chooseLlmKey(id, scope), true)),
+    onDelete: async (id) => void (await run(() => deleteLlmKey(id, scope), true)),
+  };
+}
+
 export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const { t } = useI18n();
+  const [providers, setProviders] = useState<LlmProvider[]>([]);
+  const ownKeys = useModelKeys(undefined, providers);
+  const serverKeys = useModelKeys("server", providers, Boolean(readStoredValue("admin")));
+  // The server card is for the operator: it shows only where an admin token is stored in this browser.
+  const hasAdminToken = Boolean(readStoredValue("admin"));
+  useEffect(() => {
+    getLlmProviders()
+      .then((data) => setProviders(data.providers))
+      .catch(() => setProviders([]));
+  }, []);
   const [config, setConfig] = useState<Parameters<typeof SettingsView>[0]["config"]>(null);
   const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
@@ -210,6 +289,8 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
       error={error === null ? null : describeFailure(error, t)}
       onSavePreferences={handleSavePreferences}
       onClearMemory={handleClearMemory}
+      modelKeys={ownKeys}
+      serverKeys={hasAdminToken ? serverKeys : undefined}
     />
   );
 }
