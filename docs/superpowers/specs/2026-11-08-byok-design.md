@@ -100,8 +100,20 @@ These were settled during the builder check (my calls, flagged for the user):
     - `OpenAICompatibleLLM` extends its existing "retry without `response_format`" pattern: one
       retry with `max_completion_tokens` in place of `max_tokens`, and without `temperature`, when
       a 400 names those fields. OpenAI's newer models need this.
-14. **Mid-turn failure** behaves exactly like a failing `.env` key does today, through the
-    existing error paths. There is no new pre-flight check and no orchestrator change.
+14. **Mid-turn failure** follows the existing error paths, with no pre-flight check and no
+    planner change.
+    - Several writer callers already swallow writer errors and fall back to their rule-based path.
+      For example, `Planner._draft` has `except Exception: return None` at `planner.py:493`.
+    - So decision 4's "show the error" works like this. The first failure of a caller key in a
+      request is remembered for that request. Later calls in the same request fail fast instead of
+      retrying a dead key.
+    - The failure is streamed as an `llm_key` live event: `{provider, model, reason}`, scrubbed.
+      The chat shows it as a visible notice: "Your Anthropic key failed (invalid key). This answer
+      used PathFinder's rule-based path. Fix the key in Settings."
+    - Where the error does reach `user_facing_error` (`orchestrator.py:77`), it gets its own message
+      naming the provider instead of the generic "a source failed". This is a one-branch addition,
+      not a refactor.
+    - No other model or key is ever used.
 15. **BYOK without a decision model** is the same as today's setup with no `DECISION_*` key:
     rules first, then `LLMRouter` through the gateway, which now uses the caller's key. One
     acceptance test covers "caller key only, no `.env` keys".
