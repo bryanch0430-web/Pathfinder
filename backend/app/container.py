@@ -9,6 +9,7 @@ from typing import Any
 from app.application.asking import AskPath
 from app.application.clarification import Clarifier
 from app.application.llm_gateway import LLMGateway
+from app.application.llm_selection import CallerLLM, LLMSelector
 from app.application.memory import MemoryService
 from app.application.modification import ModifyPath
 from app.application.planning import PlanPath
@@ -21,9 +22,9 @@ from app.config import Settings, get_settings
 from app.domain.ports import LLM
 from app.evaluation import EvalService
 from app.infrastructure.decision import JevDecisionClient
-from app.infrastructure.llm import NullLLM, OpenAICompatibleLLM
 from app.infrastructure.observability import TracerProxy
 from app.infrastructure.providers.registry import ProviderRegistry
+from app.infrastructure.secret_box import SecretBox
 from app.infrastructure.store import SQLiteStore
 
 logger = logging.getLogger(__name__)
@@ -45,16 +46,20 @@ class Container:
     clarifier: Clarifier
     turn_service: TurnService
     evaluation: EvalService
+    selector: LLMSelector
+    box: SecretBox
     translation: TranslationService | None = None
 
     def health(self) -> dict[str, Any]:
+        writer = self.selector.operator_chain()
         return {
             "status": "ok",
             "app": self.settings.app_name,
             "environment": self.settings.environment,
             "writer": {
-                "available": bool(getattr(self.llm, "available", False)),
-                "model": getattr(self.llm, "name", "offline"),
+                "available": bool(getattr(writer.llm, "available", False)),
+                "model": writer.model,
+                "source": writer.source,
             },
             "decision_model": {
                 "enabled": self.settings.decision_available,
@@ -84,7 +89,10 @@ def build_container(settings: Settings | None = None) -> Container:
     store = SQLiteStore(settings.database_path, share_ttl_days=settings.share_ttl_days)
     registry = ProviderRegistry.build(settings)
     prompts = PromptLibrary(settings)
-    llm: LLM = OpenAICompatibleLLM(settings) if settings.writer_available else NullLLM()
+    box = SecretBox(settings)
+    selector = LLMSelector(settings, store, box)
+    # Each request is served by the caller's own key when it has one, else the operator chain.
+    llm: LLM = CallerLLM(selector)
     if settings.writer_available:
         logger.info(
             "writer: label=%s vendor=%s model=%s base=%s",
@@ -155,5 +163,7 @@ def build_container(settings: Settings | None = None) -> Container:
         clarifier=clarifier,
         turn_service=turn_service,
         evaluation=evaluation,
+        selector=selector,
+        box=box,
         translation=TranslationService(LLMTranslator(gateway)),
     )
