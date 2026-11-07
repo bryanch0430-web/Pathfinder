@@ -5,6 +5,20 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## Unreleased
+
+Bring your own model key, and a local model as the last resort.
+
+- **Use your own LLM key.** Settings has a Model and API keys card for Anthropic Claude, OpenAI, Poe, xAI Grok and Google Gemini. Keys are tested before they are saved, stored encrypted, and shown only as a masked tail. A refused key (`auth`, `model`, `other`) is not saved; a rate-limited, unreachable or out-of-credit one is saved with a warning.
+- **Order of use** is the caller's chosen key, the server key, the `.env` writer key, the local model (only when reachable), then none. There is no fall-through at run time.
+- **A failing key never borrows another.** The turn uses the rule-based path and the chat shows a notice.
+- **An xAI key can pay for Grok search,** and is sent only to xAI's own address.
+- **Guests keep their keys on sign-in.** They move to the account, inactive if the account already has an active key.
+- **Local model fallback** through `LOCAL_LLM_BASE_URL` and `LOCAL_LLM_MODEL` (for example Ollama), probed and cached for about 60 seconds.
+- **New routes** under `/api/llm/*`, a key-test limit of 6 per minute (`RATE_LIMIT_KEY_TEST_PER_MINUTE`), and `BYOK_ENCRYPTION_KEY`, required in production.
+
+---
+
 ## v1.6.1 — 2026-11-06 18:00
 
 Every leg is visible and comparable, and special route segments say what they are.

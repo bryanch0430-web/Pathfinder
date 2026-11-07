@@ -273,6 +273,29 @@ turns. DeepSeek, xAI or any chat-completions endpoint works by changing
 a generic crawler string with HTTP 403; keep this value descriptive if you fork the
 project.
 
+#### Use your own model key
+
+A traveller can use their own key instead of the server's.
+
+1. Open **Settings** and find the **Model and API keys** card.
+2. Choose a provider (Anthropic Claude, OpenAI, Poe, xAI Grok or Google Gemini), paste the key and pick a model.
+3. Save it. The key is tested first. A key the provider refuses is not saved; a key that is rate-limited, out of credit or unreachable is saved with a warning.
+4. Choose the key to use. Only its masked tail is shown again.
+
+If your key fails during a turn, that turn uses PathFinder's rule-based path and the chat says so; no other key or model is used in its place. An xAI key can also pay for Grok web search. A guest's keys move to the account on sign-in (inactive, if the account already has an active key). Keys are encrypted at rest: set `BYOK_ENCRYPTION_KEY` in production (see `.env.example`; in development and test it is derived from `AUTH_SECRET`). Changing it makes saved keys unreadable, and they must be added again.
+
+Order of use: your chosen key, then the server key, then the `.env` writer key, then the local model, then none.
+
+#### Run with a local model
+
+Ollama can serve as the writer of last resort when no key is set:
+
+```bash
+ollama pull llama3.1
+```
+
+Then set `LOCAL_LLM_BASE_URL` (for example `http://localhost:11434/v1`) and `LOCAL_LLM_MODEL` (`llama3.1`); both are described in `.env.example`. The local model is used only while its probe says it is reachable.
+
 ### 2.3 Backend (port 8100)
 
 ```bash
