@@ -376,6 +376,28 @@ def test_unreadable_row_listed(client: TestClient, settings: Settings) -> None:
     assert listed.status_code == 200, listed.text
     [view] = listed.json()["keys"]
     assert view["unreadable"] is True and view["key_tail"] == mask_key(KEY)
+    # The status says the chosen key cannot be used, instead of reporting it as working.
+    assert listed.json()["status"]["source"] == "byok"
+    assert listed.json()["status"]["problem"] == "unreadable"
+
+
+def test_status_problem_is_empty_for_a_working_key(client: TestClient) -> None:
+    _saved_id(client, GUEST_A)
+    assert client.get("/api/llm/keys", headers=GUEST_A).json()["status"]["problem"] == ""
+
+
+def test_runtime_and_ready_report_the_operator_chain_not_the_callers_key(client: TestClient) -> None:
+    _saved_id(client, GUEST_A)
+    assert client.get("/api/llm/keys", headers=GUEST_A).json()["status"]["source"] == "byok"
+
+    runtime = client.get("/api/runtime", headers=GUEST_A).json()["writer"]
+    ready = client.get("/api/ready", headers=GUEST_A).json()["writer"]
+    settings = client.app.state.container.settings
+    assert runtime["source"] == ready["source"] == "none"
+    assert runtime["available"] is ready["available"] is False
+    assert runtime["model"] == "offline"
+    assert (runtime["label"], runtime["vendor"]) == (settings.llm_provider, settings.writer_vendor)
+    assert KEY not in json.dumps(runtime) and mask_key(KEY) not in json.dumps(runtime)
 
 
 def test_key_test_rate_limited(client: TestClient, recorder: Recorder) -> None:

@@ -131,6 +131,8 @@ def register_llm_key_routes(
             "source": selection.source,
             "provider": selection.provider,
             "model": selection.model,
+            # "unreadable" or "unknown_provider" when the chosen key cannot be used; "" when it can.
+            "problem": selection.problem,
             "local": selector.local_status(),
         }
 

@@ -77,7 +77,10 @@ class LLMGateway:
 
     async def _call(self, prompt: str, *, user: str, purpose: str, json_mode: bool) -> str:
         system = self.prompts.system(prompt)
-        with self.tracer.span(f"llm.{purpose}") as span:
+        # Which source serves this call (byok, server, env, local or none), so a trace says whose key paid for it.
+        # The source only, never the key or its tail.
+        llm_source = str(getattr(self.llm, "source", "") or "")
+        with self.tracer.span(f"llm.{purpose}", llm_source=llm_source) as span:
             result = await self.llm.complete(
                 system=system,
                 user=user,
@@ -102,14 +105,16 @@ class LLMGateway:
                 output_preview=text,
                 reasoning=reasoning,
                 user_preview=user[:240],
+                llm_source=llm_source,
             )
-            span.attrs.update({"purpose": purpose, "model": result.model})
+            span.attrs.update({"purpose": purpose, "model": result.model, "llm_source": llm_source})
             shown = text[:4000] if developer_view() else ""
             emit_live(
                 "think",
                 {
                     "purpose": purpose,
                     "model": result.model,
+                    "llm_source": llm_source,
                     "latency_ms": result.latency_ms,
                     "reasoning": reasoning[:4000] if developer_view() else "",
                     "output_preview": shown,

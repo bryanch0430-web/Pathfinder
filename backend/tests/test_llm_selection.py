@@ -15,8 +15,10 @@ from app.application.llm_selection import (
     LocalProbe,
     SearchKey,
     bind_caller,
+    current_caller_failure,
     current_owner,
     current_search_key,
+    take_key_notice,
 )
 from app.config import Settings
 from app.container import build_container
@@ -322,3 +324,144 @@ def test_adapter_is_reused_until_the_row_changes(settings: Settings, store: SQLi
     store.update_credential("guest-a", row.id, model="gpt-4.1")
     changed = selector.for_caller("guest-a")
     assert changed.llm is not first and changed.model == "gpt-4.1" and changed.llm.name == "gpt-4.1"
+
+
+def test_two_concurrent_failing_calls_tell_the_traveller_once(settings: Settings, store: SQLiteStore,
+                                                              box: SecretBox) -> None:
+    _save(store, box, "guest-a", "openai", KEY_B, "gpt-4o-mini")
+    llm = CallerLLM(_selector(_with_env(settings), store, box))
+    recorder = Recorder(status={"api.openai.com": 401})
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    async def scenario() -> list[Any]:
+        token = bind_live_emit(lambda event, data: events.append((event, data)))
+        try:
+            with use_transport(httpx.MockTransport(recorder)), bind_caller("guest-a"):
+                outcomes = await asyncio.gather(_complete(llm, "one"), _complete(llm, "two"), return_exceptions=True)
+                assert take_key_notice() is None  # already told live
+                return outcomes
+        finally:
+            reset_live_emit(token)
+
+    outcomes = asyncio.run(scenario())
+    assert all(isinstance(outcome, CallerKeyFailed) for outcome in outcomes)
+    assert outcomes[0] is outcomes[1]
+    assert events == [("llm_key", {"provider": "openai", "model": "gpt-4o-mini", "reason": "auth"})]
+    assert "env-writer.test" not in recorder.hosts()
+
+
+def test_failure_without_a_listener_is_told_later_once(settings: Settings, store: SQLiteStore,
+                                                       box: SecretBox) -> None:
+    """A failure before the turn listens (understand, the router) is told by the next call that has a listener."""
+    _save(store, box, "guest-a", "openai", KEY_B, "gpt-4o-mini")
+    llm = CallerLLM(_selector(_with_env(settings), store, box))
+    recorder = Recorder(status={"api.openai.com": 401})
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    async def scenario() -> None:
+        with use_transport(httpx.MockTransport(recorder)), bind_caller("guest-a"):
+            with pytest.raises(CallerKeyFailed) as first:
+                await _complete(llm)
+            assert current_caller_failure() is first.value
+            token = bind_live_emit(lambda event, data: events.append((event, data)))
+            try:
+                for _ in range(2):
+                    with pytest.raises(CallerKeyFailed):
+                        await _complete(llm)
+            finally:
+                reset_live_emit(token)
+            assert take_key_notice() is None
+
+    asyncio.run(scenario())
+    assert recorder.hosts() == ["api.openai.com"]
+    assert events == [("llm_key", {"provider": "openai", "model": "gpt-4o-mini", "reason": "auth"})]
+
+
+def test_failure_never_heard_live_is_owed_to_the_stream(settings: Settings, store: SQLiteStore,
+                                                        box: SecretBox) -> None:
+    _save(store, box, "guest-a", "openai", KEY_B, "gpt-4o-mini")
+    llm = CallerLLM(_selector(settings, store, box))
+
+    async def scenario() -> tuple[Any, Any]:
+        with use_transport(httpx.MockTransport(Recorder(status={"api.openai.com": 401}))), bind_caller("guest-a"):
+            assert take_key_notice() is None
+            with pytest.raises(CallerKeyFailed):
+                await _complete(llm)
+            with pytest.raises(CallerKeyFailed):
+                await _complete(llm)
+            return take_key_notice(), take_key_notice()
+
+    owed, again = asyncio.run(scenario())
+    assert owed == {"provider": "openai", "model": "gpt-4o-mini", "reason": "auth"}
+    assert again is None
+    assert KEY_B not in json.dumps(owed)
+
+
+def test_unreadable_key_reason_is_unreadable(settings: Settings, store: SQLiteStore, box: SecretBox) -> None:
+    other_box = SecretBox(settings.model_copy(update={"auth_secret": "a-different-secret-" + "x" * 32}))
+    _save(store, other_box, "guest-a", "openai", KEY_B, "gpt-4o-mini")
+    llm = CallerLLM(_selector(settings, store, box))
+
+    async def scenario() -> Any:
+        with bind_caller("guest-a"):
+            with pytest.raises(CallerKeyFailed):
+                await _complete(llm)
+            return take_key_notice()
+
+    assert asyncio.run(scenario()) == {"provider": "openai", "model": "gpt-4o-mini", "reason": "unreadable"}
+
+
+def test_caller_llm_reports_its_source(settings: Settings, store: SQLiteStore, box: SecretBox) -> None:
+    _save(store, box, "guest-a", "openai", KEY_B, "gpt-4o-mini")
+    llm = CallerLLM(_selector(_with_env(settings), store, box))
+    with bind_caller("guest-a"):
+        assert llm.source == "byok"
+    with bind_caller("guest-b"):
+        assert llm.source == "env"
+    assert llm.source == "env"
+
+
+def test_unreadable_server_key_is_logged_once_without_key_text(settings: Settings, store: SQLiteStore,
+                                                               box: SecretBox, caplog) -> None:
+    other_box = SecretBox(settings.model_copy(update={"auth_secret": "a-different-secret-" + "x" * 32}))
+    row = _save(store, other_box, SERVER_OWNER, "openai", SERVER_KEY, "gpt-4o-mini")
+    selector = _selector(_with_env(settings), store, box)
+    with caplog.at_level("WARNING", logger="app.application.llm_selection"):
+        for _ in range(3):
+            chosen = selector.operator_chain()
+            assert (chosen.source, chosen.problem) == ("server", "unreadable")
+    warnings = [record for record in caplog.records if record.name == "app.application.llm_selection"]
+    assert len(warnings) == 1
+    text = warnings[0].getMessage()
+    assert row.id in text
+    assert SERVER_KEY not in text and SERVER_KEY[-4:] not in text and row.ciphertext.decode("ascii") not in text
+
+
+def test_gateway_records_the_llm_source_without_the_key(settings: Settings, store: SQLiteStore,
+                                                        box: SecretBox) -> None:
+    from app.application.llm_gateway import LLMGateway
+    from app.application.prompts import PromptLibrary
+    from app.infrastructure.observability import TraceRecorder
+
+    _save(store, box, "guest-a", "openai", KEY_B, "gpt-4o-mini")
+    tracer = TraceRecorder("req_test", settings)
+    gateway = LLMGateway(CallerLLM(_selector(_with_env(settings), store, box)), PromptLibrary(settings), tracer, settings)
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    async def scenario() -> None:
+        token = bind_live_emit(lambda event, data: events.append((event, data)))
+        try:
+            with use_transport(httpx.MockTransport(Recorder())), bind_caller("guest-a"):
+                await gateway.json("ask", user="hi", purpose="ask.answer")
+        finally:
+            reset_live_emit(token)
+
+    asyncio.run(scenario())
+    span = next(span for span in tracer.spans if span.name == "llm.ask.answer")
+    assert span.attrs["llm_source"] == "byok"
+    think = [data for event, data in events if event == "think"]
+    assert think and think[0]["llm_source"] == "byok"
+    assert tracer.generations[0]["llm_source"] == "byok"
+    recorded = json.dumps({"spans": [span.to_dict() for span in tracer.spans], "generations": tracer.generations,
+                           "events": events}, default=str)
+    assert KEY_B not in recorded and KEY_B[-4:] not in recorded

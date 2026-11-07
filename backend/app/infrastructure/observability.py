@@ -88,12 +88,14 @@ class TraceRecorder:
         output_preview: str = "",
         reasoning: str = "",
         user_preview: str = "",
+        llm_source: str = "",
     ) -> None:
         self.generations.append(
             {
                 "id": new_id("gen"),
                 "purpose": purpose,
                 "model": model,
+                "llm_source": llm_source,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "latency_ms": latency_ms,
@@ -266,6 +268,11 @@ def _otlp_payload(record: dict[str, Any]) -> dict[str, Any]:
                         "value": _otlp_value(int(generation.get("completion_tokens") or 0)),
                     },
                     {"key": "pathfinder.latency_ms", "value": _otlp_value(int(generation.get("latency_ms") or 0))},
+                    *(
+                        [{"key": "pathfinder.llm_source", "value": _otlp_value(str(generation["llm_source"]))}]
+                        if generation.get("llm_source")
+                        else []
+                    ),
                 ],
             }
         )
@@ -340,14 +347,16 @@ def developer_view() -> bool:
     return _developer_view.get()
 
 
-def emit_live(event: str, data: dict[str, Any]) -> None:
+def emit_live(event: str, data: dict[str, Any]) -> bool:
+    """Push an event to the turn that is streaming. False when no turn is listening, or it refused the event."""
     emit = _live_emit.get()
     if emit is None:
-        return
+        return False
     try:
         emit(event, data)
     except Exception:
-        return
+        return False
+    return True
 
 
 class TracerProxy:

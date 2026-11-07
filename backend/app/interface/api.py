@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.application.legs import leg_options_for_plan, legs_for_plan
+from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import user_facing_error
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
@@ -258,6 +259,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/runtime")
     async def config(request: Request) -> dict[str, Any]:
         c = container(request)
+        writer = c.selector.operator_chain()
         return {
             "app": settings.app_name,
             "version": "1.0.0",
@@ -276,11 +278,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "hotels": settings.hotel_fresh_seconds // 3600,
                 "attractions": settings.attraction_fresh_seconds // 3600,
             },
+            # The operator chain, as /api/ready reports it: never the calling traveller's own key.
             "writer": {
-                "available": bool(getattr(c.llm, "available", False)),
-                "model": getattr(c.llm, "name", "offline"),
+                "available": bool(getattr(writer.llm, "available", False)),
+                "model": getattr(writer.llm, "name", "offline"),
                 "label": settings.llm_provider,
                 "vendor": settings.writer_vendor,
+                "source": writer.source,
             },
             "providers": c.registry.describe(),
             # Browser map keys are public by design (restrict them by referrer in
@@ -938,6 +942,14 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 on_wait=deadline.pause,
                 on_start=deadline.restart,
             )
+
+            def owed_key_notice() -> list[str]:
+                # A caller key that failed before the turn listened for live events (understand, the router, an
+                # ask turn) was never told: tell it once, before the last frame. The stream runs inside the
+                # request's caller binding (a pure ASGI middleware), and the turn's tasks share that state.
+                notice = take_key_notice()
+                return [sse_frame("llm_key", notice)] if notice else []
+
             try:
                 async with aclosing(
                     paced(
@@ -950,6 +962,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                         if event is KEEPALIVE:
                             yield KEEPALIVE_FRAME
                         elif event is TIMED_OUT:
+                            for frame in owed_key_notice():
+                                yield frame
                             # The turn task is already cancelled; this is the last frame.
                             yield sse_frame(
                                 "error",
@@ -961,10 +975,17 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                             )
                             return
                         else:
+                            if event.event in {"done", "error"}:
+                                for frame in owed_key_notice():
+                                    yield frame
                             yield sse_frame(event.event, event.data)
+                for frame in owed_key_notice():
+                    yield frame
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                for frame in owed_key_notice():
+                    yield frame
                 yield sse_frame(
                     "error",
                     {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": user_facing_error(exc)},

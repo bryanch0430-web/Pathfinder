@@ -122,7 +122,14 @@ def test_server_token_and_unsigned_user_token_bind_none(settings: Settings) -> N
     assert _owner(settings, {"Authorization": f"Bearer {forged}", "X-Client-Token": "guest-a"}) == "guest-a"
 
 
-def _stream_turn(settings: Settings, recorder: Recorder) -> str:
+def _stream_turn(
+    settings: Settings,
+    recorder: Recorder,
+    message: str = "Plan my trip.",
+    trip: dict[str, Any] | None = None,
+    planned_first: bool = False,
+) -> str:
+    """One streamed turn. ``planned_first`` plans the trip first, with every host answering 200."""
     guest = {"X-Client-Token": "guest-a"}
 
     async def geocode(name: str, *, country_hint: str = "") -> GeoLocation | None:
@@ -142,10 +149,20 @@ def _stream_turn(settings: Settings, recorder: Recorder) -> str:
         container.registry.geocoder = SimpleNamespace(name="fake-geocoder", geocode=geocode)
         container.registry.fx = SimpleNamespace(refresh=rates)
         session_id = client.post("/api/journeys", json={}, headers=guest).json()["session"]["id"]
-        client.patch(f"/api/journeys/{session_id}/state", json=TRIP, headers=guest)
+        client.patch(f"/api/journeys/{session_id}/state", json=TRIP if trip is None else trip, headers=guest)
+        if planned_first:
+            failing = recorder.status
+            recorder.status = {}
+            client.post(
+                "/api/turn/stream",
+                json={"message": "Plan my trip.", "locale": "en", "session_id": session_id},
+                headers=guest,
+            )
+            recorder.status = failing
+            recorder.calls.clear()
         return client.post(
             "/api/turn/stream",
-            json={"message": "Plan my trip.", "locale": "en", "session_id": session_id},
+            json={"message": message, "locale": "en", "session_id": session_id},
             headers=guest,
         ).text
 
@@ -175,6 +192,55 @@ def test_caller_key_failure_streams_llm_key_event(settings: Settings) -> None:
     assert recorder.to("api.anthropic.com")
     assert recorder.to("env-writer.test") == []
     assert ANTHROPIC_KEY not in body
+
+
+def _frames(body: str, event: str) -> list[dict[str, Any]]:
+    return [
+        json.loads(block.split("data: ", 1)[1])
+        for block in body.split("\n\n")
+        if block.startswith(f"event: {event}\n")
+    ]
+
+
+def _events(body: str) -> list[str]:
+    return [block.split("\n", 1)[0].removeprefix("event: ") for block in body.split("\n\n") if block.startswith("event: ")]
+
+
+def test_ask_turn_tells_a_failed_caller_key_once(settings: Settings) -> None:
+    # The ask path never listens for live events, so the stream itself tells the traveller.
+    recorder = Recorder(status={"api.anthropic.com": 401})
+    body = _stream_turn(_with_env(settings), recorder, message="What is the weather on day 2?", planned_first=True)
+
+    notices = _frames(body, "llm_key")
+    assert notices == [{"provider": "anthropic", "model": notices[0]["model"], "reason": "auth"}], body[-2000:]
+    assert _frames(body, "route")[0]["intent"] == "ask"
+    assert recorder.to("api.anthropic.com")
+    assert recorder.to("env-writer.test") == []
+    assert ANTHROPIC_KEY not in body
+    # The turn completes on the rule-based answer: the notice comes before the last frame, and no error is shown.
+    events = _events(body)
+    assert events[-1] == "done" and events.index("llm_key") < events.index("done")
+    assert _frames(body, "error") == []
+    assert "".join(frame["text"] for frame in _frames(body, "token")).strip()
+
+
+def test_plan_turn_with_missing_slots_tells_an_understand_failure_once(settings: Settings) -> None:
+    # The trip lacks its dates and party, so understand calls the writer first, before any live listener.
+    recorder = Recorder(status={"api.anthropic.com": 401})
+    body = _stream_turn(_with_env(settings), recorder, message="Plan a trip to Kyoto.", trip={})
+
+    understand = [call for call in recorder.to("api.anthropic.com") if call["path"].endswith("/messages")]
+    assert understand, recorder.calls
+    notices = _frames(body, "llm_key")
+    assert len(notices) == 1, body[-2000:]
+    assert notices[0]["provider"] == "anthropic" and notices[0]["reason"] == "auth"
+    assert recorder.to("env-writer.test") == []
+    assert ANTHROPIC_KEY not in body
+    errors = _frames(body, "error")
+    if errors:
+        assert errors[-1]["message"] == KEY_FAILED
+    else:
+        assert _events(body)[-1] == "done"
 
 
 def _seed_xai(settings: Settings, box: SecretBox | None = None):

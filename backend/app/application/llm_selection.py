@@ -6,10 +6,15 @@ source is chosen before the call and nothing else is tried when it fails (decisi
 
 The caller is bound per request in a ContextVar (``bind_caller``). ``asyncio.create_task`` copies
 the context, so child tasks share the request's memoised selection and its remembered failure.
+
+A failed caller key is told to the traveller once per request, as an ``llm_key`` live event. A failure
+that happens before the turn listens for live events (in ``understand``, the router or the ask path) is
+told on the next writer call that has a listener, else by the stream itself (``take_key_notice``).
 """
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import OrderedDict
@@ -33,6 +38,8 @@ from app.infrastructure.secret_box import SecretBox, UnreadableSecret
 from app.infrastructure.store import SQLiteStore
 from app.security.scrub import scrub
 
+logger = logging.getLogger(__name__)
+
 Source = Literal["byok", "server", "env", "local", "none"]
 
 UNREADABLE_KEY_MESSAGE = "Your saved key can no longer be read. Remove it and add it again in Settings."
@@ -50,6 +57,8 @@ _REASONS: dict[FailureKind, str] = {
     FailureKind.NO_DATA: "the provider did not find the model. Check the key in Settings.",
 }
 _DEFAULT_REASON = "the provider returned an error. Check the key in Settings."
+#: The ``llm_key`` reason for a saved key that cannot be used at all (it no longer decrypts).
+UNREADABLE_REASON = "unreadable"
 
 
 @dataclass
@@ -153,6 +162,8 @@ class LLMSelector:
         self._probe = probe or LocalProbe(settings)
         self._lock = threading.Lock()
         self._adapters: OrderedDict[tuple[str, str], _Adapter] = OrderedDict()
+        # Server rows already logged as unreadable: one warning per row per process, not one per request.
+        self._warned: set[str] = set()
         # The non-server part of the operator chain is fixed for the process: settings do not change.
         self._env: Selection | None = None
         if settings.writer_available:
@@ -246,8 +257,9 @@ class LLMSelector:
                     self._adapters.popitem(last=False)
         return Selection(adapter.llm, source, row.provider, model, row.id)
 
-    @staticmethod
-    def _unusable(row: StoredCredential, source: Source, model: str, problem: str) -> Selection:
+    def _unusable(self, row: StoredCredential, source: Source, model: str, problem: str) -> Selection:
+        if source == "server" and problem == "unreadable":
+            self._warn_unreadable_server_row(row.id)
         if source == "byok":
             # Available, so the call is made and fails visibly instead of quietly running offline.
             llm = _UnusableKeyLLM(model, available=True, error=CallerKeyFailed(UNREADABLE_KEY_MESSAGE))
@@ -256,6 +268,18 @@ class LLMSelector:
             error = ProviderError(SERVER_UNREADABLE_MESSAGE, kind=FailureKind.AUTH, source="llm", retryable=False)
             llm = _UnusableKeyLLM(model, available=False, error=error)
         return Selection(llm, source, row.provider, model, row.id, problem=problem)
+
+    def _warn_unreadable_server_row(self, credential_id: str) -> None:
+        with self._lock:
+            if credential_id in self._warned:
+                return
+            self._warned.add(credential_id)
+        # The row id only: never the ciphertext or any part of the key.
+        logger.warning(
+            "The server's saved LLM key %s cannot be decrypted (was BYOK_ENCRYPTION_KEY changed?). Turns run "
+            "without a writer until it is added again in the admin Settings.",
+            credential_id,
+        )
 
 
 def _is_caller(owner: str | None) -> bool:
@@ -268,6 +292,10 @@ class _CallerState:
     owner: str | None
     selection: Selection | None = None
     failed: CallerKeyFailed | None = None
+    #: The ``llm_key`` event for ``failed``: provider, model and reason, never the key.
+    notice: dict[str, str] | None = None
+    #: Whether a live listener took ``notice``. Until then the stream still owes it to the traveller.
+    notified: bool = False
     search: SearchKey | None = None
     search_loaded: bool = False
 
@@ -292,6 +320,29 @@ def bind_caller(owner: str | None) -> Iterator[None]:
 def current_owner() -> str | None:
     state = _caller.get()
     return state.owner if state is not None else None
+
+
+def current_caller_failure() -> CallerKeyFailed | None:
+    """The caller key failure this request remembered, if any."""
+    state = _caller.get()
+    return state.failed if state is not None else None
+
+
+def take_key_notice() -> dict[str, str] | None:
+    """The ``llm_key`` event this request still owes the traveller, marked as told; None when nothing is owed."""
+    state = _caller.get()
+    if state is None or state.notice is None or state.notified:
+        return None
+    state.notified = True
+    return dict(state.notice)
+
+
+def _tell(state: _CallerState) -> None:
+    """Emit the remembered failure once, and count it as told only when a live listener took it."""
+    if state.notified or state.notice is None:
+        return
+    if emit_live("llm_key", dict(state.notice)):
+        state.notified = True
 
 
 def current_search_key(selector: LLMSelector) -> SearchKey | None:
@@ -329,6 +380,11 @@ class CallerLLM:
     def name(self) -> str:
         return str(getattr(self._selection().llm, "name", "offline"))
 
+    @property
+    def source(self) -> Source:
+        """Where this request's writer comes from: byok, server, env, local or none. Never the key."""
+        return self._selection().source
+
     async def complete(
         self,
         *,
@@ -341,6 +397,7 @@ class CallerLLM:
     ) -> Any:
         state = _caller.get()
         if state is not None and state.failed is not None:
+            _tell(state)
             raise state.failed
         selection = self._selection()
         try:
@@ -356,12 +413,17 @@ class CallerLLM:
             if selection.source != "byok" or _empty_reply(exc):
                 raise
             if state is not None and state.failed is not None:
-                # A concurrent call of this request failed first and already told the traveller.
+                # A concurrent call of this request failed first: one failure, told at most once.
+                _tell(state)
                 raise state.failed
             failure = self._caller_failure(selection, exc)
-            if state is not None:
-                state.failed = failure
-            emit_live("llm_key", {"provider": selection.provider, "model": selection.model, "reason": failure.kind.value})
+            reason = UNREADABLE_REASON if selection.problem else failure.kind.value
+            notice = {"provider": selection.provider, "model": selection.model, "reason": reason}
+            if state is None:
+                emit_live("llm_key", notice)
+            else:
+                state.failed, state.notice = failure, notice
+                _tell(state)
             raise failure from exc
 
     def _caller_failure(self, selection: Selection, exc: ProviderError) -> CallerKeyFailed:
