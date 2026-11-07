@@ -31,8 +31,9 @@ UNREADABLE_MESSAGE = "This saved key can no longer be read. Remove it and add it
 MODEL_MAX_LENGTH = 120
 #: Printable ASCII without spaces; checked after stripping.
 _KEY_FORMAT = re.compile(r"[!-~]{8,512}")
-#: A refused test that means the key cannot be used (save refuses it); the rest mean "try again later".
-_REFUSED_KINDS = {"auth", "model", "other"}
+#: A failed test that still lets the key be saved, with a warning: it authenticated but could not run right now.
+#: Every other kind, an unknown one included, is refused.
+_SAVE_WITH_WARNING = {"rate_limit", "network", "credit"}
 
 ModelName = Annotated[str, StringConstraints(strip_whitespace=True, max_length=MODEL_MAX_LENGTH)]
 
@@ -184,7 +185,7 @@ def register_llm_key_routes(
         owner = key_owner(request, c)
         key = parse_key_in(body, with_search=True)
         result = await run_test(request, key.spec, key.api_key, key.model)
-        if not result.ok and result.kind in _REFUSED_KINDS:
+        if not result.ok and result.kind not in _SAVE_WITH_WARNING:
             return JSONResponse(status_code=422, content={"detail": result.message, "kind": result.kind})
         row = c.store.add_credential(
             owner,
@@ -219,7 +220,7 @@ def register_llm_key_routes(
         )
         if updated is None:  # removed while it was being tested
             raise HTTPException(status_code=404, detail=NO_SUCH_KEY)
-        c.selector.forget(key_id)
+        # No ``forget``: the key and model are unchanged, and a turn still running needs the cached key to scrub with.
         return {"key": key_view(c, updated), "result": asdict(result)}
 
     @app.patch("/api/llm/keys/{key_id}")

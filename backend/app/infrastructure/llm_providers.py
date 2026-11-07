@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Literal
@@ -80,7 +81,7 @@ async def list_models(spec: ProviderSpec, api_key: str) -> list[str]:
 @dataclass
 class KeyTestResult:
     ok: bool
-    kind: str  # ok, auth, model, rate_limit, network or other
+    kind: str  # ok, auth, model, rate_limit, credit, network or other
     message: str
     latency_ms: int
     models: list[str] = field(default_factory=list)
@@ -112,10 +113,18 @@ async def probe_key(spec: ProviderSpec, api_key: str, model: str, settings: Sett
     return KeyTestResult(True, "ok", "OK", latency, await list_models(spec, api_key))
 
 
+#: ``ProviderError`` keeps no status: the adapters' message is "<label> returned HTTP <status>".
+_HTTP_402 = re.compile(r"\bHTTP 402\b")
+_OUT_OF_CREDIT = re.compile(r"credit|quota|billing|insufficient", re.IGNORECASE)
+
+
 def _failure(exc: ProviderError, api_key: str, started: float) -> KeyTestResult:
     detail = scrub(exc.detail or "", [api_key])
     if exc.kind == FailureKind.AUTH:
         kind = "auth"
+    elif _HTTP_402.search(str(exc)) or _OUT_OF_CREDIT.search(detail):
+        # The key authenticated but its account cannot pay (Anthropic answers 400 "credit balance is too low").
+        kind = "credit"
     elif exc.kind == FailureKind.RATE_LIMIT:
         kind = "rate_limit"
     elif exc.kind in {FailureKind.NETWORK, FailureKind.TIMEOUT}:

@@ -250,8 +250,22 @@ def test_probe_key_reports_kinds(settings: Settings) -> None:
     assert kind_for(400, "invalid model name").kind == "model"
     assert kind_for(400, "something else").kind == "other"
     assert kind_for(404, "").kind == "other"
+    assert kind_for(402, "").kind == "credit"
+    assert kind_for(429, '{"error": {"code": "insufficient_quota"}}').kind == "credit"
+    assert kind_for(401, "billing account suspended").kind == "auth"
     leaked = kind_for(401, f"bad key {key}")
     assert key not in leaked.message and len(leaked.message) <= 200
+
+    low_credit = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": "Your credit balance is too low to access the Anthropic API.",
+        },
+    }
+    with use_transport(httpx.MockTransport(lambda request: httpx.Response(400, json=low_credit))):
+        anthropic = _run(probe_key(PROVIDERS["anthropic"], "sk-ant-TESTKEY123", "claude-x", settings))
+    assert (anthropic.ok, anthropic.kind) == (False, "credit")
 
 
 def test_default_openai_path_unchanged(tmp_path) -> None:

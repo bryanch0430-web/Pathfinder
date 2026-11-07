@@ -34,8 +34,24 @@ def recorder() -> Recorder:
 
 
 @pytest.fixture()
-def client(settings: Settings, recorder: Recorder) -> Iterator[TestClient]:
-    transport = httpx.MockTransport(recorder)
+def replies() -> dict[str, Any]:
+    """Per host: ``(status, json)`` to answer with instead of the recorder's answer, or an exception to raise."""
+    return {}
+
+
+@pytest.fixture()
+def client(settings: Settings, recorder: Recorder, replies: dict[str, Any]) -> Iterator[TestClient]:
+    def handler(request: httpx.Request) -> httpx.Response:
+        answer = recorder(request)
+        reply = replies.get(request.url.host)
+        if isinstance(reply, Exception):
+            raise reply
+        if reply is None:
+            return answer
+        status, body = reply
+        return httpx.Response(status, json=body)
+
+    transport = httpx.MockTransport(handler)
     app = create_app(settings)
     app.add_middleware(Transported, transport=transport)
     with override_default_transport(transport), TestClient(app) as test_client:
@@ -128,6 +144,71 @@ def test_save_allows_rate_limited_with_warning(client: TestClient, recorder: Rec
     assert len(_store(client).list_credentials("guest-a")) == 1
 
 
+LOW_CREDIT = {
+    "type": "error",
+    "error": {"type": "invalid_request_error", "message": "Your credit balance is too low to access the Anthropic API."},
+}
+
+
+def test_save_allows_out_of_credit_with_warning(client: TestClient, replies: dict[str, Any]) -> None:
+    replies["api.anthropic.com"] = (400, LOW_CREDIT)
+
+    saved = _save(client, GUEST_A)
+
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert body["warning"] and body["key"]["last_test_ok"] is False and body["key"]["active"] is True
+    assert body["key"]["last_error"] == body["warning"]
+    assert KEY not in saved.text
+    assert len(_store(client).list_credentials("guest-a")) == 1
+
+
+def test_save_allows_network_failure_with_warning(client: TestClient, replies: dict[str, Any]) -> None:
+    replies["api.anthropic.com"] = httpx.ConnectError("connection refused")
+
+    saved = _save(client, GUEST_A)
+
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["warning"] and saved.json()["key"]["last_test_ok"] is False
+    assert len(_store(client).list_credentials("guest-a")) == 1
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "kind"),
+    [
+        (404, {"type": "error", "error": {"type": "not_found_error", "message": "model: claude-nope"}}, "model"),
+        (400, {"type": "error", "error": {"type": "invalid_request_error", "message": "something else"}}, "other"),
+    ],
+)
+def test_save_refuses_model_and_other_failures(
+    client: TestClient, replies: dict[str, Any], status: int, body: dict[str, Any], kind: str
+) -> None:
+    replies["api.anthropic.com"] = (status, body)
+
+    refused = _save(client, GUEST_A)
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["kind"] == kind
+    assert KEY not in refused.text
+    assert _store(client).list_credentials("guest-a") == []
+
+
+def test_save_refuses_an_unknown_failure_kind(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.interface.llm_keys_api as keys_api
+    from app.infrastructure.llm_providers import KeyTestResult
+
+    async def novel(*_: Any) -> KeyTestResult:
+        return KeyTestResult(False, "something_new", "It failed in a new way.", 1)
+
+    monkeypatch.setattr(keys_api, "probe_key", novel)
+
+    refused = _save(client, GUEST_A)
+
+    assert refused.status_code == 422
+    assert refused.json() == {"detail": "It failed in a new way.", "kind": "something_new"}
+    assert _store(client).list_credentials("guest-a") == []
+
+
 def test_save_strips_whitespace(client: TestClient, recorder: Recorder) -> None:
     saved = _save(client, GUEST_A, provider="openai", key="  sk-abc12345678\n")
 
@@ -155,6 +236,31 @@ def test_owner_isolation_404(client: TestClient) -> None:
     [view] = client.get("/api/llm/keys", headers=GUEST_A).json()["keys"]
     assert view["id"] == key_id and view["active"] is True
     assert view["model"] == PROVIDERS["anthropic"].default_model
+
+
+def test_scopes_do_not_reach_each_others_keys(client: TestClient, settings: Settings) -> None:
+    admin = {"X-Admin-Token": settings.admin_token}
+    server_id = client.post(
+        "/api/llm/keys?scope=server", json={"provider": "anthropic", "api_key": KEY, "model": ""}, headers=admin
+    ).json()["key"]["id"]
+    guest_id = _saved_id(client, GUEST_A)
+
+    def attempts(key_id: str, path: str, headers: dict[str, str]) -> list[httpx.Response]:
+        return [
+            client.patch(f"/api/llm/keys/{key_id}{path}", json={"model": "other"}, headers=headers),
+            client.post(f"/api/llm/keys/{key_id}/test{path}", headers=headers),
+            client.delete(f"/api/llm/keys/{key_id}{path}", headers=headers),
+            client.put(f"/api/llm/choice{path}", json={"key_id": key_id}, headers=headers),
+        ]
+
+    # A guest acting on the server's key id, and the admin's server scope acting on a guest's key id.
+    for response in attempts(server_id, "", GUEST_B) + attempts(guest_id, "?scope=server", admin):
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == NO_SUCH_KEY
+    [server_row] = _store(client).list_credentials(SERVER_OWNER)
+    [guest_row] = _store(client).list_credentials("guest-a")
+    assert (server_row.id, server_row.active, server_row.model) == (server_id, True, PROVIDERS["anthropic"].default_model)
+    assert (guest_row.id, guest_row.active, guest_row.model) == (guest_id, True, PROVIDERS["anthropic"].default_model)
 
 
 def test_unknown_id_404(client: TestClient) -> None:
@@ -202,6 +308,19 @@ def test_patch_and_delete_take_effect_on_the_next_request(client: TestClient) ->
     assert selector.for_caller("guest-a").source == "none"
     assert selector.secret_for(key_id) == ""
     assert client.get("/api/llm/keys", headers=GUEST_A).json()["keys"] == []
+
+
+def test_retest_keeps_the_cached_key_for_scrubbing(client: TestClient) -> None:
+    key_id = _saved_id(client, GUEST_A)
+    selector = client.app.state.container.selector
+    selector.for_caller("guest-a")  # a turn in flight has built the writer from the row
+    assert selector.secret_for(key_id) == KEY
+
+    retested = client.post(f"/api/llm/keys/{key_id}/test", headers=GUEST_A)
+
+    assert retested.status_code == 200, retested.text
+    assert retested.json()["result"]["ok"] is True
+    assert selector.secret_for(key_id) == KEY
 
 
 def test_server_scope_requires_admin(client: TestClient, settings: Settings) -> None:
