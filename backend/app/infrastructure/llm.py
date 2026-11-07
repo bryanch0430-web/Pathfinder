@@ -11,7 +11,8 @@ import httpx
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
-from app.infrastructure.http import classify_status
+from app.infrastructure.http import classify_status, current_transport
+from app.security.scrub import scrub
 
 
 @dataclass(slots=True)
@@ -29,13 +30,23 @@ class OpenAICompatibleLLM:
 
     name = "openai-compatible"
 
-    def __init__(self, settings: Settings):
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        label: str | None = None,
+    ):
         self.settings = settings
         # One resolution point, shared with the container: Settings decides
         # which vendor label wins and therefore which URL/key/model is used.
-        self._base_url = settings.writer_base_url
-        self._api_key = settings.writer_api_key
-        self._model = settings.writer_model
+        # An explicit argument (a user's own key) takes the place of the setting.
+        self._base_url = settings.writer_base_url if base_url is None else base_url
+        self._api_key = settings.writer_api_key if api_key is None else api_key
+        self._model = settings.writer_model if model is None else model
+        self._label = label
         self.available = bool(self._base_url and self._api_key)
         self.name = self._model or "offline"
 
@@ -89,15 +100,26 @@ class OpenAICompatibleLLM:
         while True:
             attempts += 1
             try:
-                async with httpx.AsyncClient(timeout=timeout) as client:
+                async with httpx.AsyncClient(timeout=timeout, transport=current_transport()) as client:
                     response = await client.post(url, headers=headers, json=payload)
                 if response.status_code >= 400:
-                    # Some OpenAI-compatible vendors reject response_format. Retry once
-                    # without it instead of failing the whole turn.
-                    if response.status_code in {400, 422} and "response_format" in payload:
-                        payload.pop("response_format", None)
-                        continue
-                    raise classify_status(response.status_code, "llm", detail=response.text[:300])
+                    if response.status_code in {400, 422}:
+                        body = response.text
+                        # Some OpenAI-compatible vendors reject response_format. Retry once
+                        # without it instead of failing the whole turn.
+                        if "response_format" in payload:
+                            payload.pop("response_format", None)
+                            continue
+                        # Newer models want max_completion_tokens; some reject temperature.
+                        if "max_tokens" in payload and "max_tokens" in body:
+                            payload["max_completion_tokens"] = payload.pop("max_tokens")
+                            continue
+                        if "temperature" in payload and "temperature" in body:
+                            payload.pop("temperature")
+                            continue
+                    detail = scrub(response.text, [self._api_key])[:300]
+                    message = f"{self._label} returned HTTP {response.status_code}" if self._label else ""
+                    raise classify_status(response.status_code, "llm", message, detail=detail)
                 data = response.json()
                 return data if isinstance(data, dict) else {"data": data}
             except ProviderError as exc:

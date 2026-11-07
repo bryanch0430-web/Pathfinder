@@ -83,6 +83,30 @@ def use_transport(transport: httpx.AsyncBaseTransport | None) -> Iterator[None]:
         _TRANSPORT.reset(token)
 
 
+#: Fallback transport when no ``use_transport`` block is active. Normally None (the real network).
+_DEFAULT_TRANSPORT: httpx.AsyncBaseTransport | None = None
+
+
+def current_transport() -> httpx.AsyncBaseTransport | None:
+    """The transport for the current context: the ``use_transport`` one, else the process-wide default."""
+    return _TRANSPORT.get() or _DEFAULT_TRANSPORT
+
+
+@contextmanager
+def override_default_transport(transport: httpx.AsyncBaseTransport | None) -> Iterator[None]:
+    """Test only. Set the process-wide fallback transport.
+
+    ``TestClient`` runs the app in another thread, where a ContextVar set by the test does not reach.
+    """
+    global _DEFAULT_TRANSPORT
+    previous = _DEFAULT_TRANSPORT
+    _DEFAULT_TRANSPORT = transport
+    try:
+        yield
+    finally:
+        _DEFAULT_TRANSPORT = previous
+
+
 def classify_status(status: int, source: str, message: str = "", *, detail: str = "") -> ProviderError:
     """The typed failure for an HTTP status. ``detail`` is what the source said: for the trace, not the message."""
     text = message or f"{source} returned HTTP {status}"
