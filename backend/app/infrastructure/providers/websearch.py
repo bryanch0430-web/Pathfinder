@@ -25,6 +25,7 @@ from app.application.llm_selection import LLMSelector, SearchKey, current_search
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.infrastructure.http import request_json
+from app.infrastructure.llm_providers import PROVIDERS
 from app.security.scrub import scrub
 
 UNREADABLE_SEARCH_KEY = "Your saved xAI key can no longer be read. Remove it and add it again in Settings."
@@ -165,15 +166,16 @@ class GrokSearchSource:
         if caller is not None:
             if not caller.usable:
                 raise ProviderNoData(UNREADABLE_SEARCH_KEY, source=self.name)
-            key, model = caller.api_key, caller.model
+            # The catalogue's xAI address, never XAI_BASE_URL: an operator's relay must not receive a caller's key.
+            base, key, model = PROVIDERS["xai"].base_url, caller.api_key, caller.model
         elif self.operator_available:
-            key, model = self.key, self.model
+            base, key, model = self.base, self.key, self.model
         else:
             raise ProviderNoData("No xAI key or model is configured", source=self.name)
         try:
             data = await request_json(
                 "POST",
-                f"{self.base}/responses",
+                f"{base.rstrip('/')}/responses",
                 source=self.name,
                 headers={"Authorization": f"Bearer {key}"},
                 payload={

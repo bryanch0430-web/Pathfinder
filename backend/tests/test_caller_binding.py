@@ -215,6 +215,32 @@ def test_grok_search_uses_caller_xai_key(settings: Settings) -> None:
     assert [(call["path"], call["key"]) for call in sent] == [("/v1/responses", CALLER_XAI)]
 
 
+def test_grok_search_caller_key_never_goes_to_the_operator_base_url(settings: Settings) -> None:
+    relayed = settings.model_copy(
+        update={
+            "xai_base_url": "https://relay.example/v1",
+            "grok_search_enabled": True,
+            "xai_api_key": OPERATOR_XAI,
+            "xai_model": "grok-operator",
+        }
+    )
+    container = _seed_xai(relayed)
+    source = container.registry.web_deep[0]
+
+    caller_recorder = Recorder()
+    _, answer = _answer(source, "guest-a", caller_recorder)
+    assert answer.text == "Kyoto is lovely."
+    assert [(call["host"], call["path"], call["key"]) for call in caller_recorder.calls] == [
+        ("api.x.ai", "/v1/responses", CALLER_XAI)
+    ]
+    assert caller_recorder.to("relay.example") == []
+
+    # The operator's own key still goes where the operator pointed it.
+    operator_recorder = Recorder()
+    _answer(source, "guest-b", operator_recorder)
+    assert [(call["host"], call["key"]) for call in operator_recorder.calls] == [("relay.example", OPERATOR_XAI)]
+
+
 def test_grok_search_caller_key_error_is_scrubbed(settings: Settings) -> None:
     container = _seed_xai(settings)
     source = container.registry.web_deep[0]
@@ -256,8 +282,12 @@ def test_grok_search_unreadable_caller_key_does_not_use_operator_key(settings: S
 
 
 def test_registry_without_selector_uses_operator_keys_only(settings: Settings) -> None:
+    container = _seed_xai(settings)  # guest-a has a readable xAI search row
+    with bind_caller("guest-a"):
+        assert container.registry.web_deep[0].available is True  # the container's registry has the selector
     registry = ProviderRegistry.build(settings)
     assert [source.name for source in registry.web_deep] == ["grok-web-search"]
+    assert registry.web_deep[0].selector is None
     with bind_caller("guest-a"):
         assert registry.web_deep[0].available is False
 
