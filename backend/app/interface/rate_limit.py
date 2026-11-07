@@ -90,6 +90,8 @@ class RateLimits:
     #: handbook look-ups, which run a local retrieval model; apart from the suggestions because the page
     #: asks for one whenever a destination is set, and running out of one must not silence the other
     handbook: SlidingWindowLimiter
+    #: LLM key tests, which spend tokens on the key's own provider account
+    key_test: SlidingWindowLimiter
 
 
 def client_key(request: Request) -> str:

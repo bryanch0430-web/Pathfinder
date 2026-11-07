@@ -199,6 +199,20 @@ class LLMSelector:
             return SearchKey(api_key="", model="", usable=False)
         return SearchKey(api_key=api_key, model=row.model or PROVIDERS["xai"].default_model)
 
+    def local_status(self) -> dict[str, Any]:
+        """The operator's local model, for the Settings card: configured, answering, and which model."""
+        return {
+            "configured": self._settings.local_llm_configured,
+            "reachable": self._probe.reachable(),
+            "model": self._settings.local_llm_model,
+        }
+
+    def forget(self, credential_id: str) -> None:
+        """Drop the cached adapter (and the key it holds) for a row that was changed or removed."""
+        with self._lock:
+            for stale in [key for key in self._adapters if key[0] == credential_id]:
+                del self._adapters[stale]
+
     def secret_for(self, credential_id: str) -> str:
         """The key behind a cached adapter, for scrubbing error text; "" once it has left the cache."""
         with self._lock:

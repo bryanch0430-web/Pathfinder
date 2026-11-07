@@ -31,6 +31,7 @@ from app.application.validation import tidy_data_gaps
 from app.config import Settings, get_settings
 from app.container import Container, build_container
 from app.application.auth import create_token, decode_token, hash_password, verify_password
+from app.domain.credentials import SERVER_OWNER
 from app.domain.models import (
     Feedback,
     fit_preference,
@@ -52,6 +53,7 @@ from app.interface.body_limit import BodyLimit
 from app.interface.cache_control import PrivateResponses
 from app.interface.caller_binding import CallerBinding
 from app.interface.identity_format import TOKEN_FORMAT, TOKEN_MAX_LENGTH
+from app.interface.llm_keys_api import register_llm_key_routes
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
@@ -224,6 +226,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         create=SlidingWindowLimiter(settings.rate_limit_create_per_minute),
         lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
         handbook=SlidingWindowLimiter(settings.rate_limit_handbook_per_minute),
+        key_test=SlidingWindowLimiter(settings.rate_limit_key_test_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     charge_ai = rate_limit("ai", "Too many planning requests.")
@@ -233,6 +236,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     charge_create = rate_limit("create", "Too many new trips or share links.")
     charge_lookup = rate_limit("lookup", "Too many place look-ups.")
     charge_handbook = rate_limit("handbook", "Too many handbook look-ups.")
+    charge_key_test = rate_limit("key_test", "Too many key tests.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -396,6 +400,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not guest or guest == profile_token or guest.startswith(USER_PREFIX):
             return
         c.store.merge_preferences(guest, profile_token)
+        # "server" names the operator's own key, never a guest's: it is not handed to an account.
+        if guest != SERVER_OWNER:
+            c.store.adopt_credentials(guest, profile_token)
         c.store.reassign_saved_trips(guest, profile_token)
 
     def require_caller(request: Request) -> None:
@@ -821,6 +828,15 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         )
         c.store.upsert_preferences(profile)
         return {"profile": c.store.client_profile(identity)}
+
+    register_llm_key_routes(
+        app,
+        settings=settings,
+        container=container,
+        resolve_identity=resolve_identity,
+        require_admin=require_admin,
+        charge_key_test=charge_key_test,
+    )
 
     @app.post("/api/recall/clear")
     async def clear_memory(request: Request, payload: ClearMemoryRequest | None = None) -> dict[str, Any]:

@@ -12,7 +12,8 @@ from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 #: Everything under these paths is answered for one caller: an account, a trip, a profile, its saved trips
-#: and recommendations, a turn, or an operator. The public routes (runtime, rates, shared trips) are not here.
+#: and recommendations, a turn, a caller's LLM keys, or an operator. The public routes (runtime, rates,
+#: shared trips) are not here.
 PRIVATE_PREFIXES = (
     "/api/account",
     "/api/journeys",
@@ -23,6 +24,7 @@ PRIVATE_PREFIXES = (
     "/api/turn",
     "/api/eval",
     "/api/admin",
+    "/api/llm",
 )
 PRIVATE = "private, no-store"
 
