@@ -280,7 +280,7 @@ A traveller can use their own key instead of the server's.
 1. Open **Settings** and find the **Model and API keys** card.
 2. Choose a provider (Anthropic Claude, OpenAI, Poe, xAI Grok or Google Gemini), paste the key and pick a model.
 3. Save it. The key is tested first. A key the provider refuses is not saved; a key that is rate-limited, out of credit or unreachable is saved with a warning.
-4. Choose the key to use. Only its masked tail is shown again.
+4. A saved key becomes the active one and your other keys are made inactive. Use the choice control only to switch to another saved key. Only a key's masked tail is shown again.
 
 If your key fails during a turn, that turn uses PathFinder's rule-based path and the chat says so; no other key or model is used in its place. An xAI key can also pay for Grok web search. A guest's keys move to the account on sign-in (inactive, if the account already has an active key). Keys are encrypted at rest: set `BYOK_ENCRYPTION_KEY` in production (see `.env.example`; in development and test it is derived from `AUTH_SECRET`). Changing it makes saved keys unreadable, and they must be added again.
 

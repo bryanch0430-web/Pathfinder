@@ -272,16 +272,16 @@ Routes for a caller's own LLM keys (see "Bring your own key" in `ARCHITECTURE.md
 |---|---|---|---|
 | GET | `/api/llm/providers` | none | `{providers: [{id, label, default_model, key_prefix, supports_search}]}` (anthropic, openai, poe, xai, gemini) |
 | GET | `/api/llm/keys` | none | `{keys: [Key], status: {source, provider, model, local}}` |
-| POST | `/api/llm/keys/test` | `{provider, api_key, model}` | `{ok, kind, message, latency_ms}`; saves nothing |
-| POST | `/api/llm/keys` | `{provider, api_key, model, use_for_search?}` | `{key: Key}`, plus `warning` when saved after a failed test |
-| POST | `/api/llm/keys/{key_id}/test` | none | `{key: Key, result}`; tests the saved key |
+| POST | `/api/llm/keys/test` | `{provider, api_key, model}` | `{ok, kind, message, latency_ms, models}` (`models` is the list of model ids the key can use, `[]` when none could be fetched); saves nothing |
+| POST | `/api/llm/keys` | `{provider, api_key, model, use_for_search?}` | `{key: Key}`, plus `warning` when saved after a failed test. The saved key becomes the owner's active key and their other keys are made inactive |
+| POST | `/api/llm/keys/{key_id}/test` | none | `{key: Key, result}`; `result` is `{ok, kind, message, latency_ms, models}`; tests the saved key |
 | PATCH | `/api/llm/keys/{key_id}` | `{model?, use_for_search?}` (an empty `model` restores the default) | `{key: Key}` |
-| PUT | `/api/llm/choice` | `{key_id: string or null}` | `{status}`; `null` chooses no key |
+| PUT | `/api/llm/choice` | `{key_id: string or null}` | `{status}`; switches the active key, `null` chooses no key |
 | DELETE | `/api/llm/keys/{key_id}` | none | `{deleted: true}` |
 
 `Key` is `{id, provider, label, model, key_tail, active, use_for_search, last_test_ok, last_tested_at, last_error, unreadable}`. `kind` is one of `ok`, `auth`, `model`, `rate_limit`, `credit`, `network` or `other`. `status.source` is `byok`, `server`, `env`, `local` or `none`.
 
-Status codes: `404` for a key that is not the owner's; `409` when a saved key can no longer be read (re-test); `422` for a bad body or a provider that is no longer offered; `401` when no caller can be named; `429` over the test limit. The `api_key` is 8 to 512 printable characters with no spaces.
+Status codes: `404` for a key that is not the owner's; `409` when a saved key can no longer be read (re-test); `422` for a bad body, a malformed guest token or a provider that is no longer offered; `401` also for `?scope=server` without a valid `X-Admin-Token`; `401` when no caller can be named; `429` over the test limit. The `api_key` is 8 to 512 printable characters with no spaces.
 
 `POST /api/llm/keys` tests first. It answers `422` with `{detail, kind}` and saves nothing for `auth`, `model`, `other` or any unknown kind. It saves, with a `warning` and `last_test_ok: false`, for `rate_limit`, `network` and `credit`.
 
