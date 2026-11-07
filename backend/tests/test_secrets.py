@@ -45,6 +45,7 @@ def test_production_starts_when_secrets_are_set(settings: Settings) -> None:
             "environment": "production",
             "auth_secret": "a-long-random-production-secret-0123456789",
             "admin_token": "a-real-admin-token-value",
+            "byok_encryption_key": "Hl0sKQ3pXx4nq0vYb2m5c9fJ8dT1aW6eRzUoLiNgPyA=",
         }
     )
     with TestClient(create_app(production)) as scoped:
@@ -69,6 +70,7 @@ def test_secret_check_reads_the_environment_variables(monkeypatch: pytest.Monkey
 
     monkeypatch.setenv("AUTH_SECRET", "a-long-random-production-secret-0123456789")
     monkeypatch.setenv("ADMIN_TOKEN", "a-real-admin-token-value")
+    monkeypatch.setenv("BYOK_ENCRYPTION_KEY", "Hl0sKQ3pXx4nq0vYb2m5c9fJ8dT1aW6eRzUoLiNgPyA=")
     create_app(from_env())
 
 

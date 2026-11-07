@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     judge_model: str = "deepseek-chat"
     judge_timeout_seconds: float = 20.0
 
+    # --- bring your own key / local model ---------------------------------
+    byok_encryption_key: str = ""  # a Fernet key; required outside development/test
+    local_llm_base_url: str = ""
+    local_llm_model: str = ""
+    local_llm_api_key: str = ""
+    local_llm_probe_seconds: float = 2.0
+
     # --- observability -----------------------------------------------------
     langfuse_enabled: bool = False
     langfuse_public_key: str = ""
@@ -186,6 +193,7 @@ class Settings(BaseSettings):
     rate_limit_ai_per_minute: int = 30
     rate_limit_create_per_minute: int = 60
     rate_limit_lookup_per_minute: int = 60
+    rate_limit_key_test_per_minute: int = 6
     rate_limit_handbook_per_minute: int = 60
 
     # --- streaming ---------------------------------------------------------
@@ -260,6 +268,10 @@ class Settings(BaseSettings):
         return bool(self.judge_api_key and self.judge_base_url and self.judge_model)
 
     @property
+    def local_llm_configured(self) -> bool:
+        return bool(self.local_llm_base_url and self.local_llm_model)
+
+    @property
     def langfuse_available(self) -> bool:
         return bool(
             self.langfuse_enabled
@@ -286,6 +298,11 @@ class Settings(BaseSettings):
             missing.append(f"AUTH_SECRET (a random value of at least {MIN_AUTH_SECRET_LENGTH} characters)")
         if self.admin_token in PLACEHOLDER_ADMIN_TOKENS:
             missing.append("ADMIN_TOKEN (a random value, not the default or placeholder)")
+        if not self.byok_encryption_key:
+            missing.append(
+                "BYOK_ENCRYPTION_KEY (a Fernet key: python -c "
+                "\"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\")"
+            )
         if missing:
             shown = (
                 repr(self.environment)
