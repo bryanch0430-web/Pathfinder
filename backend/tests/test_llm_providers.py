@@ -193,15 +193,35 @@ def test_list_models_sorted_and_never_raises() -> None:
 
     with use_transport(httpx.MockTransport(handler)):
         assert _run(list_models(PROVIDERS["anthropic"], "sk-ant-TEST")) == ["a", "b"]
-    assert str(seen[0].url) == "https://api.anthropic.com/v1/models"
+    assert str(seen[0].url).split("?")[0] == "https://api.anthropic.com/v1/models"
     assert seen[0].headers["x-api-key"] == "sk-ant-TEST"
     assert seen[0].headers["anthropic-version"] == "2023-06-01"
+    assert seen[0].url.params["limit"] == "1000"
 
     def boom(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down")
 
     with use_transport(httpx.MockTransport(boom)):
         assert _run(list_models(PROVIDERS["openai"], "sk-TESTKEY")) == []
+
+
+def test_list_models_strips_gemini_prefix() -> None:
+    rows = {"data": [{"id": "models/gemini-2.5-flash"}, {"id": "models/gemini-2.5-pro"}]}
+    with use_transport(httpx.MockTransport(lambda r: httpx.Response(200, json=rows))):
+        assert _run(list_models(PROVIDERS["gemini"], "AIzaTESTKEY123")) == ["gemini-2.5-flash", "gemini-2.5-pro"]
+
+
+def test_probe_key_empty_content_still_counts_as_working(settings: Settings) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/models"):
+            return httpx.Response(200, json={"data": [{"id": "o-x"}]})
+        return httpx.Response(200, json={"model": "o-x", "choices": [{"message": {"content": ""}}]})
+
+    with use_transport(httpx.MockTransport(handler)):
+        result = _run(probe_key(PROVIDERS["openai"], "sk-TESTKEY123", "o-x", settings))
+    assert (result.ok, result.kind) == (True, "ok")
+    assert result.message == "The model answered without text; the key works."
+    assert result.models == ["o-x"]
 
 
 def test_probe_key_reports_kinds(settings: Settings) -> None:
@@ -229,6 +249,7 @@ def test_probe_key_reports_kinds(settings: Settings) -> None:
     assert kind_for(404, "The model `gpt-x` does not exist").kind == "model"
     assert kind_for(400, "invalid model name").kind == "model"
     assert kind_for(400, "something else").kind == "other"
+    assert kind_for(404, "").kind == "other"
     leaked = kind_for(401, f"bad key {key}")
     assert key not in leaked.message and len(leaked.message) <= 200
 
