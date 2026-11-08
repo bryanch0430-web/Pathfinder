@@ -25,7 +25,8 @@ pulling, from the repository root:
 backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 ```
 
-On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`.
+On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. A virtual environment
+made with `uv` has no `pip`; there, run `uv pip install --python backend\.venv\Scripts\python.exe -r backend\requirements.txt`.
 
 ---
 

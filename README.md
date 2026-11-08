@@ -263,7 +263,9 @@ once (bring-your-own keys added `cryptography`, without which the backend stops 
 backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 ```
 
-On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`.
+On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. A virtual
+environment made with `uv` has no `pip`; there, run
+`uv pip install --python backend\.venv\Scripts\python.exe -r backend\requirements.txt` instead.
 
 `ENVIRONMENT` defaults to `production` when it is not set. Local work uses
 `ENVIRONMENT=development` (`scripts/dev.sh` and `scripts/dev.ps1` set it, and `.env.example`
