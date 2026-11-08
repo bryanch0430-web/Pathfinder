@@ -116,8 +116,9 @@ machine.
 | `efficiency` | 10/10 | Router saves 69.4% of API calls (3.4 against 11.1 per turn) and 36.3% of tokens (826 against 1,295). Latency 151.0 against 205.4 ms. The rules route 90% of turns without a router model call. Tool log 126/126. |
 | `edit_vs_replan` | 5/5 | The edit saves 84.2% of API calls (1.8 against 11.4) and 57.7% of tokens (557 against 1,316). Latency 32.0 against 189.9 ms. Items kept 100% on both paths. Constraints met 100% on both paths. Edit applied 100% (replan 0%). Tool log 56/56. |
 
-The pytest suite at the same commit: 447 tests, 446 passed, 1 skipped (the opt-in live
-Japan run), no xfails.
+The pytest suite has since grown. At the commit that added the tables above it was
+447 tests, 446 passed and 1 skipped. The tree now holds 1337 `test_` functions in
+147 files. The tables are the scored datasets, not that later count.
 
 What these numbers mean:
 

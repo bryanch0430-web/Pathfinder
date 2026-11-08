@@ -30,6 +30,15 @@ made with `uv` has no `pip`; there, run `uv pip install --python backend\.venv\S
 
 ---
 
+## v1.6.2 — 2026-11-08 21:41
+
+Three demo mistakes from the 6 November review.
+
+- **A clarification answer fills the slot it was asked.** "Hong Kong" after a question for the departure city becomes the origin. The destination, dates and length stay. A sentence that asks for a new trip is not that answer.
+- **A booked flight shapes the day.** The arrival day opens two hours after landing. The return day closes three and a half hours before departure. A late landing no longer starts sightseeing at 08:00.
+- **A far sight moves to a nearer day.** More than 8 km from the rest of its day, and at least 8 km closer to another day that has room. The day is not emptied. Meals are unchanged.
+- **The evaluation note** no longer quotes the old 447-test count. The tables stay the scored datasets.
+
 ## v1.6.1 — 2026-11-06 18:00
 
 Every leg is visible and comparable, and special route segments say what they are.

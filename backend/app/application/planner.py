@@ -26,7 +26,7 @@ from app.application.transfers import (
     transfer_from,
     transfer_sentence,
 )
-from app.application.trip_rules import DayWindow, blocked_dates, travel_windows
+from app.application.trip_rules import DayWindow, blocked_dates, flight_windows, travel_windows
 from app.application.trip_rules import must_include as _must_include
 from app.application.validation import _URL
 from app.config import Settings
@@ -224,6 +224,13 @@ class Planner:
         rule_texts = [*context.hard_constraints, *context.preferences]
         blocked = blocked_dates(rule_texts, dates)
         windows = travel_windows(rule_texts, dates)
+        for day, flight_window in flight_windows(flights, dates).items():
+            window = windows.setdefault(day, DayWindow())
+            if flight_window.start is not None:
+                window.start = flight_window.start if window.start is None else max(window.start, flight_window.start)
+            if flight_window.end is not None:
+                window.end = flight_window.end if window.end is None else min(window.end, flight_window.end)
+            window.texts.extend(flight_window.texts)
         if required:
             places.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), required) else 1)
         diet = _diet(context)
@@ -572,6 +579,7 @@ class Planner:
             if not empty or fullest is None or len(assignment[fullest]) < 2:
                 break
             assignment[empty[0]].append(_outlier(assignment[fullest]))
+        _pull_nearby(assignment, caps)
 
         # Geographic order inside each day.
         for index, rows in assignment.items():
@@ -914,6 +922,63 @@ def _best_open_path(table: list[list[float]]) -> list[int] | None:
             best_cost = cost
             best = list(path)
     return best if best_cost != float("inf") else None
+
+
+def _point(row: dict) -> tuple[float, float] | None:
+    geo = row.get("geo") or {}
+    lat, lng = geo.get("lat"), geo.get("lng")
+    if lat is None or lng is None:
+        return None
+    return float(lat), float(lng)
+
+
+def _pull_nearby(assignment: dict[int, list[dict]], caps: list[int]) -> None:
+    """Move a stop onto a nearer day when this day has scattered it across the city.
+
+    A stop more than 8 km from the rest of its day moves if another day with room
+    is at least 8 km closer. A day is not emptied.
+    """
+    for _ in range(4):
+        moved = False
+        for index, rows in list(assignment.items()):
+            if len(rows) < 2:
+                continue
+            others = [point for row in rows if (point := _point(row))]
+            if len(others) < 2:
+                continue
+            centre = (sum(lat for lat, _ in others) / len(others), sum(lng for _, lng in others) / len(others))
+            for row in list(rows):
+                point = _point(row)
+                if point is None:
+                    continue
+                here = haversine_km(centre[0], centre[1], point[0], point[1])
+                if here < 8:
+                    continue
+                best: int | None = None
+                best_km = here - 8
+                for other, other_rows in assignment.items():
+                    if other == index or len(other_rows) >= caps[other]:
+                        continue
+                    neighbours = [item for item in other_rows if _point(item)]
+                    if not neighbours:
+                        continue
+                    there = min(
+                        haversine_km(point[0], point[1], place[0], place[1])
+                        for place in (_point(item) for item in neighbours)
+                        if place is not None
+                    )
+                    if there < best_km:
+                        best, best_km = other, there
+                if best is None:
+                    continue
+                rows.remove(row)
+                assignment[best].append(row)
+                moved = True
+                break
+            if moved:
+                break
+        if not moved:
+            return
 
 
 def _nearest_order(rows: list[dict], start: dict | None) -> list[dict]:

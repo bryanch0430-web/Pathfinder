@@ -369,6 +369,10 @@ class TurnService:
             # The stored turns, this one last, read once: the router and every step that acts on the turn see the
             # recent conversation from them (the steps through `conversation_block`, without this message).
             history = self.store.list_messages(session_id, limit=10)
+            # A short reply to an open clarification fills that slot. "Hong Kong" after
+            # "where are you travelling from?" is the origin, not a new destination.
+            clarify_slots = _pending_clarify(history)
+            answering_origin = _fill_origin_answer(context, clarify_slots, message)
             # The message may answer the question an edit asked on the turn before. A question is not an answer, and
             # the page's "generate again" is the page's, not an answer.
             pending = (
@@ -389,6 +393,11 @@ class TurnService:
                     raise
                 except Exception:
                     pass
+                if answering_origin:
+                    context.destination = as_read.destination
+                    context.start_date = as_read.start_date
+                    context.end_date = as_read.end_date
+                    context.days = as_read.days
                 if captured:
                     # A place in an answer to our own question is where the traveller lives, not where the trip goes
                     # or starts: the trip keeps its destination, origin and dates; a wish in it ("we're vegetarian")
@@ -1031,7 +1040,13 @@ class TurnService:
             message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
         )
         self.store.add_message(
-            Message(session_id=session_id, role="assistant", content=question, intent=Intent.UNCLEAR)
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content=question,
+                intent=Intent.UNCLEAR,
+                meta={"clarify": True, "slots": slots},
+            )
         )
         yield TurnEvent(
             event="clarify",
@@ -1240,6 +1255,36 @@ async def _drain(
         except asyncio.TimeoutError:
             continue
         yield TurnEvent(event=event_name, data=data)
+
+
+def _pending_clarify(history: Sequence[Message]) -> list[str]:
+    """Slots the previous assistant turn asked for. The current user message is ignored."""
+    rows = list(history)
+    if rows and rows[-1].role == "user":
+        rows = rows[:-1]
+    if not rows or rows[-1].role != "assistant":
+        return []
+    meta = rows[-1].meta or {}
+    slots = meta.get("slots")
+    if meta.get("clarify") and isinstance(slots, list):
+        return [str(slot) for slot in slots]
+    return []
+
+
+def _fill_origin_answer(context: TripContext, slots: list[str], message: str) -> bool:
+    """A short place name answers an open origin question and does not name a new trip."""
+    if "origin" not in slots or context.origin.strip() or not context.destination.strip():
+        return False
+    text = message.strip()
+    if not text or len(text) > 40 or looks_like_question(text):
+        return False
+    if re.search(r"\b(plan|itinerary|days?|nights?|budget)\b", text, re.IGNORECASE):
+        return False
+    name = re.sub(r"^(?:from|i(?:'m| am) from)\s+", "", text, flags=re.IGNORECASE).strip(" .")
+    if not name:
+        return False
+    context.origin = name[:120]
+    return True
 
 
 def _pending_edit_question(history: Sequence[Message]) -> EditQuestion | None:

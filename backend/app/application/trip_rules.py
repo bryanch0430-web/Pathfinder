@@ -11,7 +11,7 @@ from __future__ import annotations
 import calendar
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Iterable
 
 from app.application.understanding import PREFERENCE_PATTERNS
@@ -151,6 +151,43 @@ def travel_windows(texts: Iterable[str], dates: Iterable[date]) -> dict[date, Da
         else:
             continue
         window.texts.append(text)
+    return windows
+
+
+def _clock(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def flight_windows(flights: Iterable[dict], dates: Iterable[date]) -> dict[date, DayWindow]:
+    """The chosen flight opens the arrival day and closes the departure day.
+
+    Only the first option is used. A time that is not on a trip date is ignored.
+    """
+    trip = list(dates)
+    rows = list(flights)
+    windows: dict[date, DayWindow] = {}
+    if not trip or not rows:
+        return windows
+    row = rows[0]
+    arrive = _clock(row.get("arrive_at"))
+    if arrive is not None and arrive.date() in trip:
+        start = arrive.hour * 60 + arrive.minute + ARRIVAL_TRANSFER_MINUTES
+        window = windows.setdefault(arrive.date(), DayWindow())
+        window.start = start if window.start is None else max(window.start, start)
+        window.texts.append("flight arrival")
+    leave = _clock(row.get("return_depart_at"))
+    if leave is not None and leave.date() in trip:
+        end = leave.hour * 60 + leave.minute - DEPARTURE_BUFFER_MINUTES
+        window = windows.setdefault(leave.date(), DayWindow())
+        window.end = end if window.end is None else min(window.end, end)
+        window.texts.append("flight departure")
     return windows
 
 

@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.6.2 | 2026-11-08 21:41 | Clarify answers stay in their slot; flights shape the day; far stops move |
 | v1.6.1 | 2026-11-06 18:00 | Every leg visible; Walk/Transit/Taxi; ferry, cable car, tram |
 | v1.6.0 | 2026-11-06 14:13 | Chat remembers recent turns; honest budgets; edits ask instead of refusing |
 | v1.5.1 | 2026-11-06 11:16 | Transit legs read Transit; ferry segments in the legend |
@@ -33,6 +34,18 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.6.2 — 8 November 2026, 21:41 HKT
+
+Three things a first try of the demo got wrong, from the 6 November review.
+
+**A short answer to a clarification fills that slot.** After "Plan a 3-day trip to Osaka" the card asks where you are travelling from. Answering "Hong Kong" used to replace the destination with Hong Kong. The clarify turn now remembers that it asked for the origin. A short reply fills the origin and leaves Osaka, the dates and the length as they were. A sentence that is itself a new trip ("Plan a 3-day trip to Hong Kong") is not treated as that answer.
+
+**A booked flight shapes the first and last day.** The first flight option opens the arrival day two hours after landing and closes the return day three and a half hours before departure. A 22:45 landing no longer leaves Day 1 starting at 08:00 while the summary talks about an evening arrival. If nothing fits after the transfer, that day is a travel day with no sightseeing.
+
+**A sight that is far from the rest of its day moves.** If a stop is more than 8 km from the other sights on its day, and another day with room is at least 8 km closer, the stop moves there. The day is not emptied. Meals are still chosen on their own, so a restaurant can still sit in another district.
+
+The evaluation note no longer says the suite is 447 tests. That figure was an earlier commit. This tree has 1,337 test functions in 147 files. The tables in `docs/EVALUATION.md` are the scored datasets, not that later count.
 
 ### v1.6.1 — 6 November 2026, 18:00 HKT
 
