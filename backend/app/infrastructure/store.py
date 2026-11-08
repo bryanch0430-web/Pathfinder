@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from app.domain.credentials import StoredCredential
 from app.domain.models import (
     DatasetMeta,
     EvalCaseResult,
@@ -340,12 +341,26 @@ def _migration_3_threat_totals(conn: sqlite3.Connection, ctx: MigrationContext) 
     conn.execute("ALTER TABLE threat_events_v3 RENAME TO threat_events")
 
 
+def _migration_4_llm_credentials(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Users' own LLM keys: one row per saved key, the key itself only as ciphertext."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS llm_credentials ("
+        "id TEXT PRIMARY KEY, owner TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL DEFAULT '', "
+        "ciphertext BLOB NOT NULL, key_tail TEXT NOT NULL DEFAULT '', "
+        "active INTEGER NOT NULL DEFAULT 0, use_for_search INTEGER NOT NULL DEFAULT 1, "
+        "last_test_ok INTEGER, last_tested_at TEXT, last_error TEXT NOT NULL DEFAULT '', "
+        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_credentials_owner ON llm_credentials(owner)")
+
+
 #: Ordered schema steps: step N moves a database from user_version N-1 to N.
 #: Append new steps; never edit, reorder or remove a released one.
 MIGRATIONS: list[MigrationStep] = [
     _migration_1_baseline,
     _migration_2_share_expiry,
     _migration_3_threat_totals,
+    _migration_4_llm_credentials,
 ]
 
 
@@ -770,6 +785,159 @@ class SQLiteStore:
                 "UPDATE OR REPLACE kept_journeys SET owner=? WHERE owner=?", (to_owner, from_owner)
             )
             return int(cursor.rowcount or 0)
+
+    # -- LLM credentials --------------------------------------------------
+
+    @staticmethod
+    def _credential(row: sqlite3.Row) -> StoredCredential:
+        tested = row["last_test_ok"]
+        return StoredCredential(
+            id=row["id"],
+            owner=row["owner"],
+            provider=row["provider"],
+            model=row["model"],
+            ciphertext=bytes(row["ciphertext"]),
+            key_tail=row["key_tail"],
+            active=bool(row["active"]),
+            use_for_search=bool(row["use_for_search"]),
+            last_test_ok=None if tested is None else bool(tested),
+            last_tested_at=row["last_tested_at"],
+            last_error=row["last_error"] or "",
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    def add_credential(
+        self,
+        owner: str,
+        provider: str,
+        model: str,
+        ciphertext: bytes,
+        key_tail: str,
+        use_for_search: bool,
+        test_ok: bool | None,
+        error: str,
+    ) -> StoredCredential:
+        """Save a key as the owner's active one; their other keys stay saved but inactive."""
+        credential_id = secrets.token_hex(8)
+        now = _now()
+        with self._lock, self._connect() as conn:
+            conn.execute("UPDATE llm_credentials SET active=0 WHERE owner=?", (owner,))
+            conn.execute(
+                "INSERT INTO llm_credentials (id, owner, provider, model, ciphertext, key_tail, active, "
+                "use_for_search, last_test_ok, last_tested_at, last_error, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,1,?,?,?,?,?,?)",
+                (
+                    credential_id, owner, provider, model, ciphertext, key_tail, int(use_for_search),
+                    None if test_ok is None else int(test_ok), None if test_ok is None else now,
+                    error, now, now,
+                ),
+            )
+            row = conn.execute("SELECT * FROM llm_credentials WHERE id=?", (credential_id,)).fetchone()
+        return self._credential(row)
+
+    def list_credentials(self, owner: str) -> list[StoredCredential]:
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM llm_credentials WHERE owner=? ORDER BY created_at DESC, rowid DESC", (owner,)
+            ).fetchall()
+        return [self._credential(row) for row in rows]
+
+    def get_credential(self, owner: str, credential_id: str) -> StoredCredential | None:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM llm_credentials WHERE owner=? AND id=?", (owner, credential_id)
+            ).fetchone()
+        return self._credential(row) if row else None
+
+    def update_credential(
+        self,
+        owner: str,
+        credential_id: str,
+        *,
+        model: str | None = None,
+        use_for_search: bool | None = None,
+        test_ok: bool | None = None,
+        error: str | None = None,
+    ) -> StoredCredential | None:
+        now = _now()
+        sets = ["updated_at=?"]
+        args: list[Any] = [now]
+        if model is not None:
+            sets.append("model=?")
+            args.append(model)
+        if use_for_search is not None:
+            sets.append("use_for_search=?")
+            args.append(int(use_for_search))
+        if test_ok is not None:
+            sets.extend(["last_test_ok=?", "last_tested_at=?"])
+            args.extend([int(test_ok), now])
+        if error is not None:
+            sets.append("last_error=?")
+            args.append(error)
+        with self._lock, self._connect() as conn:
+            changed = conn.execute(
+                f"UPDATE llm_credentials SET {', '.join(sets)} WHERE owner=? AND id=?",
+                (*args, owner, credential_id),
+            ).rowcount
+            if not changed:
+                return None
+            row = conn.execute("SELECT * FROM llm_credentials WHERE id=?", (credential_id,)).fetchone()
+        return self._credential(row)
+
+    def choose_credential(self, owner: str, credential_id: str | None) -> bool:
+        """Make one saved key the active one; ``None`` clears the choice (back to the default)."""
+        with self._lock, self._connect() as conn:
+            if credential_id is not None and not conn.execute(
+                "SELECT 1 FROM llm_credentials WHERE owner=? AND id=?", (owner, credential_id)
+            ).fetchone():
+                return False
+            conn.execute("UPDATE llm_credentials SET active=0 WHERE owner=?", (owner,))
+            if credential_id is not None:
+                conn.execute(
+                    "UPDATE llm_credentials SET active=1 WHERE owner=? AND id=?", (owner, credential_id)
+                )
+        return True
+
+    def delete_credential(self, owner: str, credential_id: str) -> bool:
+        with self._lock, self._connect() as conn:
+            return bool(
+                conn.execute(
+                    "DELETE FROM llm_credentials WHERE owner=? AND id=?", (owner, credential_id)
+                ).rowcount
+            )
+
+    def active_credential(self, owner: str) -> StoredCredential | None:
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM llm_credentials WHERE owner=? AND active=1 "
+                "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                (owner,),
+            ).fetchone()
+        return self._credential(row) if row else None
+
+    def search_credential(self, owner: str) -> StoredCredential | None:
+        """The newest xAI key allowed for web search, whether or not it is the active key."""
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM llm_credentials WHERE owner=? AND provider='xai' AND use_for_search=1 "
+                "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                (owner,),
+            ).fetchone()
+        return self._credential(row) if row else None
+
+    def adopt_credentials(self, guest: str, account: str) -> int:
+        """Move a guest's keys to an account on sign-in; the account's own active key stays active."""
+        if not guest or not account or guest == account:
+            return 0
+        with self._lock, self._connect() as conn:
+            has_active = conn.execute(
+                "SELECT 1 FROM llm_credentials WHERE owner=? AND active=1", (account,)
+            ).fetchone()
+            if has_active:
+                conn.execute("UPDATE llm_credentials SET active=0 WHERE owner=?", (guest,))
+            moved = conn.execute("UPDATE llm_credentials SET owner=? WHERE owner=?", (account, guest))
+            return int(moved.rowcount or 0)
 
     def list_latest_plans(self, limit: int = 300) -> list[TripPlan]:
         """Newest version of each saved trip, used only for aggregate trending."""

@@ -104,16 +104,19 @@ def relevance(row: WebResult, *, city: str, section: str) -> float:
 def _grok_source(registry: Any, settings: Settings) -> Any | None:
     """The slow search, used only when DeepSeek relevance is zero.
 
-    ``grok_search_enabled`` still gates the question-answering path. This
-    fallback constructs the client from the xAI key when that flag is off,
-    and returns None when the key is missing.
+    ``grok_search_enabled`` (or the caller's own xAI search key) still gates the
+    question-answering path. This fallback also runs on the operator's xAI key
+    when that flag is off, and
+    returns None when no key can pay for it. The caller's own xAI search key
+    comes first, through the registry source's selector.
     """
     configured = list(getattr(registry, "web_deep", None) or [])
-    if configured:
+    if configured and configured[0].available:
         return configured[0]
     from app.infrastructure.providers.websearch import GrokSearchSource
 
-    source = GrokSearchSource(settings)
+    selector = getattr(configured[0], "selector", None) if configured else None
+    source = GrokSearchSource(settings.model_copy(update={"grok_search_enabled": True}), selector)
     return source if source.available else None
 
 

@@ -256,6 +256,15 @@ the four agents mark their sections unavailable and the planner returns an hones
 source-grounded plan with visible gaps. `.env` is git-ignored and is not part of this
 repository; create it from `.env.example` on each machine.
 
+**After pulling an update**, install any new Python dependency into the existing virtual environment
+once (bring-your-own keys added `cryptography`, without which the backend stops with an `ImportError`):
+
+```powershell
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
+On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`.
+
 `ENVIRONMENT` defaults to `production` when it is not set. Local work uses
 `ENVIRONMENT=development` (`scripts/dev.sh` and `scripts/dev.ps1` set it, and `.env.example`
 has it) and the tests use `ENVIRONMENT=test`; the built-in `AUTH_SECRET` and `ADMIN_TOKEN`
@@ -272,6 +281,29 @@ turns. DeepSeek, xAI or any chat-completions endpoint works by changing
 `WIKIMEDIA_USER_AGENT` is preset with a contact URL and framework name. Wikimedia refuses
 a generic crawler string with HTTP 403; keep this value descriptive if you fork the
 project.
+
+#### Use your own model key
+
+A traveller can use their own key instead of the server's.
+
+1. Open **Settings** and find the **Model and API keys** card.
+2. Choose a provider (Anthropic Claude, OpenAI, Poe, xAI Grok or Google Gemini), paste the key and pick a model.
+3. Save it. The key is tested first. A key the provider refuses is not saved; a key that is rate-limited, out of credit or unreachable is saved with a warning.
+4. A saved key becomes the active one and your other keys are made inactive. Use the choice control only to switch to another saved key. Only a key's masked tail is shown again.
+
+If your key fails during a turn, that turn uses PathFinder's rule-based path and the chat says so; no other key or model is used in its place. An xAI key can also pay for Grok web search. A guest's keys move to the account on sign-in (inactive, if the account already has an active key). Keys are encrypted at rest: set `BYOK_ENCRYPTION_KEY` in production (see `.env.example`; in development and test it is derived from `AUTH_SECRET`). Changing it makes saved keys unreadable, and they must be added again.
+
+Order of use: your chosen key, then the server key, then the `.env` writer key, then the local model, then none.
+
+#### Run with a local model
+
+Ollama can serve as the writer of last resort when no key is set:
+
+```bash
+ollama pull llama3.1
+```
+
+Then set `LOCAL_LLM_BASE_URL` (for example `http://localhost:11434/v1`) and `LOCAL_LLM_MODEL` (`llama3.1`); both are described in `.env.example`. The local model is used only while its probe says it is reachable.
 
 ### 2.3 Backend (port 8100)
 

@@ -266,7 +266,8 @@ class AskPath:
         # Open questions the plan cannot answer. DeepSeek Search is sub-second and
         # returns structured, citable results, so it is the default. Grok's Agent
         # Tools search synthesises across sources but takes ~20 s, so it is only
-        # used for synthesis questions and only when explicitly enabled.
+        # used for synthesis questions, and only when the operator enabled it or the
+        # caller pays for it with their own xAI key.
         if plan is not None and getattr(self.registry, "web", None):
             item = _scoped_item(plan, scope_item_id) or _find_item_strict(plan, question)
             subject = item.name if item is not None else ""
@@ -276,11 +277,9 @@ class AskPath:
                     query = f"{subject} {destination} {_keyword_query(question, '')}".strip()
                 else:
                     query = _keyword_query(question, destination)
-                deep = bool(
-                    self.settings.grok_search_enabled
-                    and getattr(self.registry, "web_deep", None)
-                    and re.search(DEEP_SEARCH_WORDS, lower)
-                )
+                # `available`: the operator enabled Grok search, or the caller saved an xAI search key.
+                web_deep = getattr(self.registry, "web_deep", None)
+                deep = bool(web_deep and web_deep[0].available and re.search(DEEP_SEARCH_WORDS, lower))
                 try:
                     if deep:
                         answer = await toolbox.call(

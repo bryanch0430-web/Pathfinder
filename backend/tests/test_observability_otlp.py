@@ -64,6 +64,15 @@ def test_generation_is_marked_for_langfuse() -> None:
     assert attributes["langfuse.observation.type"]["stringValue"] == "generation"
     assert attributes["gen_ai.usage.input_tokens"]["intValue"] == "10"
     assert attributes["gen_ai.usage.output_tokens"]["intValue"] == "5"
+    assert "pathfinder.llm_source" not in attributes  # an older record without a source
+
+
+def test_generation_exports_its_llm_source() -> None:
+    record = _record()
+    record["generations"][0]["llm_source"] = "byok"
+    generation = _otlp_payload(record)["resourceSpans"][0]["scopeSpans"][0]["spans"][2]
+    attributes = {item["key"]: item["value"] for item in generation["attributes"]}
+    assert attributes["pathfinder.llm_source"]["stringValue"] == "byok"
 
 
 def test_the_text_of_an_exception_stays_in_the_local_trace_and_is_not_exported(tmp_path: Path) -> None:

@@ -185,6 +185,28 @@ facts as current truth. This is the documented single-node replacement for pgvec
 The canary propagates as `CanaryLeak` through agent/planner/clarify call sites; the turn
 is converted into a safe error and logged.
 
+### Bring your own key
+
+A traveller can use their own LLM key. Behaviour is fixed by `docs/superpowers/specs/2026-11-08-byok-design.md`; the code is `application/llm_selection.py`, `interface/caller_binding.py`, `infrastructure/secret_box.py`, `infrastructure/llm_providers.py` and `interface/llm_keys_api.py`.
+
+**Order of use.** One source is chosen before the call, in this order: the caller's chosen key, the server key from the admin card, the `.env` writer key, the local model (only when its probe says it is reachable; the answer is cached for about 60 s), then `NullLLM`. There is no fall-through at run time.
+
+**Caller binding.** `CallerBinding` is a pure ASGI middleware that binds each request to its owner in a `ContextVar`: a valid bearer's `user:<id>`, else the `X-Client-Token` guest token, else nobody. Tasks the request starts copy the context, so they share the binding. Two values are never a caller: a guest token equal to `server`, and an `X-Client-Token: user:<id>` that has no valid bearer. Only the identity is bound; the key is read the first time the request uses the writer or search. `CallerLLM` is the writer the rest of the app sees. It picks the source once per request (a per-request memo) and builds the adapter for it.
+
+**When a caller's key fails.** The turn uses PathFinder's rule-based path and the chat shows a notice, sent as an `llm_key` event (`{provider, model, reason}`, never the key). No other key or model is ever used in its place. Later calls in the same request fail fast on the remembered failure.
+
+**Storage and encryption.** Keys live in the `llm_credentials` table (migration 4, append-only). The `ciphertext` column holds the key encrypted with a Fernet key (`BYOK_ENCRYPTION_KEY`); no other column holds a full key. Lists carry only the masked tail (`mask_key`: the first `min(3, len//4)` characters, `…`, the last 4). In production `BYOK_ENCRYPTION_KEY` is required; in development and test it is derived from `AUTH_SECRET`. Changing it makes saved keys unreadable: they show as `unreadable` and must be added again. The operator's own key is the row with owner `server`, managed with the admin token (`?scope=server`).
+
+**Never logged.** A full key is never in a URL, a log call, a trace or Langfuse span, an `emit_live` payload, an exception message or `detail`, or an API response. A key travels only in a JSON body. On the two routes that carry a key (`POST /api/llm/keys` and `POST /api/llm/keys/test`) a refused body is answered by our own checks, not FastAPI's validation answer, which would repeat the value. `PATCH` and `PUT /api/llm/choice` carry no key and use ordinary request models.
+
+**Test before save.** Saving tests the key first. It refuses on `auth`, `model`, `other` or any unknown kind. It saves with a warning on `rate_limit`, `network` and `credit` (out of credit, HTTP 402). Tests are limited to 6 per minute per client address (`RATE_LIMIT_KEY_TEST_PER_MINUTE`).
+
+**Sign-in.** A guest's keys move to the account. If the account already has an active key, the moved keys arrive inactive.
+
+**Grok search.** A caller's xAI key pays for Grok search when its `use_for_search` is on. That key is sent only to `https://api.x.ai/v1`, never to a configured `XAI_BASE_URL`.
+
+Each setting is documented once, in the "bring your own key / local model" block of `.env.example`.
+
 ## 8. Observability
 
 Every turn has a `TraceRecorder`: spans for understand/route/geocode/agents/tools/planner,

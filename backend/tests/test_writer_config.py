@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import Settings
 from app.container import build_container
-from app.infrastructure.llm import NullLLM, OpenAICompatibleLLM
+from app.infrastructure.llm import OpenAICompatibleLLM
 
 
 def make_settings(tmp_path: Path, **overrides) -> Settings:
@@ -51,7 +51,7 @@ def test_xai_only_configuration_does_not_fall_back_to_null(tmp_path: Path) -> No
     )
     container = build_container(settings)
 
-    assert not isinstance(container.llm, NullLLM)
+    assert container.selector.operator_chain().source == "env"
     assert getattr(container.llm, "available", False) is True
 
 

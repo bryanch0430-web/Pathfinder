@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.application.llm_selection import LLMSelector
 from app.config import Settings
 from app.infrastructure.providers.amap import AmapGeocoder, AmapPlacesSource
 from app.infrastructure.providers.flights import SerpApiFlightSource
@@ -58,7 +59,8 @@ class ProviderRegistry:
     fx: FxService = field(default_factory=FxService)
 
     @classmethod
-    def build(cls, settings: Settings) -> "ProviderRegistry":
+    def build(cls, settings: Settings, selector: LLMSelector | None = None) -> "ProviderRegistry":
+        """``selector`` lets a caller's own xAI key pay for Grok search; without it only operator keys are used."""
         geocoders: list = []
         if settings.google_places_api_key or settings.google_maps_api_key:
             geocoders.append(GoogleGeocoder(settings))
@@ -85,7 +87,8 @@ class ProviderRegistry:
         warnings = [HkoWarningsSource(settings)] if settings.enable_hk_disruptions else []
         transit = [MtrLineStatusSource(settings)] if settings.enable_hk_disruptions else []
         web = [DeepSeekSearchSource(settings)] if settings.web_search_enabled else []
-        web_deep = [GrokSearchSource(settings)] if settings.grok_search_enabled else []
+        # Always present: its `available` says whether the operator or the current caller can pay for it.
+        web_deep = [GrokSearchSource(settings, selector)]
         timezone = GoogleTimeZone(settings) if settings.enable_timezone else None
         elevation = GoogleElevation(settings) if settings.enable_elevation else None
         autocomplete = GooglePlacesAutocomplete(settings)

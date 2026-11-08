@@ -18,6 +18,7 @@ import httpx
 
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
+from app.security.scrub import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,30 @@ def use_transport(transport: httpx.AsyncBaseTransport | None) -> Iterator[None]:
         yield
     finally:
         _TRANSPORT.reset(token)
+
+
+#: Fallback transport when no ``use_transport`` block is active. Normally None (the real network).
+_DEFAULT_TRANSPORT: httpx.AsyncBaseTransport | None = None
+
+
+def current_transport() -> httpx.AsyncBaseTransport | None:
+    """The transport for the current context: the ``use_transport`` one, else the process-wide default."""
+    return _TRANSPORT.get() or _DEFAULT_TRANSPORT
+
+
+@contextmanager
+def override_default_transport(transport: httpx.AsyncBaseTransport | None) -> Iterator[None]:
+    """Test only. Set the process-wide fallback transport.
+
+    ``TestClient`` runs the app in another thread, where a ContextVar set by the test does not reach.
+    """
+    global _DEFAULT_TRANSPORT
+    previous = _DEFAULT_TRANSPORT
+    _DEFAULT_TRANSPORT = transport
+    try:
+        yield
+    finally:
+        _DEFAULT_TRANSPORT = previous
 
 
 def classify_status(status: int, source: str, message: str = "", *, detail: str = "") -> ProviderError:
@@ -171,6 +196,7 @@ async def request_json(
     budget: float | None = None,
     user_agent: str = "Pathfinder/1.0",
     timing: RetryTiming | None = None,
+    secrets: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """One JSON request, retried on timeouts, rate limits and 5xx inside a time budget.
 
@@ -209,7 +235,10 @@ async def request_json(
                     wait_hint = retry_after_seconds(response.headers.get("Retry-After"))
                 # The source's own error page can hold keys and markup, and this error's text
                 # reaches plan gaps: it names the status only. The page goes to the debug log.
-                logger.debug("%s returned HTTP %s: %s", source, response.status_code, response.text[:300])
+                # ``secrets`` (a caller's own key) are removed first: some providers echo the key back.
+                logger.debug(
+                    "%s returned HTTP %s: %s", source, response.status_code, scrub(response.text, secrets)[:300]
+                )
                 raise classify_status(response.status_code, source)
             try:
                 data = response.json()

@@ -216,6 +216,108 @@ export function adminHeader(): Record<string, string> {
   return token ? { "X-Admin-Token": token } : {};
 }
 
+/* ------------------------------------------------------------ LLM keys -- */
+
+/** One provider the traveller can bring a key for (GET /api/llm/providers). */
+export interface LlmProvider {
+  id: string;
+  label: string;
+  default_model: string;
+  key_prefix: string;
+  supports_search: boolean;
+}
+
+/** A saved key as the server shows it: only its masked tail, never the key. */
+export interface LlmKey {
+  id: string;
+  provider: string;
+  label: string;
+  model: string;
+  key_tail: string;
+  active: boolean;
+  use_for_search: boolean;
+  last_test_ok: boolean | null;
+  last_tested_at: string | null;
+  last_error: string;
+  unreadable: boolean;
+}
+
+/** Which model answers a turn and whose key pays for it. */
+export interface LlmStatus {
+  source: "byok" | "server" | "env" | "local" | "none";
+  provider: string;
+  model: string;
+  /** Set when the chosen key cannot be used: "unreadable" or "unknown_provider". Empty or absent when it can. */
+  problem?: string;
+  local: { configured: boolean; reachable: boolean; model: string };
+}
+
+export type KeyTestKind = "ok" | "auth" | "model" | "rate_limit" | "network" | "credit" | "other";
+
+export interface KeyTestResult {
+  ok: boolean;
+  kind: KeyTestKind;
+  message: string;
+  latency_ms: number;
+  models: string[];
+}
+
+/** The body of a test or a save. The key is sent in the body only, never in a URL. */
+export interface KeyBody {
+  provider: string;
+  api_key: string;
+  model: string;
+  use_for_search?: boolean;
+}
+
+/** `server` addresses the operator's own row: it adds `?scope=server` and the admin token. */
+export type KeyScope = "server" | undefined;
+
+function keyRequest<T>(path: string, scope: KeyScope, init: RequestInit = {}): Promise<T> {
+  if (scope !== "server") return request<T>(path, init);
+  const url = `${path}${path.includes("?") ? "&" : "?"}scope=server`;
+  return request<T>(url, { ...init, headers: { ...adminHeader(), ...(init.headers ?? {}) } });
+}
+
+export function getLlmProviders(): Promise<{ providers: LlmProvider[] }> {
+  return request("/api/llm/providers");
+}
+
+export function getLlmKeys(scope?: KeyScope): Promise<{ keys: LlmKey[]; status: LlmStatus }> {
+  return keyRequest("/api/llm/keys", scope);
+}
+
+export function testLlmKey(body: KeyBody, scope?: KeyScope): Promise<KeyTestResult> {
+  const { provider, api_key, model } = body;
+  return keyRequest("/api/llm/keys/test", scope, { method: "POST", body: JSON.stringify({ provider, api_key, model }) });
+}
+
+/** Saves a key. A `warning` means it was kept although the test could not finish (rate limit, network, credit). */
+export function saveLlmKey(body: KeyBody, scope?: KeyScope): Promise<{ key: LlmKey; warning?: string }> {
+  return keyRequest("/api/llm/keys", scope, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function retestLlmKey(id: string, scope?: KeyScope): Promise<{ key: LlmKey; result: KeyTestResult }> {
+  return keyRequest(`/api/llm/keys/${encodeURIComponent(id)}/test`, scope, { method: "POST" });
+}
+
+export function patchLlmKey(
+  id: string,
+  body: { model?: string; use_for_search?: boolean },
+  scope?: KeyScope,
+): Promise<{ key: LlmKey }> {
+  return keyRequest(`/api/llm/keys/${encodeURIComponent(id)}`, scope, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+/** Chooses the key that answers, or null for the default (no key of one's own). */
+export function chooseLlmKey(keyId: string | null, scope?: KeyScope): Promise<{ status: LlmStatus }> {
+  return keyRequest("/api/llm/choice", scope, { method: "PUT", body: JSON.stringify({ key_id: keyId }) });
+}
+
+export function deleteLlmKey(id: string, scope?: KeyScope): Promise<{ deleted: boolean }> {
+  return keyRequest(`/api/llm/keys/${encodeURIComponent(id)}`, scope, { method: "DELETE" });
+}
+
 /** A guest trip answers only to the token its browser created it with, so every call presents it. */
 export function clientTokenHeader(): Record<string, string> {
   return { "X-Client-Token": readStoredValue("client") ?? "" };

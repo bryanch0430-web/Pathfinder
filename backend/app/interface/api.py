@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.application.legs import leg_options_for_plan, legs_for_plan
+from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import user_facing_error
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
@@ -31,6 +32,7 @@ from app.application.validation import tidy_data_gaps
 from app.config import Settings, get_settings
 from app.container import Container, build_container
 from app.application.auth import create_token, decode_token, hash_password, verify_password
+from app.domain.credentials import SERVER_OWNER
 from app.domain.models import (
     Feedback,
     fit_preference,
@@ -50,13 +52,12 @@ from app.domain.models import (
 from app.evaluation import export_markdown
 from app.interface.body_limit import BodyLimit
 from app.interface.cache_control import PrivateResponses
+from app.interface.caller_binding import CallerBinding
+from app.interface.identity_format import TOKEN_FORMAT, TOKEN_MAX_LENGTH
+from app.interface.llm_keys_api import register_llm_key_routes
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
-#: A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is 36). A header carries
-#: nothing else and is trimmed, so a session made with any other token could not be opened again.
-TOKEN_MAX_LENGTH = 120
-TOKEN_FORMAT = re.compile(rf"[!-~]{{1,{TOKEN_MAX_LENGTH}}}")
 #: What a request may carry in its other free texts. Some are stored with a message or a rating and sent back with
 #: the trip, so none may be longer than anything the page sends: an id (of a session or a stop), a locale tag (BCP 47
 #: allows 35 characters), the label of a stop, the reason code of a rating.
@@ -206,6 +207,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Outermost, so the whole request (a streamed answer and its child tasks included) knows its caller.
+    app.add_middleware(CallerBinding, settings=settings)
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_: Request, exc: RequestValidationError) -> JSONResponse:
         """FastAPI's own answer, which repeats the value that was refused (`input`). A body that is not text cannot
@@ -224,6 +227,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         create=SlidingWindowLimiter(settings.rate_limit_create_per_minute),
         lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
         handbook=SlidingWindowLimiter(settings.rate_limit_handbook_per_minute),
+        key_test=SlidingWindowLimiter(settings.rate_limit_key_test_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     charge_ai = rate_limit("ai", "Too many planning requests.")
@@ -233,6 +237,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     charge_create = rate_limit("create", "Too many new trips or share links.")
     charge_lookup = rate_limit("lookup", "Too many place look-ups.")
     charge_handbook = rate_limit("handbook", "Too many handbook look-ups.")
+    charge_key_test = rate_limit("key_test", "Too many key tests.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -254,6 +259,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/runtime")
     async def config(request: Request) -> dict[str, Any]:
         c = container(request)
+        writer = c.selector.operator_chain()
         return {
             "app": settings.app_name,
             "version": "1.0.0",
@@ -272,11 +278,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "hotels": settings.hotel_fresh_seconds // 3600,
                 "attractions": settings.attraction_fresh_seconds // 3600,
             },
+            # The operator chain, as /api/ready reports it: never the calling traveller's own key.
             "writer": {
-                "available": bool(getattr(c.llm, "available", False)),
-                "model": getattr(c.llm, "name", "offline"),
+                "available": bool(getattr(writer.llm, "available", False)),
+                "model": getattr(writer.llm, "name", "offline"),
                 "label": settings.llm_provider,
                 "vendor": settings.writer_vendor,
+                "source": writer.source,
             },
             "providers": c.registry.describe(),
             # Browser map keys are public by design (restrict them by referrer in
@@ -396,6 +404,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not guest or guest == profile_token or guest.startswith(USER_PREFIX):
             return
         c.store.merge_preferences(guest, profile_token)
+        # "server" names the operator's own key, never a guest's: it is not handed to an account.
+        if guest != SERVER_OWNER:
+            c.store.adopt_credentials(guest, profile_token)
         c.store.reassign_saved_trips(guest, profile_token)
 
     def require_caller(request: Request) -> None:
@@ -822,6 +833,15 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         c.store.upsert_preferences(profile)
         return {"profile": c.store.client_profile(identity)}
 
+    register_llm_key_routes(
+        app,
+        settings=settings,
+        container=container,
+        resolve_identity=resolve_identity,
+        require_admin=require_admin,
+        charge_key_test=charge_key_test,
+    )
+
     @app.post("/api/recall/clear")
     async def clear_memory(request: Request, payload: ClearMemoryRequest | None = None) -> dict[str, Any]:
         c = container(request)
@@ -922,6 +942,14 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 on_wait=deadline.pause,
                 on_start=deadline.restart,
             )
+
+            def owed_key_notice() -> list[str]:
+                # A caller key that failed before the turn listened for live events (understand, the router, an
+                # ask turn) was never told: tell it once, before the last frame. The stream runs inside the
+                # request's caller binding (a pure ASGI middleware), and the turn's tasks share that state.
+                notice = take_key_notice()
+                return [sse_frame("llm_key", notice)] if notice else []
+
             try:
                 async with aclosing(
                     paced(
@@ -934,6 +962,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                         if event is KEEPALIVE:
                             yield KEEPALIVE_FRAME
                         elif event is TIMED_OUT:
+                            for frame in owed_key_notice():
+                                yield frame
                             # The turn task is already cancelled; this is the last frame.
                             yield sse_frame(
                                 "error",
@@ -945,10 +975,17 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                             )
                             return
                         else:
+                            if event.event in {"done", "error"}:
+                                for frame in owed_key_notice():
+                                    yield frame
                             yield sse_frame(event.event, event.data)
+                for frame in owed_key_notice():
+                    yield frame
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                for frame in owed_key_notice():
+                    yield frame
                 yield sse_frame(
                     "error",
                     {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": user_facing_error(exc)},

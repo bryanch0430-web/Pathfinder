@@ -60,6 +60,27 @@ class ProviderError(PathfinderError):
         return data
 
 
+class CallerKeyFailed(ProviderError):
+    """The caller's own LLM key failed, or can no longer be read.
+
+    ``str(error)`` names the provider and points at Settings; it never holds the key. Nothing else
+    is tried for the rest of the request (no fallback to the operator's key or the local model).
+    """
+
+    code = "caller_key_failed"
+    retryable = False
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: FailureKind = FailureKind.AUTH,
+        source: str = "llm",
+        detail: str = "",
+    ):
+        super().__init__(message, kind=kind, source=source, retryable=False, detail=detail)
+
+
 def operator_text(exc: BaseException) -> str:
     """An exception's text for the operator's trace: the message, and the source's own words when it has them."""
     detail = getattr(exc, "detail", "")

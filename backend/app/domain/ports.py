@@ -64,6 +64,7 @@ class Tracer(Protocol):
         output_preview: str = "",
         reasoning: str = "",
         user_preview: str = "",
+        llm_source: str = "",
     ) -> None: ...
     def finish(self, status: str = "ok") -> None: ...
 
