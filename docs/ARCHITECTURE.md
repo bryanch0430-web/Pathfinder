@@ -185,6 +185,17 @@ facts as current truth. This is the documented single-node replacement for pgvec
 The canary propagates as `CanaryLeak` through agent/planner/clarify call sites; the turn
 is converted into a safe error and logged.
 
+**Local admin mode.** `LOCAL_ADMIN=true` (`interface/local_admin.py`) is for the owner's own
+machine and is honoured only with `ENVIRONMENT=development` or `test`; `Settings.check_secrets`
+refuses to start with it anywhere else. `require_admin` then lets a request with no
+`X-Admin-Token` through when its direct peer (`request.client.host`, never a forwarded header the
+app reads itself) is loopback; a token that is sent is still checked, so a wrong one is refused.
+`/api/ready` reports `local_admin` for the calling peer, and the frontend (`lib/access.ts`,
+`lib/localAdmin.ts`) then shows the evaluation pages, the server key card and the threat panel
+without a stored token and hides every sign-in, registration and sign-out control. Nothing
+else changes: trips, profiles and BYOK keys stay bound to their own caller. The Vite proxy sends
+`X-Forwarded-For` (`xfwd`), so a LAN visitor of the dev server is not seen as loopback.
+
 ### Bring your own key
 
 A traveller can use their own LLM key. Behaviour is fixed by `docs/superpowers/specs/2026-11-08-byok-design.md`; the code is `application/llm_selection.py`, `interface/caller_binding.py`, `infrastructure/secret_box.py`, `infrastructure/llm_providers.py` and `interface/llm_keys_api.py`.

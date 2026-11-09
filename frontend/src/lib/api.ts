@@ -118,6 +118,11 @@ export async function getConfig(): Promise<Record<string, unknown>> {
   return request("/api/runtime");
 }
 
+/** The unauthenticated status: `local_admin` says whether this caller is in local admin mode. */
+export function getReady(): Promise<Record<string, unknown>> {
+  return request("/api/ready");
+}
+
 export interface MapStep {
   mode: string;
   minutes: number | null;
@@ -469,8 +474,9 @@ export async function getEvalExport(runId: string): Promise<string> {
   return response.text();
 }
 
-export async function getInjections(adminToken: string): Promise<{ events: { category: string; severity: string; count: number }[] }> {
-  return request("/api/admin/threats", { headers: { "X-Admin-Token": adminToken } });
+/** Without `adminToken` it sends the stored one when there is one (in local admin mode there may be none). */
+export async function getInjections(adminToken = ""): Promise<{ events: { category: string; severity: string; count: number }[] }> {
+  return request("/api/admin/threats", { headers: adminToken ? { "X-Admin-Token": adminToken } : adminHeader() });
 }
 
 export interface StreamHandlers {

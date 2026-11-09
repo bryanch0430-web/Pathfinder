@@ -55,6 +55,7 @@ from app.interface.cache_control import PrivateResponses
 from app.interface.caller_binding import CallerBinding
 from app.interface.identity_format import TOKEN_FORMAT, TOKEN_MAX_LENGTH
 from app.interface.llm_keys_api import register_llm_key_routes
+from app.interface.local_admin import local_admin_for
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
@@ -242,7 +243,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def container(request: Request) -> Container:
         return request.app.state.container
 
-    def require_admin(x_admin_token: str = Header(default="")) -> None:
+    def require_admin(request: Request, x_admin_token: str = Header(default="")) -> None:
+        # Local admin mode: a caller on the owner's own machine needs no token. A token that is sent is
+        # still checked, so a wrong one is refused there too.
+        if not x_admin_token and local_admin_for(request, settings):
+            return
         expected = settings.admin_token
         # An empty setting disables the admin endpoints instead of matching "".
         if not expected or not x_admin_token or not hmac.compare_digest(
@@ -254,7 +259,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/ready")
     async def health(request: Request) -> dict[str, Any]:
-        return container(request).health()
+        # `local_admin`: this caller opens the admin pages without a token (and the page offers no sign-in).
+        return {**container(request).health(), "local_admin": local_admin_for(request, settings)}
 
     @app.get("/api/runtime")
     async def config(request: Request) -> dict[str, Any]:

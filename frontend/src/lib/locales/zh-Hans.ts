@@ -551,6 +551,8 @@ export const ZH_HANS: Messages = {
   "errors.rateLimited": "此设备的请求过多，请稍等一分钟再试。",
   "errors.network": "无法连接到服务器。请检查网络连接后重试。",
   "errors.signInEnded": "登录已失效。请重新登录后继续。",
+  "errors.notOpenHere": "此处无法打开这个行程。",
+  "errors.signInEndedGuest": "登录已失效。你可以继续以访客身份规划。",
 
   "plan.stop": "站点",
   "plan.openTrips": "已打开的行程",

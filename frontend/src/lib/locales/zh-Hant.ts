@@ -553,6 +553,8 @@ export const ZH_HANT: Messages = {
   "errors.rateLimited": "此裝置的請求過多，請稍候一分鐘再試。",
   "errors.network": "無法連線到伺服器。請檢查網路連線後再試一次。",
   "errors.signInEnded": "登入已失效。請重新登入後繼續。",
+  "errors.notOpenHere": "此處無法開啟這個行程。",
+  "errors.signInEndedGuest": "登入已失效。你可以繼續以訪客身分規劃。",
 
   "plan.stop": "站點",
   "plan.openTrips": "已開啟的行程",

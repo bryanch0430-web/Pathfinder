@@ -5,8 +5,10 @@
  * page, a plain-text 500, the browser's "Failed to fetch" and a storage exception are never shown as
  * they are: they give the page's own sentence for what was being done.
  */
+import { withoutSignIn } from "./access";
 import { ApiError } from "./api";
 import type { MessageKey, Translate } from "./i18n";
+import { isLocalAdmin } from "./localAdmin";
 
 /** A message key (translated when it is drawn, so a language switch translates it too) or a sentence from the server. */
 export type Failure = MessageKey | { text: string };
@@ -34,9 +36,9 @@ export function unreachableOf(cause: unknown): MessageKey {
   return "errors.reconnect";
 }
 
-/** The words of a failure in the language of `t`. */
+/** The words of a failure in the language of `t`. In local admin mode none of them asks for a sign-in. */
 export function describeFailure(failure: Failure, t: Translate): string {
-  return typeof failure === "string" ? t(failure) : failure.text;
+  return typeof failure === "string" ? t(withoutSignIn(failure, isLocalAdmin())) : failure.text;
 }
 
 /** `failureOf` and `describeFailure` in one step, for a caller that shows the text at once. */

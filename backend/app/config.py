@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     frontend_dist: Path = BASE_DIR / "frontend" / "dist"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     admin_token: str = DEFAULT_ADMIN_TOKEN
+    #: The owner's own machine: a loopback caller opens the admin routes without the token. Honoured only
+    #: with ENVIRONMENT=development/test; `check_secrets` refuses to start with it anywhere else.
+    local_admin: bool = False
     auth_secret: str = DEFAULT_AUTH_SECRET
     auth_token_hours: int = 168
     user_agent: str = "Pathfinder/1.0 (COMP7608B student project)"
@@ -281,6 +284,11 @@ class Settings(BaseSettings):
         )
 
     @property
+    def local_admin_active(self) -> bool:
+        """``LOCAL_ADMIN`` as it applies: only ever in development or test."""
+        return self.local_admin and self.environment.strip().lower() in DEV_ENVIRONMENTS
+
+    @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
@@ -293,6 +301,18 @@ class Settings(BaseSettings):
         """
         if self.environment.strip().lower() in DEV_ENVIRONMENTS:
             return
+        shown = (
+            repr(self.environment)
+            if "environment" in self.model_fields_set
+            else f"{self.environment!r} (ENVIRONMENT is not set)"
+        )
+        if self.local_admin:
+            # Local admin opens every admin route without a token: it is for the owner's own machine only.
+            raise RuntimeError(
+                f"Refusing to start with ENVIRONMENT={shown} and LOCAL_ADMIN=true. Local admin mode opens the "
+                "admin routes without a token and is for development only: unset LOCAL_ADMIN, "
+                "or set ENVIRONMENT=development for local work."
+            )
         missing: list[str] = []
         if self.auth_secret == DEFAULT_AUTH_SECRET or len(self.auth_secret) < MIN_AUTH_SECRET_LENGTH:
             missing.append(f"AUTH_SECRET (a random value of at least {MIN_AUTH_SECRET_LENGTH} characters)")
@@ -304,11 +324,6 @@ class Settings(BaseSettings):
                 "\"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\")"
             )
         if missing:
-            shown = (
-                repr(self.environment)
-                if "environment" in self.model_fields_set
-                else f"{self.environment!r} (ENVIRONMENT is not set)"
-            )
             raise RuntimeError(
                 f"Refusing to start with ENVIRONMENT={shown} and insecure defaults. "
                 f"Set {' and '.join(missing)}, or set ENVIRONMENT=development for local work."

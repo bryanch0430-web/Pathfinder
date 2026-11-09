@@ -33,8 +33,10 @@ import {
   runEval,
   saveProfilePreferences,
 } from "../lib/api";
+import { showsAdmin } from "../lib/access";
 import { describeFailure, failureOf, type Failure } from "../lib/failure";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { loadLocalAdmin, useLocalAdmin } from "../lib/localAdmin";
 import { readStoredValue } from "../lib/storage";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
@@ -78,8 +80,9 @@ export function EvaluationPage() {
   const failure = (cause: unknown, key: MessageKey) => failureOf(cause, key, "eval.adminRequired");
 
   const load = async () => {
-    // Every evaluation route needs the admin token, so without one a request can only be refused.
-    if (!adminHeader()["X-Admin-Token"]) {
+    // Every evaluation route needs the admin token, so without one a request can only be refused, unless this is
+    // the owner's own machine in local admin mode.
+    if (!adminHeader()["X-Admin-Token"] && !(await loadLocalAdmin())) {
       setError("eval.adminRequired");
       setLoading(false);
       return;
@@ -230,9 +233,11 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
   const { t } = useI18n();
   const [providers, setProviders] = useState<LlmProvider[]>([]);
   const ownKeys = useModelKeys(undefined, providers);
-  const serverKeys = useModelKeys("server", providers, Boolean(readStoredValue("admin")));
-  // The server card is for the operator: it shows only where an admin token is stored in this browser.
-  const hasAdminToken = Boolean(readStoredValue("admin"));
+  const localAdmin = useLocalAdmin();
+  // The server card is for the operator: it shows only where an admin token is stored in this browser, or in
+  // local admin mode on the owner's own machine.
+  const hasAdminToken = showsAdmin(localAdmin, readStoredValue("admin"));
+  const serverKeys = useModelKeys("server", providers, hasAdminToken);
   useEffect(() => {
     getLlmProviders()
       .then((data) => setProviders(data.providers))
@@ -249,9 +254,9 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
     getConfig()
       .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
       .catch((cause) => setError(failureOf(cause, "errors.config")));
-    // No built-in admin token: the admin request is only sent when one is stored.
+    // No built-in admin token: the admin request is only sent when one is stored, or in local admin mode.
     const adminToken = readStoredValue("admin") || "";
-    if (adminToken) {
+    if (showsAdmin(localAdmin, adminToken)) {
       getInjections(adminToken)
         .then((data) => setInjections(data.events))
         .catch(() => setInjections([]));
@@ -261,7 +266,7 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
     getProfile(clientToken)
       .then(setProfile)
       .catch(() => setProfile(null));
-  }, [clientToken]);
+  }, [clientToken, localAdmin]);
 
   const handleSavePreferences = (preferences: string[]) => {
     setError(null);

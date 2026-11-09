@@ -89,7 +89,7 @@ def register_llm_key_routes(
     def key_owner(request: Request, c: Container) -> str:
         """The server row for an admin asking with ``?scope=server``; otherwise the caller, who is never it."""
         if request.query_params.get("scope") == "server":
-            require_admin(request.headers.get("x-admin-token", ""))
+            require_admin(request, request.headers.get("x-admin-token", ""))
             return SERVER_OWNER
         owner = resolve_identity(request, c)
         if owner == SERVER_OWNER:

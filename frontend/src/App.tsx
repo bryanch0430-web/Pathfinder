@@ -46,7 +46,9 @@ import {
 import { downloadPlanMarkdown } from "./lib/export";
 import { describeFailure, failureOf, type Failure } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
+import { offersSignIn } from "./lib/access";
 import { useI18n, type Locale } from "./lib/i18n";
+import { useLocalAdmin } from "./lib/localAdmin";
 import { planLocaleFor } from "./lib/planLocale";
 import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
@@ -171,6 +173,8 @@ export default function App() {
     [syncAuthUser, pf.reload],
   );
   const [authOpen, setAuthOpen] = useState(false);
+  // Local admin mode (the owner's own machine): no sign-in, registration or sign-out is offered.
+  const signIn = offersSignIn(useLocalAdmin());
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);
   const [guidesLoading, setGuidesLoading] = useState(false);
@@ -531,6 +535,7 @@ export default function App() {
         user={authUser}
         onAuth={() => setAuthOpen(true)}
         onLogout={handleLogout}
+        signIn={signIn}
         onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!, planDisclaimer) : undefined}
         onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
         onShare={pf.plan ? () => void handleShare() : undefined}
@@ -666,7 +671,7 @@ export default function App() {
       {tab === "settings" ? <SettingsPage key={identityEpoch} signedIn={Boolean(authUser)} /> : null}
       </div>
 
-      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} />
+      {signIn ? <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} /> : null}
       <ShareDialog
         open={share.open}
         onClose={() => setShare(CLOSED_SHARE)}

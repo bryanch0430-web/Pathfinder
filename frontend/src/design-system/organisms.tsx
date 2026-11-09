@@ -91,6 +91,7 @@ export function AppHeader({
   user,
   onAuth,
   onLogout,
+  signIn = true,
 }: {
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
@@ -104,6 +105,8 @@ export function AppHeader({
   user?: AuthUser | null;
   onAuth?: () => void;
   onLogout?: () => void;
+  /** False in local admin mode: no Log in button and no Log out item. */
+  signIn?: boolean;
 }) {
   const { t } = useI18n();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -214,26 +217,30 @@ export function AppHeader({
                   >
                     <Icon name="shield" size={14} /> {t("tab.settings")}
                   </button>
-                  <div className="pf-account__divider" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="pf-account__item pf-account__item--danger"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      onLogout?.();
-                    }}
-                  >
-                    <Icon name="logout" size={14} /> {t("header.logout")}
-                  </button>
+                  {signIn ? (
+                    <>
+                      <div className="pf-account__divider" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="pf-account__item pf-account__item--danger"
+                        onClick={() => {
+                          setAccountOpen(false);
+                          onLogout?.();
+                        }}
+                      >
+                        <Icon name="logout" size={14} /> {t("header.logout")}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>
-          ) : (
+          ) : signIn ? (
             <Button size="sm" variant="secondary" iconLeft="user" onClick={onAuth}>
               {t("auth.login")}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

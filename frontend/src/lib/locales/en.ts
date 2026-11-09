@@ -553,6 +553,8 @@ export const EN = {
   "errors.rateLimited": "Too many requests from this device. Wait a minute and try again.",
   "errors.network": "The server could not be reached. Check your connection and try again.",
   "errors.signInEnded": "Your sign-in has ended. Log in again to continue.",
+  "errors.notOpenHere": "This trip is not open to you here.",
+  "errors.signInEndedGuest": "Your sign-in has ended. You can keep planning as a guest.",
 
   "plan.stop": "Stop",
   "plan.openTrips": "Open trips",
