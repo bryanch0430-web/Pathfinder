@@ -82,6 +82,9 @@ HOTEL_SEARCH = "hotels.search"
 PLACES_SEARCH = "places.search"
 #: said (and then not kept: it is an edit outcome) when a request for another or a cheaper hotel found none
 NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel stays."
+#: said (and then not kept: it is an edit outcome) when the hotel selected or named could not be swapped and the
+#: request did not ask for a cheaper one ("help me change the hotel")
+NO_OTHER_HOTEL = "No other verified hotel within the budget was returned; the current hotel stays."
 #: said when the stay an edit put in the plan came with no price, so the total leaves it out
 NEW_STAY_UNPRICED = "The new hotel's price was not returned, so the total does not include the stay."
 #: the flight of the earlier dates is gone from a trip that moved, and none came back for the new ones
@@ -641,9 +644,13 @@ class ModifyPath:
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     if searched:
-                        updated.data_quality.gaps.append(
-                            _gap("hotels", NO_GRANDER_HOTEL if upscale and not cheaper else NO_CHEAPER_HOTEL)
-                        )
+                        if upscale and not cheaper:
+                            outcome = NO_GRANDER_HOTEL
+                        elif referred_stay is not None and not cheaper:
+                            outcome = NO_OTHER_HOTEL
+                        else:
+                            outcome = NO_CHEAPER_HOTEL
+                        updated.data_quality.gaps.append(_gap("hotels", outcome))
                 elif len(updated.days) > 1 and searched:
                     # There is no current hotel to keep: the trip has nights and no stay to put in them.
                     # "for the new dates" only when the dates moved: a budget edit keeps them.
@@ -1707,10 +1714,18 @@ def _imperative_edit(message: str) -> bool:
     return bool(_EDIT_VERB.search(lower)) and not re.match(r"^(?:what|where|when|which|who|why|how)\b", lower)
 
 
+#: how a question opens even when it is typed without "?": "can I change the hotel later", "is the hotel changeable"
+_QUESTION_OPENER = re.compile(
+    r"^\s*(?:(?:can|could|may)\s+i|is\s+(?:it|the)|are|do|does|will|would\s+it|why|when|what|how|where|which)\b",
+    re.IGNORECASE,
+)
+
+
 def _polite_request(message: str) -> bool:
     """A change request however politely put ("can change the hotel", "could you change this", "help me swap it",
-    "pls change hotel"): a change verb and no "?". "can I change the hotel later?" and "why this hotel?" are questions."""
-    return "?" not in message and _imperative_edit(message)
+    "pls change hotel"): a change verb, no "?", and no question opener. "can I change the hotel later", "is the hotel
+    changeable" and "why this hotel?" are questions."""
+    return "?" not in message and not _QUESTION_OPENER.match(message) and _imperative_edit(message)
 
 
 def _one_question(text: str | None) -> str | None:

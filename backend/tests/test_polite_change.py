@@ -27,6 +27,8 @@ from app.infrastructure.observability import NoopTracer
 from tests.test_edit_conversation import DeepPlaces, Trip, event_of, ids, reply_of, run_trip, why_of, writer
 
 REFUSAL = "reads as a question"
+#: the reply when the selected hotel could not be swapped and the request did not ask for a cheaper one
+NO_OTHER = "No other verified hotel within the budget was returned; the current hotel stays."
 POLITE = ["can change", "can change the hotel", "help me change the hotel", "could you change this hotel", "pls change hotel"]
 #: what the live writer made of "help me change the hotel" and "can change the hotel"
 LIVE_DRAFTS = [
@@ -89,7 +91,7 @@ def test_a_polite_change_with_no_other_hotel_says_so_honestly(settings: Settings
 
         assert REFUSAL not in said(events), said(events)
         assert event_of(events, "error") is None, said(events)
-        assert reply == NO_CHEAPER_HOTEL, reply
+        assert reply == NO_OTHER, reply
         assert stored.hotels[0].name == old.name
         assert stored.version == trip.plan.version and ids(stored) == ids(trip.plan)
 
@@ -200,3 +202,52 @@ def test_help_me_change_this_with_a_stop_selected_is_still_the_stop_edit(setting
         assert ids(stored) == ids(trip.plan)
 
     run_trip(settings, scenario, places=DeepPlaces())
+
+
+def test_a_cheaper_hotel_with_no_alternative_still_says_nothing_cheaper(settings: Settings) -> None:
+    hotels = _OnlyTheCurrentStay("Hong Kong")
+
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "A cheaper hotel.", "affected_parts": ["hotel"], "confidence": 0.8})
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+        hotels.keep = old.name
+
+        events = await trip.turn("change to a cheaper hotel", scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert reply_of(events) == NO_CHEAPER_HOTEL, said(events)
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name
+
+    run_trip(settings, scenario, hotels=hotels)
+
+
+@pytest.mark.parametrize("message", ["can I change the hotel later", "is the hotel changeable"])
+def test_a_question_without_a_question_mark_stays_a_question(settings: Settings, message: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9})
+        old = trip.plan.hotels[0]
+
+        with pytest.raises(PlanInvalidError, match=REFUSAL):
+            await _modify(trip, message, scope_item_id=old.id, route_parts=["hotel"])
+        events = await trip.turn(message, scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name, said(events)
+
+    run_trip(settings, scenario)
+
+
+def test_can_you_change_the_hotel_is_a_request(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", LIVE_DRAFTS[0])
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn("can you change the hotel", scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert REFUSAL not in said(events), said(events)
+        assert stored.version == trip.plan.version + 1 and stored.hotels[0].name != old.name, said(events)
+
+    run_trip(settings, scenario)
