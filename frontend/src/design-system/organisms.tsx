@@ -105,7 +105,10 @@ export function AppHeader({
   user?: AuthUser | null;
   onAuth?: () => void;
   onLogout?: () => void;
-  /** False in local admin mode: no Log in button and no Log out item. */
+  /**
+   * False in local admin mode: no Log in button. Log out stays in the account menu of a stored sign-in, so one made
+   * before the mode was turned on can still be cleared.
+   */
   signIn?: boolean;
 }) {
   const { t } = useI18n();
@@ -217,22 +220,18 @@ export function AppHeader({
                   >
                     <Icon name="shield" size={14} /> {t("tab.settings")}
                   </button>
-                  {signIn ? (
-                    <>
-                      <div className="pf-account__divider" />
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="pf-account__item pf-account__item--danger"
-                        onClick={() => {
-                          setAccountOpen(false);
-                          onLogout?.();
-                        }}
-                      >
-                        <Icon name="logout" size={14} /> {t("header.logout")}
-                      </button>
-                    </>
-                  ) : null}
+                  <div className="pf-account__divider" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="pf-account__item pf-account__item--danger"
+                    onClick={() => {
+                      setAccountOpen(false);
+                      onLogout?.();
+                    }}
+                  >
+                    <Icon name="logout" size={14} /> {t("header.logout")}
+                  </button>
                 </div>
               ) : null}
             </div>

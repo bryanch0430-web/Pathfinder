@@ -173,7 +173,8 @@ export default function App() {
     [syncAuthUser, pf.reload],
   );
   const [authOpen, setAuthOpen] = useState(false);
-  // Local admin mode (the owner's own machine): no sign-in, registration or sign-out is offered.
+  // Local admin mode (the owner's own machine): no sign-in or registration is offered. Log out stays in the account
+  // menu while a sign-in from before is stored.
   const signIn = offersSignIn(useLocalAdmin());
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);

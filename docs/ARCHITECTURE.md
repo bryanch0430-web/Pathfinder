@@ -187,14 +187,20 @@ is converted into a safe error and logged.
 
 **Local admin mode.** `LOCAL_ADMIN=true` (`interface/local_admin.py`) is for the owner's own
 machine and is honoured only with `ENVIRONMENT=development` or `test`; `Settings.check_secrets`
-refuses to start with it anywhere else. `require_admin` then lets a request with no
-`X-Admin-Token` through when its direct peer (`request.client.host`, never a forwarded header the
-app reads itself) is loopback; a token that is sent is still checked, so a wrong one is refused.
-`/api/ready` reports `local_admin` for the calling peer, and the frontend (`lib/access.ts`,
+refuses to start with it anywhere else, and also with `FORWARDED_ALLOW_IPS=*` (the
+`--forwarded-allow-ips '*'` flag is not visible to the app and is documented as forbidden).
+`require_admin` then lets a request with no `X-Admin-Token` through only when its direct peer
+(`request.client.host`, never a forwarded header the app reads itself) is a loopback IP, its
+`Host` is `localhost`, `127.0.0.1` or `[::1]` (against DNS rebinding), and, for any method but
+GET/HEAD/OPTIONS, its `Origin` is a loopback origin (against cross-site forms; a write without an
+Origin is refused). A token that is sent is still checked, so a wrong one is refused.
+`/api/ready` reports `local_admin` by the same rule, and the frontend (`lib/access.ts`,
 `lib/localAdmin.ts`) then shows the evaluation pages, the server key card and the threat panel
-without a stored token and hides every sign-in, registration and sign-out control. Nothing
-else changes: trips, profiles and BYOK keys stay bound to their own caller. The Vite proxy sends
-`X-Forwarded-For` (`xfwd`), so a LAN visitor of the dev server is not seen as loopback.
+without a stored token and hides the sign-in and registration controls; Log out stays for a
+sign-in stored before the mode was on. Nothing else changes: trips, profiles and BYOK keys stay
+bound to their own caller. The Vite proxy sends `X-Forwarded-For` (`xfwd`), so a LAN visitor of
+the dev server is not seen as loopback, and Vite 5.4.12 and later refuse a rebinding `Host` on the
+proxy path (`server.allowedHosts`), where `changeOrigin` rewrites the Host the backend sees.
 
 ### Bring your own key
 

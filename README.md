@@ -348,10 +348,17 @@ Check: <http://127.0.0.1:8100/api/ready> · Swagger: <http://127.0.0.1:8100/docs
 **Local admin mode (your own machine only).** Set `LOCAL_ADMIN=true` with
 `ENVIRONMENT=development` to use the app with no sign-in and every admin page open: a browser on
 the same machine (loopback, 127.0.0.1 or ::1) opens the evaluation pages, the threat panel and the
-server "Model & API keys" card without `ADMIN_TOKEN`, and the page hides Log in, Create account and
-Log out. It is development-only and loopback-only: any other caller still needs the token, a wrong
-token is still refused, guests still see only their own trips, and the backend refuses to start
-with `LOCAL_ADMIN` set under any other `ENVIRONMENT`. `/api/ready` reports it as `local_admin`.
+server "Model & API keys" card without `ADMIN_TOKEN`, and the page hides Log in and Create account
+(Log out stays while a sign-in from before is stored). It is development-only and loopback-only:
+the request must also name this machine in its `Host` header (`localhost`, `127.0.0.1` or
+`[::1]`, so open the app by one of those names), and a write must come with a loopback `Origin`,
+so a DNS-rebinding page or another site's form is refused. Any other caller still needs the token,
+a wrong token is still refused, guests still see only their own trips, and the backend refuses to
+start with `LOCAL_ADMIN` set under any other `ENVIRONMENT`. `/api/ready` reports it as `local_admin`.
+**Never combine it with a forwarded-allow-ips of `*`:** uvicorn would then take the caller's own
+`X-Forwarded-For`, so anyone could pass as 127.0.0.1. The backend refuses to start with
+`FORWARDED_ALLOW_IPS=*`, but it cannot see the `--forwarded-allow-ips '*'` command-line flag, so do
+not pass that flag either.
 
 ### 2.4 Frontend (port 5173)
 

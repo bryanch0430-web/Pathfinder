@@ -4,6 +4,7 @@ documented degraded mode, so the application starts with no credentials at all.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -299,6 +300,14 @@ class Settings(BaseSettings):
         secret lets anyone forge a sign-in; the admin token guards the admin
         endpoints. Raises ``RuntimeError`` naming every variable to set.
         """
+        if self.local_admin_active and "*" in (item.strip() for item in os.environ.get("FORWARDED_ALLOW_IPS", "").split(",")):
+            # uvicorn then trusts X-Forwarded-For from every peer and takes its left-most, caller-chosen address,
+            # so any caller could name itself 127.0.0.1. The `--forwarded-allow-ips '*'` flag is not visible here.
+            raise RuntimeError(
+                "Refusing to start with LOCAL_ADMIN=true and FORWARDED_ALLOW_IPS=*: uvicorn would then take the "
+                "caller's own X-Forwarded-For as its address, and any caller could pass as this machine. Unset "
+                "FORWARDED_ALLOW_IPS (the default trusts 127.0.0.1 and ::1) or list the proxy's address, or unset LOCAL_ADMIN."
+            )
         if self.environment.strip().lower() in DEV_ENVIRONMENTS:
             return
         shown = (

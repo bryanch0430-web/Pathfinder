@@ -1,7 +1,8 @@
 /**
  * Local admin mode, decided by the backend (`local_admin` in /api/ready, true only for a caller on the owner's
  * own machine with LOCAL_ADMIN set in development). In that mode the admin areas show without a stored admin
- * token and the page offers no sign-in, registration or sign-out. Pure, so `node --test` can load it.
+ * token and the page offers no sign-in or registration (Log out stays for a sign-in stored before). Pure, so
+ * `node --test` can load it.
  */
 import type { MessageKey } from "./i18n";
 
@@ -15,7 +16,7 @@ export function showsAdmin(localAdmin: boolean, storedAdminToken: string | null 
   return localAdmin || Boolean(storedAdminToken);
 }
 
-/** Whether the page offers sign-in, registration and sign-out. */
+/** Whether the page offers sign-in and registration. */
 export function offersSignIn(localAdmin: boolean): boolean {
   return !localAdmin;
 }
