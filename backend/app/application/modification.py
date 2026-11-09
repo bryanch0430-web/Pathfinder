@@ -335,6 +335,9 @@ class ModifyPath:
             and plan.find_hotel(scope_item_id)
             and _polite_request(message)
             and not _about_another_part(message)
+            and not _stay_change_refused(
+                _stay_as_word(message, plan.find_hotel(scope_item_id).name), selected_stay=True
+            )
         ):
             # The hotel row selected is a selection too: "can change", "help me change the hotel" asks to swap it. The
             # selected stay is the row the edit refers to below, and the swap is the one "swap this hotel" takes.
@@ -362,6 +365,9 @@ class ModifyPath:
             # however politely it is put (v1.3.0: only a message that ends in "?" without a change verb is an ask).
             # One with nothing to act on was asked about above.
             draft.is_question = False
+            if _wants_another_stay(message) and "hotel" not in draft.affected_parts:
+                # "don't move anything, find another hotel": the writer that called it a question named no part.
+                draft.affected_parts = [*draft.affected_parts, "hotel"]
         if draft.is_question:
             raise PlanInvalidError(
                 "This message reads as a question, not a change. Ask it as a question and I will answer "
@@ -426,10 +432,17 @@ class ModifyPath:
             and referred == scope_item_id
             and plan.find_hotel(referred)
             and _name_mentioned(plan, message) is None
-            and _about_another_part(message)
+            and (
+                _about_another_part(message)
+                or (
+                    _stay_change_refused(_stay_as_word(message, plan.find_hotel(referred).name), selected_stay=True)
+                    and not _refuses_change(message)
+                )
+            )
         ):
-            # The hotel is selected but the sentence is about another part or a day ("Add a cafe on day 2"): the
-            # stay is not the row it changes.
+            # The hotel is selected but the sentence is about another part or a day ("Add a cafe on day 2"), or it
+            # refuses the hotel change and asks for another ("don't change the hotel, add a cafe on day 2"): the stay
+            # is not the row it changes.
             referred = None
         # A pace or meal rule is about the whole plan. A selected chip must
         # not turn it into a question about one stop.
@@ -491,8 +504,11 @@ class ModifyPath:
         stay = referred_stay or (plan.hotels[0] if plan.hotels else None)
         about_stay = _stay_as_word(message, stay.name) if stay is not None else message
         budget_in_form = "budget" in form_changes
-        # "don't change the hotel", "no need to change anything": a refused change asks for no other hotel.
-        change_refused = _refuses_change(about_stay)
+        # "don't change the hotel", "no need to change anything": a refused change of the stay asks for no other hotel.
+        # A refusal aimed at something else does not ("don't remove any stops, I want a nicer hotel").
+        change_refused = _stay_change_refused(
+            about_stay, selected_stay=bool(scope_item_id and plan.find_hotel(scope_item_id))
+        )
         hotel_requested = (
             not replanning
             and (
@@ -1733,8 +1749,17 @@ def _imperative_edit(message: str) -> bool:
     return bool(_EDIT_VERB.search(lower)) and not re.match(r"^(?:what|where|when|which|who|why|how)\b", lower)
 
 
-#: a greeting or a filler word in front of the sentence proper: "hi, can I ...", "ok can i ...", "so, ..."
-_LEADING_FILLER = re.compile(r"^\s*(?:(?:hi|hey|hello|ok|okay|so|well|um)\b[\s,.!]*)+", re.IGNORECASE)
+#: a greeting or a filler in front of the sentence proper: "hi, can I ...", "ok can i ...", "sorry, ...", "btw ...",
+#: "quick question: ...", "thanks! ...", "hmm ...". "please," with its comma only: "please change the hotel" is a request.
+_LEADING_FILLER = re.compile(
+    r"^\s*(?:(?:(?:hi|hey|hello)(?:\s+there)?|ok|okay|so|well|um+|hm+|sorry|btw|by\s+the\s+way|quick\s+question"
+    r"|just\s+wondering|thanks|thank\s+you)\b[\s,.!:]*|please\s*,\s*)+",
+    re.IGNORECASE,
+)
+#: a change that takes "it", "this" or "that" as its object: with the hotel selected, that is the hotel
+_PRONOUN_CHANGE = re.compile(
+    r"\b(?:swap|switch|change|replace|move|upgrade|downgrade)\s+(?:it|this|that)\b", re.IGNORECASE
+)
 #: how a question or a remark opens even when it is typed without "?": "can I change the hotel later", "is the hotel
 #: changeable", "should we change the hotel", "I wonder if ...". The "you" forms ("can you", "will you", "is it
 #: possible to", "are you able to") and a plain "do change the hotel" are requests.
@@ -1757,19 +1782,47 @@ def _refuses_change(message: str) -> bool:
     return bool(found) and all(_refused(message, match) for match in found)
 
 
+def _stay_changes(about: str, *, selected_stay: bool) -> list[re.Match[str]]:
+    """The change words aimed at the stay (its name read as "the hotel"): "change the hotel", "a different hotel",
+    "the hotel instead", and "swap it" / "change this" when the hotel is the row selected."""
+    aimed = [found for found in _AIMED_AT_STAY.finditer(about) if selected_stay or not found.groupdict().get("pronoun")]
+    return aimed + list(_CHANGE_HOTEL.finditer(about))
+
+
+def _wants_another_stay(about: str, *, selected_stay: bool = False) -> bool:
+    """A change aimed at the stay that is not refused: "don't move anything, find another hotel" asks for one."""
+    return any(not _refused(about, found) for found in _stay_changes(about, selected_stay=selected_stay))
+
+
+def _stay_change_refused(about: str, *, selected_stay: bool) -> bool:
+    """The sentence refuses to change the stay. A refusal counts only when it is aimed at the stay ("don't change the
+    hotel, add a cafe on day 2"), and a change of the stay that is not refused wins ("don't remove any stops, I want a
+    nicer hotel"). With no change aimed at the stay, every change word refused refuses it too ("no need to change
+    anything")."""
+    aimed = _stay_changes(about, selected_stay=selected_stay)
+    if aimed:
+        return all(_refused(about, found) for found in aimed)
+    return _refuses_change(about)
+
+
 def _polite_request(message: str) -> bool:
     """A change request however politely put ("can change the hotel", "could you change this", "help me swap it",
-    "pls change hotel"): a change verb that is not refused, no "?", and no question opener after a greeting.
-    "can I change the hotel later", "should we change the hotel", "is the hotel changeable", "why this hotel?" and
-    "don't change the hotel" are not requests."""
-    if "?" in message or _refuses_change(message):
+    "pls change hotel", "no need to add anything, just a different hotel please"): no "?", no question opener after a
+    greeting, and a change of the stay or a change word that is not refused. "can I change the hotel later", "should we
+    change the hotel", "is the hotel changeable", "why this hotel?" and "don't change the hotel" are not requests."""
+    if "?" in message or _QUESTION_OPENER.match(_LEADING_FILLER.sub("", message)):
         return False
-    return not _QUESTION_OPENER.match(_LEADING_FILLER.sub("", message)) and _imperative_edit(message)
+    if _wants_another_stay(message):
+        return True
+    return _imperative_edit(message) and not _refuses_change(message)
 
 
 def _about_another_part(message: str) -> bool:
     """The sentence names a part of the trip other than the hotel, or a day, and no hotel word: "Add a cafe on day 2"
-    with the hotel selected is about day 2, not the stay. A budget word ("make it cheaper") still reads with the stay."""
+    with the hotel selected is about day 2, not the stay. A budget word ("make it cheaper") still reads with the stay,
+    and so does a change of "it" or "this" ("move it closer to the temple")."""
+    if _PRONOUN_CHANGE.search(message):
+        return False
     parts = set(_rule_parts(message))
     if "hotel" in parts:
         return False
