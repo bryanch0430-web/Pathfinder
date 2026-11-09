@@ -326,6 +326,13 @@ class ModifyPath:
                 message.lower(),
             ):
                 draft.is_question = False
+        elif scope_item_id and not more_stops and plan.find_hotel(scope_item_id) and _polite_request(message):
+            # The hotel row selected is a selection too: "can change", "help me change the hotel" asks to swap it. The
+            # selected stay is the row the edit refers to below, and the swap is the one "swap this hotel" takes.
+            # "can I change the hotel later?" stays a question.
+            draft.is_question = False
+            if "hotel" not in draft.affected_parts:
+                draft.affected_parts = [*draft.affected_parts, "hotel"]
         if not (dates_move or whole_trip or replanning):
             # An edit that needs a fact nobody gave ("add the place I live") asks for it, once, instead of refusing.
             asked = _missing_fact_question(
@@ -341,6 +348,11 @@ class ModifyPath:
                 unchanged = plan.model_copy(deep=True)
                 unchanged.change_summary = question
                 return EditResult(unchanged, [], asks=EditQuestion(question, fact=fact, request=message))
+        if draft.is_question and _polite_request(message):
+            # "can change the hotel", "help me change it", "pls swap this": a change verb and no "?" is a request,
+            # however politely it is put (v1.3.0: only a message that ends in "?" without a change verb is an ask).
+            # One with nothing to act on was asked about above.
+            draft.is_question = False
         if draft.is_question:
             raise PlanInvalidError(
                 "This message reads as a question, not a change. Ask it as a question and I will answer "
@@ -1695,6 +1707,12 @@ def _imperative_edit(message: str) -> bool:
     return bool(_EDIT_VERB.search(lower)) and not re.match(r"^(?:what|where|when|which|who|why|how)\b", lower)
 
 
+def _polite_request(message: str) -> bool:
+    """A change request however politely put ("can change the hotel", "could you change this", "help me swap it",
+    "pls change hotel"): a change verb and no "?". "can I change the hotel later?" and "why this hotel?" are questions."""
+    return "?" not in message and _imperative_edit(message)
+
+
 def _one_question(text: str | None) -> str | None:
     """The writer's question as one line, or None when it gave none."""
     line = " ".join(strip_fence_tags(text or "").split())[:240]
@@ -1930,7 +1948,12 @@ def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
     if changed_hotel is not None:
         for index, hotel in enumerate(updated.hotels):
             if hotel.id == item_id:
+                same = changed_hotel.name == hotel.name
                 updated.hotels[index] = changed_hotel
+                if same and fresh_gaps:
+                    # The stay could not be swapped: why ("No cheaper verified hotel was returned") is the reply,
+                    # as it is for a stop that stayed, not "Nothing in the plan matched".
+                    updated.data_quality.gaps.append(fresh_gaps[-1])
                 return
     if original.find_item(item_id) is not None:
         # The referred stop is gone from the edited plan: it was removed, so it
