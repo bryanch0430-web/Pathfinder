@@ -1,0 +1,448 @@
+"""A polite request to change something is a change, not a question.
+
+Seen live on a Bangkok plan with the hotel row selected: "can change", "can change the hotel" and "help me change the
+hotel" were each answered "This message reads as a question, not a change". The router sent them to the edit, the
+writer read the politeness as a question (`is_question: true`), and the rule that turns an imperative with a selected
+row into a change only knew the stops of the days: a selected hotel is not one of them.
+
+- With the hotel selected, a polite change request swaps it for another verified hotel and the reply names both.
+  With no other verified hotel the reply says so honestly, and the plan is unchanged.
+- A message with no "?" that has a change verb is never refused as a question, whatever the writer says.
+- "can change" with nothing selected and no part named asks one short question instead of refusing.
+- Real questions stay questions: "can I change the hotel later?" is not an edit, nor is "why this hotel?".
+
+Offline: the rig of tests/test_edit_conversation.py with scripted writer replies.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.application.modification import NO_CHEAPER_HOTEL, WHICH_EDIT_QUESTION
+from app.application.toolbox import Toolbox
+from app.config import Settings
+from app.domain.models import TicketOption, TripPlan
+from app.domain.errors import PlanInvalidError
+from app.evaluation import SandboxHotels
+from app.infrastructure.observability import NoopTracer
+from tests.test_edit_conversation import DeepPlaces, Trip, event_of, ids, reply_of, run_trip, why_of, writer
+
+REFUSAL = "reads as a question"
+#: the reply when the selected hotel could not be swapped and the request did not ask for a cheaper one
+NO_OTHER = "No other verified hotel within the budget was returned; the current hotel stays."
+POLITE = ["can change", "can change the hotel", "help me change the hotel", "could you change this hotel", "pls change hotel"]
+#: what the live writer made of "help me change the hotel" and "can change the hotel"
+LIVE_DRAFTS = [
+    {"description": "asking if the hotel can be changed", "affected_parts": ["hotel"], "is_question": True, "confidence": 0.7},
+    {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9},
+]
+
+
+def said(events: list) -> str:
+    """Everything the turn said: the reply, and the message of an error event (the canned refusal is sent as one)."""
+    error = event_of(events, "error") or {}
+    return reply_of(events) + str(error.get("message") or "")
+
+
+def seed_flight(trip: Trip) -> None:
+    """Put a flight in the stored plan (the fixture plan has none), so an edit that touched the flights would show."""
+    plan = trip.store.get_plan(trip.session_id)
+    plan.tickets = [TicketOption(mode="flight", name="CX 101", origin="TPE", destination="HKG")]
+    trip.store.save_plan(plan, None, replace=True)
+    trip.plan = trip.store.get_plan(trip.session_id)
+
+
+def flights(plan: TripPlan) -> list[tuple[str, str]]:
+    return [(ticket.id, ticket.name) for ticket in plan.tickets]
+
+
+def swapped_only_the_hotel(trip: Trip, stored: TripPlan, old_name: str, events: list) -> None:
+    assert REFUSAL not in said(events), said(events)
+    assert stored.version == trip.plan.version + 1 and stored.hotels[0].name != old_name, said(events)
+    assert ids(stored) == ids(trip.plan), "no stop changed"
+    assert flights(stored) == flights(trip.plan) == [(trip.plan.tickets[0].id, "CX 101")], "the flight is untouched"
+
+
+class _OnlyTheCurrentStay(SandboxHotels):
+    """The hotel source returns the plan's own stay and no other."""
+
+    keep: str = ""
+
+    async def search(self, **kwargs):
+        rows = await super().search(**kwargs)
+        return [row for row in rows if row.name == self.keep]
+
+
+@pytest.mark.parametrize("draft", LIVE_DRAFTS, ids=["hotel-0.7", "nothing-0.9"])
+@pytest.mark.parametrize("message", POLITE)
+def test_a_polite_change_with_the_hotel_selected_swaps_the_hotel(settings: Settings, message: str, draft: dict) -> None:
+    async def scenario(trip: Trip) -> None:
+        seed_flight(trip)
+        writer(trip.llm, "modify.extract", draft)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn(message, scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+        reply = reply_of(events)
+
+        assert REFUSAL not in said(events), said(events)
+        assert event_of(events, "error") is None, events
+        assert stored.version == trip.plan.version + 1, reply
+        assert stored.hotels[0].name != old.name, reply
+        assert ids(stored) == ids(trip.plan), "only the hotel changed"
+        assert flights(stored) == flights(trip.plan) and len(flights(stored)) == 1, "the flight is untouched"
+        assert old.name in reply and stored.hotels[0].name in reply, reply
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("message", POLITE)
+def test_a_polite_change_with_no_other_hotel_says_so_honestly(settings: Settings, message: str) -> None:
+    hotels = _OnlyTheCurrentStay("Hong Kong")
+
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", LIVE_DRAFTS[0])
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+        hotels.keep = old.name
+
+        events = await trip.turn(message, scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+        reply = reply_of(events)
+
+        assert REFUSAL not in said(events), said(events)
+        assert event_of(events, "error") is None, said(events)
+        assert reply == NO_OTHER, reply
+        assert stored.hotels[0].name == old.name
+        assert stored.version == trip.plan.version and ids(stored) == ids(trip.plan)
+
+    run_trip(settings, scenario, hotels=hotels)
+
+
+def test_can_change_with_nothing_selected_asks_one_question(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", LIVE_DRAFTS[1])
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+
+        events = await trip.turn("can change")
+        reply = reply_of(events)
+
+        assert REFUSAL not in said(events), said(events)
+        card = event_of(events, "clarify")
+        assert card is not None and card["question"] == WHICH_EDIT_QUESTION, events
+        assert reply == WHICH_EDIT_QUESTION
+        assert trip.store.get_plan(trip.session_id).version == trip.plan.version
+
+    run_trip(settings, scenario)
+
+
+async def _modify(trip: Trip, message: str, *, scope_item_id: str | None, route_parts: list[str]):
+    return await trip.rig.modify_path.run(
+        plan=trip.plan,
+        context=trip.store.get_context(trip.session_id),
+        message=message,
+        route_parts=route_parts,
+        toolbox=Toolbox(path="modify", tracer=NoopTracer(), store=None, request_id="polite"),
+        tracer=NoopTracer(),
+        emit=lambda *_: None,
+        scope_item_id=scope_item_id,
+    )
+
+
+@pytest.mark.parametrize("message", POLITE[1:])
+def test_a_change_verb_without_a_question_mark_is_never_refused_as_a_question(settings: Settings, message: str) -> None:
+    """The general rule, at the edit itself: nothing selected, the writer says "question", the router names the hotel."""
+
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", LIVE_DRAFTS[0])
+        old = trip.plan.hotels[0]
+
+        updated, diff = await _modify(trip, message, scope_item_id=None, route_parts=["hotel"])
+
+        assert updated.hotels[0].name != old.name, updated.change_summary
+        assert any(change["kind"] == "hotel" for change in diff), diff
+
+    run_trip(settings, scenario)
+
+
+def test_a_real_question_about_changing_the_selected_hotel_stays_a_question(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9})
+
+        with pytest.raises(PlanInvalidError, match=REFUSAL):
+            await _modify(trip, "can I change the hotel later?", scope_item_id=trip.plan.hotels[0].id, route_parts=["hotel"])
+
+    run_trip(settings, scenario)
+
+
+def test_a_real_question_turn_with_the_hotel_selected_leaves_the_plan_alone(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9})
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn("can I change the hotel later?", scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name, reply_of(events)
+
+    run_trip(settings, scenario)
+
+
+def test_why_this_hotel_is_not_an_edit(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9})
+        old = trip.plan.hotels[0]
+
+        with pytest.raises(PlanInvalidError, match=REFUSAL):
+            await _modify(trip, "why this hotel?", scope_item_id=old.id, route_parts=["hotel"])
+        events = await trip.turn("why this hotel?", scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name, reply_of(events)
+
+    run_trip(settings, scenario)
+
+
+def test_help_me_change_this_with_a_stop_selected_is_still_the_stop_edit(settings: Settings) -> None:
+    """The selected stop's own path, as "replace this with something else" takes it: only that stop may change (this
+    rig has no verified alternative for it, so the reply says so), and the hotel is not touched."""
+
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", LIVE_DRAFTS[1])
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        selected = trip.stop_on(2)
+
+        events = await trip.turn("help me change this", scope_item_id=selected.id)
+        stored = trip.store.get_plan(trip.session_id)
+        reply = reply_of(events)
+
+        assert REFUSAL not in said(events), said(events)
+        assert "A stop was selected, so only that stop could change." in why_of(events), why_of(events)
+        assert f"No verified alternative for '{selected.name}'" in reply, reply
+        assert stored.hotels[0].name == trip.plan.hotels[0].name, "the hotel is not touched"
+        assert ids(stored) == ids(trip.plan)
+
+    run_trip(settings, scenario, places=DeepPlaces())
+
+
+def test_a_cheaper_hotel_with_no_alternative_still_says_nothing_cheaper(settings: Settings) -> None:
+    hotels = _OnlyTheCurrentStay("Hong Kong")
+
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "A cheaper hotel.", "affected_parts": ["hotel"], "confidence": 0.8})
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+        hotels.keep = old.name
+
+        events = await trip.turn("change to a cheaper hotel", scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert reply_of(events) == NO_CHEAPER_HOTEL, said(events)
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name
+
+    run_trip(settings, scenario, hotels=hotels)
+
+
+@pytest.mark.parametrize("message", ["can I change the hotel later", "is the hotel changeable"])
+def test_a_question_without_a_question_mark_stays_a_question(settings: Settings, message: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9})
+        old = trip.plan.hotels[0]
+
+        with pytest.raises(PlanInvalidError, match=REFUSAL):
+            await _modify(trip, message, scope_item_id=old.id, route_parts=["hotel"])
+        events = await trip.turn(message, scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name, said(events)
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "can you change the hotel",
+        "will you change the hotel",
+        "is it possible to change the hotel",
+        "are you able to change the hotel",
+        "do change the hotel",
+        "hi, could you change the hotel",
+        "change the hotel, not the flights",
+    ],
+)
+def test_a_you_form_or_a_plain_do_is_a_request(settings: Settings, message: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        seed_flight(trip)
+        writer(trip.llm, "modify.extract", LIVE_DRAFTS[0])
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn(message, scope_item_id=old.id)
+
+        swapped_only_the_hotel(trip, trip.store.get_plan(trip.session_id), old.name, events)
+
+    run_trip(settings, scenario)
+
+
+#: the writer reading a refusal as a question, and reading it (correctly) as no question
+REFUSAL_DRAFTS = [
+    {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.6},
+    {"description": "keep the hotel", "affected_parts": ["hotel"], "is_question": False, "confidence": 0.6},
+]
+
+
+#: the three writer readings: a question with no parts, a question about the hotel, and a change of the hotel
+DRAFTS = {
+    "Q": {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9},
+    "Qh": {"description": "", "affected_parts": ["hotel"], "is_question": True, "confidence": 0.7},
+    "Nh": {"description": "change the hotel", "affected_parts": ["hotel"], "is_question": False, "confidence": 0.7},
+}
+
+
+@pytest.mark.parametrize("selected", [True, False], ids=["selected", "unselected"])
+@pytest.mark.parametrize("draft", [*REFUSAL_DRAFTS, *DRAFTS.values()], ids=["question", "not-question", *DRAFTS])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "don't change the hotel",
+        "I don't want to change the hotel",
+        "please don't change the hotel",
+        "no need to change anything",
+        "do not change the hotel",
+    ],
+)
+def test_refusing_a_change_never_swaps_the_hotel(settings: Settings, message: str, draft: dict, selected: bool) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", draft)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn(message, scope_item_id=old.id if selected else None)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.hotels[0].name == old.name, said(events)
+        assert stored.version == trip.plan.version, said(events)
+        assert ids(stored) == ids(trip.plan) and stored.tickets == trip.plan.tickets
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "hi, can I change the hotel later",
+        "ok can i change the hotel later",
+        "I wonder if I can change the hotel",
+        "tell me if the hotel can change",
+        "should we change the hotel",
+        "not sure if we should change the hotel",
+        "do you think we should change the hotel",
+        "are there other hotels",
+        "do you have another hotel",
+        "sorry, can I change the hotel later",
+        "btw can I change the hotel later",
+        "by the way, can I change the hotel later",
+        "quick question: can I change the hotel later",
+        "just wondering, can I change the hotel later",
+        "thanks! can I change the hotel later",
+        "thank you, can I change the hotel later",
+        "hi there, can I change the hotel later",
+        "hmm should we change the hotel",
+        "please, can I change the hotel later",
+    ],
+)
+def test_a_remark_or_a_question_about_the_hotel_stays_a_question(settings: Settings, message: str) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.9})
+        old = trip.plan.hotels[0]
+
+        with pytest.raises(PlanInvalidError, match=REFUSAL):
+            await _modify(trip, message, scope_item_id=old.id, route_parts=["hotel"])
+        events = await trip.turn(message, scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == trip.plan.version and stored.hotels[0].name == old.name, said(events)
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("draft", [
+    {"description": "Add a cafe on day 2", "affected_parts": ["attraction", "day_2"], "is_question": False, "confidence": 0.9},
+    {"description": "", "affected_parts": [], "is_question": True, "confidence": 0.6},
+], ids=["writer-read-it", "writer-question"])
+def test_an_add_on_a_day_with_the_hotel_selected_does_not_swap_the_hotel(settings: Settings, draft: dict) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", draft)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn("Add a cafe on day 2", scope_item_id=old.id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.hotels[0].name == old.name, said(events)
+        assert stored.tickets == trip.plan.tickets
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("selected", [True, False], ids=["selected", "unselected"])
+@pytest.mark.parametrize("draft", DRAFTS.values(), ids=list(DRAFTS))
+@pytest.mark.parametrize(
+    "message",
+    [
+        "no need to add anything, just a different hotel please",
+        "don't remove any stops, I want a nicer hotel",
+        "don't move anything, find another hotel",
+    ],
+)
+def test_a_refusal_aimed_elsewhere_does_not_stop_a_hotel_swap(settings: Settings, message: str, draft: dict, selected: bool) -> None:
+    async def scenario(trip: Trip) -> None:
+        seed_flight(trip)
+        writer(trip.llm, "modify.extract", draft)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn(message, scope_item_id=old.id if selected else None)
+
+        swapped_only_the_hotel(trip, trip.store.get_plan(trip.session_id), old.name, events)
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("selected", [True, False], ids=["selected", "unselected"])
+@pytest.mark.parametrize("draft", DRAFTS.values(), ids=list(DRAFTS))
+def test_refusing_the_hotel_change_while_adding_a_cafe_keeps_the_hotel(settings: Settings, draft: dict, selected: bool) -> None:
+    async def scenario(trip: Trip) -> None:
+        seed_flight(trip)
+        writer(trip.llm, "modify.extract", draft)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn("don't change the hotel, add a cafe on day 2", scope_item_id=old.id if selected else None)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.hotels[0].name == old.name, said(events)
+        assert flights(stored) == flights(trip.plan)
+
+    run_trip(settings, scenario)
+
+
+@pytest.mark.parametrize("draft", DRAFTS.values(), ids=list(DRAFTS))
+@pytest.mark.parametrize(
+    "message",
+    ["swap it for one near the train station", "move it closer to the temple", "change this to somewhere near the museum"],
+)
+def test_it_or_this_with_the_hotel_selected_is_the_hotel(settings: Settings, message: str, draft: dict) -> None:
+    async def scenario(trip: Trip) -> None:
+        seed_flight(trip)
+        writer(trip.llm, "modify.extract", draft)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        old = trip.plan.hotels[0]
+
+        events = await trip.turn(message, scope_item_id=old.id)
+
+        swapped_only_the_hotel(trip, trip.store.get_plan(trip.session_id), old.name, events)
+
+    run_trip(settings, scenario)
