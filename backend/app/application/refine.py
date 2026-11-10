@@ -16,6 +16,7 @@ leaves it as it is.
 
 from __future__ import annotations
 
+import asyncio
 import math
 import re
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ from datetime import date
 from itertools import permutations
 from typing import Any, Literal
 
-from app.application.choices import _as_alternative, swap_option
+from app.application.choices import _as_alternative, stay_dates_match, swap_option
 from app.application.opening_hours import windows_on
 from app.application.planner import (
     DAY_LAST_END,
@@ -39,7 +40,7 @@ from app.application.planner import (
 )
 from app.application.transfers import refresh_transfers, with_transfer_note
 from app.application.trip_rules import flight_windows
-from app.domain.models import DayPlan, ItemType, PlanItem, TripContext, TripPlan, selected_ticket
+from app.domain.models import DayPlan, ItemType, PlanAlternative, PlanItem, TripContext, TripPlan, selected_ticket
 from app.infrastructure.http import haversine_km
 from app.infrastructure.providers.routes import model_travel
 
@@ -70,14 +71,16 @@ MEAL_WINDOWS = {
 REORDER_MIN_SAVING = 0.20
 #: ... and at least this many kilometres.
 REORDER_MIN_KM = 1.0
-#: Runs of stops longer than this are not reordered (permutations).
-REORDER_MAX_RUN = 7
+#: Runs of stops up to this long are reordered by trying every order; longer ones by 2-opt.
+REORDER_BRUTE_FORCE_RUN = 5
 #: Opens a note that states an issue the loop could not fix; replaced on every run.
 CHECK_PREFIX = "Plan check: "
 #: Opens a note that states a change the loop made; kept.
 CHANGE_PREFIX = "Plan change: "
 #: Most issue notes written on the plan.
 MAX_CHECK_NOTES = 6
+#: Most change notes kept on the plan (the latest ones).
+MAX_CHANGE_NOTES = 6
 
 _WEEKDAY = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 _AVOID = re.compile(r"\b(?:avoid|avoiding|no|skip|without|not)\s+(?:any\s+|the\s+)?([a-z][a-z\-]{2,})", re.IGNORECASE)
@@ -253,7 +256,7 @@ def _preference_issues(index: int, ordered: list[PlanItem], ctx: _Context) -> li
     for item in ordered:
         if item.type not in {ItemType.ATTRACTION, ItemType.MEAL}:
             continue
-        reason = _conflict(item.name, item.cuisine, item.tags, item.type is ItemType.MEAL, ctx)
+        reason = _conflict(item, item.type is ItemType.MEAL, ctx)
         if reason:
             issues.append(PlanIssue(PREFERENCE, index, (item.id,), "warn", f"{item.name} {reason}."))
     return issues
@@ -274,6 +277,7 @@ def _budget_issue(plan: TripPlan) -> PlanIssue | None:
             option
             for option in plan.hotel_options
             if option.id != stay.id
+            and stay_dates_match(option, stay)  # a rate for other dates is not a cheaper stay
             and option.price_per_night is not None
             and option.price_per_night.currency == stay.price_per_night.currency
             and option.price_per_night.amount < stay.price_per_night.amount
@@ -314,24 +318,32 @@ def refine_plan(
     *,
     limits: RefineLimits | None = None,
     keep_ids: set[str] | frozenset[str] | tuple[str, ...] = (),
+    only_days: set[int] | frozenset[int] | None = None,
+    changes: list[str] | None = None,
 ) -> tuple[TripPlan, list[PlanIssue], int]:
     """A refined copy of ``plan``, the issues still on it, and the rounds of fixes run.
 
-    ``keep_ids`` are stops the traveller just chose: they are never swapped or moved out. Issues
-    left at the end are written as plan notes (``CHECK_PREFIX``); a change the loop made is noted
-    once (``CHANGE_PREFIX``). Transfers the loop made stale are cleared; ``refine_and_refresh``
-    fetches them again.
+    ``keep_ids`` are stops the traveller just chose: they are never swapped or moved out. With
+    ``only_days`` (day indexes) only those days are changed; the whole plan is still checked.
+    Issues left at the end are written as plan notes (``CHECK_PREFIX``); every change the loop
+    made is noted (``CHANGE_PREFIX``) and appended to ``changes`` when given. Transfers the loop
+    made stale are cleared; ``refine_and_refresh`` fetches them again.
     """
     refined = plan.model_copy(deep=True)
     rounds = 0
-    changes: list[str] = []
+    made: list[str] = []
     for _ in range(max(0, max_rounds)):
         issues = evaluate_plan(refined, context, limits=limits, keep_ids=keep_ids)
+        if only_days is not None:
+            issues = [issue for issue in issues if issue.day in only_days]
         if not any(issue.code in FIXABLE for issue in issues):
             break
         rounds += 1
-        if not _apply_fixes(refined, context, issues, limits=limits, keep_ids=keep_ids, changes=changes):
+        if not _apply_fixes(refined, context, issues, limits=limits, keep_ids=keep_ids, changes=made):
             break
+    if changes is not None:
+        changes.extend(made)
+    changes = made
     remaining = evaluate_plan(refined, context, limits=limits, keep_ids=keep_ids)
     _write_notes(refined, remaining, changes)
     return refined, remaining, rounds
@@ -346,24 +358,35 @@ async def refine_and_refresh(
     toolbox: Any | None = None,
     transfers: Any | None = None,
     keep_ids: set[str] | frozenset[str] | tuple[str, ...] = (),
+    only_days: set[int] | frozenset[int] | None = None,
+    changes: list[str] | None = None,
 ) -> tuple[TripPlan, list[PlanIssue], int]:
-    """``refine_plan``, then the transfers of every day it changed, from the transport model.
+    """``refine_plan`` (in a worker thread: it is CPU work), then the transfers of every day it changed.
 
     The transfers come through the toolbox's logged ``routes.segments`` call like the planner's own
     (no network with the transport model), and only for days whose stops or times changed.
     """
     rounds_cap = max_rounds if max_rounds is not None else int(getattr(settings, "refine_max_rounds", 3))
-    refined, issues, rounds = refine_plan(
-        plan, context, max_rounds=rounds_cap, limits=RefineLimits.from_settings(settings), keep_ids=keep_ids
+    refined, issues, rounds = await asyncio.to_thread(
+        refine_plan,
+        plan, context, max_rounds=rounds_cap, limits=RefineLimits.from_settings(settings), keep_ids=keep_ids,
+        only_days=only_days, changes=changes,
     )
     if rounds:
-        await refresh_transfers(
+        moved = await refresh_transfers(
             plan,
             refined,
             toolbox=toolbox,
             source=transfers,
             buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
         )
+        if moved:
+            # The fresh transfers pushed stops later: a change like any other, told the same way.
+            names = list(dict.fromkeys(moved))
+            told = [f"{', '.join(names)} start later to leave time for the fetched transfers."]
+            if changes is not None:
+                changes.extend(told)
+            _write_notes(refined, issues, told)
     return refined, issues, rounds
 
 
@@ -418,7 +441,13 @@ def _fix_day(plan: TripPlan, day: DayPlan, issues: list[PlanIssue], ctx: _Contex
     for issue in issues:
         if issue.code == MEAL_WINDOW and issue.item_ids:
             item = by_id.get(issue.item_ids[0])
+            before = item.start if item is not None else ""
             if item is not None and not _protected(item, ctx) and _move_meal(day, item, ctx):
+                label = "cafe stop" if item.meal_slot == "snack" else item.meal_slot
+                changes.append(
+                    f"The {label} at {item.name} on {_day_name(day.date)} moved from {before} to {item.start}, "
+                    "inside its usual time."
+                )
                 return True
 
     if codes & {DAY_HOURS, DAY_WALKING} and _trim(plan, day, ctx, changes):
@@ -427,17 +456,29 @@ def _fix_day(plan: TripPlan, day: DayPlan, issues: list[PlanIssue], ctx: _Contex
     if INEFFICIENT_ORDER in codes:
         better = _better_order(day, ordered, ctx)
         if better is not None:
-            order, times, _, _ = better
+            order, times, old_km, new_km = better
             _set_times(order, times)
             day.items = order
             _settle_transfers(day, set())
+            changes.append(
+                f"The stops on {_day_name(day.date)} are in a shorter order ({new_km:.1f} km instead of {old_km:.1f} km): "
+                f"{', '.join(item.name for item in order if item.type is ItemType.ATTRACTION)}."
+            )
             return True
 
     if TRAVEL_GAP in codes:
         times = _retime(ordered, day.date, ctx, compress=False)
         if times is not None and times != _times(ordered):
+            moved = [
+                f"{item.name} {item.start} to {_hhmm(start)}"
+                for item, (start, _end) in zip(ordered, times)
+                if _minutes(item.start) != start
+            ]
             _set_times(ordered, times)
             day.items = ordered
+            changes.append(
+                f"Stops on {_day_name(day.date)} start later to leave time for the transfers: {', '.join(moved)}."
+            )
             return True
     return False
 
@@ -449,8 +490,10 @@ def _open_alternative(item: PlanItem, day_date: date, ctx: _Context):
     for alt in item.alternatives:
         if item.type is ItemType.ATTRACTION and (not alt.source_refs or alt.geo is None):
             continue
-        if _conflict(alt.name, alt.cuisine, [], item.type is ItemType.MEAL, ctx):
+        if _conflict(alt, item.type is ItemType.MEAL, ctx):
             continue
+        if item.type is ItemType.MEAL and ctx.diet and not _labelled_for_diet(alt, ctx.diet):
+            continue  # a meal swapped in under a diet must be one its source labels for it
         windows = windows_on(alt.opening_hours, day_date) if alt.opening_hours else None
         if windows == [] or (windows and not _fits(windows, start, end)):
             continue
@@ -549,10 +592,13 @@ def _better_order(day: DayPlan, ordered: list[PlanItem], ctx: _Context):
         after = order[end] if end < len(order) else None
         head = [] if before is not None and before.geo is not None else run[:1]
         body = run[len(head):]
-        if 2 <= len(body) <= REORDER_MAX_RUN:
+        if len(body) >= 2:
             lead = [before] if before is not None and before.geo is not None else head
             tail = [after] if after is not None and after.geo is not None else []
-            best = min(permutations(body), key=lambda perm: _path_km([*lead, *perm, *tail]))
+            if len(body) <= REORDER_BRUTE_FORCE_RUN:
+                best = list(min(permutations(body), key=lambda perm: _path_km([*lead, *perm, *tail])))
+            else:
+                best = _two_opt(lead, body, tail)
             order[position:end] = [*head, *best]
         position = end
     if [item.id for item in order] == [item.id for item in ordered]:
@@ -564,6 +610,22 @@ def _better_order(day: DayPlan, ordered: list[PlanItem], ctx: _Context):
     if times is None:
         return None
     return order, times, old_km, new_km
+
+
+def _two_opt(lead: list[PlanItem], body: list[PlanItem], tail: list[PlanItem]) -> list[PlanItem]:
+    """The planner's open-path 2-opt (``planner._two_opt``) on ``body``, between its fixed ends."""
+    best = list(body)
+    best_km = _path_km([*lead, *best, *tail])
+    improved, passes = True, 0
+    while improved and passes < 30:
+        improved, passes = False, passes + 1
+        for i in range(len(best) - 1):
+            for j in range(i + 1, len(best)):
+                candidate = best[:i] + list(reversed(best[i : j + 1])) + best[j + 1 :]
+                km = _path_km([*lead, *candidate, *tail])
+                if km + 1e-9 < best_km:
+                    best, best_km, improved = candidate, km, True
+    return best
 
 
 def _retime(items: list[PlanItem], day_date: date, ctx: _Context, *, compress: bool) -> list[tuple[int, int]] | None:
@@ -610,11 +672,19 @@ def _retime(items: list[PlanItem], day_date: date, ctx: _Context, *, compress: b
 
 
 def _write_notes(plan: TripPlan, issues: list[PlanIssue], changes: list[str]) -> None:
-    notes = [note for note in plan.data_quality.notes if not note.startswith(CHECK_PREFIX)]
-    for change in changes:
-        note = f"{CHANGE_PREFIX}{change}"
-        if note not in notes:
-            notes.append(note)
+    """Check notes are replaced; change notes are kept once each, the latest ``MAX_CHANGE_NOTES`` of them."""
+    notes = [
+        note
+        for note in plan.data_quality.notes
+        if not note.startswith(CHECK_PREFIX) and not note.startswith(CHANGE_PREFIX)
+    ]
+    told = [note for note in plan.data_quality.notes if note.startswith(CHANGE_PREFIX)]
+    told.extend(f"{CHANGE_PREFIX}{change}" for change in changes)
+    latest: list[str] = []
+    for note in reversed(told):  # a repeated change counts at its latest telling
+        if note not in latest:
+            latest.append(note)
+    notes.extend(reversed(latest[:MAX_CHANGE_NOTES]))
     written = 0
     for issue in issues:
         note = f"{CHECK_PREFIX}{issue.message}"
@@ -660,12 +730,29 @@ def _avoid_terms(context: TripContext | None) -> list[str]:
     return list(dict.fromkeys(terms))
 
 
-def _conflict(name: str, cuisine: str | None, tags: list[str], meal: bool, ctx: _Context) -> str:
-    """Why a stop clashes with the stated diet or avoid wishes, or "" (only on the source's own words)."""
-    if meal and ctx.diet and cuisine:
-        row = {"name": name, "category": cuisine, "tags": [f"{cuisine.lower()}_restaurant", *tags]}
-        if not _serves_diet(row, ctx.diet):
-            return f"is listed by its source as {cuisine}, not {ctx.diet}"
+def _labelled_for_diet(place: PlanItem | PlanAlternative, diet: str) -> bool:
+    """The planner's own diet test (``_serves_diet``) on the source's types, name, cuisine and description."""
+    row = {
+        "name": place.name,
+        "category": place.cuisine or "",
+        "tags": list(place.source_types),
+        "description": place.source_summary,
+    }
+    return _serves_diet(row, diet)
+
+
+def _conflict(place: PlanItem | PlanAlternative, meal: bool, ctx: _Context) -> str:
+    """Why a stop clashes with the stated diet or avoid wishes, or "" (only on the source's own words).
+
+    A meal is judged on the diet only when the source's own types are on it, as compose had them,
+    and flagged only when compose would have refused it: no type, name, cuisine or description
+    labels it for the diet. A meal without them (a plan stored before they were kept) is not judged.
+    """
+    name, cuisine = place.name, place.cuisine
+    tags = list(getattr(place, "tags", []) or [])
+    if meal and ctx.diet and place.source_types and not _labelled_for_diet(place, ctx.diet):
+        listed = f"is listed by its source as {cuisine}" if cuisine else "is listed by its source"
+        return f"{listed}, with no {ctx.diet} label"
     if ctx.avoid:
         words = {_singular(word) for word in re.findall(r"[a-z][a-z\-]+", f"{name} {cuisine or ''} {' '.join(tags)}".lower())}
         hit = next((term for term in ctx.avoid if term in words), None)

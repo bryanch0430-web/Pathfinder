@@ -19,6 +19,7 @@ from app.domain.models import (
     DataStatus,
     DayPlan,
     FailureKind,
+    HotelStay,
     ItemType,
     PlanAlternative,
     PlanItem,
@@ -34,6 +35,8 @@ ChoiceKind = Literal["item", "hotel", "flight"]
 
 #: Opens the plan note a chosen flight leaves when its times no longer fit the first or last day.
 FLIGHT_TIMES_NOTE = "The chosen flight"
+#: Said on a stay chosen from an option the source priced for other dates.
+UNCHECKED_RATE_NOTE = "Rate for these dates not checked; the hotel source priced it for other dates."
 
 
 class ChoiceNotFound(LookupError):
@@ -57,6 +60,7 @@ async def apply_choice(
 ) -> TripPlan:
     """A copy of ``plan`` with the choice made, at the next version. ``plan`` itself is not changed."""
     updated = plan.model_copy(deep=True)
+    normalise_hotel_options(updated)
     if kind == "item":
         summary = await _choose_item(updated, plan, target_id, option_id, context, toolbox, transfers)
     elif kind == "hotel":
@@ -67,17 +71,30 @@ async def apply_choice(
         raise ValueError(f"unknown choice kind {kind!r}")
     _recost(updated, planner, context)
     annotate_stays(updated)
-    # The choice is checked once more by the refine loop; the chosen stop itself is never swapped back.
+    # The choice is checked once more by the refine loop. A chosen stop's own day may be refined (the
+    # chosen stop itself is never swapped back or moved out); a stay or flight only refreshes the
+    # plan's checks. Every change the loop makes is told in the summary and a plan note.
     from app.application.refine import refine_and_refresh
 
+    changes: list[str] = []
+    day_index = _day_of(updated, target_id) if kind == "item" else None
     updated, _, _ = await refine_and_refresh(
-        updated, context, settings=getattr(planner, "settings", None), max_rounds=1, toolbox=toolbox, transfers=transfers,
+        updated, context, settings=getattr(planner, "settings", None),
+        max_rounds=1 if day_index is not None else 0, toolbox=toolbox, transfers=transfers,
         keep_ids={target_id} if kind == "item" and target_id else (),
+        only_days={day_index} if day_index is not None else set(),
+        changes=changes,
     )
     updated.version = plan.version + 1
     updated.updated_at = utcnow()
-    updated.change_summary = summary
+    updated.change_summary = " ".join([summary, *changes])
     return updated
+
+
+def _day_of(plan: TripPlan, item_id: str | None) -> int | None:
+    return next(
+        (index for index, day in enumerate(plan.days) for item in day.items if item_id and item.id == item_id), None
+    )
 
 
 # --- stops -------------------------------------------------------------------
@@ -109,14 +126,22 @@ async def _choose_item(
         raise ChoiceRefused("This option has no source, so it cannot become an attraction stop.")
 
     swap_option(updated, day, position, option)
-    await refresh_transfers(
+    moved = await refresh_transfers(
         original,
         updated,
         toolbox=toolbox,
         source=transfers,
         buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
     )
-    return f"Chose {option.name} instead of {item.name} on {day.date.isoformat()}."
+    summary = f"Chose {option.name} instead of {item.name} on {day.date.isoformat()}."
+    if moved:
+        summary += f" {_names(moved)} {'starts' if len(moved) == 1 else 'start'} later to leave time for the transfer."
+    return summary
+
+
+def _names(names: list[str]) -> str:
+    names = list(dict.fromkeys(names))
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def swap_option(plan: TripPlan, day: DayPlan, position: int, option: PlanAlternative) -> PlanItem:
@@ -157,6 +182,8 @@ def swap_option(plan: TripPlan, day: DayPlan, position: int, option: PlanAlterna
             "price_level": option.price_level,
             "cuisine": option.cuisine,
             "reservable": option.reservable,
+            "source_types": list(option.source_types),
+            "source_summary": option.source_summary,
             "alternatives": _remeasure([previous, *others], option),
         }
     )
@@ -180,6 +207,8 @@ def _as_alternative(item: PlanItem) -> PlanAlternative:
         opening_hours=list(item.opening_hours),
         source_refs=list(item.source_refs),
         booking_url=item.booking_url,
+        source_types=list(item.source_types),
+        source_summary=item.source_summary,
     )
 
 
@@ -208,7 +237,14 @@ def _choose_hotel(updated: TripPlan, option_id: str) -> str:
         raise ChoiceRefused("The stay is locked or confirmed; unlock it before choosing another.")
     check_in = current.check_in if current else updated.dates.start
     check_out = current.check_out if current else updated.dates.end
-    chosen = option.model_copy(update={"check_in": check_in, "check_out": check_out, "confirmed": False, "locked": False})
+    changes: dict = {"check_in": check_in, "check_out": check_out, "confirmed": False, "locked": False}
+    if (option.check_in, option.check_out) != (check_in, check_out):
+        # The source priced this option (and listed its rooms) for other dates: neither is this stay's.
+        changes.update(
+            price_per_night=None, price_kind=PriceKind.NONE, room_types=[], rooms_checked_for=None,
+            notes=UNCHECKED_RATE_NOTE,
+        )
+    chosen = option.model_copy(update=changes)
     updated.hotels = [chosen, *updated.hotels[1:]] if updated.hotels else [chosen]
     updated.hotel_options = [chosen if stay.id == chosen.id else stay for stay in updated.hotel_options]
     if current is not None and not any(stay.id == current.id for stay in updated.hotel_options):
@@ -216,6 +252,24 @@ def _choose_hotel(updated: TripPlan, option_id: str) -> str:
     if current is not None:
         _retell(updated, "Hotel", current.name, chosen.name)
     return f"Chose {chosen.name} as the stay instead of {current.name}." if current else f"Chose {chosen.name} as the stay."
+
+
+def stay_dates_match(option: HotelStay, stay: HotelStay | None) -> bool:
+    """True when ``option`` was found (and priced) for the current stay's own check-in and check-out."""
+    return stay is None or (option.check_in, option.check_out) == (stay.check_in, stay.check_out)
+
+
+def normalise_hotel_options(plan: TripPlan) -> None:
+    """The current stay first among the options, as it stands now.
+
+    An edit may move or replace ``hotels[0]`` without touching the options; the options it left keep
+    the dates (and nightly rate) the source gave them, which ``stay_dates_match`` tells apart.
+    """
+    if not plan.hotels:
+        return
+    current = plan.hotels[0]
+    others = [option for option in plan.hotel_options if option.id != current.id]
+    plan.hotel_options = [current.model_copy(deep=True), *others]
 
 
 # --- flight ------------------------------------------------------------------
@@ -273,7 +327,13 @@ def _recost(plan: TripPlan, planner: Planner, context: TripContext | None) -> No
         currency=plan.cost.currency or (context.currency if context else "") or "USD",
         budget=plan.cost.budget if plan.cost.budget is not None else (context.budget if context else None),
     )
-    plan.cost = planner._cost(priced, plan.hotels[0] if plan.hotels else None, plan.tickets, plan.dates)
+    stay = plan.hotels[0] if plan.hotels else None
+    plan.cost = planner._cost(priced, stay, plan.tickets, plan.dates)
+    if stay is not None and stay.price_per_night is None and stay.notes == UNCHECKED_RATE_NOTE:
+        plan.cost.notes = [
+            f"{stay.name}: {UNCHECKED_RATE_NOTE[0].lower()}{UNCHECKED_RATE_NOTE[1:]}" if note == "Hotel price was not returned." else note
+            for note in plan.cost.notes
+        ]
     plan.data_quality.gaps = [gap for gap in plan.data_quality.gaps if gap.section != "budget"]
     if plan.cost.status == "over" and plan.cost.budget is not None:
         over = plan.cost.total - plan.cost.budget
@@ -301,4 +361,4 @@ def _minutes(value: str) -> int:
     return int(hours) * 60 + int(minutes)
 
 
-__all__ = ["ChoiceNotFound", "ChoiceRefused", "apply_choice"]
+__all__ = ["ChoiceNotFound", "ChoiceRefused", "apply_choice", "normalise_hotel_options", "stay_dates_match"]

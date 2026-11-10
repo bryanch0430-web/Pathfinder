@@ -339,6 +339,7 @@ def test_a_meal_that_conflicts_with_the_diet_is_swapped_for_one_that_suits_it() 
     items = _good_day()
     items[3] = _meal(
         "l", "Grill House", "lunch", "12:30", "13:30", 0.9, cuisine="Steakhouse",
+        source_types=["steak_house", "restaurant"],
         alternatives=[_alt("alt_veg", "Green Table", 0.9, cuisine="Vegetarian")],
     )
     plan = _plan(items)

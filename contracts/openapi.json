@@ -2456,6 +2456,18 @@
             "type": "string",
             "maxLength": 80,
             "title": "Option Id"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version"
           }
         },
         "type": "object",

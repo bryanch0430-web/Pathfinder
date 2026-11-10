@@ -181,6 +181,8 @@ class TransferLeg(BaseModel):
 
 
 MealSlot = Literal["breakfast", "lunch", "dinner", "snack"]
+#: Longest source description kept on a stop or alternative.
+SOURCE_SUMMARY_MAX = 400
 
 
 class PlanAlternative(BaseModel):
@@ -203,6 +205,10 @@ class PlanAlternative(BaseModel):
     source_refs: list[SourceRef] = Field(default_factory=list)
     booking_url: str = ""
     distance_m: int | None = None
+    #: The place source's own type labels ("indian_restaurant", "vegetarian_restaurant"); empty when it gave none.
+    source_types: list[str] = Field(default_factory=list)
+    #: The source's own short description, cut to SOURCE_SUMMARY_MAX characters; empty when it gave none.
+    source_summary: str = ""
 
 
 class PlanItem(BaseModel):
@@ -240,6 +246,9 @@ class PlanItem(BaseModel):
     cuisine: str | None = None
     #: Only set when the source said whether the place takes reservations.
     reservable: bool | None = None
+    #: The place source's own type labels and short description (see ``PlanAlternative``); empty when none.
+    source_types: list[str] = Field(default_factory=list)
+    source_summary: str = ""
     #: Other source-backed choices for this stop; the item itself is the default.
     alternatives: list[PlanAlternative] = Field(default_factory=list)
 
@@ -315,6 +324,9 @@ class HotelStay(BaseModel):
     nearby: list[HotelNearby] = Field(default_factory=list)
     #: Rooms from the source's property details; empty until fetched, or when the source lists none.
     room_types: list[RoomType] = Field(default_factory=list)
+    #: The check-in and check-out the hotel source was last asked for rooms with; None until it was asked.
+    #: ``room_types`` (possibly empty) belong to these dates.
+    rooms_checked_for: DateRange | None = None
     #: Straight-line km to the closest planned stop, computed by the app; None without coordinates.
     nearest_stop_km: float | None = None
     nearest_stop_name: str = ""

@@ -626,6 +626,17 @@
           "title": "Room Types",
           "type": "array"
         },
+        "rooms_checked_for": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "nearest_stop_km": {
           "anyOf": [
             {
@@ -857,6 +868,18 @@
           ],
           "default": null,
           "title": "Distance M"
+        },
+        "source_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Types",
+          "type": "array"
+        },
+        "source_summary": {
+          "default": "",
+          "title": "Source Summary",
+          "type": "string"
         }
       },
       "required": [
@@ -1074,6 +1097,18 @@
           ],
           "default": null,
           "title": "Reservable"
+        },
+        "source_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Types",
+          "type": "array"
+        },
+        "source_summary": {
+          "default": "",
+          "title": "Source Summary",
+          "type": "string"
         },
         "alternatives": {
           "items": {

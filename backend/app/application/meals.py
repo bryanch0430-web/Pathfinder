@@ -13,6 +13,7 @@ A fact the source did not give stays empty (``reservable`` None, no cuisine, no 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import math
 from collections.abc import Callable
@@ -21,7 +22,7 @@ from typing import Any
 
 from app.application.opening_hours import windows_on
 from app.config import Settings
-from app.domain.models import GeoPoint, PlanAlternative, SourceRef
+from app.domain.models import SOURCE_SUMMARY_MAX, GeoPoint, PlanAlternative, SourceRef
 from app.infrastructure.http import haversine_km
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,7 @@ async def search_nearby(
             row = place.model_dump(mode="json") if hasattr(place, "model_dump") else dict(place)
             if _geo(row) is None or not str(row.get("name") or "").strip():
                 continue
-            rows.append({"id": f"d{index + 1}{category[:2]}{position + 1}", **row})
+            rows.append({**row, "id": venue_id(row)})
         return index, category, rows
 
     tasks = [
@@ -184,7 +185,8 @@ def choose_meals(
             used[key] = used.get(key, 0) + 1
             taken_today.add(key)
             # A reused venue is a second stop in the plan; its item id must stay unique.
-            base_id = str(default.get("id") or f"meal{index + 1}{slot}")
+            # The id follows the venue, so another venue never takes a stop's id (and its facts) later.
+            base_id = venue_id(default)
             item_id = base_id if base_id not in default_ids else f"{base_id}r{index + 1}{slot[0]}"
             default_ids.add(item_id)
             default["id"] = item_id
@@ -224,7 +226,7 @@ def to_alternative(row: dict, origin: tuple[float, float] | None) -> PlanAlterna
         except Exception:
             continue
     return PlanAlternative(
-        id=f"alt_{row.get('id') or name}",
+        id=f"alt_{venue_id(row)}",
         name=name,
         geo=GeoPoint(lat=point[0], lng=point[1]) if point is not None else None,
         address=str(row.get("address") or ""),
@@ -237,6 +239,7 @@ def to_alternative(row: dict, origin: tuple[float, float] | None) -> PlanAlterna
         source_refs=refs,
         booking_url=str(row.get("booking_url") or ""),
         distance_m=distance,
+        **_source_labels(row),
     )
 
 
@@ -254,7 +257,34 @@ def source_facts(row: dict) -> dict[str, Any]:
         "price_level": price_text(row),
         "cuisine": str(row["cuisine"]) if row.get("cuisine") else None,
         "reservable": row.get("reservable") if isinstance(row.get("reservable"), bool) else None,
+        **_source_labels(row),
     }
+
+
+def _source_labels(row: dict) -> dict[str, Any]:
+    """The source's own type labels and short description, kept so later checks read what compose read."""
+    return {
+        "source_types": [str(tag) for tag in row.get("tags") or [] if str(tag).strip()][:12],
+        "source_summary": str(row.get("description") or "").strip()[:SOURCE_SUMMARY_MAX],
+    }
+
+
+def venue_id(row: dict) -> str:
+    """A short id that follows the venue: from its first source link, else its name and position.
+
+    Positional ids ("the first lunch result") would let a recompose put another venue under an id
+    the plan already uses; this one changes whenever the venue does.
+    """
+    refs = row.get("source_refs") or []
+    first = refs[0] if refs else None
+    url = (first.get("url") if isinstance(first, dict) else getattr(first, "url", "")) if first is not None else ""
+    if url:
+        key = f"url:{url}"
+    else:
+        point = _geo(row)
+        where = f"{point[0]:.4f},{point[1]:.4f}" if point is not None else ""
+        key = f"name:{_key(row)}@{where}"
+    return "v" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
 
 
 def attraction_alternative(
