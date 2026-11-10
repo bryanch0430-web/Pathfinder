@@ -151,6 +151,11 @@ class Settings(BaseSettings):
     #: Wall-clock budget for the meal searches near each day's stops, all days together. When it runs
     #: out the meals come from the city-wide restaurant pool the attraction agent already fetched.
     meal_search_budget_seconds: float = Field(15.0, ge=0)
+    #: The deterministic refine loop after compose: rounds of check -> fix (no model call), and the day
+    #: load past which a day is trimmed or noted (visit hours; km on foot between stops).
+    refine_max_rounds: int = Field(3, ge=0, le=10)
+    day_max_activity_hours: float = Field(9.0, gt=0)
+    day_max_walking_km: float = Field(12.0, gt=0)
     audit_max_follow_ups: int = Field(3, ge=0, le=5)
     #: 26 = the attraction agent's most place candidates (agents.MAX_PLACE_CANDIDATES, 20) plus its 6
     #: restaurants, so one audit call sees a long trip's whole attraction pool.

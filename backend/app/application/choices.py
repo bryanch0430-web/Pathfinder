@@ -17,6 +17,7 @@ from app.application.trip_rules import flight_windows
 from app.domain.models import (
     DataGap,
     DataStatus,
+    DayPlan,
     FailureKind,
     ItemType,
     PlanAlternative,
@@ -66,6 +67,13 @@ async def apply_choice(
         raise ValueError(f"unknown choice kind {kind!r}")
     _recost(updated, planner, context)
     annotate_stays(updated)
+    # The choice is checked once more by the refine loop; the chosen stop itself is never swapped back.
+    from app.application.refine import refine_and_refresh
+
+    updated, _, _ = await refine_and_refresh(
+        updated, context, settings=getattr(planner, "settings", None), max_rounds=1, toolbox=toolbox, transfers=transfers,
+        keep_ids={target_id} if kind == "item" and target_id else (),
+    )
     updated.version = plan.version + 1
     updated.updated_at = utcnow()
     updated.change_summary = summary
@@ -100,6 +108,25 @@ async def _choose_item(
     if item.type is ItemType.ATTRACTION and not option.source_refs:
         raise ChoiceRefused("This option has no source, so it cannot become an attraction stop.")
 
+    swap_option(updated, day, position, option)
+    await refresh_transfers(
+        original,
+        updated,
+        toolbox=toolbox,
+        source=transfers,
+        buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
+    )
+    return f"Chose {option.name} instead of {item.name} on {day.date.isoformat()}."
+
+
+def swap_option(plan: TripPlan, day: DayPlan, position: int, option: PlanAlternative) -> PlanItem:
+    """Put ``option`` in place of the stop at ``day.items[position]``; returns the stop it replaced.
+
+    Every fact on the new stop is the option's own (source-backed); the replaced stop becomes an
+    alternative, distances are measured again, and a reservation the old stop needed is dropped.
+    The item keeps its id and times; its transfer is cleared for the caller to fetch again.
+    """
+    item = day.items[position]
     previous = _as_alternative(item)
     others = [alt for alt in item.alternatives if alt.id != option.id]
     taken = {alt.id for alt in others}
@@ -135,15 +162,8 @@ async def _choose_item(
     )
     day.items[position] = PlanItem.model_validate(chosen.model_dump())
     # A reservation the old stop needed is not this stop's.
-    updated.reservations = [row for row in updated.reservations if row.name != item.name]
-    await refresh_transfers(
-        original,
-        updated,
-        toolbox=toolbox,
-        source=transfers,
-        buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
-    )
-    return f"Chose {option.name} instead of {item.name} on {day.date.isoformat()}."
+    plan.reservations = [row for row in plan.reservations if row.name != item.name]
+    return item
 
 
 def _as_alternative(item: PlanItem) -> PlanAlternative:
