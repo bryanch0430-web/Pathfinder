@@ -59,6 +59,7 @@ from app.domain.models import (
     FailureKind,
     GeoLocation,
     GeoPoint,
+    HotelNearby,
     HotelStay,
     ItemType,
     Money,
@@ -73,6 +74,7 @@ from app.domain.models import (
     TripContext,
     TripPlan,
     WeatherDay,
+    selected_ticket,
     utcnow,
 )
 from app.domain.place_names import english_name, trusted_names
@@ -92,6 +94,23 @@ logger = logging.getLogger(__name__)
 STAY_PRICE_NOT_REFRESHED = "The hotel's price for the new dates could not be refreshed."
 #: What a day with no stop reads; an edit that puts a stop on such a day clears it.
 NO_STOPS_NOTE = "No verified stops were available for this day."
+#: The most flight options a plan keeps to choose from (the first is selected unless the traveller picks another).
+MAX_TICKET_OPTIONS = 5
+#: The most hotel stays a plan keeps to choose from.
+MAX_HOTEL_OPTIONS = 5
+
+
+def annotate_stays(plan: TripPlan) -> None:
+    """Give each stay (chosen and options) the straight-line distance to its closest planned stop."""
+    stops = [(item.name, item.geo) for day in plan.days for item in day.items if item.geo is not None]
+    for stay in [*plan.hotels, *plan.hotel_options]:
+        if stay.geo is None or not stops:
+            stay.nearest_stop_km, stay.nearest_stop_name = None, ""
+            continue
+        km, name = min(
+            (haversine_km(stay.geo.lat, stay.geo.lng, geo.lat, geo.lng), name) for name, geo in stops
+        )
+        stay.nearest_stop_km, stay.nearest_stop_name = round(km, 2), name
 
 
 class PlannerAssignment(BaseModel):
@@ -458,6 +477,7 @@ class Planner:
             summary=_summary(draft, context, date_range, destination),
             days=days,
             hotels=[hotel_stay] if hotel_stay else [],
+            hotel_options=self.hotel_options(hotels, hotel_stay, date_range),
             tickets=tickets,
             cost=cost,
             constraints=constraints,
@@ -472,6 +492,7 @@ class Planner:
             video_notes=video_notes[:6],
             change_summary=change_summary,
         )
+        annotate_stays(plan)
         return plan
 
     async def _draft(
@@ -712,7 +733,27 @@ class Planner:
             fetched_at=utcnow(),
             booking_url=hotel.get("booking_url", ""),
             notes=hotel.get("notes", ""),
+            amenities=[str(item) for item in hotel.get("amenities") or []],
+            hotel_class=hotel.get("hotel_class"),
+            property_token=str(hotel.get("property_token") or ""),
+            nearby=[HotelNearby.model_validate(row) for row in hotel.get("nearby") or [] if isinstance(row, dict)],
         )
+
+    @staticmethod
+    def hotel_options(candidates: list[dict], chosen: HotelStay | None, date_range: DateRange) -> list[HotelStay]:
+        """Up to MAX_HOTEL_OPTIONS source-backed stays, the chosen one first and the same object as ``hotels[0]``."""
+        options: list[HotelStay] = []
+        for row in candidates:
+            try:
+                stay = Planner._build_hotel(row, date_range)
+            except Exception:
+                continue
+            if stay is not None:
+                options.append(stay)
+        if chosen is not None:
+            options = [stay for stay in options if stay.id != chosen.id and stay.name != chosen.name]
+            options.insert(0, chosen)
+        return options[:MAX_HOTEL_OPTIONS]
 
     @staticmethod
     def keep_stay(stay: HotelStay, candidates: list[dict], date_range: DateRange) -> tuple[HotelStay, bool]:
@@ -730,7 +771,7 @@ class Planner:
     @staticmethod
     def _build_tickets(flights: list[dict]) -> list[TicketOption]:
         tickets: list[TicketOption] = []
-        for row in flights[:3]:
+        for row in flights[:MAX_TICKET_OPTIONS]:
             try:
                 tickets.append(
                     TicketOption(
@@ -787,8 +828,8 @@ class Planner:
             )
         elif hotel:
             unknown.append("Hotel price was not returned.")
-        if tickets:
-            flight = tickets[0]
+        flight = selected_ticket(tickets)
+        if flight is not None:
             if flight.price:
                 amount = self.fx.convert(flight.price.amount, flight.price.currency, currency)
                 lines.append(
@@ -1566,12 +1607,13 @@ def _reservations(places: list[dict], tickets: list[TicketOption]) -> list[Reser
                     status="to_book",
                 )
             )
-    if tickets and tickets[0].booking_url:
+    flight = selected_ticket(tickets)
+    if flight is not None and flight.booking_url:
         reservations.append(
             Reservation(
-                name=f"Flight · {tickets[0].name}",
+                name=f"Flight · {flight.name}",
                 reason="Reference itinerary; confirm the fare and seat with the airline.",
-                url=tickets[0].booking_url,
+                url=flight.booking_url,
                 status="optional",
             )
         )
@@ -1642,7 +1684,7 @@ def _constraints(
             ConstraintCheck(
                 text="Flight option available",
                 status=ConstraintStatus.PASS if tickets else ConstraintStatus.UNKNOWN,
-                evidence=tickets[0].name if tickets else "No flight source returned an option.",
+                evidence=selected_ticket(tickets).name if tickets else "No flight source returned an option.",
             )
         )
     planned_names = [item.name.lower() for day in days for item in day.items]

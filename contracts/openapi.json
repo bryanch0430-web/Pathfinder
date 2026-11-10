@@ -929,6 +929,109 @@
         }
       }
     },
+    "/api/journeys/{session_id}/plan/choose": {
+      "post": {
+        "summary": "Choose Option",
+        "description": "Swap in the option the traveller picked, with no model call, and save it as the next plan version.",
+        "operationId": "choose_option_api_journeys__session_id__plan_choose_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChoiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Choose Option Api Journeys  Session Id  Plan Choose Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/plan/hotels/{hotel_id}/rooms": {
+      "get": {
+        "summary": "Hotel Rooms",
+        "description": "The rooms the hotel source lists for a stay, fetched once and kept on the plan.",
+        "operationId": "hotel_rooms_api_journeys__session_id__plan_hotels__hotel_id__rooms_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "hotel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Hotel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Hotel Rooms Api Journeys  Session Id  Plan Hotels  Hotel Id  Rooms Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/journeys/{session_id}/rating": {
       "post": {
         "summary": "Feedback",
@@ -2325,6 +2428,43 @@
           "message"
         ],
         "title": "ChatRequest"
+      },
+      "ChoiceRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "item",
+              "hotel",
+              "flight"
+            ],
+            "title": "Kind"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "option_id": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Option Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "option_id"
+        ],
+        "title": "ChoiceRequest",
+        "description": "Pick another option shown on the plan: a stop's alternative, a hotel option or a flight option."
       },
       "ClaimRequest": {
         "properties": {

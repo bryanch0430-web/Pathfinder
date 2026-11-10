@@ -862,7 +862,7 @@ class TicketAgent(BaseAgent):
             request,
             status=status,
             payload={
-                "flights": [{"id": f"f{index + 1}", **flight} for index, flight in enumerate(flights[:4])],
+                "flights": [{"id": f"f{index + 1}", **flight} for index, flight in enumerate(flights[:5])],
                 "web_references": web_references,
             },
             notes=notes,

@@ -270,6 +270,24 @@ class DayPlan(BaseModel):
         return self
 
 
+class RoomType(BaseModel):
+    """One room the hotel source lists for the stay's dates, fetched only when the traveller opens the hotel."""
+
+    name: str
+    price_per_night: Money | None = None
+    #: The seller the source listed the room under ("Booking.com"); empty when it named none.
+    source: str = ""
+    link: str = ""
+
+
+class HotelNearby(BaseModel):
+    """A way to reach a place near the hotel, exactly as the hotel source listed it ("Taxi", "11 min")."""
+
+    name: str
+    type: str = ""
+    duration: str = ""
+
+
 class HotelStay(BaseModel):
     id: str = Field(default_factory=lambda: new_id("hotel"))
     name: str
@@ -289,6 +307,17 @@ class HotelStay(BaseModel):
     notes: str = ""
     confirmed: bool = False
     locked: bool = False
+    #: Facts as the hotel source gave them; empty when it gave none.
+    amenities: list[str] = Field(default_factory=list)
+    hotel_class: int | None = None
+    #: The source's handle for the property, used to fetch its rooms on demand.
+    property_token: str = ""
+    nearby: list[HotelNearby] = Field(default_factory=list)
+    #: Rooms from the source's property details; empty until fetched, or when the source lists none.
+    room_types: list[RoomType] = Field(default_factory=list)
+    #: Straight-line km to the closest planned stop, computed by the app; None without coordinates.
+    nearest_stop_km: float | None = None
+    nearest_stop_name: str = ""
 
 
 class TicketOption(BaseModel):
@@ -318,6 +347,13 @@ class TicketOption(BaseModel):
     data_status: DataStatus = DataStatus.OK
     fetched_at: datetime = Field(default_factory=utcnow)
     confirmed: bool = False
+    #: The option the traveller goes with; exactly one per plan (the first when none was chosen).
+    selected: bool = False
+
+
+def selected_ticket(tickets: list[TicketOption]) -> TicketOption | None:
+    """The chosen option: the one marked selected, else the first (plans stored before the mark existed)."""
+    return next((ticket for ticket in tickets if ticket.selected), tickets[0] if tickets else None)
 
 
 class CostLine(BaseModel):
@@ -414,6 +450,8 @@ class TripPlan(BaseModel):
     summary: str = ""
     days: list[DayPlan] = Field(default_factory=list)
     hotels: list[HotelStay] = Field(default_factory=list)
+    #: Source-backed stays to choose from (up to 5); ``hotels[0]`` is the chosen one and is among them.
+    hotel_options: list[HotelStay] = Field(default_factory=list)
     tickets: list[TicketOption] = Field(default_factory=list)
     cost: CostBreakdown = Field(default_factory=CostBreakdown)
     constraints: list[ConstraintCheck] = Field(default_factory=list)
@@ -438,6 +476,11 @@ class TripPlan(BaseModel):
             raise ValueError("plan item ids must be unique")
         if self.cost.total < 0:
             raise ValueError("cost total cannot be negative")
+        if self.tickets:
+            # Exactly one option is the chosen one: the first marked, else the first.
+            chosen = selected_ticket(self.tickets)
+            for ticket in self.tickets:
+                ticket.selected = ticket is chosen
         return self
 
     @property
@@ -814,6 +857,11 @@ class HotelCandidate(BaseModel):
     booking_url: str = ""
     source_refs: list[SourceRef] = Field(default_factory=list)
     notes: str = ""
+    #: Facts the hotel source returned; empty when it returned none.
+    amenities: list[str] = Field(default_factory=list)
+    hotel_class: int | None = None
+    property_token: str = ""
+    nearby: list[HotelNearby] = Field(default_factory=list)
 
 
 class FlightCandidate(BaseModel):

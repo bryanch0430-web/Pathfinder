@@ -107,6 +107,19 @@ export interface DayPlan {
   elevation_gain_m?: number | null;
 }
 
+export interface RoomType {
+  name: string;
+  price_per_night: Money | null;
+  source: string;
+  link: string;
+}
+
+export interface HotelNearby {
+  name: string;
+  type: string;
+  duration: string;
+}
+
 export interface HotelStay {
   id: string;
   name: string;
@@ -126,6 +139,13 @@ export interface HotelStay {
   confirmed: boolean;
   locked: boolean;
   names?: Record<string, string>;
+  amenities?: string[];
+  hotel_class?: number | null;
+  property_token?: string;
+  nearby?: HotelNearby[];
+  room_types?: RoomType[];
+  nearest_stop_km?: number | null;
+  nearest_stop_name?: string;
 }
 
 export interface TicketOption {
@@ -152,6 +172,7 @@ export interface TicketOption {
   source_refs: SourceRef[];
   data_status: DataStatus;
   confirmed: boolean;
+  selected?: boolean;
 }
 
 export interface CostLine {
@@ -298,6 +319,7 @@ export interface TripPlan {
   summary: string;
   days: DayPlan[];
   hotels: HotelStay[];
+  hotel_options?: HotelStay[];
   tickets: TicketOption[];
   cost: CostBreakdown;
   constraints: ConstraintCheck[];
