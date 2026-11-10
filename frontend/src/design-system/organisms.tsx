@@ -706,11 +706,14 @@ const AMENITIES_SHOWN = 4;
 function HotelOptionCard({
   hotel,
   chosen,
+  stale = false,
   onChoose,
   onLoadRooms,
 }: {
   hotel: HotelStay;
   chosen: boolean;
+  /** The source priced (and listed rooms for) other dates than the stay's own. */
+  stale?: boolean;
   onChoose?: () => Promise<void>;
   onLoadRooms?: () => Promise<RoomType[]>;
 }) {
@@ -722,7 +725,7 @@ function HotelOptionCard({
   const amenities = hotel.amenities ?? [];
   const shownAmenities = allAmenities ? amenities : amenities.slice(0, AMENITIES_SHOWN);
   const nearby = (hotel.nearby ?? []).filter((place) => place.name);
-  const knownRooms = rooms ?? (hotel.room_types?.length ? hotel.room_types : null);
+  const knownRooms = rooms ?? (!stale && hotel.room_types?.length ? hotel.room_types : null);
   const location = [
     hotel.area,
     typeof hotel.distance_to_centre_km === "number" ? t("workspace.kmToCentre", { km: hotel.distance_to_centre_km }) : "",
@@ -761,7 +764,9 @@ function HotelOptionCard({
         <Text size="sm" weight="semibold">{hotel.name}</Text>
         {chosen ? <Badge tone="brand" dot>{t("options.chosen")}</Badge> : null}
       </div>
-      {hotel.price_per_night ? (
+      {stale ? (
+        <Text size="sm" tone="secondary">{t("options.priceNotChecked")}</Text>
+      ) : hotel.price_per_night ? (
         <Text size="sm" weight="semibold">
           {t("workspace.perNight", { price: moneyText(hotel.price_per_night) })}
           {hotel.price_kind !== "none" ? <span className="pf-muted pf-small"> · {hotel.price_kind}</span> : null}
@@ -861,22 +866,28 @@ function HotelOptionCard({
 export function HotelOptions({
   options,
   chosenId,
+  current = null,
   onChoose,
   onLoadRooms,
 }: {
   options: HotelStay[];
   chosenId: string | null;
+  /** The stay as it stands; an option found for other dates shows no price for these ones. */
+  current?: HotelStay | null;
   onChoose?: (hotelId: string) => Promise<void>;
   onLoadRooms?: (hotelId: string) => Promise<RoomType[]>;
 }) {
   if (!options.length) return null;
+  // The stay itself leads, as it stands now (an edit may have moved it without its options).
+  const shown = current ? [current, ...options.filter((hotel) => hotel.id !== current.id)] : options;
   return (
     <div className="pf-option-grid">
-      {options.map((hotel) => (
+      {shown.map((hotel) => (
         <HotelOptionCard
           key={hotel.id}
           hotel={hotel}
           chosen={hotel.id === chosenId}
+          stale={current !== null && (hotel.check_in !== current.check_in || hotel.check_out !== current.check_out)}
           onChoose={onChoose ? () => onChoose(hotel.id) : undefined}
           onLoadRooms={onLoadRooms ? () => onLoadRooms(hotel.id) : undefined}
         />
@@ -1008,6 +1019,10 @@ export function TripWorkspace({
   const bookingHref = safeHref(hotel?.booking_url);
   const unknownGaps = plan.data_quality.gaps.length;
   const hotelOptions = plan.hotel_options ?? [];
+  // Options are chosen on the latest version only; an older one is for reading.
+  const latestVersion = versions.reduce((latest, row) => Math.max(latest, row.version), plan.version);
+  const viewingLatest = plan.version >= latestVersion;
+  const choose = viewingLatest ? onChooseOption : undefined;
   const selectedTicketId = (plan.tickets.find((ticket) => ticket.selected) ?? plan.tickets[0])?.id ?? null;
   const firstUpdated = updatedIds?.[0] ?? "";
 
@@ -1097,6 +1112,9 @@ export function TripWorkspace({
         <DayStrip days={plan.days} active={activeDay} onSelect={jump} />
       </div>
       <div className="pf-workspace__body pf-scroll">
+        {onChooseOption && !viewingLatest ? (
+          <Text size="xs" tone="secondary">{t("options.latestOnly")}</Text>
+        ) : null}
         {plan.days.map((day, index) => (
           <div key={day.date} ref={(node) => { dayRefs.current[day.date] = node; }}>
             <DaySection
@@ -1105,9 +1123,7 @@ export function TripWorkspace({
               selectedItemId={selectedItemId}
               updatedIds={new Set(updatedIds ?? [])}
               onSelectItem={(item) => onSelectItem(item)}
-              onChooseAlternative={
-                onChooseOption ? (item, alternativeId) => onChooseOption("item", item.id, alternativeId) : undefined
-              }
+              onChooseAlternative={choose ? (item, alternativeId) => choose("item", item.id, alternativeId) : undefined}
             />
           </div>
         ))}
@@ -1160,7 +1176,8 @@ export function TripWorkspace({
             <HotelOptions
               options={hotelOptions}
               chosenId={hotel?.id ?? null}
-              onChoose={onChooseOption ? (hotelId) => onChooseOption("hotel", null, hotelId) : undefined}
+              current={hotel ?? null}
+              onChoose={choose ? (hotelId) => choose("hotel", null, hotelId) : undefined}
               onLoadRooms={onLoadHotelRooms}
             />
           </Collapsible>
@@ -1172,7 +1189,7 @@ export function TripWorkspace({
             ticket={ticket}
             selected={ticket.id === selectedTicketId}
             choosable={plan.tickets.length > 1 && ticket.mode === "flight"}
-            onChoose={onChooseOption ? () => onChooseOption("flight", null, ticket.id) : undefined}
+            onChoose={choose ? () => choose("flight", null, ticket.id) : undefined}
           />
         ))}
 

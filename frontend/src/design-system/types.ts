@@ -65,6 +65,9 @@ export interface PlanItem {
   cuisine?: string | null;
   /** Only set when the source said whether it takes reservations. */
   reservable?: boolean | null;
+  /** The place source's own type labels and short description; empty when it gave none. */
+  source_types?: string[];
+  source_summary?: string;
   /** Other source-backed choices for this stop; the item itself is the default. */
   alternatives?: PlanAlternative[];
 }
@@ -86,6 +89,8 @@ export interface PlanAlternative {
   booking_url: string;
   /** Straight-line metres from the default stop, computed by the app. */
   distance_m: number | null;
+  source_types?: string[];
+  source_summary?: string;
 }
 
 export interface TransferLeg {
@@ -144,6 +149,8 @@ export interface HotelStay {
   property_token?: string;
   nearby?: HotelNearby[];
   room_types?: RoomType[];
+  /** The dates the hotel source was last asked for rooms with; `room_types` belong to them. */
+  rooms_checked_for?: { start: string; end: string } | null;
   nearest_stop_km?: number | null;
   nearest_stop_name?: string;
 }

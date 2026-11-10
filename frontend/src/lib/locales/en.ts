@@ -450,6 +450,8 @@ export const EN = {
   "options.hotels": "Hotel options",
   "options.chosen": "Chosen",
   "options.chooseHotel": "Choose this hotel",
+  "options.priceNotChecked": "Price for your dates not checked",
+  "options.latestOnly": "Options can be chosen on the latest version of the plan only.",
   "options.stars": "{n}-star hotel",
   "options.nearestStop": "{km} km from {stop}",
   "options.amenitiesMore": "+{count} more",

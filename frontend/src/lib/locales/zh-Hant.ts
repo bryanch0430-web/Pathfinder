@@ -450,6 +450,8 @@ export const ZH_HANT: Messages = {
   "options.hotels": "酒店選項",
   "options.chosen": "已選",
   "options.chooseHotel": "選擇這間酒店",
+  "options.priceNotChecked": "尚未查詢你的日期的價格",
+  "options.latestOnly": "只能在最新版本的行程上更換選項。",
   "options.stars": "{n} 星級酒店",
   "options.nearestStop": "距 {stop} {km} 公里",
   "options.amenitiesMore": "另有 {count} 項",

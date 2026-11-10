@@ -179,7 +179,7 @@ export type ChoiceKind = "item" | "hotel" | "flight";
 /** Swap in another option shown on the plan (a stop's alternative, a hotel, a flight); no model call. */
 export function chooseOption(
   sessionId: string,
-  body: { kind: ChoiceKind; target_id?: string | null; option_id: string },
+  body: { kind: ChoiceKind; target_id?: string | null; option_id: string; plan_version?: number },
 ): Promise<{ plan: TripPlan }> {
   return request(`/api/journeys/${sessionId}/plan/choose`, {
     method: "POST",

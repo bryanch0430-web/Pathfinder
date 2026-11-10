@@ -919,10 +919,12 @@ export function usePathfinder(locale: string): PathfinderHook {
     }
   }, []);
 
+  // The version on screen: a choice names it, and the server refuses one made on an older version.
+  const shownVersion = plan?.version;
   const choose = useCallback(async (kind: ChoiceKind, targetId: string | null, optionId: string): Promise<void> => {
     const id = sessionRef.current;
     if (!id) return;
-    const data = await chooseOption(id, { kind, target_id: targetId, option_id: optionId });
+    const data = await chooseOption(id, { kind, target_id: targetId, option_id: optionId, plan_version: shownVersion });
     // The answer came after another trip was opened: the choice belongs to the trip it was made on.
     if (sessionRef.current !== id) return;
     setPlan(data.plan);
@@ -935,7 +937,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     } catch {
       // The version list catches up on the next refresh; the new plan is already shown.
     }
-  }, []);
+  }, [shownVersion]);
 
   const hotelRooms = useCallback(async (hotelId: string): Promise<RoomType[]> => {
     const id = sessionRef.current;

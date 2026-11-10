@@ -448,6 +448,8 @@ export const ZH_HANS: Messages = {
   "options.hotels": "酒店选项",
   "options.chosen": "已选",
   "options.chooseHotel": "选择这家酒店",
+  "options.priceNotChecked": "尚未查询你的日期的价格",
+  "options.latestOnly": "只能在最新版本的行程上更换选项。",
   "options.stars": "{n} 星级酒店",
   "options.nearestStop": "距 {stop} {km} 公里",
   "options.amenitiesMore": "另有 {count} 项",
