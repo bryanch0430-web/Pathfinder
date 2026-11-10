@@ -56,6 +56,41 @@ export interface PlanItem {
   transfer?: TransferLeg | null;
   /** Trusted localized names from the sources ("en", "zh-Hant"); never written by a model. */
   names?: Record<string, string>;
+  /** Which meal a meal stop is; absent on other items. */
+  meal_slot?: MealSlot | null;
+  /** Facts as the place source gave them; null when it gave none. */
+  rating?: number | null;
+  review_count?: number | null;
+  price_level?: string | null;
+  cuisine?: string | null;
+  /** Only set when the source said whether it takes reservations. */
+  reservable?: boolean | null;
+  /** The place source's own type labels and short description; empty when it gave none. */
+  source_types?: string[];
+  source_summary?: string;
+  /** Other source-backed choices for this stop; the item itself is the default. */
+  alternatives?: PlanAlternative[];
+}
+
+export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
+
+export interface PlanAlternative {
+  id: string;
+  name: string;
+  geo: GeoPoint | null;
+  address: string;
+  rating: number | null;
+  review_count: number | null;
+  price_level: string | null;
+  cuisine: string | null;
+  reservable: boolean | null;
+  opening_hours: string[];
+  source_refs: SourceRef[];
+  booking_url: string;
+  /** Straight-line metres from the default stop, computed by the app. */
+  distance_m: number | null;
+  source_types?: string[];
+  source_summary?: string;
 }
 
 export interface TransferLeg {
@@ -77,6 +112,19 @@ export interface DayPlan {
   elevation_gain_m?: number | null;
 }
 
+export interface RoomType {
+  name: string;
+  price_per_night: Money | null;
+  source: string;
+  link: string;
+}
+
+export interface HotelNearby {
+  name: string;
+  type: string;
+  duration: string;
+}
+
 export interface HotelStay {
   id: string;
   name: string;
@@ -96,6 +144,15 @@ export interface HotelStay {
   confirmed: boolean;
   locked: boolean;
   names?: Record<string, string>;
+  amenities?: string[];
+  hotel_class?: number | null;
+  property_token?: string;
+  nearby?: HotelNearby[];
+  room_types?: RoomType[];
+  /** The dates the hotel source was last asked for rooms with; `room_types` belong to them. */
+  rooms_checked_for?: { start: string; end: string } | null;
+  nearest_stop_km?: number | null;
+  nearest_stop_name?: string;
 }
 
 export interface TicketOption {
@@ -122,6 +179,7 @@ export interface TicketOption {
   source_refs: SourceRef[];
   data_status: DataStatus;
   confirmed: boolean;
+  selected?: boolean;
 }
 
 export interface CostLine {
@@ -268,6 +326,7 @@ export interface TripPlan {
   summary: string;
   days: DayPlan[];
   hotels: HotelStay[];
+  hotel_options?: HotelStay[];
   tickets: TicketOption[];
   cost: CostBreakdown;
   constraints: ConstraintCheck[];

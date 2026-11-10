@@ -441,6 +441,30 @@
       "title": "GeoPoint",
       "type": "object"
     },
+    "HotelNearby": {
+      "description": "A way to reach a place near the hotel, exactly as the hotel source listed it (\"Taxi\", \"11 min\").",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "default": "",
+          "title": "Type",
+          "type": "string"
+        },
+        "duration": {
+          "default": "",
+          "title": "Duration",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "HotelNearby",
+      "type": "object"
+    },
     "HotelStay": {
       "properties": {
         "id": {
@@ -563,6 +587,72 @@
           "default": false,
           "title": "Locked",
           "type": "boolean"
+        },
+        "amenities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Amenities",
+          "type": "array"
+        },
+        "hotel_class": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hotel Class"
+        },
+        "property_token": {
+          "default": "",
+          "title": "Property Token",
+          "type": "string"
+        },
+        "nearby": {
+          "items": {
+            "$ref": "#/$defs/HotelNearby"
+          },
+          "title": "Nearby",
+          "type": "array"
+        },
+        "room_types": {
+          "items": {
+            "$ref": "#/$defs/RoomType"
+          },
+          "title": "Room Types",
+          "type": "array"
+        },
+        "rooms_checked_for": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "nearest_stop_km": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nearest Stop Km"
+        },
+        "nearest_stop_name": {
+          "default": "",
+          "title": "Nearest Stop Name",
+          "type": "string"
         }
       },
       "required": [
@@ -659,6 +749,144 @@
         "source"
       ],
       "title": "NoteItem",
+      "type": "object"
+    },
+    "PlanAlternative": {
+      "description": "Another real choice for a stop, with the same source facts as the stop itself.\n\nEvery field comes from a place source except ``distance_m``, which the app computes\n(straight line from the default stop). A fact the source did not give stays empty.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "geo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeoPoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "address": {
+          "default": "",
+          "title": "Address",
+          "type": "string"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "review_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Count"
+        },
+        "price_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Level"
+        },
+        "cuisine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cuisine"
+        },
+        "reservable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reservable"
+        },
+        "opening_hours": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Opening Hours",
+          "type": "array"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "booking_url": {
+          "default": "",
+          "title": "Booking Url",
+          "type": "string"
+        },
+        "distance_m": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance M"
+        },
+        "source_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Types",
+          "type": "array"
+        },
+        "source_summary": {
+          "default": "",
+          "title": "Source Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "PlanAlternative",
       "type": "object"
     },
     "PlanItem": {
@@ -791,6 +1019,103 @@
           },
           "title": "Names",
           "type": "object"
+        },
+        "meal_slot": {
+          "anyOf": [
+            {
+              "enum": [
+                "breakfast",
+                "lunch",
+                "dinner",
+                "snack"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Meal Slot"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "review_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Count"
+        },
+        "price_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Level"
+        },
+        "cuisine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cuisine"
+        },
+        "reservable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reservable"
+        },
+        "source_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Types",
+          "type": "array"
+        },
+        "source_summary": {
+          "default": "",
+          "title": "Source Summary",
+          "type": "string"
+        },
+        "alternatives": {
+          "items": {
+            "$ref": "#/$defs/PlanAlternative"
+          },
+          "title": "Alternatives",
+          "type": "array"
         }
       },
       "required": [
@@ -860,6 +1185,41 @@
         "reason"
       ],
       "title": "Reservation",
+      "type": "object"
+    },
+    "RoomType": {
+      "description": "One room the hotel source lists for the stay's dates, fetched only when the traveller opens the hotel.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "price_per_night": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        },
+        "link": {
+          "default": "",
+          "title": "Link",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "RoomType",
       "type": "object"
     },
     "SourceRef": {
@@ -1079,6 +1439,11 @@
         "confirmed": {
           "default": false,
           "title": "Confirmed",
+          "type": "boolean"
+        },
+        "selected": {
+          "default": false,
+          "title": "Selected",
           "type": "boolean"
         }
       },
@@ -1309,6 +1674,13 @@
         "$ref": "#/$defs/HotelStay"
       },
       "title": "Hotels",
+      "type": "array"
+    },
+    "hotel_options": {
+      "items": {
+        "$ref": "#/$defs/HotelStay"
+      },
+      "title": "Hotel Options",
       "type": "array"
     },
     "tickets": {

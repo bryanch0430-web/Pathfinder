@@ -19,6 +19,7 @@ from app.application.audit_followup import run_follow_ups
 from app.application.auditor import audit_results
 from app.application.hk_disruptions import apply_hong_kong_disruptions
 from app.application.planner import Planner
+from app.application.refine import refine_and_refresh
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
@@ -187,7 +188,21 @@ class PlanPath:
             keep_hotel=keep_hotel,
             pick_hotel=pick_hotel,
             audit=audit,
+            meal_sources=list(getattr(self.registry, "places", None) or []),
         )
+        # Deterministic refine loop (no model call): check hours, transfers, meals, day load, budget and
+        # wishes; fix what the plan's own options allow; the rest becomes plan notes.
+        plan, refine_issues, refine_rounds = await refine_and_refresh(
+            plan, context, settings=self.settings, toolbox=toolbox,
+            transfers=getattr(self.registry, "transfers", None),
+        )
+        tracer = getattr(toolbox, "tracer", None)
+        if tracer is not None:
+            with tracer.span(
+                "plan.refine", rounds=refine_rounds, issues_left=len(refine_issues),
+                errors_left=sum(1 for issue in refine_issues if issue.severity == "error"),
+            ):
+                pass
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(
             plan, registry=self.registry, toolbox=toolbox, settings=self.settings, results=agent_results, context=context

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { DaySection, DayStrip } from "../molecules";
-import { samplePlan } from "../fixtures";
+import { DaySection, DayStrip, ItemAlternatives, ItineraryItem } from "../molecules";
+import { optionsPlan, samplePlan } from "../fixtures";
 import type { PlanItem } from "../types";
 
 const meta: Meta = { title: "Molecules/Itinerary" };
@@ -45,4 +45,24 @@ export const Unavailable: Story = {
       </div>
     );
   },
+};
+
+const mealWithOptions = optionsPlan.days.flatMap((day) => day.items).find((entry) => entry.id === "item_m3") as PlanItem;
+
+/** A lunch stop with its slot label, source facts, the walk from the previous stop and two backups. The second "Use this" fails. */
+export const MealWithAlternatives: Story = {
+  render: () => (
+    <div className="pf-card" style={{ padding: 24, maxWidth: 720 }}>
+      <ItineraryItem item={mealWithOptions} number={3} />
+      <ItemAlternatives
+        item={mealWithOptions}
+        defaultOpen
+        onChoose={(id) =>
+          new Promise((resolve, reject) =>
+            window.setTimeout(() => (id === "alt_m3b" ? reject(new Error("This stop is locked or confirmed; unlock it before choosing another.")) : resolve()), 700),
+          )
+        }
+      />
+    </div>
+  ),
 };

@@ -9,6 +9,7 @@ import type {
   GuideChunk,
   PlanLocale,
   PlanTranslation,
+  RoomType,
   RunTrace,
   TrendingPlace,
   TrendingTrace,
@@ -171,6 +172,24 @@ export interface LegOptions {
 export function getLegOptions(sessionId: string, fromId: string, toId: string): Promise<LegOptions> {
   const query = `from_id=${encodeURIComponent(fromId)}&to_id=${encodeURIComponent(toId)}`;
   return request(`/api/journeys/${sessionId}/leg-options?${query}`);
+}
+
+export type ChoiceKind = "item" | "hotel" | "flight";
+
+/** Swap in another option shown on the plan (a stop's alternative, a hotel, a flight); no model call. */
+export function chooseOption(
+  sessionId: string,
+  body: { kind: ChoiceKind; target_id?: string | null; option_id: string; plan_version?: number },
+): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/plan/choose`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** The rooms the hotel source lists for a stay; fetched once, then kept on the plan. Empty when it lists none. */
+export function getHotelRooms(sessionId: string, hotelId: string): Promise<{ rooms: RoomType[] }> {
+  return request(`/api/journeys/${sessionId}/plan/hotels/${encodeURIComponent(hotelId)}/rooms`);
 }
 
 export interface MapKeys {

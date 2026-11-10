@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
+  chooseOption,
   clearMessages,
   createSession,
   discardSession,
   getLlmProviders,
+  getHotelRooms,
   getPlan,
   getSession,
+  getVersions,
   getTranslation,
   me,
   patchContext,
   postFeedback,
   streamChat,
+  type ChoiceKind,
   type ContextPatch,
   type SessionState,
 } from "../lib/api";
@@ -23,6 +27,7 @@ import type {
   PlanItem,
   PlanLocale,
   PlanTranslation,
+  RoomType,
   RoutePayload,
   RunTrace,
   TripContext,
@@ -164,6 +169,10 @@ export interface PathfinderHook {
   submitClarify: (message?: string) => Promise<void>;
   selectItem: (item: PlanItem | null) => void;
   selectVersion: (version: number) => Promise<void>;
+  /** Swaps in another option the plan offers (a stop's alternative, a hotel, a flight); no model call. Rejects with the server's reason. */
+  choose: (kind: ChoiceKind, targetId: string | null, optionId: string) => Promise<void>;
+  /** The room types the hotel source lists for a stay; they are kept on the shown plan. Rejects with the server's reason. */
+  hotelRooms: (hotelId: string) => Promise<RoomType[]>;
   feedback: (useful: boolean, starsOverride?: number | null) => Promise<void>;
   setStars: (stars: number) => void;
   retry: () => Promise<void>;
@@ -910,6 +919,42 @@ export function usePathfinder(locale: string): PathfinderHook {
     }
   }, []);
 
+  // The version on screen: a choice names it, and the server refuses one made on an older version.
+  const shownVersion = plan?.version;
+  const choose = useCallback(async (kind: ChoiceKind, targetId: string | null, optionId: string): Promise<void> => {
+    const id = sessionRef.current;
+    if (!id) return;
+    const data = await chooseOption(id, { kind, target_id: targetId, option_id: optionId, plan_version: shownVersion });
+    // The answer came after another trip was opened: the choice belongs to the trip it was made on.
+    if (sessionRef.current !== id) return;
+    setPlan(data.plan);
+    setActiveVersion(data.plan.version);
+    setChangedIds(kind === "item" && targetId ? [targetId] : []);
+    setHotelChanged(kind === "hotel");
+    try {
+      const listed = await getVersions(id);
+      if (sessionRef.current === id) setVersions(listed.versions);
+    } catch {
+      // The version list catches up on the next refresh; the new plan is already shown.
+    }
+  }, [shownVersion]);
+
+  const hotelRooms = useCallback(async (hotelId: string): Promise<RoomType[]> => {
+    const id = sessionRef.current;
+    if (!id) return [];
+    const { rooms } = await getHotelRooms(id, hotelId);
+    if (sessionRef.current === id) {
+      const withRooms = (stays: TripPlan["hotels"] | undefined) =>
+        stays?.map((stay) => (stay.id === hotelId ? { ...stay, room_types: rooms } : stay));
+      setPlan((current) =>
+        current
+          ? { ...current, hotels: withRooms(current.hotels) ?? [], hotel_options: withRooms(current.hotel_options) }
+          : current,
+      );
+    }
+    return rooms;
+  }, []);
+
   const feedback = useCallback(
     async (useful: boolean, starsOverride?: number | null): Promise<void> => {
       const id = sessionRef.current;
@@ -1046,6 +1091,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     submitClarify,
     selectItem: setSelectedItem,
     selectVersion,
+    choose,
+    hotelRooms,
     feedback,
     setStars: setFeedbackStars,
     retry: async () => {

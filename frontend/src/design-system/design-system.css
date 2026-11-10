@@ -2495,6 +2495,125 @@
   flex: none;
 }
 
+/* Meal slot, source facts and a stop's alternatives (backups for a closed or full default). */
+.pf-item__slot {
+  color: var(--pf-meal);
+  font-size: var(--p30-type-size-body-xxs);
+  font-weight: var(--p30-type-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pf-item__facts {
+  color: var(--pf-ink-secondary);
+  font-size: var(--p30-type-size-body-xs);
+  line-height: 1.45;
+}
+
+.pf-item-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.pf-alts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-xs);
+  /* lines up with the item's main column (46 px time + 30 px icon + two gaps) */
+  margin: 0 var(--p30-gap-sm) var(--p30-gap-xs) calc(76px + var(--p30-gap-sm) * 3);
+}
+
+.pf-alts__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--p30-gap-xxs);
+  width: fit-content;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--p30-tone-brand-primary);
+  font-size: var(--p30-type-size-body-xs);
+  font-weight: var(--p30-type-weight-semibold);
+  cursor: pointer;
+}
+
+.pf-alts__toggle:focus-visible {
+  outline: 2px solid var(--p30-tone-feedback-info);
+  outline-offset: 2px;
+}
+
+.pf-alts__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-xs);
+}
+
+.pf-alt-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--p30-gap-sm);
+  padding: var(--p30-gap-xs) var(--p30-gap-sm);
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-md);
+  background: var(--pf-surface);
+}
+
+/* Hotel comparison: side by side where there is room, stacked on a phone. */
+.pf-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--p30-gap-sm);
+}
+
+.pf-option-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-xs);
+  min-width: 0;
+  padding: var(--p30-gap-sm);
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-md);
+  background: var(--pf-surface);
+}
+
+.pf-option-card[data-chosen="true"] {
+  border-color: var(--p30-tone-brand-primary);
+  box-shadow: inset 3px 0 0 var(--p30-tone-brand-primary);
+}
+
+.pf-option-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--p30-gap-xxs);
+}
+
+.pf-option-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--p30-gap-xs);
+  margin-top: auto;
+  padding-top: var(--p30-gap-xxs);
+}
+
+.pf-option-card__rooms {
+  margin: 0;
+  padding-left: var(--p30-gap-md);
+  font-size: var(--p30-type-size-body-xs);
+  line-height: 1.5;
+}
+
+.pf-ticket-card[data-selected="true"] {
+  border-color: var(--p30-tone-brand-primary);
+  box-shadow: inset 3px 0 0 var(--p30-tone-brand-primary);
+}
+
+@media (max-width: 575px) {
+  .pf-alts {
+    margin-left: var(--p30-gap-sm);
+  }
+}
+
 .pf-gap-list {
   display: flex;
   flex-direction: column;

@@ -224,6 +224,8 @@ def replay_settings(settings: Settings, live: bool) -> Settings:
         "grok_search_enabled": False,
         "web_search_enabled": True,
         "langfuse_enabled": False,
+        # The recorded runs predate the nearby meal searches; their meals come from the recorded pool.
+        "meal_search_budget_seconds": 0,
     }
     if not live:
         # Placeholder keys switch the keyed parsers on; every request stays in the replay.

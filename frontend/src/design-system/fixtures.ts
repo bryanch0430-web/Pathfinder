@@ -315,3 +315,123 @@ export const sampleClarify = {
   options: { dates: ["This weekend", "Next month", "In three months"], party_size: ["1", "2", "3", "4"] },
   reason_code: "missing_dates_party_size",
 };
+
+/** The sample plan with meal slots, source facts, alternatives, hotel options and flight options. */
+export const optionsPlan: TripPlan = (() => {
+  const days = samplePlan.days.map((day) => ({
+    ...day,
+    items: day.items.map((entry) => {
+      if (entry.id !== "item_m3") return entry;
+      const withFacts: PlanItem = {
+        ...entry,
+        meal_slot: "lunch",
+        rating: 4.4,
+        review_count: 1630,
+        price_level: "¥2,000–3,000",
+        cuisine: "Vegetarian",
+        reservable: true,
+        transfer: { from_item_id: "", minutes: 6, mode: "walk", distance_km: 0.45, source: "transport model", tool: "routes.segments", result_id: "" },
+        alternatives: [
+          {
+            id: "alt_m3a",
+            name: "Arashiyama Yoshimura",
+            geo: { lat: 35.0136, lng: 135.6776 },
+            address: "Sagatenryuji, Kyoto",
+            rating: 4.2,
+            review_count: 2210,
+            price_level: "¥1,000–2,000",
+            cuisine: "Soba",
+            reservable: null,
+            opening_hours: ["11:00–17:00"],
+            source_refs: [ref("Arashiyama Yoshimura", "google-places")],
+            booking_url: "",
+            distance_m: 380,
+          },
+          {
+            id: "alt_m3b",
+            name: "eX cafe Arashiyama",
+            geo: { lat: 35.0151, lng: 135.6779 },
+            address: "Sagatenryuji, Kyoto",
+            rating: 4.3,
+            review_count: null,
+            price_level: null,
+            cuisine: "Cafe",
+            reservable: false,
+            opening_hours: [],
+            source_refs: [ref("eX cafe Arashiyama", "google-places")],
+            booking_url: "",
+            distance_m: 1240,
+          },
+        ],
+      };
+      return withFacts;
+    }),
+  }));
+  const chosen = {
+    ...samplePlan.hotels[0],
+    hotel_class: 3,
+    amenities: ["Free Wi-Fi", "Air conditioning", "Breakfast", "Laundry", "Luggage storage", "Non-smoking rooms"],
+    nearby: [
+      { name: "Shijo Station", type: "subway", duration: "3 min walk" },
+      { name: "Kansai International Airport", type: "airport", duration: "1 hr 20 min by train" },
+    ],
+    nearest_stop_km: 0.6,
+    nearest_stop_name: "Nishiki Market",
+    room_types: [],
+  };
+  return {
+    ...samplePlan,
+    days,
+    hotels: [chosen],
+    hotel_options: [
+      chosen,
+      {
+        ...samplePlan.hotels[0],
+        id: "hotel_h2",
+        name: "Hotel Gion Garden",
+        area: "Gion",
+        price_per_night: { amount: 21400, currency: "JPY" },
+        rating: 4.6,
+        review_count: 1204,
+        distance_to_centre_km: 1.4,
+        hotel_class: 4,
+        amenities: ["Free Wi-Fi", "Spa"],
+        nearby: [],
+        nearest_stop_km: 0.3,
+        nearest_stop_name: "Yasaka Shrine",
+        room_types: [],
+      },
+      {
+        ...samplePlan.hotels[0],
+        id: "hotel_h3",
+        name: "Station Inn Kyoto",
+        area: "",
+        price_per_night: null,
+        price_kind: "none",
+        rating: null,
+        review_count: null,
+        distance_to_centre_km: null,
+        hotel_class: null,
+        amenities: [],
+        nearby: [],
+        nearest_stop_km: null,
+        nearest_stop_name: "",
+        room_types: [],
+      },
+    ],
+    tickets: [
+      { ...samplePlan.tickets[0], selected: true },
+      {
+        ...samplePlan.tickets[0],
+        id: "flight_f2",
+        name: "Cathay Pacific CX 594",
+        operator: "Cathay Pacific",
+        depart_at: "2027-04-10T08:15:00",
+        arrive_at: "2027-04-10T12:50:00",
+        duration_minutes: 215,
+        price: { amount: 118400, currency: "JPY" },
+        selected: false,
+      },
+    ],
+  };
+})();

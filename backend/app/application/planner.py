@@ -9,6 +9,7 @@ every id is validated before use.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Callable
 from datetime import date, datetime
@@ -17,6 +18,14 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.application.llm_gateway import LLMGateway
+from app.application.meals import (
+    alternatives_for,
+    attraction_alternative,
+    choose_meals,
+    day_centre,
+    search_nearby,
+    source_facts,
+)
 from app.application.opening_hours import DAY_MINUTES, lines_for, windows_on
 from app.application.transfers import (
     TRANSFER_TOOL,
@@ -50,6 +59,7 @@ from app.domain.models import (
     FailureKind,
     GeoLocation,
     GeoPoint,
+    HotelNearby,
     HotelStay,
     ItemType,
     Money,
@@ -64,6 +74,7 @@ from app.domain.models import (
     TripContext,
     TripPlan,
     WeatherDay,
+    selected_ticket,
     utcnow,
 )
 from app.domain.place_names import english_name, trusted_names
@@ -76,11 +87,30 @@ from app.infrastructure.providers.routes import (  # noqa: F401  (re-exported fo
 )
 from app.security import strip_fence_tags_deep
 
+logger = logging.getLogger(__name__)
+
 
 #: The gap for a kept stay whose rate for the new dates could not be fetched; it keeps its old rate.
 STAY_PRICE_NOT_REFRESHED = "The hotel's price for the new dates could not be refreshed."
 #: What a day with no stop reads; an edit that puts a stop on such a day clears it.
 NO_STOPS_NOTE = "No verified stops were available for this day."
+#: The most flight options a plan keeps to choose from (the first is selected unless the traveller picks another).
+MAX_TICKET_OPTIONS = 5
+#: The most hotel stays a plan keeps to choose from.
+MAX_HOTEL_OPTIONS = 5
+
+
+def annotate_stays(plan: TripPlan) -> None:
+    """Give each stay (chosen and options) the straight-line distance to its closest planned stop."""
+    stops = [(item.name, item.geo) for day in plan.days for item in day.items if item.geo is not None]
+    for stay in [*plan.hotels, *plan.hotel_options]:
+        if stay.geo is None or not stops:
+            stay.nearest_stop_km, stay.nearest_stop_name = None, ""
+            continue
+        km, name = min(
+            (haversine_km(stay.geo.lat, stay.geo.lng, geo.lat, geo.lng), name) for name, geo in stops
+        )
+        stay.nearest_stop_km, stay.nearest_stop_name = round(km, 2), name
 
 
 class PlannerAssignment(BaseModel):
@@ -115,6 +145,9 @@ PACE_BUFFER_MINUTES = {"slow": 15, "balanced": 5, "fast": 0}
 EARLY_OPEN_BY = 8 * 60 + 30
 POPULAR_REVIEW_COUNT = 5000
 
+BREAKFAST_START, BREAKFAST_END = 8 * 60, 8 * 60 + 45
+# Breakfast is over by 09:30: it starts by this time or is left out.
+BREAKFAST_LATEST = 9 * 60 + 30 - (BREAKFAST_END - BREAKFAST_START)
 LUNCH_START, LUNCH_END = 12 * 60 + 30, 13 * 60 + 30
 DINNER_START, DINNER_END = 19 * 60, 20 * 60 + 15
 # Latest end for a sightseeing stop, used to size a day cut short by a flight.
@@ -161,6 +194,7 @@ class Planner:
         keep_hotel: HotelStay | None = None,
         pick_hotel: Callable[[list[dict]], dict | None] | None = None,
         audit: AuditReport | None = None,
+        meal_sources: list | None = None,
     ) -> TripPlan:
         places = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("places", []))
         meals = list(results.get("attraction", AgentResult(agent="attraction", status=AgentStatus.UNAVAILABLE)).payload.get("meals", []))
@@ -251,24 +285,50 @@ class Planner:
         caps = [cap if limit is None else min(cap, limit) for limit in limits]
         _move_closed_stops(assignment, dates, caps)
         meal_days = {index: rows for index, rows in assignment.items() if dates[index] not in blocked}
-        meal_plan = self._assign_meals(meals, meal_days, destination)
         hotel = self._choose_hotel(hotels, draft)
         if pick_hotel is not None:
             # An edit that asked for another stay says which: none (nothing better came back) leaves `keep_hotel`.
             hotel = pick_hotel(hotels)
+        # Meals: breakfast, lunch, dinner and a cafe stop near each day's own stops, with alternatives;
+        # the city-wide pool when the nearby searches fail or are not available (no model call).
+        hotel_geo = (hotel or {}).get("geo") if isinstance((hotel or {}).get("geo"), dict) else None
+        fallback_centre = hotel_geo if hotel_geo and hotel_geo.get("lat") is not None else destination.geo.model_dump()
+        nearby: dict[int, dict[str, list[dict]]] = {}
+        if meal_sources:
+            centres = {
+                index: centre
+                for index, rows in meal_days.items()
+                if rows and (centre := day_centre(rows, fallback_centre)) is not None
+            }
+            try:
+                nearby = await search_nearby(
+                    sources=list(meal_sources), toolbox=toolbox, destination=context.destination,
+                    centres=centres, settings=self.settings,
+                )
+            except CanaryLeak:
+                raise
+            except Exception as exc:
+                # The pool below is the fallback; a bug in the nearby search never costs the plan.
+                logger.warning("nearby meal search failed open: %s", type(exc).__name__)
+                nearby = {}
+        meal_plan = choose_meals(
+            pool=meals, nearby=nearby, assignment=meal_days, dates=dates, fallback_centre=fallback_centre,
+            suitable=(lambda row: _serves_diet(row, diet)) if diet else None,
+        )
 
         async def day_schedule(index: int, day_places: list[dict]) -> tuple[list[PlanItem], list[str]]:
-            lunch = meal_plan.get(index, {}).get("lunch")
-            dinner = meal_plan.get(index, {}).get("dinner")
+            day_meals = meal_plan.get(index, {})
+            breakfast, lunch, dinner = day_meals.get("breakfast"), day_meals.get("lunch"), day_meals.get("dinner")
             # Transfer times come from one logged routes.segments call per day
             # (Proposal TC-09), covering every pair the schedule may need.
-            stops = [row for row in [*day_places, lunch, dinner] if row and _geo_point(row) is not None]
+            stops = [row for row in [breakfast, *day_places, lunch, dinner] if row and _geo_point(row) is not None]
             legs, tool = await fetch_legs(
                 [(_item_id(row), _geo_point(row)) for row in stops], toolbox=toolbox, source=transfers
             )
             return _schedule(
                 dates[index], day_places, lunch, dinner, pace=pace, must_see=must_see,
                 window=windows.get(dates[index]), legs=legs, tool=tool,
+                breakfast=breakfast, snack=day_meals.get("snack"),
             )
 
         schedules: list[dict[str, Any]] = []
@@ -292,6 +352,18 @@ class Planner:
                     entry["places"].remove(row)
                     entry["left_out"].remove(row["name"])
                     break
+
+        # Each attraction carries the nearest open place candidate that is not in the plan.
+        scheduled = {item.id for entry in schedules for item in entry["items"]}
+        unused = [row for row in places if _item_id(row) not in scheduled]
+        offered: set[str] = set()
+        for index, entry in enumerate(schedules):
+            for item in entry["items"]:
+                if item.type == ItemType.ATTRACTION and not item.alternatives:
+                    geo = item.geo.model_dump() if item.geo is not None else None
+                    alternative = attraction_alternative(geo, unused, dates[index], offered)
+                    if alternative is not None:
+                        item.alternatives = [alternative]
 
         days: list[DayPlan] = []
         for index, day_date in enumerate(dates):
@@ -405,6 +477,7 @@ class Planner:
             summary=_summary(draft, context, date_range, destination),
             days=days,
             hotels=[hotel_stay] if hotel_stay else [],
+            hotel_options=self.hotel_options(hotels, hotel_stay, date_range),
             tickets=tickets,
             cost=cost,
             constraints=constraints,
@@ -419,6 +492,7 @@ class Planner:
             video_notes=video_notes[:6],
             change_summary=change_summary,
         )
+        annotate_stays(plan)
         return plan
 
     async def _draft(
@@ -659,7 +733,27 @@ class Planner:
             fetched_at=utcnow(),
             booking_url=hotel.get("booking_url", ""),
             notes=hotel.get("notes", ""),
+            amenities=[str(item) for item in hotel.get("amenities") or []],
+            hotel_class=hotel.get("hotel_class"),
+            property_token=str(hotel.get("property_token") or ""),
+            nearby=[HotelNearby.model_validate(row) for row in hotel.get("nearby") or [] if isinstance(row, dict)],
         )
+
+    @staticmethod
+    def hotel_options(candidates: list[dict], chosen: HotelStay | None, date_range: DateRange) -> list[HotelStay]:
+        """Up to MAX_HOTEL_OPTIONS source-backed stays, the chosen one first and the same object as ``hotels[0]``."""
+        options: list[HotelStay] = []
+        for row in candidates:
+            try:
+                stay = Planner._build_hotel(row, date_range)
+            except Exception:
+                continue
+            if stay is not None:
+                options.append(stay)
+        if chosen is not None:
+            options = [stay for stay in options if stay.id != chosen.id and stay.name != chosen.name]
+            options.insert(0, chosen)
+        return options[:MAX_HOTEL_OPTIONS]
 
     @staticmethod
     def keep_stay(stay: HotelStay, candidates: list[dict], date_range: DateRange) -> tuple[HotelStay, bool]:
@@ -677,7 +771,7 @@ class Planner:
     @staticmethod
     def _build_tickets(flights: list[dict]) -> list[TicketOption]:
         tickets: list[TicketOption] = []
-        for row in flights[:3]:
+        for row in flights[:MAX_TICKET_OPTIONS]:
             try:
                 tickets.append(
                     TicketOption(
@@ -734,8 +828,8 @@ class Planner:
             )
         elif hotel:
             unknown.append("Hotel price was not returned.")
-        if tickets:
-            flight = tickets[0]
+        flight = selected_ticket(tickets)
+        if flight is not None:
             if flight.price:
                 amount = self.fx.convert(flight.price.amount, flight.price.currency, currency)
                 lines.append(
@@ -1218,6 +1312,8 @@ def _schedule(
     window: DayWindow | None = None,
     legs: Legs | None = None,
     tool: str = "",
+    breakfast: dict | None = None,
+    snack: dict | None = None,
 ) -> tuple[list[PlanItem], list[str]]:
     """Lay the day out chronologically with realistic transfer time.
 
@@ -1240,6 +1336,11 @@ def _schedule(
         (open_from is not None and open_from > DINNER_START) or (open_until is not None and open_until < DINNER_END)
     ):
         dinner = None
+    if breakfast and (
+        (open_from is not None and open_from > BREAKFAST_LATEST)
+        or (open_until is not None and open_until < BREAKFAST_END)
+    ):
+        breakfast = None
     must_see = must_see or []
     legs = legs or {}
     ordered = list(places)
@@ -1314,12 +1415,20 @@ def _schedule(
         )
         state["row"], state["end"] = row, slot[1]
 
+    if breakfast is not None:
+        # Breakfast is the day's first stop; the first sight then starts after it.
+        place_meal(
+            breakfast, "Breakfast", max(BREAKFAST_START, open_from or 0), BREAKFAST_LATEST,
+            BREAKFAST_END - BREAKFAST_START,
+        )
+
     lunch_due = lunch is not None
     queue = list(ordered)
     deferred: set[int] = set()
     while queue:
         row = queue.pop(0)
-        earliest = arrival(state["row"], state["end"], row, start_at)
+        # Never before the day's usual start (a breakfast stop ends earlier than that).
+        earliest = max(start_at, arrival(state["row"], state["end"], row, start_at))
         slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell))
         if slot and slot[0] - earliest > OPENING_WAIT_LIMIT and queue and id(row) not in deferred:
             deferred.add(id(row))
@@ -1331,7 +1440,7 @@ def _schedule(
             if ready > LUNCH_START + LUNCH_SLACK:
                 lunch_due = False
                 place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
-                earliest = arrival(state["row"], state["end"], row, start_at)
+                earliest = max(start_at, arrival(state["row"], state["end"], row, start_at))
                 slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell))
         if slot and dinner is not None:
             to_dinner = leg(row, dinner)
@@ -1373,7 +1482,69 @@ def _schedule(
         place_meal(dinner, "Dinner", DINNER_START, DINNER_LATEST, DINNER_END - DINNER_START)
     # Chronological order is the contract; meals are not "after all sights".
     items.sort(key=lambda item: (_minutes_of(item.start), 0 if item.type == "attraction" else 1))
+    if snack is not None:
+        _place_snack(items, snack, day_date, buffer=buffer, until=open_until)
     return items, left_out
+
+
+SNACK_MINUTES = 30
+SNACK_EARLIEST, SNACK_LATEST = 14 * 60, 18 * 60
+
+
+def _place_snack(items: list[PlanItem], row: dict, day_date: date, *, buffer: int, until: int | None) -> None:
+    """Put a cafe stop in the longest afternoon gap after a sight, when it fits with its transfers.
+
+    The transfers in and out are the app's own transport model. The stop after it gets its
+    transfer from the cafe. Nothing moves; with no gap long enough there is no cafe stop.
+    """
+    point = _geo_point(row)
+    if point is None:
+        return
+    windows = _hours(row, day_date)[1]
+    best: tuple[int, int, int, RouteLeg, RouteLeg | None] | None = None
+    for position, previous in enumerate(items):
+        if previous.type != ItemType.ATTRACTION or previous.geo is None:
+            continue
+        following = items[position + 1] if position + 1 < len(items) else None
+        if following is not None and following.type not in {ItemType.ATTRACTION, ItemType.MEAL}:
+            continue
+        gap_end = _minutes_of(following.start) if following is not None else min(SNACK_LATEST + SNACK_MINUTES, until or DAY_MINUTES)
+        into = _model_leg(previous.geo, point)
+        out = _model_leg(point, following.geo) if following is not None and following.geo is not None else None
+        start = _round5(_minutes_of(previous.end) + (into.duration_minutes or 0) + buffer)
+        end = start + SNACK_MINUTES
+        latest_end = gap_end - ((out.duration_minutes or 0) + buffer if out is not None else 0)
+        if start < SNACK_EARLIEST or start > SNACK_LATEST or end > latest_end:
+            continue
+        if windows is not None and not any(opens <= start and end <= closes for opens, closes in windows):
+            continue
+        room = gap_end - _minutes_of(previous.end)
+        if best is None or room > best[0]:
+            best = (room, position, start, into, out)
+    if best is None:
+        return
+    _, position, start, into, out = best
+    previous = items[position]
+    item = _meal_item(
+        "Cafe stop", _hhmm(start), _hhmm(start + SNACK_MINUTES), row, day_date=day_date,
+        transfer=transfer_from(into, previous.id, ""),
+    )
+    items.insert(position + 1, item)
+    following = items[position + 2] if position + 2 < len(items) else None
+    if following is not None and out is not None:
+        old = transfer_sentence(following.transfer)
+        following.transfer = transfer_from(out, item.id, "")
+        if old and old in following.notes:
+            following.notes = following.notes.replace(old, transfer_sentence(following.transfer))
+
+
+def _model_leg(origin: GeoPoint, destination: GeoPoint) -> RouteLeg:
+    km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
+    mode, minutes = model_travel(km)
+    return RouteLeg(
+        from_geo=origin, to_geo=destination, duration_minutes=minutes,
+        distance_km=round(km, 3), mode=mode, source="transport-model",
+    )
 
 
 def _window_limit(window: DayWindow | None, pace: str) -> int | None:
@@ -1396,6 +1567,7 @@ def _meal_item(
     transfer: TransferLeg | None = None,
 ) -> PlanItem:
     hours_lines = _hours(row, day_date)[0] if day_date else []
+    slot = row.get("meal_slot") if row.get("meal_slot") in {"breakfast", "lunch", "dinner", "snack"} else None
     # The meal's transfer is on the item (``transfer``); its note stays short.
     note = f"{label} candidate from {', '.join(ref.get('source', 'source') for ref in row.get('source_refs', [])) or 'a travel source'}."
     return PlanItem(
@@ -1415,6 +1587,9 @@ def _meal_item(
         hours_status="stated" if hours_lines else "unknown",
         transfer=transfer,
         names=trusted_names(row.get("names")),
+        meal_slot=slot,
+        alternatives=alternatives_for(row),
+        **source_facts(row),
     )
 
 
@@ -1432,12 +1607,13 @@ def _reservations(places: list[dict], tickets: list[TicketOption]) -> list[Reser
                     status="to_book",
                 )
             )
-    if tickets and tickets[0].booking_url:
+    flight = selected_ticket(tickets)
+    if flight is not None and flight.booking_url:
         reservations.append(
             Reservation(
-                name=f"Flight · {tickets[0].name}",
+                name=f"Flight · {flight.name}",
                 reason="Reference itinerary; confirm the fare and seat with the airline.",
-                url=tickets[0].booking_url,
+                url=flight.booking_url,
                 status="optional",
             )
         )
@@ -1508,7 +1684,7 @@ def _constraints(
             ConstraintCheck(
                 text="Flight option available",
                 status=ConstraintStatus.PASS if tickets else ConstraintStatus.UNKNOWN,
-                evidence=tickets[0].name if tickets else "No flight source returned an option.",
+                evidence=selected_ticket(tickets).name if tickets else "No flight source returned an option.",
             )
         )
     planned_names = [item.name.lower() for day in days for item in day.items]

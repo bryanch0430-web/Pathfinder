@@ -20,7 +20,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Str
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from app.application.choices import ChoiceNotFound, ChoiceRefused, apply_choice, normalise_hotel_options
 from app.application.legs import leg_options_for_plan, legs_for_plan
+from app.application.toolbox import Toolbox
+from app.infrastructure.observability import NoopTracer
+from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import user_facing_error
 from app.application.preferences import derive_preferences
@@ -34,6 +38,7 @@ from app.container import Container, build_container
 from app.application.auth import create_token, decode_token, hash_password, verify_password
 from app.domain.credentials import SERVER_OWNER
 from app.domain.models import (
+    DateRange,
     Feedback,
     fit_preference,
     Intent,
@@ -44,6 +49,7 @@ from app.domain.models import (
     TRIP_FIELD_MAX_LENGTH,
     TRIP_LINE_MAX_LENGTH,
     TRIP_LINES_MAX,
+    new_id,
     TripContext,
     TripPlan,
     User,
@@ -175,6 +181,16 @@ class FeedbackRequest(BaseModel):
     stars: int | None = Field(default=None, ge=1, le=5)
     reason_code: str = Field(default="", max_length=REASON_MAX_LENGTH)
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
+
+
+class ChoiceRequest(BaseModel):
+    """Pick another option shown on the plan: a stop's alternative, a hotel option or a flight option."""
+
+    kind: Literal["item", "hotel", "flight"]
+    target_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
+    option_id: str = Field(max_length=ID_MAX_LENGTH)
+    #: The plan version the traveller chose on; a choice made on an older version is refused (409).
+    plan_version: int | None = Field(default=None, ge=1)
 
 
 class EvalRunRequest(BaseModel):
@@ -706,6 +722,98 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except KeyError:
             raise HTTPException(status_code=404, detail="Both stops must be in the current plan")
+
+    @app.post("/api/journeys/{session_id}/plan/choose")
+    async def choose_option(session_id: str, payload: ChoiceRequest, request: Request) -> dict[str, Any]:
+        """Swap in the option the traveller picked, with no model call, and save it as the next plan version."""
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        if payload.kind == "item" and not payload.target_id:
+            raise HTTPException(status_code=422, detail="Choosing a stop's option needs the stop's target_id")
+        if payload.plan_version is not None and payload.plan_version != plan.version:
+            raise HTTPException(
+                status_code=409,
+                detail="This choice was made on an earlier version of the plan; open the latest version and choose again.",
+            )
+        # The day's transfers come from the transport model (no network), logged like the edit path's.
+        toolbox = Toolbox(path="modify", tracer=NoopTracer(), store=c.store, request_id=new_id("choose"))
+        try:
+            updated = await apply_choice(
+                plan,
+                kind=payload.kind,
+                target_id=payload.target_id,
+                option_id=payload.option_id,
+                planner=c.plan_path.planner,
+                context=c.store.get_context(session_id),
+                toolbox=toolbox,
+                transfers=getattr(c.registry, "transfers", None),
+            )
+        except ChoiceNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
+        except ChoiceRefused as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        try:
+            c.store.save_plan(updated, updated.change_summary)
+        except PlanConflict as exc:
+            raise HTTPException(status_code=409, detail="The plan changed meanwhile; reload it and choose again.") from exc
+        return {"plan": tidy_data_gaps(updated, drop_edit_gaps=True).model_dump(mode="json")}
+
+    @app.get("/api/journeys/{session_id}/plan/hotels/{hotel_id}/rooms")
+    async def hotel_rooms(session_id: str, hotel_id: str, request: Request) -> dict[str, Any]:
+        """The rooms the hotel source lists for a stay, fetched once and kept on the plan."""
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        # The stay as it stands now leads the options; every stay is asked about the stay's own dates.
+        normalise_hotel_options(plan)
+        stays = [stay for stay in [*plan.hotels, *plan.hotel_options] if stay.id == hotel_id]
+        if not stays:
+            raise HTTPException(status_code=404, detail="Hotel not found")
+        stay = stays[0]
+        current = plan.hotels[0] if plan.hotels else None
+        check_in = current.check_in if current is not None else stay.check_in
+        check_out = current.check_out if current is not None else stay.check_out
+        wanted = DateRange(start=check_in, end=check_out)
+        checked = stay.rooms_checked_for
+        if checked is None and stay.room_types:
+            # Rooms kept before the marker existed were fetched for the stay's own dates.
+            checked = DateRange(start=stay.check_in, end=stay.check_out)
+        if checked == wanted:
+            # Asked before for these dates: the answer is kept, even when the source listed no room.
+            return {"rooms": [room.model_dump(mode="json") for room in stay.room_types]}
+        source = next(
+            (item for item in c.registry.hotels if hasattr(item, "rooms") and getattr(item, "available", False)), None
+        )
+        rooms = []
+        asked = False
+        if source is not None and stay.property_token:
+            try:
+                rooms = await source.rooms(
+                    property_token=stay.property_token,
+                    name=stay.name,
+                    check_in=check_in,
+                    check_out=check_out,
+                    party_size=plan.party_size,
+                    currency=(stay.price_per_night.currency if stay.price_per_night else plan.cost.currency) or "USD",
+                )
+                asked = True
+            except Exception:
+                rooms = []
+        if asked:
+            for item in stays:
+                item.room_types = list(rooms)
+                item.rooms_checked_for = wanted
+            try:
+                # A cache on the version it was read from, not a change of plan.
+                c.store.save_plan(plan, None, replace=True)
+            except PlanConflict:
+                pass
+        return {"rooms": [room.model_dump(mode="json") for room in rooms]}
 
     @app.post("/api/journeys/{session_id}/rating")
     async def feedback(

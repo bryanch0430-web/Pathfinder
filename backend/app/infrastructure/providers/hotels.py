@@ -11,8 +11,10 @@ from app.domain.models import (
     DataStatus,
     GeoPoint,
     HotelCandidate,
+    HotelNearby,
     Money,
     PriceKind,
+    RoomType,
     SourceRef,
     utcnow,
 )
@@ -119,7 +121,48 @@ class SerpApiHotelSource:
                 )
             ],
             notes=OVER_BUDGET_NOTE if over_budget else "Indicative nightly rate; availability is not confirmed.",
+            amenities=[str(item).strip() for item in row.get("amenities") or [] if str(item).strip()][:30],
+            hotel_class=_hotel_class(row),
+            property_token=str(row.get("property_token") or ""),
+            nearby=_nearby(row),
         )
+
+    async def rooms(
+        self,
+        *,
+        property_token: str,
+        name: str,
+        check_in: date,
+        check_out: date,
+        party_size: int,
+        currency: str,
+    ) -> list[RoomType]:
+        """The rooms the property details list for these dates; empty when there is no key, no token or no room."""
+        if not self.available or not property_token:
+            return []
+        data = await request_json(
+            "GET",
+            "https://serpapi.com/search.json",
+            source=self.name,
+            params={
+                "engine": "google_hotels",
+                "q": name or "hotel",
+                "property_token": property_token,
+                "check_in_date": check_in.isoformat(),
+                "check_out_date": check_out.isoformat(),
+                "adults": max(party_size, 1),
+                "currency": currency,
+                "hl": "en",
+                "gl": "us",
+                "api_key": self.settings.serpapi_key,
+            },
+            timeout=max(self.settings.http_timeout_seconds, 20),
+            retries=self.settings.http_retries,
+            user_agent=self.settings.user_agent,
+        )
+        if data.get("error"):
+            raise ProviderError(f"{self.name} returned an error", source=self.name, detail=str(data["error"])[:300])
+        return parse_rooms(data, currency)
 
 
 class WikivoyageHotelSource:
@@ -173,6 +216,68 @@ class WikivoyageHotelSource:
                 )
             )
         return out[:8]
+
+
+#: The most rooms kept from one property's details.
+MAX_ROOM_TYPES = 20
+
+
+def parse_rooms(data: dict, currency: str) -> list[RoomType]:
+    """Rooms under ``featured_prices[].rooms[]`` (and ``prices[].rooms[]``), with the seller and nightly rate given."""
+    out: list[RoomType] = []
+    seen: set[tuple[str, str]] = set()
+    for offer in [*(data.get("featured_prices") or []), *(data.get("prices") or [])]:
+        if not isinstance(offer, dict):
+            continue
+        seller = str(offer.get("source") or "")
+        for room in offer.get("rooms") or []:
+            if not isinstance(room, dict):
+                continue
+            name = str(room.get("name") or "").strip()
+            if not name or (name.lower(), seller.lower()) in seen:
+                continue
+            seen.add((name.lower(), seller.lower()))
+            price = _rate(room)
+            out.append(
+                RoomType(
+                    name=name,
+                    price_per_night=Money(amount=price, currency=currency) if price is not None else None,
+                    source=seller,
+                    link=str(room.get("link") or offer.get("link") or ""),
+                )
+            )
+            if len(out) >= MAX_ROOM_TYPES:
+                return out
+    return out
+
+
+def _hotel_class(row: dict) -> int | None:
+    value = row.get("extracted_hotel_class")
+    if value is None:
+        match = re.search(r"([1-7])\s*-?\s*star", str(row.get("hotel_class") or ""), re.IGNORECASE)
+        value = match.group(1) if match else None
+    try:
+        number = int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+    return number if number is not None and 1 <= number <= 7 else None
+
+
+def _nearby(row: dict) -> list[HotelNearby]:
+    out: list[HotelNearby] = []
+    for place in row.get("nearby_places") or []:
+        if not isinstance(place, dict) or not str(place.get("name") or "").strip():
+            continue
+        for way in place.get("transportations") or []:
+            if isinstance(way, dict):
+                out.append(
+                    HotelNearby(
+                        name=str(place["name"]).strip(),
+                        type=str(way.get("type") or ""),
+                        duration=str(way.get("duration") or ""),
+                    )
+                )
+    return out[:12]
 
 
 def _rate(row: dict) -> float | None:
