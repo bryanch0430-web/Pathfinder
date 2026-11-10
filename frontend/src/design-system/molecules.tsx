@@ -23,6 +23,8 @@ import type {
   EvalMetric,
   EvalRunSummary,
   FxSnapshot,
+  MealSlot,
+  PlanAlternative,
   PlanItem,
   TripContext,
   WeatherDay,
@@ -592,6 +594,56 @@ const ITEM_ICON: Record<string, IconName> = {
   ticket: "ticket",
 };
 
+const MEAL_SLOT_KEY: Record<MealSlot, MessageKey> = {
+  breakfast: "options.slot.breakfast",
+  lunch: "options.slot.lunch",
+  dinner: "options.slot.dinner",
+  snack: "options.slot.snack",
+};
+
+type Translator = ReturnType<typeof useI18n>["t"];
+
+/** A distance computed by the app: metres under 1 km, else km with one decimal. */
+export function formatDistance(metres: number, t: Translator): string {
+  return metres < 1000
+    ? t("options.metres", { m: Math.round(metres) })
+    : t("options.km", { km: (metres / 1000).toFixed(1) });
+}
+
+/** The app's own leg from the previous stop; nothing when the plan has none. */
+function transferLine(item: PlanItem, t: Translator): string {
+  const leg = item.transfer;
+  if (!leg || !Number.isFinite(leg.minutes) || leg.minutes <= 0) return "";
+  const walking = leg.mode === "walk" || leg.mode === "walking";
+  const time = walking
+    ? t("options.walk", { minutes: Math.round(leg.minutes) })
+    : t("options.travel", { minutes: Math.round(leg.minutes), mode: leg.mode });
+  const distance =
+    typeof leg.distance_km === "number" && leg.distance_km > 0 ? ` · ${formatDistance(leg.distance_km * 1000, t)}` : "";
+  return `${time}${distance} ${t("options.fromPrevious")}`;
+}
+
+type PlaceFactFields = Pick<PlanAlternative, "rating" | "review_count" | "price_level" | "cuisine" | "reservable">;
+
+/** The source's facts about a place: rating, reviews, price, cuisine, reservations. Each is hidden when the source gave none. */
+export function PlaceFacts({ place }: { place: Partial<PlaceFactFields> }) {
+  const { t } = useI18n();
+  const parts: string[] = [];
+  if (typeof place.rating === "number") {
+    const reviews =
+      typeof place.review_count === "number"
+        ? ` ${t("options.reviews", { count: place.review_count.toLocaleString() })}`
+        : "";
+    parts.push(`\u2605 ${place.rating.toFixed(1)}${reviews}`);
+  }
+  if (place.price_level) parts.push(place.price_level);
+  if (place.cuisine) parts.push(place.cuisine);
+  // Reservations are shown only when the source said yes; unknown and "no" show nothing.
+  if (place.reservable === true) parts.push(t("options.reservable"));
+  if (!parts.length) return null;
+  return <span className="pf-item__facts">{parts.join(" · ")}</span>;
+}
+
 export function ItineraryItem({
   item,
   selected = false,
@@ -608,6 +660,7 @@ export function ItineraryItem({
   showSource?: boolean;
 }) {
   const { t } = useI18n();
+  const transferText = transferLine(item, t);
   return (
     <div
       className="pf-item"
@@ -635,10 +688,13 @@ export function ItineraryItem({
         <Icon name={ITEM_ICON[item.type] ?? "map"} size={15} />
       </span>
       <div className="pf-item__main">
+        {item.meal_slot ? <span className="pf-item__slot">{t(MEAL_SLOT_KEY[item.meal_slot])}</span> : null}
         <span className="pf-item__name">
           {number ? <span className="pf-mono pf-muted">{number}. </span> : null}
           {item.name}
         </span>
+        <PlaceFacts place={item} />
+        {transferText ? <span className="pf-item__facts">{transferText}</span> : null}
         {item.notes ? <span className="pf-item__notes">{item.notes}</span> : null}
         {item.hours_status ? (
           <span className="pf-item__notes" data-hours={item.hours_status}>
@@ -682,6 +738,93 @@ export function ItineraryItem({
   );
 }
 
+/** The reason a failed request gives, for showing under the button that sent it. */
+export function failureReason(cause: unknown): string {
+  return cause instanceof Error && cause.message ? cause.message : String(cause);
+}
+
+/**
+ * The other source-backed choices for one stop, behind an "N other options" disclosure. They are backups for when the
+ * default is closed or full; "Use this" swaps the stop through the plan's choose endpoint (no model call).
+ */
+export function ItemAlternatives({
+  item,
+  onChoose,
+  defaultOpen = false,
+}: {
+  item: PlanItem;
+  onChoose?: (alternativeId: string) => Promise<void>;
+  defaultOpen?: boolean;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(defaultOpen);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<{ id: string; reason: string } | null>(null);
+  const listId = useId();
+  const alternatives = item.alternatives ?? [];
+  if (!alternatives.length) return null;
+
+  const choose = async (alternativeId: string) => {
+    if (!onChoose) return;
+    setPending(alternativeId);
+    setError(null);
+    try {
+      await onChoose(alternativeId);
+    } catch (cause) {
+      setError({ id: alternativeId, reason: failureReason(cause) });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return (
+    <div className="pf-alts">
+      <button
+        type="button"
+        className="pf-alts__toggle"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen(!open)}
+      >
+        <Icon name={open ? "chevronDown" : "chevronRight"} size={12} />
+        {alternatives.length === 1 ? t("options.otherOne") : t("options.other", { count: alternatives.length })}
+      </button>
+      {open ? (
+        <div className="pf-alts__body" id={listId}>
+          <span className="pf-muted pf-small">{t("options.backupHint")}</span>
+          {alternatives.map((alternative) => (
+            <div className="pf-alt-card" key={alternative.id}>
+              <div className="pf-stack pf-grow" style={{ gap: 2 }}>
+                <Text size="sm" weight="semibold">{alternative.name}</Text>
+                <PlaceFacts place={alternative} />
+                {typeof alternative.distance_m === "number" ? (
+                  <span className="pf-item__facts">
+                    {t("options.fromDefault", { distance: formatDistance(alternative.distance_m, t) })}
+                  </span>
+                ) : null}
+                {error?.id === alternative.id ? (
+                  <span className="pf-field__error" role="alert">{t("options.failed", { reason: error.reason })}</span>
+                ) : null}
+              </div>
+              {onChoose ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={pending === alternative.id}
+                  disabled={pending !== null && pending !== alternative.id}
+                  onClick={() => void choose(alternative.id)}
+                >
+                  {t("options.useThis")}
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function WeatherChip({ weather }: { weather: WeatherDay | null }) {
   const { t } = useI18n();
   if (!weather) {
@@ -715,6 +858,7 @@ export function DaySection({
   updatedIds,
   onSelectItem,
   innerRef,
+  onChooseAlternative,
 }: {
   day: DayPlan;
   index: number;
@@ -722,6 +866,8 @@ export function DaySection({
   updatedIds?: Set<string>;
   onSelectItem?: (item: PlanItem) => void;
   innerRef?: (node: HTMLElement | null) => void;
+  /** Swaps a stop for one of its alternatives; resolves when the updated plan is shown, rejects with the reason. */
+  onChooseAlternative?: (item: PlanItem, alternativeId: string) => Promise<void>;
 }) {
   const { t } = useI18n();
   const dayLabel = t("day.number", { n: index + 1 });
@@ -738,14 +884,21 @@ export function DaySection({
         <WeatherChip weather={day.weather} />
       </div>
       {day.items.map((item, itemIndex) => (
-        <ItineraryItem
-          key={item.id}
-          item={item}
-          number={itemIndex + 1}
-          selected={selectedItemId === item.id}
-          updated={updatedIds?.has(item.id) ?? false}
-          onSelect={() => onSelectItem?.(item)}
-        />
+        <div key={item.id} className="pf-item-group">
+          <ItineraryItem
+            item={item}
+            number={itemIndex + 1}
+            selected={selectedItemId === item.id}
+            updated={updatedIds?.has(item.id) ?? false}
+            onSelect={() => onSelectItem?.(item)}
+          />
+          {item.alternatives?.length ? (
+            <ItemAlternatives
+              item={item}
+              onChoose={onChooseAlternative ? (alternativeId) => onChooseAlternative(item, alternativeId) : undefined}
+            />
+          ) : null}
+        </div>
       ))}
       {!day.items.length ? (
         <div className="pf-gap" style={{ margin: "0 8px" }}>

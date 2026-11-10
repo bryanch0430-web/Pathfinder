@@ -624,6 +624,8 @@ export default function App() {
                   onFocusDay={setMapDay}
                   updatedIds={pf.changedIds}
                   hotelChanged={pf.hotelChanged}
+                  onChooseOption={pf.choose}
+                  onLoadHotelRooms={pf.hotelRooms}
                 />
               ) : (
                 <WelcomePanel

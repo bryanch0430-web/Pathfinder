@@ -16,6 +16,7 @@ import {
   DaySection,
   DayStrip,
   ExperimentTable,
+  failureReason,
   GapList,
   MetricCard,
   MiniStat,
@@ -40,7 +41,10 @@ import type {
   EvalRunSummary,
   FxSnapshot,
   GuideChunk,
+  HotelStay,
   PlanItem,
+  RoomType,
+  TicketOption,
   TripContext,
   TripPlan,
   RunTrace,
@@ -49,7 +53,7 @@ import type {
   VideoNote,
 } from "./types";
 import { hotelScopeItem } from "./scope";
-import { ApiError, getLegOptions, getLegs, type LegOptions, type MapLeg } from "../lib/api";
+import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type MapLeg } from "../lib/api";
 import { failureText } from "../lib/failure";
 import { safeHref } from "../lib/safeHref";
 import { addTags, isImeKey } from "../lib/typing";
@@ -653,7 +657,7 @@ function Collapsible({
   defaultOpen = false,
 }: {
   title: string;
-  icon: "wallet" | "check" | "ticket" | "alert" | "info";
+  icon: "wallet" | "check" | "ticket" | "alert" | "info" | "hotel";
   badge?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
@@ -670,6 +674,284 @@ function Collapsible({
         <Icon name={open ? "chevronDown" : "chevronRight"} size={14} />
       </button>
       {open ? <div className="pf-collapsible__body">{children}</div> : null}
+    </div>
+  );
+}
+
+/** A pending request on one button and the reason it last failed, for the option cards. */
+function useOptionAction() {
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<{ key: string; reason: string } | null>(null);
+  const run = async (key: string, action: () => Promise<unknown>) => {
+    setPending(key);
+    setError(null);
+    try {
+      await action();
+    } catch (cause) {
+      setError({ key, reason: failureReason(cause) });
+    } finally {
+      setPending(null);
+    }
+  };
+  return { pending, error, run };
+}
+
+function moneyText(money: { amount: number; currency: string } | null | undefined): string {
+  return money ? `${money.currency} ${money.amount.toLocaleString()}` : "";
+}
+
+const AMENITIES_SHOWN = 4;
+
+/** One stay in the hotel comparison. Every line is hidden when the source gave nothing for it. */
+function HotelOptionCard({
+  hotel,
+  chosen,
+  onChoose,
+  onLoadRooms,
+}: {
+  hotel: HotelStay;
+  chosen: boolean;
+  onChoose?: () => Promise<void>;
+  onLoadRooms?: () => Promise<RoomType[]>;
+}) {
+  const { t } = useI18n();
+  const { pending, error, run } = useOptionAction();
+  const [allAmenities, setAllAmenities] = useState(false);
+  const [rooms, setRooms] = useState<RoomType[] | null>(null);
+  const [roomsOpen, setRoomsOpen] = useState(false);
+  const amenities = hotel.amenities ?? [];
+  const shownAmenities = allAmenities ? amenities : amenities.slice(0, AMENITIES_SHOWN);
+  const nearby = (hotel.nearby ?? []).filter((place) => place.name);
+  const knownRooms = rooms ?? (hotel.room_types?.length ? hotel.room_types : null);
+  const location = [
+    hotel.area,
+    typeof hotel.distance_to_centre_km === "number" ? t("workspace.kmToCentre", { km: hotel.distance_to_centre_km }) : "",
+    typeof hotel.nearest_stop_km === "number" && hotel.nearest_stop_name
+      ? t("options.nearestStop", { km: hotel.nearest_stop_km, stop: hotel.nearest_stop_name })
+      : "",
+  ].filter(Boolean);
+  const quality = [
+    typeof hotel.rating === "number"
+      ? `\u2605 ${hotel.rating.toFixed(1)}${
+          typeof hotel.review_count === "number" ? ` ${t("options.reviews", { count: hotel.review_count.toLocaleString() })}` : ""
+        }`
+      : "",
+    typeof hotel.hotel_class === "number" && hotel.hotel_class > 0 ? t("options.stars", { n: hotel.hotel_class }) : "",
+  ].filter(Boolean);
+
+  const toggleRooms = () => {
+    if (roomsOpen) {
+      setRoomsOpen(false);
+      return;
+    }
+    if (knownRooms || !onLoadRooms) {
+      setRoomsOpen(true);
+      return;
+    }
+    void run("rooms", async () => {
+      const loaded = await onLoadRooms();
+      setRooms(loaded);
+      setRoomsOpen(true);
+    });
+  };
+
+  return (
+    <div className="pf-option-card" data-chosen={chosen}>
+      <div className="pf-row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+        <Text size="sm" weight="semibold">{hotel.name}</Text>
+        {chosen ? <Badge tone="brand" dot>{t("options.chosen")}</Badge> : null}
+      </div>
+      {hotel.price_per_night ? (
+        <Text size="sm" weight="semibold">
+          {t("workspace.perNight", { price: moneyText(hotel.price_per_night) })}
+          {hotel.price_kind !== "none" ? <span className="pf-muted pf-small"> · {hotel.price_kind}</span> : null}
+        </Text>
+      ) : null}
+      {location.length ? <Text size="xs" tone="secondary">{location.join(" · ")}</Text> : null}
+      {quality.length ? <Text size="xs" tone="secondary">{quality.join(" · ")}</Text> : null}
+      {amenities.length ? (
+        <div className="pf-option-card__chips">
+          {shownAmenities.map((amenity) => (
+            <Badge key={amenity} tone="neutral">{amenity}</Badge>
+          ))}
+          {amenities.length > AMENITIES_SHOWN ? (
+            <button
+              type="button"
+              className="pf-alts__toggle"
+              aria-expanded={allAmenities}
+              onClick={() => setAllAmenities(!allAmenities)}
+            >
+              {allAmenities ? t("options.amenitiesLess") : t("options.amenitiesMore", { count: amenities.length - AMENITIES_SHOWN })}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {nearby.length ? (
+        <div className="pf-stack" style={{ gap: 1 }}>
+          <span className="pf-muted pf-small">{t("options.nearby")}</span>
+          {nearby.slice(0, 3).map((place) => (
+            <span className="pf-small" key={`${place.name}-${place.duration}`}>
+              {place.name}
+              {place.duration ? <span className="pf-muted"> · {place.duration}</span> : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {error ? (
+        <span className="pf-field__error" role="alert">
+          {error.key === "rooms" ? t("options.roomsFailed", { reason: error.reason }) : t("options.failed", { reason: error.reason })}
+        </span>
+      ) : null}
+      <div className="pf-option-card__actions">
+        {!chosen && onChoose ? (
+          <Button
+            size="sm"
+            variant="primary"
+            loading={pending === "choose"}
+            disabled={pending !== null && pending !== "choose"}
+            onClick={() => void run("choose", onChoose)}
+          >
+            {t("options.chooseHotel")}
+          </Button>
+        ) : null}
+        {knownRooms || onLoadRooms ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            iconLeft="hotel"
+            aria-expanded={roomsOpen}
+            loading={pending === "rooms"}
+            disabled={pending !== null && pending !== "rooms"}
+            onClick={toggleRooms}
+          >
+            {roomsOpen ? t("options.hideRooms") : t("options.roomTypes")}
+          </Button>
+        ) : null}
+      </div>
+      {roomsOpen ? (
+        knownRooms && knownRooms.length ? (
+          <ul className="pf-option-card__rooms">
+            {knownRooms.map((room, index) => {
+              const href = safeHref(room.link);
+              return (
+                <li key={`${room.name}-${index}`}>
+                  <span>{room.name}</span>
+                  {room.price_per_night ? <span className="pf-muted"> · {t("workspace.perNight", { price: moneyText(room.price_per_night) })}</span> : null}
+                  {href ? (
+                    <>
+                      {" · "}
+                      <a href={href} target="_blank" rel="noreferrer">{room.source || t("workspace.checkHotel")}</a>
+                    </>
+                  ) : room.source ? (
+                    <span className="pf-muted"> · {room.source}</span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Text size="xs" tone="tertiary">{t("options.noRooms")}</Text>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+/** The stays the hotel source returned, compared side by side (stacked on a phone); the first of `plan.hotels` is chosen. */
+export function HotelOptions({
+  options,
+  chosenId,
+  onChoose,
+  onLoadRooms,
+}: {
+  options: HotelStay[];
+  chosenId: string | null;
+  onChoose?: (hotelId: string) => Promise<void>;
+  onLoadRooms?: (hotelId: string) => Promise<RoomType[]>;
+}) {
+  if (!options.length) return null;
+  return (
+    <div className="pf-option-grid">
+      {options.map((hotel) => (
+        <HotelOptionCard
+          key={hotel.id}
+          hotel={hotel}
+          chosen={hotel.id === chosenId}
+          onChoose={onChoose ? () => onChoose(hotel.id) : undefined}
+          onLoadRooms={onLoadRooms ? () => onLoadRooms(hotel.id) : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+function stamp(value: string | null | undefined): string {
+  return value ? value.replace("T", " ").slice(0, 16) : "";
+}
+
+function durationText(minutes: number | null | undefined, t: Translate): string {
+  if (typeof minutes !== "number" || minutes <= 0) return "";
+  return t("options.duration", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+}
+
+/** One fare: the flight (airline and number), times, duration and price; the selected one is marked. */
+export function TicketCard({
+  ticket,
+  selected,
+  choosable,
+  onChoose,
+}: {
+  ticket: TicketOption;
+  selected: boolean;
+  /** More than one option exists, so the card shows whether it is the one chosen. */
+  choosable: boolean;
+  onChoose?: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const { pending, error, run } = useOptionAction();
+  const depart = stamp(ticket.depart_at);
+  const arrive = stamp(ticket.arrive_at);
+  // The arrival time alone when it lands the same day.
+  const arriveShown = arrive && depart && arrive.slice(0, 10) === depart.slice(0, 10) ? arrive.slice(11) : arrive;
+  const duration = durationText(ticket.duration_minutes, t);
+  const returnDuration = durationText(ticket.return_duration_minutes, t);
+  const operator = ticket.operator && !ticket.name.includes(ticket.operator) ? ticket.operator : "";
+  return (
+    <div className="pf-ticket-card" data-selected={choosable && selected}>
+      <span className="pf-ticket-card__thumb"><Icon name={ticket.mode === "flight" ? "plane" : "train"} size={20} /></span>
+      <div className="pf-stack pf-grow" style={{ gap: 2 }}>
+        <Text size="sm" weight="semibold">
+          {ticket.name}
+          {operator ? <span className="pf-muted pf-small"> · {operator}</span> : null}
+        </Text>
+        <Text size="xs" tone="tertiary">
+          {ticket.return_depart_at ? `${t("workspace.outbound")} · ` : ""}
+          {ticket.origin} → {ticket.destination}
+          {depart ? ` · ${depart}` : ""}
+          {arriveShown ? ` · ${t("options.arrives", { time: arriveShown })}` : ""}
+          {duration ? ` · ${duration}` : ""}
+        </Text>
+        {ticket.return_depart_at ? (
+          <Text size="xs" tone="tertiary">
+            {t("workspace.return")}{ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
+            {` · ${ticket.return_origin} → ${ticket.return_destination} · ${stamp(ticket.return_depart_at)}`}
+            {returnDuration ? ` · ${returnDuration}` : ""}
+          </Text>
+        ) : null}
+        <Text size="xs" tone="secondary">
+          {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : t("workspace.noFare")}
+        </Text>
+        {error ? <span className="pf-field__error" role="alert">{t("options.failed", { reason: error.reason })}</span> : null}
+      </div>
+      <div className="pf-stack" style={{ alignItems: "flex-end", gap: 6 }}>
+        {choosable && selected ? <Badge tone="brand" dot>{t("options.selected")}</Badge> : null}
+        <StatusPill status={ticket.data_status} />
+        {choosable && !selected && onChoose ? (
+          <Button size="sm" variant="secondary" loading={pending === "choose"} onClick={() => void run("choose", onChoose)}>
+            {t("options.chooseFlight")}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -692,8 +974,14 @@ export function TripWorkspace({
   updatedIds,
   hotelChanged = false,
   languageNotice = null,
+  onChooseOption,
+  onLoadHotelRooms,
 }: {
   plan: TripPlan;
+  /** Swaps in another option shown on the plan (no model call); resolves once the updated plan is shown, rejects with the reason. */
+  onChooseOption?: (kind: ChoiceKind, targetId: string | null, optionId: string) => Promise<void>;
+  /** The room types the hotel source lists for a stay. */
+  onLoadHotelRooms?: (hotelId: string) => Promise<RoomType[]>;
   /** The disclaimer and translation notice shown at the top of a non-English plan view. */
   languageNotice?: ReactNode;
   versions: { version: number; change_summary: string; created_at: string }[];
@@ -719,6 +1007,8 @@ export function TripWorkspace({
   const hotel = plan.hotels[0];
   const bookingHref = safeHref(hotel?.booking_url);
   const unknownGaps = plan.data_quality.gaps.length;
+  const hotelOptions = plan.hotel_options ?? [];
+  const selectedTicketId = (plan.tickets.find((ticket) => ticket.selected) ?? plan.tickets[0])?.id ?? null;
   const firstUpdated = updatedIds?.[0] ?? "";
 
   const scrollToDay = (date: string) => {
@@ -815,6 +1105,9 @@ export function TripWorkspace({
               selectedItemId={selectedItemId}
               updatedIds={new Set(updatedIds ?? [])}
               onSelectItem={(item) => onSelectItem(item)}
+              onChooseAlternative={
+                onChooseOption ? (item, alternativeId) => onChooseOption("item", item.id, alternativeId) : undefined
+              }
             />
           </div>
         ))}
@@ -857,28 +1150,30 @@ export function TripWorkspace({
           </div>
         ) : null}
 
+        {hotelOptions.length > 1 || (hotelOptions.length === 1 && onLoadHotelRooms) ? (
+          <Collapsible
+            title={t("options.hotels")}
+            icon="hotel"
+            badge={<Badge tone="neutral">{hotelOptions.length}</Badge>}
+            defaultOpen={hotelOptions.length > 1}
+          >
+            <HotelOptions
+              options={hotelOptions}
+              chosenId={hotel?.id ?? null}
+              onChoose={onChooseOption ? (hotelId) => onChooseOption("hotel", null, hotelId) : undefined}
+              onLoadRooms={onLoadHotelRooms}
+            />
+          </Collapsible>
+        ) : null}
+
         {plan.tickets.map((ticket) => (
-          <div className="pf-ticket-card" key={ticket.id}>
-            <span className="pf-ticket-card__thumb"><Icon name={ticket.mode === "flight" ? "plane" : "train"} size={20} /></span>
-            <div className="pf-stack pf-grow" style={{ gap: 2 }}>
-              <Text size="sm" weight="semibold">{ticket.name}</Text>
-              <Text size="xs" tone="tertiary">
-                {ticket.return_depart_at ? `${t("workspace.outbound")} · ` : ""}
-                {ticket.origin} → {ticket.destination}
-                {ticket.depart_at ? ` · ${ticket.depart_at.replace("T", " ").slice(0, 16)}` : ""}
-              </Text>
-              {ticket.return_depart_at ? (
-                <Text size="xs" tone="tertiary">
-                  {t("workspace.return")}{ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
-                  {` · ${ticket.return_origin} → ${ticket.return_destination} · ${ticket.return_depart_at.replace("T", " ").slice(0, 16)}`}
-                </Text>
-              ) : null}
-              <Text size="xs" tone="secondary">
-                {ticket.price ? `${ticket.price.currency} ${ticket.price.amount.toLocaleString()} · ${ticket.price_kind}` : t("workspace.noFare")}
-              </Text>
-            </div>
-            <StatusPill status={ticket.data_status} />
-          </div>
+          <TicketCard
+            key={ticket.id}
+            ticket={ticket}
+            selected={ticket.id === selectedTicketId}
+            choosable={plan.tickets.length > 1 && ticket.mode === "flight"}
+            onChoose={onChooseOption ? () => onChooseOption("flight", null, ticket.id) : undefined}
+          />
         ))}
 
         <div className="pf-stack" style={{ gap: 0, marginTop: 8 }}>
