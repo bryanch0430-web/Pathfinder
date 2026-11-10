@@ -148,6 +148,9 @@ class Settings(BaseSettings):
     enable_preplan_audit: bool = False
     audit_timeout_seconds: float = 20.0
     audit_follow_up_seconds: float = 15.0
+    #: Wall-clock budget for the meal searches near each day's stops, all days together. When it runs
+    #: out the meals come from the city-wide restaurant pool the attraction agent already fetched.
+    meal_search_budget_seconds: float = Field(15.0, ge=0)
     audit_max_follow_ups: int = Field(3, ge=0, le=5)
     #: 26 = the attraction agent's most place candidates (agents.MAX_PLACE_CANDIDATES, 20) plus its 6
     #: restaurants, so one audit call sees a long trip's whole attraction pool.

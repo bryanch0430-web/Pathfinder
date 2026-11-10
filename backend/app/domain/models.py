@@ -180,6 +180,31 @@ class TransferLeg(BaseModel):
     delay_source: str = ""
 
 
+MealSlot = Literal["breakfast", "lunch", "dinner", "snack"]
+
+
+class PlanAlternative(BaseModel):
+    """Another real choice for a stop, with the same source facts as the stop itself.
+
+    Every field comes from a place source except ``distance_m``, which the app computes
+    (straight line from the default stop). A fact the source did not give stays empty.
+    """
+
+    id: str
+    name: str
+    geo: GeoPoint | None = None
+    address: str = ""
+    rating: float | None = None
+    review_count: int | None = None
+    price_level: str | None = None
+    cuisine: str | None = None
+    reservable: bool | None = None
+    opening_hours: list[str] = Field(default_factory=list)
+    source_refs: list[SourceRef] = Field(default_factory=list)
+    booking_url: str = ""
+    distance_m: int | None = None
+
+
 class PlanItem(BaseModel):
     id: str = Field(default_factory=lambda: new_id("item"))
     type: ItemType
@@ -206,6 +231,17 @@ class PlanItem(BaseModel):
     #: Localized names a place source supplied ("en", "zh-Hant"); display data only,
     #: never written by the model. Empty when no source named the place that way.
     names: dict[str, str] = Field(default_factory=dict)
+    #: Which meal a meal stop is (None on other items and on plans stored before it existed).
+    meal_slot: MealSlot | None = None
+    #: Facts exactly as the place source gave them; None when it gave none.
+    rating: float | None = None
+    review_count: int | None = None
+    price_level: str | None = None
+    cuisine: str | None = None
+    #: Only set when the source said whether the place takes reservations.
+    reservable: bool | None = None
+    #: Other source-backed choices for this stop; the item itself is the default.
+    alternatives: list[PlanAlternative] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _times(self) -> "PlanItem":
@@ -758,6 +794,12 @@ class PlaceCandidate(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     #: the source's own localized names, keyed "en" / "zh-Hant" (OSM name:en, name:zh-HK, ...).
     names: dict[str, str] = Field(default_factory=dict)
+    #: whether the place takes reservations, only when the source said so.
+    reservable: bool | None = None
+    #: cuisine label read from the source's place type ("ramen_restaurant" -> "Ramen"); None otherwise.
+    cuisine: str | None = None
+    #: the source's own price range text ("JPY 1,000-2,000"); empty when it gave none.
+    price_range: str = ""
 
 
 class HotelCandidate(BaseModel):

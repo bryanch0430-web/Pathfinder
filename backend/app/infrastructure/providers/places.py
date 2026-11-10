@@ -26,8 +26,70 @@ GOOGLE_FIELD_MASK = ",".join(
         "places.priceLevel",
         "places.reviews",
         "places.types",
+        "places.primaryType",
+        "places.reservable",
+        "places.priceRange",
     ]
 )
+
+#: Place categories that are food. "breakfast" and "cafe" are narrower searches for the meal planner.
+FOOD_CATEGORIES = {"restaurant", "meal", "food", "breakfast", "cafe"}
+#: The Places (New) `includedType` per category; anything else is an attraction search.
+GOOGLE_INCLUDED_TYPE = {
+    "restaurant": "restaurant",
+    "meal": "restaurant",
+    "food": "restaurant",
+    "breakfast": "breakfast_restaurant",
+    "cafe": "cafe",
+}
+#: Search words per category when no query is given ("best breakfast in Kyoto").
+CATEGORY_WORDS = {"breakfast": "breakfast", "cafe": "cafe"}
+#: Food place types that name a kind of place rather than a cuisine.
+_CUISINE_TYPES = {
+    "cafe": "Cafe",
+    "coffee_shop": "Coffee",
+    "bakery": "Bakery",
+    "dessert_shop": "Dessert",
+    "ice_cream_shop": "Ice cream",
+    "tea_house": "Tea",
+}
+_GENERIC_FOOD_TYPES = {"restaurant", "food", "meal_takeaway", "meal_delivery", "fast_food_restaurant"}
+
+
+def cuisine_label(primary_type: str | None, types: list[str]) -> str | None:
+    """A cuisine read from the source's place type: "ramen_restaurant" -> "Ramen".
+
+    A generic type ("restaurant") says nothing about the cuisine, so it gives None.
+    """
+    for kind in [t for t in [primary_type or "", *types] if t]:
+        if kind in _GENERIC_FOOD_TYPES:
+            continue
+        if kind in _CUISINE_TYPES:
+            return _CUISINE_TYPES[kind]
+        if kind.endswith("_restaurant"):
+            words = kind[: -len("_restaurant")].replace("_", " ").strip()
+            return words[:1].upper() + words[1:] if words else None
+    return None
+
+
+def price_range_text(value: object) -> str:
+    """The source's price range ("JPY 1000-2000", "JPY 1000+"); empty when it gave none."""
+    if not isinstance(value, dict):
+        return ""
+
+    def amount(part: object) -> tuple[str, str] | None:
+        if not isinstance(part, dict) or part.get("units") in (None, ""):
+            return None
+        return str(part.get("currencyCode") or ""), str(part["units"])
+
+    start, end = amount(value.get("startPrice")), amount(value.get("endPrice"))
+    if start is None:
+        return ""
+    currency = start[0] or (end[0] if end else "")
+    prefix = f"{currency} " if currency else ""
+    if end is None:
+        return f"{prefix}{start[1]}+"
+    return f"{prefix}{start[1]}-{end[1]}"
 
 TYPE_LABELS = {
     "tourist_attraction": "Attraction",
@@ -52,6 +114,8 @@ class GooglePlacesSource:
     name = "google-places"
     #: its top text-search hit is the place asked for, even across languages.
     ranks_by_relevance = True
+    #: takes a location bias (lat, lng, radius in metres); the meal planner searches near each day's stops.
+    supports_bias = True
 
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -65,13 +129,31 @@ class GooglePlacesSource:
         category: str,
         limit: int,
         query: str | None = None,
+        bias: tuple[float, float, float] | None = None,
     ) -> list[PlaceCandidate]:
         if not self.available:
             raise ProviderNoData("Google Places key is not configured", source=self.name)
-        text_query = query.strip() if query and query.strip() else f"best {category} in {destination}"
+        words = CATEGORY_WORDS.get(category, category)
+        text_query = query.strip() if query and query.strip() else f"best {words} in {destination}"
         if query and destination.lower() not in text_query.lower():
             text_query = f"{text_query} in {destination}"
         base = (self.settings.google_places_proxy or "https://places.googleapis.com").rstrip("/")
+        payload: dict = {
+            "textQuery": text_query,
+            "languageCode": "en",
+            # Text search serves one page of 20 at most; more would need a second, paged request.
+            "maxResultCount": min(max(limit * 2, 10), GOOGLE_MAX_RESULTS),
+            "includedType": GOOGLE_INCLUDED_TYPE.get(category, "tourist_attraction"),
+        }
+        if bias is not None:
+            lat, lng, radius = bias
+            payload["locationBias"] = {
+                "circle": {
+                    "center": {"latitude": float(lat), "longitude": float(lng)},
+                    # The API accepts 0-50,000 m.
+                    "radius": float(min(max(radius, 1.0), 50000.0)),
+                }
+            }
         data = await request_json(
             "POST",
             f"{base}/v1/places:searchText",
@@ -81,13 +163,7 @@ class GooglePlacesSource:
                 "X-Goog-FieldMask": GOOGLE_FIELD_MASK,
                 "Content-Type": "application/json",
             },
-            payload={
-                "textQuery": text_query,
-                "languageCode": "en",
-                # Text search serves one page of 20 at most; more would need a second, paged request.
-                "maxResultCount": min(max(limit * 2, 10), GOOGLE_MAX_RESULTS),
-                "includedType": "restaurant" if category in {"restaurant", "meal", "food"} else "tourist_attraction",
-            },
+            payload=payload,
             timeout=self.settings.http_timeout_seconds,
             retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
@@ -104,6 +180,8 @@ class GooglePlacesSource:
             if geo and haversine_km(geo.lat, geo.lng, float(lat), float(lng)) > 80:
                 continue
             types = [str(t) for t in (row.get("types") or [])]
+            primary = str(row.get("primaryType") or "")
+            reservable = row.get("reservable")
             label = next((TYPE_LABELS[t] for t in types if t in TYPE_LABELS), "")
             hours = ((row.get("regularOpeningHours") or {}).get("weekdayDescriptions") or [])[:7]
             summary = (row.get("editorialSummary") or {}).get("text") or ""
@@ -124,7 +202,9 @@ class GooglePlacesSource:
             out.append(
                 PlaceCandidate(
                     name=str(display),
-                    category=label or ("Restaurant" if "restaurant" in types else "Attraction"),
+                    category=label or (
+                        "Restaurant" if "restaurant" in types or category in FOOD_CATEGORIES else "Attraction"
+                    ),
                     description=summary,
                     geo=GeoPoint(lat=float(lat), lng=float(lng)),
                     address=str(row.get("formattedAddress") or ""),
@@ -144,6 +224,12 @@ class GooglePlacesSource:
                     ],
                     source_refs=refs,
                     tags=types[:6],
+                    # Only what the source stated: a missing field stays None / empty.
+                    reservable=reservable if isinstance(reservable, bool) else None,
+                    cuisine=(
+                        cuisine_label(primary, types) if category in FOOD_CATEGORIES or "restaurant" in types else None
+                    ),
+                    price_range=price_range_text(row.get("priceRange")),
                     # Asked for in English; Google says which language the name is in.
                     names=(
                         {"en": display}
@@ -172,10 +258,11 @@ class WikivoyagePlacesSource:
         category: str,
         limit: int,
         query: str | None = None,
+        bias: tuple[float, float, float] | None = None,
     ) -> list[PlaceCandidate]:
         wikitext, title = await self._wikitext(destination)
         sections = _sections(wikitext)
-        if category in {"restaurant", "meal", "food"}:
+        if category in FOOD_CATEGORIES:
             raw = sections.get("eat", "") + "\n" + sections.get("drink", "")
             templates = _templates(raw)
             kinds = {"eat", "drink", "listing"}
@@ -269,8 +356,11 @@ class NominatimPlacesSource:
         category: str,
         limit: int,
         query: str | None = None,
+        bias: tuple[float, float, float] | None = None,
     ) -> list[PlaceCandidate]:
-        term = "restaurants" if category in {"restaurant", "meal", "food"} else "attractions"
+        term = {"breakfast": "breakfast restaurants", "cafe": "cafes"}.get(
+            category, "restaurants" if category in FOOD_CATEGORIES else "attractions"
+        )
         text = query.strip() if query and query.strip() else f"{term} in {destination}"
         params = {
             "q": text,
@@ -321,7 +411,7 @@ class NominatimPlacesSource:
             out.append(
                 PlaceCandidate(
                     name=name,
-                    category="Restaurant" if "restaurant" in term else "Attraction",
+                    category="Restaurant" if category in FOOD_CATEGORIES else "Attraction",
                     description=str(row.get("display_name") or "")[:400],
                     geo=GeoPoint(lat=lat, lng=lng),
                     address=str(row.get("display_name") or ""),

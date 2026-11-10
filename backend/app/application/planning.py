@@ -187,6 +187,7 @@ class PlanPath:
             keep_hotel=keep_hotel,
             pick_hotel=pick_hotel,
             audit=audit,
+            meal_sources=list(getattr(self.registry, "places", None) or []),
         )
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(
