@@ -2,5 +2,5 @@
 # Install with: pip install -r requirements-rag.txt
 # Without these packages the app falls back to the lexical retriever.
 torch>=2.0
-transformers>=4.48,<6
+transformers>=5.22.2,<6
 numpy>=1.26
