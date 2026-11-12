@@ -2632,6 +2632,114 @@
   line-height: 1.45;
 }
 
+/* Plan confidence: the level, then what research changed, what is unconfirmed and what the traveller is asked. */
+.pf-assessment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-sm);
+  margin: var(--p30-gap-sm) 0;
+  padding: var(--p30-gap-sm);
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-md);
+  background: var(--pf-surface);
+}
+
+.pf-assessment__list {
+  margin: 0;
+  padding-left: var(--p30-gap-md);
+  color: var(--pf-ink-secondary);
+  font-size: var(--p30-type-size-body-xs);
+  line-height: 1.5;
+}
+
+.pf-assessment__question {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--p30-gap-xs);
+  padding: 8px 10px;
+  border-radius: var(--p30-round-sm);
+  background: var(--p30-tone-feedback-infoBg);
+}
+
+/* How far a stay meets the traveller's stay wishes, in a hotel option. */
+.pf-stay-match {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: var(--p30-round-sm);
+  background: var(--p30-tone-neutral-fillSecondary);
+  font-size: var(--p30-type-size-body-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.pf-stay-match__evidence {
+  margin: 0;
+  padding-left: var(--p30-gap-md);
+  color: var(--pf-ink-secondary);
+}
+
+/* What a turn read from the links and files of its message. */
+.pf-intake {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: var(--p30-round-sm);
+  background: var(--p30-tone-neutral-fillSecondary);
+  color: var(--pf-ink-secondary);
+  font-size: var(--p30-type-size-body-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.pf-intake__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pf-intake__row[data-failed="true"] {
+  color: var(--p30-tone-feedback-danger);
+}
+
+/* Files chosen in the chat box, and the names of the files a message was sent with. */
+.pf-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pf-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-pill);
+  background: var(--p30-tone-neutral-fillSecondary);
+  color: var(--pf-ink-secondary);
+  font-size: var(--p30-type-size-body-xs);
+  overflow-wrap: anywhere;
+}
+
+.pf-attachment button {
+  display: inline-flex;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pf-chat__composer[data-dragging="true"] .pf-composer {
+  border-color: var(--p30-tone-brand-primary);
+  box-shadow: 0 0 0 3px var(--p30-tone-brand-light);
+}
+
 .pf-version {
   display: flex;
   align-items: center;

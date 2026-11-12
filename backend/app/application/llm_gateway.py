@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, TypeVar
+from typing import Any, Sequence, TypeVar
 
 from pydantic import BaseModel, ValidationError as PydanticValidationError
 
@@ -12,7 +12,7 @@ from app.application.prompts import PromptLibrary
 from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
 from app.domain.models import FailureKind
-from app.domain.ports import LLM, Tracer
+from app.domain.ports import LLM, ImageInput, Tracer
 from app.infrastructure.observability import developer_view, emit_live
 from app.security import canary_leaked
 
@@ -40,6 +40,7 @@ class LLMGateway:
         user: str,
         schema: type[T] | None = None,
         purpose: str | None = None,
+        images: Sequence[ImageInput] | None = None,
     ) -> dict[str, Any]:
         purpose = purpose or prompt
         request = user
@@ -52,6 +53,7 @@ class LLMGateway:
                 user=request,
                 purpose=purpose if attempt == 0 else f"{purpose}.repair",
                 json_mode=True,
+                images=images,
             )
             data = _extract_json(result)
             if data is None:
@@ -75,7 +77,9 @@ class LLMGateway:
     async def text(self, prompt: str, *, user: str, purpose: str | None = None) -> str:
         return await self._call(prompt, user=user, purpose=purpose or prompt, json_mode=False)
 
-    async def _call(self, prompt: str, *, user: str, purpose: str, json_mode: bool) -> str:
+    async def _call(
+        self, prompt: str, *, user: str, purpose: str, json_mode: bool, images: Sequence[ImageInput] | None = None
+    ) -> str:
         system = self.prompts.system(prompt)
         # Which source serves this call (byok, server, env, local or none), so a trace says whose key paid for it.
         # The source only, never the key or its tail.
@@ -88,6 +92,8 @@ class LLMGateway:
                 json_mode=json_mode,
                 temperature=self.settings.llm_temperature,
                 max_tokens=self.settings.llm_max_tokens,
+                # Passed only when there are pictures, so a writer that takes text only is called as before.
+                **({"images": list(images)} if images else {}),
             )
             text = result.text
             reasoning = "" if canary_leaked(result.reasoning, self.settings) else result.reasoning

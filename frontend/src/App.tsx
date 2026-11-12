@@ -128,6 +128,8 @@ export default function App() {
   const [tab, setTab] = useState<AppTab>(tabFromHash);
   const [mapDay, setMapDay] = useState<string>("");
   const [helpOpen, setHelpOpen] = useState(false);
+  // Counts the requests to put the cursor in the chat box (the plan's question is answered there).
+  const [composerFocus, setComposerFocus] = useState(0);
   const [trending, setTrending] = useState<TrendingPlace[]>([]);
   const [trendingTrace, setTrendingTrace] = useState<TrendingTrace | null>(null);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -570,7 +572,9 @@ export default function App() {
                   clarifyValues={pf.clarifyValues}
                   onClarifyChange={pf.setClarifyValue}
                   onClarifySubmit={(message) => void pf.submitClarify(message)}
-                  onSend={(message) => void pf.send(message)}
+                  onSend={(message, attachments) => void pf.send(message, attachments)}
+                  intake={pf.intake}
+                  focusSignal={composerFocus}
                   scope={scope}
                   onClearScope={() => pf.selectItem(null)}
                   error={pf.sessionId ? pf.error : null}
@@ -626,6 +630,7 @@ export default function App() {
                   hotelChanged={pf.hotelChanged}
                   onChooseOption={pf.choose}
                   onLoadHotelRooms={pf.hotelRooms}
+                  onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
                 />
               ) : (
                 <WelcomePanel

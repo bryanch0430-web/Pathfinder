@@ -23,8 +23,10 @@ import type {
   EvalMetric,
   EvalRunSummary,
   FxSnapshot,
+  IntakePayload,
   MealSlot,
   PlanAlternative,
+  PlanAssessment,
   PlanItem,
   TripContext,
   WeatherDay,
@@ -1287,6 +1289,112 @@ export function GapList({ gaps }: { gaps: DataGap[] }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+const ASSESSMENT_LEVEL: Record<PlanAssessment["level"], { label: MessageKey; tone: "success" | "warning" | "danger" }> = {
+  high: { label: "assessment.high", tone: "success" },
+  medium: { label: "assessment.medium", tone: "warning" },
+  low: { label: "assessment.low", tone: "danger" },
+};
+
+function AssessmentList({ title, lines }: { title: string; lines: string[] }) {
+  if (!lines.length) return null;
+  return (
+    <div className="pf-stack" style={{ gap: 2 }}>
+      <Text size="xs" weight="semibold">{title}</Text>
+      <ul className="pf-assessment__list">
+        {lines.map((line, index) => (
+          <li key={`${index}-${line}`}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * How sure the planner is of the plan: the level, what further research changed, what no source confirmed and what
+ * only the traveller can say. A plan it is sure of, with nothing to tell, is one line; no assessment is nothing.
+ */
+export function PlanAssessmentCard({
+  assessment,
+  onAnswer,
+}: {
+  assessment: PlanAssessment | null | undefined;
+  /** Takes the traveller to the chat box to answer the question. */
+  onAnswer?: () => void;
+}) {
+  const { t } = useI18n();
+  if (!assessment) return null;
+  const level = ASSESSMENT_LEVEL[assessment.level] ?? ASSESSMENT_LEVEL.medium;
+  const percent = Math.round(Math.max(0, Math.min(1, assessment.confidence)) * 100);
+  const improvements = assessment.improvements ?? [];
+  const unverified = assessment.unverified ?? [];
+  const missing = assessment.missing ?? [];
+  const question = (assessment.question ?? "").trim();
+  return (
+    <div className="pf-assessment" data-level={assessment.level}>
+      <div className="pf-row pf-row--wrap" style={{ gap: 7 }}>
+        <Icon name="shield" size={14} />
+        <Text size="sm" weight="semibold">{t("assessment.title")}</Text>
+        <Badge tone={level.tone} dot>
+          {t(level.label)} · {percent}%
+        </Badge>
+      </div>
+      <AssessmentList title={t("assessment.improvements")} lines={improvements} />
+      <AssessmentList title={t("assessment.unverified")} lines={unverified} />
+      <AssessmentList title={t("assessment.missing")} lines={missing} />
+      {question ? (
+        <div className="pf-assessment__question">
+          <Text size="sm">{question}</Text>
+          {onAnswer ? (
+            <Button size="sm" variant="primary" onClick={onAnswer}>
+              {t("assessment.answer")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** What a turn read from the links and files of its message: each source, the trip details filled in and the places found. */
+export function IntakeNotice({ intake }: { intake: IntakePayload }) {
+  const { t } = useI18n();
+  const sources = intake.sources ?? [];
+  const filled = intake.filled ?? [];
+  const places = intake.places ?? [];
+  if (!sources.length && !filled.length && !places.length) return null;
+  return (
+    <div className="pf-intake" role="status">
+      {sources.map((source, index) => {
+        const failed = source.status === "failed";
+        return (
+          <div className="pf-intake__row" data-failed={failed} key={`${index}-${source.name}`}>
+            <Icon name={failed ? "alert" : "check"} size={13} />
+            <span>
+              {failed
+                ? source.note
+                  ? t("intake.failedNote", { name: source.name, note: source.note })
+                  : t("intake.failed", { name: source.name })
+                : t("intake.read", { name: source.name })}
+            </span>
+          </div>
+        );
+      })}
+      {filled.length ? (
+        <div className="pf-intake__row">
+          <Icon name="edit" size={13} />
+          <span>{t("intake.filled", { fields: filled.map((field) => field.replaceAll("_", " ")).join(", ") })}</span>
+        </div>
+      ) : null}
+      {places.length ? (
+        <div className="pf-intake__row">
+          <Icon name="map" size={13} />
+          <span>{t("intake.places", { places: places.join(", ") })}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

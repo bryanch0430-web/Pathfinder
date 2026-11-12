@@ -21,7 +21,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator, Literal
+from typing import Any, Callable, Iterator, Literal, Sequence
 
 import httpx
 
@@ -29,7 +29,7 @@ from app.config import Settings
 from app.domain.credentials import SERVER_OWNER, StoredCredential
 from app.domain.errors import CallerKeyFailed, ProviderError, ProviderNoData, operator_text
 from app.domain.models import FailureKind
-from app.domain.ports import LLM
+from app.domain.ports import LLM, ImageInput
 from app.infrastructure.http import current_transport
 from app.infrastructure.llm import NullLLM, OpenAICompatibleLLM
 from app.infrastructure.llm_providers import PROVIDERS, build_llm
@@ -394,6 +394,7 @@ class CallerLLM:
         json_mode: bool = True,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        images: Sequence[ImageInput] | None = None,
     ) -> Any:
         state = _caller.get()
         if state is not None and state.failed is not None:
@@ -408,6 +409,8 @@ class CallerLLM:
                 json_mode=json_mode,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                # Passed only when there are pictures, so a writer that takes text only is called as before.
+                **({"images": images} if images else {}),
             )
         except ProviderError as exc:
             if selection.source != "byok" or _empty_reply(exc):

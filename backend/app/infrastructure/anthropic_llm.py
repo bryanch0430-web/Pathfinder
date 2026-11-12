@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import Any, Sequence
 
 import httpx
 
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
+from app.domain.ports import ImageInput
 from app.infrastructure.http import classify_status, current_transport
 from app.infrastructure.llm import LLMResult
 from app.security.scrub import scrub
@@ -18,6 +19,19 @@ from app.security.scrub import scrub
 ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 ANTHROPIC_VERSION = "2023-06-01"
 JSON_ONLY_INSTRUCTION = "\n\nRespond with a single valid JSON object only. No prose and no code fences."
+
+
+def _user_content(user: str, images: Sequence[ImageInput] | None) -> Any:
+    """The user turn: plain text, or the pictures as image blocks followed by the text."""
+    if not images:
+        return user
+    return [
+        *(
+            {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": image.data}}
+            for image in images
+        ),
+        {"type": "text", "text": user},
+    ]
 
 
 class AnthropicLLM:
@@ -39,13 +53,14 @@ class AnthropicLLM:
         json_mode: bool = True,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        images: Sequence[ImageInput] | None = None,
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
         payload: dict[str, Any] = {
             "model": self._model,
             "system": system + JSON_ONLY_INSTRUCTION if json_mode else system,
-            "messages": [{"role": "user", "content": user}],
+            "messages": [{"role": "user", "content": _user_content(user, images)}],
             "max_tokens": max_tokens,
             "temperature": temperature,
         }

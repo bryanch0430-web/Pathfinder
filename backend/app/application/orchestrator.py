@@ -14,6 +14,8 @@ from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 import httpx
 
 from app.application.asking import AskPath
+from app.application.assessment import reassess
+from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
 from app.application.budget_check import PrePlanQuestion, budget_options, budget_question, floor_per_person_night
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
@@ -221,6 +223,7 @@ class TurnService:
         scope_item_id: str | None = None,
         scope_label: str | None = None,
         developer: bool = False,
+        attachments: Sequence[Attachment] = (),
         on_wait: Callable[[], None] | None = None,
         on_start: Callable[[], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
@@ -238,6 +241,7 @@ class TurnService:
                     scope_item_id=scope_item_id,
                     scope_label=scope_label,
                     developer=developer,
+                    attachments=attachments,
                 )
                 async with aclosing(turn) as events:
                     async for event in events:
@@ -252,6 +256,7 @@ class TurnService:
         scope_item_id: str | None = None,
         scope_label: str | None = None,
         developer: bool = False,
+        attachments: Sequence[Attachment] = (),
     ) -> AsyncIterator[TurnEvent]:
         session = self.store.get_session(session_id)
         if session is None:
@@ -283,6 +288,7 @@ class TurnService:
                     "categories": screen.categories,
                     **({"severity": screen.max_severity.value, "blocked": screen.blocked} if screen.flagged else {}),
                     **({"scope": scope_label} if scope_label else {}),
+                    **({"attachments": [file.name[:200] for file in attachments]} if attachments else {}),
                 },
             )
         )
@@ -386,9 +392,17 @@ class TurnService:
             # is dropped.
             captured = pending is not None and pending.fact in HOME_FACTS and answers_the_home_question(message)
             answering = pending if captured else None
+            # A link in the message, or an attached PDF or picture, is read first: what it says about a trip
+            # fills the form's empty fields, and the message is then understood and routed without the link.
+            understood = message
+            if shares_something(message, attachments, self.settings):
+                intake = await self._intake(message, attachments, context, tracer, request_id)
+                if intake is not None:
+                    yield TurnEvent(event="intake", data=intake.event())
+                    understood = without_links(message) or message
             with tracer.span("understand"):
                 try:
-                    context = await understand(message, context, self.gateway, history=history)
+                    context = await understand(understood, context, self.gateway, history=history)
                 except CanaryLeak:
                     raise
                 except Exception:
@@ -422,7 +436,7 @@ class TurnService:
             else:
                 with tracer.span("route"):
                     decision = await self.router.route(
-                        message=message,
+                        message=understood,
                         context=context,
                         plan_summary=plan.summary_for_prompt() if plan else None,
                         history=history,
@@ -778,6 +792,44 @@ class TurnService:
         for chunk in _chunks(reply):
             yield TurnEvent(event="token", data={"text": chunk})
 
+    async def _intake(
+        self, message: str, attachments: Sequence[Attachment], context: TripContext, tracer, request_id: str
+    ) -> IntakeResult | None:
+        """Read what the message shares into ``context``. None when the step itself failed (the turn goes on)."""
+        toolbox = Toolbox(
+            path="intake",
+            tracer=tracer,
+            store=self.store,
+            request_id=request_id,
+            max_calls=self.settings.intake_max_urls or None,
+        )
+        try:
+            with tracer.span("intake") as span:
+                result = await run_intake(
+                    message=message,
+                    attachments=attachments,
+                    context=context,
+                    gateway=self.gateway,
+                    reader=getattr(self.plan_path.registry, "documents", None),
+                    toolbox=toolbox,
+                    settings=self.settings,
+                )
+                span.attrs.update(
+                    {
+                        "sources": len(result.sources),
+                        "read": sum(1 for source in result.sources if source.status == "read"),
+                        "filled": result.filled,
+                        "places": len(result.places),
+                    }
+                )
+        except CanaryLeak:
+            raise
+        except Exception:
+            logger.exception("intake failed open")
+            return None
+        tracer.metadata["intake"] = result.event()
+        return result
+
     async def _refresh_outdated(self, plan, context, tracer, request_id):
         try:
             outcome = await self.freshness.check(plan, context=context, tracer=tracer, request_id=request_id)
@@ -867,9 +919,19 @@ class TurnService:
             reset_live_emit(live)
         if carries:
             plan = await self.modify_path.carry_protected(previous, plan, context=context, toolbox=toolbox)
+        if carries and plan.assessment is not None:
+            plan.assessment = reassess(plan, context, self.settings)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
+        # What the assessment could not settle is asked with the plan; the answer is an edit like any other.
+        question = plan.assessment.question if plan.assessment is not None else ""
         self.store.add_message(
-            Message(session_id=session_id, role="assistant", content=plan.summary, intent=Intent.PLAN)
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content=f"{plan.summary}\n\n{question}" if question else plan.summary,
+                intent=Intent.PLAN,
+                meta={"assessment_question": True} if question else {},
+            )
         )
         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
         self.store.touch_session(session_id)
@@ -953,6 +1015,9 @@ class TurnService:
         # An edit that changed nothing rewrites the version it read; the reason is the reply, and the version's
         # own summary (what that version was) is left as it is.
         unchanged = updated.version == plan.version
+        if updated.assessment is not None and not unchanged:
+            # The assessment follows the edit, from the plan's own checks (no further research here).
+            updated.assessment = reassess(updated, context, self.settings)
         self.store.save_plan(updated, None if unchanged else updated.change_summary, replace=unchanged)
         description = _describe_diff(diff, updated)
         if diff:

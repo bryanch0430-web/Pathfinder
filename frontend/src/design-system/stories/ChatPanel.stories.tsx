@@ -106,6 +106,53 @@ export const Disconnected: Story = {
   ),
 };
 
+/**
+ * Two files chosen for the next message (chips above the box, each removable), a sent message that names its file, and
+ * what the turn read from the link and the files it was sent.
+ */
+export const WithAttachments: Story = {
+  render: () => (
+    <div style={{ padding: 24, maxWidth: 440 }}>
+      <ChatPanel
+        messages={[
+          ...sampleMessages,
+          {
+            id: "u-attached",
+            role: "user",
+            content: "Plan a trip from what I attached.",
+            created_at: new Date().toISOString(),
+            meta: { attachments: ["kyoto-booking.pdf"] },
+          },
+        ]}
+        busy={false}
+        agents={{}}
+        progress={0}
+        progressMessage=""
+        clarify={null}
+        clarifyValues={{}}
+        onClarifyChange={() => undefined}
+        onClarifySubmit={() => undefined}
+        onSend={() => undefined}
+        scope={null}
+        onClearScope={() => undefined}
+        error={null}
+        intake={{
+          sources: [
+            { name: "kyoto-booking.pdf", kind: "pdf", status: "read", note: "" },
+            { name: "https://example.com/kyoto-guide", kind: "url", status: "failed", note: "the page did not answer" },
+          ],
+          filled: ["destination", "start_date", "days"],
+          places: ["Fushimi Inari", "Nishiki Market"],
+        }}
+        initialFiles={[
+          new File([new Uint8Array(182_000)], "flight-confirmation.pdf", { type: "application/pdf" }),
+          new File([new Uint8Array(1_450_000)], "ryokan-screenshot.png", { type: "image/png" }),
+        ]}
+      />
+    </div>
+  ),
+};
+
 /** A turn failed on an open trip: the message is an alert, once, with Retry. */
 export const TurnFailed: Story = {
   render: () => (

@@ -125,6 +125,21 @@ export interface HotelNearby {
   duration: string;
 }
 
+/** How far a stay meets the traveller's stay wishes, and what the sources showed for it. */
+export interface StayMatch {
+  /** The traveller's stay wishes, e.g. "a room with two beds". */
+  wishes: string[];
+  verdict: "meets" | "partly" | "unclear" | "fails";
+  /** 0 to 100. */
+  score: number;
+  /** One sentence; may be empty. */
+  reason: string;
+  /** Room names, amenities or page titles. */
+  evidence: string[];
+  evidence_refs: { title: string; url: string; source: string }[];
+  rooms_checked: boolean;
+}
+
 export interface HotelStay {
   id: string;
   name: string;
@@ -153,6 +168,7 @@ export interface HotelStay {
   rooms_checked_for?: { start: string; end: string } | null;
   nearest_stop_km?: number | null;
   nearest_stop_name?: string;
+  match?: StayMatch | null;
 }
 
 export interface TicketOption {
@@ -312,6 +328,24 @@ export interface VideoNote {
   published_at?: string | null;
 }
 
+/** How sure the planner is of a plan, and what would make it surer. */
+export interface PlanAssessment {
+  /** 0 to 1. */
+  confidence: number;
+  level: "high" | "medium" | "low";
+  signals: { code: string; weight: number; message: string }[];
+  /** What only the traveller can say. */
+  missing: string[];
+  /** What no source confirmed. */
+  unverified: string[];
+  next_action: "none" | "research" | "ask";
+  /** May be empty. */
+  question: string;
+  research_rounds: number;
+  /** What further research changed. */
+  improvements: string[];
+}
+
 export interface TripPlan {
   schema_version: string;
   trip_id: string;
@@ -341,6 +375,7 @@ export interface TripPlan {
     generated_at: string;
     freshness?: FreshnessMark[];
   };
+  assessment?: PlanAssessment | null;
   change_summary: string;
   created_at: string;
   updated_at: string;
@@ -441,6 +476,22 @@ export interface ClarifyPayload {
   /** concrete follow-ups when the question is about intent, not missing data */
   choices?: { label: string; message: string }[];
   reason_code: string;
+}
+
+/** One file sent with a chat message; `data` is the base64 of its bytes, without a `data:` prefix. */
+export interface ChatAttachment {
+  name: string;
+  media_type: string;
+  data: string;
+}
+
+/** The `intake` event: what was read from the links and files of a message, before it is routed. */
+export interface IntakePayload {
+  sources: { name: string; kind: "url" | "pdf" | "image" | "text"; status: "read" | "failed"; note: string }[];
+  /** Trip form fields filled from the sources, e.g. "destination". */
+  filled: string[];
+  /** Place names taken from the sources. */
+  places: string[];
 }
 
 export interface RoutePayload {

@@ -154,6 +154,35 @@ class Settings(BaseSettings):
     #: The deterministic refine loop after compose: rounds of check -> fix (no model call), and the day
     #: load past which a day is trimmed or noted (visit hours; km on foot between stops).
     refine_max_rounds: int = Field(3, ge=0, le=10)
+    #: Stay research (plan path): when the traveller asks something of the stay or its room, the
+    #: candidates' rooms are fetched and one writer call ranks the candidates against the wish.
+    enable_stay_research: bool = True
+    research_max_hotels: int = Field(5, ge=1, le=8)
+    #: Wall-clock budget for fetching the candidates' rooms, all together.
+    research_budget_seconds: float = Field(20.0, gt=0)
+    research_timeout_seconds: float = Field(20.0, gt=0)
+    #: The follow-up round: unclear stays looked up on the web, at most this many, in this long.
+    research_follow_up_hotels: int = Field(3, ge=1, le=5)
+    research_follow_up_seconds: float = Field(20.0, gt=0)
+    #: Plan assessment: confidence, what is unverified or missing, and the rounds of further research
+    #: an assessment may set off before the open point becomes a question for the traveller.
+    enable_plan_assessment: bool = True
+    #: Intake: a link in the message, or an attached PDF or picture, is read and fills the trip form.
+    enable_intake: bool = True
+    intake_max_urls: int = Field(2, ge=0, le=5)
+    intake_max_attachments: int = Field(3, ge=0, le=5)
+    #: The most bytes of one attached file, and of the whole chat request that carries the files as base64.
+    intake_max_attachment_bytes: int = Field(4_194_304, ge=1)
+    intake_max_body_bytes: int = Field(13_000_000, ge=1_048_576)
+    #: The most bytes read from a link, and how long the link may take to answer.
+    intake_max_fetch_bytes: int = Field(3_000_000, ge=1)
+    intake_fetch_timeout_seconds: float = Field(12.0, gt=0)
+    intake_timeout_seconds: float = Field(40.0, gt=0)
+    #: The most characters of shared text the writer is given, all sources together.
+    intake_max_chars: int = Field(24_000, ge=500)
+    intake_max_pdf_pages: int = Field(30, ge=1)
+    intake_max_places: int = Field(10, ge=0, le=20)
+    assessment_max_research_rounds: int = Field(1, ge=0, le=2)
     day_max_activity_hours: float = Field(9.0, gt=0)
     day_max_walking_km: float = Field(12.0, gt=0)
     audit_max_follow_ups: int = Field(3, ge=0, le=5)

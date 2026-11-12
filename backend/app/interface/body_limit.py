@@ -27,16 +27,19 @@ def _too_large() -> HTTPException:
 
 
 class BodyLimit:
-    def __init__(self, app: ASGIApp, limit: int = MAX_BODY_BYTES) -> None:
+    def __init__(self, app: ASGIApp, limit: int = MAX_BODY_BYTES, limits: dict[str, int] | None = None) -> None:
         self.app = app
         self.limit = limit
+        #: Routes with a limit of their own, by exact path (the chat turn carries attached files).
+        self.limits = dict(limits or {})
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        limit = self.limits.get(scope.get("path", ""), self.limit)
         declared = dict(scope["headers"]).get(b"content-length", b"")
-        if declared.isdigit() and int(declared) > self.limit:
+        if declared.isdigit() and int(declared) > limit:
             refusal = _too_large()
             await JSONResponse({"detail": TOO_LARGE}, status_code=413, headers=refusal.headers)(scope, receive, send)
             return
@@ -48,7 +51,7 @@ class BodyLimit:
             message = await receive()
             if message["type"] == "http.request":
                 seen += len(message.get("body", b""))
-                if seen > self.limit:
+                if seen > limit:
                     raise _too_large()
             return message
 

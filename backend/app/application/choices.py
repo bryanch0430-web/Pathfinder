@@ -85,6 +85,11 @@ async def apply_choice(
         only_days={day_index} if day_index is not None else set(),
         changes=changes,
     )
+    if plan.assessment is not None:
+        # The assessment follows the choice (no further research: the traveller chose).
+        from app.application.assessment import reassess
+
+        updated.assessment = reassess(updated, context, getattr(planner, "settings", None))
     updated.version = plan.version + 1
     updated.updated_at = utcnow()
     updated.change_summary = " ".join([summary, *changes])

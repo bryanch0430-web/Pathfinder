@@ -49,6 +49,7 @@ export type IconName =
   | "download"
   | "user"
   | "logout"
+  | "paperclip"
   | "spark";
 
 const PATHS: Record<IconName, ReactNode> = {
@@ -279,6 +280,7 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M4 21h16" />
     </>
   ),
+  paperclip: <path d="m20.5 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" />,
   spark: <path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4" />,
 };
 
