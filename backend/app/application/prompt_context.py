@@ -19,6 +19,7 @@ import json
 from typing import Any, Sequence
 
 from app.domain.models import (
+    DayPlan,
     HotelStay,
     Message,
     Money,
@@ -116,7 +117,8 @@ def plan_outline(
     for index, day in enumerate(summary.get("days") or [], start=1):
         items = []
         for item in day.get("items") or []:
-            label = str(item.get("name") or "")
+            # On one line, so no name can start a line of its own in a block that is read by its lines.
+            label = " ".join(str(item.get("name") or "").split())
             if ids and item.get("id"):
                 label = f"{item['id']} {label}"
             if times and item.get("start"):
@@ -134,6 +136,8 @@ def plan_outline(
 
 #: The most a plan written out in full may take in a prompt; over it, detail is dropped, never a day or a stay.
 PLAN_DETAIL_CHARS = 24_000
+#: The most of a stop's note the detail repeats (the answer path's own rows cut it to the same length).
+ITEM_NOTE_CHARS = 240
 
 
 def _line(text: str) -> str:
@@ -152,7 +156,20 @@ def _rating(rating: float | None, reviews: int | None) -> str:
 
 
 def _labelled(item_id: str, ids: bool) -> str:
-    return f"{item_id} " if ids and item_id else ""
+    return f"{_line(item_id)} " if ids and item_id else ""
+
+
+def _weather(day: DayPlan) -> str:
+    """The day's forecast as the plan holds it: its summary, the low and high, and the chance of rain."""
+    weather = day.weather
+    if weather is None:
+        return ""
+    parts = [_line(weather.summary)]
+    if weather.low_c is not None and weather.high_c is not None:
+        parts.append(f"{weather.low_c:g}..{weather.high_c:g} C")
+    if weather.precipitation_probability is not None:
+        parts.append(f"rain {weather.precipitation_probability}%")
+    return ", ".join(part for part in parts if part)
 
 
 def _stay_line(stay: HotelStay, ids: bool) -> str:
@@ -200,7 +217,7 @@ def _other_transport(ticket: TicketOption, ids: bool) -> str:
     return ", ".join(part for part in (" ".join(head), _money(ticket.price)) if part)
 
 
-def _item_lines(item: PlanItem, ids: bool, level: int) -> list[str]:
+def _item_lines(item: PlanItem, ids: bool, level: int, notes: bool = True) -> list[str]:
     """One stop: level 0 with everything, 1 without the other choices, 2 with a meal as its name only,
     3 with no price or rating on any stop."""
     kind = item.type.value
@@ -209,24 +226,31 @@ def _item_lines(item: PlanItem, ids: bool, level: int) -> list[str]:
         text += f" ({kind}{' ' + item.meal_slot if item.meal_slot else ''})"
     plain = level >= 3 or (level >= 2 and kind == "meal")
     if not plain:
+        tags = ", ".join(tag for tag in (_line(tag) for tag in item.tags) if tag)
         facts = [
             _money(item.price),
-            item.price_level or "",
+            _line(item.price_level or ""),
             _line(item.cuisine or ""),
             _rating(item.rating, item.review_count),
+            f"tags {tags}" if tags else "",
         ]
         facts = [fact for fact in facts if fact]
         if facts:
             text += " " + ", ".join(facts)
+    if item.data_status.value != "ok":
+        text += f" [{item.data_status.value}]"
     if item.locked:
         text += " [locked]"
     if item.confirmed:
         text += " [confirmed]"
     lines = [text]
+    note = _line(item.notes)[:ITEM_NOTE_CHARS]
+    if note and notes and level < 3:
+        lines.append(f"    note: {note}")
     if level == 0 and item.alternatives:
         choices = []
         for other in item.alternatives:
-            facts = [_rating(other.rating, None), other.price_level or ""]
+            facts = [_rating(other.rating, None), _line(other.price_level or "")]
             if other.distance_m is not None:
                 facts.append(f"{other.distance_m} m")
             facts = [fact for fact in facts if fact]
@@ -237,7 +261,13 @@ def _item_lines(item: PlanItem, ids: bool, level: int) -> list[str]:
     return lines
 
 
-def _detail(plan: TripPlan, days: Sequence[int] | None, ids: bool, level: int) -> str:
+def _detail(
+    plan: TripPlan,
+    days: Sequence[int] | None,
+    ids: bool,
+    level: int,
+    notes: bool = True,
+) -> str:
     head = [
         _line(plan.destination.name),
         f"{plan.dates.start.isoformat()}..{plan.dates.end.isoformat()}",
@@ -264,18 +294,20 @@ def _detail(plan: TripPlan, days: Sequence[int] | None, ids: bool, level: int) -
         if wanted is not None and number not in wanted:
             continue
         title = _line(day.title)
+        weather = _weather(day)
         lines.append(
             f"Day {number} {day.date.isoformat()}"
             + (f' "{title}"' if title else "")
+            + (f", weather: {weather}" if weather else "")
             + ":"
         )
         if not day.items:
             lines.append("  free")
         for item in day.items:
-            lines += _item_lines(item, ids, level)
+            lines += _item_lines(item, ids, level, notes)
     cost = plan.cost
     if cost.lines or cost.total:
-        total = f"total {cost.total:g} {cost.currency}"
+        total = f"total {cost.total:g} {_line(cost.currency)}"
         if cost.budget is not None:
             total += f" of {cost.budget:g}"
         if cost.status != "unknown":
@@ -295,18 +327,24 @@ def plan_detail(
     *,
     days: Sequence[int] | None = None,
     ids: bool = True,
+    notes: bool = True,
     cap: int = PLAN_DETAIL_CHARS,
 ) -> str:
     """The plan as the traveller sees it, for a prompt: the stay, the transport, each day's stops with
     their prices and ratings and other choices, and the cost. No link and no picture is written.
 
+    Each day carries its forecast and each stop its tags, a mark when its data is stale, and, with
+    ``notes``, its note (an answer reads the notes; an edit is sent without them, to cost less than
+    planning again). Every text in it loses any fence tag and is put on one line.
+
     ``days`` are day numbers from 1; None is every day, and a number the trip does not have is ignored.
     A text over ``cap`` loses, in this order, the other choices, the meals' facts, then every stop's
-    price and rating. A day or a stay is never left out.
+    price, rating, tags and note. A day or a stay is never left out, so a very long trip can still
+    come out over ``cap``.
     """
     text = ""
     for level in range(4):
-        text = _detail(plan, days, ids, level)
+        text = _detail(plan, days, ids, level, notes)
         if len(text) <= cap:
             break
     return text
@@ -318,6 +356,7 @@ def plan_context(
     focus: int | None,
     selected_id: str | None = None,
     ids: bool = True,
+    notes: bool = True,
 ) -> str:
     """The plan block an edit or an answer reads.
 
@@ -326,12 +365,12 @@ def plan_context(
     typing is named on a last line; a selection the plan no longer holds is not.
     """
     if focus is None:
-        text = plan_detail(plan, ids=ids)
+        text = plan_detail(plan, ids=ids, notes=notes)
     else:
         text = (
             plan_outline(plan.summary_for_prompt(), ids=ids)
             + f"\n\nDay {focus} in detail:\n"
-            + plan_detail(plan, days=[focus], ids=ids)
+            + plan_detail(plan, days=[focus], ids=ids, notes=notes)
         )
     if selected_id:
         found = plan.find_item(selected_id)

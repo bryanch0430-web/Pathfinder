@@ -1016,7 +1016,7 @@ class ModifyPath:
             # trip slots, not the stored context. The earlier turns say what "add it" or "that hotel" is.
             focus = focus_day(plan, message, scope_item_id)
             user = (
-                f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id)}\n"
+                f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id, notes=False)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
                 + with_conversation(conversation_block(history, message))
                 + fence_user_message(message)

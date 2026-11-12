@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from plan_samples import make_plan
 from test_conversation_context import RecordingLLM, _gateway
@@ -80,3 +81,54 @@ def test_edit_prompt_has_no_urls_and_the_message_once_in_its_fence(
         < prompt.index("Trip:")
         < prompt.index("<user_travel_request>")
     )
+
+
+def _dates_edit(settings: Settings, target_item_id: str | None):
+    """Move the whole trip a week with a stop selected, the writer naming `target_item_id` as its target."""
+    from test_modify_dates import _edit
+
+    reply = {
+        "description": "move the trip a week later",
+        "affected_parts": ["dates"],
+        "target_item_id": target_item_id,
+        "confidence": 0.9,
+    }
+    llm = RecordingLLM(replies={"modify.extract": json.dumps(reply)})
+    _, updated, diff, _ = _edit(
+        settings, "move the trip a week later", writer=_gateway(settings, llm), scope_item_id="item_p1"
+    )
+    assert llm.prompts("modify.extract"), "the writer was not asked"
+    return updated, diff
+
+
+def test_a_whole_trip_edit_is_not_aimed_at_the_selected_stop_the_writer_was_told_about(settings: Settings) -> None:
+    told, told_diff = _dates_edit(settings, "item_p1")
+    untold, untold_diff = _dates_edit(settings, None)
+
+    assert [entry.get("kind") for entry in told_diff] == [entry.get("kind") for entry in untold_diff]
+    assert [[item.name for item in day.items] for day in told.days] == [[item.name for item in day.items] for day in untold.days]
+    assert told.change_summary == untold.change_summary
+
+
+def test_edit_prompt_carries_the_weather_and_tags_but_not_the_stops_notes(settings: Settings) -> None:
+    from app.application.prompt_context import plan_context
+    from app.domain.models import WeatherDay
+
+    plan = make_plan()
+    plan.days[0].items[0].notes = "Closed on Mondays; book ahead"
+    plan.days[0].items[0].tags = ["outdoor"]
+    plan.days[0].weather = WeatherDay(date=plan.days[0].date, summary="Light rain", high_c=12, low_c=4)
+
+    for focus in (None, 1):
+        with_notes = plan_context(plan, focus=focus)
+        without = plan_context(plan, focus=focus, notes=False)
+        assert "note: Closed on Mondays" in with_notes
+        assert "Closed on Mondays" not in without
+        assert "weather: Light rain" in without and "tags outdoor" in without
+
+    llm = RecordingLLM()
+    path = ModifyPath(planner=None, plan_path=None, settings=settings, gateway=_gateway(settings, llm))  # type: ignore[arg-type]
+    context = case_context(EvalCase(id="c", dataset="design", input="", destination="Kyoto"), "s")
+    asyncio.run(path._extract("make the whole trip cheaper", plan, context, []))
+    prompt = llm.prompts("modify.extract")[0]
+    assert "Closed on Mondays" not in prompt and "weather: Light rain" in prompt

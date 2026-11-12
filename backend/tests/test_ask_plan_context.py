@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from plan_samples import make_plan
 
-from app.application.asking import ask_prompt
+from app.application.asking import _plan_facts, ask_prompt
+from app.domain.models import WeatherDay
 
 
 def test_question_with_nothing_selected_gets_the_full_plan() -> None:
@@ -47,6 +48,20 @@ def test_itinerary_rows_are_not_sent_twice() -> None:
 
     assert "ROW_MARK" not in text and '"cost"' in text
     assert "itinerary" in facts
+
+
+def test_an_answer_still_reads_a_stops_note_and_the_days_weather() -> None:
+    plan = make_plan()
+    plan.days[0].items[0].notes = "Closed on Mondays; book ahead"
+    plan.days[1].weather = WeatherDay(
+        date=plan.days[1].date, summary="Light rain", high_c=12, low_c=4
+    )
+    question = "what should we pack for this trip?"
+
+    text = ask_prompt(question, plan, _plan_facts(question, plan, []), "plan")
+
+    assert "Closed on Mondays; book ahead" in text
+    assert "Light rain" in text
 
 
 def test_no_plan_is_unchanged() -> None:

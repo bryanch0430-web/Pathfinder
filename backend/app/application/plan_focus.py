@@ -24,7 +24,7 @@ _MONTH_NAMES = "|".join(_MONTHS)
 def day_number_named(message: str) -> int | None:
     """The day number a message names ("day 2", "2nd day", "second day"), whether or not the trip has it."""
     lower = message.lower()
-    match = re.search(r"\bday\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", lower)
+    match = re.search(r"(?<!\d )(?<!\d-)\bday\s*(\d{1,2})\b(?!\s*-?\s*nights?\b)|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", lower)
     if match:
         return int(match.group(1) or match.group(2))
     for word, index in _ORDINALS.items():
