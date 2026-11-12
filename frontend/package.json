@@ -22,7 +22,7 @@
   "devDependencies": {
     "@storybook/addon-a11y": "8.6.19",
     "@storybook/addon-essentials": "8.6.19",
-    "@storybook/react": "8.6.19",
+    "@storybook/react": "10.6.6",
     "@storybook/react-vite": "8.6.19",
     "@storybook/test": "8.6.19",
     "@types/react": "18.3.12",
