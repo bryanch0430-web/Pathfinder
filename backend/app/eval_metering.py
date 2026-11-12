@@ -87,6 +87,8 @@ class MeteredLLM:
         self.replies = {**DEFAULT_REPLIES, **(replies or {})}
         self.route: dict[str, Any] | None = None
         self.purposes: list[str] = []
+        #: How many pictures each call carried, in call order.
+        self.images: list[int] = []
         self.prompt_tokens = 0
         self.completion_tokens = 0
 
@@ -103,7 +105,9 @@ class MeteredLLM:
         json_mode: bool = True,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        images: Any = None,
     ) -> LLMResult:
+        self.images.append(len(images or ()))
         text = self.reply(purpose)
         prompt_tokens = estimate_tokens(system) + estimate_tokens(user)
         completion_tokens = estimate_tokens(text)

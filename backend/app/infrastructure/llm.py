@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 import httpx
 
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FailureKind
+from app.domain.ports import ImageInput
 from app.infrastructure.http import classify_status, current_transport
 from app.security.scrub import scrub
 
@@ -23,6 +24,19 @@ class LLMResult:
     completion_tokens: int = 0
     latency_ms: int = 0
     reasoning: str = ""
+
+
+def _user_content(user: str, images: Sequence[ImageInput] | None) -> Any:
+    """The user turn: plain text, or text followed by the pictures as data URLs for a writer that can see."""
+    if not images:
+        return user
+    return [
+        {"type": "text", "text": user},
+        *(
+            {"type": "image_url", "image_url": {"url": f"data:{image.media_type};base64,{image.data}"}}
+            for image in images
+        ),
+    ]
 
 
 class OpenAICompatibleLLM:
@@ -59,6 +73,7 @@ class OpenAICompatibleLLM:
         json_mode: bool = True,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        images: Sequence[ImageInput] | None = None,
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
@@ -66,7 +81,7 @@ class OpenAICompatibleLLM:
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system},
-                {"role": "user", "content": user},
+                {"role": "user", "content": _user_content(user, images)},
             ],
             "temperature": temperature,
             "max_tokens": max_tokens,

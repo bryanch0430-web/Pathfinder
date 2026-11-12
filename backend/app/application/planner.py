@@ -60,6 +60,8 @@ from app.domain.models import (
     GeoLocation,
     GeoPoint,
     HotelNearby,
+    RoomType,
+    StayMatch,
     HotelStay,
     ItemType,
     Money,
@@ -737,6 +739,12 @@ class Planner:
             hotel_class=hotel.get("hotel_class"),
             property_token=str(hotel.get("property_token") or ""),
             nearby=[HotelNearby.model_validate(row) for row in hotel.get("nearby") or [] if isinstance(row, dict)],
+            # What the stay research step fetched and judged, when it ran.
+            room_types=[RoomType.model_validate(row) for row in hotel.get("room_types") or [] if isinstance(row, dict)],
+            rooms_checked_for=(
+                DateRange.model_validate(hotel["rooms_checked_for"]) if hotel.get("rooms_checked_for") else None
+            ),
+            match=StayMatch.model_validate(hotel["match"]) if hotel.get("match") else None,
         )
 
     @staticmethod

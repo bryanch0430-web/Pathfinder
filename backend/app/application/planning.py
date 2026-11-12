@@ -19,7 +19,9 @@ from app.application.audit_followup import run_follow_ups
 from app.application.auditor import audit_results
 from app.application.hk_disruptions import apply_hong_kong_disruptions
 from app.application.planner import Planner
+from app.application.assessment import assess_and_improve
 from app.application.refine import refine_and_refresh
+from app.application.research import pick_researched, research_stays
 from app.application.toolbox import Toolbox
 from app.application.validation import repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
@@ -172,6 +174,26 @@ class PlanPath:
                 # A bug in the follow-ups keeps the findings the audit returned.
                 logger.warning("pre-planning audit follow-ups failed open: %s", type(exc).__name__)
 
+        # Stay research sub-agent: a wish about the stay or its room ("two beds") is judged against each
+        # candidate's own rooms and amenities, and the candidates are ranked before the planner picks.
+        if self.settings.enable_stay_research:
+            try:
+                with tracer.span("stay.research") as span:
+                    research = await research_stays(
+                        results=agent_results, context=context, date_range=date_range, registry=self.registry,
+                        toolbox=toolbox, gateway=self.planner.gateway, settings=self.settings, emit=emit,
+                    )
+                    span.attrs.update(
+                        {"wishes": len(research.wishes), "judged": len(research.matches), "skipped": research.skipped}
+                    )
+                if pick_hotel is None and keep_hotel is None:
+                    pick_hotel = pick_researched(research)
+            except CanaryLeak:
+                raise
+            except Exception as exc:
+                # The research fails open: the candidates keep the hotel agent's order.
+                logger.warning("stay research failed open: %s", type(exc).__name__)
+
         emit("progress", {"phase": "planner", "message": "Composing the itinerary from verified facts.", "progress": 70})
         plan = await self.planner.compose(
             session_id=session_id,
@@ -203,6 +225,24 @@ class PlanPath:
                 errors_left=sum(1 for issue in refine_issues if issue.severity == "error"),
             ):
                 pass
+        # Assessment and feedback: confidence from the plan's own checks; what further research can
+        # settle is researched and applied, and what is still open becomes a question.
+        if self.settings.enable_plan_assessment:
+            try:
+                plan = await assess_and_improve(
+                    plan, context=context, issues=refine_issues, registry=self.registry, toolbox=toolbox,
+                    planner=self.planner, settings=self.settings, emit=emit,
+                )
+                if tracer is not None and plan.assessment is not None:
+                    with tracer.span(
+                        "plan.assess", confidence=plan.assessment.confidence, level=plan.assessment.level,
+                        next_action=plan.assessment.next_action, research_rounds=plan.assessment.research_rounds,
+                    ):
+                        pass
+            except CanaryLeak:
+                raise
+            except Exception as exc:
+                logger.warning("plan assessment failed open: %s", type(exc).__name__)
         # Hong Kong only: HKO warnings and MTR line status (Proposal TC-03).
         plan = await apply_hong_kong_disruptions(
             plan, registry=self.registry, toolbox=toolbox, settings=self.settings, results=agent_results, context=context

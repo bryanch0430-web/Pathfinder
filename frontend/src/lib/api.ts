@@ -1,4 +1,5 @@
 import type {
+  ChatAttachment,
   ChatMessage,
   ClarifyPayload,
   EvalDataset,
@@ -511,6 +512,8 @@ export async function streamChat(
     scope_item_id?: string | null;
     scope_label?: string | null;
     developer?: boolean;
+    /** Images and PDFs sent with the message; `data` is base64 without a `data:` prefix. */
+    attachments?: ChatAttachment[];
   },
   handlers: StreamHandlers,
   signal?: AbortSignal,

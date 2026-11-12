@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from app.application.llm_selection import LLMSelector
 from app.config import Settings
+from app.infrastructure.providers.documents import DocumentReader
 from app.infrastructure.providers.amap import AmapGeocoder, AmapPlacesSource
 from app.infrastructure.providers.flights import SerpApiFlightSource
 from app.infrastructure.providers.fx import FxService
@@ -57,6 +58,8 @@ class ProviderRegistry:
     elevation: object | None = None
     autocomplete: object | None = None
     fx: FxService = field(default_factory=FxService)
+    #: Reads a shared link or PDF for the intake step (web.fetch).
+    documents: object | None = None
 
     @classmethod
     def build(cls, settings: Settings, selector: LLMSelector | None = None) -> "ProviderRegistry":
@@ -110,6 +113,7 @@ class ProviderRegistry:
             elevation=elevation,
             autocomplete=autocomplete,
             fx=FxService(),
+            documents=DocumentReader(settings),
         )
 
     def describe(self) -> dict[str, object]:

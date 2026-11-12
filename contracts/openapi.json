@@ -2316,6 +2316,33 @@
   },
   "components": {
     "schemas": {
+      "AttachmentIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "default": "attachment"
+          },
+          "media_type": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Media Type",
+            "default": ""
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "AttachmentIn",
+        "description": "A file attached to a chat message: a PDF or a picture, its bytes as base64 (no ``data:`` prefix)."
+      },
       "AuthRequest": {
         "properties": {
           "email": {
@@ -2421,6 +2448,14 @@
             "type": "boolean",
             "title": "Developer",
             "default": false
+          },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/AttachmentIn"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Attachments"
           }
         },
         "type": "object",

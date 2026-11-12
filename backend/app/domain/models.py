@@ -297,6 +297,28 @@ class HotelNearby(BaseModel):
     duration: str = ""
 
 
+StayVerdict = Literal["meets", "partly", "unclear", "fails"]
+
+
+class StayMatch(BaseModel):
+    """How a stay fits the traveller's wishes for the stay, as the research step judged it.
+
+    The verdict rests only on what the sources gave: ``evidence`` holds room names, amenities and
+    reference page titles exactly as a source returned them. A verdict of ``meets`` or ``partly``
+    always has evidence; without any, the stay is ``unclear``.
+    """
+
+    wishes: list[str] = Field(default_factory=list)
+    verdict: StayVerdict = "unclear"
+    score: int = Field(default=0, ge=0, le=100)
+    reason: str = Field(default="", max_length=240)
+    evidence: list[str] = Field(default_factory=list)
+    #: The reference pages among the evidence, as the web search returned them.
+    evidence_refs: list[SourceRef] = Field(default_factory=list)
+    #: True once the hotel source was asked for this stay's rooms for the trip's dates.
+    rooms_checked: bool = False
+
+
 class HotelStay(BaseModel):
     id: str = Field(default_factory=lambda: new_id("hotel"))
     name: str
@@ -330,6 +352,8 @@ class HotelStay(BaseModel):
     #: Straight-line km to the closest planned stop, computed by the app; None without coordinates.
     nearest_stop_km: float | None = None
     nearest_stop_name: str = ""
+    #: The research step's judgement against the traveller's stay wishes; None when there was none to judge.
+    match: StayMatch | None = None
 
 
 class TicketOption(BaseModel):
@@ -448,6 +472,36 @@ class Destination(BaseModel):
     timezone: str = ""
 
 
+class AssessmentSignal(BaseModel):
+    """One thing that lowered the plan's confidence, and by how much (0 to 1)."""
+
+    code: str
+    weight: float = Field(ge=0, le=1)
+    message: str
+
+
+class PlanAssessment(BaseModel):
+    """How far the plan can be relied on, worked out by the app from the plan's own checks.
+
+    ``confidence`` is 1 less the signals' weights, never a model's opinion. ``unverified`` lists
+    what no source confirmed; ``missing`` what only the traveller can say. ``next_action`` is what
+    the planner does about it: ``research`` (look again, then assess again), ``ask`` (put
+    ``question`` to the traveller) or ``none``.
+    """
+
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    level: Literal["high", "medium", "low"] = "high"
+    signals: list[AssessmentSignal] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+    unverified: list[str] = Field(default_factory=list)
+    next_action: Literal["none", "research", "ask"] = "none"
+    question: str = ""
+    #: Rounds of further research the assessment already set off for this plan.
+    research_rounds: int = Field(default=0, ge=0)
+    #: What those rounds changed, one sentence each.
+    improvements: list[str] = Field(default_factory=list)
+
+
 class TripPlan(BaseModel):
     schema_version: str = "1.0"
     trip_id: str = Field(default_factory=lambda: new_id("trip"))
@@ -470,6 +524,8 @@ class TripPlan(BaseModel):
     disruptions: list[Disruption] = Field(default_factory=list)
     reservations: list[Reservation] = Field(default_factory=list)
     data_quality: DataQuality = Field(default_factory=DataQuality)
+    #: The app's own confidence in this plan version; None on plans made before it existed.
+    assessment: PlanAssessment | None = None
     # Short public videos that ground the destination (YouTube / Bilibili).
     video_notes: list["NoteItem"] = Field(default_factory=list)
     change_summary: str = ""

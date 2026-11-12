@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import hmac
 import html
+import base64
+import binascii
 import json
 import re
 from contextlib import aclosing, asynccontextmanager
@@ -20,6 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Str
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from app.application.intake import Attachment
 from app.application.choices import ChoiceNotFound, ChoiceRefused, apply_choice, normalise_hotel_options
 from app.application.legs import leg_options_for_plan, legs_for_plan
 from app.application.toolbox import Toolbox
@@ -79,6 +82,27 @@ _SURROGATE = re.compile(r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}|[\ud800-\udfff]")
 UNREADABLE_TEXT = "The request contains a character that cannot be read. Please retype that text."
 
 
+def _attachments(sent: list["AttachmentIn"], settings: Settings) -> list[Attachment]:
+    """The attached files as bytes. A file that is not base64, is too large, or is one too many is refused."""
+    if not sent:
+        return []
+    if not settings.enable_intake or len(sent) > settings.intake_max_attachments:
+        raise HTTPException(
+            status_code=422, detail=f"At most {settings.intake_max_attachments} files can be attached to a message."
+        )
+    files: list[Attachment] = []
+    for item in sent:
+        # Four base64 characters carry three bytes: a file over the limit is refused before it is decoded.
+        if len(item.data) > settings.intake_max_attachment_bytes * 4 // 3 + 4:
+            raise HTTPException(status_code=413, detail=f"{item.name} is too large to attach.")
+        try:
+            data = base64.b64decode(item.data, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=f"{item.name} could not be read as a file.") from exc
+        files.append(Attachment(name=item.name, media_type=item.media_type, data=data))
+    return files
+
+
 async def refuse_unreadable_text(request: Request) -> None:
     """Refuse a JSON body with a lone surrogate (a broken input method, a string cut inside an emoji).
 
@@ -131,6 +155,14 @@ class ContextPatch(BaseModel):
     plan_locale: Literal["en", "zh-Hant"] | None = None
 
 
+class AttachmentIn(BaseModel):
+    """A file attached to a chat message: a PDF or a picture, its bytes as base64 (no ``data:`` prefix)."""
+
+    name: str = Field(default="attachment", max_length=200)
+    media_type: str = Field(default="", max_length=100)
+    data: str = Field(min_length=1)
+
+
 class ChatRequest(BaseModel):
     session_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
     message: str = Field(min_length=1, max_length=6000)
@@ -142,6 +174,8 @@ class ChatRequest(BaseModel):
     scope_label: str | None = None
     #: When true, the trace event includes each model's reasoning text.
     developer: bool = False
+    #: PDFs or pictures to read with the message (the intake step); more than the limit is refused.
+    attachments: list[AttachmentIn] = Field(default_factory=list, max_length=5)
 
     @field_validator("scope_label")
     @classmethod
@@ -215,7 +249,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         dependencies=[Depends(refuse_unreadable_text)],
     )
-    app.add_middleware(BodyLimit)
+    app.add_middleware(BodyLimit, limits={"/api/turn/stream": settings.intake_max_body_bytes})
     app.add_middleware(PrivateResponses)
     app.add_middleware(
         CORSMiddleware,
@@ -1022,6 +1056,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
     @app.post("/api/turn/stream")
     async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
         c = container(request)
+        attachments = _attachments(payload.attachments, settings)
         session_id = payload.session_id
         if not session_id:
             token, user = session_caller(request, c, payload.client_token)
@@ -1053,6 +1088,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 scope_item_id=payload.scope_item_id,
                 scope_label=payload.scope_label,
                 developer=payload.developer,
+                attachments=attachments,
                 on_wait=deadline.pause,
                 on_start=deadline.restart,
             )

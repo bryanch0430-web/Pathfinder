@@ -18,11 +18,13 @@ import {
   ExperimentTable,
   failureReason,
   GapList,
+  IntakeNotice,
   MetricCard,
   MiniStat,
   Field,
   PageHeader,
   PlaceCard,
+  PlanAssessmentCard,
   PlanFeedback,
   StatusSummary,
   TravelOptions,
@@ -33,6 +35,7 @@ import {
 import type {
   AgentState,
   AuthUser,
+  ChatAttachment,
   ChatMessage,
   ClarifyPayload,
   ClientProfile,
@@ -42,8 +45,10 @@ import type {
   FxSnapshot,
   GuideChunk,
   HotelStay,
+  IntakePayload,
   PlanItem,
   RoomType,
+  StayMatch,
   TicketOption,
   TripContext,
   TripPlan,
@@ -54,6 +59,16 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type MapLeg } from "../lib/api";
+import {
+  addAttachments,
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_TYPES,
+  ATTACHMENTS_MAX,
+  ATTACHMENTS_TOTAL_MAX_BYTES,
+  fileSizeText,
+  readAttachments,
+  type AttachmentRefusal,
+} from "../lib/attachments";
 import { failureText } from "../lib/failure";
 import { safeHref } from "../lib/safeHref";
 import { addTags, isImeKey } from "../lib/typing";
@@ -406,6 +421,12 @@ function DeveloperToggle() {
   );
 }
 
+/** The names of the files a message was sent with (kept in its `meta`). */
+function attachmentNames(message: ChatMessage): string[] {
+  const names = message.meta?.attachments;
+  return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string") : [];
+}
+
 export function ChatPanel({
   messages,
   onSend,
@@ -428,9 +449,19 @@ export function ChatPanel({
   tripId = null,
   draft: heldDraft,
   onDraftChange,
+  intake = null,
+  focusSignal = 0,
+  initialFiles,
 }: {
   messages: ChatMessage[];
-  onSend: (message: string) => void;
+  /** `attachments` are the files chosen in the box, already read; absent when there are none. */
+  onSend: (message: string, attachments?: ChatAttachment[]) => void;
+  /** What the last turn read from the links and files of its message. */
+  intake?: IntakePayload | null;
+  /** Each change of this number puts the cursor in the message box (as when a question on the plan is to be answered). */
+  focusSignal?: number;
+  /** Files already chosen when the panel opens (for stories and tests). */
+  initialFiles?: File[];
   busy: boolean;
   agents: Record<string, AgentState>;
   progress: number;
@@ -477,12 +508,63 @@ export function ChatPanel({
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [messages.length, lastContent, busy, clarify?.question]);
-  const submit = () => {
-    const value = draft.trim();
-    if (!value || busy || disabled) return;
-    setDraft("");
-    onSend(value);
+  }, [messages.length, lastContent, busy, clarify?.question, intake]);
+  useEffect(() => {
+    if (focusSignal) composerRef.current?.focus();
+  }, [focusSignal]);
+  // The files chosen for the next message. They belong to the trip they were chosen in.
+  const [files, setFiles] = useState<File[]>(initialFiles ?? []);
+  const [fileError, setFileError] = useState<AttachmentRefusal | { reason: "read" } | null>(null);
+  const [reading, setReading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const shownTrip = useRef(draftKey);
+  useEffect(() => {
+    if (shownTrip.current === draftKey) return;
+    shownTrip.current = draftKey;
+    setFiles([]);
+    setFileError(null);
+  }, [draftKey]);
+  const addFiles = (incoming: File[]) => {
+    if (!incoming.length || disabled) return;
+    const result = addAttachments(files, incoming);
+    setFiles(result.files);
+    setFileError(result.refusal);
+  };
+  const megabytes = (bytes: number) => bytes / (1024 * 1024);
+  const fileErrorText = !fileError
+    ? ""
+    : fileError.reason === "type"
+      ? t("chat.attach.errorType", { name: fileError.name })
+      : fileError.reason === "size"
+        ? t("chat.attach.errorSize", { name: fileError.name, mb: megabytes(ATTACHMENT_MAX_BYTES) })
+        : fileError.reason === "count"
+          ? t("chat.attach.errorCount", { count: ATTACHMENTS_MAX })
+          : fileError.reason === "total"
+            ? t("chat.attach.errorTotal", { mb: megabytes(ATTACHMENTS_TOTAL_MAX_BYTES) })
+            : t("chat.attach.errorRead");
+  const submit = async () => {
+    const typed = draft.trim();
+    if ((!typed && !files.length) || busy || disabled || reading) return;
+    if (!files.length) {
+      setDraft("");
+      onSend(typed);
+      return;
+    }
+    // Sent to the planner, so it stays in English, like the quick prompts.
+    const value = typed || "Plan a trip from what I attached.";
+    setReading(true);
+    setFileError(null);
+    try {
+      const attachments = await readAttachments(files);
+      setDraft("");
+      setFiles([]);
+      onSend(value, attachments);
+    } catch {
+      setFileError({ reason: "read" });
+    } finally {
+      setReading(false);
+    }
   };
   const running = Object.values(agents).filter((agent) => agent.status === "running").length;
   const [developer] = useDeveloperMode();
@@ -552,8 +634,18 @@ export function ChatPanel({
               intent={message.intent ?? undefined}
               time={new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
               above={
-                typeof message.meta?.scope === "string" ? (
-                  <span className="pf-scope-chip">{String(message.meta.scope)}</span>
+                typeof message.meta?.scope === "string" || attachmentNames(message).length ? (
+                  <>
+                    {typeof message.meta?.scope === "string" ? (
+                      <span className="pf-scope-chip">{String(message.meta.scope)}</span>
+                    ) : null}
+                    {attachmentNames(message).map((name, index) => (
+                      <span className="pf-attachment" key={`${index}-${name}`}>
+                        <Icon name="paperclip" size={12} />
+                        {name}
+                      </span>
+                    ))}
+                  </>
                 ) : null
               }
               meta={
@@ -580,6 +672,7 @@ export function ChatPanel({
             </div>
           </div>
         ) : null}
+        {intake ? <IntakeNotice intake={intake} /> : null}
         {clarify ? (
           <ClarifyCard
             payload={clarify}
@@ -593,7 +686,22 @@ export function ChatPanel({
           <AgentActivity agents={agents} progress={progress} message={progressMessage || t("chat.progressFallback")} />
         ) : null}
       </div>
-      <div className="pf-chat__composer">
+      <div
+        className="pf-chat__composer"
+        data-dragging={dragging}
+        onDragOver={(event) => {
+          if (disabled || !Array.from(event.dataTransfer.types).includes("Files")) return;
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => {
+          setDragging(false);
+          if (!event.dataTransfer.files.length) return;
+          event.preventDefault();
+          addFiles(Array.from(event.dataTransfer.files));
+        }}
+      >
         {scope ? (
           <span className="pf-scope-chip">
             <Icon name="map" size={12} />
@@ -610,7 +718,50 @@ export function ChatPanel({
             </button>
           ))}
         </div>
+        {files.length ? (
+          <div className="pf-attachments">
+            {files.map((file, index) => (
+              <span className="pf-attachment" key={`${index}-${file.name}`}>
+                <Icon name="paperclip" size={12} />
+                {file.name}
+                <span className="pf-muted">{fileSizeText(file.size)}</span>
+                <button
+                  type="button"
+                  aria-label={t("chat.attach.remove", { name: file.name })}
+                  disabled={reading}
+                  onClick={() => {
+                    setFiles((current) => current.filter((_, position) => position !== index));
+                    setFileError(null);
+                  }}
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {fileErrorText ? (
+          <span className="pf-field__error" role="alert">{fileErrorText}</span>
+        ) : null}
         <div className="pf-composer">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            accept={ATTACHMENT_TYPES.join(",")}
+            onChange={(event) => {
+              addFiles(Array.from(event.target.files ?? []));
+              // The same file can be chosen again after it is removed.
+              event.target.value = "";
+            }}
+          />
+          <IconButton
+            icon="paperclip"
+            label={t("chat.attach")}
+            disabled={disabled || reading}
+            onClick={() => fileInputRef.current?.click()}
+          />
           <textarea
             ref={composerRef}
             value={draft}
@@ -619,6 +770,12 @@ export function ChatPanel({
             placeholder={disabled ? t("chat.offline") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
             aria-label={t("chat.message")}
             onChange={(event) => setDraft(event.target.value)}
+            onPaste={(event) => {
+              const pasted = Array.from(event.clipboardData.files);
+              if (!pasted.length) return;
+              event.preventDefault();
+              addFiles(pasted);
+            }}
             onInput={(event) => {
               const el = event.currentTarget;
               el.style.height = "auto";
@@ -628,16 +785,22 @@ export function ChatPanel({
               // Enter that confirms an input-method candidate (Chinese, Japanese, Korean) is not a send.
               if (event.key === "Enter" && !event.shiftKey && !isImeKey(event)) {
                 event.preventDefault();
-                submit();
+                void submit();
               }
             }}
           />
-          <Button variant="primary" data-round="true" aria-label={t("chat.send")} disabled={busy || disabled || !draft.trim()} onClick={submit}>
+          <Button
+            variant="primary"
+            data-round="true"
+            aria-label={t("chat.send")}
+            disabled={busy || disabled || reading || (!draft.trim() && !files.length)}
+            onClick={() => void submit()}
+          >
             <Icon name="send" size={16} />
           </Button>
         </div>
         <div className="pf-row pf-row--between pf-small pf-muted">
-          <span>{t("chat.hint")}</span>
+          <span>{t("chat.hint")} · {t("chat.shareHint")}</span>
           <span className="pf-row" style={{ gap: 5 }} title={t("chat.dataNotInstructions")}>
             <Icon name="shield" size={12} />
           </span>
@@ -701,6 +864,52 @@ function moneyText(money: { amount: number; currency: string } | null | undefine
 }
 
 const AMENITIES_SHOWN = 4;
+
+const STAY_VERDICT: Record<StayMatch["verdict"], { label: MessageKey; tone: "success" | "warning" | "neutral" | "danger" }> = {
+  meets: { label: "options.match.meets", tone: "success" },
+  partly: { label: "options.match.partly", tone: "warning" },
+  unclear: { label: "options.match.unclear", tone: "neutral" },
+  fails: { label: "options.match.fails", tone: "danger" },
+};
+
+/** How far a stay meets the traveller's stay wishes: the verdict, the wish, the reason and what the sources showed. */
+function StayMatchNote({ match }: { match: StayMatch }) {
+  const { t } = useI18n();
+  const verdict = STAY_VERDICT[match.verdict] ?? STAY_VERDICT.unclear;
+  const wishes = (match.wishes ?? []).filter(Boolean);
+  const evidence = (match.evidence ?? []).filter(Boolean);
+  const refs = (match.evidence_refs ?? []).filter((ref) => ref.title || ref.url);
+  return (
+    <div className="pf-stay-match">
+      <div className="pf-row pf-row--wrap" style={{ gap: 6 }}>
+        <Badge tone={verdict.tone} dot>{t(verdict.label)}</Badge>
+        {wishes.length ? <span className="pf-muted">{t("options.match.wish", { wish: wishes.join("; ") })}</span> : null}
+      </div>
+      {match.reason ? <span>{match.reason}</span> : null}
+      {evidence.length || refs.length ? (
+        <ul className="pf-stay-match__evidence">
+          {evidence.map((line, index) => (
+            <li key={`e-${index}`}>{line}</li>
+          ))}
+          {refs.map((ref, index) => {
+            const href = safeHref(ref.url);
+            const title = ref.title || ref.source || ref.url;
+            return (
+              <li key={`r-${index}`}>
+                {href ? (
+                  <a href={href} target="_blank" rel="noreferrer noopener">{title}</a>
+                ) : (
+                  title
+                )}
+                {ref.source && ref.source !== title ? <span className="pf-muted"> · {ref.source}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 /** One stay in the hotel comparison. Every line is hidden when the source gave nothing for it. */
 function HotelOptionCard({
@@ -774,6 +983,7 @@ function HotelOptionCard({
       ) : null}
       {location.length ? <Text size="xs" tone="secondary">{location.join(" · ")}</Text> : null}
       {quality.length ? <Text size="xs" tone="secondary">{quality.join(" · ")}</Text> : null}
+      {hotel.match ? <StayMatchNote match={hotel.match} /> : null}
       {amenities.length ? (
         <div className="pf-option-card__chips">
           {shownAmenities.map((amenity) => (
@@ -987,8 +1197,11 @@ export function TripWorkspace({
   languageNotice = null,
   onChooseOption,
   onLoadHotelRooms,
+  onAnswerQuestion,
 }: {
   plan: TripPlan;
+  /** Takes the traveller to the chat box to answer the question the plan's assessment asks. */
+  onAnswerQuestion?: () => void;
   /** Swaps in another option shown on the plan (no model call); resolves once the updated plan is shown, rejects with the reason. */
   onChooseOption?: (kind: ChoiceKind, targetId: string | null, optionId: string) => Promise<void>;
   /** The room types the hotel source lists for a stay. */
@@ -1231,6 +1444,7 @@ export function TripWorkspace({
               <Text size="xs" tone="tertiary">{t("workspace.noDisruptions")}</Text>
             )}
           </Collapsible>
+          <PlanAssessmentCard assessment={plan.assessment} onAnswer={onAnswerQuestion} />
           <Collapsible title={t("workspace.dataSources", { count: unknownGaps })} icon="info" badge={<Badge tone={unknownGaps ? "warning" : "success"} dot>{unknownGaps ? t("workspace.gaps") : t("workspace.complete")}</Badge>}>
             <GapList gaps={plan.data_quality.gaps} />
             {(plan.data_quality.freshness ?? []).map((mark) => (

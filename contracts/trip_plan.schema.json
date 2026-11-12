@@ -1,5 +1,31 @@
 {
   "$defs": {
+    "AssessmentSignal": {
+      "description": "One thing that lowered the plan's confidence, and by how much (0 to 1).",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "weight": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "weight",
+        "message"
+      ],
+      "title": "AssessmentSignal",
+      "type": "object"
+    },
     "ConstraintCheck": {
       "properties": {
         "id": {
@@ -653,6 +679,17 @@
           "default": "",
           "title": "Nearest Stop Name",
           "type": "string"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StayMatch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -887,6 +924,79 @@
         "name"
       ],
       "title": "PlanAlternative",
+      "type": "object"
+    },
+    "PlanAssessment": {
+      "description": "How far the plan can be relied on, worked out by the app from the plan's own checks.\n\n``confidence`` is 1 less the signals' weights, never a model's opinion. ``unverified`` lists\nwhat no source confirmed; ``missing`` what only the traveller can say. ``next_action`` is what\nthe planner does about it: ``research`` (look again, then assess again), ``ask`` (put\n``question`` to the traveller) or ``none``.",
+      "properties": {
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "level": {
+          "default": "high",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "signals": {
+          "items": {
+            "$ref": "#/$defs/AssessmentSignal"
+          },
+          "title": "Signals",
+          "type": "array"
+        },
+        "missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing",
+          "type": "array"
+        },
+        "unverified": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unverified",
+          "type": "array"
+        },
+        "next_action": {
+          "default": "none",
+          "enum": [
+            "none",
+            "research",
+            "ask"
+          ],
+          "title": "Next Action",
+          "type": "string"
+        },
+        "question": {
+          "default": "",
+          "title": "Question",
+          "type": "string"
+        },
+        "research_rounds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Research Rounds",
+          "type": "integer"
+        },
+        "improvements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Improvements",
+          "type": "array"
+        }
+      },
+      "title": "PlanAssessment",
       "type": "object"
     },
     "PlanItem": {
@@ -1261,6 +1371,63 @@
         "source"
       ],
       "title": "SourceRef",
+      "type": "object"
+    },
+    "StayMatch": {
+      "description": "How a stay fits the traveller's wishes for the stay, as the research step judged it.\n\nThe verdict rests only on what the sources gave: ``evidence`` holds room names, amenities and\nreference page titles exactly as a source returned them. A verdict of ``meets`` or ``partly``\nalways has evidence; without any, the stay is ``unclear``.",
+      "properties": {
+        "wishes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Wishes",
+          "type": "array"
+        },
+        "verdict": {
+          "default": "unclear",
+          "enum": [
+            "meets",
+            "partly",
+            "unclear",
+            "fails"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "score": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "reason": {
+          "default": "",
+          "maxLength": 240,
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "rooms_checked": {
+          "default": false,
+          "title": "Rooms Checked",
+          "type": "boolean"
+        }
+      },
+      "title": "StayMatch",
       "type": "object"
     },
     "TicketOption": {
@@ -1716,6 +1883,17 @@
     },
     "data_quality": {
       "$ref": "#/$defs/DataQuality"
+    },
+    "assessment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlanAssessment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "video_notes": {
       "items": {

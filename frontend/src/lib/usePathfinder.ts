@@ -21,8 +21,10 @@ import {
 } from "../lib/api";
 import type {
   AgentState,
+  ChatAttachment,
   ChatMessage,
   ClarifyPayload,
+  IntakePayload,
   PlanDiffEntry,
   PlanItem,
   PlanLocale,
@@ -144,6 +146,8 @@ export interface PathfinderHook {
   progress: number;
   progressMessage: string;
   clarify: ClarifyPayload | null;
+  /** What the last turn read from the links and files of its message. */
+  intake: IntakePayload | null;
   clarifyValues: Record<string, string>;
   trace: RunTrace | null;
   /** Developer mode: each tool and model step as it finishes. */
@@ -164,7 +168,7 @@ export interface PathfinderHook {
   /** Saves the details form on the open trip. False when it is not saved: the traveller is told and Retry saves again. */
   saveContext: () => Promise<boolean>;
   generate: () => Promise<void>;
-  send: (message: string) => Promise<void>;
+  send: (message: string, attachments?: ChatAttachment[]) => Promise<void>;
   setClarifyValue: (slot: string, value: string) => void;
   submitClarify: (message?: string) => Promise<void>;
   selectItem: (item: PlanItem | null) => void;
@@ -234,6 +238,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState("");
   const [clarify, setClarify] = useState<ClarifyPayload | null>(null);
+  const [intake, setIntake] = useState<IntakePayload | null>(null);
   const [clarifyValues, setClarifyValues] = useState<Record<string, string>>({});
   const [trace, setTrace] = useState<RunTrace | null>(null);
   const [live, setLive] = useState<{ id: string; title: string; body: string }[]>([]);
@@ -265,7 +270,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const retryRef = useRef<RetryTarget | null>(null);
   // The latest `send` and `generate`. A target stored when a turn failed calls through here, not the callback of the
   // render in which it was stored: the interface language may have changed since.
-  const sendRef = useRef<(message: string) => Promise<void>>(async () => undefined);
+  const sendRef = useRef<(message: string, attachments?: ChatAttachment[]) => Promise<void>>(async () => undefined);
   const generateRef = useRef<() => Promise<void>>(async () => undefined);
   // What `send` reads of the trip shown. It is a ref so that a handler made before the trip changed (the trending
   // list makes a trip and then sends its first message) still sends as the trip shown now, not as the one before.
@@ -341,6 +346,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     clearBanner();
     setNotice(null);
     setClarify(null);
+    setIntake(null);
     setClarifyValues({});
     setTrace(null);
     setRoute(null);
@@ -708,7 +714,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   );
 
   const send = useCallback(
-    async (message: string) => {
+    async (message: string, attachments?: ChatAttachment[]) => {
       const id = sessionRef.current;
       const { busy, plan, selectedItem } = shownRef.current;
       if (!id || busy) return;
@@ -721,6 +727,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       setChangedIds([]);
       setHotelChanged(false);
       setClarify(null);
+      setIntake(null);
       setClarifyValues({});
       setAgents({});
       setProgress(0);
@@ -746,8 +753,14 @@ export function usePathfinder(locale: string): PathfinderHook {
         role: "user",
         content: message,
         created_at: new Date().toISOString(),
-        // Show which stop the message was about, so the transcript keeps the context.
-        meta: scopeLabel ? { scope: scopeLabel } : undefined,
+        // Show which stop the message was about and what was sent with it, so the transcript keeps the context.
+        meta:
+          scopeLabel || attachments?.length
+            ? {
+                ...(scopeLabel ? { scope: scopeLabel } : {}),
+                ...(attachments?.length ? { attachments: attachments.map((file) => file.name) } : {}),
+              }
+            : undefined,
       };
       setMessages((current) => [...current, optimistic]);
       setLive([]);
@@ -757,7 +770,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       // A failed turn is what Retry sends again, whatever failed while it was running. Its text goes back into the box of
       // its trip, unless something else was typed there since, so it is not lost when the banner goes.
       const failTurn = (failure: Failure) => {
-        showBanner(failure, { kind: "turn", run: () => sendRef.current(message) });
+        showBanner(failure, { kind: "turn", run: () => sendRef.current(message, attachments) });
         setDrafts((current) => (current[id] ? current : { ...current, [id]: message }));
       };
       try {
@@ -769,11 +782,13 @@ export function usePathfinder(locale: string): PathfinderHook {
             scope_item_id: selectedItem?.id ?? null,
             scope_label: scopeLabel || null,
             developer: readStoredValue("developer") === "1",
+            ...(attachments?.length ? { attachments } : {}),
           },
           {
             onEvent: (event, data) => {
               // Another trip was opened since this turn began: its events are not for this view.
               if (sessionRef.current !== id) return;
+              if (event === "intake") setIntake(data as unknown as IntakePayload);
               if (event === "route") setRoute(data as unknown as RoutePayload);
               if (event === "locale" && isPlanLocale(data.plan_locale)) {
                 // A set_language turn: follow it in the interface and fetch the translation afresh.
@@ -991,6 +1006,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       if (sessionRef.current !== id) return;
       setMessages([]);
       setClarify(null);
+      setIntake(null);
       setClarifyValues({});
       clearBanner();
     } catch (cause) {
@@ -1064,6 +1080,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     progress,
     progressMessage,
     clarify,
+    intake,
     clarifyValues,
     trace,
     live,

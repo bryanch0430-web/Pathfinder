@@ -27,6 +27,8 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "places.search",
             "places.notes",
             "hotels.search",
+            # The rooms of the candidate stays, for the stay research step.
+            "hotels.rooms",
             "flights.search",
             "routes.leg",
             "routes.matrix",
@@ -64,6 +66,8 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
     ),
     "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search"}),
     "clarify": frozenset(),
+    # Reading a link the traveller shared: that one fetch, never a search or a booking source.
+    "intake": frozenset({"web.fetch"}),
     # Re-fetching an outdated section of a saved plan (Proposal DB-13): each
     # section's own source only, never a web search or a place lookup.
     "refresh": frozenset({"weather.forecast", "flights.search", "hotels.search"}),

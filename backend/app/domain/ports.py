@@ -9,9 +9,18 @@ abstraction.
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 from app.domain.models import AgentResult, GeoLocation, Message, RouteDecision, TripContext
+
+
+@dataclass(frozen=True)
+class ImageInput:
+    """One picture for a writer that can see: its media type ("image/png") and its bytes as base64."""
+
+    media_type: str
+    data: str
 
 
 class LLM(Protocol):
@@ -27,6 +36,7 @@ class LLM(Protocol):
         json_mode: bool = True,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        images: Sequence[ImageInput] | None = None,
     ) -> "LLMResult": ...
 
 
