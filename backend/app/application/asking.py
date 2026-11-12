@@ -8,8 +8,8 @@ from datetime import date
 from typing import Any
 
 from app.application.llm_gateway import LLMGateway
-from app.application.plan_focus import date_named
-from app.application.prompt_context import compact_json, conversation_block, earlier_turns, plan_outline, with_conversation
+from app.application.plan_focus import date_named, focus_day
+from app.application.prompt_context import compact_json, conversation_block, earlier_turns, plan_context, with_conversation
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
@@ -138,7 +138,7 @@ class AskPath:
         if facts.get("missing") and "distances" not in facts:
             return _fallback_answer(facts, "plan"), related, "plan"
         if facts and not needs_live_tool:
-            text = await self._phrase(question, plan, facts, "plan", conversation)
+            text = await self._phrase(question, plan, facts, "plan", conversation, scope_item_id=scope_item_id)
             return text, related, "plan"
 
         tool_name, tool_result, source = await self._one_tool(
@@ -155,15 +155,15 @@ class AskPath:
             # web results and place detail, but not for an anonymous "tool" blob.
             named = {"web", "web_answer", "place_detail"}
             key = tool_name if tool_name in named else "tool"
-            text = await self._phrase(question, plan, {key: tool_result}, source or tool_name, conversation)
+            text = await self._phrase(question, plan, {key: tool_result}, source or tool_name, conversation, scope_item_id=scope_item_id)
             return text, related, source or tool_name
         if facts:
-            text = await self._phrase(question, plan, facts, "plan", conversation)
+            text = await self._phrase(question, plan, facts, "plan", conversation, scope_item_id=scope_item_id)
             return text, related, "plan"
         if plan is not None and not related:
             # Not about this trip and no tool applies: one writer call with no
             # facts, which says the plan does not hold it rather than guessing.
-            text = await self._phrase(question, plan, {}, "none", conversation)
+            text = await self._phrase(question, plan, {}, "none", conversation, scope_item_id=scope_item_id)
             return text, False, "none"
         if plan is not None:
             # Nothing matched a specific trigger, but the plan itself is context:
@@ -176,7 +176,7 @@ class AskPath:
             ]
             if weather_rows:
                 fallback.setdefault("weather", weather_rows)
-            text = await self._phrase(question, plan, fallback, "plan", conversation)
+            text = await self._phrase(question, plan, fallback, "plan", conversation, scope_item_id=scope_item_id)
             return text, True, "plan"
         text = (
             "There is no plan yet, so I have nothing to answer from. "
@@ -308,9 +308,11 @@ class AskPath:
         facts: dict,
         source: str,
         conversation: str = "",
+        *,
+        scope_item_id: str | None = None,
     ) -> str:
         if self.gateway.available:
-            user = ask_prompt(question, plan, facts, source, conversation)
+            user = ask_prompt(question, plan, facts, source, conversation, scope_item_id=scope_item_id)
             try:
                 data = await self.gateway.json("ask", user=user, purpose="ask.answer")
                 answer = str(data.get("answer") or "").strip()
@@ -323,22 +325,31 @@ class AskPath:
         return _fallback_answer(facts, source)
 
 
-def ask_prompt(question: str, plan: TripPlan | None, facts: dict, source: str, conversation: str = "") -> str:
-    """The writer's input for one answer (Proposal TC-10: only what the answer reads).
+def ask_prompt(
+    question: str,
+    plan: TripPlan | None,
+    facts: dict,
+    source: str,
+    conversation: str = "",
+    *,
+    scope_item_id: str | None = None,
+) -> str:
+    """The writer's input for one answer.
 
-    The question is sent once, fenced. The plan is a day-by-day outline, or just
-    its header line when the facts already carry the itinerary rows. Facts are
-    compact JSON without empty values. ``conversation`` is the recent conversation
-    block (`conversation_block`), which never holds the question itself.
+    The question is sent once, fenced. The plan is written out in full when the question is about no one
+    day (nothing selected, no day named); else as an outline with that day in detail, and the selected
+    stop named (`plan_context`). The plan block holds the itinerary, so the facts' own copy of those rows
+    is left out of the prompt. Facts are compact JSON without empty values. ``conversation`` is the recent
+    conversation block (`conversation_block`), which never holds the question itself.
     """
     if plan is None:
-        outline = "none"
+        block = "none"
     else:
-        outline = plan_outline(plan.summary_for_prompt())
-        if "itinerary" in facts:
-            outline = outline.splitlines()[0]
+        focus = focus_day(plan, question, scope_item_id)
+        block = plan_context(plan, focus=focus, selected_id=scope_item_id, ids=False)
+        facts = {key: value for key, value in facts.items() if key != "itinerary"}
     return (
-        f"Plan: {outline}\n"
+        f"Plan: {block}\n"
         f"Facts (source: {source}): {compact_json(facts)[:12000]}\n\n"
         + with_conversation(conversation)
         + fence_user_message(question)
