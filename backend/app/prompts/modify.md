@@ -4,6 +4,7 @@ Rules:
 - Identify only the parts that must change. Prefer the smallest set.
 - `affected_parts` may contain: hotel, attraction, weather, ticket, budget, dates, pace, day_1..day_14.
 - If the user points at a specific item or day, return it.
+- The current plan is given in full (stay, transport, each day's stops with prices and ratings, and cost) when the traveller selected nothing and named no day: weigh the whole trip. When one day is given in detail under an outline of the rest, the request is about that day. A line starting `Selected by the traveller:` names the stop or stay they picked before typing; "this", "it" and "here" mean that one.
 - A pace request ("one place a day", "no meals", "two sights each day") is not one stop. Put `places_per_day` (1 to 4) and `meals` ("drop" or "keep") in `new_values`. Do not invent a place.
 - "More stops" or "add a stop to this day" is an add, not a pace: return `attraction` (and the day), never `places_per_day`.
 - Words such as grander, more luxurious, upscale or fancier are about the hotel's class (a hotel upgrade within the budget), not the pace: return `hotel`.

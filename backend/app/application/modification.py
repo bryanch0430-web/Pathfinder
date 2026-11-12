@@ -19,7 +19,7 @@ from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_cand
 from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
-from app.application.plan_focus import day_number_named
+from app.application.plan_focus import day_number_named, focus_day
 from app.application.planning import PlanPath
 from app.application.planner import (
     NO_STOPS_NOTE,
@@ -30,7 +30,7 @@ from app.application.planner import (
     _pace,
     _reservations,
 )
-from app.application.prompt_context import conversation_block, plan_outline, trip_slots, with_conversation
+from app.application.prompt_context import conversation_block, plan_context, trip_slots, with_conversation
 from app.application.router import (
     GRANDER_WORDS,
     MODIFY_VERBS,
@@ -234,7 +234,9 @@ class ModifyPath:
         if replanning and form_is_a_trip and new_range == plan.dates and not form_changes:
             # The page's own message needs no writer to be read when the form holds nothing the plan does not.
             return _nothing_differs(plan)
-        draft = await self._extract(message, plan, context, route_parts, history=history)
+        draft = await self._extract(
+            message, plan, context, route_parts, history=history, scope_item_id=scope_item_id
+        )
         answer = message
         if answering is not None and answering.request and not _imperative_edit(message):
             # The message answers the question an earlier edit asked ("Mong Kok" to "Where do you live?"): the rules
@@ -1006,13 +1008,15 @@ class ModifyPath:
         route_parts: list[str],
         *,
         history: Sequence[Message] = (),
+        scope_item_id: str | None = None,
     ) -> ChangeDraft:
         if self.gateway.available:
-            # Proposal TC-10: the item ids, days and times an edit can target, and
-            # the trip slots, not the stored context or the plan's status fields.
-            # The earlier turns say what "add it" or "that hotel" is.
+            # The whole plan in detail when the message is about no one day (nothing selected, no day
+            # named); else the outline with that day in detail, and the selected stop named. Then the
+            # trip slots, not the stored context. The earlier turns say what "add it" or "that hotel" is.
+            focus = focus_day(plan, message, scope_item_id)
             user = (
-                f"Current plan:\n{plan_outline(plan.summary_for_prompt(), ids=True)}\n"
+                f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
                 + with_conversation(conversation_block(history, message))
                 + fence_user_message(message)
