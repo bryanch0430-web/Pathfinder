@@ -42,6 +42,8 @@ class AnthropicLLM:
         self._api_key = api_key
         self._model = model
         self.available = bool(api_key and model)
+        #: Set once the model refuses `temperature` (newer Claude models do): later calls leave it out.
+        self._no_temperature = False
         self.name = model or "offline"
 
     async def complete(
@@ -62,8 +64,9 @@ class AnthropicLLM:
             "system": system + JSON_ONLY_INSTRUCTION if json_mode else system,
             "messages": [{"role": "user", "content": _user_content(user, images)}],
             "max_tokens": max_tokens,
-            "temperature": temperature,
         }
+        if not self._no_temperature:
+            payload["temperature"] = temperature
         started = time.perf_counter()
         data = await self._post(payload, purpose)
         text, reasoning = self._blocks(data)
@@ -91,6 +94,13 @@ class AnthropicLLM:
             try:
                 async with httpx.AsyncClient(timeout=timeout, transport=current_transport()) as client:
                     response = await client.post(url, headers=headers, json=payload)
+                if response.status_code == 400 and "temperature" in payload and "temperature" in response.text:
+                    # Newer Claude models refuse the field. Send the same request once more without it; this
+                    # is not one of the retries below.
+                    payload.pop("temperature")
+                    self._no_temperature = True
+                    attempts -= 1
+                    continue
                 if response.status_code >= 400:
                     detail = scrub(response.text, [self._api_key])[:300]
                     raise classify_status(

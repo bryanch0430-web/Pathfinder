@@ -328,3 +328,37 @@ def test_default_openai_path_unchanged(tmp_path) -> None:
     assert adapter._api_key == settings.writer_api_key == "writer-key"
     assert adapter._model == settings.writer_model == "writer-model"
     assert adapter.available
+
+
+def test_a_claude_model_that_refuses_temperature_is_asked_again_without_it_and_not_sent_it_afterwards(settings):
+    import asyncio
+    import json
+
+    import httpx
+
+    from app.infrastructure.anthropic_llm import AnthropicLLM
+    from app.infrastructure.http import use_transport
+
+    sent: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        sent.append(body)
+        if "temperature" in body:
+            return httpx.Response(
+                400,
+                json={"type": "error", "error": {"type": "invalid_request_error", "message": "`temperature` is deprecated for this model."}},
+            )
+        return httpx.Response(200, json={"model": "claude-sonnet-5-5", "content": [{"type": "text", "text": "{}"}], "usage": {}})
+
+    llm = AnthropicLLM(settings, api_key="test-key", model="claude-sonnet-5-5")
+
+    async def go():
+        with use_transport(httpx.MockTransport(handler)):
+            first = await llm.complete(system="s", user="u", purpose="key_test")
+            second = await llm.complete(system="s", user="u", purpose="planner")
+            return first, second
+
+    first, second = asyncio.run(go())
+    assert first.text == "{}" and second.text == "{}"
+    assert ["temperature" in body for body in sent] == [True, False, False]
