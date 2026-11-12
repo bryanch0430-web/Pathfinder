@@ -184,3 +184,34 @@ def make_plan(
         if with_cost
         else CostBreakdown(),
     )
+
+
+def make_two_city_plan() -> TripPlan:
+    """Kyoto 3-5 December then Osaka 5-7 December 2026: five days, a stay in each city."""
+    from app.domain.models import TripSegment
+
+    kyoto = DateRange(start=START, end=START + timedelta(days=2))
+    osaka = DateRange(start=START + timedelta(days=2), end=START + timedelta(days=4))
+    days = [
+        DayPlan(
+            date=START + timedelta(days=n),
+            title=f"Day {n + 1}",
+            items=[stop(f"item_d{n + 1}_s1", f"Sight {n + 1}", "09:00", "10:00")],
+        )
+        for n in range(5)
+    ]
+    stay_a = hotel(3, "hotel_a")
+    stay_b = hotel(3, "hotel_b").model_copy(update={"name": "Osaka Inn", "check_in": osaka.start, "check_out": osaka.end})
+    return TripPlan(
+        session_id="s2",
+        destination=Destination(name="Kyoto"),
+        origin="Hong Kong",
+        dates=DateRange(start=kyoto.start, end=osaka.end),
+        party_size=2,
+        days=days,
+        hotels=[stay_a, stay_b],
+        segments=[
+            TripSegment(id="seg_a", destination=Destination(name="Kyoto"), dates=kyoto),
+            TripSegment(id="seg_b", destination=Destination(name="Osaka"), dates=osaka),
+        ],
+    )

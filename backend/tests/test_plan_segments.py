@@ -1,0 +1,132 @@
+"""A plan is one or more city segments; the stay of a night is looked up by its date."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+from plan_samples import START, make_plan, make_two_city_plan
+from pydantic import ValidationError
+
+from app.domain.models import TripPlan
+
+_CLOCKS = {"created_at", "updated_at"}
+
+
+def test_a_new_single_city_plan_gets_one_segment() -> None:
+    plan = make_plan()
+
+    assert [(s.id, s.destination.name, s.dates) for s in plan.segments] == [
+        ("seg_1", "Kyoto", plan.dates)
+    ]
+    assert {day.segment_id for day in plan.days} == {"seg_1"}
+    assert plan.hotels[0].segment_id == "seg_1"
+
+
+def test_a_plan_stored_before_segments_loads_the_same_every_time() -> None:
+    made = make_plan()
+    old = made.model_dump(mode="json")
+    old.pop("segments")
+    for row in [*old["days"], *old["hotels"]]:
+        row.pop("segment_id")
+
+    first, second = TripPlan.model_validate(old), TripPlan.model_validate(old)
+
+    assert first.segments[0].id == second.segments[0].id == "seg_1"
+    assert first.model_dump(exclude=_CLOCKS) == second.model_dump(exclude=_CLOCKS)
+    assert first.model_dump(exclude=_CLOCKS) == made.model_dump(exclude=_CLOCKS)
+
+
+def test_a_single_segment_follows_the_trip_dates_and_destination() -> None:
+    data = make_plan().model_dump(mode="json")
+    data["segments"][0]["dates"] = {"start": "2020-01-01", "end": "2020-01-02"}
+    data["segments"][0]["destination"]["name"] = "Elsewhere"
+
+    plan = TripPlan.model_validate(data)
+
+    assert plan.segments[0].dates == make_plan().dates
+    assert plan.segments[0].destination.name == "Kyoto"
+
+
+def test_the_day_two_cities_share_belongs_to_the_city_arrived_in() -> None:
+    plan = make_two_city_plan()
+
+    assert [plan.segment_of(day.date).id for day in plan.days] == [
+        "seg_a",
+        "seg_a",
+        "seg_b",
+        "seg_b",
+        "seg_b",
+    ]
+    assert [day.segment_id for day in plan.days] == [
+        "seg_a",
+        "seg_a",
+        "seg_b",
+        "seg_b",
+        "seg_b",
+    ]
+    assert [stay.segment_id for stay in plan.hotels] == ["seg_a", "seg_b"]
+
+
+def test_a_single_city_plan_has_one_segment_for_any_date() -> None:
+    plan = make_plan()
+    assert plan.segment_of(date(2031, 1, 1)).id == "seg_1"
+
+
+def test_the_stay_of_each_night_and_of_the_last_morning() -> None:
+    plan = make_two_city_plan()
+
+    assert [plan.stay_on(day.date).id for day in plan.days] == [
+        "hotel_a",
+        "hotel_a",
+        "hotel_b",
+        "hotel_b",
+        "hotel_b",
+    ]
+    assert [stay.id for stay in plan.stays_in("seg_b")] == ["hotel_b"]
+    assert plan.stays_in("seg_none") == []
+    assert plan.first_stay.id == "hotel_a"
+
+
+def test_a_night_with_no_stay_has_none() -> None:
+    plan = make_two_city_plan()
+    plan.hotels = plan.hotels[:1]
+
+    assert plan.stay_on(date(2026, 12, 6)) is None
+    assert plan.stay_on(date(2026, 12, 3)).id == "hotel_a"
+
+
+def test_a_single_stay_whose_dates_drifted_is_still_the_stay() -> None:
+    plan = make_plan()
+    plan.hotels[0].check_in, plan.hotels[0].check_out = (
+        date(2026, 11, 1),
+        date(2026, 11, 2),
+    )
+
+    assert plan.stay_on(plan.days[0].date).id == "hotel_1"
+
+
+def test_a_plan_with_no_stay() -> None:
+    plan = make_plan(with_stay=False)
+    assert plan.first_stay is None and plan.stay_on(START) is None
+
+
+def test_segments_must_cover_the_trip_in_order() -> None:
+    good = make_two_city_plan().model_dump(mode="json")
+
+    gap = {**good, "segments": [dict(row) for row in good["segments"]]}
+    gap["segments"][1] = {
+        **gap["segments"][1],
+        "dates": {"start": "2026-12-06", "end": "2026-12-07"},
+    }
+    late = {**good, "segments": [dict(row) for row in good["segments"]]}
+    late["segments"][0] = {
+        **late["segments"][0],
+        "dates": {"start": "2026-12-04", "end": "2026-12-05"},
+    }
+    other = {**good, "destination": {"name": "Tokyo"}}
+
+    for broken in (gap, late, other):
+        with pytest.raises(ValidationError):
+            TripPlan.model_validate(broken)
+    assert TripPlan.model_validate(good).segments[1].id == "seg_b"
