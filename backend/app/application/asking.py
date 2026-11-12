@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any
 
 from app.application.llm_gateway import LLMGateway
+from app.application.plan_focus import date_named
 from app.application.prompt_context import compact_json, conversation_block, earlier_turns, plan_outline, with_conversation
 from app.application.toolbox import Toolbox
 from app.config import Settings
@@ -563,13 +564,6 @@ def _find_item(plan: TripPlan | None, question: str, scope_item_id: str | None =
     return best if best_score >= 2 else None
 
 
-_MONTHS = {
-    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
-    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
-}
-_MONTH_NAMES = "|".join(_MONTHS)
-
-
 def _mentioned_date(question: str, plan: TripPlan | None) -> date | None:
     """The plan day the question names ("day 2", "12 April"), if the plan has that day."""
     if not plan:
@@ -588,32 +582,8 @@ def _mentioned_date(question: str, plan: TripPlan | None) -> date | None:
     return None
 
 
-def _named_date(question: str, plan: TripPlan | None) -> date | None:
-    """A calendar date the question names ("12 April", "April 12"), in or out of the trip.
-
-    The year is the one that puts the date closest to the trip.
-    """
-    if not plan:
-        return None
-    lower = question.lower()
-    match = re.search(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:of\s+)?({_MONTH_NAMES})\b", lower)
-    if match:
-        day_number, month = int(match.group(1)), _MONTHS[match.group(2)]
-    else:
-        match = re.search(rf"\b({_MONTH_NAMES})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", lower)
-        if not match:
-            return None
-        day_number, month = int(match.group(2)), _MONTHS[match.group(1)]
-    anchor = plan.dates.start
-    candidates = []
-    for year in (anchor.year - 1, anchor.year, anchor.year + 1):
-        try:
-            candidates.append(date(year, month, day_number))
-        except ValueError:
-            continue
-    if not candidates:
-        return None
-    return min(candidates, key=lambda value: abs((value - anchor).days))
+#: A calendar date the question names; it lives with the rest of "which day is this about" (plan_focus).
+_named_date = date_named
 
 
 #: words that make a question about this trip; "what", "which", "show" alone do not

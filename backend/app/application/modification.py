@@ -19,6 +19,7 @@ from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_cand
 from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
+from app.application.plan_focus import day_number_named
 from app.application.planning import PlanPath
 from app.application.planner import (
     NO_STOPS_NOTE,
@@ -1055,15 +1056,8 @@ def _rule_parts(message: str) -> list[str]:
     return sorted(set(parts))
 
 
-def _rule_day(message: str) -> int | None:
-    match = re.search(r"\bday\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", message.lower())
-    if match:
-        return int(match.group(1) or match.group(2))
-    ordinals = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5}
-    for word, index in ordinals.items():
-        if re.search(rf"\b{word}\s+day\b", message.lower()):
-            return index
-    return None
+#: The day number a message names; it lives with the rest of "which day is this about" (plan_focus).
+_rule_day = day_number_named
 
 
 #: wording that asks for a *closer* stop rather than a like-for-like swap

@@ -312,6 +312,38 @@ def plan_detail(
     return text
 
 
+def plan_context(
+    plan: TripPlan,
+    *,
+    focus: int | None,
+    selected_id: str | None = None,
+    ids: bool = True,
+) -> str:
+    """The plan block an edit or an answer reads.
+
+    With no ``focus`` (nothing selected and no day named) it is the whole plan in detail. With a focus day
+    it is the outline of every day, then that day in detail. A stop or stay the traveller selected before
+    typing is named on a last line; a selection the plan no longer holds is not.
+    """
+    if focus is None:
+        text = plan_detail(plan, ids=ids)
+    else:
+        text = (
+            plan_outline(plan.summary_for_prompt(), ids=ids)
+            + f"\n\nDay {focus} in detail:\n"
+            + plan_detail(plan, days=[focus], ids=ids)
+        )
+    if selected_id:
+        found = plan.find_item(selected_id)
+        stay = None if found else plan.find_hotel(selected_id)
+        if found:
+            day, item = found
+            text += f"\nSelected by the traveller: {_labelled(item.id, ids)}{_line(item.name)} (Day {plan.days.index(day) + 1})"
+        elif stay:
+            text += f"\nSelected by the traveller: {_labelled(stay.id, ids)}{_line(stay.name)}"
+    return text
+
+
 def earlier_turns(history: Sequence[Message], current: str) -> list[Message]:
     """The earlier turns a prompt may repeat: the turn is stored before it is answered, and the current message
     is sent once, inside its fence, so a last row that is that message is left out."""
