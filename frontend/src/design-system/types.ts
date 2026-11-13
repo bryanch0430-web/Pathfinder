@@ -100,6 +100,9 @@ export interface PlanAlternative {
   source_types?: string[];
   source_summary?: string;
   links?: Link[];
+  rank?: number | null;
+  score?: number | null;
+  reasons?: string[];
 }
 
 export interface TransferLeg {
@@ -183,6 +186,9 @@ export interface HotelStay {
   /** The city (segment) this stay is in. */
   segment_id?: string;
   links?: Link[];
+  rank?: number | null;
+  score?: number | null;
+  reasons?: string[];
 }
 
 /** The ways between two places a leg can be made by; `ground` is a rough estimate from the distance. */
@@ -196,6 +202,9 @@ export interface TicketOption {
   /** A duration worked out from a distance or a routes source, not a quoted fare and timetable. */
   estimated?: boolean;
   links?: Link[];
+  rank?: number | null;
+  score?: number | null;
+  reasons?: string[];
   name: string;
   origin: string;
   destination: string;

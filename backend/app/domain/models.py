@@ -219,6 +219,11 @@ class PlanAlternative(BaseModel):
     source_summary: str = ""
     #: Booking, website and map links, written by ``TripPlan.refresh_links`` from the fields above.
     links: list[Link] = Field(default_factory=list)
+    #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
+    #: reasons, written by ``application/ranking``; ranking labels, it never re-orders or changes the choice.
+    rank: int | None = None
+    score: float | None = None
+    reasons: list[str] = Field(default_factory=list)
 
 
 class PlanItem(BaseModel):
@@ -372,6 +377,11 @@ class HotelStay(BaseModel):
     segment_id: str = ""
     #: Booking and map links, written by ``TripPlan.refresh_links``.
     links: list[Link] = Field(default_factory=list)
+    #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
+    #: reasons, written by ``application/ranking``; ranking labels, it never re-orders or changes the choice.
+    rank: int | None = None
+    score: float | None = None
+    reasons: list[str] = Field(default_factory=list)
 
 
 class TicketOption(BaseModel):
@@ -411,6 +421,11 @@ class TicketOption(BaseModel):
     estimated: bool = False
     #: Booking link (a flight) or directions link (an estimate), written by ``TripPlan.refresh_links``.
     links: list[Link] = Field(default_factory=list)
+    #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
+    #: reasons, written by ``application/ranking``; ranking labels, it never re-orders or changes the choice.
+    rank: int | None = None
+    score: float | None = None
+    reasons: list[str] = Field(default_factory=list)
 
 
 def selected_ticket(tickets: list[TicketOption], leg_id: str | None = None) -> TicketOption | None:
@@ -626,8 +641,15 @@ class TripPlan(BaseModel):
                     if ticket.leg_id == leg.id:
                         ticket.selected = ticket is chosen
         self._shape_segments()
-        self.refresh_links()
+        self.refresh_derived()
         return self
+
+    def refresh_derived(self) -> None:
+        """Write everything derived again from the plan's fields: the links, then the rank labels."""
+        from app.application.ranking import rank_plan
+
+        self.refresh_links()
+        rank_plan(self)
 
     def refresh_links(self) -> None:
         """Write the links of every stop, stay and transport option again from their fields (they are derived data)."""

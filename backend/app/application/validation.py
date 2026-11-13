@@ -237,8 +237,11 @@ def _urls(plan: TripPlan) -> set[str]:
         if isinstance(value, str):
             found.update(url.rstrip(".,;:)") for url in _URL.findall(value))
         elif isinstance(value, dict):
-            for item in value.values():
-                walk(item)
+            # ``links`` are derived from the fields around them (a map link from coordinates), so a repair that
+            # adds a field has not brought a source of its own.
+            for key, item in value.items():
+                if key != "links":
+                    walk(item)
         elif isinstance(value, list):
             for item in value:
                 walk(item)

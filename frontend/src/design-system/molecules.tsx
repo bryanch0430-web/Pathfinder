@@ -249,6 +249,33 @@ export function LinkRow({ links }: { links?: Link[] }) {
   );
 }
 
+/** The reason phrases the server writes (fixed English), by the message that shows each in the reader's language. */
+const REASON_MESSAGES: Record<string, MessageKey> = {
+  "within budget": "reason.budget",
+  "lowest price": "reason.lowestPrice",
+  "cheapest": "reason.cheapest",
+  "best rated": "reason.bestRated",
+  "closest to your stops": "reason.closestStops",
+  "closest": "reason.closest",
+  "matches what you asked of the room": "reason.matchesRoom",
+  "fastest door to door": "reason.fastest",
+};
+
+/** Rank and the reasons behind it for an option of a stay, a stop or a leg; nothing for a lone option with no reason. */
+export function RankNote({ rank, reasons }: { rank?: number | null; reasons?: string[] }) {
+  const { t } = useI18n();
+  const shown = (reasons ?? []).map((phrase) => (REASON_MESSAGES[phrase] ? t(REASON_MESSAGES[phrase]) : phrase));
+  if (rank == null || (rank <= 1 && !shown.length)) return null;
+  return (
+    <span className="pf-rank-note">
+      <span className="pf-rank-note__badge" data-top={rank === 1 ? "true" : "false"} aria-label={t("rank.label", { rank })}>
+        {t("rank.badge", { rank })}
+      </span>
+      {shown.length ? <span className="pf-rank-note__reasons">{shown.join(" · ")}</span> : null}
+    </span>
+  );
+}
+
 export function TripContextForm({
   values,
   onChange,
@@ -961,6 +988,7 @@ export function ItemAlternatives({
             <div className="pf-alt-card" key={alternative.id}>
               <div className="pf-stack pf-grow" style={{ gap: 2 }}>
                 <Text size="sm" weight="semibold">{alternative.name}</Text>
+                <RankNote rank={alternative.rank} reasons={alternative.reasons} />
                 <PlaceFacts place={alternative} />
                 <LinkRow links={alternative.links} />
                 {typeof alternative.distance_m === "number" ? (

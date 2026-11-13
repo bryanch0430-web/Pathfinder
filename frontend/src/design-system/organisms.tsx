@@ -32,6 +32,7 @@ import {
   TripContextForm,
   SearchField,
   LinkRow,
+  RankNote,
 } from "./molecules";
 import type {
   AgentState,
@@ -1033,6 +1034,7 @@ function HotelOptionCard({
           {error.key === "rooms" ? t("options.roomsFailed", { reason: error.reason }) : t("options.failed", { reason: error.reason })}
         </span>
       ) : null}
+      <RankNote rank={hotel.rank} reasons={hotel.reasons} />
       <LinkRow links={hotel.links} />
       <div className="pf-option-card__actions">
         {!chosen && onChoose ? (
@@ -1184,6 +1186,7 @@ export function TicketCard({
         <Text size="xs" tone="secondary">
           {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
+        <RankNote rank={ticket.rank} reasons={ticket.reasons} />
         <LinkRow links={ticket.links} />
         {error ? <span className="pf-field__error" role="alert">{t("options.failed", { reason: error.reason })}</span> : null}
       </div>

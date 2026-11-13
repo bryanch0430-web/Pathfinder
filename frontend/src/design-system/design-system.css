@@ -4102,6 +4102,33 @@
   border-style: dashed;
 }
 
+/* -- ranking: a rank badge and the reasons for it ------------------------------------------------------------------- */
+
+.pf-rank-note {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: var(--p30-type-size-body-xs);
+}
+
+.pf-rank-note__badge {
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--p30-tone-border-default, currentColor);
+  font-weight: 600;
+}
+
+.pf-rank-note__badge[data-top="true"] {
+  background: var(--p30-tone-brand-primary);
+  border-color: var(--p30-tone-brand-primary);
+  color: var(--p30-tone-brand-on-primary, #fff);
+}
+
+.pf-rank-note__reasons {
+  color: var(--p30-tone-text-secondary, inherit);
+}
+
 /* -- links: Book / Website / Map ------------------------------------------------------------------------------------ */
 
 .pf-link-row {

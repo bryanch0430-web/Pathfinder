@@ -195,3 +195,18 @@ def test_every_link_in_an_offline_planned_trip_starts_with_https() -> None:
 
     assert links and all(link.url.startswith("https://") for link in links)
     assert datetime and SourceRef and HotelStay
+
+
+def test_derived_links_are_not_a_source_a_repair_brought() -> None:
+    from app.application.validation import _new_urls
+
+    plan = make_plan()
+    stop = plan.days[0].items[0]
+    stop.geo = None
+    plan.refresh_derived()
+    repaired = plan.model_copy(deep=True)
+    repaired.days[0].items[0].geo = GeoPoint(lat=35.0, lng=135.7)
+    repaired.refresh_derived()
+
+    assert any(link.kind == "map" for link in repaired.days[0].items[0].links)
+    assert _new_urls(plan, repaired) == set()
