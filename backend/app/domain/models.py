@@ -11,7 +11,7 @@ from datetime import date, datetime, timezone
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints, model_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_serializer, model_validator
 
 TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
@@ -702,15 +702,29 @@ class TripPlan(BaseModel):
 TRIP_LINES_MAX = 50
 TRIP_LINE_MAX_LENGTH = 200
 TRIP_FIELD_MAX_LENGTH = 120
+#: Most cities one trip can visit.
+TRIP_STOPS_MAX = 8
 
 
 #: TripContext's marks of the check before planning (application/budget_check.py).
 _CHECK_MARKS = ("budget_confirmed", "past_dates_confirmed")
 
 
+class TripStop(BaseModel):
+    """One city of the trip form, in travel order, with the nights the traveller gave it (None when not stated)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    city: str = Field(min_length=1, max_length=TRIP_FIELD_MAX_LENGTH)
+    nights: int | None = Field(default=None, ge=1, le=60)
+
+
 class TripContext(BaseModel):
     session_id: str
     destination: str = ""
+    #: The cities in travel order. Empty for a one-city trip (``destination`` is that city); with several,
+    #: ``destination`` is the first. Code that needs the route reads ``route``.
+    stops: list[TripStop] = Field(default_factory=list, max_length=TRIP_STOPS_MAX)
     origin: str = ""
     start_date: date | None = None
     end_date: date | None = None
@@ -742,7 +756,7 @@ class TripContext(BaseModel):
         the stored form, the API's and the prompts' trip JSON are unchanged for every trip that was not asked about."""
         data = handler(self)
         if isinstance(data, dict):
-            for key in _CHECK_MARKS:
+            for key in (*_CHECK_MARKS, "stops"):
                 if key in data and not data[key]:
                     del data[key]
         return data
@@ -761,6 +775,14 @@ class TripContext(BaseModel):
         self.preferences = [line[:TRIP_LINE_MAX_LENGTH] for line in self.preferences[-TRIP_LINES_MAX:]]
         self.hard_constraints = [line[:TRIP_LINE_MAX_LENGTH] for line in self.hard_constraints[-TRIP_LINES_MAX:]]
         return self
+
+    @property
+    def route(self) -> list[TripStop]:
+        """The cities in travel order: ``stops`` when set, else one stop for the destination, else none."""
+        if self.stops:
+            return self.stops
+        city = self.destination.strip()
+        return [TripStop(city=city)] if city else []
 
     def missing_slots(self) -> list[str]:
         missing: list[str] = []
