@@ -390,10 +390,10 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
 _STOP_WORD = r"[A-Za-z][A-Za-z'’.\-]*"
 _ONE_STOP = rf"({_STOP_WORD}(?:\s+{_STOP_WORD}){{0,3}}?)\s+(?:for\s+)?(\d{{1,2}})\s*nights?"
 _STOP_SEP = r"\s*(?:,\s*(?:then\s+|and\s+)?|\bthen\s+|\band\s+|(?:→|->|>)\s*)"
-_STOP_CHAIN = re.compile(rf"{_ONE_STOP}(?:{_STOP_SEP}{_ONE_STOP})+", re.I)
+_STOP_CHAIN = re.compile(rf"{_ONE_STOP}(?:{_STOP_SEP}{_ONE_STOP})+", re.IGNORECASE)
 _STOP_FILLER = re.compile(
     r"\b(?:to|in|from|visit|visiting|then|and|for|a|an|the|plan|trip|stay|spend|go|we|i|want|would|like|also|next|first)\b",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -414,7 +414,7 @@ def _find_stops(text: str) -> list[tuple[str, int]]:
     if chain is None:
         return []
     stops: list[tuple[str, int]] = []
-    for found in re.finditer(_ONE_STOP, chain.group(0), re.I):
+    for found in re.finditer(_ONE_STOP, chain.group(0), re.IGNORECASE):
         city = _stop_city(found.group(1))
         nights = int(found.group(2))
         if not city or not 1 <= nights <= 60:
@@ -1442,10 +1442,10 @@ def _apply_stops(context: TripContext, value: object) -> None:
 
 
 def _normalise_dates(context: TripContext) -> None:
-    if context.start_date and not context.end_date and not context.days and context.stops:
-        if all(stop.nights for stop in context.stops):
-            # Cities with their nights and a start day: the trip is the nights they add up to.
-            context.days = sum(stop.nights for stop in context.stops) + 1
+    stated = bool(context.stops) and all(stop.nights for stop in context.stops)
+    if context.start_date and not context.end_date and not context.days and stated:
+        # Cities with their nights and a start day: the trip is the nights they add up to.
+        context.days = sum(stop.nights for stop in context.stops) + 1
     if context.start_date and not context.end_date and context.days:
         context.end_date = context.start_date + timedelta(days=max(context.days - 1, 0))
     if context.start_date and context.end_date:

@@ -29,7 +29,13 @@ from app.application.llm_gateway import LLMGateway
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
-from app.domain.models import TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX, TripContext, TripStop
+from app.domain.models import (
+    TRIP_LINE_MAX_LENGTH,
+    TRIP_LINES_MAX,
+    TRIP_STOPS_MAX,
+    TripContext,
+    TripStop,
+)
 from app.domain.ports import ImageInput
 from app.security import strip_fence_tags, strip_fence_tags_deep
 from app.security.untrusted import neutralise
@@ -248,7 +254,7 @@ def _apply(
         if isinstance(row, dict)
     ]
     stops = [(city, nights) for city, nights in stops if named(city)]
-    if 2 <= len(stops) <= TRIP_STOPS_MAX and not context.stops and _key(context.destination) in ('', _key(stops[0][0])):
+    if 2 <= len(stops) <= TRIP_STOPS_MAX and not context.stops and _key(context.destination) in ("", _key(stops[0][0])):
         context.stops = [
             TripStop(
                 city=city,
