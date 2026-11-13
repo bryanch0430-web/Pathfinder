@@ -16,6 +16,7 @@ from app.application.assessment import assess_and_improve
 from app.application.planner import _constraints, annotate_stays
 from app.application.refine import evaluate_plan
 from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
+from app.application.search_cache import CachedToolbox, SearchCache
 from app.application.stitch import city_context, stitch
 from app.application.toolbox import Toolbox
 from app.application.transport_legs import build_legs, leg_options
@@ -134,6 +135,9 @@ async def plan_route(
         nights, note = allocate_nights(route, date_range.night_count)
     except RouteQuestion as asked:
         raise PlanInvalidError(asked.question, retryable=False) from asked
+
+    # A search paid for in this session is not paid for again.
+    toolbox = CachedToolbox(toolbox, SearchCache(getattr(toolbox, "store", None), session_id))
 
     # Every city once, however many times the route visits it.
     located: dict[str, Any] = {}

@@ -566,6 +566,8 @@ class SQLiteStore:
             contexts = conn.execute("DELETE FROM journey_state WHERE session_id=?", (session_id,)).rowcount or 0
             # A deleted trip must not stay readable through a link shared earlier.
             shares = conn.execute("DELETE FROM share_links WHERE session_id=?", (session_id,)).rowcount or 0
+            conn.execute(self._SEARCH_TABLE)
+            conn.execute("DELETE FROM search_cache WHERE session_id=?", (session_id,))
             sessions = conn.execute("DELETE FROM journeys WHERE id=?", (session_id,)).rowcount or 0
         return {
             "messages": int(messages),
@@ -574,6 +576,35 @@ class SQLiteStore:
             "shares": int(shares),
             "sessions": int(sessions),
         }
+
+    # -- paid search results kept for a session --------------------------------------------------------
+    # The table is made on first use rather than by a migration step: it holds nothing that must outlive a
+    # session, and a database that never plans a multi-city trip never gets it.
+
+    _SEARCH_TABLE = (
+        "CREATE TABLE IF NOT EXISTS search_cache ("
+        "session_id TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, rows TEXT NOT NULL, "
+        "stored_at TEXT NOT NULL, PRIMARY KEY (session_id, kind, key))"
+    )
+
+    def get_search_rows(self, session_id: str, kind: str, key: str) -> tuple[str, str] | None:
+        """The rows (as JSON) and the time (ISO) a search for ``key`` was kept in this session, or None."""
+        with self._lock, closing(self._connect()) as conn:
+            conn.execute(self._SEARCH_TABLE)
+            row = conn.execute(
+                "SELECT rows, stored_at FROM search_cache WHERE session_id=? AND kind=? AND key=?",
+                (session_id, kind, key),
+            ).fetchone()
+        return (row["rows"], row["stored_at"]) if row else None
+
+    def put_search_rows(self, session_id: str, kind: str, key: str, rows: str, stored_at: str) -> None:
+        with self._lock, closing(self._connect()) as conn:
+            conn.execute(self._SEARCH_TABLE)
+            conn.execute(
+                "INSERT OR REPLACE INTO search_cache (session_id, kind, key, rows, stored_at) VALUES (?,?,?,?,?)",
+                (session_id, kind, key, rows, stored_at),
+            )
+            conn.commit()
 
     def delete_messages(self, session_id: str) -> int:
         with self._lock, self._connect() as conn:
