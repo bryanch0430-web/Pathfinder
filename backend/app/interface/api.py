@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 from app.application.intake import Attachment
 from app.application.choices import ChoiceNotFound, ChoiceRefused, apply_choice, normalise_hotel_options
 from app.application.legs import leg_options_for_plan, legs_for_plan
+from app.application.limits import turn_deadline_for
 from app.application.toolbox import Toolbox
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.store import PlanConflict
@@ -1092,6 +1093,9 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 attachments=attachments,
                 on_wait=deadline.pause,
                 on_start=deadline.restart,
+                on_segments=lambda count: deadline.allow(
+                    turn_deadline_for(settings, count) - settings.turn_deadline_seconds
+                ),
             )
 
             def owed_key_notice() -> list[str]:

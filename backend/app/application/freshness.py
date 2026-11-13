@@ -24,6 +24,7 @@ from typing import Any, Callable
 
 from app.application.agents import AgentContext, BaseAgent, HotelAgent, TicketAgent, WeatherAgent
 from app.application.planner import Planner, _constraints, _reservations
+from app.application.limits import tool_cap_for
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.infrastructure.store import PlanConflict
@@ -244,7 +245,7 @@ class FreshnessService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=self.settings.max_tool_calls_per_turn or None,
+            max_calls=tool_cap_for(self.settings, len(plan.segments)) or None,
         )
         request_context = self._agent_context(updated, context)
         with tracer.span("freshness", outdated=sorted(outdated), missing=sorted(absent)) as span:

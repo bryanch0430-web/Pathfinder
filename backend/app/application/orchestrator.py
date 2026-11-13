@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 import httpx
 
 from app.application.asking import AskPath
+from app.application.limits import tool_cap_for
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
 from app.application.budget_check import PrePlanQuestion, budget_options, budget_question, floor_per_person_night
@@ -226,10 +227,12 @@ class TurnService:
         attachments: Sequence[Attachment] = (),
         on_wait: Callable[[], None] | None = None,
         on_start: Callable[[], None] | None = None,
+        on_segments: Callable[[int], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         """One turn. Turns on the same session run one after another: the second reads the
         plan the first saved, so neither overwrites the other's version. ``on_wait`` is called when
-        this turn has to wait for earlier ones, ``on_start`` once it holds the lock and begins."""
+        this turn has to wait for earlier ones, ``on_start`` once it holds the lock and begins,
+        ``on_segments`` with the number of cities the turn works on once that is known."""
         async with self._lock_for(session_id, on_wait):
             if on_start is not None:
                 on_start()
@@ -242,6 +245,7 @@ class TurnService:
                     scope_label=scope_label,
                     developer=developer,
                     attachments=attachments,
+                    on_segments=on_segments,
                 )
                 async with aclosing(turn) as events:
                     async for event in events:
@@ -257,6 +261,7 @@ class TurnService:
         scope_label: str | None = None,
         developer: bool = False,
         attachments: Sequence[Attachment] = (),
+        on_segments: Callable[[int], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         session = self.store.get_session(session_id)
         if session is None:
@@ -583,6 +588,8 @@ class TurnService:
                     self.store.touch_session(session_id)
                     return
 
+            if on_segments is not None:
+                on_segments(max(len(context.route), len(plan.segments) if plan is not None else 0, 1))
             # A closed turn closes the path it is running here, in this task, so the path stops.
             if decision.intent == Intent.PLAN:
                 path = self._plan(
@@ -894,7 +901,7 @@ class TurnService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=self.settings.max_tool_calls_per_turn or None,
+            max_calls=tool_cap_for(self.settings, len(context.route) or 1) or None,
         )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Planning the trip.", "progress": 5})
         live = bind_live_emit(emit)
@@ -962,7 +969,7 @@ class TurnService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=self.settings.max_tool_calls_per_turn or None,
+            max_calls=tool_cap_for(self.settings, max(len(plan.segments), len(context.route), 1)) or None,
         )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Applying the smallest change.", "progress": 5})
         live = bind_live_emit(emit)
@@ -1061,7 +1068,7 @@ class TurnService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=self.settings.max_tool_calls_per_turn or None,
+            max_calls=tool_cap_for(self.settings, len(plan.segments) if plan is not None else 1) or None,
         )
         answer, related, source = await self.ask_path.answer(
             question=message,

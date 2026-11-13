@@ -49,6 +49,12 @@ class Deadline:
     def pause(self) -> None:
         self.at = math.inf
 
+    def allow(self, seconds: float) -> None:
+        """Give the running turn ``seconds`` more (nothing while it waits for its turn: restart sets it)."""
+        self.seconds += seconds
+        if self.at != math.inf and self.at:
+            self.at += seconds
+
 
 def sse_frame(event: str, data: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"

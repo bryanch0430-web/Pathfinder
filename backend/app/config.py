@@ -202,7 +202,11 @@ class Settings(BaseSettings):
     #: plan refreshes it first, so one request can make up to twice this many. A guard against a
     #: runaway loop; a normal trip makes far fewer. 0 turns the cap off.
     max_tool_calls_per_turn: int = Field(150, ge=0)
-    max_days: int = 14
+    #: Tool calls each city after the first adds to that cap on a multi-city trip.
+    segment_tool_calls: int = Field(100, ge=0)
+    max_days: int = 30
+    #: Most cities one trip can visit.
+    max_cities: int = 8
     max_attractions_per_day: int = 4
     #: The least a budget should allow per traveller per night, in US dollars (the exchange table's base; the
     #: check converts it to the trip's currency). A new trip whose budget is below it, or zero, is asked about
@@ -244,6 +248,8 @@ class Settings(BaseSettings):
     # turn's own work: the wait for an earlier message on the same trip is not part of it.
     sse_keepalive_seconds: float = 15.0
     turn_deadline_seconds: float = 180.0
+    #: Seconds each city after the first adds to that deadline on a multi-city trip (capped at 900 in all).
+    segment_deadline_seconds: float = 90.0
 
     @field_validator("llm_provider", mode="before")
     @classmethod
