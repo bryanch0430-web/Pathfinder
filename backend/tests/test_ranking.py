@@ -220,3 +220,14 @@ def test_a_plan_is_ranked_per_city_per_leg_and_per_stop() -> None:
     assert sorted(a.rank for a in meal.alternatives) == [1, 2]
     assert {t.rank for t in plan.tickets} == {1, 2}
     assert datetime and date and TripPlan
+
+
+def test_options_of_a_single_city_plan_are_ranked_together_whether_or_not_they_name_a_segment() -> None:
+    plan = make_plan()
+    chosen = plan.hotels[0]
+    other = chosen.model_copy(update={"id": "opt_other", "name": "Other", "segment_id": ""})
+    plan.hotel_options = [chosen.model_copy(update={"segment_id": "seg_1"}), other]
+
+    plan.refresh_derived()
+
+    assert sorted(o.rank for o in plan.hotel_options) == [1, 2]

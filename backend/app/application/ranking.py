@@ -294,7 +294,8 @@ def rank_plan(plan: TripPlan) -> None:
 
     by_city: dict[str, list] = {}
     for stay in plan.hotel_options:
-        by_city.setdefault(stay.segment_id, []).append(stay)
+        # An option with no segment belongs to the first city (a single-city plan's options carry none).
+        by_city.setdefault(stay.segment_id or plan.segments[0].id, []).append(stay)
     for group in by_city.values():
         stays_of(group)
     # A chosen stay is a copy of one of the options: it carries that option's label.
