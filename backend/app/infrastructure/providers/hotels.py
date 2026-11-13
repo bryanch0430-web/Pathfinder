@@ -19,6 +19,7 @@ from app.domain.models import (
     utcnow,
 )
 from app.infrastructure.http import request_json
+from app.infrastructure.providers.images import serpapi_image
 from app.infrastructure.providers.places import (
     WikivoyagePlacesSource,
     _clean,
@@ -125,6 +126,7 @@ class SerpApiHotelSource:
             hotel_class=_hotel_class(row),
             property_token=str(row.get("property_token") or ""),
             nearby=_nearby(row),
+            image=serpapi_image(row),
         )
 
     async def rooms(

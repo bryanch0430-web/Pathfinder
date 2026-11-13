@@ -1025,6 +1025,8 @@ def _merge_places(places: list[PlaceCandidate]) -> list[PlaceCandidate]:
         match.review_count = match.review_count or place.review_count
         match.address = match.address or place.address
         match.website = match.website or place.website
+        match.image = match.image or place.image
+        match.wikipedia_title = match.wikipedia_title or place.wikipedia_title
         match.geo = match.geo or place.geo
         match.opening_hours = match.opening_hours or place.opening_hours
         match.source_refs = _dedupe_sources(match.source_refs + place.source_refs)

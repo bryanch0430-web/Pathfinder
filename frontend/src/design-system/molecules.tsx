@@ -12,7 +12,7 @@ import {
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
-import { safeHref } from "../lib/safeHref";
+import { imageSrc, safeHref } from "../lib/safeHref";
 import { addTags, isImeKey, limitList, splitList } from "../lib/typing";
 import type {
   AgentState,
@@ -32,6 +32,7 @@ import type {
   TripContext,
   WeatherDay,
   DataStatus,
+  ImageRef,
   Intent,
   Link,
 } from "./types";
@@ -246,6 +247,20 @@ export function LinkRow({ links }: { links?: Link[] }) {
         </a>
       ))}
     </span>
+  );
+}
+
+/** A picture a source returned, with its credit; nothing at all when there is none or the address is not safe to load. */
+export function PlaceImage({ image, compact = false }: { image?: ImageRef | null; compact?: boolean }) {
+  const { t } = useI18n();
+  const src = imageSrc(image?.url);
+  if (!image || !src) return null;
+  const credit = image.attribution ? t("image.credit", { credit: image.attribution }) : "";
+  return (
+    <figure className="pf-image" data-compact={compact}>
+      <img src={src} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+      {credit ? <figcaption className="pf-image__credit" title={credit}>{credit}</figcaption> : null}
+    </figure>
   );
 }
 
@@ -884,6 +899,7 @@ export function ItineraryItem({
           {number ? <span className="pf-mono pf-muted">{number}. </span> : null}
           {item.name}
         </span>
+        <PlaceImage image={item.image} />
         <PlaceFacts place={item} />
         {transferText ? <span className="pf-item__facts">{transferText}</span> : null}
         {item.notes ? <span className="pf-item__notes">{item.notes}</span> : null}
@@ -988,6 +1004,7 @@ export function ItemAlternatives({
             <div className="pf-alt-card" key={alternative.id}>
               <div className="pf-stack pf-grow" style={{ gap: 2 }}>
                 <Text size="sm" weight="semibold">{alternative.name}</Text>
+                <PlaceImage image={alternative.image} />
                 <RankNote rank={alternative.rank} reasons={alternative.reasons} />
                 <PlaceFacts place={alternative} />
                 <LinkRow links={alternative.links} />

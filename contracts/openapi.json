@@ -213,6 +213,46 @@
         }
       }
     },
+    "/api/images/place": {
+      "get": {
+        "summary": "Place Image",
+        "description": "A Google place photo, fetched with the server's key and kept on disk.\n\nA page's <img> cannot send the identity headers, so the route is open; what keeps it from being a way to\nspend the key is that only a photo resource name is accepted (anything else is refused with 422, so no other\naddress can be fetched) and that it shares the look-up rate limit.",
+        "operationId": "place_image_api_images_place_get",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 300,
+              "pattern": "^places/[A-Za-z0-9_-]+/photos/[A-Za-z0-9_-]+$",
+              "title": "Ref"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/handbook": {
       "get": {
         "summary": "Guides",

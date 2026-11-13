@@ -32,6 +32,7 @@ import {
   TripContextForm,
   SearchField,
   LinkRow,
+  PlaceImage,
   RankNote,
 } from "./molecules";
 import type {
@@ -990,6 +991,7 @@ function HotelOptionCard({
         <Text size="sm" weight="semibold">{hotel.name}</Text>
         {chosen ? <Badge tone="brand" dot>{t("options.chosen")}</Badge> : null}
       </div>
+      <PlaceImage image={hotel.image} />
       {stale ? (
         <Text size="sm" tone="secondary">{t("options.priceNotChecked")}</Text>
       ) : hotel.price_per_night ? (
@@ -1232,7 +1234,7 @@ function StayCard({
         onSelect();
       }}
     >
-      <span className="pf-hotel-card__thumb"><Icon name="hotel" size={20} /></span>
+      {hotel.image ? <PlaceImage image={hotel.image} compact /> : <span className="pf-hotel-card__thumb"><Icon name="hotel" size={20} /></span>}
       <div className="pf-stack pf-grow" style={{ gap: 2 }}>
         <Text size="sm" weight="semibold">
           {hotel.name}

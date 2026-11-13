@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_candidate_limit
 from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
+from app.application.meals import image_of
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
 from app.application.plan_focus import day_number_named, focus_day
 from app.application.planning import PlanPath
@@ -2601,6 +2602,7 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str, *, day: i
             fetched_at=utcnow(),
             tags=(row.get("tags") or [])[:4],
             names=trusted_names(row.get("names")),
+            image=image_of(row),
         )
         day.items.append(item)
         day.items.sort(key=lambda entry: entry.start)

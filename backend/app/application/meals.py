@@ -20,9 +20,17 @@ from collections.abc import Callable
 from datetime import date
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.application.opening_hours import windows_on
 from app.config import Settings
-from app.domain.models import SOURCE_SUMMARY_MAX, GeoPoint, PlanAlternative, SourceRef
+from app.domain.models import (
+    SOURCE_SUMMARY_MAX,
+    GeoPoint,
+    ImageRef,
+    PlanAlternative,
+    SourceRef,
+)
 from app.infrastructure.http import haversine_km
 
 logger = logging.getLogger(__name__)
@@ -239,6 +247,7 @@ def to_alternative(row: dict, origin: tuple[float, float] | None) -> PlanAlterna
         source_refs=refs,
         booking_url=str(row.get("booking_url") or ""),
         distance_m=distance,
+        image=image_of(row),
         **_source_labels(row),
     )
 
@@ -257,8 +266,22 @@ def source_facts(row: dict) -> dict[str, Any]:
         "price_level": price_text(row),
         "cuisine": str(row["cuisine"]) if row.get("cuisine") else None,
         "reservable": row.get("reservable") if isinstance(row.get("reservable"), bool) else None,
+        "image": image_of(row),
         **_source_labels(row),
     }
+
+
+def image_of(row: dict) -> ImageRef | None:
+    """The picture a source row carries, or None (a row from an older plan or a source with none has no ``image``)."""
+    value = row.get("image")
+    if isinstance(value, ImageRef):
+        return value
+    if isinstance(value, dict):
+        try:
+            return ImageRef.model_validate(value)
+        except ValidationError:
+            return None
+    return None
 
 
 def _source_labels(row: dict) -> dict[str, Any]:

@@ -14,7 +14,7 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, Any, AsyncIterator, Literal
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,6 +68,12 @@ from app.interface.caller_binding import CallerBinding
 from app.interface.identity_format import TOKEN_FORMAT, TOKEN_MAX_LENGTH
 from app.interface.llm_keys_api import register_llm_key_routes
 from app.interface.local_admin import local_admin_for
+from app.infrastructure.providers.images import (
+    CACHE_SECONDS,
+    PHOTO_REF,
+    PhotoUnavailable,
+    fetch_place_photo,
+)
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
 
@@ -523,6 +529,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except Exception:
             items = []
         return {"items": items}
+
+    @app.get("/api/images/place")
+    async def place_image(request: Request, ref: str = Query(pattern=PHOTO_REF.pattern, max_length=300)) -> Response:
+        """A Google place photo, fetched with the server's key and kept on disk.
+
+        A page's <img> cannot send the identity headers, so the route is open; what keeps it from being a way to
+        spend the key is that only a photo resource name is accepted (anything else is refused with 422, so no other
+        address can be fetched) and that it shares the look-up rate limit."""
+        await charge_lookup(request)
+        c = container(request)
+        if not c.settings.google_places_api_key:
+            raise HTTPException(status_code=404, detail="No place photos are available.")
+        try:
+            data, content_type = await fetch_place_photo(ref, c.settings)
+        except PhotoUnavailable:
+            raise HTTPException(status_code=502, detail="The photo could not be fetched.") from None
+        return Response(
+            content=data,
+            media_type=content_type,
+            headers={"Cache-Control": f"public, max-age={CACHE_SECONDS}"},
+        )
 
     @app.get("/api/handbook", dependencies=[Depends(require_caller)])
     async def guides(

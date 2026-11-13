@@ -189,6 +189,7 @@ def swap_option(plan: TripPlan, day: DayPlan, position: int, option: PlanAlterna
             "reservable": option.reservable,
             "source_types": list(option.source_types),
             "source_summary": option.source_summary,
+            "image": option.image,
             "alternatives": _remeasure([previous, *others], option),
         }
     )
@@ -214,6 +215,7 @@ def _as_alternative(item: PlanItem) -> PlanAlternative:
         booking_url=item.booking_url,
         source_types=list(item.source_types),
         source_summary=item.source_summary,
+        image=item.image,
     )
 
 

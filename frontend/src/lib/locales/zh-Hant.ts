@@ -501,6 +501,7 @@ export const ZH_HANT: Messages = {
   "reason.closest": "最近",
   "reason.matchesRoom": "符合你對房間的要求",
   "reason.fastest": "全程最快",
+  "image.credit": "圖片：{credit}",
   "workspace.route": "路線",
   "options.match.meets": "符合你的要求",
   "options.match.partly": "部分符合",

@@ -23,6 +23,16 @@ function baseUrl(): string {
   }
 }
 
+const API_BASE: string = import.meta.env.VITE_API_BASE ?? "";
+
+/** What an `<img>` may load: the server's own picture route (a Google photo, key added there) or an https address
+ * a source returned; anything else (a `javascript:` or `data:` URL, plain http) is `undefined` and no image is drawn. */
+export function imageSrc(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("/api/images/place?")) return `${API_BASE}${url}`;
+  return /^https:\/\//i.test(url.trim()) ? safeHref(url) : undefined;
+}
+
 /** The URL itself when it is http(s), otherwise `undefined`; render plain text then. */
 export function safeHref(url?: string | null): string | undefined {
   if (!url) return undefined;

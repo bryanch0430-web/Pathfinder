@@ -151,6 +151,15 @@ class Link(BaseModel):
     label: str = ""
 
 
+class ImageRef(BaseModel):
+    """A picture a source returned: an address the page can show (our own route for a Google photo, so the key
+    stays on the server), the credit to print under it, and the source it came from."""
+
+    url: str
+    attribution: str = ""
+    source: Literal["google", "wikimedia", "serpapi"]
+
+
 class WeatherDay(BaseModel):
     date: date
     status: DataStatus = DataStatus.OK
@@ -217,6 +226,8 @@ class PlanAlternative(BaseModel):
     source_types: list[str] = Field(default_factory=list)
     #: The source's own short description, cut to SOURCE_SUMMARY_MAX characters; empty when it gave none.
     source_summary: str = ""
+    #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
+    image: ImageRef | None = None
     #: Booking, website and map links, written by ``TripPlan.refresh_links`` from the fields above.
     links: list[Link] = Field(default_factory=list)
     #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
@@ -266,6 +277,8 @@ class PlanItem(BaseModel):
     source_summary: str = ""
     #: Other source-backed choices for this stop; the item itself is the default.
     alternatives: list[PlanAlternative] = Field(default_factory=list)
+    #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
+    image: ImageRef | None = None
     #: Booking, website and map links, written by ``TripPlan.refresh_links``.
     links: list[Link] = Field(default_factory=list)
 
@@ -375,6 +388,8 @@ class HotelStay(BaseModel):
     match: StayMatch | None = None
     #: The segment (city) this stay is in.
     segment_id: str = ""
+    #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
+    image: ImageRef | None = None
     #: Booking and map links, written by ``TripPlan.refresh_links``.
     links: list[Link] = Field(default_factory=list)
     #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
@@ -1137,6 +1152,11 @@ class PlaceCandidate(BaseModel):
     cuisine: str | None = None
     #: the source's own price range text ("JPY 1,000-2,000"); empty when it gave none.
     price_range: str = ""
+    #: The picture the source returned for the place; None when it returned none.
+    image: ImageRef | None = None
+    #: The English Wikipedia title the source gave for the place (OSM's wikipedia tag, a Wikivoyage
+    #: listing's wikipedia field); used only to look up a page image.
+    wikipedia_title: str = ""
 
 
 class HotelCandidate(BaseModel):
@@ -1156,6 +1176,8 @@ class HotelCandidate(BaseModel):
     hotel_class: int | None = None
     property_token: str = ""
     nearby: list[HotelNearby] = Field(default_factory=list)
+    #: The thumbnail the hotel source returned; None when it returned none.
+    image: ImageRef | None = None
 
 
 class FlightCandidate(BaseModel):

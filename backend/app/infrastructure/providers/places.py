@@ -10,6 +10,7 @@ from app.domain.errors import ProviderNoData
 from app.domain.models import GeoPoint, PlaceCandidate, SourceRef, utcnow
 from app.domain.place_names import osm_names
 from app.infrastructure.http import haversine_km, request_json
+from app.infrastructure.providers.images import google_image, wikimedia_images
 
 GOOGLE_FIELD_MASK = ",".join(
     [
@@ -29,6 +30,7 @@ GOOGLE_FIELD_MASK = ",".join(
         "places.primaryType",
         "places.reservable",
         "places.priceRange",
+        "places.photos",
     ]
 )
 
@@ -230,6 +232,7 @@ class GooglePlacesSource:
                         cuisine_label(primary, types) if category in FOOD_CATEGORIES or "restaurant" in types else None
                     ),
                     price_range=price_range_text(row.get("priceRange")),
+                    image=google_image(row.get("photos")),
                     # Asked for in English; Google says which language the name is in.
                     names=(
                         {"en": display}
@@ -239,6 +242,28 @@ class GooglePlacesSource:
                 )
             )
         return out[:limit]
+
+
+def _wikipedia_title(value: object) -> str:
+    """An English Wikipedia title from a tag value: "en:Fushimi Inari-taisha" or a bare title; "" for another
+    language or anything that is not a plain title."""
+    text = str(value or '').strip()
+    if ':' in text:
+        language, _, text = text.partition(':')
+        if language.strip().lower() != 'en':
+            return ''
+    text = text.strip()
+    return text if 0 < len(text) <= 200 and not re.search(r'[<>\[\]{}|]', text) else ''
+
+
+async def add_wikimedia_images(places: list[PlaceCandidate], settings: Settings) -> None:
+    """Give each place that has a Wikipedia title and no picture its page image (one lookup for all)."""
+    wanted = [place for place in places if place.wikipedia_title and place.image is None]
+    if not wanted:
+        return
+    found = await wikimedia_images([place.wikipedia_title for place in wanted], settings)
+    for place in wanted:
+        place.image = found.get(place.wikipedia_title)
 
 
 class WikivoyagePlacesSource:
@@ -293,6 +318,7 @@ class WikivoyagePlacesSource:
                     address=_clean(params.get("address", "")),
                     opening_hours=[_clean(params.get("hours", ""))] if params.get("hours") else [],
                     website=url,
+                    wikipedia_title=_wikipedia_title(params.get("wikipedia", "")),
                     source_refs=[
                         SourceRef(
                             title=f"Wikivoyage: {title}",
@@ -312,6 +338,7 @@ class WikivoyagePlacesSource:
             )
             if len(out) >= limit:
                 break
+        await add_wikimedia_images(out, self.settings)
         return out
 
     async def _wikitext(self, destination: str) -> tuple[str, str]:
@@ -417,6 +444,7 @@ class NominatimPlacesSource:
                     address=str(row.get("display_name") or ""),
                     opening_hours=[hours] if hours else [],
                     website=str(extratags.get("website") or ""),
+                    wikipedia_title=_wikipedia_title(extratags.get("wikipedia")),
                     source_refs=[
                         SourceRef(
                             title=f"OpenStreetMap: {name}",
@@ -440,6 +468,7 @@ class NominatimPlacesSource:
             )
             if len(out) >= limit:
                 break
+        await add_wikimedia_images(out, self.settings)
         return out
 
 

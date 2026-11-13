@@ -701,6 +701,17 @@
           "title": "Segment Id",
           "type": "string"
         },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "links": {
           "items": {
             "$ref": "#/$defs/Link"
@@ -746,6 +757,35 @@
         "check_out"
       ],
       "title": "HotelStay",
+      "type": "object"
+    },
+    "ImageRef": {
+      "description": "A picture a source returned: an address the page can show (our own route for a Google photo, so the key\nstays on the server), the credit to print under it, and the source it came from.",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "attribution": {
+          "default": "",
+          "title": "Attribution",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "google",
+            "wikimedia",
+            "serpapi"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "source"
+      ],
+      "title": "ImageRef",
       "type": "object"
     },
     "ItemType": {
@@ -996,6 +1036,17 @@
           "default": "",
           "title": "Source Summary",
           "type": "string"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "links": {
           "items": {
@@ -1343,6 +1394,17 @@
           },
           "title": "Alternatives",
           "type": "array"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "links": {
           "items": {

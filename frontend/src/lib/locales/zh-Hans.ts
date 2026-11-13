@@ -499,6 +499,7 @@ export const ZH_HANS: Messages = {
   "reason.closest": "最近",
   "reason.matchesRoom": "符合你对房间的要求",
   "reason.fastest": "全程最快",
+  "image.credit": "图片：{credit}",
   "workspace.route": "路线",
   "options.match.meets": "符合你的要求",
   "options.match.partly": "部分符合",

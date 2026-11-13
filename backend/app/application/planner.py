@@ -24,6 +24,7 @@ from app.application.meals import (
     choose_meals,
     day_centre,
     search_nearby,
+    image_of,
     source_facts,
 )
 from app.application.opening_hours import DAY_MINUTES, lines_for, windows_on
@@ -745,6 +746,7 @@ class Planner:
                 DateRange.model_validate(hotel["rooms_checked_for"]) if hotel.get("rooms_checked_for") else None
             ),
             match=StayMatch.model_validate(hotel["match"]) if hotel.get("match") else None,
+            image=image_of(hotel),
         )
 
     @staticmethod
@@ -1540,6 +1542,7 @@ def _schedule(
                 hours_status="stated" if hours_lines else "unknown",
                 transfer=moved_in,
                 names=trusted_names(row.get("names")),
+                image=image_of(row),
             )
         )
         state["row"], state["end"] = row, end

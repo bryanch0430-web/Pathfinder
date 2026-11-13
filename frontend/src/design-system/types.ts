@@ -31,6 +31,13 @@ export interface WeatherDay {
   note?: string;
 }
 
+/** A picture a source returned: where to load it, who to credit, and which source it is from. */
+export interface ImageRef {
+  url: string;
+  attribution?: string;
+  source: "google" | "wikimedia" | "serpapi";
+}
+
 /** An address to open (booking, website, map), built by the server from what a source returned. */
 export interface Link {
   kind: "booking" | "official" | "map" | "tickets" | "menu";
@@ -78,6 +85,7 @@ export interface PlanItem {
   /** Other source-backed choices for this stop; the item itself is the default. */
   alternatives?: PlanAlternative[];
   links?: Link[];
+  image?: ImageRef | null;
 }
 
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
@@ -100,6 +108,7 @@ export interface PlanAlternative {
   source_types?: string[];
   source_summary?: string;
   links?: Link[];
+  image?: ImageRef | null;
   rank?: number | null;
   score?: number | null;
   reasons?: string[];
@@ -186,6 +195,7 @@ export interface HotelStay {
   /** The city (segment) this stay is in. */
   segment_id?: string;
   links?: Link[];
+  image?: ImageRef | null;
   rank?: number | null;
   score?: number | null;
   reasons?: string[];

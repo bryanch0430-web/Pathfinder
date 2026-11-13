@@ -501,6 +501,7 @@ export const EN = {
   "reason.closest": "closest",
   "reason.matchesRoom": "matches what you asked of the room",
   "reason.fastest": "fastest door to door",
+  "image.credit": "Photo: {credit}",
   "workspace.route": "Route",
   "options.match.meets": "Fits your wish",
   "options.match.partly": "Partly fits",
