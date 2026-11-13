@@ -15,7 +15,13 @@ import httpx
 
 from app.application.asking import AskPath
 from app.application.limits import segment_count, tool_cap_for
-from app.application.route_edit import rule_route_change, rule_split_stay, sync_route
+from app.application.route_edit import (
+    route_differs,
+    rule_route_change,
+    rule_split_stay,
+    shares_a_city,
+    sync_route,
+)
 from app.application.route_plan import route_question
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
@@ -476,6 +482,23 @@ class TurnService:
             ):
                 # "add Osaka", "remove Kyoto", "3 nights in Osaka", "another hotel for the last 2 nights" on a trip:
                 # the route or the stays change (the dates stay), whatever else the sentence looks like to a router.
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "route_change",
+                        "affected_parts": [],
+                    }
+                )
+            elif (
+                plan is not None
+                and is_replan_message(message)
+                and route_differs(plan, context)
+                and shares_a_city(plan, context)
+            ):
+                # "Generate again" after the cities of the form were changed, with at least one of the plan's
+                # cities still in it: the route changes (the dates stay); naming none of them is another trip.
                 decision = decision.model_copy(
                     update={
                         "intent": Intent.MODIFY,

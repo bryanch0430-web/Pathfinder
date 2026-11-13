@@ -699,6 +699,9 @@ export function usePathfinder(locale: string): PathfinderHook {
           hotel_style: form.hotel_style,
           preferences: form.preferences,
           hard_constraints: form.hard_constraints,
+          // The cities in order ([] for one city) and the way home: the form's route is what is planned.
+          stops: form.stops ?? [],
+          one_way: form.one_way ?? false,
         };
         const data = await patchContext(id, patch);
         // The answer came after another trip was opened: its details are not this view's.

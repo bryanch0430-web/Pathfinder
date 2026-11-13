@@ -148,3 +148,12 @@ def test_a_flight_choice_with_no_target_still_works_on_a_single_city_plan(settin
     out = _choose(make_plan(), settings, kind="flight", target_id=None, option_id="ticket_2")
 
     assert [t.id for t in out.tickets if t.selected] == ["ticket_2"]
+
+
+def test_the_summary_of_a_non_flight_choice_does_not_call_it_a_flight(settings) -> None:
+    out = _choose(make_two_city_plan(), settings, kind="transport", target_id="leg_ab", option_id="t_ab_bus")
+
+    assert out.change_summary.startswith("Chose the transport option Kyoto to Osaka by bus instead of Kyoto to Osaka by train.")
+    assert _choose(make_plan(), settings, kind="flight", target_id=None, option_id="ticket_2").change_summary.startswith(
+        "Chose the flight "
+    )

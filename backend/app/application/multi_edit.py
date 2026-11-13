@@ -25,7 +25,7 @@ from app.application.route_edit import (
     rule_route_change,
     rule_split_stay,
 )
-from app.application.route_plan import RouteQuestion, build_segments
+from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
 from app.application.search_cache import CachedToolbox, SearchCache
 from app.application.stitch import city_context, split, stitch
 from app.application.validation import diff_plans
@@ -37,6 +37,7 @@ from app.domain.models import (
     TicketOption,
     TripContext,
     TripPlan,
+    TripStop,
     utcnow,
 )
 
@@ -181,6 +182,48 @@ async def edit_route(
         stops, sentence = apply_route_change(plan, change)
     except RouteQuestion as asked:
         return _asks(plan, asked.question, message)
+    return await _apply_route(
+        modify, plan=plan, context=context, stops=stops, sentence=sentence, toolbox=toolbox, tracer=tracer, emit=emit
+    )
+
+
+async def edit_route_from_form(
+    modify: ModifyPath,
+    *,
+    plan: TripPlan,
+    context: TripContext,
+    message: str,
+    toolbox: Any,
+    tracer: Any,
+    emit: Any,
+) -> EditResult:
+    """The cities the trip form names, in its order: the nights they state are kept and the rest share the trip's nights."""
+    try:
+        nights, note = allocate_nights(context.route, plan.dates.night_count)
+    except RouteQuestion as asked:
+        return _asks(plan, asked.question, message)
+    stops = [TripStop(city=stop.city.strip(), nights=count) for stop, count in zip(context.route, nights)]
+    sentence = (
+        f"The route is now {' → '.join(stop.city for stop in stops)} "
+        f"({' + '.join(str(count) for count in nights)} nights)."
+    ) + (f" {note}" if note else "")
+    return await _apply_route(
+        modify, plan=plan, context=context, stops=stops, sentence=sentence, toolbox=toolbox, tracer=tracer, emit=emit
+    )
+
+
+async def _apply_route(
+    modify: ModifyPath,
+    *,
+    plan: TripPlan,
+    context: TripContext,
+    stops: list[TripStop],
+    sentence: str,
+    toolbox: Any,
+    tracer: Any,
+    emit: Any,
+) -> EditResult:
+    """Plan the new route: keep the cities that did not change, plan the others, look up the legs that moved."""
     path = modify.plan_path
     toolbox = _cached(toolbox, plan.session_id)
     known = {

@@ -341,7 +341,7 @@ export function TripContextForm({
       }}
     >
       <div className="pf-form-grid">
-        <div className="pf-field" role="group" aria-labelledby={`${id}-cities-label`}>
+        <div className={rows.length > 1 ? "pf-field pf-field--wide" : "pf-field"} role="group" aria-labelledby={`${id}-cities-label`}>
           <span className="pf-field__label" id={`${id}-cities-label`}>
             {rows.length > 1 ? t("form.cities") : t("form.destination")}
             <span className="pf-field__required">*</span>

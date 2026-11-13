@@ -13,6 +13,7 @@ from app.application.route_edit import (
     rule_split_stay,
 )
 from app.application.route_plan import RouteQuestion
+from app.domain.models import TripContext, TripStop
 
 
 def _route(plan, change: RouteChange) -> tuple[list[tuple[str, int | None]], str]:
@@ -184,3 +185,35 @@ def test_a_different_hotel_for_the_last_nights_is_a_split_stay() -> None:
         city=None, last_nights=3
     )
     assert rule_split_stay("a cheaper hotel in Osaka", plan) is None
+
+
+# -- the trip form's route against the plan's -------------------------------------------------------------------------
+
+
+def _form(*stops: tuple[str, int | None], destination: str = "") -> TripContext:
+    rows = [TripStop(city=city, nights=nights) for city, nights in stops]
+    return TripContext(session_id="s", destination=destination or (stops[0][0] if stops else ""), stops=rows if len(rows) > 1 else [])
+
+
+def test_a_form_that_names_the_cities_of_the_plan_does_not_differ() -> None:
+    from app.application.route_edit import route_differs
+
+    plan = _plan(2, 2)
+
+    assert not route_differs(plan, _form(("Kyoto", 2), ("Osaka", 2)))
+    assert not route_differs(plan, _form(("kyoto", None), ("OSAKA", None)))
+    assert not route_differs(make_plan(), _form(("Kyoto", None)))
+    assert not route_differs(plan, _form())
+
+
+def test_other_cities_or_other_nights_in_the_form_differ() -> None:
+    from app.application.route_edit import route_differs, shares_a_city
+
+    plan = _plan(2, 2)
+
+    assert route_differs(plan, _form(("Kyoto", 2), ("Osaka", 2), ("Nara", 1)))
+    assert route_differs(plan, _form(("Osaka", None), ("Kyoto", None)))
+    assert route_differs(plan, _form(("Kyoto", 3), ("Osaka", 1)))
+    assert route_differs(make_plan(), _form(("Kyoto", None), ("Osaka", None)))
+    assert shares_a_city(plan, _form(("Osaka", None), ("Nara", None)))
+    assert not shares_a_city(plan, _form(("Paris", None), ("Rome", None)))

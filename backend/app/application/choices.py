@@ -311,15 +311,16 @@ def _choose_flight(updated: TripPlan, option_id: str, target_id: str | None = No
         [], updated.tickets
     )
     if before is not None and before.id != option.id:
-        _retell(updated, "Flight", before.name, option.name)
+        _retell(updated, "Flight" if option.mode == "flight" else "Transport", before.name, option.name)
     updated.data_quality.notes = [note for note in updated.data_quality.notes if not note.startswith(FLIGHT_TIMES_NOTE)]
     clash = _flight_clashes(updated)
     if clash:
         updated.data_quality.notes.append(
             f"{FLIGHT_TIMES_NOTE} ({option.name}) does not leave time for {clash}; move or drop those stops."
         )
-    return f"Chose the flight {option.name}." if before is None or before.id == option.id else (
-        f"Chose the flight {option.name} instead of {before.name}."
+    what = "the flight" if option.mode == "flight" else "the transport option"
+    return f"Chose {what} {option.name}." if before is None or before.id == option.id else (
+        f"Chose {what} {option.name} instead of {before.name}."
     )
 
 

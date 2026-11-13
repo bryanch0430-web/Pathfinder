@@ -312,6 +312,32 @@ def rule_split_stay(message: str, plan: TripPlan) -> SplitStay | None:
     return SplitStay(city=cities[0] if len(cities) == 1 else None, last_nights=count)
 
 
+def _names(values: list[str]) -> list[str]:
+    return [" ".join(value.split()).casefold() for value in values]
+
+
+def route_differs(plan: TripPlan, context: TripContext) -> bool:
+    """The trip form names other cities, or other nights for them, than the plan visits (the page's "generate again"
+    after the cities were changed there). A form with no city says nothing about the route."""
+    route = context.route
+    if not route:
+        return False
+    planned = [s.destination.name for s in plan.segments]
+    if _names([stop.city for stop in route]) != _names(planned):
+        return True
+    return any(
+        stop.nights is not None and stop.nights != segment.dates.night_count
+        for stop, segment in zip(route, plan.segments)
+        if len(route) > 1
+    )
+
+
+def shares_a_city(plan: TripPlan, context: TripContext) -> bool:
+    """At least one city of the form is a city of the plan: a change of route, not a different trip."""
+    planned = set(_names([s.destination.name for s in plan.segments]))
+    return any(name in planned for name in _names([stop.city for stop in context.route]))
+
+
 def sync_route(context: TripContext, plan: TripPlan) -> bool:
     """Make the trip form's route the plan's. True when it changed."""
     stops = (

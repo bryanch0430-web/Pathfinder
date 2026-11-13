@@ -296,3 +296,54 @@ def test_a_split_that_leaves_no_night_for_the_first_hotel_is_asked_about(
     events, after = _run(settings, [("Kyoto", 2), ("Osaka", 2)], body)
 
     assert [e for e in events if e.event == "clarify"] and len(after.hotels) == 2
+
+
+def test_generating_again_after_cities_were_added_to_the_form_changes_the_route(settings: Settings) -> None:
+    from app.domain.models import TripStop
+
+    async def body(trip: Trip):
+        before = trip.plan
+        context = trip.context
+        context.stops = [TripStop(city="Kyoto", nights=2), TripStop(city="Osaka", nights=2)]
+        trip.ledger.store.save_context(context)
+        events = await trip.turn("Re-plan with the updated details.")
+        return before, trip.plan, trip.context, events
+
+    before, after, context, events = _run(settings, [("Kyoto", 4)], body)
+
+    assert len(before.segments) == 1
+    assert [(s.destination.name, s.dates.night_count) for s in after.segments] == [("Kyoto", 2), ("Osaka", 2)]
+    assert after.dates == before.dates and after.version == before.version + 1
+    assert "The route is now Kyoto → Osaka (2 + 2 nights)." in after.change_summary
+    assert [(s.city, s.nights) for s in context.stops] == [("Kyoto", 2), ("Osaka", 2)]
+    assert not [e for e in events if e.event == "error"]
+
+
+def test_generating_again_with_the_cities_reordered_keeps_one_plan_and_moves_the_cities(settings: Settings) -> None:
+    from app.domain.models import TripStop
+
+    async def body(trip: Trip):
+        context = trip.context
+        context.stops = [TripStop(city="Osaka", nights=2), TripStop(city="Kyoto", nights=2)]
+        context.destination = "Osaka"
+        trip.ledger.store.save_context(context)
+        await trip.turn("Re-plan with the updated details.")
+        return trip.plan
+
+    after = _run(settings, [("Kyoto", 2), ("Osaka", 2)], body)
+
+    assert [s.destination.name for s in after.segments] == ["Osaka", "Kyoto"]
+    assert after.destination.name == "Osaka"
+
+
+def test_generating_again_with_none_of_the_cities_left_is_another_trip(settings: Settings) -> None:
+    async def body(trip: Trip):
+        context = trip.context
+        context.destination, context.stops = "Tokyo", []
+        trip.ledger.store.save_context(context)
+        await trip.turn("Re-plan with the updated details.")
+        return trip.plan
+
+    after = _run(settings, [("Kyoto", 2), ("Osaka", 2)], body)
+
+    assert [s.destination.name for s in after.segments] == ["Tokyo"]

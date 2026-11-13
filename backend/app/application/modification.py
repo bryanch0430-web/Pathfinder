@@ -43,7 +43,7 @@ from app.application.router import (
 )
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
-from app.application.route_edit import MULTI_CITY_RULES, RouteChange, SplitStay, rule_route_change
+from app.application.route_edit import MULTI_CITY_RULES, RouteChange, SplitStay, route_differs, rule_route_change
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, is_edit_outcome, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
@@ -223,6 +223,13 @@ class ModifyPath:
         """Apply the smallest change the message asks for. ``answering`` is the question an earlier edit asked when the
         message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
         When a fact the change needs is missing, the result `asks` for it and the plan is unchanged."""
+        if is_replan_message(message) and route_differs(plan, context):
+            # The page's "generate again" after the cities of the form were changed: the route is what changes.
+            from app.application.multi_edit import edit_route_from_form
+
+            return await edit_route_from_form(
+                self, plan=plan, context=context, message=message, toolbox=toolbox, tracer=tracer, emit=emit
+            )
         if len(plan.segments) > 1:
             from app.application.multi_edit import edit_multi_city
 

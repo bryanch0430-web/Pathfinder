@@ -889,13 +889,14 @@
 
 .pf-city-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
 .pf-city-row > .pf-input:first-child {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 140px;
+  min-width: 140px;
 }
 
 .pf-city-row .pf-city-row__nights {
