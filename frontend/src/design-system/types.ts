@@ -110,6 +110,8 @@ export interface DayPlan {
   items: PlanItem[];
   note: string;
   elevation_gain_m?: number | null;
+  /** The city (segment) the traveller sleeps in that night; absent on plans from before cities. */
+  segment_id?: string;
 }
 
 export interface RoomType {
@@ -169,11 +171,20 @@ export interface HotelStay {
   nearest_stop_km?: number | null;
   nearest_stop_name?: string;
   match?: StayMatch | null;
+  /** The city (segment) this stay is in. */
+  segment_id?: string;
 }
+
+/** The ways between two places a leg can be made by; `ground` is a rough estimate from the distance. */
+export type TransportMode = "flight" | "train" | "ticket" | "ferry" | "bus" | "drive" | "ground";
 
 export interface TicketOption {
   id: string;
-  mode: "flight" | "train" | "ticket" | "ferry" | "bus";
+  mode: TransportMode;
+  /** The leg this option is for; absent on plans from before legs. */
+  leg_id?: string;
+  /** A duration worked out from a distance or a routes source, not a quoted fare and timetable. */
+  estimated?: boolean;
   name: string;
   origin: string;
   destination: string;
@@ -196,6 +207,28 @@ export interface TicketOption {
   data_status: DataStatus;
   confirmed: boolean;
   selected?: boolean;
+}
+
+/** One city of the trip: `dates.start` is the arrival day, `dates.end` the departure day. */
+export interface TripSegment {
+  id: string;
+  destination: { name: string; country_code: string; geo: GeoPoint | null; timezone: string };
+  dates: { start: string; end: string };
+}
+
+/** One hop of the trip: from home to the first city, between two cities, or the way home. */
+export interface TransportLeg {
+  id: string;
+  from_place: string;
+  to_place: string;
+  depart_date: string | null;
+  kind: "outbound" | "between" | "return";
+}
+
+/** One city of the trip form, in travel order, with the nights the traveller gave it. */
+export interface TripStop {
+  city: string;
+  nights: number | null;
 }
 
 export interface CostLine {
@@ -316,6 +349,13 @@ export interface PlanDiffEntry {
   from?: string;
   to?: string;
   detail?: string;
+  /** The stay a `hotel`, `stay` or `hotel_price` entry is about. */
+  id?: string;
+  /** The leg a `transport` entry is about. */
+  leg_id?: string;
+  segment_id?: string;
+  /** The city of a `city_added`, `city_removed` or `nights` entry. */
+  city?: string;
 }
 
 export interface VideoNote {
@@ -362,6 +402,10 @@ export interface TripPlan {
   hotels: HotelStay[];
   hotel_options?: HotelStay[];
   tickets: TicketOption[];
+  /** The cities in travel order; absent on plans from before cities. */
+  segments?: TripSegment[];
+  /** The hops of the trip; absent on plans from before legs. */
+  legs?: TransportLeg[];
   cost: CostBreakdown;
   constraints: ConstraintCheck[];
   disruptions: { id: string; kind: string; summary: string; affected_item_ids: string[]; resolution: string; resolved: boolean }[];
@@ -398,6 +442,10 @@ export interface TripContext {
   language: string;
   /** The language the plan is shown in; the English plan stays the source of truth. */
   plan_locale?: PlanLocale;
+  /** The cities in travel order (empty for one city: `destination` is that city). */
+  stops?: TripStop[];
+  /** The trip does not return to where it starts. */
+  one_way?: boolean;
 }
 
 /** Plan display languages. */
