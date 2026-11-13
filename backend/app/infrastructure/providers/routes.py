@@ -175,12 +175,15 @@ class GoogleRoutesSource:
                 step_polyline = decode_polyline(
                     str((raw_step.get("polyline") or {}).get("encodedPolyline") or "")
                 )
+                line = (raw_step.get("transitDetails") or {}).get("transitLine") or {}
+                vehicle = str((line.get("vehicle") or {}).get("type") or "")
                 steps.append(
                     RouteStep(
                         mode=step_mode(instruction, str(raw_step.get("travelMode") or "WALK")),
                         minutes=step_minutes,
                         polyline=step_polyline,
                         instruction=instruction,
+                        vehicle=vehicle,
                     )
                 )
         return RouteLeg(

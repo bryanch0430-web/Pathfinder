@@ -1150,6 +1150,9 @@ class RouteStep(BaseModel):
     minutes: int | None = None
     polyline: list[GeoPoint] = Field(default_factory=list)
     instruction: str = ""
+    #: The routes source's vehicle type for a transit step ("HEAVY_RAIL", "BUS"); empty for any other step.
+    #: Read as an attribute only: left out of JSON dumps so prompts and API payloads keep their shape.
+    vehicle: str = Field(default="", exclude=True)
 
 
 class RouteLeg(BaseModel):
