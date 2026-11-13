@@ -220,7 +220,7 @@ class FeedbackRequest(BaseModel):
 class ChoiceRequest(BaseModel):
     """Pick another option shown on the plan: a stop's alternative, a hotel option or a flight option."""
 
-    kind: Literal["item", "hotel", "flight"]
+    kind: Literal["item", "hotel", "flight", "transport"]
     target_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
     option_id: str = Field(max_length=ID_MAX_LENGTH)
     #: The plan version the traveller chose on; a choice made on an older version is refused (409).
@@ -809,7 +809,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not stays:
             raise HTTPException(status_code=404, detail="Hotel not found")
         stay = stays[0]
-        current = plan.first_stay
+        # Rooms are asked for the dates of the chosen stay the option stands in for.
+        current = stay if stay in plan.hotels else (next(iter(plan.stays_in(stay.segment_id)), None) or plan.first_stay)
         check_in = current.check_in if current is not None else stay.check_in
         check_out = current.check_out if current is not None else stay.check_out
         wanted = DateRange(start=check_in, end=check_out)

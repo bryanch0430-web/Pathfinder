@@ -31,7 +31,7 @@ from app.domain.models import (
 )
 from app.infrastructure.http import haversine_km
 
-ChoiceKind = Literal["item", "hotel", "flight"]
+ChoiceKind = Literal["item", "hotel", "flight", "transport"]
 
 #: Opens the plan note a chosen flight leaves when its times no longer fit the first or last day.
 FLIGHT_TIMES_NOTE = "The chosen flight"
@@ -64,9 +64,9 @@ async def apply_choice(
     if kind == "item":
         summary = await _choose_item(updated, plan, target_id, option_id, context, toolbox, transfers)
     elif kind == "hotel":
-        summary = _choose_hotel(updated, option_id)
-    elif kind == "flight":
-        summary = _choose_flight(updated, option_id)
+        summary = _choose_hotel(updated, option_id, target_id)
+    elif kind in ("flight", "transport"):
+        summary = _choose_flight(updated, option_id, target_id)
     else:  # the request model already refuses other kinds
         raise ValueError(f"unknown choice kind {kind!r}")
     _recost(updated, planner, context)
@@ -231,18 +231,34 @@ def _remeasure(alternatives: list[PlanAlternative], origin: PlanAlternative) -> 
 # --- hotel -------------------------------------------------------------------
 
 
-def _choose_hotel(updated: TripPlan, option_id: str) -> str:
+def _choose_hotel(updated: TripPlan, option_id: str, target_id: str | None = None) -> str:
+    """Put the option in place of one chosen stay: the one ``target_id`` names, else the stay of the option's city."""
     option = next((stay for stay in updated.hotel_options if stay.id == option_id), None)
     if option is None:
         raise ChoiceNotFound("hotel option not found")
-    current = updated.first_stay
+    if target_id is not None:
+        current = next((stay for stay in updated.hotels if stay.id == target_id), None)
+        if current is None:
+            raise ChoiceNotFound("stay not found")
+    else:
+        current = next(iter(updated.stays_in(option.segment_id)), None) if option.segment_id else None
+        current = current or updated.first_stay
+    if any(stay.id == option.id and stay is not current for stay in updated.hotels):
+        raise ChoiceRefused("That stay is already chosen for another part of the trip.")
     if current is not None and current.id == option.id:
         return f"Kept {option.name} as the stay."
     if current is not None and (current.locked or current.confirmed):
         raise ChoiceRefused("The stay is locked or confirmed; unlock it before choosing another.")
     check_in = current.check_in if current else updated.dates.start
     check_out = current.check_out if current else updated.dates.end
-    changes: dict = {"check_in": check_in, "check_out": check_out, "confirmed": False, "locked": False}
+    segment_id = current.segment_id if current else updated.segment_of(updated.dates.start).id
+    changes: dict = {
+        "check_in": check_in,
+        "check_out": check_out,
+        "segment_id": segment_id,
+        "confirmed": False,
+        "locked": False,
+    }
     if (option.check_in, option.check_out) != (check_in, check_out):
         # The source priced this option (and listed its rooms) for other dates: neither is this stay's.
         changes.update(
@@ -272,18 +288,21 @@ def normalise_hotel_options(plan: TripPlan) -> None:
     """
     if not plan.hotels:
         return
-    current = plan.first_stay
-    others = [option for option in plan.hotel_options if option.id != current.id]
-    plan.hotel_options = [current.model_copy(deep=True), *others]
+    chosen = {stay.id for stay in plan.hotels}
+    others = [option for option in plan.hotel_options if option.id not in chosen]
+    plan.hotel_options = [*(stay.model_copy(deep=True) for stay in plan.hotels), *others]
 
 
 # --- flight ------------------------------------------------------------------
 
 
-def _choose_flight(updated: TripPlan, option_id: str) -> str:
+def _choose_flight(updated: TripPlan, option_id: str, target_id: str | None = None) -> str:
+    """Choose among the options of the option's own leg; ``target_id``, when given, must be that leg."""
     option = next((ticket for ticket in updated.tickets if ticket.id == option_id), None)
     if option is None:
         raise ChoiceNotFound("flight option not found")
+    if target_id is not None and updated.leg_id_of(option) != target_id:
+        raise ChoiceNotFound("transport option not found on that leg")
     leg = updated.options_for(updated.leg_id_of(option))
     before = next((ticket for ticket in leg if ticket.selected), leg[0] if leg else None)
     for ticket in leg:

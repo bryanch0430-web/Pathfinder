@@ -2471,7 +2471,8 @@
             "enum": [
               "item",
               "hotel",
-              "flight"
+              "flight",
+              "transport"
             ],
             "title": "Kind"
           },

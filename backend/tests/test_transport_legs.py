@@ -118,3 +118,33 @@ def test_a_ticket_on_an_unknown_leg_goes_to_the_first_leg() -> None:
 
     assert plan.tickets[3].leg_id == "leg_out"
     assert TransportLeg(id="x").kind == "outbound"
+
+
+def _choose(plan: TripPlan, settings, **choice):
+    import asyncio
+
+    from app.application.choices import apply_choice
+    from app.application.planner import Planner
+    from app.infrastructure.providers.fx import FxService
+
+    planner = Planner(None, settings, FxService())
+    return asyncio.run(apply_choice(plan, planner=planner, context=None, **choice))
+
+
+def test_a_choice_of_transport_names_its_leg(settings) -> None:
+    out = _choose(make_two_city_plan(), settings, kind="transport", target_id="leg_ab", option_id="t_ab_bus")
+
+    assert _chosen(out) == {"leg_out": "t_out_1", "leg_ab": "t_ab_bus", "leg_home": "t_home_1"}
+
+
+def test_a_choice_of_transport_on_the_wrong_leg_is_refused(settings) -> None:
+    from app.application.choices import ChoiceNotFound
+
+    with pytest.raises(ChoiceNotFound, match="transport option not found on that leg"):
+        _choose(make_two_city_plan(), settings, kind="transport", target_id="leg_out", option_id="t_ab_bus")
+
+
+def test_a_flight_choice_with_no_target_still_works_on_a_single_city_plan(settings) -> None:
+    out = _choose(make_plan(), settings, kind="flight", target_id=None, option_id="ticket_2")
+
+    assert [t.id for t in out.tickets if t.selected] == ["ticket_2"]

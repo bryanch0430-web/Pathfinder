@@ -143,3 +143,67 @@ def test_no_code_outside_the_model_reads_the_hotels_by_position() -> None:
         if re.search(r"\.hotels\[\d", line.split("#")[0]) and "``" not in line
     ]
     assert offenders == []
+
+
+def _choose(plan: TripPlan, settings, **choice):
+    import asyncio
+
+    from app.application.choices import apply_choice
+    from app.application.planner import Planner
+    from app.infrastructure.providers.fx import FxService
+
+    planner = Planner(None, settings, FxService())
+    return asyncio.run(apply_choice(plan, planner=planner, context=None, **choice))
+
+
+def _two_city_plan_with_an_osaka_option() -> TripPlan:
+    plan = make_two_city_plan()
+    plan.hotel_options = [
+        plan.hotels[1].model_copy(update={"id": "opt_b2", "name": "Osaka Ryokan", "segment_id": "seg_b"})
+    ]
+    return plan
+
+
+def test_a_choice_of_stay_replaces_the_stay_it_names_and_no_other(settings) -> None:
+    out = _choose(
+        _two_city_plan_with_an_osaka_option(), settings, kind="hotel", target_id="hotel_b", option_id="opt_b2"
+    )
+
+    assert [stay.id for stay in out.hotels] == ["hotel_a", "opt_b2"]
+    chosen = out.hotels[1]
+    assert (chosen.check_in, chosen.check_out, chosen.segment_id) == (
+        date(2026, 12, 5),
+        date(2026, 12, 7),
+        "seg_b",
+    )
+    assert out.hotels[0].name == make_two_city_plan().hotels[0].name
+
+
+def test_a_choice_of_stay_with_no_target_replaces_the_stay_of_the_options_city(settings) -> None:
+    named = _choose(
+        _two_city_plan_with_an_osaka_option(), settings, kind="hotel", target_id="hotel_b", option_id="opt_b2"
+    )
+    unnamed = _choose(
+        _two_city_plan_with_an_osaka_option(), settings, kind="hotel", target_id=None, option_id="opt_b2"
+    )
+
+    assert [stay.model_dump(exclude={"fetched_at"}) for stay in unnamed.hotels] == [
+        stay.model_dump(exclude={"fetched_at"}) for stay in named.hotels
+    ]
+
+
+def test_a_choice_naming_a_stay_that_is_not_chosen_is_refused(settings) -> None:
+    from app.application.choices import ChoiceNotFound
+
+    with pytest.raises(ChoiceNotFound, match="stay not found"):
+        _choose(_two_city_plan_with_an_osaka_option(), settings, kind="hotel", target_id="nope", option_id="opt_b2")
+
+
+def test_every_chosen_stay_is_among_the_options() -> None:
+    from app.application.choices import normalise_hotel_options
+
+    plan = _two_city_plan_with_an_osaka_option()
+    normalise_hotel_options(plan)
+
+    assert {"hotel_a", "hotel_b", "opt_b2"} <= {option.id for option in plan.hotel_options}
+    assert plan.hotel_options[0].id == plan.first_stay.id
