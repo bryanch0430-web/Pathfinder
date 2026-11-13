@@ -269,6 +269,8 @@ class DayPlan(BaseModel):
     note: str = ""
     # Positive ascent in metres between the day's stops (Google Elevation).
     elevation_gain_m: float | None = None
+    #: The segment (city) the traveller sleeps in that night; the last day belongs to the last segment.
+    segment_id: str = ""
 
     @model_validator(mode="after")
     def _no_overlap(self) -> "DayPlan":
@@ -354,6 +356,8 @@ class HotelStay(BaseModel):
     nearest_stop_name: str = ""
     #: The research step's judgement against the traveller's stay wishes; None when there was none to judge.
     match: StayMatch | None = None
+    #: The segment (city) this stay is in.
+    segment_id: str = ""
 
 
 class TicketOption(BaseModel):
@@ -472,6 +476,17 @@ class Destination(BaseModel):
     timezone: str = ""
 
 
+class TripSegment(BaseModel):
+    """One city of the trip: ``dates.start`` is the arrival day, ``dates.end`` the departure day.
+
+    Consecutive segments share the day one is left and the next is reached; that day belongs to the city arrived in.
+    """
+
+    id: str = Field(default_factory=lambda: new_id("seg"))
+    destination: Destination
+    dates: DateRange
+
+
 class AssessmentSignal(BaseModel):
     """One thing that lowered the plan's confidence, and by how much (0 to 1)."""
 
@@ -511,6 +526,8 @@ class TripPlan(BaseModel):
     destination: Destination
     origin: str = ""
     dates: DateRange
+    #: The cities in travel order; always at least one once validated (a plan stored without any gets one).
+    segments: list[TripSegment] = Field(default_factory=list)
     party_size: int = Field(default=1, ge=1, le=20)
     budget: Money | None = None
     summary: str = ""
@@ -549,7 +566,69 @@ class TripPlan(BaseModel):
             chosen = selected_ticket(self.tickets)
             for ticket in self.tickets:
                 ticket.selected = ticket is chosen
+        self._shape_segments()
         return self
+
+    def _shape_segments(self) -> None:
+        if not self.segments:
+            self.segments = [TripSegment(id="seg_1", destination=self.destination, dates=self.dates)]
+        elif len(self.segments) == 1:
+            # The plan's own fields define a single-city trip.
+            self.segments[0].destination = self.destination
+            self.segments[0].dates = self.dates
+        else:
+            order_error = ValueError(
+                "segments must cover the trip in order, each starting the day the one before ends"
+            )
+            if self.segments[0].dates.start != self.dates.start or self.segments[-1].dates.end != self.dates.end:
+                raise order_error
+            for before, after in zip(self.segments, self.segments[1:]):
+                if before.dates.end != after.dates.start:
+                    raise order_error
+            if self.segments[0].destination.name != self.destination.name:
+                raise ValueError("destination must be the first segment's destination")
+        if len({segment.id for segment in self.segments}) != len(self.segments):
+            raise ValueError("segment ids must be unique")
+        known = {segment.id for segment in self.segments}
+        for day in self.days:
+            if day.segment_id not in known:
+                day.segment_id = self.segment_of(day.date).id
+        for stay in self.hotels:
+            if stay.segment_id not in known:
+                stay.segment_id = self.segment_of(stay.check_in).id
+
+    def segment_of(self, day: date) -> TripSegment:
+        """The segment a date belongs to: the last one that starts on or before it, else the first.
+
+        The day two cities share belongs to the city arrived in. A one-city plan has one segment for any date.
+        """
+        chosen = self.segments[0]
+        if len(self.segments) > 1:
+            for segment in self.segments:
+                if segment.dates.start <= day:
+                    chosen = segment
+        return chosen
+
+    def stay_on(self, day: date) -> HotelStay | None:
+        """The stay the traveller sleeps in on a night, or wakes up in on the last morning; None when there is none."""
+        for stay in self.hotels:
+            if stay.check_in <= day < stay.check_out:
+                return stay
+        for stay in self.hotels:
+            if stay.check_out == day:
+                return stay
+        if len(self.hotels) == 1 and len(self.segments) == 1:
+            return self.hotels[0]
+        return None
+
+    def stays_in(self, segment_id: str) -> list[HotelStay]:
+        """The chosen stays of a segment, in date order."""
+        return sorted((stay for stay in self.hotels if stay.segment_id == segment_id), key=lambda s: s.check_in)
+
+    @property
+    def first_stay(self) -> HotelStay | None:
+        """The first chosen stay: the seam for code that still thinks of one stay per trip."""
+        return self.hotels[0] if self.hotels else None
 
     @property
     def item_count(self) -> int:

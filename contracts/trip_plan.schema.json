@@ -299,6 +299,11 @@
           ],
           "default": null,
           "title": "Elevation Gain M"
+        },
+        "segment_id": {
+          "default": "",
+          "title": "Segment Id",
+          "type": "string"
         }
       },
       "required": [
@@ -690,6 +695,11 @@
             }
           ],
           "default": null
+        },
+        "segment_id": {
+          "default": "",
+          "title": "Segment Id",
+          "type": "string"
         }
       },
       "required": [
@@ -1689,6 +1699,27 @@
       "title": "TransferLeg",
       "type": "object"
     },
+    "TripSegment": {
+      "description": "One city of the trip: ``dates.start`` is the arrival day, ``dates.end`` the departure day.\n\nConsecutive segments share the day one is left and the next is reached; that day belongs to the city arrived in.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "destination": {
+          "$ref": "#/$defs/Destination"
+        },
+        "dates": {
+          "$ref": "#/$defs/DateRange"
+        }
+      },
+      "required": [
+        "destination",
+        "dates"
+      ],
+      "title": "TripSegment",
+      "type": "object"
+    },
     "WeatherDay": {
       "properties": {
         "date": {
@@ -1805,6 +1836,13 @@
     },
     "dates": {
       "$ref": "#/$defs/DateRange"
+    },
+    "segments": {
+      "items": {
+        "$ref": "#/$defs/TripSegment"
+      },
+      "title": "Segments",
+      "type": "array"
     },
     "party_size": {
       "default": 1,
