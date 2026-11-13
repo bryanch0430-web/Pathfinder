@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { TripMap } from "./maps/TripMap";
 import { kmBetween, MODE, modeForDistance, SEGMENT_COLOR, type TravelMode } from "./maps/geo";
 import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/time";
@@ -49,7 +49,9 @@ import type {
   PlanItem,
   RoomType,
   StayMatch,
+  DayPlan,
   TicketOption,
+  TransportLeg,
   TripContext,
   TripPlan,
   RunTrace,
@@ -59,6 +61,18 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type MapLeg } from "../lib/api";
+import {
+  chosenFor,
+  daysBySegment,
+  legHome,
+  legInto,
+  nightsBetween,
+  optionsFor,
+  routeLabel,
+  segmentOfDay,
+  segmentsOf,
+  staysIn,
+} from "../lib/segments";
 import {
   addAttachments,
   ATTACHMENT_MAX_BYTES,
@@ -820,7 +834,7 @@ function Collapsible({
   defaultOpen = false,
 }: {
   title: string;
-  icon: "wallet" | "check" | "ticket" | "alert" | "info" | "hotel";
+  icon: "wallet" | "check" | "ticket" | "alert" | "info" | "hotel" | "route";
   badge?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
@@ -1137,9 +1151,13 @@ export function TicketCard({
   const duration = durationText(ticket.duration_minutes, t);
   const returnDuration = durationText(ticket.return_duration_minutes, t);
   const operator = ticket.operator && !ticket.name.includes(ticket.operator) ? ticket.operator : "";
+  const estimated = Boolean(ticket.estimated);
+  // An estimate has no timetable: its times are "about" times, and it says so.
+  const clock = (value: string | null | undefined) => (value ? t("options.aboutTime", { time: stamp(value).slice(11) }) : "");
+  const icon = ticket.mode === "flight" ? "plane" : ticket.mode === "drive" ? "car" : "train";
   return (
-    <div className="pf-ticket-card" data-selected={choosable && selected}>
-      <span className="pf-ticket-card__thumb"><Icon name={ticket.mode === "flight" ? "plane" : "train"} size={20} /></span>
+    <div className="pf-ticket-card" data-selected={choosable && selected} data-estimated={estimated}>
+      <span className="pf-ticket-card__thumb"><Icon name={icon} size={20} /></span>
       <div className="pf-stack pf-grow" style={{ gap: 2 }}>
         <Text size="sm" weight="semibold">
           {ticket.name}
@@ -1148,8 +1166,9 @@ export function TicketCard({
         <Text size="xs" tone="tertiary">
           {ticket.return_depart_at ? `${t("workspace.outbound")} · ` : ""}
           {ticket.origin} → {ticket.destination}
-          {depart ? ` · ${depart}` : ""}
-          {arriveShown ? ` · ${t("options.arrives", { time: arriveShown })}` : ""}
+          {estimated
+            ? ` · ${[clock(ticket.depart_at), clock(ticket.arrive_at)].filter(Boolean).join(" – ")} (${t("options.estimate")})`
+            : `${depart ? ` · ${depart}` : ""}${arriveShown ? ` · ${t("options.arrives", { time: arriveShown })}` : ""}`}
           {duration ? ` · ${duration}` : ""}
         </Text>
         {ticket.return_depart_at ? (
@@ -1160,7 +1179,7 @@ export function TicketCard({
           </Text>
         ) : null}
         <Text size="xs" tone="secondary">
-          {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : t("workspace.noFare")}
+          {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
         {error ? <span className="pf-field__error" role="alert">{t("options.failed", { reason: error.reason })}</span> : null}
       </div>
@@ -1169,11 +1188,116 @@ export function TicketCard({
         <StatusPill status={ticket.data_status} />
         {choosable && !selected && onChoose ? (
           <Button size="sm" variant="secondary" loading={pending === "choose"} onClick={() => void run("choose", onChoose)}>
-            {t("options.chooseFlight")}
+            {ticket.mode === "flight" ? t("options.chooseFlight") : t("options.chooseOption")}
           </Button>
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** The chosen stay of a city (or of the trip): the card the traveller can select, with its link to the hotel. */
+function StayCard({
+  hotel,
+  changed,
+  selected,
+  onSelect,
+}: {
+  hotel: HotelStay;
+  changed: boolean;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { t } = useI18n();
+  const bookingHref = safeHref(hotel.booking_url);
+  return (
+    <div
+      className="pf-hotel-card"
+      data-updated={changed}
+      data-selected={selected}
+      role="button"
+      tabIndex={0}
+      title={t("workspace.hotelSelect")}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect();
+      }}
+    >
+      <span className="pf-hotel-card__thumb"><Icon name="hotel" size={20} /></span>
+      <div className="pf-stack pf-grow" style={{ gap: 2 }}>
+        <Text size="sm" weight="semibold">
+          {hotel.name}
+          {changed ? <Badge tone="success" dot>{t("common.updated")}</Badge> : null}
+        </Text>
+        <Text size="xs" tone="tertiary">
+          {hotel.area || t("workspace.noArea")} · {hotel.rating ? `${hotel.rating} / 5` : t("workspace.noRating")}
+          {hotel.distance_to_centre_km !== null ? ` · ${t("workspace.kmToCentre", { km: hotel.distance_to_centre_km })}` : ""}
+        </Text>
+        <Text size="xs" tone="secondary">
+          {hotel.price_per_night
+            ? `${t("workspace.perNight", { price: `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()}` })} · ${hotel.price_kind}`
+            : t("workspace.noRate")}
+        </Text>
+      </div>
+      <div className="pf-stack" style={{ alignItems: "flex-end", gap: 4 }}>
+        <StatusPill status={hotel.data_status} />
+        {bookingHref ? <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{t("workspace.checkHotel")}</a> : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One hop of a trip: the option chosen for it and the other ways to make it, in any mode. An estimated option says so
+ * and shows no fare it was not given.
+ */
+export function TransportLegCard({
+  leg,
+  options,
+  chosenId,
+  changed = false,
+  onChoose,
+}: {
+  leg: TransportLeg;
+  options: TicketOption[];
+  chosenId: string | null;
+  changed?: boolean;
+  onChoose?: (optionId: string) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const chosen = options.find((option) => option.id === chosenId) ?? options[0];
+  const others = options.filter((option) => option !== chosen);
+  return (
+    <section className="pf-leg" data-updated={changed} aria-label={`${leg.from_place} → ${leg.to_place}`}>
+      <div className="pf-leg__head">
+        <Icon name="route" size={15} />
+        <Text size="sm" weight="semibold">{leg.from_place} → {leg.to_place}</Text>
+        {leg.depart_date ? <span className="pf-muted pf-small">{leg.depart_date}</span> : null}
+        {changed ? <Badge tone="success" dot>{t("legs.updated")}</Badge> : null}
+      </div>
+      {chosen ? (
+        <TicketCard ticket={chosen} selected choosable={options.length > 1} />
+      ) : (
+        <Text size="xs" tone="tertiary">{t("legs.none")}</Text>
+      )}
+      {others.length ? (
+        <Collapsible title={t("legs.otherOptions", { count: others.length })} icon="route" defaultOpen={false}>
+          <div className="pf-stack" style={{ gap: 8 }}>
+            {others.map((option) => (
+              <TicketCard
+                key={option.id}
+                ticket={option}
+                selected={false}
+                choosable
+                onChoose={onChoose ? () => onChoose(option.id) : undefined}
+              />
+            ))}
+          </div>
+        </Collapsible>
+      ) : null}
+    </section>
   );
 }
 
@@ -1193,7 +1317,8 @@ export function TripWorkspace({
   onRefresh,
   onFocusDay,
   updatedIds,
-  hotelChanged = false,
+  changedStayIds,
+  changedLegIds,
   languageNotice = null,
   onChooseOption,
   onLoadHotelRooms,
@@ -1223,13 +1348,17 @@ export function TripWorkspace({
   onRefresh?: () => void;
   onFocusDay?: (date: string) => void;
   updatedIds?: string[];
-  hotelChanged?: boolean;
+  /** The stays and legs (by id) the last change touched. */
+  changedStayIds?: ReadonlySet<string>;
+  changedLegIds?: ReadonlySet<string>;
 }) {
   const { t } = useI18n();
   const [activeDay, setActiveDay] = useState(plan.days[0]?.date ?? "");
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
   const hotel = plan.hotels[0];
-  const bookingHref = safeHref(hotel?.booking_url);
+  const multi = segmentsOf(plan).length > 1;
+  const hotelChanged = Boolean(hotel && changedStayIds?.has(hotel.id));
+  const anyStayChanged = (changedStayIds?.size ?? 0) > 0;
   const unknownGaps = plan.data_quality.gaps.length;
   const hotelOptions = plan.hotel_options ?? [];
   // Options are chosen on the latest version only; an older one is for reading.
@@ -1238,6 +1367,8 @@ export function TripWorkspace({
   const choose = viewingLatest ? onChooseOption : undefined;
   const selectedTicketId = (plan.tickets.find((ticket) => ticket.selected) ?? plan.tickets[0])?.id ?? null;
   const firstUpdated = updatedIds?.[0] ?? "";
+  // The clock follows the city of the day on show.
+  const activeZone = segmentOfDay(plan, activeDay || plan.dates.start).destination.timezone;
 
   const scrollToDay = (date: string) => {
     const node = dayRefs.current[date];
@@ -1270,23 +1401,55 @@ export function TripWorkspace({
     return () => window.clearTimeout(timer);
   }, [firstUpdated, plan]);
 
+  const groups = multi ? daysBySegment(plan) : [];
+  const homeLeg = multi ? legHome(plan) : undefined;
+  const renderDay = (day: DayPlan) => (
+    <div key={day.date} ref={(node) => { dayRefs.current[day.date] = node; }}>
+      <DaySection
+        day={day}
+        index={plan.days.findIndex((entry) => entry.date === day.date)}
+        selectedItemId={selectedItemId}
+        updatedIds={new Set(updatedIds ?? [])}
+        onSelectItem={(item) => onSelectItem(item)}
+        onChooseAlternative={choose ? (item, alternativeId) => choose("item", item.id, alternativeId) : undefined}
+      />
+    </div>
+  );
+  const renderLeg = (leg: TransportLeg) => (
+    <TransportLegCard
+      key={leg.id}
+      leg={leg}
+      options={optionsFor(plan, leg.id)}
+      chosenId={chosenFor(plan, leg.id)?.id ?? null}
+      changed={Boolean(changedLegIds?.has(leg.id))}
+      onChoose={choose ? (optionId) => choose("transport", leg.id, optionId) : undefined}
+    />
+  );
+  // The options of a stay: those found for its city, less the other stays already chosen.
+  const optionsOfStay = (stay: HotelStay) =>
+    hotelOptions.filter(
+      (option) =>
+        (option.segment_id ?? segmentOfDay(plan, option.check_in).id) === (stay.segment_id ?? segmentOfDay(plan, stay.check_in).id) &&
+        !plan.hotels.some((chosenStay) => chosenStay.id === option.id && chosenStay.id !== stay.id),
+    );
+
   return (
     <section className="pf-card pf-workspace" aria-label={t("workspace.label")}>
       <div className="pf-workspace__head">
         <div className="pf-workspace__title">
           <div className="pf-stack" style={{ gap: 3 }}>
             <div className="pf-row">
-              <Heading level={3}>{plan.destination.name}</Heading>
+              <Heading level={3}>{routeLabel(plan)}</Heading>
               <Badge tone="brand">v{plan.version}</Badge>
               {updatedIds?.length ? (
                 <Badge tone="success" dot>{t("workspace.updatedCount", { count: updatedIds.length })}</Badge>
-              ) : hotelChanged ? (
+              ) : anyStayChanged ? (
                 <Badge tone="success" dot>{t("workspace.hotelUpdated")}</Badge>
               ) : null}
             </div>
-            {plan.destination.timezone ? (
-              <Text size="xs" tone="tertiary" title={plan.destination.timezone}>
-                {localClock(plan.destination.timezone, t)}
+            {activeZone ? (
+              <Text size="xs" tone="tertiary" title={activeZone}>
+                {localClock(activeZone, t)}
               </Text>
             ) : null}
             <Text size="sm" tone="secondary">
@@ -1322,12 +1485,79 @@ export function TripWorkspace({
           {plan.budget ? <MiniStat icon="wallet" label={t("workspace.budget")} value={`${plan.cost.currency} ${plan.budget.amount.toLocaleString()}`} /> : null}
           {onRefresh ? <Button size="sm" variant="ghost" iconLeft="refresh" onClick={onRefresh}>{t("workspace.refresh")}</Button> : null}
         </div>
-        <DayStrip days={plan.days} active={activeDay} onSelect={jump} />
+        <DayStrip
+          days={plan.days}
+          active={activeDay}
+          onSelect={jump}
+          cityOf={multi ? (day) => segmentOfDay(plan, day.date).destination.name : undefined}
+        />
       </div>
       <div className="pf-workspace__body pf-scroll">
         {onChooseOption && !viewingLatest ? (
           <Text size="xs" tone="secondary">{t("options.latestOnly")}</Text>
         ) : null}
+        {multi ? (
+          <>
+            {groups.map(({ segment, days }) => {
+              const into = legInto(plan, segment.id);
+              const stays = staysIn(plan, segment.id);
+              const nights = nightsBetween(segment.dates.start, segment.dates.end);
+              return (
+                <Fragment key={segment.id}>
+                  {into ? renderLeg(into) : null}
+                  <section className="pf-city" aria-label={segment.destination.name}>
+                    <div className="pf-city__head">
+                      <Icon name="map" size={16} />
+                      <Heading level={4}>
+                        {t("city.heading", {
+                          city: segment.destination.name,
+                          arrive: segment.dates.start,
+                          leave: segment.dates.end,
+                          nights: t(nights === 1 ? "city.nightsOne" : "city.nights", { count: nights }),
+                        })}
+                      </Heading>
+                    </div>
+                    {nights > 0 && stays.length === 0 ? (
+                      <Text size="xs" tone="tertiary">{t("city.noStay", { city: segment.destination.name })}</Text>
+                    ) : null}
+                    {stays.map((stay) => {
+                      const options = optionsOfStay(stay);
+                      return (
+                        <Fragment key={stay.id}>
+                          <StayCard
+                            hotel={stay}
+                            changed={Boolean(changedStayIds?.has(stay.id))}
+                            selected={selectedItemId === stay.id}
+                            onSelect={() => onSelectItem(selectedItemId === stay.id ? null : hotelScopeItem(stay))}
+                          />
+                          {options.length > 1 || (options.length === 1 && onLoadHotelRooms) ? (
+                            <Collapsible
+                              title={t("options.hotels")}
+                              icon="hotel"
+                              badge={<Badge tone="neutral">{options.length}</Badge>}
+                              defaultOpen={false}
+                            >
+                              <HotelOptions
+                                options={options}
+                                chosenId={stay.id}
+                                current={stay}
+                                onChoose={choose ? (hotelId) => choose("hotel", stay.id, hotelId) : undefined}
+                                onLoadRooms={onLoadHotelRooms}
+                              />
+                            </Collapsible>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
+                    {days.map(renderDay)}
+                  </section>
+                </Fragment>
+              );
+            })}
+            {homeLeg ? renderLeg(homeLeg) : null}
+          </>
+        ) : (
+          <>
         {plan.days.map((day, index) => (
           <div key={day.date} ref={(node) => { dayRefs.current[day.date] = node; }}>
             <DaySection
@@ -1342,41 +1572,12 @@ export function TripWorkspace({
         ))}
 
         {hotel ? (
-          <div
-            className="pf-hotel-card"
-            data-updated={hotelChanged}
-            data-selected={selectedItemId === hotel.id}
-            role="button"
-            tabIndex={0}
-            title={t("workspace.hotelSelect")}
-            onClick={() => onSelectItem(selectedItemId === hotel.id ? null : hotelScopeItem(hotel))}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              onSelectItem(selectedItemId === hotel.id ? null : hotelScopeItem(hotel));
-            }}
-          >
-            <span className="pf-hotel-card__thumb"><Icon name="hotel" size={20} /></span>
-            <div className="pf-stack pf-grow" style={{ gap: 2 }}>
-              <Text size="sm" weight="semibold">
-                {hotel.name}
-                {hotelChanged ? <Badge tone="success" dot>{t("common.updated")}</Badge> : null}
-              </Text>
-              <Text size="xs" tone="tertiary">
-                {hotel.area || t("workspace.noArea")} · {hotel.rating ? `${hotel.rating} / 5` : t("workspace.noRating")}
-                {hotel.distance_to_centre_km !== null ? ` · ${t("workspace.kmToCentre", { km: hotel.distance_to_centre_km })}` : ""}
-              </Text>
-              <Text size="xs" tone="secondary">
-                {hotel.price_per_night
-                  ? `${t("workspace.perNight", { price: `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()}` })} · ${hotel.price_kind}`
-                  : t("workspace.noRate")}
-              </Text>
-            </div>
-            <div className="pf-stack" style={{ alignItems: "flex-end", gap: 4 }}>
-              <StatusPill status={hotel.data_status} />
-              {bookingHref ? <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{t("workspace.checkHotel")}</a> : null}
-            </div>
-          </div>
+          <StayCard
+            hotel={hotel}
+            changed={hotelChanged}
+            selected={selectedItemId === hotel.id}
+            onSelect={() => onSelectItem(selectedItemId === hotel.id ? null : hotelScopeItem(hotel))}
+          />
         ) : null}
 
         {hotelOptions.length > 1 || (hotelOptions.length === 1 && onLoadHotelRooms) ? (
@@ -1405,6 +1606,9 @@ export function TripWorkspace({
             onChoose={choose ? () => choose("flight", null, ticket.id) : undefined}
           />
         ))}
+
+          </>
+        )}
 
         <div className="pf-stack" style={{ gap: 0, marginTop: 8 }}>
           <Collapsible title={t("workspace.cost")} icon="wallet" defaultOpen>

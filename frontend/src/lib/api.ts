@@ -175,7 +175,7 @@ export function getLegOptions(sessionId: string, fromId: string, toId: string): 
   return request(`/api/journeys/${sessionId}/leg-options?${query}`);
 }
 
-export type ChoiceKind = "item" | "hotel" | "flight";
+export type ChoiceKind = "item" | "hotel" | "flight" | "transport";
 
 /** Swap in another option shown on the plan (a stop's alternative, a hotel, a flight); no model call. */
 export function chooseOption(

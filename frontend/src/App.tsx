@@ -627,7 +627,8 @@ export default function App() {
                   onRefresh={() => void pf.send("Refresh the data that is stale or unavailable.")}
                   onFocusDay={setMapDay}
                   updatedIds={pf.changedIds}
-                  hotelChanged={pf.hotelChanged}
+                  changedStayIds={pf.changedStayIds}
+                  changedLegIds={pf.changedLegIds}
                   onChooseOption={pf.choose}
                   onLoadHotelRooms={pf.hotelRooms}
                   onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
@@ -658,7 +659,7 @@ export default function App() {
                     onOptimize={() => void pf.send("Optimise my budget and keep the confirmed stops.")}
                     fx={fx}
                     updatedIds={pf.changedIds}
-                    hotelChanged={pf.hotelChanged}
+                    hotelChanged={pf.changedStayIds.size > 0}
                   />
                 ) : (
                   <>

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { TripWorkspace } from "../organisms";
 import { optionsPlan, samplePlan } from "../fixtures";
+import type { ChoiceKind } from "../../lib/api";
 import type { PlanItem, RoomType, RunTrace, TripPlan } from "../types";
 
 const meta: Meta = { title: "Organisms/Trip workspace" };
@@ -138,7 +139,7 @@ export const WithOptions: Story = {
   render: () => {
     const [plan, setPlan] = useState<TripPlan>(optionsPlan);
     const [selected, setSelected] = useState<PlanItem | null>(null);
-    const choose = async (kind: "item" | "hotel" | "flight", targetId: string | null, optionId: string) => {
+    const choose = async (kind: ChoiceKind, targetId: string | null, optionId: string) => {
       await wait(700);
       if (optionId === "hotel_h3") throw new Error("This stay is no longer offered by the source.");
       setPlan((current) => {

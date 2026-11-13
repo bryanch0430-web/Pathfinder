@@ -4047,3 +4047,56 @@
   font-size: 9px;
   color: var(--pf-ink-tertiary);
 }
+
+/* -- cities, and the legs between them ----------------------------------------------------------------------------- */
+
+.pf-day-strip__city {
+  align-self: flex-end;
+  flex: 0 0 auto;
+  padding: 0 4px 4px 8px;
+  border-left: 2px solid var(--pf-line);
+  color: var(--pf-ink-soft, var(--pf-ink));
+  font-size: var(--p30-type-size-body-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pf-city {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-sm);
+  padding-top: var(--p30-gap-xs, 4px);
+  border-top: 1px solid var(--pf-line);
+}
+
+.pf-city__head {
+  display: flex;
+  align-items: center;
+  gap: var(--p30-gap-sm);
+  padding-top: var(--p30-gap-sm);
+}
+
+.pf-leg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--p30-gap-sm);
+  padding: var(--p30-gap-sm);
+  border: 1px dashed var(--pf-line);
+  border-radius: var(--p30-round-md);
+}
+
+.pf-leg__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pf-leg[data-updated="true"] {
+  border-color: var(--p30-tone-feedback-successBorder);
+  background: var(--p30-tone-feedback-successBg);
+}
+
+.pf-ticket-card[data-estimated="true"] {
+  border-style: dashed;
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { changedIdsOf, NO_IDS, STAY_KINDS } from "./planChanges";
 import {
   ApiError,
   chooseOption,
@@ -163,7 +164,9 @@ export interface PathfinderHook {
   feedbackAdded: string[];
   feedbackVerdict: "useful" | "not_useful" | null;
   changedIds: string[];
-  hotelChanged: boolean;
+  /** The stays (by id) the last change touched, and the legs (by id): the page highlights them. */
+  changedStayIds: ReadonlySet<string>;
+  changedLegIds: ReadonlySet<string>;
   setContext: (patch: Partial<TripContext>) => void;
   /** Saves the details form on the open trip. False when it is not saved: the traveller is told and Retry saves again. */
   saveContext: () => Promise<boolean>;
@@ -254,7 +257,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [feedbackAdded, setFeedbackAdded] = useState<string[]>([]);
   const [feedbackVerdict, setFeedbackVerdict] = useState<"useful" | "not_useful" | null>(null);
   const [changedIds, setChangedIds] = useState<string[]>([]);
-  const [hotelChanged, setHotelChanged] = useState(false);
+  const [changedStayIds, setChangedStayIds] = useState<ReadonlySet<string>>(NO_IDS);
+  const [changedLegIds, setChangedLegIds] = useState<ReadonlySet<string>>(NO_IDS);
   const [ready, setReady] = useState(false);
   const [opening, setOpening] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -372,7 +376,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       setActiveVersion(1);
     }
     setChangedIds([]);
-    setHotelChanged(false);
+    setChangedStayIds(NO_IDS);
+    setChangedLegIds(NO_IDS);
     setVersions(trip.versions);
     setMessages(trip.messages);
     rememberTrip(id);
@@ -725,7 +730,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       setDrafts((current) => (current[id] === message ? { ...current, [id]: "" } : current));
       setNotice(null);
       setChangedIds([]);
-      setHotelChanged(false);
+      setChangedStayIds(NO_IDS);
+    setChangedLegIds(NO_IDS);
       setClarify(null);
       setIntake(null);
       setClarifyValues({});
@@ -841,7 +847,8 @@ export function usePathfinder(locale: string): PathfinderHook {
                     .map((entry) => entry.item_id)
                     .filter((id): id is string => Boolean(id)),
                 );
-                setHotelChanged(diff.some((entry) => entry.kind === "hotel"));
+                setChangedStayIds(changedIdsOf(diff, STAY_KINDS, "id"));
+                setChangedLegIds(changedIdsOf(diff, ["transport"], "leg_id"));
                 setProgress(100);
               }
               if (event === "clarify") setClarify(data as unknown as ClarifyPayload);
@@ -923,7 +930,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     if (!id) return;
     setActiveVersion(version);
     setChangedIds([]);
-    setHotelChanged(false);
+    setChangedStayIds(NO_IDS);
+    setChangedLegIds(NO_IDS);
     try {
       const data = await getPlan(id, version);
       // The answer came after another trip was opened: that version is not a plan of this one.
@@ -945,7 +953,12 @@ export function usePathfinder(locale: string): PathfinderHook {
     setPlan(data.plan);
     setActiveVersion(data.plan.version);
     setChangedIds(kind === "item" && targetId ? [targetId] : []);
-    setHotelChanged(kind === "hotel");
+    setChangedStayIds(kind === "hotel" ? new Set([optionId]) : NO_IDS);
+    const legId =
+      kind === "flight" || kind === "transport"
+        ? data.plan.tickets.find((ticket) => ticket.id === optionId)?.leg_id
+        : undefined;
+    setChangedLegIds(legId ? new Set([legId]) : NO_IDS);
     try {
       const listed = await getVersions(id);
       if (sessionRef.current === id) setVersions(listed.versions);
@@ -1055,7 +1068,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     setVersions([]);
     setContextState(emptyContext());
     setChangedIds([]);
-    setHotelChanged(false);
+    setChangedStayIds(NO_IDS);
+    setChangedLegIds(NO_IDS);
     setActiveVersion(1);
     return "gone";
   }, [forgetTripView, refresh, refusedForSignIn, showBanner]);
@@ -1099,7 +1113,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     feedbackAdded,
     feedbackVerdict,
     changedIds,
-    hotelChanged,
+    changedStayIds,
+    changedLegIds,
     setContext,
     saveContext,
     generate,

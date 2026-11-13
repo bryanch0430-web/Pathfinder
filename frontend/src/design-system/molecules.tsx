@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, Checkbox, Heading, IconButton, Input, Select, Text } from "./atoms";
 import {
   AgentChip,
@@ -678,19 +678,29 @@ export function DayStrip({
   days,
   active,
   onSelect,
+  cityOf,
 }: {
   days: DayPlan[];
   active: string;
   onSelect: (date: string) => void;
+  /** The city a day is in; the strip then names each city above its days. */
+  cityOf?: (day: DayPlan) => string;
 }) {
   const { t } = useI18n();
   return (
     <div className="pf-day-strip" role="tablist" aria-label={t("day.strip")}>
       {days.map((day, index) => {
         const date = new Date(`${day.date}T12:00:00`);
+        const city = cityOf?.(day);
+        const startsCity = Boolean(city) && (index === 0 || cityOf?.(days[index - 1]) !== city);
         return (
+          <Fragment key={day.date}>
+            {startsCity ? (
+              <span className="pf-day-strip__city" role="presentation">
+                {city}
+              </span>
+            ) : null}
           <button
-            key={day.date}
             type="button"
             role="tab"
             className="pf-day-pill"
@@ -701,6 +711,7 @@ export function DayStrip({
             <span>{t("day.number", { n: index + 1 })}</span>
             <b>{date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</b>
           </button>
+          </Fragment>
         );
       })}
     </div>
