@@ -362,7 +362,11 @@ class HotelStay(BaseModel):
 
 class TicketOption(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ticket"))
-    mode: Literal["flight", "train", "ticket", "ferry", "bus"]
+    #: ``drive`` and ``ground`` are the modes of an estimated hop between cities; ``ticket`` and ``ferry`` only
+    #: occur in plans stored before the model dropped them.
+    mode: Literal["flight", "train", "ticket", "ferry", "bus", "drive", "ground"]
+    #: The leg (hop of the trip) this option is for; empty until the plan fills it in.
+    leg_id: str = ""
     name: str
     origin: str = ""
     destination: str = ""
@@ -387,13 +391,32 @@ class TicketOption(BaseModel):
     data_status: DataStatus = DataStatus.OK
     fetched_at: datetime = Field(default_factory=utcnow)
     confirmed: bool = False
-    #: The option the traveller goes with; exactly one per plan (the first when none was chosen).
+    #: The option the traveller goes with; exactly one per leg (the first when none was chosen).
     selected: bool = False
+    #: True for a duration worked out from distance or a routes source rather than a quoted fare and timetable.
+    estimated: bool = False
 
 
-def selected_ticket(tickets: list[TicketOption]) -> TicketOption | None:
-    """The chosen option: the one marked selected, else the first (plans stored before the mark existed)."""
-    return next((ticket for ticket in tickets if ticket.selected), tickets[0] if tickets else None)
+def selected_ticket(tickets: list[TicketOption], leg_id: str | None = None) -> TicketOption | None:
+    """The chosen option of a leg: the one marked selected, else the first (plans stored before the mark existed).
+
+    ``leg_id`` None means the first ticket's leg, which for a one-leg trip is every ticket.
+    """
+    if leg_id is None:
+        leg_id = tickets[0].leg_id if tickets else ""
+    options = [ticket for ticket in tickets if ticket.leg_id == leg_id]
+    return next((ticket for ticket in options if ticket.selected), options[0] if options else None)
+
+
+class TransportLeg(BaseModel):
+    """One hop of the trip: origin to the first city, between two cities, or the way home."""
+
+    id: str = Field(default_factory=lambda: new_id("leg"))
+    from_place: str = ""
+    to_place: str = ""
+    #: Named so because a field called ``date`` with a default hides the ``date`` type inside the class.
+    depart_date: date | None = None
+    kind: Literal["outbound", "between", "return"] = "outbound"
 
 
 class CostLine(BaseModel):
@@ -536,6 +559,8 @@ class TripPlan(BaseModel):
     #: Source-backed stays to choose from (up to 5); ``hotels[0]`` is the chosen one and is among them.
     hotel_options: list[HotelStay] = Field(default_factory=list)
     tickets: list[TicketOption] = Field(default_factory=list)
+    #: The hops of the trip in order; ``tickets`` hold the options of each by ``leg_id``, one chosen per leg.
+    legs: list[TransportLeg] = Field(default_factory=list)
     cost: CostBreakdown = Field(default_factory=CostBreakdown)
     constraints: list[ConstraintCheck] = Field(default_factory=list)
     disruptions: list[Disruption] = Field(default_factory=list)
@@ -559,13 +584,31 @@ class TripPlan(BaseModel):
         ids += [ticket.id for ticket in self.tickets]
         if len(ids) != len(set(ids)):
             raise ValueError("plan item ids must be unique")
+        if len({leg.id for leg in self.legs}) != len(self.legs):
+            raise ValueError("leg ids must be unique")
         if self.cost.total < 0:
             raise ValueError("cost total cannot be negative")
         if self.tickets:
-            # Exactly one option is the chosen one: the first marked, else the first.
-            chosen = selected_ticket(self.tickets)
+            if not self.legs:
+                self.legs = [
+                    TransportLeg(
+                        id="leg_out",
+                        from_place=self.origin,
+                        to_place=self.destination.name,
+                        depart_date=self.dates.start,
+                        kind="outbound",
+                    )
+                ]
+            known_legs = {leg.id for leg in self.legs}
             for ticket in self.tickets:
-                ticket.selected = ticket is chosen
+                if ticket.leg_id not in known_legs:
+                    ticket.leg_id = self.legs[0].id
+            # Exactly one option per leg is the chosen one: the first marked, else the first.
+            for leg in self.legs:
+                chosen = selected_ticket(self.tickets, leg.id)
+                for ticket in self.tickets:
+                    if ticket.leg_id == leg.id:
+                        ticket.selected = ticket is chosen
         self._shape_segments()
         return self
 
@@ -624,6 +667,28 @@ class TripPlan(BaseModel):
     def stays_in(self, segment_id: str) -> list[HotelStay]:
         """The chosen stays of a segment, in date order."""
         return sorted((stay for stay in self.hotels if stay.segment_id == segment_id), key=lambda s: s.check_in)
+
+    def leg_id_of(self, ticket: TicketOption) -> str:
+        """The leg an option belongs to; an option no leg claims (added after validation) is on the first leg."""
+        if any(leg.id == ticket.leg_id for leg in self.legs):
+            return ticket.leg_id
+        return self.legs[0].id if self.legs else ticket.leg_id
+
+    def options_for(self, leg_id: str) -> list[TicketOption]:
+        """The transport options of one leg, in the order they are kept."""
+        return [ticket for ticket in self.tickets if self.leg_id_of(ticket) == leg_id]
+
+    def chosen_tickets(self) -> list[TicketOption]:
+        """The chosen option of each leg in leg order; a leg with no options is skipped."""
+        if not self.legs:
+            chosen = selected_ticket(self.tickets)
+            return [chosen] if chosen else []
+        chosen_ones = []
+        for leg in self.legs:
+            options = self.options_for(leg.id)
+            if options:
+                chosen_ones.append(next((t for t in options if t.selected), options[0]))
+        return chosen_ones
 
     @property
     def first_stay(self) -> HotelStay | None:

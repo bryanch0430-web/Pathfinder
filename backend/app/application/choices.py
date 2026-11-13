@@ -284,8 +284,9 @@ def _choose_flight(updated: TripPlan, option_id: str) -> str:
     option = next((ticket for ticket in updated.tickets if ticket.id == option_id), None)
     if option is None:
         raise ChoiceNotFound("flight option not found")
-    before = selected_ticket(updated.tickets)
-    for ticket in updated.tickets:
+    leg = updated.options_for(updated.leg_id_of(option))
+    before = next((ticket for ticket in leg if ticket.selected), leg[0] if leg else None)
+    for ticket in leg:
         ticket.selected = ticket.id == option.id
     updated.reservations = [row for row in updated.reservations if not row.name.startswith("Flight · ")] + _reservations(
         [], updated.tickets

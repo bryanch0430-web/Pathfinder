@@ -27,7 +27,6 @@ from app.domain.models import (
     TicketOption,
     TripContext,
     TripPlan,
-    selected_ticket,
 )
 from app.security import replayable, strip_fence_tags, strip_fence_tags_deep
 
@@ -279,12 +278,11 @@ def _detail(
     head.append(f"v{plan.version}")
     lines = [", ".join(part for part in head if part)]
     lines += [_stay_line(stay, ids) for stay in plan.hotels]
-    chosen = selected_ticket(plan.tickets)
-    if chosen:
+    for chosen in plan.chosen_tickets():
         lines.append(_transport_line(chosen, ids))
         others = [
             _other_transport(ticket, ids)
-            for ticket in plan.tickets
+            for ticket in plan.options_for(plan.leg_id_of(chosen))
             if ticket is not chosen
         ]
         if others:

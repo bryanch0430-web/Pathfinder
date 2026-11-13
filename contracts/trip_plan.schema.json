@@ -1452,9 +1452,16 @@
             "train",
             "ticket",
             "ferry",
-            "bus"
+            "bus",
+            "drive",
+            "ground"
           ],
           "title": "Mode",
+          "type": "string"
+        },
+        "leg_id": {
+          "default": "",
+          "title": "Leg Id",
           "type": "string"
         },
         "name": {
@@ -1622,6 +1629,11 @@
           "default": false,
           "title": "Selected",
           "type": "boolean"
+        },
+        "estimated": {
+          "default": false,
+          "title": "Estimated",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1697,6 +1709,50 @@
         "mode"
       ],
       "title": "TransferLeg",
+      "type": "object"
+    },
+    "TransportLeg": {
+      "description": "One hop of the trip: origin to the first city, between two cities, or the way home.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "from_place": {
+          "default": "",
+          "title": "From Place",
+          "type": "string"
+        },
+        "to_place": {
+          "default": "",
+          "title": "To Place",
+          "type": "string"
+        },
+        "depart_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depart Date"
+        },
+        "kind": {
+          "default": "outbound",
+          "enum": [
+            "outbound",
+            "between",
+            "return"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "TransportLeg",
       "type": "object"
     },
     "TripSegment": {
@@ -1893,6 +1949,13 @@
         "$ref": "#/$defs/TicketOption"
       },
       "title": "Tickets",
+      "type": "array"
+    },
+    "legs": {
+      "items": {
+        "$ref": "#/$defs/TransportLeg"
+      },
+      "title": "Legs",
       "type": "array"
     },
     "cost": {

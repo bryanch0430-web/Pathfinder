@@ -188,7 +188,7 @@ def make_plan(
 
 def make_two_city_plan() -> TripPlan:
     """Kyoto 3-5 December then Osaka 5-7 December 2026: five days, a stay in each city."""
-    from app.domain.models import TripSegment
+    from app.domain.models import TransportLeg, TripSegment
 
     kyoto = DateRange(start=START, end=START + timedelta(days=2))
     osaka = DateRange(start=START + timedelta(days=2), end=START + timedelta(days=4))
@@ -214,4 +214,28 @@ def make_two_city_plan() -> TripPlan:
             TripSegment(id="seg_a", destination=Destination(name="Kyoto"), dates=kyoto),
             TripSegment(id="seg_b", destination=Destination(name="Osaka"), dates=osaka),
         ],
+        legs=[
+            TransportLeg(id="leg_out", from_place="Hong Kong", to_place="Kyoto", depart_date=kyoto.start, kind="outbound"),
+            TransportLeg(id="leg_ab", from_place="Kyoto", to_place="Osaka", depart_date=osaka.start, kind="between"),
+            TransportLeg(id="leg_home", from_place="Osaka", to_place="Hong Kong", depart_date=osaka.end, kind="return"),
+        ],
+        tickets=[
+            _one_way("t_out_1", "flight", "leg_out", "Cathay HKG-KIX", 9, selected=True),
+            _one_way("t_out_2", "flight", "leg_out", "HK Express HKG-KIX", 11),
+            _one_way("t_ab_train", "train", "leg_ab", "Kyoto to Osaka by train", 9, estimated=True, selected=True),
+            _one_way("t_ab_bus", "bus", "leg_ab", "Kyoto to Osaka by bus", 10, estimated=True),
+            _one_way("t_home_1", "flight", "leg_home", "Cathay KIX-HKG", 16),
+        ],
+    )
+
+
+def _one_way(ticket_id: str, mode: str, leg_id: str, name: str, hour: int, **more) -> TicketOption:
+    return TicketOption(
+        id=ticket_id,
+        mode=mode,
+        leg_id=leg_id,
+        name=name,
+        depart_at=datetime(2026, 12, 3, hour, 0),
+        arrive_at=datetime(2026, 12, 3, hour + 2, 0),
+        **more,
     )
