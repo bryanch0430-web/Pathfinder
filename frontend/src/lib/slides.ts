@@ -1,6 +1,7 @@
 import type PptxGenJS from "pptxgenjs";
 import type { DayPlan, Money, PlanItem, TripPlan } from "../design-system/types";
 import { planFileName } from "./export";
+import { legsOf, optionsFor, routeLabel, segmentOfDay, segmentsOf } from "./segments";
 import { safeHref } from "./safeHref";
 
 // Colours follow tokens.css (brand red on warm paper).
@@ -133,7 +134,7 @@ function addCover(deck: PptxGenJS, plan: TripPlan): void {
   slide.background = { color: PAPER };
   slide.addShape(deck.ShapeType.rect, { x: 0, y: 0, w: 0.35, h: 7.5, fill: { color: BRAND }, line: { color: BRAND } });
   slide.addText("PATHFINDER TRAVEL PLAN", { x: 1, y: 1.6, w: 11, h: 0.4, fontFace: FONT, fontSize: 14, bold: true, color: BRAND, charSpacing: 3 });
-  slide.addText(plan.destination.name, { x: 1, y: 2.1, w: 11.3, h: 1.3, fontFace: FONT, fontSize: 54, bold: true, color: INK, fit: "shrink" });
+  slide.addText(routeLabel(plan), { x: 1, y: 2.1, w: 11.3, h: 1.3, fontFace: FONT, fontSize: 54, bold: true, color: INK, fit: "shrink" });
   const days = plan.days.length;
   slide.addText(`${dateLabel(plan.dates.start)} – ${dateLabel(plan.dates.end)} · ${days} ${days === 1 ? "day" : "days"}`, {
     x: 1, y: 3.5, w: 11, h: 0.5, fontFace: FONT, fontSize: 20, color: INK,
@@ -150,7 +151,7 @@ function addCover(deck: PptxGenJS, plan: TripPlan): void {
 }
 
 function addGlance(deck: PptxGenJS, plan: TripPlan): void {
-  const slide = contentSlide(deck, "Trip at a glance", plan.destination.name);
+  const slide = contentSlide(deck, "Trip at a glance", routeLabel(plan));
   const cost = plan.cost;
   const tiles: [string, string][] = [
     [String(plan.days.length), plan.days.length === 1 ? "day" : "days"],
@@ -200,13 +201,23 @@ function addAgenda(deck: PptxGenJS, plan: TripPlan): void {
 function addTickets(deck: PptxGenJS, plan: TripPlan): void {
   if (!plan.tickets.length) return;
   const rows: Cell[][] = [];
-  for (const ticket of plan.tickets) {
+  const multi = segmentsOf(plan).length > 1;
+  // A trip of several cities lists the options of each leg in turn, the chosen one first.
+  const listed = multi
+    ? legsOf(plan).flatMap((leg) =>
+        [...optionsFor(plan, leg.id)]
+          .sort((a, b) => Number(Boolean(b.selected)) - Number(Boolean(a.selected)))
+          .map((ticket) => ({ ticket, route: `${leg.from_place} → ${leg.to_place}` })),
+      )
+    : plan.tickets.map((ticket) => ({ ticket, route: `${ticket.origin || "—"} → ${ticket.destination || "—"}` }));
+  for (const { ticket, route } of listed) {
     const link = webLink(ticket.booking_url);
+    const when = (iso: string | null | undefined) => (ticket.estimated && iso ? `about ${dateTimeLabel(iso).slice(11)}` : dateTimeLabel(iso));
     rows.push([
-      cell(`${ticket.name}\n${ticket.mode}${ticket.operator ? ` · ${ticket.operator}` : ""}`, { bold: true, ...(link ? { hyperlink: { url: link } } : {}) }),
-      cell(`${ticket.origin || "—"} → ${ticket.destination || "—"}`),
-      cell(dateTimeLabel(ticket.depart_at)),
-      cell(dateTimeLabel(ticket.arrive_at)),
+      cell(`${ticket.name}\n${ticket.mode}${ticket.estimated ? " · estimate" : ""}${ticket.operator ? ` · ${ticket.operator}` : ""}${multi && ticket.selected ? " · chosen" : ""}`, { bold: true, ...(link ? { hyperlink: { url: link } } : {}) }),
+      cell(route),
+      cell(when(ticket.depart_at)),
+      cell(when(ticket.arrive_at)),
       cell(duration(ticket.duration_minutes)),
       cell(priceLabel(ticket.price, ticket.price_kind) || "—"),
       cell(ticket.confirmed ? "Confirmed" : "Not booked", { color: ticket.confirmed ? OK : BRAND }),
@@ -234,13 +245,14 @@ function addTickets(deck: PptxGenJS, plan: TripPlan): void {
 
 function addHotels(deck: PptxGenJS, plan: TripPlan): void {
   if (!plan.hotels.length) return;
+  const multi = segmentsOf(plan).length > 1;
   const rows = plan.hotels.map((hotel) => {
     const link = webLink(hotel.booking_url);
     const stay = nights(hotel.check_in, hotel.check_out);
     const rating = hotel.rating !== null ? `${hotel.rating.toFixed(1)}★${hotel.review_count ? ` (${hotel.review_count.toLocaleString("en-US")})` : ""}` : "—";
     return [
       cell(hotel.name, { bold: true, ...(link ? { hyperlink: { url: link } } : {}) }),
-      cell(hotel.area || "—"),
+      cell(multi ? [segmentOfDay(plan, hotel.check_in).destination.name, hotel.area].filter(Boolean).join(" · ") : hotel.area || "—"),
       cell(`${dateLabel(hotel.check_in)} → ${dateLabel(hotel.check_out)}\n${stay} ${stay === 1 ? "night" : "nights"}`),
       cell(priceLabel(hotel.price_per_night, hotel.price_kind) || "—"),
       cell(rating),
@@ -275,9 +287,9 @@ function speakerNotes(day: DayPlan, items: PlanItem[]): string {
   return [day.note ? `Day note: ${day.note}` : "", ...lines].filter(Boolean).join("\n\n");
 }
 
-function addDay(deck: PptxGenJS, day: DayPlan, dayIndex: number): void {
+function addDay(deck: PptxGenJS, day: DayPlan, dayIndex: number, city = ""): void {
   const pages = chunk(day.items, ROWS_PER_DAY_SLIDE);
-  const subtitle = [dateLabel(day.date), weatherLabel(day)].filter(Boolean).join(" · ");
+  const subtitle = [city, dateLabel(day.date), weatherLabel(day)].filter(Boolean).join(" · ");
   pages.forEach((items, pageIndex) => {
     const title = `Day ${dayIndex + 1}${day.title ? ` · ${day.title}` : ""}${pageIndex ? " (continued)" : ""}`;
     const slide = contentSlide(deck, title, subtitle);
@@ -414,7 +426,7 @@ export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS, disclaimer
   const deck = new Pptx();
   deck.layout = "LAYOUT_WIDE";
   deck.author = "Pathfinder";
-  deck.title = `${plan.destination.name} travel plan`;
+  deck.title = `${routeLabel(plan)} travel plan`;
   deck.subject = `${plan.dates.start} to ${plan.dates.end}`;
   deck.theme = { headFontFace: FONT, bodyFontFace: FONT };
   deck.defineSlideMaster({
@@ -423,7 +435,7 @@ export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS, disclaimer
     objects: [
       { rect: { x: 0, y: 0, w: W, h: 0.12, fill: { color: BRAND }, line: { color: BRAND } } },
       { line: { x: X, y: 6.95, w: CONTENT_W, h: 0, line: { color: RULE, width: 0.75 } } },
-      { text: { text: `Pathfinder · ${plan.destination.name} · ${plan.dates.start} to ${plan.dates.end}`, options: { x: X, y: 7.0, w: 9, h: 0.3, fontFace: FONT, fontSize: 10, color: MUTED } } },
+      { text: { text: `Pathfinder · ${routeLabel(plan)} · ${plan.dates.start} to ${plan.dates.end}`, options: { x: X, y: 7.0, w: 9, h: 0.3, fontFace: FONT, fontSize: 10, color: MUTED } } },
       // A translated deck says so on every content slide.
       ...(disclaimer
         ? [{ text: { text: disclaimer, options: { x: X, y: 6.72, w: CONTENT_W, h: 0.22, fontFace: FONT, fontSize: 8, color: MUTED, fit: "shrink" as const } } }]
@@ -436,7 +448,8 @@ export function buildPlanDeck(plan: TripPlan, Pptx: typeof PptxGenJS, disclaimer
   addAgenda(deck, plan);
   addTickets(deck, plan);
   addHotels(deck, plan);
-  plan.days.forEach((day, index) => addDay(deck, day, index));
+  const multi = segmentsOf(plan).length > 1;
+  plan.days.forEach((day, index) => addDay(deck, day, index, multi ? segmentOfDay(plan, day.date).destination.name : ""));
   addBudget(deck, plan);
   addChecklist(deck, plan);
   addSources(deck, plan);

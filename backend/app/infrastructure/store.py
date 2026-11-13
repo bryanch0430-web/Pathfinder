@@ -746,7 +746,10 @@ class SQLiteStore:
                     "change_summary": row["change_summary"],
                     "created_at": row["created_at"],
                     "item_count": plan.item_count,
-                    "destination": plan.destination.name,
+                    # The route for a trip of several cities ("Tokyo → Kyoto"), the one name otherwise.
+                    "destination": " → ".join(segment.destination.name for segment in plan.segments)
+                    if len(plan.segments) > 1
+                    else plan.destination.name,
                     "days": len(plan.days),
                 }
             )

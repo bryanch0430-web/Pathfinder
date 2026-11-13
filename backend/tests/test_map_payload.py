@@ -50,3 +50,17 @@ def test_a_trip_of_two_cities_lists_both_and_each_stay() -> None:
         ("hotel_b", "seg_b", 34.7, "2026-12-05"),
     ]
     assert payload["hotel"] is None or payload["hotel"]["name"] == plan.hotels[0].name
+
+
+def test_the_version_list_names_the_route_of_a_trip_of_several_cities(tmp_path) -> None:
+    from app.infrastructure.store import SQLiteStore
+
+    store = SQLiteStore(tmp_path / "t.db")
+    session, other = store.create_session("guest-versions"), store.create_session("guest-versions-2")
+    two, one = make_two_city_plan(), make_plan()
+    two.session_id, one.session_id = session.id, other.id
+    store.save_plan(two, "Two cities")
+    store.save_plan(one, "One city")
+
+    assert [row["destination"] for row in store.list_versions(session.id)] == ["Kyoto → Osaka"]
+    assert [row["destination"] for row in store.list_versions(other.id)] == ["Kyoto"]
