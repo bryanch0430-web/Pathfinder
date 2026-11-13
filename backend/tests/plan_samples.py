@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from datetime import date, datetime, timedelta
 
 from app.domain.models import (
@@ -238,4 +239,55 @@ def _one_way(ticket_id: str, mode: str, leg_id: str, name: str, hour: int, **mor
         depart_at=datetime(2026, 12, 3, hour, 0),
         arrive_at=datetime(2026, 12, 3, hour + 2, 0),
         **more,
+    )
+
+
+def make_route_plan(cities: list[str], nights: int = 2) -> TripPlan:
+    """A plan that visits ``cities`` in order, ``nights`` nights each from 3 December 2026: one stop a day, a stay in each
+    city (``hotel_1``, ``hotel_2``...) and a train between consecutive cities. A city named twice is two segments."""
+    from app.domain.models import TransportLeg, TripSegment
+
+    segments = [
+        TripSegment(
+            id=f"seg_{n}",
+            destination=Destination(name=city),
+            dates=DateRange(
+                start=START + timedelta(days=(n - 1) * nights), end=START + timedelta(days=n * nights)
+            ),
+        )
+        for n, city in enumerate(cities, 1)
+    ]
+    total = len(cities) * nights
+    days = [
+        DayPlan(
+            date=START + timedelta(days=d),
+            title=f"Day {d + 1}",
+            items=[stop(f"item_d{d + 1}", f"Sight {d + 1}", "09:00", "10:00")],
+        )
+        for d in range(total + 1)
+    ]
+    stays = [
+        hotel(3, f"hotel_{n}").model_copy(
+            update={"name": f"{segment.destination.name} Inn {n}", "check_in": segment.dates.start, "check_out": segment.dates.end}
+        )
+        for n, segment in enumerate(segments, 1)
+    ]
+    legs = [
+        TransportLeg(id=f"leg_{n}", from_place=a.destination.name, to_place=b.destination.name, depart_date=b.dates.start, kind="between")
+        for n, (a, b) in enumerate(itertools.pairwise(segments), 1)
+    ]
+    tickets = [
+        TicketOption(id=f"train_{leg.id}", mode="train", leg_id=leg.id, name=f"{leg.from_place} to {leg.to_place}", estimated=True, selected=True)
+        for leg in legs
+    ]
+    return TripPlan(
+        session_id="s3",
+        destination=segments[0].destination,
+        dates=DateRange(start=START, end=START + timedelta(days=total)),
+        party_size=2,
+        days=days,
+        hotels=stays,
+        segments=segments,
+        legs=legs,
+        tickets=tickets,
     )
