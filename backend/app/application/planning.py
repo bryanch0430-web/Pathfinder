@@ -100,6 +100,39 @@ class PlanPath:
         if len(date_range.dates) > self.settings.max_days:
             raise PlanInvalidError(f"Trips longer than {self.settings.max_days} days are out of scope.")
 
+        return await self._plan_one(
+            context=context,
+            session_id=session_id,
+            toolbox=toolbox,
+            tracer=tracer,
+            emit=emit,
+            date_range=date_range,
+            memory_summaries=memory_summaries,
+            version=version,
+            trip_id=trip_id,
+            change_summary=change_summary,
+            keep_hotel=keep_hotel,
+            pick_hotel=pick_hotel,
+        )
+
+    async def _plan_one(
+        self,
+        *,
+        context: TripContext,
+        session_id: str,
+        toolbox: Toolbox,
+        tracer: Tracer,
+        emit: Callable[[str, dict[str, Any]], None],
+        date_range: Any,
+        memory_summaries: list[str] | None = None,
+        version: int = 1,
+        trip_id: str | None = None,
+        change_summary: str = "",
+        keep_hotel: HotelStay | None = None,
+        pick_hotel: Callable[[list[dict]], dict | None] | None = None,
+        names: set[AgentName] | None = None,
+    ) -> TripPlan:
+        """One city, from the geocode to a checked plan; ``names`` limits which agents run (all when None)."""
         with tracer.span("geocode") as span:
             try:
                 destination = await toolbox.call(
@@ -145,6 +178,7 @@ class PlanPath:
             date_range=date_range,
             toolbox=toolbox,
             emit=emit,
+            names=names,
         )
 
         audit: AuditReport | None = None
