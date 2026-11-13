@@ -14,10 +14,16 @@ from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 import httpx
 
 from app.application.asking import AskPath
-from app.application.limits import tool_cap_for
+from app.application.limits import segment_count, tool_cap_for
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
-from app.application.budget_check import PrePlanQuestion, budget_options, budget_question, floor_per_person_night
+from app.application.budget_check import (
+    PrePlanQuestion,
+    budget_options,
+    budget_question,
+    floor_per_person_night,
+    too_many_cities_question,
+)
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
 from app.application.freshness import LABELS as FRESHNESS_LABELS
@@ -274,6 +280,7 @@ class TurnService:
         request_id = new_id("req")
         tracer = start_trace(self.settings, request_id)
         developer_token = bind_developer_view(developer)
+        route_overflow = 0
         tracer.metadata["message"] = message
         tracer.metadata["session_id"] = session_id
         if self.tracer_proxy is not None:
@@ -408,6 +415,7 @@ class TurnService:
             with tracer.span("understand"):
                 try:
                     context = await understand(understood, context, self.gateway, history=history)
+                    route_overflow = context.route_overflow
                 except CanaryLeak:
                     raise
                 except Exception:
@@ -580,7 +588,11 @@ class TurnService:
             if decision.intent == Intent.PLAN:
                 # A budget that cannot pay for the trip, or a start date that has gone by, is asked about before any
                 # agent runs: planning it would end in a trip with no hotel.
-                asked = budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
+                asked = (
+                    too_many_cities_question()
+                    if route_overflow
+                    else budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
+                )
                 if asked is not None:
                     tracer.metadata["reason"] = asked.reason_code
                     for event in self._ask_before_planning(asked, context=context, session_id=session_id):
@@ -589,7 +601,7 @@ class TurnService:
                     return
 
             if on_segments is not None:
-                on_segments(max(len(context.route), len(plan.segments) if plan is not None else 0, 1))
+                on_segments(segment_count(plan=plan, context=context))
             # A closed turn closes the path it is running here, in this task, so the path stops.
             if decision.intent == Intent.PLAN:
                 path = self._plan(
@@ -901,7 +913,7 @@ class TurnService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=tool_cap_for(self.settings, len(context.route) or 1) or None,
+            max_calls=tool_cap_for(self.settings, segment_count(context=context)) or None,
         )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Planning the trip.", "progress": 5})
         live = bind_live_emit(emit)
@@ -969,7 +981,7 @@ class TurnService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=tool_cap_for(self.settings, max(len(plan.segments), len(context.route), 1)) or None,
+            max_calls=tool_cap_for(self.settings, segment_count(plan=plan, context=context)) or None,
         )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Applying the smallest change.", "progress": 5})
         live = bind_live_emit(emit)
@@ -1068,7 +1080,7 @@ class TurnService:
             tracer=tracer,
             store=self.store,
             request_id=request_id,
-            max_calls=tool_cap_for(self.settings, len(plan.segments) if plan is not None else 1) or None,
+            max_calls=tool_cap_for(self.settings, segment_count(plan=plan)) or None,
         )
         answer, related, source = await self.ask_path.answer(
             question=message,

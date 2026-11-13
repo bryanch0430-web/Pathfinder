@@ -29,7 +29,7 @@ from app.application.llm_gateway import LLMGateway
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import CanaryLeak, ProviderError
-from app.domain.models import TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TripContext
+from app.domain.models import TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX, TripContext, TripStop
 from app.domain.ports import ImageInput
 from app.security import strip_fence_tags, strip_fence_tags_deep
 from app.security.untrusted import neutralise
@@ -96,6 +96,7 @@ class _IntakeDraft(BaseModel):
     currency: Any = None
     places: Any = None
     wishes: Any = None
+    stops: Any = None
 
 
 def find_urls(message: str, limit: int) -> list[str]:
@@ -240,6 +241,22 @@ def _apply(
     destination = _line(draft.destination, 80)
     if named(destination) and not context.destination.strip():
         context.destination = destination
+        result.filled.append("destination")
+    stops = [
+        (_line(row.get("city"), 80), row.get("nights"))
+        for row in (draft.stops if isinstance(draft.stops, list) else [])
+        if isinstance(row, dict)
+    ]
+    stops = [(city, nights) for city, nights in stops if named(city)]
+    if 2 <= len(stops) <= TRIP_STOPS_MAX and not context.stops and _key(context.destination) in ('', _key(stops[0][0])):
+        context.stops = [
+            TripStop(
+                city=city,
+                nights=nights if isinstance(nights, int) and not isinstance(nights, bool) and 1 <= nights <= 60 else None,
+            )
+            for city, nights in stops
+        ]
+        context.destination = stops[0][0]
         result.filled.append("destination")
     origin = _line(draft.origin, 80)
     if named(origin) and not context.origin.strip():

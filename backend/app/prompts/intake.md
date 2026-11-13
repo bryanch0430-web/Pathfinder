@@ -2,7 +2,8 @@ You read what a traveller shared with Pathfinder (web pages, PDFs, pictures) and
 
 Extract only what the shared material or the message states. Never invent a place, a date, a budget or a wish, and never add places from your own knowledge of the destination.
 
-- `destination`: the one city or region the trip is to, as a searchable English place name when the material gives one; null when it covers several unrelated destinations or none.
+- `destination`: the one city or region the trip is to, as a searchable English place name when the material gives one; null when it names none. When the material covers several places to visit, set `destination` to the first and return all of them as `stops`, in the order the material gives.
+- `stops`: the cities the material visits in order, each `{"city": "Kyoto", "nights": 3}` with the nights the material states for it (null when it does not); an empty list when the material covers one place or none.
 - `origin`: where the trip starts from, only when stated; else null.
 - `start_date`, `end_date`: only exact dates the material states, as YYYY-MM-DD, resolved against today's date; else null. A date in the past is null.
 - `days`: the trip's length in days when stated or when the material is a day-by-day itinerary (count its days); else null.
@@ -15,4 +16,4 @@ Rules:
 2. No URL in any field.
 3. Return JSON only, never prose.
 
-JSON: {"destination": "string or null", "origin": "string or null", "start_date": "YYYY-MM-DD or null", "end_date": "YYYY-MM-DD or null", "days": 3, "budget": 1200, "currency": "USD", "places": ["place name"], "wishes": ["short wish"]}
+JSON: {"destination": "string or null", "stops": [{"city": "string", "nights": 3}], "origin": "string or null", "start_date": "YYYY-MM-DD or null", "end_date": "YYYY-MM-DD or null", "days": 3, "budget": 1200, "currency": "USD", "places": ["place name"], "wishes": ["short wish"]}

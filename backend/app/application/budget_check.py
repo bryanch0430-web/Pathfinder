@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.config import Settings
-from app.domain.models import TripContext
+from app.domain.models import TRIP_STOPS_MAX, TripContext
 
 #: The currency ``min_budget_per_person_night`` is written in: the base of the exchange table.
 FLOOR_CURRENCY = "USD"
@@ -31,6 +31,7 @@ DEFAULT_NIGHTS = 2
 FIXED_OPTIONS = (1000, 2500, 5000)
 BUDGET_REASON = "budget_below_floor"
 PAST_DATES_REASON = "start_date_past"
+TOO_MANY_CITIES_REASON = "too_many_cities"
 #: The last sentence of the budget question and the opening of the dates question: a reply to the turn that carries
 #: one of them answers that question (see ``asked_about``).
 BUDGET_QUESTION_TAIL = "Raise the budget, shorten the trip, or plan anyway with an over-budget hotel?"
@@ -45,6 +46,15 @@ class PrePlanQuestion:
     slots: list[str]
     options: dict[str, list[str]] = field(default_factory=dict)
     reason_code: str = ""
+
+
+def too_many_cities_question(limit: int = TRIP_STOPS_MAX) -> PrePlanQuestion:
+    """Asked instead of storing a route of more cities than a trip can hold: nothing is cut in silence."""
+    return PrePlanQuestion(
+        question=f"I can plan up to {limit} cities in one trip. Which ones should I keep?",
+        slots=["destination"],
+        reason_code=TOO_MANY_CITIES_REASON,
+    )
 
 
 def floor_per_person_night(settings: Settings, fx: Any, currency: str) -> float:

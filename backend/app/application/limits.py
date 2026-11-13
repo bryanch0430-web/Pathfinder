@@ -25,3 +25,8 @@ def tool_cap_for(settings: Settings, segments: int) -> int:
     if base == 0:
         return 0
     return base + settings.segment_tool_calls * max(0, segments - 1)
+
+
+def segment_count(*, plan: object | None = None, context: object | None = None) -> int:
+    """How many cities a turn works on: the larger of the plan's segments and the form's route, at least one."""
+    return max(len(getattr(plan, "segments", None) or ()), len(getattr(context, "route", None) or ()), 1)

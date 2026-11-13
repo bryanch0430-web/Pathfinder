@@ -18,7 +18,14 @@ from app.application.budget_check import asked_about
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import conversation_block, trip_state, with_conversation
 from app.domain.errors import CanaryLeak
-from app.domain.models import Message, TripContext, fit_preference
+from app.domain.models import (
+    TRIP_FIELD_MAX_LENGTH,
+    TRIP_STOPS_MAX,
+    Message,
+    TripContext,
+    TripStop,
+    fit_preference,
+)
 from app.infrastructure.providers.flights import AIRPORTS
 from app.security import fence_user_message
 
@@ -126,6 +133,7 @@ async def understand(
 ) -> TripContext:
     today = today or date.today()
     updated = context.model_copy(deep=True)
+    updated.set_route_overflow(0)
     before = updated.model_dump()
     labeled = _labeled_clarify(message)
     if labeled:
@@ -301,6 +309,15 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     if origin:
         context.origin = origin
     destination = _find_place(lower, _PLACE_CUES, origin) if origin else named
+    stops = _find_stops(text)
+    if len(stops) >= 2:
+        if len(stops) > TRIP_STOPS_MAX:
+            context.set_route_overflow(len(stops))
+        else:
+            context.stops = [TripStop(city=city, nights=nights) for city, nights in stops]
+            destination = stops[0][0]
+            # Every stop states its nights: the trip is their sum, and the last day is the one it is left.
+            context.days = sum(nights for _, nights in stops) + 1
     if destination:
         context.destination = destination
     destination_changed = bool(destination and destination.strip().lower() != previous_destination.strip().lower())
@@ -368,6 +385,42 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         context.language = "zh-Hant" if re.search(r"[台灣台裏裡]", text) else "zh-Hans"
     else:
         context.language = context.language or "en"
+
+
+_STOP_WORD = r"[A-Za-z][A-Za-z'’.\-]*"
+_ONE_STOP = rf"({_STOP_WORD}(?:\s+{_STOP_WORD}){{0,3}}?)\s+(?:for\s+)?(\d{{1,2}})\s*nights?"
+_STOP_SEP = r"\s*(?:,\s*(?:then\s+|and\s+)?|\bthen\s+|\band\s+|(?:→|->|>)\s*)"
+_STOP_CHAIN = re.compile(rf"{_ONE_STOP}(?:{_STOP_SEP}{_ONE_STOP})+", re.I)
+_STOP_FILLER = re.compile(
+    r"\b(?:to|in|from|visit|visiting|then|and|for|a|an|the|plan|trip|stay|spend|go|we|i|want|would|like|also|next|first)\b",
+    re.I,
+)
+
+
+def _stop_city(raw: str) -> str:
+    """The city a stop's words name: what follows the last filler word ("Hong Kong to Tokyo" is Tokyo)."""
+    parts = [part.strip(" .,'-") for part in _STOP_FILLER.split(raw)]
+    parts = [part for part in parts if part]
+    if not parts or len(parts[-1].split()) > 3:
+        return ""
+    city = parts[-1]
+    return next((hint for hint in CITY_HINTS if hint.lower() == city.lower()), " ".join(w.capitalize() for w in city.split()))
+
+
+def _find_stops(text: str) -> list[tuple[str, int]]:
+    """``<City> N nights`` repeated, joined by commas, "then", "and" or arrows: the cities in order with their
+    nights. A message that is not that shape gives none."""
+    chain = _STOP_CHAIN.search(text[:2000])
+    if chain is None:
+        return []
+    stops: list[tuple[str, int]] = []
+    for found in re.finditer(_ONE_STOP, chain.group(0), re.I):
+        city = _stop_city(found.group(1))
+        nights = int(found.group(2))
+        if not city or not 1 <= nights <= 60:
+            return []
+        stops.append((city, nights))
+    return stops
 
 
 #: The words after which a place in a sentence is read as the destination.
@@ -1287,7 +1340,9 @@ def _allowed_patch(before: dict) -> set[str]:
     ):
         if not before.get(key):
             allowed.add(key)
-    allowed.update({"preferences", "hard_constraints"})
+    allowed.update({"preferences", "hard_constraints", "one_way"})
+    if not before.get("stops"):
+        allowed.add("stops")
     return allowed
 
 
@@ -1304,6 +1359,8 @@ def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | Non
         "end_date",
         "preferences",
         "hard_constraints",
+        "stops",
+        "one_way",
     }
 
     def text_value(key: str) -> str | None:
@@ -1323,6 +1380,10 @@ def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | Non
         value = text_value(key)
         if value:
             setattr(context, key, value)
+    if "stops" in allowed and not context.stops:
+        _apply_stops(context, data.get("stops"))
+    if "one_way" in allowed and data.get("one_way") is True:
+        context.one_way = True
     if "party_size" in allowed:
         party = int_value("party_size")
         if party and 1 <= party <= 20:
@@ -1354,6 +1415,30 @@ def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | Non
                 text = fit(item) if isinstance(item, str) else ""
                 if text and text not in existing:
                     existing.append(text)
+
+
+def _apply_stops(context: TripContext, value: object) -> None:
+    """Store the model's route when it names two or more cities; more than a trip holds is counted, not stored."""
+    if not isinstance(value, list):
+        return
+    rows: list[TripStop] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        city = item.get("city")
+        city = city.strip()[:TRIP_FIELD_MAX_LENGTH] if isinstance(city, str) else ""
+        if not city:
+            continue
+        nights = item.get("nights")
+        nights = nights if isinstance(nights, int) and not isinstance(nights, bool) and 1 <= nights <= 60 else None
+        rows.append(TripStop(city=city, nights=nights))
+    if len(rows) < 2:
+        return
+    if len(rows) > TRIP_STOPS_MAX:
+        context.set_route_overflow(len(rows))
+        return
+    context.stops = rows
+    context.destination = rows[0].city
 
 
 def _normalise_dates(context: TripContext) -> None:

@@ -11,7 +11,7 @@ from datetime import date, datetime, timezone
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StringConstraints, model_serializer, model_validator
 
 TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
@@ -790,6 +790,8 @@ class TripContext(BaseModel):
     #: The cities in travel order. Empty for a one-city trip (``destination`` is that city); with several,
     #: ``destination`` is the first. Code that needs the route reads ``route``.
     stops: list[TripStop] = Field(default_factory=list, max_length=TRIP_STOPS_MAX)
+    #: The trip does not return to where it starts ("one way", "ending in X"): no leg home.
+    one_way: bool = False
     origin: str = ""
     start_date: date | None = None
     end_date: date | None = None
@@ -821,7 +823,7 @@ class TripContext(BaseModel):
         the stored form, the API's and the prompts' trip JSON are unchanged for every trip that was not asked about."""
         data = handler(self)
         if isinstance(data, dict):
-            for key in (*_CHECK_MARKS, "stops"):
+            for key in (*_CHECK_MARKS, "stops", "one_way"):
                 if key in data and not data[key]:
                     del data[key]
         return data
@@ -840,6 +842,17 @@ class TripContext(BaseModel):
         self.preferences = [line[:TRIP_LINE_MAX_LENGTH] for line in self.preferences[-TRIP_LINES_MAX:]]
         self.hard_constraints = [line[:TRIP_LINE_MAX_LENGTH] for line in self.hard_constraints[-TRIP_LINES_MAX:]]
         return self
+
+    #: How many cities the last message named when that was more than a trip can hold; 0 otherwise. Not stored:
+    #: it only tells the turn that read the message to ask which cities to keep.
+    _route_overflow: int = PrivateAttr(default=0)
+
+    @property
+    def route_overflow(self) -> int:
+        return self._route_overflow
+
+    def set_route_overflow(self, count: int) -> None:
+        self._route_overflow = count
 
     @property
     def route(self) -> list[TripStop]:
