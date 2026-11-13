@@ -68,3 +68,26 @@ def test_a_ninth_stop_is_refused() -> None:
 def test_a_stop_needs_a_city_and_sensible_nights(bad: dict) -> None:
     with pytest.raises(ValidationError):
         TripStop(**bad)
+
+
+def test_the_trip_form_state_takes_stops_and_refuses_a_ninth(settings) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.interface.api import create_app
+
+    headers = {"X-Client-Token": "test"}
+    with TestClient(create_app(settings)) as client:
+        session_id = client.post("/api/journeys", json={"client_token": "test"}).json()["session"]["id"]
+        url = f"/api/journeys/{session_id}/state"
+        stops = [{"city": "Tokyo", "nights": 4}, {"city": "Kyoto", "nights": None}]
+
+        saved = client.patch(url, json={"destination": "Tokyo", "stops": stops, "one_way": True}, headers=headers)
+        assert saved.status_code == 200
+        assert saved.json()["context"]["stops"] == stops and saved.json()["context"]["one_way"] is True
+
+        cleared = client.patch(url, json={"stops": [], "one_way": False}, headers=headers)
+        assert cleared.status_code == 200 and "stops" not in cleared.json()["context"]
+
+        too_many = [{"city": f"City {n}", "nights": 1} for n in range(9)]
+        assert client.patch(url, json={"stops": too_many}, headers=headers).status_code == 422
+        assert client.patch(url, json={"stops": [{"city": "", "nights": 1}]}, headers=headers).status_code == 422

@@ -2728,6 +2728,32 @@
               }
             ],
             "title": "Plan Locale"
+          },
+          "stops": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TripStop"
+                },
+                "type": "array",
+                "maxItems": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stops"
+          },
+          "one_way": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "One Way"
           }
         },
         "type": "object",
@@ -2892,6 +2918,35 @@
         },
         "type": "object",
         "title": "ProfilePatch"
+      },
+      "TripStop": {
+        "properties": {
+          "city": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "City"
+          },
+          "nights": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 60.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nights"
+          }
+        },
+        "type": "object",
+        "required": [
+          "city"
+        ],
+        "title": "TripStop",
+        "description": "One city of the trip form, in travel order, with the nights the traveller gave it (None when not stated)."
       },
       "ValidationError": {
         "properties": {

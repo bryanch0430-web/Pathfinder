@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Badge, Button, Heading, IconButton, Input, Select, Text } from "./atoms";
+import { Badge, Button, Checkbox, Heading, IconButton, Input, Select, Text } from "./atoms";
 import {
   AgentChip,
   Delta,
@@ -11,7 +11,7 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
-import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX } from "../lib/limits";
+import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
 import { addTags, isImeKey, limitList, splitList } from "../lib/typing";
 import type {
   AgentState,
@@ -195,6 +195,28 @@ function LimitNote({ full }: { full: boolean }) {
   );
 }
 
+/** One line of the city list: the text typed and the nights typed, as the inputs hold them. */
+type CityRow = { city: string; nights: string };
+
+function rowsFrom(values: Partial<TripContext>): CityRow[] {
+  if (values.stops && values.stops.length > 1) {
+    return values.stops.map((stop) => ({ city: stop.city, nights: stop.nights == null ? "" : String(stop.nights) }));
+  }
+  return [{ city: values.destination ?? "", nights: "" }];
+}
+
+/** What the rows write into the form: the first city as the destination, and the stops when there are several. */
+function writeRows(rows: CityRow[]): Pick<TripContext, "destination" | "stops"> {
+  const filled = rows.filter((row) => row.city.trim());
+  return {
+    destination: filled[0]?.city ?? rows[0]?.city ?? "",
+    stops:
+      filled.length > 1
+        ? filled.map((row) => ({ city: row.city.trim(), nights: row.nights ? Number(row.nights) : null }))
+        : [],
+  };
+}
+
 export function TripContextForm({
   values,
   onChange,
@@ -217,6 +239,9 @@ export function TripContextForm({
   const { t } = useI18n();
   const id = useId();
   const [destinationOptions, setDestinationOptions] = useState<{ label: string }[]>([]);
+  // The cities as typed. A line the traveller has added but not filled stays on the page and is not sent on.
+  const [rows, setRows] = useState<CityRow[]>(() => rowsFrom(values));
+  const [activeRow, setActiveRow] = useState(0);
   const [preferenceTags, setPreferenceTags] = useState<string[]>(values.preferences ?? []);
   const [prefInput, setPrefInput] = useState("");
   const [constraintText, setConstraintText] = useState((values.hard_constraints ?? []).join(", "));
@@ -234,7 +259,26 @@ export function TripContextForm({
   const canSuggest = Boolean(onSuggestDestination);
 
   useEffect(() => {
-    const query = (values.destination ?? "").trim();
+    // The form changed from outside (another trip opened, a message filled the cities): show what it holds.
+    if (JSON.stringify(writeRows(rows)) !== JSON.stringify(writeRows(rowsFrom(values)))) setRows(rowsFrom(values));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.destination, values.stops]);
+
+  const commitRows = (next: CityRow[]) => {
+    setRows(next);
+    onChange(writeRows(next));
+  };
+  const setRow = (index: number, patch: Partial<CityRow>) =>
+    commitRows(rows.map((row, at) => (at === index ? { ...row, ...patch } : row)));
+  const moveRow = (index: number, by: -1 | 1) => {
+    const next = [...rows];
+    [next[index], next[index + by]] = [next[index + by], next[index]];
+    commitRows(next);
+  };
+
+  const typedCity = rows[activeRow]?.city ?? "";
+  useEffect(() => {
+    const query = typedCity.trim();
     if (!canSuggest || query.length < 3) {
       setDestinationOptions([]);
       return;
@@ -253,7 +297,7 @@ export function TripContextForm({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [values.destination, canSuggest]);
+  }, [typedCity, canSuggest]);
 
   const addPreference = () => {
     const merged = addTags(preferenceTags, prefInput, TRIP_LINES_MAX, TRIP_LINE_MAX_LENGTH);
@@ -297,22 +341,90 @@ export function TripContextForm({
       }}
     >
       <div className="pf-form-grid">
-        <Field label={t("form.destination")} required htmlFor={`${id}-destination`}>
-          <Input
-            id={`${id}-destination`}
-            value={values.destination ?? ""}
-            onChange={(event) => onChange({ destination: event.target.value })}
-            placeholder="Kyoto"
-            autoComplete="off"
-            maxLength={TRIP_FIELD_MAX_LENGTH}
-            list={`${id}-destination-options`}
-          />
-          <datalist id={`${id}-destination-options`}>
-            {destinationOptions.map((option) => (
-              <option key={option.label} value={option.label} />
-            ))}
-          </datalist>
-        </Field>
+        <div className="pf-field" role="group" aria-labelledby={`${id}-cities-label`}>
+          <span className="pf-field__label" id={`${id}-cities-label`}>
+            {rows.length > 1 ? t("form.cities") : t("form.destination")}
+            <span className="pf-field__required">*</span>
+          </span>
+          <div className="pf-city-rows">
+            {rows.map((row, index) => {
+              const label = rows.length > 1 ? t("form.cityN", { n: index + 1 }) : t("form.destination");
+              const name = row.city.trim() || label;
+              return (
+                <div className="pf-city-row" key={index}>
+                  <Input
+                    id={index === 0 ? `${id}-destination` : `${id}-destination-${index}`}
+                    aria-label={label}
+                    value={row.city}
+                    onChange={(event) => setRow(index, { city: event.target.value })}
+                    onFocus={() => setActiveRow(index)}
+                    placeholder={index === 0 ? "Kyoto" : ""}
+                    autoComplete="off"
+                    maxLength={TRIP_FIELD_MAX_LENGTH}
+                    list={`${id}-destination-options`}
+                  />
+                  {rows.length > 1 ? (
+                    <>
+                      <Input
+                        className="pf-city-row__nights"
+                        type="number"
+                        min={1}
+                        max={60}
+                        aria-label={t("form.cityNights", { value: name })}
+                        placeholder={t("form.nightsShort")}
+                        value={row.nights}
+                        onChange={(event) => setRow(index, { nights: event.target.value })}
+                      />
+                      <IconButton
+                        icon="chevronDown"
+                        className="pf-city-row__up"
+                        label={t("form.moveUp", { value: name })}
+                        disabled={index === 0}
+                        onClick={() => moveRow(index, -1)}
+                      />
+                      <IconButton
+                        icon="chevronDown"
+                        label={t("form.moveDown", { value: name })}
+                        disabled={index === rows.length - 1}
+                        onClick={() => moveRow(index, 1)}
+                      />
+                      <IconButton
+                        icon="close"
+                        label={t("common.remove", { value: name })}
+                        onClick={() => commitRows(rows.filter((_, at) => at !== index))}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
+            <datalist id={`${id}-destination-options`}>
+              {destinationOptions.map((option) => (
+                <option key={option.label} value={option.label} />
+              ))}
+            </datalist>
+          </div>
+          <div className="pf-city-actions">
+            <Button
+              size="sm"
+              variant="ghost"
+              iconLeft="plus"
+              type="button"
+              disabled={rows.length >= TRIP_STOPS_MAX}
+              onClick={() => {
+                setActiveRow(rows.length);
+                commitRows([...rows, { city: "", nights: "" }]);
+              }}
+            >
+              {t("form.addCity")}
+            </Button>
+            {rows.length >= TRIP_STOPS_MAX ? (
+              <span className="pf-field__hint" role="status">
+                {t("form.citiesLimit", { max: TRIP_STOPS_MAX })}
+              </span>
+            ) : null}
+          </div>
+        </div>
         <Field label={t("form.from")} required htmlFor={`${id}-origin`}>
           <Input
             id={`${id}-origin`}
@@ -322,6 +434,13 @@ export function TripContextForm({
             autoComplete="off"
             maxLength={TRIP_FIELD_MAX_LENGTH}
           />
+          {rows.length > 1 ? (
+            <Checkbox
+              label={t("form.oneWay")}
+              checked={Boolean(values.one_way)}
+              onChange={(event) => onChange({ one_way: event.target.checked })}
+            />
+          ) : null}
         </Field>
         <Field label={t("form.start")} required htmlFor={`${id}-start`}>
           <Input

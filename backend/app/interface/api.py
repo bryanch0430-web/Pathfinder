@@ -53,9 +53,11 @@ from app.domain.models import (
     TRIP_FIELD_MAX_LENGTH,
     TRIP_LINE_MAX_LENGTH,
     TRIP_LINES_MAX,
+    TRIP_STOPS_MAX,
     new_id,
     TripContext,
     TripPlan,
+    TripStop,
     User,
     USER_PREFIX,
 )
@@ -154,6 +156,9 @@ class ContextPatch(BaseModel):
     hard_constraints: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
     language: FormText | None = None
     plan_locale: Literal["en", "zh-Hant"] | None = None
+    #: The cities in travel order ([] for one city); more than a trip holds is refused.
+    stops: list[TripStop] | None = Field(default=None, max_length=TRIP_STOPS_MAX)
+    one_way: bool | None = None
 
 
 class AttachmentIn(BaseModel):
@@ -658,7 +663,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         data = payload.model_dump(exclude_unset=True)
         for key, value in data.items():
             if value is not None:
-                setattr(context, key, value)
+                setattr(context, key, [TripStop.model_validate(row) for row in value] if key == "stops" else value)
         # "Plan anyway" was said of the budget and the start date the form had: other ones are checked again.
         if (context.budget, context.currency.upper()) != was[:2]:
             context.budget_confirmed = False

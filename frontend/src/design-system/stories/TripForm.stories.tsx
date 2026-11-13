@@ -61,3 +61,28 @@ export const Compact: Story = {
     );
   },
 };
+
+/** A trip of three cities in order, each with the nights the traveller gave it (the last one left open). */
+export const ThreeCities: Story = {
+  render: () => {
+    const [values, setValues] = useState<Partial<TripContext>>({
+      ...sampleContext,
+      destination: "Tokyo",
+      stops: [
+        { city: "Tokyo", nights: 4 },
+        { city: "Kyoto", nights: 3 },
+        { city: "Osaka", nights: null },
+      ],
+    });
+    return (
+      <div className="pf-card" style={{ padding: 24, maxWidth: 560 }}>
+        <TripContextForm
+          values={values}
+          onChange={(patch) => setValues((current) => ({ ...current, ...patch }))}
+          onSubmit={() => undefined}
+          onSave={() => undefined}
+        />
+      </div>
+    );
+  },
+};

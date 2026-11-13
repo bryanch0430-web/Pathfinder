@@ -881,6 +881,39 @@
   grid-column: 1 / -1;
 }
 
+.pf-city-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pf-city-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf-city-row > .pf-input:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-city-row .pf-city-row__nights {
+  flex: 0 0 76px;
+  width: 76px;
+}
+
+.pf-city-row__up svg {
+  transform: rotate(180deg);
+}
+
+.pf-city-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .pf-budget-input {
   display: flex;
   align-items: stretch;
