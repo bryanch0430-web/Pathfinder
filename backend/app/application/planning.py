@@ -94,6 +94,22 @@ class PlanPath:
             except Exception:
                 pass
 
+        if len(context.route) > 1:
+            from app.application.multi_city import plan_route
+
+            return await plan_route(
+                self,
+                context=context,
+                session_id=session_id,
+                toolbox=toolbox,
+                tracer=tracer,
+                emit=emit,
+                memory_summaries=memory_summaries,
+                version=version,
+                trip_id=trip_id,
+                change_summary=change_summary,
+            )
+
         date_range = context.date_range()
         if not date_range:
             raise PlanInvalidError("The trip dates are incomplete.")
@@ -131,47 +147,19 @@ class PlanPath:
         keep_hotel: HotelStay | None = None,
         pick_hotel: Callable[[list[dict]], dict | None] | None = None,
         names: set[AgentName] | None = None,
+        destination: Any = None,
+        assess: bool = True,
+        given: dict[str, AgentResult] | None = None,
+        on_results: Callable[[dict[str, AgentResult]], None] | None = None,
     ) -> TripPlan:
         """One city, from the geocode to a checked plan; ``names`` limits which agents run (all when None)."""
-        with tracer.span("geocode") as span:
-            try:
-                destination = await toolbox.call(
-                    "geocode",
-                    self.registry.geocoder.geocode,
-                    name=context.destination,
-                )
-            except ToolBudgetExceeded as exc:
-                # Not an unknown place, and asking again runs into the same limit.
-                raise PlanInvalidError(
-                    f"I could not look up {context.destination!r}: this request reached its limit of data lookups.",
-                    retryable=False,
-                ) from exc
-            except ProviderNoData:
-                # A no-result answer: no map source knows the name. Any other failure is an outage
-                # of the sources, which the turn reports as a failed data source, not a bad query.
-                destination = None
-            if not destination:
-                raise PlanInvalidError(
-                    f"I could not locate {context.destination!r}. Try the city and country together."
-                )
-            span.attrs["destination"] = destination.name
-
-        timezone_resolver = getattr(self.registry, "timezone", None)
-        if (
-            self.settings.enable_timezone
-            and timezone_resolver is not None
-            and not destination.timezone
-        ):
-            try:
-                zone = await toolbox.call(
-                    "timezone.resolve", timezone_resolver.resolve, geo=destination.geo
-                )
-                if zone:
-                    destination = destination.model_copy(update={"timezone": zone})
-            except Exception:
-                pass
+        if destination is None:
+            destination = await self._locate(context.destination, toolbox=toolbox, tracer=tracer)
 
         emit("progress", {"phase": "agents", "message": "Four agents are gathering live data.", "progress": 15})
+        if given:
+            # Results the caller already holds (a city visited twice) are not fetched again.
+            names = (names or set(AGENT_FACTORIES)) - {AgentName(key) for key in given}
         agent_results = await self.run_agents(
             context=context,
             destination=destination,
@@ -180,6 +168,10 @@ class PlanPath:
             emit=emit,
             names=names,
         )
+        if given:
+            agent_results = {**given, **agent_results}
+        if on_results is not None:
+            on_results(agent_results)
 
         audit: AuditReport | None = None
         if self.settings.enable_preplan_audit:
@@ -261,7 +253,7 @@ class PlanPath:
                 pass
         # Assessment and feedback: confidence from the plan's own checks; what further research can
         # settle is researched and applied, and what is still open becomes a question.
-        if self.settings.enable_plan_assessment:
+        if self.settings.enable_plan_assessment and assess:
             try:
                 plan = await assess_and_improve(
                     plan, context=context, issues=refine_issues, registry=self.registry, toolbox=toolbox,
@@ -306,6 +298,47 @@ class PlanPath:
                     day.elevation_gain_m = gain
         emit("progress", {"phase": "ready", "message": "Itinerary ready.", "progress": 100})
         return plan
+
+    async def _locate(self, name: str, *, toolbox: Toolbox, tracer: Tracer) -> Any:
+        """The place a name stands for, with its time zone; an unknown name is a ``PlanInvalidError``."""
+        with tracer.span("geocode") as span:
+            try:
+                destination = await toolbox.call(
+                    "geocode",
+                    self.registry.geocoder.geocode,
+                    name=name,
+                )
+            except ToolBudgetExceeded as exc:
+                # Not an unknown place, and asking again runs into the same limit.
+                raise PlanInvalidError(
+                    f"I could not look up {name!r}: this request reached its limit of data lookups.",
+                    retryable=False,
+                ) from exc
+            except ProviderNoData:
+                # A no-result answer: no map source knows the name. Any other failure is an outage
+                # of the sources, which the turn reports as a failed data source, not a bad query.
+                destination = None
+            if not destination:
+                raise PlanInvalidError(
+                    f"I could not locate {name!r}. Try the city and country together."
+                )
+            span.attrs["destination"] = destination.name
+
+        timezone_resolver = getattr(self.registry, "timezone", None)
+        if (
+            self.settings.enable_timezone
+            and timezone_resolver is not None
+            and not destination.timezone
+        ):
+            try:
+                zone = await toolbox.call(
+                    "timezone.resolve", timezone_resolver.resolve, geo=destination.geo
+                )
+                if zone:
+                    destination = destination.model_copy(update={"timezone": zone})
+            except Exception:
+                pass
+        return destination
 
     async def run_agents(
         self,

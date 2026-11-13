@@ -218,6 +218,10 @@ class ModifyPath:
         """Apply the smallest change the message asks for. ``answering`` is the question an earlier edit asked when the
         message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
         When a fact the change needs is missing, the result `asks` for it and the plan is unchanged."""
+        if len(plan.segments) > 1:
+            unchanged = plan.model_copy(deep=True)
+            unchanged.change_summary = "I can't change a multi-city plan from chat yet. Use the options on each stay and each leg, or generate the itinerary again."
+            return EditResult(unchanged, [])
         # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
         # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
         # two nights" or "a later flight" name a part of the trip (Proposal DB-09), not new dates.

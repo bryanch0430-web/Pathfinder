@@ -78,6 +78,33 @@ def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
             errors.append(f"{ticket.name}: departure is outside the trip dates")
     if plan.cost.total < 0:
         errors.append("negative cost total")
+    if len(plan.segments) > 1:
+        errors.extend(_route_errors(plan))
+    return errors
+
+
+def _route_errors(plan: TripPlan) -> list[str]:
+    """The checks of a plan with several cities: a stay for every night, a chosen option on every leg that has any, and
+    a travel day that does not start a stop before the leg that brings the traveller there ends."""
+    errors: list[str] = []
+    for night in plan.dates.dates[:-1]:
+        if not any(stay.check_in <= night < stay.check_out for stay in plan.hotels):
+            errors.append(f"no stay for the night of {night} in {plan.segment_of(night).destination.name}")
+    between = [leg for leg in plan.legs if leg.kind == "between"]
+    for before, after in zip(plan.segments, plan.segments[1:]):
+        if not any(leg.from_place == before.destination.name and leg.to_place == after.destination.name for leg in between):
+            errors.append(f"no transport leg from {before.destination.name} to {after.destination.name}")
+    for leg in plan.legs:
+        options = plan.options_for(leg.id)
+        chosen = sum(1 for option in options if option.selected)
+        if options and chosen != 1:
+            errors.append(f"transport from {leg.from_place} to {leg.to_place} has {chosen} chosen options")
+    for day in plan.days:
+        for item in day.items:
+            if item.id.startswith("transit_") and item.type.value == "transit":
+                for other in day.items:
+                    if other is not item and other.start < item.end and other.end > item.start:
+                        errors.append(f"{day.date}: {other.name} starts before {item.name} ends")
     return errors
 
 

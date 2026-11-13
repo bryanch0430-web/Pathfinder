@@ -1442,6 +1442,10 @@ def _apply_stops(context: TripContext, value: object) -> None:
 
 
 def _normalise_dates(context: TripContext) -> None:
+    if context.start_date and not context.end_date and not context.days and context.stops:
+        if all(stop.nights for stop in context.stops):
+            # Cities with their nights and a start day: the trip is the nights they add up to.
+            context.days = sum(stop.nights for stop in context.stops) + 1
     if context.start_date and not context.end_date and context.days:
         context.end_date = context.start_date + timedelta(days=max(context.days - 1, 0))
     if context.start_date and context.end_date:

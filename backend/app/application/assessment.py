@@ -135,7 +135,7 @@ def assess_plan(
 
     stay = plan.first_stay
     overnight = plan.dates.night_count > 0
-    if overnight and stay is None and "hotels" not in sections:
+    if overnight and stay is None and "hotels" not in sections and len(plan.segments) <= 1:
         signals.append(
             AssessmentSignal(
                 code="no_stay", weight=0.10, message="No stay was found for the trip."
@@ -153,6 +153,8 @@ def assess_plan(
             )
         )
         unverified.append(f"The nightly rate at {stay.name}.")
+    if len(plan.segments) > 1:
+        _assess_route(plan, sections, signals, missing, unverified)
     if plan.cost.status == "over":
         signals.append(
             AssessmentSignal(
@@ -326,6 +328,38 @@ def apply_stay_matches(
         told.append(change)
         plan.data_quality.notes.append(CHANGE_PREFIX + change)
     return told
+
+
+def _assess_route(
+    plan: TripPlan,
+    sections: Iterable[str],
+    signals: list[AssessmentSignal],
+    missing: list[str],
+    unverified: list[str],
+) -> None:
+    """What a plan of several cities could not settle: a city with no stay, a leg with no option, a leg that is only a
+    rough estimate. Each finding names its city."""
+    for segment in plan.segments:
+        nights = segment.dates.night_count
+        if nights > 0 and not plan.stays_in(segment.id) and "hotels" not in sections:
+            signals.append(
+                AssessmentSignal(
+                    code="no_stay", weight=0.05, message=f"No stay was found in {segment.destination.name}."
+                )
+            )
+            unverified.append(f"Where to stay in {segment.destination.name}.")
+    for leg in plan.legs:
+        options = plan.options_for(leg.id)
+        where = f"{leg.from_place} to {leg.to_place}"
+        if not options:
+            signals.append(
+                AssessmentSignal(code="no_transport", weight=0.05, message=f"No transport was found from {where}.")
+            )
+            missing.append(f"transport from {leg.from_place} to {leg.to_place}")
+            continue
+        chosen = next((option for option in options if option.selected), options[0])
+        if chosen.mode == "ground":
+            unverified.append(f"Transport from {where} is a rough estimate from the distance, not a timetable.")
 
 
 async def assess_and_improve(

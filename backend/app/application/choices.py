@@ -353,7 +353,7 @@ def _recost(plan: TripPlan, planner: Planner, context: TripContext | None) -> No
         budget=plan.cost.budget if plan.cost.budget is not None else (context.budget if context else None),
     )
     stay = plan.first_stay
-    plan.cost = planner._cost(priced, stay, plan.tickets, plan.dates)
+    plan.cost = planner.cost_for_plan(priced, plan)
     if stay is not None and stay.price_per_night is None and stay.notes == UNCHECKED_RATE_NOTE:
         plan.cost.notes = [
             f"{stay.name}: {UNCHECKED_RATE_NOTE[0].lower()}{UNCHECKED_RATE_NOTE[1:]}" if note == "Hotel price was not returned." else note

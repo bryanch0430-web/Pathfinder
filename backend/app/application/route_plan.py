@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from app.domain.models import Destination, GeoPoint, TripSegment, TripStop
+from app.application.budget_check import PrePlanQuestion
+from app.domain.models import Destination, GeoPoint, TripContext, TripSegment, TripStop
 from app.infrastructure.http import haversine_km
 
 
@@ -59,6 +60,23 @@ def allocate_nights(stops: list[TripStop], total_nights: int) -> tuple[list[int]
             f"The dates cover {extra} more {plural} than you listed; I added {pronoun} to {stops[0].city}."
         )
     return nights, ""
+
+
+def route_question(context: TripContext) -> PrePlanQuestion | None:
+    """The question to ask before planning when the nights of the cities and the trip's dates cannot both be met."""
+    if len(context.route) < 2:
+        return None
+    try:
+        dates = context.date_range()
+    except ValueError:  # the form's own checks report an end before the start or a trip that is too long
+        return None
+    if dates is None:
+        return None
+    try:
+        allocate_nights(context.route, dates.night_count)
+    except RouteQuestion as asked:
+        return PrePlanQuestion(question=asked.question, slots=["dates"], reason_code="route_nights")
+    return None
 
 
 def build_segments(

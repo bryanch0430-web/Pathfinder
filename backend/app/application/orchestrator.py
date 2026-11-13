@@ -15,6 +15,7 @@ import httpx
 
 from app.application.asking import AskPath
 from app.application.limits import segment_count, tool_cap_for
+from app.application.route_plan import route_question
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
 from app.application.budget_check import (
@@ -591,7 +592,8 @@ class TurnService:
                 asked = (
                     too_many_cities_question()
                     if route_overflow
-                    else budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
+                    else route_question(context)
+                    or budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
                 )
                 if asked is not None:
                     tracer.metadata["reason"] = asked.reason_code

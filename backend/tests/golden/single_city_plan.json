@@ -1,0 +1,648 @@
+{
+ "assessment": {
+  "confidence": 1.0,
+  "improvements": [],
+  "level": "high",
+  "missing": [],
+  "next_action": "none",
+  "question": "",
+  "research_rounds": 0,
+  "signals": [],
+  "unverified": []
+ },
+ "budget": {
+  "amount": 90000.0,
+  "currency": "HKD"
+ },
+ "change_summary": "",
+ "constraints": [
+  {
+   "evidence": "Known cost total is HKD 5,538.00; meals and attraction tickets are not costed.",
+   "id": "<id>",
+   "status": "pass",
+   "text": "Stay within HKD 90,000"
+  },
+  {
+   "evidence": "4 days cover 2027-03-01 to 2027-03-04.",
+   "id": "<id>",
+   "status": "pass",
+   "text": "Dates are continuous"
+  },
+  {
+   "evidence": "All days populated.",
+   "id": "<id>",
+   "status": "pass",
+   "text": "Every day has at least one verified stop"
+  },
+  {
+   "evidence": "Forecast available.",
+   "id": "<id>",
+   "status": "pass",
+   "text": "Weather available for every travel date"
+  },
+  {
+   "evidence": "The Kyoto Grand",
+   "id": "<id>",
+   "status": "pass",
+   "text": "Overnight hotel selected"
+  },
+  {
+   "evidence": "Pathfinder Air PF100",
+   "id": "<id>",
+   "status": "pass",
+   "text": "Flight option available"
+  },
+  {
+   "evidence": "On 2027-03-01, nothing starts before 15:00.",
+   "id": "<id>",
+   "status": "pass",
+   "text": "flight arrival"
+  }
+ ],
+ "cost": {
+  "budget": 90000.0,
+  "currency": "HKD",
+  "lines": [
+   {
+    "amount": 2808.0,
+    "kind": "reference",
+    "label": "Hotel · The Kyoto Grand × 3 nights",
+    "note": "Reference nightly rate × nights; availability not confirmed."
+   },
+   {
+    "amount": 2730.0,
+    "kind": "reference",
+    "label": "Flights · Pathfinder Air PF100",
+    "note": "Reference fare for the travelling party."
+   }
+  ],
+  "notes": [
+   "Local transport, meals and attraction tickets are not costed because no source returned prices."
+  ],
+  "remaining": 84462.0,
+  "status": "within",
+  "total": 5538.0
+ },
+ "data_quality": {
+  "freshness": [],
+  "gaps": [],
+  "notes": [
+   "1 flight options with reference fares.",
+   "2 hotel candidates; prices are reference rates.",
+   "4 attractions, 2 dining candidates",
+   "4 of 4 dates have a forecast.",
+   "Rail schedules are not connected to a live source in this build; fares and times need operator confirmation."
+  ],
+  "search_window_months": 24,
+  "sources_used": [
+   "sandbox",
+   "sandbox-notes",
+   "sandbox-weather"
+  ]
+ },
+ "dates": {
+  "end": "2027-03-04",
+  "start": "2027-03-01"
+ },
+ "days": [
+  {
+   "date": "2027-03-01",
+   "elevation_gain_m": null,
+   "items": [
+    {
+     "address": "Kyoto",
+     "alternatives": [],
+     "booking_url": "",
+     "confirmed": false,
+     "cuisine": null,
+     "data_status": "ok",
+     "end": "16:30",
+     "geo": {
+      "lat": 34.9949,
+      "lng": 135.785
+     },
+     "hours_status": "stated",
+     "id": "item_p1",
+     "locked": false,
+     "meal_slot": null,
+     "name": "Kiyomizu-dera",
+     "names": {},
+     "notes": "A verified stop in Kyoto, suitable for a 60-minute visit.",
+     "opening_hours": [
+      "09:00-17:00"
+     ],
+     "price": null,
+     "price_kind": "none",
+     "price_level": null,
+     "rating": null,
+     "reservable": null,
+     "review_count": null,
+     "source_refs": [
+      {
+       "source": "sandbox",
+       "title": "Kiyomizu-dera",
+       "url": "https://example.com/kiyomizu-dera"
+      }
+     ],
+     "source_summary": "",
+     "source_types": [],
+     "start": "15:00",
+     "tags": [
+      "place_of_worship",
+      "sandbox"
+     ],
+     "transfer": null,
+     "type": "attraction"
+    },
+    {
+     "address": "Central",
+     "alternatives": [],
+     "booking_url": "",
+     "confirmed": false,
+     "cuisine": null,
+     "data_status": "ok",
+     "end": "20:15",
+     "geo": {
+      "lat": 35.0146,
+      "lng": 135.7701
+     },
+     "hours_status": "unknown",
+     "id": "item_v47800723d0",
+     "locked": false,
+     "meal_slot": "dinner",
+     "name": "Kyoto Kitchen",
+     "names": {},
+     "notes": "Dinner candidate from sandbox.",
+     "opening_hours": [],
+     "price": null,
+     "price_kind": "none",
+     "price_level": null,
+     "rating": null,
+     "reservable": null,
+     "review_count": null,
+     "source_refs": [
+      {
+       "source": "sandbox",
+       "title": "Kyoto Kitchen",
+       "url": "https://example.com/kyoto-kitchen"
+      }
+     ],
+     "source_summary": "Neighbourhood restaurant.",
+     "source_types": [
+      "restaurant"
+     ],
+     "start": "19:00",
+     "tags": [
+      "meal"
+     ],
+     "transfer": {
+      "delay_minutes": 0,
+      "delay_source": "",
+      "delay_tool": "",
+      "distance_km": 2.577,
+      "from_item_id": "item_p1",
+      "minutes": 15,
+      "mode": "metro",
+      "source": "transport-model",
+      "tool": "routes.segments"
+     },
+     "type": "meal"
+    }
+   ],
+   "note": "",
+   "segment_id": "seg_1",
+   "title": "Kiyomizu-dera and nearby stops",
+   "weather": {
+    "date": "2027-03-01",
+    "high_c": 22.0,
+    "low_c": 14.0,
+    "note": "",
+    "precipitation_probability": 20,
+    "source": "sandbox-weather",
+    "status": "ok",
+    "summary": "Partly cloudy"
+   }
+  },
+  {
+   "date": "2027-03-02",
+   "elevation_gain_m": null,
+   "items": [
+    {
+     "address": "Kyoto",
+     "alternatives": [],
+     "booking_url": "",
+     "confirmed": false,
+     "cuisine": null,
+     "data_status": "ok",
+     "end": "10:30",
+     "geo": {
+      "lat": 34.9671,
+      "lng": 135.7727
+     },
+     "hours_status": "stated",
+     "id": "item_p2",
+     "locked": false,
+     "meal_slot": null,
+     "name": "Fushimi Inari Taisha",
+     "names": {},
+     "notes": "A verified stop in Kyoto, suitable for a 75-minute visit.",
+     "opening_hours": [
+      "09:00-17:00"
+     ],
+     "price": null,
+     "price_kind": "none",
+     "price_level": null,
+     "rating": null,
+     "reservable": null,
+     "review_count": null,
+     "source_refs": [
+      {
+       "source": "sandbox",
+       "title": "Fushimi Inari Taisha",
+       "url": "https://example.com/fushimi-inari-taisha"
+      }
+     ],
+     "source_summary": "",
+     "source_types": [],
+     "start": "09:00",
+     "tags": [
+      "place_of_worship",
+      "sandbox"
+     ],
+     "transfer": null,
+     "type": "attraction"
+    }
+   ],
+   "note": "",
+   "segment_id": "seg_1",
+   "title": "Fushimi Inari Taisha and nearby stops",
+   "weather": {
+    "date": "2027-03-02",
+    "high_c": 22.0,
+    "low_c": 14.0,
+    "note": "",
+    "precipitation_probability": 20,
+    "source": "sandbox-weather",
+    "status": "ok",
+    "summary": "Partly cloudy"
+   }
+  },
+  {
+   "date": "2027-03-03",
+   "elevation_gain_m": null,
+   "items": [
+    {
+     "address": "Kyoto",
+     "alternatives": [],
+     "booking_url": "",
+     "confirmed": false,
+     "cuisine": null,
+     "data_status": "ok",
+     "end": "10:30",
+     "geo": {
+      "lat": 35.0094,
+      "lng": 135.6668
+     },
+     "hours_status": "stated",
+     "id": "item_p3",
+     "locked": false,
+     "meal_slot": null,
+     "name": "Arashiyama Bamboo Grove",
+     "names": {},
+     "notes": "A verified stop in Kyoto, suitable for a 90-minute visit.",
+     "opening_hours": [
+      "09:00-17:00"
+     ],
+     "price": null,
+     "price_kind": "none",
+     "price_level": null,
+     "rating": null,
+     "reservable": null,
+     "review_count": null,
+     "source_refs": [
+      {
+       "source": "sandbox",
+       "title": "Arashiyama Bamboo Grove",
+       "url": "https://example.com/arashiyama-bamboo-grove"
+      }
+     ],
+     "source_summary": "",
+     "source_types": [],
+     "start": "09:00",
+     "tags": [
+      "park",
+      "sandbox"
+     ],
+     "transfer": null,
+     "type": "attraction"
+    }
+   ],
+   "note": "",
+   "segment_id": "seg_1",
+   "title": "Arashiyama Bamboo Grove and nearby stops",
+   "weather": {
+    "date": "2027-03-03",
+    "high_c": 22.0,
+    "low_c": 14.0,
+    "note": "",
+    "precipitation_probability": 20,
+    "source": "sandbox-weather",
+    "status": "ok",
+    "summary": "Partly cloudy"
+   }
+  },
+  {
+   "date": "2027-03-04",
+   "elevation_gain_m": null,
+   "items": [
+    {
+     "address": "Kyoto",
+     "alternatives": [],
+     "booking_url": "",
+     "confirmed": false,
+     "cuisine": null,
+     "data_status": "ok",
+     "end": "10:30",
+     "geo": {
+      "lat": 35.0037,
+      "lng": 135.7752
+     },
+     "hours_status": "stated",
+     "id": "item_p4",
+     "locked": false,
+     "meal_slot": null,
+     "name": "Gion",
+     "names": {},
+     "notes": "A verified stop in Kyoto, suitable for a 105-minute visit.",
+     "opening_hours": [
+      "09:00-17:00"
+     ],
+     "price": null,
+     "price_kind": "none",
+     "price_level": null,
+     "rating": null,
+     "reservable": null,
+     "review_count": null,
+     "source_refs": [
+      {
+       "source": "sandbox",
+       "title": "Gion",
+       "url": "https://example.com/gion"
+      }
+     ],
+     "source_summary": "",
+     "source_types": [],
+     "start": "09:00",
+     "tags": [
+      "tourist_attraction",
+      "sandbox"
+     ],
+     "transfer": null,
+     "type": "attraction"
+    }
+   ],
+   "note": "",
+   "segment_id": "seg_1",
+   "title": "Gion and nearby stops",
+   "weather": {
+    "date": "2027-03-04",
+    "high_c": 22.0,
+    "low_c": 14.0,
+    "note": "",
+    "precipitation_probability": 20,
+    "source": "sandbox-weather",
+    "status": "ok",
+    "summary": "Partly cloudy"
+   }
+  }
+ ],
+ "destination": {
+  "country_code": "XX",
+  "geo": {
+   "lat": 35.0116,
+   "lng": 135.7681
+  },
+  "name": "Kyoto",
+  "timezone": "UTC"
+ },
+ "disruptions": [],
+ "hotel_options": [
+  {
+   "amenities": [],
+   "area": "Central",
+   "booking_url": "",
+   "check_in": "2027-03-01",
+   "check_out": "2027-03-04",
+   "confirmed": false,
+   "data_status": "ok",
+   "distance_to_centre_km": 1.44,
+   "geo": {
+    "lat": 35.0216,
+    "lng": 135.7781
+   },
+   "hotel_class": null,
+   "id": "hotel_h1",
+   "locked": false,
+   "match": null,
+   "name": "The Kyoto Grand",
+   "nearby": [],
+   "nearest_stop_km": 1.07,
+   "nearest_stop_name": "Kyoto Kitchen",
+   "notes": "Sandbox rate.",
+   "price_kind": "reference",
+   "price_per_night": {
+    "amount": 120.0,
+    "currency": "USD"
+   },
+   "property_token": "",
+   "rating": 4.6,
+   "review_count": 800,
+   "room_types": [],
+   "rooms_checked_for": null,
+   "segment_id": "seg_1",
+   "source_refs": [
+    {
+     "source": "sandbox",
+     "title": "The Kyoto Grand",
+     "url": "https://example.com/the-kyoto-grand"
+    }
+   ]
+  },
+  {
+   "amenities": [],
+   "area": "Old town",
+   "booking_url": "",
+   "check_in": "2027-03-01",
+   "check_out": "2027-03-04",
+   "confirmed": false,
+   "data_status": "ok",
+   "distance_to_centre_km": 1.44,
+   "geo": {
+    "lat": 35.0016,
+    "lng": 135.7581
+   },
+   "hotel_class": null,
+   "id": "hotel_h2",
+   "locked": false,
+   "match": null,
+   "name": "Kyoto Garden Inn",
+   "nearby": [],
+   "nearest_stop_km": 1.57,
+   "nearest_stop_name": "Gion",
+   "notes": "Sandbox rate.",
+   "price_kind": "reference",
+   "price_per_night": {
+    "amount": 90.0,
+    "currency": "USD"
+   },
+   "property_token": "",
+   "rating": 4.3,
+   "review_count": 500,
+   "room_types": [],
+   "rooms_checked_for": null,
+   "segment_id": "",
+   "source_refs": [
+    {
+     "source": "sandbox",
+     "title": "Kyoto Garden Inn",
+     "url": "https://example.com/kyoto-garden-inn"
+    }
+   ]
+  }
+ ],
+ "hotels": [
+  {
+   "amenities": [],
+   "area": "Central",
+   "booking_url": "",
+   "check_in": "2027-03-01",
+   "check_out": "2027-03-04",
+   "confirmed": false,
+   "data_status": "ok",
+   "distance_to_centre_km": 1.44,
+   "geo": {
+    "lat": 35.0216,
+    "lng": 135.7781
+   },
+   "hotel_class": null,
+   "id": "hotel_h1",
+   "locked": false,
+   "match": null,
+   "name": "The Kyoto Grand",
+   "nearby": [],
+   "nearest_stop_km": 1.07,
+   "nearest_stop_name": "Kyoto Kitchen",
+   "notes": "Sandbox rate.",
+   "price_kind": "reference",
+   "price_per_night": {
+    "amount": 120.0,
+    "currency": "USD"
+   },
+   "property_token": "",
+   "rating": 4.6,
+   "review_count": 800,
+   "room_types": [],
+   "rooms_checked_for": null,
+   "segment_id": "seg_1",
+   "source_refs": [
+    {
+     "source": "sandbox",
+     "title": "The Kyoto Grand",
+     "url": "https://example.com/the-kyoto-grand"
+    }
+   ]
+  }
+ ],
+ "legs": [
+  {
+   "depart_date": "2027-03-01",
+   "from_place": "Hong Kong",
+   "id": "leg_out",
+   "kind": "outbound",
+   "to_place": "Kyoto"
+  }
+ ],
+ "origin": "Hong Kong",
+ "party_size": 2,
+ "reservations": [
+  {
+   "id": "<id>",
+   "name": "Flight · Pathfinder Air PF100",
+   "needed_by": null,
+   "reason": "Reference itinerary; confirm the fare and seat with the airline.",
+   "status": "optional",
+   "url": "https://example.com/flight"
+  }
+ ],
+ "schema_version": "1.0",
+ "segments": [
+  {
+   "dates": {
+    "end": "2027-03-04",
+    "start": "2027-03-01"
+   },
+   "destination": {
+    "country_code": "XX",
+    "geo": {
+     "lat": 35.0116,
+     "lng": 135.7681
+    },
+    "name": "Kyoto",
+    "timezone": "UTC"
+   },
+   "id": "seg_1"
+  }
+ ],
+ "status": "ready",
+ "summary": "A 4-day trip to Kyoto for 2 travellers.",
+ "tickets": [
+  {
+   "arrive_at": "2027-03-01T13:00:00",
+   "booking_url": "https://example.com/flight",
+   "confirmed": false,
+   "data_status": "ok",
+   "depart_at": "2027-03-01T09:00:00",
+   "destination": "KYO",
+   "duration_minutes": 240,
+   "estimated": false,
+   "id": "flight_f1",
+   "leg_id": "leg_out",
+   "mode": "flight",
+   "name": "Pathfinder Air PF100",
+   "notes": "Reference itinerary. Confirm fare and baggage with the airline.",
+   "operator": "Pathfinder Air",
+   "origin": "HON",
+   "price": {
+    "amount": 350.0,
+    "currency": "USD"
+   },
+   "price_kind": "reference",
+   "return_airline": "",
+   "return_arrive_at": null,
+   "return_depart_at": null,
+   "return_destination": "",
+   "return_duration_minutes": null,
+   "return_flight_number": "",
+   "return_origin": "",
+   "selected": true,
+   "source_refs": [
+    {
+     "source": "sandbox",
+     "title": "Pathfinder Air PF100",
+     "url": "https://example.com/pathfinder-air-pf100"
+    }
+   ]
+  }
+ ],
+ "version": 1,
+ "video_notes": [
+  {
+   "snippet": "Sandbox travel note.",
+   "source": "sandbox-notes",
+   "thumbnail_url": "",
+   "title": "Kyoto travel guide attractions guide",
+   "url": "https://example.com/guide",
+   "video_id": ""
+  }
+ ]
+}

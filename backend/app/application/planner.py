@@ -867,6 +867,66 @@ class Planner:
             notes=unknown,
         )
 
+    def cost_for_plan(self, context: TripContext, plan: TripPlan) -> CostBreakdown:
+        """The cost of a whole plan.
+
+        A one-city plan is priced as ``_cost`` has always priced it. A plan of several cities (or with a split stay)
+        is priced from each stay for its own nights and the chosen option of every leg; a leg whose option is an
+        estimate reserves nothing, and the notes say so.
+        """
+        if len(plan.segments) <= 1 and len(plan.legs) <= 1 and len(plan.hotels) <= 1:
+            return self._cost(context, plan.first_stay, plan.tickets, plan.dates)
+        currency = (context.currency or self.settings.default_currency).upper()
+        lines: list[CostLine] = []
+        unknown: list[str] = []
+        for stay in plan.hotels:
+            nights = max((stay.check_out - stay.check_in).days, 0)
+            if stay.price_per_night:
+                amount = self.fx.convert(stay.price_per_night.amount, stay.price_per_night.currency, currency) * nights
+                lines.append(
+                    CostLine(
+                        label=f"Hotel · {stay.name} × {nights} night{'s' if nights != 1 else ''}",
+                        amount=round(amount, 2),
+                        kind="reference",
+                        note="Reference nightly rate × nights; availability not confirmed.",
+                    )
+                )
+            else:
+                unknown.append(f"Hotel price was not returned for {stay.name}.")
+        legs = {leg.id: leg for leg in plan.legs}
+        for ticket in plan.chosen_tickets():
+            leg = legs.get(plan.leg_id_of(ticket))
+            where = f"{leg.from_place} to {leg.to_place}" if leg else ticket.name
+            if ticket.price:
+                amount = self.fx.convert(ticket.price.amount, ticket.price.currency, currency)
+                lines.append(
+                    CostLine(
+                        label=f"{'Flights' if ticket.mode == 'flight' else 'Transport'} · {ticket.name} ({where})",
+                        amount=round(amount, 2),
+                        kind="reference",
+                        note="Reference fare for the travelling party.",
+                    )
+                )
+            elif ticket.estimated:
+                unknown.append(f"Transport from {where} is an estimate and is not costed.")
+            else:
+                unknown.append(f"Fare was not returned for {where}.")
+        unknown.append("Local transport, meals and attraction tickets are not costed because no source returned prices.")
+        total = round(sum(line.amount for line in lines), 2)
+        budget = context.budget
+        status = "unknown"
+        if budget is not None:
+            status = "within" if total <= budget else "over"
+        return CostBreakdown(
+            currency=currency,
+            lines=lines,
+            total=total,
+            budget=budget,
+            remaining=round(budget - total, 2) if budget is not None else None,
+            status=status,  # type: ignore[arg-type]
+            notes=unknown,
+        )
+
 
 def apply_audit_blocks(rows: list[dict], blocked: set[str]) -> tuple[list[dict], set[str]]:
     """Drop the audit's blocked rows from one candidate section, within a cap.
