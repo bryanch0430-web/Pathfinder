@@ -31,6 +31,13 @@ export interface WeatherDay {
   note?: string;
 }
 
+/** An address to open (booking, website, map), built by the server from what a source returned. */
+export interface Link {
+  kind: "booking" | "official" | "map" | "tickets" | "menu";
+  url: string;
+  label?: string;
+}
+
 export interface PlanItem {
   id: string;
   type: ItemType;
@@ -70,6 +77,7 @@ export interface PlanItem {
   source_summary?: string;
   /** Other source-backed choices for this stop; the item itself is the default. */
   alternatives?: PlanAlternative[];
+  links?: Link[];
 }
 
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
@@ -91,6 +99,7 @@ export interface PlanAlternative {
   distance_m: number | null;
   source_types?: string[];
   source_summary?: string;
+  links?: Link[];
 }
 
 export interface TransferLeg {
@@ -173,6 +182,7 @@ export interface HotelStay {
   match?: StayMatch | null;
   /** The city (segment) this stay is in. */
   segment_id?: string;
+  links?: Link[];
 }
 
 /** The ways between two places a leg can be made by; `ground` is a rough estimate from the distance. */
@@ -185,6 +195,7 @@ export interface TicketOption {
   leg_id?: string;
   /** A duration worked out from a distance or a routes source, not a quoted fare and timetable. */
   estimated?: boolean;
+  links?: Link[];
   name: string;
   origin: string;
   destination: string;

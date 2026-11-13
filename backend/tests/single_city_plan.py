@@ -28,6 +28,12 @@ _VOLATILE_KEYS = {
     "session_id",
     "published_at",
     "result_id",
+    # Fields later steps added (links, ranking, pictures): the golden is the plan as it was before them.
+    "links",
+    "rank",
+    "score",
+    "reasons",
+    "image",
 }
 _RANDOM_ID = re.compile(r"^(check|reservation|disruption|msg|trip|sess)_[0-9a-f]{6,}$")
 

@@ -700,6 +700,13 @@
           "default": "",
           "title": "Segment Id",
           "type": "string"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
         }
       },
       "required": [
@@ -720,6 +727,37 @@
       ],
       "title": "ItemType",
       "type": "string"
+    },
+    "Link": {
+      "description": "An address the traveller can open: built by code from what a source returned, never written by a model.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "booking",
+            "official",
+            "map",
+            "tickets",
+            "menu"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "url"
+      ],
+      "title": "Link",
+      "type": "object"
     },
     "Money": {
       "properties": {
@@ -927,6 +965,13 @@
           "default": "",
           "title": "Source Summary",
           "type": "string"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
         }
       },
       "required": [
@@ -1235,6 +1280,13 @@
             "$ref": "#/$defs/PlanAlternative"
           },
           "title": "Alternatives",
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
           "type": "array"
         }
       },
@@ -1634,6 +1686,13 @@
           "default": false,
           "title": "Estimated",
           "type": "boolean"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
         }
       },
       "required": [

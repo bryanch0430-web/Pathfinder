@@ -12,6 +12,7 @@ import {
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
+import { safeHref } from "../lib/safeHref";
 import { addTags, isImeKey, limitList, splitList } from "../lib/typing";
 import type {
   AgentState,
@@ -32,6 +33,7 @@ import type {
   WeatherDay,
   DataStatus,
   Intent,
+  Link,
 } from "./types";
 
 export function TravelOptions({
@@ -215,6 +217,36 @@ function writeRows(rows: CityRow[]): Pick<TripContext, "destination" | "stops"> 
         ? filled.map((row) => ({ city: row.city.trim(), nights: row.nights ? Number(row.nights) : null }))
         : [],
   };
+}
+
+const LINK_LABEL: Record<Link["kind"], MessageKey> = {
+  booking: "link.book",
+  official: "link.website",
+  map: "link.map",
+  tickets: "link.tickets",
+  menu: "link.menu",
+};
+
+/** Book / Website / Map for a stop, stay or fare: only the links the server built, only http(s), opened in a new tab. */
+export function LinkRow({ links }: { links?: Link[] }) {
+  const { t } = useI18n();
+  const shown = (links ?? []).map((link) => ({ link, href: safeHref(link.url) })).filter((entry) => entry.href);
+  if (!shown.length) return null;
+  return (
+    <span className="pf-link-row">
+      {shown.map(({ link, href }) => (
+        <a
+          key={`${link.kind}-${href}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {link.label || t(LINK_LABEL[link.kind])}
+        </a>
+      ))}
+    </span>
+  );
 }
 
 export function TripContextForm({
@@ -861,6 +893,7 @@ export function ItineraryItem({
             />
           ) : null}
         </span>
+        <LinkRow links={item.links} />
       </div>
       <div className="pf-item__actions">
         {item.locked ? <Icon name="lock" size={13} /> : null}
@@ -929,6 +962,7 @@ export function ItemAlternatives({
               <div className="pf-stack pf-grow" style={{ gap: 2 }}>
                 <Text size="sm" weight="semibold">{alternative.name}</Text>
                 <PlaceFacts place={alternative} />
+                <LinkRow links={alternative.links} />
                 {typeof alternative.distance_m === "number" ? (
                   <span className="pf-item__facts">
                     {t("options.fromDefault", { distance: formatDistance(alternative.distance_m, t) })}

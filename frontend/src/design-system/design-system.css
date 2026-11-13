@@ -4101,3 +4101,18 @@
 .pf-ticket-card[data-estimated="true"] {
   border-style: dashed;
 }
+
+/* -- links: Book / Website / Map ------------------------------------------------------------------------------------ */
+
+.pf-link-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: var(--p30-type-size-body-xs);
+}
+
+.pf-link-row a {
+  color: var(--p30-tone-brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

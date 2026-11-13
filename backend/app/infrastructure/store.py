@@ -680,6 +680,7 @@ class SQLiteStore:
     # -- plans ------------------------------------------------------------
 
     def save_plan(self, plan: TripPlan, change_summary: str | None, *, replace: bool = False) -> None:
+        plan.refresh_links()  # an edit may have changed what a link is built from
         """Store one plan version. A version that is already stored is refused (`PlanConflict`),
         not overwritten: another turn saved it first. `replace=True` rewrites the same version in
         place, for an edit that changed nothing but its own notes. The version keeps its row and

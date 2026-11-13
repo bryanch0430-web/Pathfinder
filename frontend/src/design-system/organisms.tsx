@@ -31,6 +31,7 @@ import {
   TrendChart,
   TripContextForm,
   SearchField,
+  LinkRow,
 } from "./molecules";
 import type {
   AgentState,
@@ -1032,6 +1033,7 @@ function HotelOptionCard({
           {error.key === "rooms" ? t("options.roomsFailed", { reason: error.reason }) : t("options.failed", { reason: error.reason })}
         </span>
       ) : null}
+      <LinkRow links={hotel.links} />
       <div className="pf-option-card__actions">
         {!chosen && onChoose ? (
           <Button
@@ -1182,6 +1184,7 @@ export function TicketCard({
         <Text size="xs" tone="secondary">
           {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
+        <LinkRow links={ticket.links} />
         {error ? <span className="pf-field__error" role="alert">{t("options.failed", { reason: error.reason })}</span> : null}
       </div>
       <div className="pf-stack" style={{ alignItems: "flex-end", gap: 6 }}>
@@ -1244,7 +1247,11 @@ function StayCard({
       </div>
       <div className="pf-stack" style={{ alignItems: "flex-end", gap: 4 }}>
         <StatusPill status={hotel.data_status} />
-        {bookingHref ? <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{t("workspace.checkHotel")}</a> : null}
+        {hotel.links?.length ? (
+          <LinkRow links={hotel.links} />
+        ) : bookingHref ? (
+          <a className="pf-small" href={bookingHref} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{t("workspace.checkHotel")}</a>
+        ) : null}
       </div>
     </div>
   );

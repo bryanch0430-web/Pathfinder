@@ -143,6 +143,14 @@ class SourceRef(BaseModel):
     published_at: datetime | None = None
 
 
+class Link(BaseModel):
+    """An address the traveller can open: built by code from what a source returned, never written by a model."""
+
+    kind: Literal["booking", "official", "map", "tickets", "menu"]
+    url: str
+    label: str = ""
+
+
 class WeatherDay(BaseModel):
     date: date
     status: DataStatus = DataStatus.OK
@@ -209,6 +217,8 @@ class PlanAlternative(BaseModel):
     source_types: list[str] = Field(default_factory=list)
     #: The source's own short description, cut to SOURCE_SUMMARY_MAX characters; empty when it gave none.
     source_summary: str = ""
+    #: Booking, website and map links, written by ``TripPlan.refresh_links`` from the fields above.
+    links: list[Link] = Field(default_factory=list)
 
 
 class PlanItem(BaseModel):
@@ -251,6 +261,8 @@ class PlanItem(BaseModel):
     source_summary: str = ""
     #: Other source-backed choices for this stop; the item itself is the default.
     alternatives: list[PlanAlternative] = Field(default_factory=list)
+    #: Booking, website and map links, written by ``TripPlan.refresh_links``.
+    links: list[Link] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _times(self) -> "PlanItem":
@@ -358,6 +370,8 @@ class HotelStay(BaseModel):
     match: StayMatch | None = None
     #: The segment (city) this stay is in.
     segment_id: str = ""
+    #: Booking and map links, written by ``TripPlan.refresh_links``.
+    links: list[Link] = Field(default_factory=list)
 
 
 class TicketOption(BaseModel):
@@ -395,6 +409,8 @@ class TicketOption(BaseModel):
     selected: bool = False
     #: True for a duration worked out from distance or a routes source rather than a quoted fare and timetable.
     estimated: bool = False
+    #: Booking link (a flight) or directions link (an estimate), written by ``TripPlan.refresh_links``.
+    links: list[Link] = Field(default_factory=list)
 
 
 def selected_ticket(tickets: list[TicketOption], leg_id: str | None = None) -> TicketOption | None:
@@ -610,7 +626,14 @@ class TripPlan(BaseModel):
                     if ticket.leg_id == leg.id:
                         ticket.selected = ticket is chosen
         self._shape_segments()
+        self.refresh_links()
         return self
+
+    def refresh_links(self) -> None:
+        """Write the links of every stop, stay and transport option again from their fields (they are derived data)."""
+        from app.application.links import attach_links
+
+        attach_links(self)
 
     def _shape_segments(self) -> None:
         if not self.segments:
