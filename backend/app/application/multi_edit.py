@@ -8,13 +8,15 @@ the legs it touches are looked up again and the others keep the traveller's choi
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from app.application.edit_scope import segment_for_edit, which_visit_question
 from app.application.modification import EditQuestion, EditResult
-from app.application.multi_city import build_trip
+from app.application.multi_city import build_trip, finish_trip
 from app.application.planner import Planner, annotate_stays
 from app.application.route_edit import (
     RouteChange,
@@ -25,7 +27,7 @@ from app.application.route_edit import (
 )
 from app.application.route_plan import RouteQuestion, build_segments
 from app.application.search_cache import CachedToolbox, SearchCache
-from app.application.stitch import city_context, split
+from app.application.stitch import city_context, split, stitch
 from app.application.validation import diff_plans
 from app.domain.errors import CanaryLeak
 from app.domain.models import (
@@ -384,11 +386,141 @@ async def split_stay(
 
 # -- what is inside the cities ----------------------------------------------------------------------------------------
 
+DATES_FROM_CHAT = (
+    "The dates of a trip of several cities are the sum of its cities' nights. Change a city's nights, add or drop a "
+    "city, or change the trip's dates in the trip details."
+)
+_DAY_NAMED = re.compile(r"\bday\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", re.IGNORECASE)
 
-async def edit_cities(modify: ModifyPath, *, plan: TripPlan, **_: Any) -> EditResult:
-    unchanged = plan.model_copy(deep=True)
-    unchanged.change_summary = (
-        "I can't change a multi-city plan from chat yet. Use the options on each stay and each leg, "
-        "or generate the itinerary again."
+
+def _localise_day(message: str, plan: TripPlan, segment_index: int) -> str:
+    """The message with the day it names counted from the first day of the city (the city is edited as a plan of its
+    own, whose first day is day 1)."""
+    first = next(i for i, day in enumerate(plan.days) if day.segment_id == plan.segments[segment_index].id)
+
+    def local(found: re.Match[str]) -> str:
+        number = int(found.group(1) or found.group(2))
+        return f"day {max(number - first, 1)}"
+
+    return _DAY_NAMED.sub(local, message, count=1)
+
+
+def _own_id(item_id: str | None, number: int) -> str | None:
+    """A selected stop's or stay's id as the city's own plan names it (the cities after the first carry a prefix)."""
+    prefix = f"s{number}_"
+    return item_id[len(prefix) :] if item_id and number > 1 and item_id.startswith(prefix) else item_id
+
+
+async def edit_cities(
+    modify: ModifyPath,
+    *,
+    plan: TripPlan,
+    context: TripContext,
+    message: str,
+    draft: Any,
+    route_parts: list[str],
+    toolbox: Any,
+    tracer: Any,
+    emit: Any,
+    memory_summaries: list[str] | None = None,
+    scope_item_id: str | None = None,
+    history: Any = (),
+) -> EditResult:
+    """An edit of what is inside one city, or inside all of them when it names none: each city is edited as a plan of its
+    own with the ordinary edit, and the cities are put together again. A city the edit does not touch stays as it was."""
+    target = segment_for_edit(plan, message, scope_item_id, draft.target_day)
+    if target == "ask":
+        return _asks(plan, which_visit_question(plan, message), message)
+    if target == "all":
+        indexes = list(range(len(plan.segments)))
+    else:
+        indexes = [next(i for i, s in enumerate(plan.segments) if s.id == target.id)]
+    parts = split(plan)
+    toolbox = _cached(toolbox, plan.session_id)
+    gate = asyncio.Semaphore(3)
+    total = max(plan.dates.night_count, 1)
+
+    async def one(index: int) -> EditResult:
+        segment = plan.segments[index]
+        share = None if context.budget is None else round(context.budget * segment.dates.night_count / total, 2)
+        city = city_context(context, segment, last=index == len(plan.segments) - 1, budget=share)
+        asked = message if target == "all" else _localise_day(message, plan, index)
+        async with gate:
+            return await modify.run(
+                plan=parts[index],
+                context=city,
+                message=asked,
+                route_parts=route_parts,
+                toolbox=toolbox,
+                tracer=tracer,
+                emit=emit,
+                memory_summaries=memory_summaries,
+                scope_item_id=_own_id(scope_item_id, index + 1),
+                history=history,
+            )
+
+    results = await asyncio.gather(*(one(i) for i in indexes))
+    for result in results:
+        if result.asks is not None:
+            return _asks(plan, result.asks.question, message)
+    changed = [
+        (i, result[0]) for i, result in zip(indexes, results) if result[0].version != parts[i].version
+    ]
+    if not changed:
+        unchanged = plan.model_copy(deep=True)
+        unchanged.change_summary = next((r[0].change_summary for r in results if r[0].change_summary), "") or (
+            "Nothing in the plan matched that request."
+        )
+        return EditResult(unchanged, [])
+    if any(part.dates != parts[i].dates for i, part in changed):
+        unchanged = plan.model_copy(deep=True)
+        unchanged.change_summary = DATES_FROM_CHAT
+        return EditResult(unchanged, [])
+    for i, part in changed:
+        parts[i] = part
+    touched = {plan.segments[i].id for i, _ in changed}
+
+    stitched = stitch(
+        parts,
+        plan.segments,
+        plan.legs,
+        plan.tickets,
+        context,
+        session_id=plan.session_id,
+        version=plan.version + 1,
+        trip_id=plan.trip_id,
     )
-    return EditResult(unchanged, [])
+    updated = _graft_untouched(plan, stitched, touched)
+    updated = await finish_trip(modify.plan_path, updated, parts, context=context, toolbox=toolbox, emit=emit, assess=False)
+    updated.assessment = plan.assessment
+    updated.summary = plan.summary
+    updated.created_at = plan.created_at
+    updated.updated_at = utcnow()
+    updated.change_summary = " ".join(
+        dict.fromkeys(part.change_summary for _, part in changed if part.change_summary)
+    )
+    return EditResult(
+        updated,
+        diff_plans(plan, updated),
+        scope="plan" if target == "all" else "stop",
+        selected=bool(scope_item_id),
+    )
+
+
+def _graft_untouched(old: TripPlan, stitched: TripPlan, touched: set[str]) -> TripPlan:
+    """The stitched plan with every city the edit did not touch exactly as it was (days, stays, notes), so putting the
+    cities together again changes nothing in them."""
+    for index, day in enumerate(stitched.days):
+        if day.segment_id not in touched:
+            before = next((d for d in old.days if d.date == day.date), None)
+            if before is not None:
+                stitched.days[index] = before.model_copy(deep=True)
+    kept = [stay.model_copy(deep=True) for stay in old.hotels if stay.segment_id not in touched]
+    changed = [stay for stay in stitched.hotels if stay.segment_id in touched]
+    stitched.hotels = sorted([*kept, *changed], key=lambda stay: stay.check_in)
+    stitched.hotel_options = [
+        *[o.model_copy(deep=True) for o in old.hotel_options if o.segment_id not in touched],
+        *[o for o in stitched.hotel_options if o.segment_id in touched],
+    ]
+    stitched.data_quality.notes = list(dict.fromkeys([*old.data_quality.notes, *stitched.data_quality.notes]))[:30]
+    return stitched

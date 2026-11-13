@@ -51,11 +51,26 @@ def segment_for_edit(
         return next(segment for segment in plan.segments if segment.id == segment_id)
     named = _named(plan, message)
     if not named:
-        return "all"
+        return _by_stop_name(plan, message) or "all"
     names = {segment.destination.name.strip().lower() for segment in named}
     if len(named) > 1 and len(names) == 1:
         return "ask"
     return named[0] if len(named) == 1 else "all"
+
+
+def _by_stop_name(plan: TripPlan, message: str) -> TripSegment | None:
+    """The one city whose stops the message names ("remove Sumiyoshi Taisha"); None when it names none or stops of
+    several cities."""
+    lower = message.lower()
+    found: set[str] = set()
+    for day in plan.days:
+        for item in day.items:
+            name = item.name.strip().lower()
+            if item.type.value != "transit" and len(name) >= 4 and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", lower):
+                found.add(day.segment_id)
+    if len(found) != 1:
+        return None
+    return next((s for s in plan.segments if s.id in found), None)
 
 
 def which_visit_question(plan: TripPlan, message: str) -> str:

@@ -180,7 +180,7 @@ def test_a_city_visited_twice_is_planned_once_per_visit(settings: Settings) -> N
     assert [leg.id for leg in plan.legs] == ["leg_out", "leg_1", "leg_2", "leg_home"]
 
 
-def test_an_edit_on_a_multi_city_plan_is_not_made_yet(settings: Settings) -> None:
+def test_an_edit_on_a_multi_city_plan_is_made_city_by_city(settings: Settings) -> None:
     settings = settings.model_copy(
         update={
             "preplan_budget_seconds": 15,
@@ -222,10 +222,10 @@ def test_an_edit_on_a_multi_city_plan_is_not_made_yet(settings: Settings) -> Non
     before, after, events = asyncio.run(main())
 
     text = " ".join(str(e.data) for e in events)
-    assert "can't change a multi-city plan from chat yet" in text
-    assert [(d.date, [i.name for i in d.items]) for d in after.days] == [
-        (d.date, [i.name for i in d.items]) for d in before.days
-    ]
+    assert "can't change a multi-city plan" not in text
+    assert not [e for e in events if e.event == "error"]
+    assert [d.date for d in after.days] == [d.date for d in before.days]
+    assert after.segments == before.segments
 
 
 def test_a_question_about_a_two_city_plan_is_answered_from_its_facts() -> None:

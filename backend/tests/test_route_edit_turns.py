@@ -42,12 +42,12 @@ class Trip:
     async def __aexit__(self, *_: object) -> None:
         self.ledger.close()
 
-    async def turn(self, message: str, route: dict[str, Any] = MODIFY_ROUTE) -> list:
+    async def turn(self, message: str, route: dict[str, Any] = MODIFY_ROUTE, *, scope_item_id: str | None = None) -> list:
         self.rig.llm.route = route
         return [
             e
             async for e in self.rig.turns.handle_turn(
-                session_id=self.session.id, message=message
+                session_id=self.session.id, message=message, scope_item_id=scope_item_id
             )
         ]
 

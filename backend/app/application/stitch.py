@@ -145,6 +145,7 @@ def _transit_item(
         start=_clock(start),
         end=_clock(end),
         notes="Estimated time" if option.estimated else "",
+        fetched_at=option.fetched_at,
         source_refs=list(option.source_refs),
         price=option.price,
         price_kind=option.price_kind,

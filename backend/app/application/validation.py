@@ -457,6 +457,96 @@ def tidy_data_gaps(plan: TripPlan, *, drop_edit_gaps: bool = False) -> TripPlan:
     return plan
 
 
+def _span_of(stay: HotelStay) -> str:
+    return _span(stay.check_in, stay.check_out)
+
+
+def _route_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
+    """What changed in the cities, the stays and the legs of a plan of several cities (the parts of a plan that a
+    plan of one city has only one of are in ``diff_plans`` itself). Cities are matched by name, the n-th visit of a name
+    to the n-th visit, so nothing depends on ids that a changed route renumbers."""
+    changes: list[dict[str, Any]] = []
+    before = [(s.destination.name, s) for s in old.segments]
+    after = [(s.destination.name, s) for s in new.segments]
+    pending = list(before)
+    matched: list[tuple[Any, Any]] = []
+    for name, segment in after:
+        hit = next((row for row in pending if row[0].casefold() == name.casefold()), None)
+        if hit is None:
+            changes.append({"kind": "city_added", "city": name, "segment_id": segment.id})
+            continue
+        pending.remove(hit)
+        matched.append((hit[1], segment))
+        if hit[1].dates.night_count != segment.dates.night_count:
+            changes.append(
+                {
+                    "kind": "nights",
+                    "city": name,
+                    "segment_id": segment.id,
+                    "from": hit[1].dates.night_count,
+                    "to": segment.dates.night_count,
+                }
+            )
+    changes.extend({"kind": "city_removed", "city": name, "segment_id": segment.id} for name, segment in pending)
+    for earlier, later in matched:
+        used: set[str] = set()
+        for stay in new.stays_in(later.id):
+            previous = next((s for s in old.stays_in(earlier.id) if s.id not in used and s.id == stay.id), None)
+            previous = previous or next((s for s in old.stays_in(earlier.id) if s.id not in used), None)
+            if previous is None:
+                continue
+            used.add(previous.id)
+            entry = {"id": stay.id, "segment_id": later.id}
+            if previous.name != stay.name:
+                changes.append({"kind": "hotel", **entry, "from": previous.name, "to": stay.name})
+            elif (previous.check_in, previous.check_out) != (stay.check_in, stay.check_out):
+                changes.append(
+                    {"kind": "stay", **entry, "name": stay.name, "from": _span_of(previous), "to": _span_of(stay)}
+                )
+            elif previous.price_per_night != stay.price_per_night:
+                changes.append(
+                    {
+                        "kind": "hotel_price",
+                        **entry,
+                        "name": stay.name,
+                        "from": _rate(previous.price_per_night),
+                        "to": _rate(stay.price_per_night),
+                    }
+                )
+        if len(new.stays_in(later.id)) > len(old.stays_in(earlier.id)):
+            for extra in new.stays_in(later.id)[len(old.stays_in(earlier.id)) :]:
+                changes.append(
+                    {"kind": "stay", "id": extra.id, "segment_id": later.id, "name": extra.name, "from": "", "to": _span_of(extra)}
+                )
+    names = {leg.id: leg for leg in old.legs}
+    kept: set[str] = set()
+    for leg in new.legs:
+        chosen = next(iter(c for c in new.chosen_tickets() if new.leg_id_of(c) == leg.id), None)
+        earlier = next(
+            (
+                o
+                for o in old.legs
+                if o.id not in kept and (o.kind, o.from_place, o.to_place) == (leg.kind, leg.from_place, leg.to_place)
+            ),
+            None,
+        )
+        before_choice = (
+            next(iter(c for c in old.chosen_tickets() if old.leg_id_of(c) == earlier.id), None) if earlier else None
+        )
+        if earlier is not None:
+            kept.add(earlier.id)
+        was, now = (before_choice.name if before_choice else ""), (chosen.name if chosen else "")
+        if was != now or (earlier is not None and earlier.depart_date != leg.depart_date and now):
+            changes.append({"kind": "transport", "leg_id": leg.id, "from": was, "to": now})
+    for leg_id, leg in names.items():
+        if leg_id in kept:
+            continue
+        gone = next(iter(c for c in old.chosen_tickets() if old.leg_id_of(c) == leg_id), None)
+        if gone is not None:
+            changes.append({"kind": "transport", "leg_id": leg_id, "from": gone.name, "to": ""})
+    return changes
+
+
 def _span(start: date, end: date) -> str:
     return f"{start.isoformat()} – {end.isoformat()}"
 
@@ -508,35 +598,40 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
         changes.append({"kind": "origin", "from": old.origin or "", "to": new.origin or ""})
     if old.budget != new.budget:
         changes.append({"kind": "budget", "from": _rate(old.budget), "to": _rate(new.budget)})
-    old_hotel = old.first_stay.name if old.hotels else ""
-    new_hotel = new.first_stay.name if new.hotels else ""
-    if old_hotel != new_hotel:
-        changes.append({"kind": "hotel", "from": old_hotel, "to": new_hotel})
-    elif old.hotels and new.hotels:
-        # The same hotel, kept or priced again: its nights and its rate are not a different hotel.
-        before, after = old.first_stay, new.first_stay
-        if (before.check_in, before.check_out) != (after.check_in, after.check_out):
+    if len(old.segments) > 1 or len(new.segments) > 1:
+        changes.extend(_route_changes(old, new))
+    else:
+        old_hotel = old.first_stay.name if old.hotels else ""
+        new_hotel = new.first_stay.name if new.hotels else ""
+        if old_hotel != new_hotel:
             changes.append(
-                {
-                    "kind": "stay",
-                    "name": after.name,
-                    "from": _span(before.check_in, before.check_out),
-                    "to": _span(after.check_in, after.check_out),
-                }
+                {"kind": "hotel", "id": new.first_stay.id if new.hotels else "", "from": old_hotel, "to": new_hotel}
             )
-        if before.price_per_night != after.price_per_night:
-            changes.append(
-                {
-                    "kind": "hotel_price",
-                    "name": after.name,
-                    "from": _rate(before.price_per_night),
-                    "to": _rate(after.price_per_night),
-                }
-            )
-    old_flight = old.tickets[0].name if old.tickets else ""
-    new_flight = new.tickets[0].name if new.tickets else ""
-    if old_flight != new_flight:
-        changes.append({"kind": "flight", "from": old_flight, "to": new_flight})
+        elif old.hotels and new.hotels:
+            # The same hotel, kept or priced again: its nights and its rate are not a different hotel.
+            before, after = old.first_stay, new.first_stay
+            if (before.check_in, before.check_out) != (after.check_in, after.check_out):
+                changes.append(
+                    {
+                        "kind": "stay",
+                        "name": after.name,
+                        "from": _span(before.check_in, before.check_out),
+                        "to": _span(after.check_in, after.check_out),
+                    }
+                )
+            if before.price_per_night != after.price_per_night:
+                changes.append(
+                    {
+                        "kind": "hotel_price",
+                        "name": after.name,
+                        "from": _rate(before.price_per_night),
+                        "to": _rate(after.price_per_night),
+                    }
+                )
+        old_flight = old.tickets[0].name if old.tickets else ""
+        new_flight = new.tickets[0].name if new.tickets else ""
+        if old_flight != new_flight:
+            changes.append({"kind": "flight", "from": old_flight, "to": new_flight})
     if _forecast(old) != _forecast(new):
         changes.append({"kind": "weather"})
     if (old.cost.total, old.cost.status) != (new.cost.total, new.cost.status):

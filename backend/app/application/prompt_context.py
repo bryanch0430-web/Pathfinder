@@ -100,7 +100,11 @@ def plan_outline(
         return "none"
     summary = strip_fence_tags_deep(summary)
     budget = summary.get("budget") or {}
-    head = [str(summary.get("destination") or "")]
+    head = [
+        " → ".join(summary["route"])
+        if summary.get("route")
+        else str(summary.get("destination") or "")
+    ]
     dates = summary.get("dates") or []
     if len(dates) == 2:
         head.append(f"{dates[0]}..{dates[1]}")
@@ -128,7 +132,10 @@ def plan_outline(
                 label += " [locked]"
             items.append(label)
         lines.append(
-            f"Day {index} {day.get('date', '')}: " + ("; ".join(items) or "free")
+            f"Day {index} {day.get('date', '')}"
+            + (f" [{' '.join(str(day['city']).split())}]" if day.get("city") else "")
+            + ": "
+            + ("; ".join(items) or "free")
         )
     return "\n".join(lines)
 
@@ -295,6 +302,11 @@ def _detail(
         weather = _weather(day)
         lines.append(
             f"Day {number} {day.date.isoformat()}"
+            + (
+                f" [{_line(plan.segment_of(day.date).destination.name)}]"
+                if len(plan.segments) > 1
+                else ""
+            )
             + (f' "{title}"' if title else "")
             + (f", weather: {weather}" if weather else "")
             + ":"

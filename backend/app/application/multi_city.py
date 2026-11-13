@@ -219,7 +219,6 @@ async def build_trip(
     whole put together, costed, assessed and checked. ``kept_parts`` are cities that stay as they were, by index;
     ``kept_options`` are the options of legs that stay as they were, by the new leg's id. ``toolbox`` is the one that
     answers from the session's cache."""
-    settings = path.settings
     kept_parts = kept_parts or {}
     kept_options = kept_options or {}
     places = [segment.destination for segment in segments]
@@ -384,6 +383,22 @@ async def build_trip(
         note=note,
     )
     plan.change_summary = change_summary
+    return await finish_trip(path, plan, list(parts), context=context, toolbox=toolbox, emit=emit)
+
+
+async def finish_trip(
+    path: PlanPath,
+    plan: TripPlan,
+    parts: list[TripPlan],
+    *,
+    context: TripContext,
+    toolbox: Toolbox,
+    emit: Callable[[str, dict[str, Any]], None],
+    assess: bool = True,
+) -> TripPlan:
+    """A stitched plan costed, checked against the trip form, assessed (unless ``assess`` is off: an edit keeps the
+    plan's assessment for the caller to read again) and validated."""
+    settings = path.settings
     plan.cost = path.planner.cost_for_plan(context, plan)
     rules = [*context.hard_constraints, *context.preferences]
     plan.constraints = _constraints(
@@ -403,7 +418,7 @@ async def build_trip(
         seen_checks.update(check.text for check in part.constraints)
     annotate_stays(plan)
 
-    if settings.enable_plan_assessment:
+    if assess and settings.enable_plan_assessment:
         try:
             plan = await assess_and_improve(
                 plan,

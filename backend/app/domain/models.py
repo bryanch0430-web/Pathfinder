@@ -733,10 +733,12 @@ class TripPlan(BaseModel):
             "party_size": self.party_size,
             "budget": self.budget.model_dump() if self.budget else None,
             "version": self.version,
+            **({"route": [s.destination.name for s in self.segments]} if len(self.segments) > 1 else {}),
             "days": [
                 {
                     "date": day.date.isoformat(),
                     "title": day.title,
+                    **({"city": self.segment_of(day.date).destination.name} if len(self.segments) > 1 else {}),
                     "items": [
                         {
                             "id": item.id,
