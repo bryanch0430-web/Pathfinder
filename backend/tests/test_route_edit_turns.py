@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
-from typing import Any
+from typing import Any, Self
 
 from multi_city_rig import multi_city_rig, route_context
 
@@ -29,7 +29,7 @@ class Trip:
         )
         self.stops, self.more = stops, more
 
-    async def __aenter__(self) -> Trip:
+    async def __aenter__(self) -> Self:
         self.ledger = RunLedger()
         self.rig = multi_city_rig(self.settings, self.ledger)
         self.session = self.ledger.store.create_session("guest-edit-route")
