@@ -15,6 +15,7 @@ import { pinHtml, pinSvg, tokenHtml, tokenSvg, type PinVisual } from "./pins";
 import { hotelScopeItem } from "../scope";
 import { useI18n } from "../../lib/i18n";
 import { buildGeometry, offsetPath, pointAlong, type RouteGeometry } from "../../lib/mapGeometry";
+import type { OverviewStop, TravelLine } from "../../lib/mapScope";
 import type { DayPlan, PlanItem, TripPlan } from "../types";
 
 const HAS_GEO = (item: PlanItem): item is PlanItem & { geo: NonNullable<PlanItem["geo"]> } => Boolean(item.geo);
@@ -72,6 +73,10 @@ export interface TripMapProps {
   follow: boolean;
   updatedIds: Set<string>;
   hotelChanged: boolean;
+  /** The whole trip: every city as a numbered marker with a line between them, instead of a day. */
+  overview?: OverviewStop[] | null;
+  /** On a travel day, the line from the city before. */
+  travel?: TravelLine | null;
 }
 
 export function TripMap(props: TripMapProps) {
@@ -95,6 +100,8 @@ export function TripMap(props: TripMapProps) {
     updatedIds,
     hotelChanged,
     legs,
+    overview = null,
+    travel = null,
   } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -139,7 +146,9 @@ export function TripMap(props: TripMapProps) {
   const [layersBuilt, setLayersBuilt] = useState(0);
   const clockRef = useRef(clock);
   clockRef.current = clock;
-  const centre = plan.destination.geo ?? { lat: 22.3193, lng: 114.1694 };
+  // The first city's centre; a plan whose cities have none starts on the world and fits to whatever it draws.
+  const known = plan.segments?.[0]?.destination.geo ?? plan.destination.geo;
+  const centre = known ?? { lat: 20, lng: 0 };
 
   // --- create the map -----------------------------------------------------
   useEffect(() => {
@@ -162,6 +171,7 @@ export function TripMap(props: TripMapProps) {
         if (cancelled) return;
         el.innerHTML = "";
         engine = createGoogleEngine(el, centre);
+        if (!known) engine.setZoom(2);
         engineRef.current = engine;
         if (!cancelled) {
           setStatus("ready");
@@ -199,15 +209,54 @@ export function TripMap(props: TripMapProps) {
     tokenPos.current = null;
     tokenTarget.current = null;
 
+    if (overview) {
+      // The whole trip: the cities in order, joined by a dashed line, and nothing of any one day.
+      const key = `${plan.trip_id}:overview:${overview.length}`;
+      if (fitKey.current !== key) {
+        fitKey.current = key;
+        engine.fit(overview.map((stop) => stop.geo), [92, 42, 52, 42]);
+      }
+      if (overview.length > 1) {
+        engine.polyline(
+          overview.map((stop) => stop.geo),
+          { color: MODE.metro.color, weight: 3, opacity: 0.85, dashed: true },
+        );
+      }
+      for (const stop of overview) {
+        const visual: PinVisual = { label: String(stop.number), variant: "sight" };
+        engine.pin(stop.geo, {
+          anchor: [-15, -15],
+          title: stop.name,
+          z: 500,
+          visual,
+          html: pinHtml(visual),
+          svgIcon: pinSvg(visual),
+        });
+      }
+      setLayersBuilt((value) => value + 1);
+      return;
+    }
+
     const withGeo = points.filter(HAS_GEO);
     const routeGeo = routePoints.filter(HAS_GEO);
     const coords: LatLng[] = routeGeo.map((item) => item.geo);
-    const around = hotel?.geo ? [hotel.geo, ...coords] : coords;
+    const around = [...(travel ? [travel.from, travel.to] : []), ...(hotel?.geo ? [hotel.geo, ...coords] : coords)];
     const now = clockRef.current;
 
-    if (fitKey.current !== `${plan.trip_id}:${day?.date ?? ""}`) {
-      fitKey.current = `${plan.trip_id}:${day?.date ?? ""}`;
+    const fitId = `${plan.trip_id}:${day?.date ?? ""}`;
+    if (fitKey.current !== fitId) {
+      fitKey.current = fitId;
       engine.fit(around, [92, 42, 52, 42]);
+    }
+
+    if (travel) {
+      // The day a city is reached: the way from the city before, in the colour of the mode chosen for it.
+      engine.polyline([travel.from, travel.to], {
+        color: travel.mode === "train" || travel.mode === "bus" ? MODE.metro.color : MODE.drive.color,
+        weight: 4,
+        opacity: 0.8,
+        dashed: true,
+      });
     }
 
     if (showRoute) {
@@ -460,6 +509,8 @@ export function TripMap(props: TripMapProps) {
     showRoute,
     hotelChanged,
     legs,
+    overview,
+    travel,
   ]);
 
   // --- playback state: restyle pins and legs in place --------------------

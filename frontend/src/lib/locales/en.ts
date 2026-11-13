@@ -485,6 +485,7 @@ export const EN = {
   "city.nightsOne": "{count} night",
   "city.heading": "{city} · {arrive} – {leave} · {nights}",
   "city.noStay": "No stay was found in {city}.",
+  "map.wholeTrip": "Whole trip",
   "workspace.route": "Route",
   "options.match.meets": "Fits your wish",
   "options.match.partly": "Partly fits",

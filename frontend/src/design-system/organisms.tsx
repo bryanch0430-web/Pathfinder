@@ -61,6 +61,7 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type MapLeg } from "../lib/api";
+import { dayScope, overviewStops, travelLine, withinKm } from "../lib/mapScope";
 import {
   chosenFor,
   daysBySegment,
@@ -1808,7 +1809,7 @@ export function MapPanel({
   onOptimize,
   fx,
   updatedIds = [],
-  hotelChanged = false,
+  changedStayIds,
 }: {
   plan: TripPlan;
   activeDay: string;
@@ -1818,10 +1819,13 @@ export function MapPanel({
   onOptimize?: () => void;
   fx?: FxSnapshot | null;
   updatedIds?: string[];
-  hotelChanged?: boolean;
+  /** The stays (by id) the last change touched. */
+  changedStayIds?: ReadonlySet<string>;
 }) {
   const { t } = useI18n();
   const [showRoute, setShowRoute] = useState(true);
+  // Every city at once, instead of one day.
+  const [overview, setOverview] = useState(false);
   const [clock, setClock] = useState(9 * 60);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -1842,12 +1846,15 @@ export function MapPanel({
       .finally(() => setLegLoading(false));
   };
   const day = plan.days.find((entry) => entry.date === activeDay) ?? plan.days[0];
-  const centre = plan.destination.geo;
+  // The city the day is in: its centre, and the stay of that night.
+  const scope = dayScope(plan, day?.date ?? plan.dates.start);
+  const centre = scope.centre;
+  const multi = segmentsOf(plan).length > 1;
   const routePoints = useMemo(
     () =>
       (day?.items ?? [])
         .filter((item) => item.geo)
-        .filter((item) => !centre || kmBetween(centre, item.geo!) <= 400),
+        .filter((item) => withinKm(centre, item.geo)),
     [day, centre],
   );
   // Restaurants are part of the day: they get an "M" pin and a leg like any stop.
@@ -1867,9 +1874,10 @@ export function MapPanel({
       cancelled = true;
     };
   }, [plan.session_id, plan.trip_id, plan.version, day?.date]);
-  const hotel = plan.hotels[0] && (!centre || !plan.hotels[0].geo || kmBetween(centre, plan.hotels[0].geo) <= 400)
-    ? plan.hotels[0]
-    : undefined;
+  const hotel = scope.stay ?? undefined;
+  const hotelChanged = Boolean(hotel && changedStayIds?.has(hotel.id));
+  const travel = multi && !overview ? travelLine(plan, day?.date ?? plan.dates.start) : null;
+  const wholeTrip = multi && overview ? overviewStops(plan) : null;
   const hotelItem = useMemo(() => (hotel ? hotelScopeItem(hotel) : null), [hotel]);
 
   /** The replay chain: leave the hotel, visit the day, come back. */
@@ -2131,6 +2139,8 @@ export function MapPanel({
         updatedIds={updatedSet}
         hotelChanged={hotelChanged}
         legs={legs}
+        overview={wholeTrip}
+        travel={travel}
       />
       <div className="pf-map__foot">
         <div className="pf-row pf-row--between">
@@ -2141,10 +2151,25 @@ export function MapPanel({
                 sights: points.filter((item) => item.type !== "meal").length,
                 meals: points.filter((item) => item.type === "meal").length,
               })}{" "}
-              · {plan.destination.name}
+              · {overview && multi ? routeLabel(plan) : scope.segment.destination.name}
+              {travel ? ` · ${travel.label} (${travel.mode})` : ""}
             </Text>
           </div>
           <div className="pf-row" style={{ gap: 4 }}>
+            {multi ? (
+              <button
+                type="button"
+                className="pf-chip"
+                data-active={overview}
+                aria-pressed={overview}
+                onClick={() => {
+                  setOverview((value) => !value);
+                  setPlaying(false);
+                }}
+              >
+                {t("map.wholeTrip")}
+              </button>
+            ) : null}
             {plan.days.map((entry) => (
               <button
                 key={entry.date}
@@ -2152,6 +2177,7 @@ export function MapPanel({
                 className="pf-chip"
                 data-active={entry.date === activeDay}
                 onClick={() => {
+                  setOverview(false);
                   onActiveDay(entry.date);
                   setPlaying(false);
                 }}

@@ -659,7 +659,7 @@ export default function App() {
                     onOptimize={() => void pf.send("Optimise my budget and keep the confirmed stops.")}
                     fx={fx}
                     updatedIds={pf.changedIds}
-                    hotelChanged={pf.changedStayIds.size > 0}
+                    changedStayIds={pf.changedStayIds}
                   />
                 ) : (
                   <>

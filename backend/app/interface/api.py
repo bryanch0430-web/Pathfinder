@@ -1325,6 +1325,30 @@ def map_payload(plan: TripPlan) -> dict[str, Any]:
         }
         if hotel and hotel.geo
         else None,
+        # The cities in order and the stays, for a map of a trip of several; ``center`` and ``hotel`` are the first of each.
+        "segments": [
+            {
+                "id": segment.id,
+                "name": segment.destination.name,
+                "center": segment.destination.geo.model_dump() if segment.destination.geo else None,
+                "start": segment.dates.start.isoformat(),
+                "end": segment.dates.end.isoformat(),
+                "nights": segment.dates.night_count,
+            }
+            for segment in plan.segments
+        ],
+        "stays": [
+            {
+                "id": stay.id,
+                "segment_id": stay.segment_id,
+                "name": stay.name,
+                "lat": stay.geo.lat if stay.geo else None,
+                "lng": stay.geo.lng if stay.geo else None,
+                "check_in": stay.check_in.isoformat(),
+                "check_out": stay.check_out.isoformat(),
+            }
+            for stay in plan.hotels
+        ],
         "days": days,
         "tickets": [
             {

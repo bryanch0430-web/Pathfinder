@@ -483,6 +483,7 @@ export const ZH_HANS: Messages = {
   "city.nightsOne": "{count} 晚",
   "city.heading": "{city} · {arrive} – {leave} · {nights}",
   "city.noStay": "找不到{city}的住宿。",
+  "map.wholeTrip": "整个行程",
   "workspace.route": "路线",
   "options.match.meets": "符合你的要求",
   "options.match.partly": "部分符合",
