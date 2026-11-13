@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from app.domain.models import HotelStay, PlanAlternative, TicketOption, TripPlan
 
 STAY_WEIGHTS = {"price": 0.35, "rating": 0.25, "distance": 0.20, "match": 0.20}
+#: A business trip: distance (to the centre) counts 0.35 and price 0.20.
+BUSINESS_STAY_WEIGHTS = {"price": 0.20, "rating": 0.25, "distance": 0.35, "match": 0.20}
 ALTERNATIVE_WEIGHTS = {"rating": 0.40, "distance": 0.35, "price": 0.25}
 TRANSPORT_WEIGHTS = {"time": 0.60, "price": 0.40}
 
@@ -32,6 +34,7 @@ REASONS = {
     "price_cheapest": "cheapest",
     "rating": "best rated",
     "distance_stops": "closest to your stops",
+    "distance_centre": "closest to the centre",
     "distance": "closest",
     "match": "matches what you asked of the room",
     "time": "fastest door to door",
@@ -125,6 +128,7 @@ def rank_stays(
     *,
     per_night_budget: float | None = None,
     weights: dict | None = None,
+    distance_to: str = "stops",
 ) -> None:
     """Rank the stays offered for one city: price against the per-night budget, rating, distance to that city's stops,
     and the stay-research match. ``per_night_budget`` is in the stays' currency; None when there is none."""
@@ -140,7 +144,12 @@ def rank_stays(
     amounts = _same_currency(prices)
     price = _scaled(amounts, higher_is_better=False)
     rating = _scaled([s.rating for s in stays], higher_is_better=True)
-    distance = _scaled([s.nearest_stop_km for s in stays], higher_is_better=False)
+    # Distance is to the city's stops, or to the centre for a business trip.
+    centre = distance_to == "centre"
+    distance = _scaled(
+        [s.distance_to_centre_km if centre else s.nearest_stop_km for s in stays],
+        higher_is_better=False,
+    )
     match = _scaled(
         [
             float(s.match.score)
@@ -162,7 +171,8 @@ def rank_stays(
         return REASONS["rating"] if _best(rating, i) else None
 
     def distance_phrase(i: int) -> str | None:
-        return REASONS["distance_stops"] if _best(distance, i) else None
+        key = "distance_centre" if centre else "distance_stops"
+        return REASONS[key] if _best(distance, i) else None
 
     def match_phrase(i: int) -> str | None:
         stay_match = stays[i].match
@@ -290,7 +300,11 @@ def rank_plan(plan: TripPlan) -> None:
             )
             if first is not None and first.currency == allowance[1]:
                 budget = allowance[0]
-        rank_stays(group, per_night_budget=budget)
+        business = plan.profile is not None and plan.profile.purpose == "business"
+        if business:
+            rank_stays(group, per_night_budget=budget, weights=BUSINESS_STAY_WEIGHTS, distance_to="centre")
+        else:
+            rank_stays(group, per_night_budget=budget)
 
     by_city: dict[str, list] = {}
     for stay in plan.hotel_options:

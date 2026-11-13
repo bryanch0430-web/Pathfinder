@@ -158,6 +158,10 @@ class ContextPatch(BaseModel):
     currency: FormText | None = None
     hotel_style: FormText | None = None
     pace: FormText | None = None
+    #: The rest of the traveller profile: children, business or leisure, step-free access.
+    with_children: bool | None = None
+    purpose: Literal["leisure", "business"] | None = None
+    step_free: bool | None = None
     preferences: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
     hard_constraints: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
     language: FormText | None = None
@@ -690,7 +694,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         data = payload.model_dump(exclude_unset=True)
         for key, value in data.items():
             if value is not None:
-                setattr(context, key, [TripStop.model_validate(row) for row in value] if key == "stops" else value)
+                if key in {"with_children", "purpose", "step_free"}:
+                    context.profile = context.profile.model_copy(update={key: value})
+                else:
+                    setattr(context, key, [TripStop.model_validate(row) for row in value] if key == "stops" else value)
         # "Plan anyway" was said of the budget and the start date the form had: other ones are checked again.
         if (context.budget, context.currency.upper()) != was[:2]:
             context.budget_confirmed = False

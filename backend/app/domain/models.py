@@ -11,7 +11,16 @@ from datetime import date, datetime, timezone
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StringConstraints, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    StringConstraints,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
@@ -277,6 +286,9 @@ class PlanItem(BaseModel):
     source_summary: str = ""
     #: Other source-backed choices for this stop; the item itself is the default.
     alternatives: list[PlanAlternative] = Field(default_factory=list)
+    #: Whether the place source says the entrance is step-free (wheelchair accessible): True, False, or None when
+    #: it did not say.
+    step_free: bool | None = None
     #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
     image: ImageRef | None = None
     #: Booking, website and map links, written by ``TripPlan.refresh_links``.
@@ -597,6 +609,8 @@ class TripPlan(BaseModel):
     dates: DateRange
     #: The cities in travel order; always at least one once validated (a plan stored without any gets one).
     segments: list[TripSegment] = Field(default_factory=list)
+    #: The profile the plan was made for; None for the default one.
+    profile: TravellerProfile | None = None
     party_size: int = Field(default=1, ge=1, le=20)
     budget: Money | None = None
     summary: str = ""
@@ -846,6 +860,32 @@ class TripStop(BaseModel):
     nights: int | None = Field(default=None, ge=1, le=60)
 
 
+def _legacy_pace(value: Any) -> str:
+    """An old stored pace word as a pace of the profile: slow/relaxed -> relaxed, fast/packed -> packed, else balanced."""
+    word = str(value or "").strip().lower()
+    if word in {"slow", "relaxed"}:
+        return "relaxed"
+    if word in {"fast", "packed"}:
+        return "packed"
+    return "balanced"
+
+
+class TravellerProfile(BaseModel):
+    """Who is travelling, as the traveller said it. Planning reads it in code (stops a day, hours, which places
+    come first, how stays are ranked); no prompt decides what it does."""
+
+    pace: Literal["relaxed", "balanced", "packed"] = "balanced"
+    with_children: bool = False
+    purpose: Literal["leisure", "business"] = "leisure"
+    #: Step-free access is needed (a wheelchair, a pram, a walking difficulty).
+    step_free: bool = False
+
+    @field_validator("pace", mode="before")
+    @classmethod
+    def _pace_word(cls, value: Any) -> str:
+        return _legacy_pace(value)
+
+
 class TripContext(BaseModel):
     session_id: str
     destination: str = ""
@@ -862,7 +902,9 @@ class TripContext(BaseModel):
     budget: float | None = Field(default=None, ge=0)
     currency: str = "HKD"
     hotel_style: str = ""
-    pace: str = "balanced"
+    #: Pace, children, business and step-free access; ``pace`` below reads it. A stored context that has only the
+    #: old ``pace`` string gets its profile from it.
+    profile: TravellerProfile = Field(default_factory=TravellerProfile)
     preferences: list[str] = Field(default_factory=list)
     hard_constraints: list[str] = Field(default_factory=list)
     language: str = "en"
@@ -874,6 +916,24 @@ class TripContext(BaseModel):
     #: The traveller chose to keep a start date that has gone by: the check before planning does not ask again.
     past_dates_confirmed: bool = False
     updated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _old_pace(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "pace" in data:
+            data = dict(data)
+            pace = data.pop("pace")
+            if "profile" not in data:
+                data["profile"] = {"pace": pace}
+        return data
+
+    @property
+    def pace(self) -> str:
+        return self.profile.pace
+
+    @pace.setter
+    def pace(self, value: str) -> None:
+        self.profile = self.profile.model_copy(update={"pace": _legacy_pace(value)})
 
     @model_validator(mode="after")
     def _within_limits(self) -> "TripContext":
@@ -888,6 +948,12 @@ class TripContext(BaseModel):
             for key in (*_CHECK_MARKS, "stops", "one_way"):
                 if key in data and not data[key]:
                     del data[key]
+            # The form always showed ``pace``; the rest of the profile is written only when it is not the default.
+            profile = data.pop("profile", None)
+            if isinstance(profile, dict):
+                data["pace"] = profile.get("pace", "balanced")
+                if profile != TravellerProfile().model_dump(mode="json"):
+                    data["profile"] = profile
         return data
 
     def fit_to_limits(self) -> "TripContext":
@@ -899,7 +965,6 @@ class TripContext(BaseModel):
         self.origin = self.origin[:TRIP_FIELD_MAX_LENGTH]
         self.currency = self.currency[:TRIP_FIELD_MAX_LENGTH]
         self.hotel_style = self.hotel_style[:TRIP_FIELD_MAX_LENGTH]
-        self.pace = self.pace[:TRIP_FIELD_MAX_LENGTH]
         self.language = self.language[:TRIP_FIELD_MAX_LENGTH]
         self.preferences = [line[:TRIP_LINE_MAX_LENGTH] for line in self.preferences[-TRIP_LINES_MAX:]]
         self.hard_constraints = [line[:TRIP_LINE_MAX_LENGTH] for line in self.hard_constraints[-TRIP_LINES_MAX:]]
@@ -1152,6 +1217,8 @@ class PlaceCandidate(BaseModel):
     cuisine: str | None = None
     #: the source's own price range text ("JPY 1,000-2,000"); empty when it gave none.
     price_range: str = ""
+    #: The source's statement about a step-free entrance (Google ``wheelchairAccessibleEntrance``); None when it gave none.
+    step_free: bool | None = None
     #: The picture the source returned for the place; None when it returned none.
     image: ImageRef | None = None
     #: The English Wikipedia title the source gave for the place (OSM's wikipedia tag, a Wikivoyage

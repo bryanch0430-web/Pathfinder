@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable
 
+from app.application.profile_rules import CHILDREN_LONG_TRANSFER_MINUTES
 from app.application.research import FAVOURABLE, research_unclear_stays, stay_wishes
 from app.domain.errors import CanaryLeak
 from app.domain.models import (
@@ -53,6 +54,40 @@ def _capped(count: int, each: float, cap: float) -> float:
     return round(min(count * each, cap), 2)
 
 
+#: At most this many step-free or long-transfer lines are listed, so the plan's other open points still show.
+_PROFILE_LINES_EACH = 3
+
+
+def _profile_lines(plan: TripPlan, context: TripContext | None) -> list[str]:
+    """What the traveller's profile makes worth saying: places step-free access is not confirmed for, and a single long transfer
+    on a trip with children. Read from fields the sources gave; nothing is judged here."""
+    profile = getattr(context, "profile", None)
+    if profile is None:
+        return []
+    lines: list[str] = []
+    if profile.step_free:
+        step = []
+        for day in plan.days:
+            for item in day.items:
+                if item.type.value not in {"attraction", "meal"} or item.step_free is True:
+                    continue
+                if item.step_free is False:
+                    step.append(f"no step-free entrance at {item.name} (the place source says so)")
+                else:
+                    step.append(f"step-free access not confirmed: {item.name}")
+        lines.extend(list(dict.fromkeys(step))[:_PROFILE_LINES_EACH])
+    if profile.with_children:
+        long = []
+        for number, day in enumerate(plan.days, start=1):
+            for item in day.items:
+                if item.transfer is not None and item.transfer.minutes > CHILDREN_LONG_TRANSFER_MINUTES:
+                    long.append(
+                        f"{item.transfer.minutes} minutes to get to {item.name} (day {number}) is long with children."
+                    )
+        lines.extend(long[:_PROFILE_LINES_EACH])
+    return lines
+
+
 def assess_plan(
     plan: TripPlan,
     context: TripContext | None,
@@ -65,7 +100,7 @@ def assess_plan(
 ) -> PlanAssessment:
     """The plan's assessment. Pure: the plan is not changed."""
     signals: list[AssessmentSignal] = []
-    unverified: list[str] = []
+    unverified: list[str] = _profile_lines(plan, context)
     missing: list[str] = []
 
     gaps = [gap for gap in plan.data_quality.gaps if gap.section != "budget"]

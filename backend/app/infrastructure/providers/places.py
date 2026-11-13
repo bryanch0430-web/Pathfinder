@@ -31,6 +31,7 @@ GOOGLE_FIELD_MASK = ",".join(
         "places.reservable",
         "places.priceRange",
         "places.photos",
+        "places.accessibilityOptions",
     ]
 )
 
@@ -233,6 +234,7 @@ class GooglePlacesSource:
                     ),
                     price_range=price_range_text(row.get("priceRange")),
                     image=google_image(row.get("photos")),
+                    step_free=_step_free(row.get("accessibilityOptions")),
                     # Asked for in English; Google says which language the name is in.
                     names=(
                         {"en": display}
@@ -242,6 +244,12 @@ class GooglePlacesSource:
                 )
             )
         return out[:limit]
+
+
+def _step_free(options: object) -> bool | None:
+    """The source's statement about a step-free entrance (``wheelchairAccessibleEntrance``); None when it made none."""
+    value = options.get("wheelchairAccessibleEntrance") if isinstance(options, dict) else None
+    return value if isinstance(value, bool) else None
 
 
 def _wikipedia_title(value: object) -> str:

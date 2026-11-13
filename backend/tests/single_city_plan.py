@@ -34,6 +34,9 @@ _VOLATILE_KEYS = {
     "score",
     "reasons",
     "image",
+    # Step 7: the profile a plan was made for (None for the default) and a place source's step-free statement.
+    "profile",
+    "step_free",
 }
 _RANDOM_ID = re.compile(r"^(check|reservation|disruption|msg|trip|sess)_[0-9a-f]{6,}$")
 

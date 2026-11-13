@@ -86,6 +86,8 @@ export interface PlanItem {
   alternatives?: PlanAlternative[];
   links?: Link[];
   image?: ImageRef | null;
+  /** The place source's statement about a step-free entrance; absent when it made none. */
+  step_free?: boolean | null;
 }
 
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
@@ -455,6 +457,14 @@ export interface TripPlan {
   updated_at: string;
 }
 
+/** Who is travelling: pace, children, business or leisure, step-free access. Planning reads it in code. */
+export interface TravellerProfile {
+  pace: "relaxed" | "balanced" | "packed";
+  with_children: boolean;
+  purpose: "leisure" | "business";
+  step_free: boolean;
+}
+
 export interface TripContext {
   session_id: string;
   destination: string;
@@ -466,7 +476,10 @@ export interface TripContext {
   budget: number | null;
   currency: string;
   hotel_style: string;
+  /** The profile's pace word (kept for the form as it always was). */
   pace: string;
+  /** The traveller profile; absent when it is the default. */
+  profile?: TravellerProfile;
   preferences: string[];
   hard_constraints: string[];
   language: string;

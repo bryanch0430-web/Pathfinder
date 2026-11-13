@@ -190,6 +190,8 @@ def swap_option(plan: TripPlan, day: DayPlan, position: int, option: PlanAlterna
             "source_types": list(option.source_types),
             "source_summary": option.source_summary,
             "image": option.image,
+            # What the source said about the old stop does not carry over to the one chosen instead.
+            "step_free": None,
             "alternatives": _remeasure([previous, *others], option),
         }
     )

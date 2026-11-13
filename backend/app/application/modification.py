@@ -2603,6 +2603,7 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str, *, day: i
             tags=(row.get("tags") or [])[:4],
             names=trusted_names(row.get("names")),
             image=image_of(row),
+            step_free=row.get("step_free") if isinstance(row.get("step_free"), bool) else None,
         )
         day.items.append(item)
         day.items.sort(key=lambda entry: entry.start)

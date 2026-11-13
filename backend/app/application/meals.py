@@ -267,6 +267,7 @@ def source_facts(row: dict) -> dict[str, Any]:
         "cuisine": str(row["cuisine"]) if row.get("cuisine") else None,
         "reservable": row.get("reservable") if isinstance(row.get("reservable"), bool) else None,
         "image": image_of(row),
+        "step_free": row.get("step_free") if isinstance(row.get("step_free"), bool) else None,
         **_source_labels(row),
     }
 

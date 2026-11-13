@@ -28,9 +28,15 @@ def transport_mode(km: float) -> str:
     return "flight"
 
 
-def model_travel(km: float) -> tuple[str, int]:
+#: On a step-free trip a walk longer than this (km) is a transit leg (metro or bus) or a drive instead.
+STEP_FREE_WALK_KM = 0.8
+
+
+def model_travel(km: float, step_free: bool = False) -> tuple[str, int]:
     """Mode and minutes for a leg of ``km`` straight-line kilometres."""
     mode = transport_mode(km)
+    if step_free and mode == "walk" and km > STEP_FREE_WALK_KM:
+        mode = "metro"
     minutes = max(2, round(km / TRANSPORT_SPEED_KMH[mode] * 60 + TRANSPORT_OVERHEAD_MIN[mode]))
     return mode, minutes
 
@@ -64,7 +70,9 @@ class TransportModelRoutes:
     name = "transport-model"
     available = True
 
-    async def segments(self, *, points: list[GeoPoint], ids: list[str]) -> list[RouteLeg]:
+    async def segments(
+        self, *, points: list[GeoPoint], ids: list[str], step_free: bool = False
+    ) -> list[RouteLeg]:
         """Legs between every ordered pair of the given stops."""
         if len(points) != len(ids):
             raise ValueError("points and ids must have the same length")
@@ -75,7 +83,7 @@ class TransportModelRoutes:
                 if i == j:
                     continue
                 km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
-                mode, minutes = model_travel(km)
+                mode, minutes = model_travel(km, step_free)
                 legs.append(
                     RouteLeg(
                         id=f"{call}:{i}-{j}",

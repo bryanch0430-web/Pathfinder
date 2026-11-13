@@ -28,6 +28,16 @@ from app.application.meals import (
     source_facts,
 )
 from app.application.opening_hours import DAY_MINUTES, lines_for, windows_on
+from app.application.profile_rules import (
+    CHILDREN_STOPS_END_BY,
+    PACE_ATTRACTION_CAP,  # noqa: F401  (re-exported)
+    PACE_MIN_GAP,
+    business_first_start,
+    is_business,
+    profile_of,
+    profile_order,
+    stops_cap,
+)
 from app.application.transfers import (
     TRANSFER_TOOL,
     TRANSPORT_NOTE,
@@ -79,6 +89,7 @@ from app.domain.models import (
     WeatherDay,
     selected_ticket,
     utcnow,
+    TravellerProfile,
 )
 from app.domain.place_names import english_name, trusted_names
 from app.infrastructure.http import haversine_km
@@ -138,10 +149,15 @@ _travel = model_travel
 
 # Dwell time per stop and the earliest start, by pace. A slow trip sees fewer
 # places for longer; a packed one starts earlier and moves faster.
-PACE_DWELL_MINUTES = {"slow": 120, "balanced": 90, "fast": 75}
-PACE_FIRST_START = {"slow": 9 * 60 + 30, "balanced": 9 * 60, "fast": 8 * 60 + 30}
-PACE_ATTRACTION_CAP = {"slow": 3, "balanced": 4, "fast": 5}
-PACE_BUFFER_MINUTES = {"slow": 15, "balanced": 5, "fast": 0}
+PACE_DWELL_MINUTES = {"slow": 120, "balanced": 90, "fast": 75, "relaxed": 120, "packed": 75}
+PACE_FIRST_START = {
+    "slow": 9 * 60 + 30,
+    "balanced": 9 * 60,
+    "fast": 8 * 60 + 30,
+    "relaxed": 9 * 60 + 30,
+    "packed": 8 * 60 + 30,
+}
+PACE_BUFFER_MINUTES = {"slow": 15, "balanced": 5, "fast": 0, "relaxed": 15, "packed": 0}
 
 # A stop that opens by 08:30, or that carries a large review count, is worth the
 # early slot: the generic, destination-independent proxy for "crowds build here".
@@ -268,6 +284,16 @@ class Planner:
             if flight_window.end is not None:
                 window.end = flight_window.end if window.end is None else min(window.end, flight_window.end)
             window.texts.extend(flight_window.texts)
+        profile = profile_of(context)
+        business = is_business(context) and pace != "packed"
+        first_stop = business_first_start(context) if business else None
+        if first_stop is not None:
+            # A business traveller's sightseeing starts in the evening: the day's free window opens then.
+            for day in dates:
+                window = windows.setdefault(day, DayWindow())
+                window.start = first_stop if window.start is None else max(window.start, first_stop)
+        # The profile's order of the candidates (family places, step-free places first) comes before any choice.
+        places[:] = profile_order(places, profile)
         if required:
             places.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), required) else 1)
         diet = _diet(context)
@@ -281,10 +307,10 @@ class Planner:
             meals = suitable
         # A blocked day takes no stop; a flight day takes only what fits around it.
         limits = [0 if day in blocked else _window_limit(windows.get(day), pace) for day in dates]
-        assignment = self._assign_places(places, day_count, draft, pace=pace, limits=limits)
+        assignment = self._assign_places(places, day_count, draft, pace=pace, limits=limits, business=business)
         if self.settings.enable_route_matrix and self.matrix is not None and toolbox is not None:
             assignment = await self._matrix_order(assignment, toolbox)
-        cap = min(self.settings.max_attractions_per_day, PACE_ATTRACTION_CAP.get(pace, 4))
+        cap = stops_cap(self.settings, pace, business)
         caps = [cap if limit is None else min(cap, limit) for limit in limits]
         _move_closed_stops(assignment, dates, caps)
         meal_days = {index: rows for index, rows in assignment.items() if dates[index] not in blocked}
@@ -326,12 +352,17 @@ class Planner:
             # (Proposal TC-09), covering every pair the schedule may need.
             stops = [row for row in [breakfast, *day_places, lunch, dinner] if row and _geo_point(row) is not None]
             legs, tool = await fetch_legs(
-                [(_item_id(row), _geo_point(row)) for row in stops], toolbox=toolbox, source=transfers
+                [(_item_id(row), _geo_point(row)) for row in stops],
+                toolbox=toolbox,
+                source=transfers,
+                step_free=profile.step_free,
             )
             return _schedule(
                 dates[index], day_places, lunch, dinner, pace=pace, must_see=must_see,
                 window=windows.get(dates[index]), legs=legs, tool=tool,
                 breakfast=breakfast, snack=day_meals.get("snack"),
+                stops_end_by=CHILDREN_STOPS_END_BY if profile.with_children else None,
+                step_free=profile.step_free,
             )
 
         schedules: list[dict[str, Any]] = []
@@ -494,6 +525,7 @@ class Planner:
             ),
             video_notes=video_notes[:6],
             change_summary=change_summary,
+            profile=None if profile == TravellerProfile() else profile,
         )
         annotate_stays(plan)
         return plan
@@ -585,12 +617,13 @@ class Planner:
         *,
         pace: str = "balanced",
         limits: list[int | None] | None = None,
+        business: bool = False,
     ) -> dict[int, list[dict]]:
         by_id = {row["id"]: row for row in places}
         assignment: dict[int, list[dict]] = {index: [] for index in range(day_count)}
         used: set[str] = set()
         accepted: list[str] = []
-        cap = min(self.settings.max_attractions_per_day, PACE_ATTRACTION_CAP.get(pace, 4))
+        cap = stops_cap(self.settings, pace, business)
         # Per-day room: a blocked day has none, a flight day only what fits.
         caps = [
             cap if limits is None or index >= len(limits) or limits[index] is None else min(cap, limits[index])
@@ -1207,6 +1240,10 @@ def _closest(rows: list[dict], centre: dict) -> dict:
 
 
 def _pace(context: Any) -> str:
+    """The pace planning uses: the profile's (relaxed, packed), else the older "slow pace" / "fast pace" tags."""
+    profile_pace = profile_of(context).pace
+    if profile_pace in {"relaxed", "packed"}:
+        return profile_pace
     preferences = {str(item).strip().lower() for item in context.preferences}
     if "slow pace" in preferences:
         return "slow"
@@ -1365,9 +1402,12 @@ def _schedule_day(
     window: DayWindow | None = None,
     legs: Legs | None = None,
     tool: str = "",
+    stops_end_by: int | None = None,
+    step_free: bool = False,
 ) -> list[PlanItem]:
     return _schedule(
-        day_date, places, lunch, dinner, pace=pace, must_see=must_see, window=window, legs=legs, tool=tool
+        day_date, places, lunch, dinner, pace=pace, must_see=must_see, window=window, legs=legs, tool=tool,
+        stops_end_by=stops_end_by, step_free=step_free,
     )[0]
 
 
@@ -1384,6 +1424,8 @@ def _schedule(
     tool: str = "",
     breakfast: dict | None = None,
     snack: dict | None = None,
+    stops_end_by: int | None = None,
+    step_free: bool = False,
 ) -> tuple[list[PlanItem], list[str]]:
     """Lay the day out chronologically with realistic transfer time.
 
@@ -1419,6 +1461,7 @@ def _schedule(
 
     dwell = PACE_DWELL_MINUTES.get(pace, 90)
     buffer = PACE_BUFFER_MINUTES.get(pace, 5)
+    gap = PACE_MIN_GAP.get(pace)  # the least time between two stops; a balanced day has no floor
     start_at = PACE_FIRST_START.get(pace, 9 * 60)
     first = ordered[0] if ordered else None
     if first:
@@ -1441,26 +1484,35 @@ def _schedule(
             # Not in the tool result (no toolbox, or the call failed): the same
             # model, computed here, and recorded as not logged.
             km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
-            mode, minutes = model_travel(km)
+            mode, minutes = model_travel(km, step_free)
             found = RouteLeg(
                 from_geo=origin, to_geo=destination, duration_minutes=minutes,
                 distance_km=round(km, 3), mode=mode, source="transport-model",
             )
         return found
 
-    def arrival(previous: dict | None, previous_end: int | None, row: dict, default: int) -> int:
+    def arrival(
+        previous: dict | None, previous_end: int | None, row: dict, default: int, sight: bool = False
+    ) -> int:
         if previous is None or previous_end is None:
             return default
         found = leg(previous, row)
-        return previous_end + ((found.duration_minutes or 0) + buffer if found else 0)
+        wait = (found.duration_minutes or 0) + buffer if found else 0
+        if sight and gap is not None:
+            wait = max(wait, gap)
+        return previous_end + wait
 
-    def fit(row: dict, earliest: int, minutes: int, shortest: int) -> tuple[int, int] | None:
+    def fit(
+        row: dict, earliest: int, minutes: int, shortest: int, latest: int | None = None
+    ) -> tuple[int, int] | None:
         windows = _hours(row, day_date)[1]
         if windows is None:
             windows = [(0, DAY_MINUTES)]
         for opens, closes in windows:
             # A flight day also ends when the traveller must leave for the airport.
             closes = min(closes, DAY_LAST_END, DAY_MINUTES if open_until is None else open_until)
+            if latest is not None:
+                closes = min(closes, latest)
             start = _round5(max(earliest, opens))
             if start + shortest <= closes:
                 return start, min(start + minutes, closes)
@@ -1498,8 +1550,8 @@ def _schedule(
     while queue:
         row = queue.pop(0)
         # Never before the day's usual start (a breakfast stop ends earlier than that).
-        earliest = max(start_at, arrival(state["row"], state["end"], row, start_at))
-        slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell))
+        earliest = max(start_at, arrival(state["row"], state["end"], row, start_at, sight=True))
+        slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell), latest=stops_end_by)
         if slot and slot[0] - earliest > OPENING_WAIT_LIMIT and queue and id(row) not in deferred:
             deferred.add(id(row))
             queue.append(row)
@@ -1510,8 +1562,8 @@ def _schedule(
             if ready > LUNCH_START + LUNCH_SLACK:
                 lunch_due = False
                 place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
-                earliest = max(start_at, arrival(state["row"], state["end"], row, start_at))
-                slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell))
+                earliest = max(start_at, arrival(state["row"], state["end"], row, start_at, sight=True))
+                slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell), latest=stops_end_by)
         if slot and dinner is not None:
             to_dinner = leg(row, dinner)
             if slot[1] + ((to_dinner.duration_minutes or 0) + buffer if to_dinner else 0) > DINNER_LATEST:
@@ -1543,6 +1595,7 @@ def _schedule(
                 transfer=moved_in,
                 names=trusted_names(row.get("names")),
                 image=image_of(row),
+                step_free=row.get("step_free") if isinstance(row.get("step_free"), bool) else None,
             )
         )
         state["row"], state["end"] = row, end

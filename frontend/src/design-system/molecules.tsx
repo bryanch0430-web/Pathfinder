@@ -12,6 +12,7 @@ import {
 import { Icon, type IconName } from "./icons";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
+import { profileOf } from "../lib/profile";
 import { imageSrc, safeHref } from "../lib/safeHref";
 import { addTags, isImeKey, limitList, splitList } from "../lib/typing";
 import type {
@@ -35,6 +36,7 @@ import type {
   ImageRef,
   Intent,
   Link,
+  TravellerProfile,
 } from "./types";
 
 export function TravelOptions({
@@ -271,6 +273,7 @@ const REASON_MESSAGES: Record<string, MessageKey> = {
   "cheapest": "reason.cheapest",
   "best rated": "reason.bestRated",
   "closest to your stops": "reason.closestStops",
+  "closest to the centre": "reason.closestCentre",
   "closest": "reason.closest",
   "matches what you asked of the room": "reason.matchesRoom",
   "fastest door to door": "reason.fastest",
@@ -314,6 +317,7 @@ export function TripContextForm({
   const id = useId();
   const [destinationOptions, setDestinationOptions] = useState<{ label: string }[]>([]);
   // The cities as typed. A line the traveller has added but not filled stays on the page and is not sent on.
+  const profile = profileOf({ pace: values.pace ?? "balanced", profile: values.profile });
   const [rows, setRows] = useState<CityRow[]>(() => rowsFrom(values));
   const [activeRow, setActiveRow] = useState(0);
   const [preferenceTags, setPreferenceTags] = useState<string[]>(values.preferences ?? []);
@@ -579,6 +583,34 @@ export function TripContextForm({
             <option value="luxury">{t("form.style.luxury")}</option>
             <option value="hostel">{t("form.style.hostel")}</option>
           </Select>
+        </Field>
+        <Field label={t("form.pace")} htmlFor={`${id}-pace`}>
+          <Select
+            id={`${id}-pace`}
+            value={profile.pace}
+            onChange={(event) => onChange({ profile: { ...profile, pace: event.target.value as TravellerProfile["pace"] } })}
+          >
+            <option value="relaxed">{t("form.pace.relaxed")}</option>
+            <option value="balanced">{t("form.pace.balanced")}</option>
+            <option value="packed">{t("form.pace.packed")}</option>
+          </Select>
+        </Field>
+        <Field label={t("form.who")}>
+          <Checkbox
+            label={t("form.withChildren")}
+            checked={profile.with_children}
+            onChange={(event) => onChange({ profile: { ...profile, with_children: event.target.checked } })}
+          />
+          <Checkbox
+            label={t("form.business")}
+            checked={profile.purpose === "business"}
+            onChange={(event) => onChange({ profile: { ...profile, purpose: event.target.checked ? "business" : "leisure" } })}
+          />
+          <Checkbox
+            label={t("form.stepFree")}
+            checked={profile.step_free}
+            onChange={(event) => onChange({ profile: { ...profile, step_free: event.target.checked } })}
+          />
         </Field>
         {!compact ? (
           <Field label={t("form.preferences")} hint={t("form.preferencesHint")} wide htmlFor={`${id}-prefs`}>

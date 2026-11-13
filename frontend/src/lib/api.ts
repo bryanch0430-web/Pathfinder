@@ -14,6 +14,7 @@ import type {
   RunTrace,
   TrendingPlace,
   TrendingTrace,
+  TravellerProfile,
   TripContext,
   TripPlan,
 } from "../design-system/types";
@@ -87,7 +88,7 @@ export function getVersions(sessionId: string, signal?: AbortSignal): Promise<{ 
 }
 
 /** Body of PATCH /state (backend `ContextPatch`): every field optional; a null leaves the value unchanged. */
-export type ContextPatch = Partial<Omit<TripContext, "session_id">>;
+export type ContextPatch = Partial<Omit<TripContext, "session_id" | "profile">> & Partial<TravellerProfile>;
 
 export function patchContext(sessionId: string, patch: ContextPatch, signal?: AbortSignal): Promise<{ context: TripContext }> {
   return request(`/api/journeys/${sessionId}/state`, { method: "PATCH", body: JSON.stringify(patch), signal });

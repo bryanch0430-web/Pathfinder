@@ -36,8 +36,10 @@ PREFERENCE_PATTERNS = {
     "vegan": r"\bvegan\b",
     "halal": r"\bhalal\b",
     "no spicy food": r"\b(no spicy|not spicy|mild food)\b",
-    "slow pace": r"\b(slow pace|relaxed|not rushed|easy pace)\b",
-    "fast pace": r"\b(fast pace|packed|see as much as possible)\b",
+    "slow pace": r"\b(slow pace|relaxed|not rushed|easy pace|take it slow|leisurely|unhurried)\b",
+    "fast pace": r"\b(fast pace|packed(?! lunch)|see as much as possible)\b",
+    # A business traveller asked for sightseeing in the daytime: the evening-only rule is dropped.
+    "daytime stops": r"\b(daytime|in the daytime|during the day)\b",
     "kid friendly": r"\b(kid|child|family)[- ]friendly\b|\bwith (kids|children)\b",
     "museums": r"\bmuseums?\b",
     "nature": r"\b(nature|hiking|outdoors?)\b",
@@ -186,6 +188,41 @@ _BARE_KEEP = re.compile(
     r"(?:\s+anyway)?(?:[\s,]+please)?[\s.!]*$",
     re.I,
 )
+
+
+#: What a traveller says about who is travelling. Read in code from the message; a later message never takes one back.
+_PROFILE_PATTERNS = {
+    "with_children": re.compile(
+        r"\bwith\b[^.;!?]{0,40}\b(?:kids?|child(?:ren)?|toddlers?|babies|baby|infants?|daughters?|sons?)\b"
+        r"|\bfamily (?:trip|holiday|vacation)\b|\btravell?ing as a family\b"
+    ),
+    "business": re.compile(
+        r"\b(?:business (?:trip|travel(?:l?er)?)|work trip|trip for work|for work|on business|business meetings?)\b"
+    ),
+    "step_free": re.compile(
+        r"\b(?:wheelchair|step[- ]free|stair[- ]free|limited mobility|mobility (?:issues?|aids?|impairments?)|"
+        r"cannot climb stairs|can'?t climb stairs)\b"
+    ),
+    "relaxed": re.compile(r"\b(?:slow pace|relaxed|not rushed|easy pace|take it slow|leisurely|unhurried)\b"),
+    "packed": re.compile(r"\b(?:fast pace|packed(?! lunch)|see as much as possible)\b"),
+}
+
+
+def _apply_profile(lower: str, context: TripContext) -> None:
+    """Set the profile from what the message says (children, business, step-free, relaxed or packed pace)."""
+    update: dict[str, object] = {}
+    if _PROFILE_PATTERNS["with_children"].search(lower):
+        update["with_children"] = True
+    if _PROFILE_PATTERNS["business"].search(lower):
+        update["purpose"] = "business"
+    if _PROFILE_PATTERNS["step_free"].search(lower):
+        update["step_free"] = True
+    if _PROFILE_PATTERNS["relaxed"].search(lower):
+        update["pace"] = "relaxed"
+    elif _PROFILE_PATTERNS["packed"].search(lower):
+        update["pace"] = "packed"
+    if update:
+        context.profile = context.profile.model_copy(update=update)
 
 
 def _last_assistant(history: Sequence[Message]) -> str:
@@ -365,6 +402,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     for label, pattern in PREFERENCE_PATTERNS.items():
         if re.search(pattern, lower) and label not in context.preferences:
             context.preferences.append(label)
+    _apply_profile(lower, context)
 
     # A named must-see ("I want Fushimi Inari") becomes a preference the planner
     # can honour by scheduling it before the crowds.
@@ -1359,6 +1397,24 @@ def _allowed_patch(before: dict) -> set[str]:
     return allowed
 
 
+def _apply_model_profile(context: TripContext, value: object) -> None:
+    """What the model read of the profile. Only a stated, valid, non-default value is taken, and it never undoes what the
+    form or an earlier message already set."""
+    if not isinstance(value, dict):
+        return
+    update: dict[str, object] = {}
+    if value.get("pace") in {"relaxed", "packed"} and context.profile.pace == "balanced":
+        update["pace"] = value["pace"]
+    if value.get("with_children") is True:
+        update["with_children"] = True
+    if value.get("purpose") == "business":
+        update["purpose"] = "business"
+    if value.get("step_free") is True:
+        update["step_free"] = True
+    if update:
+        context.profile = context.profile.model_copy(update=update)
+
+
 def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | None = None) -> None:
     allowed = allowed or {
         "destination",
@@ -1397,6 +1453,7 @@ def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | Non
         _apply_stops(context, data.get("stops"))
     if "one_way" in allowed and data.get("one_way") is True:
         context.one_way = True
+    _apply_model_profile(context, data.get("profile"))
     if "party_size" in allowed:
         party = int_value("party_size")
         if party and 1 <= party <= 20:

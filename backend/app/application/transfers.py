@@ -34,7 +34,7 @@ _NOTE = re.compile(
 
 
 async def fetch_legs(
-    stops: list[tuple[str, GeoPoint]], *, toolbox: Any | None, source: Any | None
+    stops: list[tuple[str, GeoPoint]], *, toolbox: Any | None, source: Any | None, step_free: bool = False
 ) -> tuple[Legs, str]:
     """Legs between every ordered pair of ``stops`` (id, geo), and the tool that logged them.
 
@@ -46,12 +46,14 @@ async def fetch_legs(
     source = source or TransportModelRoutes()
     ids = [stop_id for stop_id, _ in stops]
     points = [geo for _, geo in stops]
+    # Only a step-free trip passes the flag, so a source that does not take it is called exactly as before.
+    extra = {"step_free": True} if step_free else {}
     try:
         if toolbox is not None:
-            legs = await toolbox.call(TRANSFER_TOOL, source.segments, points=points, ids=ids)
+            legs = await toolbox.call(TRANSFER_TOOL, source.segments, points=points, ids=ids, **extra)
             tool = TRANSFER_TOOL
         else:
-            legs = await source.segments(points=points, ids=ids)
+            legs = await source.segments(points=points, ids=ids, **extra)
             tool = ""
     except Exception:
         return {}, ""

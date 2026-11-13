@@ -108,7 +108,9 @@ def test_the_most_a_form_keeps_is_kept_whole_and_can_be_sent_back(client: TestCl
         "destination": "d" * FIELD,
         "origin": "o" * FIELD,
         "hotel_style": "h" * FIELD,
-        "pace": "r" * FIELD,
+        # The pace is one of three words since the traveller profile (a longer text is read as "balanced"),
+        # so it no longer carries a maximum-length text; the refusal of an over-long pace is tested above.
+        "pace": "relaxed",
     }
 
     saved = _patch(client, session_id, wanted)

@@ -40,6 +40,7 @@ import { describeFailure, failureOf, unreachableOf, type Failure } from "./failu
 import { useI18n, type MessageKey } from "./i18n";
 import { providerLabel, reasonKey } from "./modelKeys";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
+import { profileOf } from "./profile";
 import { forgetSignIn, forgetTrip, readStoredValue, rememberedTrip, rememberTrip, writeStoredValue } from "./storage";
 import { writeTrips } from "./tripsStore";
 
@@ -697,6 +698,8 @@ export function usePathfinder(locale: string): PathfinderHook {
           budget: form.budget,
           currency: form.currency,
           hotel_style: form.hotel_style,
+          // Pace, children, business and step-free access travel as flat fields.
+          ...profileOf(form),
           preferences: form.preferences,
           hard_constraints: form.hard_constraints,
           // The cities in order ([] for one city) and the way home: the form's route is what is planned.

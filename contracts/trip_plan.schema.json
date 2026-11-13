@@ -1395,6 +1395,18 @@
           "title": "Alternatives",
           "type": "array"
         },
+        "step_free": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Free"
+        },
         "image": {
           "anyOf": [
             {
@@ -1969,6 +1981,42 @@
       "title": "TransportLeg",
       "type": "object"
     },
+    "TravellerProfile": {
+      "description": "Who is travelling, as the traveller said it. Planning reads it in code (stops a day, hours, which places\ncome first, how stays are ranked); no prompt decides what it does.",
+      "properties": {
+        "pace": {
+          "default": "balanced",
+          "enum": [
+            "relaxed",
+            "balanced",
+            "packed"
+          ],
+          "title": "Pace",
+          "type": "string"
+        },
+        "with_children": {
+          "default": false,
+          "title": "With Children",
+          "type": "boolean"
+        },
+        "purpose": {
+          "default": "leisure",
+          "enum": [
+            "leisure",
+            "business"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "step_free": {
+          "default": false,
+          "title": "Step Free",
+          "type": "boolean"
+        }
+      },
+      "title": "TravellerProfile",
+      "type": "object"
+    },
     "TripSegment": {
       "description": "One city of the trip: ``dates.start`` is the arrival day, ``dates.end`` the departure day.\n\nConsecutive segments share the day one is left and the next is reached; that day belongs to the city arrived in.",
       "properties": {
@@ -2113,6 +2161,17 @@
       },
       "title": "Segments",
       "type": "array"
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TravellerProfile"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "party_size": {
       "default": 1,
