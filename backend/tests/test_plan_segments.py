@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
+from pathlib import Path
 
 import pytest
 from plan_samples import START, make_plan, make_two_city_plan
@@ -130,3 +132,14 @@ def test_segments_must_cover_the_trip_in_order() -> None:
         with pytest.raises(ValidationError):
             TripPlan.model_validate(broken)
     assert TripPlan.model_validate(good).segments[1].id == "seg_b"
+
+
+def test_no_code_outside_the_model_reads_the_hotels_by_position() -> None:
+    offenders = [
+        f"{path.as_posix()}:{number}"
+        for path in Path("app").rglob("*.py")
+        if path.name != "models.py"
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if re.search(r"\.hotels\[\d", line.split("#")[0]) and "``" not in line
+    ]
+    assert offenders == []

@@ -431,7 +431,7 @@ def _plan_facts(
         if weather:
             facts["weather"] = weather
     if re.search(r"\b(hotel|stay|room|check[- ]?in|check[- ]?out)\b", lower) and plan.hotels:
-        facts["hotel"] = plan.hotels[0].model_dump(mode="json")
+        facts["hotel"] = plan.first_stay.model_dump(mode="json")
     if re.search(r"\b(flight|fly|train|ticket|depart|arrive)\b", lower) and plan.tickets:
         facts["tickets"] = [ticket.model_dump(mode="json") for ticket in plan.tickets]
     if re.search(r"\b(budget|cost|total|spend|price)\b", lower):
@@ -638,8 +638,8 @@ def _destination_geo(plan: TripPlan | None, context: TripContext):
 def _two_points(plan: TripPlan | None, question: str):
     if not plan:
         return None
-    if plan.hotels and plan.hotels[0].geo:
-        first = plan.hotels[0].geo
+    if plan.hotels and plan.first_stay.geo:
+        first = plan.first_stay.geo
         for day in plan.days:
             for item in day.items:
                 if item.geo:
@@ -682,8 +682,8 @@ def _reference_point(plan: TripPlan, lower: str):
     answer is labelled with whatever was used, so a straight-line estimate is
     never presented as a hotel-to-door distance.
     """
-    if plan.hotels and plan.hotels[0].geo:
-        return f"the hotel ({plan.hotels[0].name})", plan.hotels[0].geo
+    if plan.hotels and plan.first_stay.geo:
+        return f"the hotel ({plan.first_stay.name})", plan.first_stay.geo
     if re.search(r"\bairport\b", lower):
         return f"the {plan.destination.name} city centre (airport distance is not stored)", plan.destination.geo
     return f"the {plan.destination.name} city centre", plan.destination.geo
@@ -701,8 +701,8 @@ def _distance_facts(plan: TripPlan, question: str, focus_item=None) -> dict | No
         return None
     # Say plainly when the reference is a stand-in, so a city-centre figure is
     # never read as a hotel-to-door walking distance.
-    if plan.hotels and plan.hotels[0].geo:
-        reference_name = f"the hotel ({plan.hotels[0].name})"
+    if plan.hotels and plan.first_stay.geo:
+        reference_name = f"the hotel ({plan.first_stay.name})"
     else:
         reference_name = f"{reference_name} (no hotel in the plan yet)"
 

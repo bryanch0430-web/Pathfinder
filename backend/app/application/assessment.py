@@ -133,7 +133,7 @@ def assess_plan(
         )
         unverified.append(f"Opening hours for {len(unstated)} of {len(stops)} stops.")
 
-    stay = plan.hotels[0] if plan.hotels else None
+    stay = plan.first_stay
     overnight = plan.dates.night_count > 0
     if overnight and stay is None and "hotels" not in sections:
         signals.append(
@@ -290,7 +290,7 @@ def apply_stay_matches(
             stay.match = fresh.model_copy(
                 update={"rooms_checked": stay.rooms_checked_for is not None}
             )
-    current: HotelStay | None = plan.hotels[0] if plan.hotels else None
+    current: HotelStay | None = plan.first_stay
     if current is None:
         return told
     wish = (

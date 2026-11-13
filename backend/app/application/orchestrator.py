@@ -879,7 +879,7 @@ class TurnService:
         # A new trip for the place the saved plan is for keeps what the traveller protected in it: the stay they
         # accepted and their locked or confirmed stops. A trip to another place has nothing to carry.
         carries = previous is not None and _same_place(previous.destination.name, context.destination)
-        stay = previous.hotels[0] if carries and previous.hotels else None
+        stay = previous.first_stay if carries else None
         if stay is not None and not (stay.confirmed or stay.locked):
             stay = None
         if matches:
@@ -1250,7 +1250,7 @@ def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
                 hotel = f"A hotel was added: {now}."
             else:
                 hotel = f"Hotel changed from {was} to {now}."
-                if plan.hotels and plan.hotels[0].name == now and plan.hotels[0].price_per_night is None:
+                if plan.hotels and plan.first_stay.name == now and plan.first_stay.price_per_night is None:
                     hotel += " Its price was not returned, so the total does not include the stay."
         elif kind == "flight":
             was, now = entry.get("from"), entry.get("to")

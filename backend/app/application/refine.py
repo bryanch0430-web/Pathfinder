@@ -271,7 +271,7 @@ def _budget_issue(plan: TripPlan) -> PlanIssue | None:
         f"The verified cost is {currency} {cost.total:,.0f}, {cost.total - cost.budget:,.0f} over the "
         f"{currency} {cost.budget:,.0f} budget."
     ]
-    stay = plan.hotels[0] if plan.hotels else None
+    stay = plan.first_stay
     if stay is not None and stay.price_per_night is not None:
         cheaper = [
             option

@@ -809,7 +809,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not stays:
             raise HTTPException(status_code=404, detail="Hotel not found")
         stay = stays[0]
-        current = plan.hotels[0] if plan.hotels else None
+        current = plan.first_stay
         check_in = current.check_in if current is not None else stay.check_in
         check_out = current.check_out if current is not None else stay.check_out
         wanted = DateRange(start=check_in, end=check_out)
@@ -1303,7 +1303,7 @@ def map_payload(plan: TripPlan) -> dict[str, Any]:
                 "points": [p for p in points if p],
             }
         )
-    hotel = plan.hotels[0] if plan.hotels else None
+    hotel = plan.first_stay
     return {
         "trip_id": plan.trip_id,
         "destination": plan.destination.name,

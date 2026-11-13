@@ -504,7 +504,7 @@ class ModifyPath:
         # dates move, the stay the traveller accepted is priced again for the new dates, not swapped.
         referred_stay = plan.find_hotel(referred) if referred is not None else None
         # The stay's own name stands for the word hotel ("keep Kyoto Garden Inn" keeps it like "keep the hotel").
-        stay = referred_stay or (plan.hotels[0] if plan.hotels else None)
+        stay = referred_stay or plan.first_stay
         about_stay = _stay_as_word(message, stay.name) if stay is not None else message
         budget_in_form = "budget" in form_changes
         # "don't change the hotel", "no need to change anything": a refused change of the stay asks for no other hotel.
@@ -559,17 +559,17 @@ class ModifyPath:
                 version=plan.version + 1,
                 trip_id=plan.trip_id,
                 change_summary=draft.description or "Changed the trip dates; rebuilt the itinerary.",
-                keep_hotel=plan.hotels[0] if plan.hotels else None,
+                keep_hotel=plan.first_stay,
                 pick_hotel=(lambda rows: _swap_choice(plan, rows, cheaper=cheaper, message=message)) if asked else None,
             )
             if (
                 asked
                 and rebuilt.hotels
-                and rebuilt.hotels[0].name == plan.hotels[0].name
+                and rebuilt.first_stay.name == plan.first_stay.name
                 and HOTEL_SEARCH not in getattr(toolbox, "refused", ())
             ):
                 rebuilt.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
-            elif asked and rebuilt.hotels and rebuilt.hotels[0].price_per_night is None:
+            elif asked and rebuilt.hotels and rebuilt.first_stay.price_per_night is None:
                 rebuilt.data_quality.gaps.append(_gap("hotels", NEW_STAY_UNPRICED))
             if new_range.start < date.today():
                 rebuilt.data_quality.gaps.append(_gap("dates", PAST_DATES))
@@ -647,8 +647,8 @@ class ModifyPath:
                     # That forecast is for the old dates. Without a new one the day shows none.
                     day.weather = None
             if updated.hotels:
-                updated.hotels[0].check_in = new_range.start
-                updated.hotels[0].check_out = new_range.end
+                updated.first_stay.check_in = new_range.start
+                updated.first_stay.check_out = new_range.end
             updated.tickets = [ticket for ticket in updated.tickets if _ticket_within(ticket, new_range)]
             updated.data_quality.gaps += [_gap("attractions", text) for text in _hours_after_a_move(updated)]
 
@@ -656,7 +656,7 @@ class ModifyPath:
             hotels = results.get("hotel")
             candidates = (hotels.payload.get("hotels") if hotels else []) or []
             if updated.hotels and not hotel_requested:
-                kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
+                kept, refreshed = self.planner.keep_stay(updated.first_stay, candidates, updated.dates)
                 updated.hotels = [kept]
                 if not refreshed:
                     updated.data_quality.gaps.append(
@@ -677,7 +677,7 @@ class ModifyPath:
                 elif updated.hotels:
                     if date_changed:
                         # The hotel stays, but its rate is for the old dates: take the candidates' rate for the new.
-                        kept, refreshed = self.planner.keep_stay(updated.hotels[0], candidates, updated.dates)
+                        kept, refreshed = self.planner.keep_stay(updated.first_stay, candidates, updated.dates)
                         updated.hotels = [kept]
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
@@ -873,7 +873,7 @@ class ModifyPath:
             updated.budget = Money(amount=context.budget, currency=context.currency)
         updated.cost = self.planner._cost(
             context,
-            updated.hotels[0] if updated.hotels else None,
+            updated.first_stay,
             updated.tickets,
             updated.dates,
         )
@@ -887,7 +887,7 @@ class ModifyPath:
         updated.constraints = _constraints(
             context,
             updated.days,
-            updated.hotels[0] if updated.hotels else None,
+            updated.first_stay,
             updated.tickets,
             updated.cost,
             blocked=blocked_dates(rule_texts, plan_dates),
@@ -1133,7 +1133,7 @@ def _has_prices(plan: TripPlan) -> bool:
     """True when at least one line of the plan carries a real price."""
     if plan.cost is not None and plan.cost.lines:
         return True
-    if plan.hotels and plan.hotels[0].price_per_night is not None:
+    if plan.hotels and plan.first_stay.price_per_night is not None:
         return True
     return any(ticket.price is not None for ticket in plan.tickets)
 
@@ -1230,8 +1230,9 @@ def _resolve_target(plan: TripPlan, draft: ChangeDraft, message: str) -> tuple[D
 
 def _anchor_geo(plan: TripPlan, day: DayPlan, target: PlanItem):
     """Where "too far away" is measured from: the hotel, else the previous stop."""
-    if plan.hotels and plan.hotels[0].geo:
-        return plan.hotels[0].geo
+    stay = plan.stay_on(day.date)
+    if stay is not None and stay.geo:
+        return stay.geo
     previous = None
     for item in day.items:
         if item is target:
@@ -2352,8 +2353,8 @@ def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool, messa
     than the current rate. For "cheaper" the lowest rate first, and only one that is lower than the current rate;
     otherwise the candidate order of the source stands, a stay with a rate before one without (a stay with no rate
     lowers the total by itself)."""
-    current = plan.hotels[0].name if plan.hotels else ""
-    current_price = plan.hotels[0].price_per_night.amount if plan.hotels and plan.hotels[0].price_per_night else None
+    current = plan.first_stay.name if plan.hotels else ""
+    current_price = plan.first_stay.price_per_night.amount if plan.hotels and plan.first_stay.price_per_night else None
     lowered = message.lower()
     pool = [
         row
@@ -2404,7 +2405,7 @@ def asks_for_a_grander_stay(message: str) -> bool:
 def _grander_candidates(plan: TripPlan, candidates: list[dict]) -> list[dict]:
     """The candidates of a higher class than the plan's stay, best rated first: a higher rating, or with no rating to
     compare, a higher nightly rate. A stay in another city, or the plan's own, is not one."""
-    current = plan.hotels[0] if plan.hotels else None
+    current = plan.first_stay
     rate = current.price_per_night.amount if current and current.price_per_night else None
     rating = current.rating if current else None
     pool = []
@@ -2598,7 +2599,7 @@ def _recheck(plan: TripPlan, context: TripContext, blocked, windows) -> list[Con
     fresh = _constraints(
         context,
         plan.days,
-        plan.hotels[0] if plan.hotels else None,
+        plan.first_stay,
         plan.tickets,
         plan.cost,
         blocked=blocked,

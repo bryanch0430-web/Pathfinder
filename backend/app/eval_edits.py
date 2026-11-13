@@ -133,7 +133,7 @@ def edit_applied(before: TripPlan, after: TripPlan | None, targets: set[str], pa
         remaining = {name for _, name in placements(after)}
         return not (targets & remaining)
     if "hotel" in parts:
-        return bool(before.hotels and after.hotels and after.hotels[0].name != before.hotels[0].name)
+        return bool(before.hotels and after.hotels and after.first_stay.name != before.first_stay.name)
     return placements(after) != placements(before)
 
 

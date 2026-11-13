@@ -235,7 +235,7 @@ def _choose_hotel(updated: TripPlan, option_id: str) -> str:
     option = next((stay for stay in updated.hotel_options if stay.id == option_id), None)
     if option is None:
         raise ChoiceNotFound("hotel option not found")
-    current = updated.hotels[0] if updated.hotels else None
+    current = updated.first_stay
     if current is not None and current.id == option.id:
         return f"Kept {option.name} as the stay."
     if current is not None and (current.locked or current.confirmed):
@@ -250,7 +250,7 @@ def _choose_hotel(updated: TripPlan, option_id: str) -> str:
             notes=UNCHECKED_RATE_NOTE,
         )
     chosen = option.model_copy(update=changes)
-    updated.hotels = [chosen, *updated.hotels[1:]] if updated.hotels else [chosen]
+    updated.hotels = [chosen if stay is current else stay for stay in updated.hotels] or [chosen]
     updated.hotel_options = [chosen if stay.id == chosen.id else stay for stay in updated.hotel_options]
     if current is not None and not any(stay.id == current.id for stay in updated.hotel_options):
         updated.hotel_options.append(current)
@@ -272,7 +272,7 @@ def normalise_hotel_options(plan: TripPlan) -> None:
     """
     if not plan.hotels:
         return
-    current = plan.hotels[0]
+    current = plan.first_stay
     others = [option for option in plan.hotel_options if option.id != current.id]
     plan.hotel_options = [current.model_copy(deep=True), *others]
 
@@ -332,7 +332,7 @@ def _recost(plan: TripPlan, planner: Planner, context: TripContext | None) -> No
         currency=plan.cost.currency or (context.currency if context else "") or "USD",
         budget=plan.cost.budget if plan.cost.budget is not None else (context.budget if context else None),
     )
-    stay = plan.hotels[0] if plan.hotels else None
+    stay = plan.first_stay
     plan.cost = planner._cost(priced, stay, plan.tickets, plan.dates)
     if stay is not None and stay.price_per_night is None and stay.notes == UNCHECKED_RATE_NOTE:
         plan.cost.notes = [

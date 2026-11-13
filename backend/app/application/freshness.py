@@ -290,7 +290,7 @@ class FreshnessService:
             if priced_again:
                 updated.cost = self.planner._cost(
                     request_context,
-                    updated.hotels[0] if updated.hotels else None,
+                    updated.first_stay,
                     updated.tickets,
                     updated.dates,
                 )
@@ -524,7 +524,7 @@ def _derived_checks(plan: TripPlan, context: TripContext) -> dict[str, Constrain
     """The checks the planner reads off the plan's own data (budget, forecast, stay, fares), by text.
     The checks that come from the traveller's own rules need what only the planner knew and are left out."""
     bare = context.model_copy(update={"hard_constraints": [], "preferences": []})
-    checks = _constraints(bare, plan.days, plan.hotels[0] if plan.hotels else None, plan.tickets, plan.cost)
+    checks = _constraints(bare, plan.days, plan.first_stay, plan.tickets, plan.cost)
     return {check.text: check for check in checks}
 
 

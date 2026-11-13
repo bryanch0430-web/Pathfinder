@@ -474,13 +474,13 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
         changes.append({"kind": "origin", "from": old.origin or "", "to": new.origin or ""})
     if old.budget != new.budget:
         changes.append({"kind": "budget", "from": _rate(old.budget), "to": _rate(new.budget)})
-    old_hotel = old.hotels[0].name if old.hotels else ""
-    new_hotel = new.hotels[0].name if new.hotels else ""
+    old_hotel = old.first_stay.name if old.hotels else ""
+    new_hotel = new.first_stay.name if new.hotels else ""
     if old_hotel != new_hotel:
         changes.append({"kind": "hotel", "from": old_hotel, "to": new_hotel})
     elif old.hotels and new.hotels:
         # The same hotel, kept or priced again: its nights and its rate are not a different hotel.
-        before, after = old.hotels[0], new.hotels[0]
+        before, after = old.first_stay, new.first_stay
         if (before.check_in, before.check_out) != (after.check_in, after.check_out):
             changes.append(
                 {
