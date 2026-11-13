@@ -27,6 +27,16 @@ WORD_NUMBERS = {
 }
 
 
+#: Added to the edit prompt of a plan of several cities only, so an edit of one city costs what it always did.
+MULTI_CITY_RULES = (
+    "This plan has several cities; a stay line or a day header names its city. Add `route_change` only when the "
+    "traveller asks to add, drop or reorder a city or to change a city's nights: "
+    '{"op": "add"|"remove"|"reorder"|"nights", "city": "...", "after": "city or null", "nights": 2, '
+    '"order": ["..."]} (`order` empty for the best order); never for a stop inside a city. Add `split_stay` only for '
+    '"another hotel for the last nights of a city": {"city": "Tokyo", "last_nights": 2}.\n\n'
+)
+
+
 class RouteChange(BaseModel):
     """What the traveller asked to do with the route. ``after`` is the city an added one follows (None: the end);
     ``order`` is the whole new order of a reorder (empty: the nearest-neighbour order)."""

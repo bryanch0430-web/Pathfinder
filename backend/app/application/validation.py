@@ -90,6 +90,13 @@ def _route_errors(plan: TripPlan) -> list[str]:
     for night in plan.dates.dates[:-1]:
         if not any(stay.check_in <= night < stay.check_out for stay in plan.hotels):
             errors.append(f"no stay for the night of {night} in {plan.segment_of(night).destination.name}")
+    for segment in plan.segments:
+        stays = plan.stays_in(segment.id)
+        if not stays:
+            continue
+        edges = [segment.dates.start, *[s.check_out for s in stays[:-1]]]
+        if [s.check_in for s in stays] != edges or stays[-1].check_out != segment.dates.end:
+            errors.append(f"the stays in {segment.destination.name} do not cover its nights exactly once")
     between = [leg for leg in plan.legs if leg.kind == "between"]
     for before, after in zip(plan.segments, plan.segments[1:]):
         if not any(leg.from_place == before.destination.name and leg.to_place == after.destination.name for leg in between):

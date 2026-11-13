@@ -43,6 +43,7 @@ from app.application.router import (
 )
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
+from app.application.route_edit import MULTI_CITY_RULES, RouteChange, SplitStay, rule_route_change
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, is_edit_outcome, repair_plan, tidy_data_gaps, validate_plan
 from app.config import Settings
@@ -135,6 +136,10 @@ class ChangeDraft(BaseModel):
     missing_info: str | None = None
     #: the one short question that asks for it
     question: str | None = None
+    #: a city added, dropped, moved or given other nights; only for a request about the route
+    route_change: RouteChange | None = None
+    #: a second hotel for the last nights of a city
+    split_stay: SplitStay | None = None
 
 
 #: the question for a home the traveller asked to add without saying where it is
@@ -219,9 +224,21 @@ class ModifyPath:
         message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
         When a fact the change needs is missing, the result `asks` for it and the plan is unchanged."""
         if len(plan.segments) > 1:
-            unchanged = plan.model_copy(deep=True)
-            unchanged.change_summary = "I can't change a multi-city plan from chat yet. Use the options on each stay and each leg, or generate the itinerary again."
-            return EditResult(unchanged, [])
+            from app.application.multi_edit import edit_multi_city
+
+            return await edit_multi_city(
+                self,
+                plan=plan,
+                context=context,
+                message=message,
+                route_parts=route_parts,
+                toolbox=toolbox,
+                tracer=tracer,
+                emit=emit,
+                memory_summaries=memory_summaries,
+                scope_item_id=scope_item_id,
+                history=history,
+            )
         # The trip form may hold dates the plan does not have yet (it was saved, not generated). Only a sentence
         # that asks for other dates, or the page's "generate again", moves the trip to them: "day 2", "the last
         # two nights" or "a later flight" name a part of the trip (Proposal DB-09), not new dates.
@@ -241,6 +258,15 @@ class ModifyPath:
         draft = await self._extract(
             message, plan, context, route_parts, history=history, scope_item_id=scope_item_id
         )
+        added = draft.route_change if draft.route_change is not None and draft.route_change.op == "add" else None
+        added = added or next((c for c in [rule_route_change(message, plan)] if c is not None and c.op == "add"), None)
+        if added is not None:
+            # Another city makes it a trip of several: the city is added and the dates stay as they are.
+            from app.application.multi_edit import edit_route
+
+            return await edit_route(
+                self, plan=plan, context=context, change=added, message=message, toolbox=toolbox, tracer=tracer, emit=emit
+            )
         answer = message
         if answering is not None and answering.request and not _imperative_edit(message):
             # The message answers the question an earlier edit asked ("Mong Kok" to "Where do you live?"): the rules
@@ -1022,6 +1048,7 @@ class ModifyPath:
             user = (
                 f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id, notes=False)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
+                + (MULTI_CITY_RULES if len(plan.segments) > 1 else "")
                 + with_conversation(conversation_block(history, message))
                 + fence_user_message(message)
             )

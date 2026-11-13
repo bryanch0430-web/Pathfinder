@@ -15,6 +15,7 @@ import httpx
 
 from app.application.asking import AskPath
 from app.application.limits import segment_count, tool_cap_for
+from app.application.route_edit import rule_route_change, rule_split_stay, sync_route
 from app.application.route_plan import route_question
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
@@ -468,7 +469,23 @@ class TurnService:
                 and looks_like_question(message)
                 and not re.search(MODIFY_VERBS, message.lower())
             )
-            if plan is not None and replans_new_destination(message, context, plan.summary_for_prompt()):
+            route_change = rule_route_change(message, plan) if plan is not None else None
+            split_stay = rule_split_stay(message, plan) if plan is not None and len(plan.segments) > 1 else None
+            if split_stay is not None or (
+                route_change is not None and (len(plan.segments) > 1 or route_change.op == "add")
+            ):
+                # "add Osaka", "remove Kyoto", "3 nights in Osaka", "another hotel for the last 2 nights" on a trip:
+                # the route or the stays change (the dates stay), whatever else the sentence looks like to a router.
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "route_change",
+                        "affected_parts": [],
+                    }
+                )
+            elif plan is not None and replans_new_destination(message, context, plan.summary_for_prompt()):
                 # "Generate again" from the page, after the traveller named another place in the trip form: that is
                 # a new trip (a plan for one city is not moved to another), whatever a model made of the sentence.
                 # A new trip has its gate: what the form lacks (the departure city, the party, the budget, the dates)
@@ -1020,6 +1037,9 @@ class TurnService:
             self.store.touch_session(session_id)
             return
         updated, diff = result
+        if (len(plan.segments) > 1 or len(updated.segments) > 1) and sync_route(context, updated):
+            # The trip form follows the route the edit made (the cities, their nights, the first as the destination).
+            self.store.save_context(context)
         # The scope the edit really used is what the account of the decision says, not the words of the message.
         tracer.metadata.update(
             {
@@ -1044,6 +1064,10 @@ class TurnService:
         if diff:
             # A trip that moved takes its stay, flights and forecast along: not everything else is unchanged.
             rest = "" if any(entry.get("kind") == "dates" for entry in diff) else " Everything else is unchanged."
+            if getattr(result, "scope", "") == "route":
+                # A route change says which nights moved; the stops it kept need no list.
+                description = updated.change_summary
+                rest = ""
             prose = " ".join([f"Updated to version {updated.version}. " + description + rest, *told])
         else:
             # Nothing changed. Do not claim a version: say why, using the reason

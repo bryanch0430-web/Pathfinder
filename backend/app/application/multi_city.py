@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from app.application.assessment import assess_and_improve
-from app.application.planner import _constraints, annotate_stays
+from app.application.planner import Planner, _constraints, annotate_stays
 from app.application.refine import evaluate_plan
 from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
 from app.application.search_cache import CachedToolbox, SearchCache
@@ -105,6 +105,25 @@ def _ends(
     return pairs
 
 
+async def _round_trip(
+    path: PlanPath,
+    context: TripContext,
+    segment: TripSegment,
+    toolbox: Toolbox,
+    emit: Callable[[str, dict[str, Any]], None],
+) -> list[TicketOption]:
+    """The round trip the ticket agent looks up for a trip of one city (the legs are for a route of several)."""
+    results = await path.run_agents(
+        context=context,
+        destination=segment.destination,
+        date_range=DateRange(start=segment.dates.start, end=segment.dates.end),
+        toolbox=toolbox,
+        emit=emit,
+        names={AgentName.TICKET},
+    )
+    return Planner._build_tickets(results[AgentName.TICKET.value].payload.get("flights") or [])
+
+
 async def plan_route(
     path: PlanPath,
     *,
@@ -137,7 +156,9 @@ async def plan_route(
         raise PlanInvalidError(asked.question, retryable=False) from asked
 
     # A search paid for in this session is not paid for again.
-    toolbox = CachedToolbox(toolbox, SearchCache(getattr(toolbox, "store", None), session_id))
+    toolbox = CachedToolbox(
+        toolbox, SearchCache(getattr(toolbox, "store", None), session_id)
+    )
 
     # Every city once, however many times the route visits it.
     located: dict[str, Any] = {}
@@ -160,7 +181,56 @@ async def plan_route(
         for stop in route
     ]
     segments = build_segments(places, nights, date_range.start)
-    legs = build_legs(segments, context.origin, context.one_way)
+    return await build_trip(
+        path,
+        context=context,
+        session_id=session_id,
+        toolbox=toolbox,
+        tracer=tracer,
+        emit=emit,
+        memory_summaries=memory_summaries,
+        version=version,
+        trip_id=trip_id,
+        change_summary=change_summary,
+        segments=segments,
+        note=note,
+    )
+
+
+async def build_trip(
+    path: PlanPath,
+    *,
+    context: TripContext,
+    session_id: str,
+    toolbox: Toolbox,
+    tracer: Tracer,
+    emit: Callable[[str, dict[str, Any]], None],
+    memory_summaries: list[str] | None,
+    version: int,
+    trip_id: str | None,
+    change_summary: str,
+    segments: list[TripSegment],
+    note: str = "",
+    kept_parts: dict[int, TripPlan] | None = None,
+    kept_options: dict[str, list[TicketOption]] | None = None,
+    finish_part: Callable[[int, TripPlan], Awaitable[TripPlan]] | None = None,
+) -> TripPlan:
+    """The trip for these segments: the legs between them looked up (or kept), each city planned (or kept), and the
+    whole put together, costed, assessed and checked. ``kept_parts`` are cities that stay as they were, by index;
+    ``kept_options`` are the options of legs that stay as they were, by the new leg's id. ``toolbox`` is the one that
+    answers from the session's cache."""
+    settings = path.settings
+    kept_parts = kept_parts or {}
+    kept_options = kept_options or {}
+    places = [segment.destination for segment in segments]
+    nights = [segment.dates.night_count for segment in segments]
+    date_range = DateRange(start=segments[0].dates.start, end=segments[-1].dates.end)
+    # One city keeps the round trip its own ticket agent looks up; the legs are for a route of several.
+    legs = (
+        build_legs(segments, context.origin, context.one_way)
+        if len(segments) > 1
+        else []
+    )
     home = await _origin(path, context.origin, toolbox) if context.origin else None
 
     gate = asyncio.Semaphore(PARALLEL)
@@ -187,10 +257,19 @@ async def plan_route(
                 currency=context.currency,
             )
 
+    async def options_of(
+        leg: TransportLeg, start: Destination, end: Destination
+    ) -> list[TicketOption]:
+        if leg.id in kept_options:
+            return kept_options[leg.id]
+        return await look_up(leg, start, end)
+
     found = await asyncio.gather(
-        *(look_up(leg, a, b) for leg, (a, b) in zip(legs, _ends(legs, places, home)))
+        *(options_of(leg, a, b) for leg, (a, b) in zip(legs, _ends(legs, places, home)))
     )
     tickets = [ticket for options in found for ticket in options]
+    if len(segments) == 1:
+        tickets = await _round_trip(path, context, segments[0], toolbox, emit)
 
     # The legs come off the budget first; what is left is shared per night among the cities.
     shares: list[float | None] = [None] * len(segments)
@@ -222,6 +301,10 @@ async def plan_route(
         own = owners[index]
         future = first_visit[key]
         given: dict[str, AgentResult] | None = None
+        if index in kept_parts:
+            if own and not future.done():
+                future.set_result({})
+            return kept_parts[index]
         try:
             if not own:
                 # A city visited twice is researched for its places once: this visit reuses the first one's.
@@ -230,7 +313,7 @@ async def plan_route(
                     name: earlier[name] for name in ("attraction",) if name in earlier
                 } or None
             async with gate:
-                return await path._plan_one(
+                part = await path._plan_one(
                     context=city_context(
                         context,
                         segment,
@@ -250,7 +333,7 @@ async def plan_route(
                     trip_id=trip_id,
                     change_summary=change_summary,
                     names=agents,
-                    destination=located[key],
+                    destination=segment.destination,
                     assess=False,
                     given=given,
                     on_results=(
@@ -259,6 +342,7 @@ async def plan_route(
                     if own
                     else None,
                 )
+                return await finish_part(index, part) if finish_part else part
         except (asyncio.CancelledError, CanaryLeak):
             raise
         except PlanInvalidError as exc:

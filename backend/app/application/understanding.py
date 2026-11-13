@@ -318,9 +318,19 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
             destination = stops[0][0]
             # Every stop states its nights: the trip is their sum, and the last day is the one it is left.
             context.days = sum(nights for _, nights in stops) + 1
+    if (
+        destination
+        and context.destination
+        and (_ROUTE_EDIT.search(lower) or (context.stops and _NIGHTS_IN.search(lower)))
+    ):
+        # "add Osaka", "remove Kyoto", "3 nights in Osaka" change the route of the trip, not where it goes.
+        destination = None
     if destination:
         context.destination = destination
     destination_changed = bool(destination and destination.strip().lower() != previous_destination.strip().lower())
+    if destination_changed and context.stops and not stops:
+        # Another place is another trip: the cities of the old one do not follow it.
+        context.stops = []
 
     # dates: an existing, explicit range is authoritative. "in November" must
     # not move a trip the traveller already set in the form to 1 November.
@@ -422,6 +432,9 @@ def _find_stops(text: str) -> list[tuple[str, int]]:
         stops.append((city, nights))
     return stops
 
+
+_ROUTE_EDIT = re.compile(r"\b(?:add|remove|drop|skip|swap|(?:best|nearest)\s+order)\b")
+_NIGHTS_IN = re.compile(r"\b\d{1,2}\s+nights?\s+in\b")
 
 #: The words after which a place in a sentence is read as the destination.
 _PLACE_CUES = ["to", "in", "visit", "explore", "around"]
