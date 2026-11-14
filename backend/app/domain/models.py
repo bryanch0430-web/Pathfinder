@@ -1344,6 +1344,9 @@ class GeoLocation(BaseModel):
     timezone: str = ""
     geo: GeoPoint
     source: str = ""
+    #: What the geocoder says the place is: a whole country, a first-level region, a city or town, or "unknown"
+    #: when the answer did not say. Never guessed from the name.
+    kind: Literal["country", "region", "city", "unknown"] = "unknown"
 
 
 # ---------------------------------------------------------------------------

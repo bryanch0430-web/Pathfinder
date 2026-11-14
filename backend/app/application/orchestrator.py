@@ -25,6 +25,7 @@ from app.application.route_edit import (
 from app.application.route_plan import route_question
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
+from app.application.country_check import whole_place_question
 from app.application.budget_check import (
     PrePlanQuestion,
     budget_options,
@@ -635,6 +636,9 @@ class TurnService:
                     else route_question(context)
                     or budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
                 )
+                if asked is None and not route_overflow:
+                    # A whole country or region for four days or more: which cities, before any agent runs.
+                    asked = await whole_place_question(self.plan_path.registry, context)
                 if asked is not None:
                     tracer.metadata["reason"] = asked.reason_code
                     for event in self._ask_before_planning(asked, context=context, session_id=session_id):
