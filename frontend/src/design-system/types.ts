@@ -204,7 +204,7 @@ export interface HotelStay {
 }
 
 /** The ways between two places a leg can be made by; `ground` is a rough estimate from the distance. */
-export type TransportMode = "flight" | "train" | "ticket" | "ferry" | "bus" | "drive" | "ground";
+export type TransportMode = "flight" | "train" | "ticket" | "ferry" | "bus" | "shuttle" | "taxi" | "drive" | "ground";
 
 export interface TicketOption {
   id: string;
@@ -254,7 +254,13 @@ export interface TransportLeg {
   from_place: string;
   to_place: string;
   depart_date: string | null;
-  kind: "outbound" | "between" | "return";
+  /** A hop of the trip (out, between cities, home) or an airport transfer inside one city (`to_stay`, `from_stay`). */
+  kind: "outbound" | "between" | "return" | "to_stay" | "from_stay";
+  /** The traveller locked the chosen option in: only it is shown, until they press Change. */
+  locked?: boolean;
+  /** For a transfer: the city (segment) it is in and the IATA code of its airport. */
+  segment_id?: string;
+  airport?: string;
 }
 
 /** One city of the trip form, in travel order, with the nights the traveller gave it. */

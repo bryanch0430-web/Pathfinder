@@ -57,9 +57,33 @@ export function staysIn(plan: PlanLike, segmentId: string): HotelStay[] {
     .sort((a, b) => (a.check_in < b.check_in ? -1 : a.check_in > b.check_in ? 1 : 0));
 }
 
-/** The hops of the trip; the one outbound leg a plan from before legs implies when it has tickets. */
+const HOPS = new Set<TransportLeg["kind"]>(["outbound", "between", "return"]);
+
+/** Every leg of the plan: the hops of the trip and the airport transfers. */
+export function allLegsOf(plan: PlanLike): TransportLeg[] {
+  return plan.legs ?? [];
+}
+
+/** The airport transfers: from an airport to a stay (`to_stay`) and from a stay to an airport (`from_stay`). */
+export function transferLegsOf(plan: PlanLike): TransportLeg[] {
+  return allLegsOf(plan).filter((leg) => !HOPS.has(leg.kind));
+}
+
+/** The airport-to-stay transfer into a city, when the plan has one. */
+export function transferInto(plan: PlanLike, segmentId: string): TransportLeg | undefined {
+  return transferLegsOf(plan).find((leg) => leg.kind === "to_stay" && leg.segment_id === segmentId);
+}
+
+/** The stay-to-airport transfer out of a city, when the plan has one. */
+export function transferOutOf(plan: PlanLike, segmentId: string): TransportLeg | undefined {
+  return transferLegsOf(plan).find((leg) => leg.kind === "from_stay" && leg.segment_id === segmentId);
+}
+
+/** The hops of the trip (never an airport transfer); the one outbound leg a plan from before legs implies when it
+ * has tickets. */
 export function legsOf(plan: PlanLike): TransportLeg[] {
-  if (plan.legs && plan.legs.length > 0) return plan.legs;
+  const hops = (plan.legs ?? []).filter((leg) => HOPS.has(leg.kind));
+  if (hops.length > 0) return hops;
   if ((plan.tickets ?? []).length === 0) return [];
   return [
     {
@@ -75,7 +99,7 @@ export function legsOf(plan: PlanLike): TransportLeg[] {
 /** The options of a leg in the order they are kept; an option that names no known leg is on the first leg. */
 export function optionsFor(plan: PlanLike, legId: string): TicketOption[] {
   const legs = legsOf(plan);
-  const known = new Set(legs.map((leg) => leg.id));
+  const known = new Set([...legs, ...allLegsOf(plan)].map((leg) => leg.id));
   return (plan.tickets ?? []).filter((ticket) => {
     const own = ticket.leg_id && known.has(ticket.leg_id) ? ticket.leg_id : legs[0]?.id;
     return own === legId;
@@ -86,6 +110,17 @@ export function optionsFor(plan: PlanLike, legId: string): TicketOption[] {
 export function chosenFor(plan: PlanLike, legId: string): TicketOption | undefined {
   const options = optionsFor(plan, legId);
   return options.find((option) => option.selected) ?? options[0];
+}
+
+/** The options of a stay: those found for its city, less the other stays already chosen for another part of the trip. */
+export function optionsOfStay(plan: PlanLike & Partial<Pick<TripPlan, "hotel_options">>, stay: HotelStay): HotelStay[] {
+  const city = (candidate: HotelStay) => candidate.segment_id ?? segmentOfDay(plan, candidate.check_in).id;
+  const chosen = plan.hotels ?? [];
+  const listed = (plan.hotel_options ?? []).filter(
+    (option) => city(option) === city(stay) && !chosen.some((other) => other.id === option.id && other.id !== stay.id),
+  );
+  // The stay as it stands leads its options (a plan with no options still has this one).
+  return [stay, ...listed.filter((option) => option.id !== stay.id)];
 }
 
 /** The leg that brings the traveller into a city: the way out for the first one, else the hop that arrives there. */

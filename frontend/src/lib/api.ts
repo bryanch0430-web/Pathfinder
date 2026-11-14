@@ -181,9 +181,20 @@ export type ChoiceKind = "item" | "hotel" | "flight" | "transport";
 /** Swap in another option shown on the plan (a stop's alternative, a hotel, a flight); no model call. */
 export function chooseOption(
   sessionId: string,
-  body: { kind: ChoiceKind; target_id?: string | null; option_id: string; plan_version?: number },
+  body: { kind: ChoiceKind; target_id?: string | null; option_id: string; plan_version?: number; lock?: boolean },
 ): Promise<{ plan: TripPlan }> {
   return request(`/api/journeys/${sessionId}/plan/choose`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** Lock or unlock a chosen stay (`hotel`) or leg (`transport`) in place: no new version, no model call. */
+export function setChoiceLock(
+  sessionId: string,
+  body: { kind: "hotel" | "transport"; target_id: string; locked: boolean; plan_version?: number },
+): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/lock`, {
     method: "POST",
     body: JSON.stringify(body),
   });
