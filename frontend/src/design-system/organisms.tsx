@@ -5,7 +5,7 @@ import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/t
 import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, Input, Select, Text } from "./atoms";
 import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from "./elements";
 import { timelineAt } from "../lib/mapTimeline";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 import { ModelKeysCard, type ModelKeysProps } from "./ModelKeys";
 import {
   AgentActivity,
@@ -1310,6 +1310,145 @@ export function TransportLegCard({
           </div>
         </Collapsible>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * A stay or a leg the traveller picks one option for, and then locks in.
+ *
+ * Open: every option is shown (per tab when there are several kinds), the suggested one marked, each with a Lock in
+ * button. Locked: only the chosen option, with a Change button that brings the others back. With no handlers (an older
+ * version is being read) the chosen option is shown with a count of the others and no buttons.
+ */
+export function ChoiceSlot<T extends { id: string }>({
+  title,
+  icon,
+  state,
+  chosen,
+  options,
+  renderOption,
+  tabs,
+  emptyText,
+  busy = false,
+  changed = false,
+  onLock,
+  onReopen,
+}: {
+  title: ReactNode;
+  icon: IconName;
+  state: "locked" | "open" | "single" | "empty";
+  chosen: T | null;
+  /** Every option, the chosen one included. */
+  options: T[];
+  renderOption: (option: T, role: "chosen" | "option") => ReactNode;
+  /** When more than one, the options are shown per tab. */
+  tabs?: { label: string; options: T[] }[];
+  emptyText: string;
+  busy?: boolean;
+  changed?: boolean;
+  onLock?: (optionId: string) => void;
+  onReopen?: () => void;
+}) {
+  const { t } = useI18n();
+  const groups = tabs && tabs.length > 1 ? tabs : null;
+  const holding = groups ? Math.max(0, groups.findIndex((group) => group.options.some((option) => option.id === chosen?.id))) : 0;
+  const [picked, setPicked] = useState<string | null>(null);
+  const activeTab = groups ? (groups.find((group) => group.label === picked) ?? groups[holding]) : null;
+  const shown = activeTab ? activeTab.options : options;
+  const interactive = Boolean(onLock || onReopen);
+  const others = options.filter((option) => option.id !== chosen?.id).length;
+  const badge =
+    state === "locked" ? (
+      <Badge tone="success" dot>{t("choice.locked")}</Badge>
+    ) : state === "open" && interactive ? (
+      <Badge tone="brand" dot>{t("choice.chooseOne")}</Badge>
+    ) : null;
+
+  const lockButton = (option: T) =>
+    onLock ? (
+      <Button size="sm" variant={option.id === chosen?.id ? "primary" : "secondary"} iconLeft="lock" disabled={busy} loading={busy} onClick={() => onLock(option.id)}>
+        {t("choice.lockIn")}
+      </Button>
+    ) : null;
+
+  let body: ReactNode;
+  if (state === "empty" || (!chosen && !options.length)) {
+    body = <Text size="xs" tone="tertiary">{emptyText}</Text>;
+  } else if (state === "locked" || !interactive) {
+    const one = chosen ?? options[0];
+    body = (
+      <>
+        {one ? renderOption(one, "chosen") : null}
+        {state !== "locked" && others > 0 ? (
+          <Text size="xs" tone="tertiary">{t("choice.others", { count: others })}</Text>
+        ) : null}
+      </>
+    );
+  } else if (state === "single") {
+    const one = options[0] ?? chosen;
+    body = one ? (
+      <div className="pf-choice__option" data-suggested="true">
+        {renderOption(one, "chosen")}
+        <div className="pf-choice__row">
+          <Text size="xs" tone="tertiary">{t("choice.onlyOne")}</Text>
+          {lockButton(one)}
+        </div>
+      </div>
+    ) : null;
+  } else {
+    body = (
+      <>
+        {groups ? (
+          <div className="pf-choice__tabs" role="tablist" aria-label={typeof title === "string" ? title : undefined}>
+            {groups.map((group) => (
+              <button
+                key={group.label}
+                type="button"
+                role="tab"
+                className="pf-choice__tab"
+                aria-selected={activeTab?.label === group.label}
+                aria-pressed={activeTab?.label === group.label}
+                onClick={() => setPicked(group.label)}
+              >
+                {group.label}
+                <span className="pf-muted"> {group.options.length}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="pf-stack" style={{ gap: 8 }} role={groups ? "tabpanel" : undefined}>
+          {shown.map((option) => {
+            const suggested = option.id === chosen?.id;
+            return (
+              <div className="pf-choice__option" key={option.id} data-suggested={suggested}>
+                {renderOption(option, suggested ? "chosen" : "option")}
+                <div className="pf-choice__row">
+                  {suggested ? <Badge tone="brand">{t("choice.suggested")}</Badge> : <span />}
+                  {lockButton(option)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <section className="pf-choice" data-state={state} data-updated={changed} data-choice-state={state} aria-label={typeof title === "string" ? title : undefined}>
+      <div className="pf-choice__head">
+        <Icon name={icon} size={15} />
+        <Text size="sm" weight="semibold">{title}</Text>
+        {changed ? <Badge tone="success" dot>{t("common.updated")}</Badge> : null}
+        {badge}
+        {state === "locked" && onReopen ? (
+          <Button size="sm" variant="ghost" disabled={busy} loading={busy} onClick={onReopen}>
+            {t("choice.change")}
+          </Button>
+        ) : null}
+      </div>
+      {body}
     </section>
   );
 }
