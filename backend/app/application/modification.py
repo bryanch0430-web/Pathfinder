@@ -88,6 +88,29 @@ NO_CHEAPER_HOTEL = "No cheaper verified hotel was returned; the current hotel st
 #: said (and then not kept: it is an edit outcome) when the hotel selected or named could not be swapped and the
 #: request did not ask for a cheaper one ("help me change the hotel")
 NO_OTHER_HOTEL = "No other verified hotel within the budget was returned; the current hotel stays."
+#: said (and then not kept: it is an edit outcome) when an edit asked for another stay and this one is locked in
+LOCKED_STAY_PHRASE = "is locked in and was left as it is"
+
+
+def locked_stay_outcome(stay: Any, city: str) -> str:
+    return f"{stay.name} in {city} {LOCKED_STAY_PHRASE}."
+
+
+_SWAP_WORDS = re.compile(
+    r"\b(?:swap|replace|switch)\b|\b(?:change|different|another|other)\b[^.;!?]{0,20}\b(?:hotel|stay)\b", re.IGNORECASE
+)
+
+
+def leaves_locked_stay(plan: Any, message: str) -> bool:
+    """True when the plan's stay is locked in and the message does not ask for this stay to be swapped or changed: a
+    request for something cheaper or grander, in general, leaves it as it is (and says so)."""
+    if not plan.hotels or not plan.first_stay.locked:
+        return False
+    return not (
+        _SWAP_WORDS.search(message or "") or plan.first_stay.name.lower() in (message or "").lower()
+    )
+
+
 #: said when the stay an edit put in the plan came with no price, so the total leaves it out
 NEW_STAY_UNPRICED = "The new hotel's price was not returned, so the total does not include the stay."
 #: the flight of the earlier dates is gone from a trip that moved, and none came back for the new ones
@@ -606,7 +629,14 @@ class ModifyPath:
                 and rebuilt.first_stay.name == plan.first_stay.name
                 and HOTEL_SEARCH not in getattr(toolbox, "refused", ())
             ):
-                rebuilt.data_quality.gaps.append(_gap("hotels", NO_CHEAPER_HOTEL))
+                rebuilt.data_quality.gaps.append(
+                    _gap(
+                        "hotels",
+                        locked_stay_outcome(plan.first_stay, plan.destination.name)
+                        if leaves_locked_stay(plan, message)
+                        else NO_CHEAPER_HOTEL,
+                    )
+                )
             elif asked and rebuilt.hotels and rebuilt.first_stay.price_per_night is None:
                 rebuilt.data_quality.gaps.append(_gap("hotels", NEW_STAY_UNPRICED))
             if new_range.start < date.today():
@@ -701,7 +731,10 @@ class ModifyPath:
                         _gap("hotels", STAY_PRICE_NOT_REFRESHED if date_changed else STAY_RATE_KEPT)
                     )
             else:
-                if upscale and not cheaper:
+                stay_locked = leaves_locked_stay(updated, message)
+                if stay_locked:
+                    swapped = None
+                elif upscale and not cheaper:
                     swapped = self._grander_stay(updated, candidates, context)
                 else:
                     choice = _swap_choice(updated, candidates, cheaper=cheaper, message=message)
@@ -720,7 +753,9 @@ class ModifyPath:
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     if searched:
-                        if upscale and not cheaper:
+                        if stay_locked:
+                            outcome = locked_stay_outcome(updated.first_stay, updated.destination.name)
+                        elif upscale and not cheaper:
                             outcome = NO_GRANDER_HOTEL
                         elif referred_stay is not None and not cheaper:
                             outcome = NO_OTHER_HOTEL
@@ -2392,6 +2427,8 @@ def _swap_choice(plan: TripPlan, candidates: list[dict], *, cheaper: bool, messa
     than the current rate. For "cheaper" the lowest rate first, and only one that is lower than the current rate;
     otherwise the candidate order of the source stands, a stay with a rate before one without (a stay with no rate
     lowers the total by itself)."""
+    if leaves_locked_stay(plan, message):
+        return None  # the traveller locked this stay in: a request for a cheaper one leaves it as it is
     current = plan.first_stay.name if plan.hotels else ""
     current_price = plan.first_stay.price_per_night.amount if plan.hotels and plan.first_stay.price_per_night else None
     lowered = message.lower()

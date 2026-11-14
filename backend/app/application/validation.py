@@ -400,7 +400,15 @@ def is_edit_outcome(gap: DataGap) -> bool:
     attraction outcomes says the itinerary or the stop "stayed as it was", or that a place "cannot be added twice"."""
     text = f"{gap.section} {gap.message}".lower()
     if gap.section == "hotels":
-        return any(phrase in text for phrase in ("no cheaper verified hotel", "no grander verified hotel", "no other verified hotel"))
+        return any(
+            phrase in text
+            for phrase in (
+                "no cheaper verified hotel",
+                "no grander verified hotel",
+                "no other verified hotel",
+                "is locked in and was left as it is",
+            )
+        )
     return gap.section == "attractions" and any(
         phrase in text
         for phrase in (

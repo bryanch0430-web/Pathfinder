@@ -43,7 +43,13 @@ _RANDOM_ID = re.compile(r"^(check|reservation|disruption|msg|trip|sess)_[0-9a-f]
 
 def _clean(value: Any) -> Any:
     if isinstance(value, dict):
-        return {k: _clean(v) for k, v in value.items() if k not in _VOLATILE_KEYS}
+        out = {k: _clean(v) for k, v in value.items() if k not in _VOLATILE_KEYS}
+        if isinstance(out.get("legs"), list):
+            # Choose-and-lock added ``locked`` (false by default) to a leg; a stop's own ``locked`` is still compared.
+            out["legs"] = [
+                {k: v for k, v in leg.items() if k != "locked"} if isinstance(leg, dict) else leg for leg in out["legs"]
+            ]
+        return out
     if isinstance(value, list):
         return [_clean(v) for v in value]
     if isinstance(value, str) and _RANDOM_ID.match(value):

@@ -28,7 +28,7 @@ from app.application.route_edit import (
 from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
 from app.application.search_cache import CachedToolbox, SearchCache
 from app.application.stitch import city_context, split, stitch
-from app.application.validation import diff_plans
+from app.application.validation import diff_plans, is_edit_outcome
 from app.domain.errors import CanaryLeak
 from app.domain.models import (
     AgentName,
@@ -164,6 +164,10 @@ def _kept_options(
                 for option in options
             ]
     return kept
+
+
+#: Said when a route change releases a lock (the leg or the stay no longer exists as it was).
+RELEASED_LOCK = "Your locked choice for {what} no longer fits the new route, so it is open again."
 
 
 async def edit_route(
@@ -320,9 +324,49 @@ async def _apply_route(
         kept_options=kept_options,
         finish_part=finish,
     )
+    released = _carry_locks(plan, updated, kept_options)
+    if released:
+        updated.change_summary = " ".join([updated.change_summary, *released])
     updated.created_at = plan.created_at
     updated.updated_at = utcnow()
     return EditResult(updated, diff_plans(plan, updated), scope="route")
+
+
+def _carry_locks(old: TripPlan, new: TripPlan, kept_options: dict[str, list[TicketOption]]) -> list[str]:
+    """Keep the locks the route change did not touch and say which ones it released. A leg stays locked when it runs
+    between the same places on the same day with its options kept; a stay when the same stay is still in the same city
+    for the same nights."""
+    said: list[str] = []
+    for leg in old.legs:
+        if not leg.locked:
+            continue
+        key = (leg.kind, leg.from_place, leg.to_place, leg.depart_date)
+        match = next((l for l in new.legs if (l.kind, l.from_place, l.to_place, l.depart_date) == key), None)
+        if match is not None and match.id in kept_options:
+            match.locked = True
+        else:
+            said.append(RELEASED_LOCK.format(what=f"{leg.from_place} → {leg.to_place}"))
+    for stay in old.hotels:
+        if not stay.locked:
+            continue
+        city = next((s.destination.name for s in old.segments if s.id == stay.segment_id), "")
+        match = next(
+            (
+                s
+                for s in new.hotels
+                if (s.name, s.check_in, s.check_out) == (stay.name, stay.check_in, stay.check_out)
+                and next((x.destination.name for x in new.segments if x.id == s.segment_id), "") == city
+            ),
+            None,
+        )
+        if match is None:
+            said.append(RELEASED_LOCK.format(what=f"the stay in {city}"))
+        else:
+            match.locked = True
+            for option in new.hotel_options:
+                if option.id == match.id:
+                    option.locked = True
+    return said
 
 
 # -- a second hotel for the last nights of a city -------------------------------------------------------------------
@@ -511,8 +555,17 @@ async def edit_cities(
     ]
     if not changed:
         unchanged = plan.model_copy(deep=True)
-        unchanged.change_summary = next((r[0].change_summary for r in results if r[0].change_summary), "") or (
-            "Nothing in the plan matched that request."
+        # Why nothing changed, when a city said so (its stay is locked in, nothing cheaper came back).
+        told = [
+            gap.message
+            for r in results
+            for gap in r[0].data_quality.gaps
+            if is_edit_outcome(gap) and gap not in plan.data_quality.gaps
+        ]
+        unchanged.change_summary = (
+            " ".join(dict.fromkeys(told))
+            or next((r[0].change_summary for r in results if r[0].change_summary), "")
+            or "Nothing in the plan matched that request."
         )
         return EditResult(unchanged, [])
     if any(part.dates != parts[i].dates for i, part in changed):
@@ -542,9 +595,20 @@ async def edit_cities(
     updated.change_summary = " ".join(
         dict.fromkeys(part.change_summary for _, part in changed if part.change_summary)
     )
+    # What a city's edit could not do (its stay is locked in, nothing cheaper came back) is told in the reply.
+    told: list[str] = []
+    for _, part in changed:
+        for gap in part.data_quality.gaps:
+            if is_edit_outcome(gap) and gap not in updated.data_quality.gaps and gap not in plan.data_quality.gaps:
+                updated.data_quality.gaps.append(gap)
+                told.append(gap.message)
+    diff = diff_plans(plan, updated)
+    if not diff and told:
+        # Nothing differs: the reason is the whole reply.
+        updated.change_summary = " ".join(dict.fromkeys(told))
     return EditResult(
         updated,
-        diff_plans(plan, updated),
+        diff,
         scope="plan" if target == "all" else "stop",
         selected=bool(scope_item_id),
     )
