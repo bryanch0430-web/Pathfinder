@@ -4172,6 +4172,23 @@
   flex-wrap: wrap;
 }
 
+.pf-choice__summary {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--p30-type-size-body-xs);
+  cursor: pointer;
+}
+
+.pf-choice__summary[data-all-locked="true"] {
+  border-color: var(--p30-tone-feedback-successBorder);
+  background: var(--p30-tone-feedback-successBg);
+}
+
 /* -- pictures: a source's image with its credit ----------------------------------------------------------------------- */
 
 .pf-image {
