@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.application.intake import Attachment
+from app.application.airport_transfers import sync_session_transfers
 from app.application.choices import (
     ChoiceNotFound,
     ChoiceRefused,
@@ -860,6 +861,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
         except ChoiceRefused as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        said = await sync_session_transfers(
+            updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+        )
+        if said:
+            updated.change_summary = " ".join([updated.change_summary, *said]).strip()
         if payload.lock:
             option_leg = next((plan.leg_id_of(t) for t in plan.tickets if t.id == payload.option_id), None)
             set_lock(updated, payload.kind, payload.option_id if payload.kind == "hotel" else option_leg, True)

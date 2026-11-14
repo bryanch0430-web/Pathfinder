@@ -909,7 +909,7 @@ class Planner:
         is priced from each stay for its own nights and the chosen option of every leg; a leg whose option is an
         estimate reserves nothing, and the notes say so.
         """
-        if len(plan.segments) <= 1 and len(plan.legs) <= 1 and len(plan.hotels) <= 1:
+        if len(plan.segments) <= 1 and len(plan.route_legs()) <= 1 and len(plan.hotels) <= 1:
             return self._cost(context, plan.first_stay, plan.tickets, plan.dates)
         currency = (context.currency or self.settings.default_currency).upper()
         lines: list[CostLine] = []
@@ -928,7 +928,7 @@ class Planner:
                 )
             else:
                 unknown.append(f"Hotel price was not returned for {stay.name}.")
-        legs = {leg.id: leg for leg in plan.legs}
+        legs = {leg.id: leg for leg in plan.route_legs()}
         for ticket in plan.chosen_tickets():
             leg = legs.get(plan.leg_id_of(ticket))
             where = f"{leg.from_place} to {leg.to_place}" if leg else ticket.name

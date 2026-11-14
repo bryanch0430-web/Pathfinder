@@ -37,6 +37,8 @@ _VOLATILE_KEYS = {
     # Step 7: the profile a plan was made for (None for the default) and a place source's step-free statement.
     "profile",
     "step_free",
+    # Airport transfers: whether they were worked out (a plan with no flights has none).
+    "transfers_synced",
 }
 _RANDOM_ID = re.compile(r"^(check|reservation|disruption|msg|trip|sess)_[0-9a-f]{6,}$")
 
@@ -45,9 +47,12 @@ def _clean(value: Any) -> Any:
     if isinstance(value, dict):
         out = {k: _clean(v) for k, v in value.items() if k not in _VOLATILE_KEYS}
         if isinstance(out.get("legs"), list):
-            # Choose-and-lock added ``locked`` (false by default) to a leg; a stop's own ``locked`` is still compared.
+            # Choose-and-lock added ``locked``, ``segment_id`` and ``airport`` (empty by default) to a leg; a stop's own ``locked`` is still compared.
             out["legs"] = [
-                {k: v for k, v in leg.items() if k != "locked"} if isinstance(leg, dict) else leg for leg in out["legs"]
+                {k: v for k, v in leg.items() if k not in ("locked", "segment_id", "airport")}
+                if isinstance(leg, dict)
+                else leg
+                for leg in out["legs"]
             ]
         return out
     if isinstance(value, list):

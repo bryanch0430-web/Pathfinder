@@ -25,6 +25,7 @@ from app.application.route_edit import (
 from app.application.route_plan import route_question
 from app.application.assessment import reassess
 from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
+from app.application.airport_transfers import sync_session_transfers
 from app.application.country_check import whole_place_question
 from app.application.budget_check import (
     PrePlanQuestion,
@@ -986,6 +987,7 @@ class TurnService:
             plan = await self.modify_path.carry_protected(previous, plan, context=context, toolbox=toolbox)
         if carries and plan.assessment is not None:
             plan.assessment = reassess(plan, context, self.settings)
+        await sync_session_transfers(plan, registry=self.plan_path.registry, store=self.store, session_id=session_id)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
         # What the assessment could not settle is asked with the plan; the answer is an edit like any other.
         question = plan.assessment.question if plan.assessment is not None else ""
@@ -1064,6 +1066,12 @@ class TurnService:
             self.store.touch_session(session_id)
             return
         updated, diff = result
+        # The airport transfers follow the flights and stays the edit left; what was worked out again is said.
+        transfer_said = await sync_session_transfers(
+            updated, registry=self.plan_path.registry, store=self.store, session_id=session_id, before=plan
+        )
+        if transfer_said:
+            updated.change_summary = " ".join([updated.change_summary, *transfer_said]).strip()
         if (len(plan.segments) > 1 or len(updated.segments) > 1) and sync_route(context, updated):
             # The trip form follows the route the edit made (the cities, their nights, the first as the destination).
             self.store.save_context(context)
@@ -1095,7 +1103,13 @@ class TurnService:
                 # A route change says which nights moved; the stops it kept need no list.
                 description = updated.change_summary
                 rest = ""
-            prose = " ".join([f"Updated to version {updated.version}. " + description + rest, *told])
+            prose = " ".join(
+                [
+                    f"Updated to version {updated.version}. " + description + rest,
+                    *told,
+                    *[s for s in transfer_said if s not in description],
+                ]
+            )
         else:
             # Nothing changed. Do not claim a version: say why, using the reason
             # the edit recorded (a data gap, an unmatched stop, a duplicate).

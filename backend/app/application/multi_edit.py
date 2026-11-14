@@ -142,7 +142,7 @@ def _kept_options(
         before = next(
             (
                 o
-                for o in old.legs
+                for o in old.route_legs()
                 if (o.kind, o.from_place, o.to_place, o.depart_date)
                 == (leg.kind, leg.from_place, leg.to_place, leg.depart_date)
             ),
@@ -337,11 +337,11 @@ def _carry_locks(old: TripPlan, new: TripPlan, kept_options: dict[str, list[Tick
     between the same places on the same day with its options kept; a stay when the same stay is still in the same city
     for the same nights."""
     said: list[str] = []
-    for leg in old.legs:
+    for leg in old.route_legs():
         if not leg.locked:
             continue
         key = (leg.kind, leg.from_place, leg.to_place, leg.depart_date)
-        match = next((l for l in new.legs if (l.kind, l.from_place, l.to_place, l.depart_date) == key), None)
+        match = next((l for l in new.route_legs() if (l.kind, l.from_place, l.to_place, l.depart_date) == key), None)
         if match is not None and match.id in kept_options:
             match.locked = True
         else:

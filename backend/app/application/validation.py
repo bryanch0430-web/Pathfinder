@@ -97,7 +97,7 @@ def _route_errors(plan: TripPlan) -> list[str]:
         edges = [segment.dates.start, *[s.check_out for s in stays[:-1]]]
         if [s.check_in for s in stays] != edges or stays[-1].check_out != segment.dates.end:
             errors.append(f"the stays in {segment.destination.name} do not cover its nights exactly once")
-    between = [leg for leg in plan.legs if leg.kind == "between"]
+    between = [leg for leg in plan.route_legs() if leg.kind == "between"]
     for before, after in zip(plan.segments, plan.segments[1:]):
         if not any(leg.from_place == before.destination.name and leg.to_place == after.destination.name for leg in between):
             errors.append(f"no transport leg from {before.destination.name} to {after.destination.name}")
@@ -529,14 +529,14 @@ def _route_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
                 changes.append(
                     {"kind": "stay", "id": extra.id, "segment_id": later.id, "name": extra.name, "from": "", "to": _span_of(extra)}
                 )
-    names = {leg.id: leg for leg in old.legs}
+    names = {leg.id: leg for leg in old.route_legs()}
     kept: set[str] = set()
-    for leg in new.legs:
+    for leg in new.route_legs():
         chosen = next(iter(c for c in new.chosen_tickets() if new.leg_id_of(c) == leg.id), None)
         earlier = next(
             (
                 o
-                for o in old.legs
+                for o in old.route_legs()
                 if o.id not in kept and (o.kind, o.from_place, o.to_place) == (leg.kind, leg.from_place, leg.to_place)
             ),
             None,

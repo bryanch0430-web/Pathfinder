@@ -1642,6 +1642,7 @@
             "ferry",
             "bus",
             "shuttle",
+            "taxi",
             "drive",
             "ground"
           ],
@@ -1939,7 +1940,7 @@
       "type": "object"
     },
     "TransportLeg": {
-      "description": "One hop of the trip: origin to the first city, between two cities, or the way home.",
+      "description": "One hop of the trip: origin to the first city, between two cities, or the way home. ``to_stay`` and ``from_stay``\nare not hops between cities: they are the way between an airport and a stay in one city, worked out from the\nflights and the stays.",
       "properties": {
         "id": {
           "title": "Id",
@@ -1973,9 +1974,21 @@
           "enum": [
             "outbound",
             "between",
-            "return"
+            "return",
+            "to_stay",
+            "from_stay"
           ],
           "title": "Kind",
+          "type": "string"
+        },
+        "segment_id": {
+          "default": "",
+          "title": "Segment Id",
+          "type": "string"
+        },
+        "airport": {
+          "default": "",
+          "title": "Airport",
           "type": "string"
         },
         "locked": {
@@ -2178,6 +2191,11 @@
         }
       ],
       "default": null
+    },
+    "transfers_synced": {
+      "default": false,
+      "title": "Transfers Synced",
+      "type": "boolean"
     },
     "party_size": {
       "default": 1,
