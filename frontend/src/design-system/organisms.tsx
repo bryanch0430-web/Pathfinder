@@ -63,6 +63,7 @@ import type {
   VideoNote,
 } from "./types";
 import { hotelScopeItem } from "./scope";
+import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type MapLeg } from "../lib/api";
 import { dayScope, overviewStops, travelLine, withinKm } from "../lib/mapScope";
 import {
@@ -70,12 +71,17 @@ import {
   daysBySegment,
   legHome,
   legInto,
+  legsOf,
   nightsBetween,
   optionsFor,
+  optionsOfStay,
   routeLabel,
   segmentOfDay,
   segmentsOf,
   staysIn,
+  transferInto,
+  transferLegsOf,
+  transferOutOf,
 } from "../lib/segments";
 import {
   addAttachments,
@@ -1249,6 +1255,7 @@ function StayCard({
             ? `${t("workspace.perNight", { price: `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()}` })} · ${hotel.price_kind}`
             : t("workspace.noRate")}
         </Text>
+        <RankNote rank={hotel.rank} reasons={hotel.reasons} />
       </div>
       <div className="pf-stack" style={{ alignItems: "flex-end", gap: 4 }}>
         <StatusPill status={hotel.data_status} />
@@ -1259,58 +1266,6 @@ function StayCard({
         ) : null}
       </div>
     </div>
-  );
-}
-
-/**
- * One hop of a trip: the option chosen for it and the other ways to make it, in any mode. An estimated option says so
- * and shows no fare it was not given.
- */
-export function TransportLegCard({
-  leg,
-  options,
-  chosenId,
-  changed = false,
-  onChoose,
-}: {
-  leg: TransportLeg;
-  options: TicketOption[];
-  chosenId: string | null;
-  changed?: boolean;
-  onChoose?: (optionId: string) => Promise<void>;
-}) {
-  const { t } = useI18n();
-  const chosen = options.find((option) => option.id === chosenId) ?? options[0];
-  const others = options.filter((option) => option !== chosen);
-  return (
-    <section className="pf-leg" data-updated={changed} aria-label={`${leg.from_place} → ${leg.to_place}`}>
-      <div className="pf-leg__head">
-        <Icon name="route" size={15} />
-        <Text size="sm" weight="semibold">{leg.from_place} → {leg.to_place}</Text>
-        {leg.depart_date ? <span className="pf-muted pf-small">{leg.depart_date}</span> : null}
-        {changed ? <Badge tone="success" dot>{t("legs.updated")}</Badge> : null}
-      </div>
-      {chosen ? (
-        <TicketCard ticket={chosen} selected choosable={options.length > 1} />
-      ) : (
-        <Text size="xs" tone="tertiary">{t("legs.none")}</Text>
-      )}
-      {others.length ? (
-        <Collapsible title={t("legs.otherOptions", { count: others.length })} icon="route" defaultOpen={false}>
-          <div className="pf-stack" style={{ gap: 8 }}>
-            {others.map((option) => (
-              <TicketCard
-                key={option.id}
-                ticket={option}
-                selected={false}
-                choosable
-                onChoose={onChoose ? () => onChoose(option.id) : undefined}
-              />
-            ))}
-          </div>
-        </Collapsible>
-      ) : null}
-    </section>
   );
 }
 
@@ -1332,6 +1287,7 @@ export function ChoiceSlot<T extends { id: string }>({
   emptyText,
   busy = false,
   changed = false,
+  error,
   onLock,
   onReopen,
 }: {
@@ -1344,9 +1300,11 @@ export function ChoiceSlot<T extends { id: string }>({
   renderOption: (option: T, role: "chosen" | "option") => ReactNode;
   /** When more than one, the options are shown per tab. */
   tabs?: { label: string; options: T[] }[];
-  emptyText: string;
+  emptyText: ReactNode;
   busy?: boolean;
   changed?: boolean;
+  /** Why the last Lock in or Change failed. */
+  error?: string;
   onLock?: (optionId: string) => void;
   onReopen?: () => void;
 }) {
@@ -1449,7 +1407,143 @@ export function ChoiceSlot<T extends { id: string }>({
         ) : null}
       </div>
       {body}
+      {error ? <span className="pf-field__error" role="alert">{t("options.failed", { reason: error })}</span> : null}
     </section>
+  );
+}
+
+/** What an action on a slot is doing (its buttons are disabled meanwhile) and why the last one failed. */
+function useSlotActions() {
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const act = (slot: string, action: () => Promise<void>) => {
+    setBusy((current) => new Set(current).add(slot));
+    setErrors((current) => ({ ...current, [slot]: "" }));
+    action()
+      .catch((cause) => setErrors((current) => ({ ...current, [slot]: failureReason(cause) })))
+      .finally(() =>
+        setBusy((current) => {
+          const next = new Set(current);
+          next.delete(slot);
+          return next;
+        }),
+      );
+  };
+  return { busy, errors, act };
+}
+
+/** A stay's choice slot: the stay as it stands (selectable for chat) and the other stays found for its city. */
+function StaySlot({
+  plan,
+  stay,
+  title,
+  changed,
+  selected,
+  busy,
+  error,
+  onSelect,
+  onLock,
+  onReopen,
+  onLoadRooms,
+}: {
+  plan: TripPlan;
+  stay: HotelStay;
+  title: string;
+  changed: boolean;
+  selected: boolean;
+  busy: boolean;
+  error?: string;
+  onSelect: () => void;
+  onLock?: (optionId: string) => void;
+  onReopen?: () => void;
+  onLoadRooms?: (hotelId: string) => Promise<RoomType[]>;
+}) {
+  const { t } = useI18n();
+  const options = optionsOfStay(plan, stay);
+  return (
+    <ChoiceSlot
+      title={title}
+      icon="hotel"
+      state={slotState(Boolean(stay.locked), options.length)}
+      chosen={stay}
+      options={options}
+      busy={busy}
+      changed={changed}
+      error={error}
+      emptyText={t("city.noStay", { city: "" }).trim()}
+      onLock={onLock}
+      onReopen={onReopen}
+      renderOption={(option) =>
+        option.id === stay.id ? (
+          <StayCard hotel={stay} changed={false} selected={selected} onSelect={onSelect} />
+        ) : (
+          <HotelOptionCard
+            hotel={option}
+            chosen={false}
+            stale={option.check_in !== stay.check_in || option.check_out !== stay.check_out}
+            onLoadRooms={onLoadRooms ? () => onLoadRooms(option.id) : undefined}
+          />
+        )
+      }
+    />
+  );
+}
+
+/** A leg's (or an airport transfer's) choice slot: one tab per kind of transport that has options. */
+function LegSlot({
+  plan,
+  leg,
+  title,
+  icon,
+  changed,
+  busy,
+  error,
+  onLock,
+  onReopen,
+}: {
+  plan: TripPlan;
+  leg: TransportLeg;
+  title: string;
+  icon: IconName;
+  changed: boolean;
+  busy: boolean;
+  error?: string;
+  onLock?: (optionId: string) => void;
+  onReopen?: () => void;
+}) {
+  const { t } = useI18n();
+  const options = optionsFor(plan, leg.id);
+  const chosen = chosenFor(plan, leg.id) ?? null;
+  const directions =
+    leg.from_place && leg.to_place
+      ? `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", origin: leg.from_place, destination: leg.to_place, travelmode: "transit" }).toString()}`
+      : "";
+  return (
+    <ChoiceSlot
+      title={title}
+      icon={icon}
+      state={slotState(Boolean(leg.locked), options.length)}
+      chosen={chosen}
+      options={options}
+      tabs={transportKinds(options).map((group) => ({ label: t(`choice.kind.${group.kind}` as MessageKey), options: group.options }))}
+      busy={busy}
+      changed={changed}
+      error={error}
+      onLock={onLock}
+      onReopen={onReopen}
+      emptyText={
+        <>
+          {t("choice.noLegOptions")}
+          {directions ? (
+            <>
+              {" "}
+              <a href={directions} target="_blank" rel="noopener noreferrer">{t("choice.directions")}</a>
+            </>
+          ) : null}
+        </>
+      }
+      renderOption={(option) => <TicketCard ticket={option} selected={false} choosable={false} />}
+    />
   );
 }
 
@@ -1473,6 +1567,8 @@ export function TripWorkspace({
   changedLegIds,
   languageNotice = null,
   onChooseOption,
+  onLockChoice,
+  onReopenChoice,
   onLoadHotelRooms,
   onAnswerQuestion,
 }: {
@@ -1481,6 +1577,10 @@ export function TripWorkspace({
   onAnswerQuestion?: () => void;
   /** Swaps in another option shown on the plan (no model call); resolves once the updated plan is shown, rejects with the reason. */
   onChooseOption?: (kind: ChoiceKind, targetId: string | null, optionId: string) => Promise<void>;
+  /** Chooses this option for a stay or leg and locks it in. */
+  onLockChoice?: (kind: "hotel" | "transport", targetId: string, optionId: string) => Promise<void>;
+  /** Unlocks a stay or leg so its options come back. */
+  onReopenChoice?: (kind: "hotel" | "transport", targetId: string) => Promise<void>;
   /** The room types the hotel source lists for a stay. */
   onLoadHotelRooms?: (hotelId: string) => Promise<RoomType[]>;
   /** The disclaimer and translation notice shown at the top of a non-English plan view. */
@@ -1509,15 +1609,15 @@ export function TripWorkspace({
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
   const hotel = plan.hotels[0];
   const multi = segmentsOf(plan).length > 1;
-  const hotelChanged = Boolean(hotel && changedStayIds?.has(hotel.id));
   const anyStayChanged = (changedStayIds?.size ?? 0) > 0;
   const unknownGaps = plan.data_quality.gaps.length;
-  const hotelOptions = plan.hotel_options ?? [];
+  const slotActions = useSlotActions();
   // Options are chosen on the latest version only; an older one is for reading.
   const latestVersion = versions.reduce((latest, row) => Math.max(latest, row.version), plan.version);
   const viewingLatest = plan.version >= latestVersion;
   const choose = viewingLatest ? onChooseOption : undefined;
-  const selectedTicketId = (plan.tickets.find((ticket) => ticket.selected) ?? plan.tickets[0])?.id ?? null;
+  const lockChoice = viewingLatest ? onLockChoice : undefined;
+  const reopenChoice = viewingLatest ? onReopenChoice : undefined;
   const firstUpdated = updatedIds?.[0] ?? "";
   // The clock follows the city of the day on show.
   const activeZone = segmentOfDay(plan, activeDay || plan.dates.start).destination.timezone;
@@ -1568,22 +1668,68 @@ export function TripWorkspace({
     </div>
   );
   const renderLeg = (leg: TransportLeg) => (
-    <TransportLegCard
+    <LegSlot
       key={leg.id}
+      plan={plan}
       leg={leg}
-      options={optionsFor(plan, leg.id)}
-      chosenId={chosenFor(plan, leg.id)?.id ?? null}
+      title={`${leg.from_place} → ${leg.to_place}${leg.depart_date ? ` · ${leg.depart_date}` : ""}`}
+      icon="route"
       changed={Boolean(changedLegIds?.has(leg.id))}
-      onChoose={choose ? (optionId) => choose("transport", leg.id, optionId) : undefined}
+      busy={slotActions.busy.has(leg.id)}
+      error={slotActions.errors[leg.id]}
+      onLock={lockChoice ? (optionId) => slotActions.act(leg.id, () => lockChoice("transport", leg.id, optionId)) : undefined}
+      onReopen={reopenChoice ? () => slotActions.act(leg.id, () => reopenChoice("transport", leg.id)) : undefined}
     />
   );
-  // The options of a stay: those found for its city, less the other stays already chosen.
-  const optionsOfStay = (stay: HotelStay) =>
-    hotelOptions.filter(
-      (option) =>
-        (option.segment_id ?? segmentOfDay(plan, option.check_in).id) === (stay.segment_id ?? segmentOfDay(plan, stay.check_in).id) &&
-        !plan.hotels.some((chosenStay) => chosenStay.id === option.id && chosenStay.id !== stay.id),
-    );
+  // An airport transfer is a leg inside one city, titled by the airport and the stay it joins.
+  const renderTransfer = (leg: TransportLeg) => (
+    <LegSlot
+      key={leg.id}
+      plan={plan}
+      leg={leg}
+      title={
+        leg.kind === "to_stay"
+          ? `${t("transfer.toStay")} · ${leg.airport} → ${leg.to_place}`
+          : `${t("transfer.fromStay")} · ${leg.from_place} → ${leg.airport}`
+      }
+      icon="car"
+      changed={Boolean(changedLegIds?.has(leg.id))}
+      busy={slotActions.busy.has(leg.id)}
+      error={slotActions.errors[leg.id]}
+      onLock={lockChoice ? (optionId) => slotActions.act(leg.id, () => lockChoice("transport", leg.id, optionId)) : undefined}
+      onReopen={reopenChoice ? () => slotActions.act(leg.id, () => reopenChoice("transport", leg.id)) : undefined}
+    />
+  );
+  const renderStay = (stay: HotelStay, title: string) => (
+    <StaySlot
+      key={stay.id}
+      plan={plan}
+      stay={stay}
+      title={title}
+      changed={Boolean(changedStayIds?.has(stay.id))}
+      selected={selectedItemId === stay.id}
+      busy={slotActions.busy.has(stay.id)}
+      error={slotActions.errors[stay.id]}
+      onSelect={() => onSelectItem(selectedItemId === stay.id ? null : hotelScopeItem(stay))}
+      onLock={lockChoice ? (optionId) => slotActions.act(stay.id, () => lockChoice("hotel", stay.id, optionId)) : undefined}
+      onReopen={reopenChoice ? () => slotActions.act(stay.id, () => reopenChoice("hotel", stay.id)) : undefined}
+      onLoadRooms={onLoadHotelRooms}
+    />
+  );
+  // How many of the choices (stays, legs, airport transfers) are still to make; a click goes to the first one.
+  const open = openCount(plan);
+  const total = slotCount(plan);
+  const summary =
+    total > 0 ? (
+      <button
+        type="button"
+        className="pf-choice__summary"
+        data-all-locked={open === 0}
+        onClick={() => document.querySelector<HTMLElement>('[data-choice-state="open"]')?.scrollIntoView({ behavior: "smooth", block: "center" })}
+      >
+        {open === 0 ? t("choice.allLocked") : t("choice.summary", { open, total })}
+      </button>
+    ) : null;
 
   return (
     <section className="pf-card pf-workspace" aria-label={t("workspace.label")}>
@@ -1648,15 +1794,19 @@ export function TripWorkspace({
         {onChooseOption && !viewingLatest ? (
           <Text size="xs" tone="secondary">{t("options.latestOnly")}</Text>
         ) : null}
+        {summary}
         {multi ? (
           <>
             {groups.map(({ segment, days }) => {
               const into = legInto(plan, segment.id);
+              const arriving = transferInto(plan, segment.id);
+              const leaving = transferOutOf(plan, segment.id);
               const stays = staysIn(plan, segment.id);
               const nights = nightsBetween(segment.dates.start, segment.dates.end);
               return (
                 <Fragment key={segment.id}>
                   {into ? renderLeg(into) : null}
+                  {arriving ? renderTransfer(arriving) : null}
                   <section className="pf-city" aria-label={segment.destination.name}>
                     <div className="pf-city__head">
                       <Icon name="map" size={16} />
@@ -1672,37 +1822,18 @@ export function TripWorkspace({
                     {nights > 0 && stays.length === 0 ? (
                       <Text size="xs" tone="tertiary">{t("city.noStay", { city: segment.destination.name })}</Text>
                     ) : null}
-                    {stays.map((stay) => {
-                      const options = optionsOfStay(stay);
-                      return (
-                        <Fragment key={stay.id}>
-                          <StayCard
-                            hotel={stay}
-                            changed={Boolean(changedStayIds?.has(stay.id))}
-                            selected={selectedItemId === stay.id}
-                            onSelect={() => onSelectItem(selectedItemId === stay.id ? null : hotelScopeItem(stay))}
-                          />
-                          {options.length > 1 || (options.length === 1 && onLoadHotelRooms) ? (
-                            <Collapsible
-                              title={t("options.hotels")}
-                              icon="hotel"
-                              badge={<Badge tone="neutral">{options.length}</Badge>}
-                              defaultOpen={false}
-                            >
-                              <HotelOptions
-                                options={options}
-                                chosenId={stay.id}
-                                current={stay}
-                                onChoose={choose ? (hotelId) => choose("hotel", stay.id, hotelId) : undefined}
-                                onLoadRooms={onLoadHotelRooms}
-                              />
-                            </Collapsible>
-                          ) : null}
-                        </Fragment>
-                      );
-                    })}
+                    {stays.map((stay) =>
+                      renderStay(
+                        stay,
+                        t("choice.stay", {
+                          city: segment.destination.name,
+                          nights: t(nights === 1 ? "city.nightsOne" : "city.nights", { count: nights }),
+                        }),
+                      ),
+                    )}
                     {days.map(renderDay)}
                   </section>
+                  {leaving ? renderTransfer(leaving) : null}
                 </Fragment>
               );
             })}
@@ -1723,41 +1854,19 @@ export function TripWorkspace({
           </div>
         ))}
 
-        {hotel ? (
-          <StayCard
-            hotel={hotel}
-            changed={hotelChanged}
-            selected={selectedItemId === hotel.id}
-            onSelect={() => onSelectItem(selectedItemId === hotel.id ? null : hotelScopeItem(hotel))}
-          />
-        ) : null}
+        {hotel
+          ? renderStay(
+              hotel,
+              t("choice.stayOne", {
+                nights: t(nightsBetween(hotel.check_in, hotel.check_out) === 1 ? "city.nightsOne" : "city.nights", {
+                  count: nightsBetween(hotel.check_in, hotel.check_out),
+                }),
+              }),
+            )
+          : null}
 
-        {hotelOptions.length > 1 || (hotelOptions.length === 1 && onLoadHotelRooms) ? (
-          <Collapsible
-            title={t("options.hotels")}
-            icon="hotel"
-            badge={<Badge tone="neutral">{hotelOptions.length}</Badge>}
-            defaultOpen={hotelOptions.length > 1}
-          >
-            <HotelOptions
-              options={hotelOptions}
-              chosenId={hotel?.id ?? null}
-              current={hotel ?? null}
-              onChoose={choose ? (hotelId) => choose("hotel", null, hotelId) : undefined}
-              onLoadRooms={onLoadHotelRooms}
-            />
-          </Collapsible>
-        ) : null}
-
-        {plan.tickets.map((ticket) => (
-          <TicketCard
-            key={ticket.id}
-            ticket={ticket}
-            selected={ticket.id === selectedTicketId}
-            choosable={plan.tickets.length > 1 && ticket.mode === "flight"}
-            onChoose={choose ? () => choose("flight", null, ticket.id) : undefined}
-          />
-        ))}
+        {legsOf(plan).map(renderLeg)}
+        {transferLegsOf(plan).map(renderTransfer)}
 
           </>
         )}

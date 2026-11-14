@@ -192,3 +192,55 @@ export const splitStayPlan: TripPlan = {
     threeCityPlan.hotels[2],
   ],
 };
+
+/** The three-city plan with every stay and leg locked in: each slot shows only the option chosen. */
+export const lockedThreeCityPlan: TripPlan = {
+  ...threeCityPlan,
+  hotels: threeCityPlan.hotels.map((stay) => ({ ...stay, locked: true })),
+  legs: (threeCityPlan.legs ?? []).map((leg) => ({ ...leg, locked: true })),
+};
+
+/**
+ * Tokyo is flown into and flown out of (the flight on to Kyoto is the chosen one), so it has both airport transfers:
+ * the one into the city is still to choose, the one out is locked in.
+ */
+export const airportTransferPlan: TripPlan = {
+  ...threeCityPlan,
+  legs: [
+    ...(threeCityPlan.legs ?? []),
+    { id: "to_stay_seg_1", from_place: "HND airport", to_place: "Asakusa View Hotel", depart_date: "2027-04-10", kind: "to_stay", segment_id: "seg_1", airport: "HND" },
+    { id: "from_stay_seg_1", from_place: "Asakusa View Hotel", to_place: "HND airport", depart_date: "2027-04-13", kind: "from_stay", segment_id: "seg_1", airport: "HND", locked: true },
+  ],
+  tickets: [
+    ...threeCityPlan.tickets.map((entry) =>
+      entry.leg_id === "leg_1" ? { ...entry, selected: entry.id === "leg1_flight" } : entry,
+    ),
+    ticket("in_train", "to_stay_seg_1", "train", "Airport train (estimate)", "2027-04-10T14:20:00", "2027-04-10T15:05:00", 45, {
+      origin: "HND airport",
+      destination: "Asakusa View Hotel",
+      estimated: true,
+    }),
+    ticket("in_bus", "to_stay_seg_1", "bus", "Airport bus or shuttle (estimate)", "2027-04-10T14:20:00", "2027-04-10T15:10:00", 50, {
+      origin: "HND airport",
+      destination: "Asakusa View Hotel",
+      estimated: true,
+    }),
+    ticket("in_taxi", "to_stay_seg_1", "taxi", "Taxi or ride (estimate)", "2027-04-10T14:20:00", "2027-04-10T14:55:00", 35, {
+      origin: "HND airport",
+      destination: "Asakusa View Hotel",
+      estimated: true,
+      selected: true,
+    }),
+    ticket("out_taxi", "from_stay_seg_1", "taxi", "Taxi or ride (estimate)", "2027-04-13T07:25:00", "2027-04-13T08:00:00", 35, {
+      origin: "Asakusa View Hotel",
+      destination: "HND airport",
+      estimated: true,
+      selected: true,
+    }),
+    ticket("out_bus", "from_stay_seg_1", "bus", "Airport bus or shuttle (estimate)", "2027-04-13T07:10:00", "2027-04-13T08:00:00", 50, {
+      origin: "Asakusa View Hotel",
+      destination: "HND airport",
+      estimated: true,
+    }),
+  ],
+};

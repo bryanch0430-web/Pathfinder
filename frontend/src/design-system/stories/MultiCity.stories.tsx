@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { TransportLegCard, TripWorkspace } from "../organisms";
-import { splitStayPlan, threeCityPlan } from "../multiCityFixtures";
+import { ChoiceSlot, TicketCard, TripWorkspace } from "../organisms";
+import { airportTransferPlan, lockedThreeCityPlan, splitStayPlan, threeCityPlan } from "../multiCityFixtures";
+import { samplePlan } from "../fixtures";
+import { slotState, transportKinds } from "../../lib/choices";
 import type { ChoiceKind } from "../../lib/api";
-import type { PlanItem, TripPlan } from "../types";
+import type { PlanItem, TicketOption, TripPlan } from "../types";
 
 const meta: Meta = { title: "Organisms/Multi-city trip" };
 export default meta;
@@ -29,6 +31,22 @@ function Workspace({ initial }: { initial: TripPlan }) {
       setChangedStays(new Set([optionId]));
     }
   };
+  // Lock in chooses the option and locks the slot; Change unlocks it: nothing is a new version.
+  const lockChoice = async (kind: "hotel" | "transport", targetId: string, optionId: string) => {
+    await choose(kind, targetId, optionId);
+    setPlan((current) =>
+      kind === "hotel"
+        ? { ...current, hotels: current.hotels.map((h) => (h.id === targetId || h.id === optionId ? { ...h, locked: true } : h)) }
+        : { ...current, legs: (current.legs ?? []).map((leg) => (leg.id === targetId ? { ...leg, locked: true } : leg)) },
+    );
+  };
+  const reopenChoice = async (kind: "hotel" | "transport", targetId: string) => {
+    setPlan((current) =>
+      kind === "hotel"
+        ? { ...current, hotels: current.hotels.map((h) => (h.id === targetId ? { ...h, locked: false } : h)) }
+        : { ...current, legs: (current.legs ?? []).map((leg) => (leg.id === targetId ? { ...leg, locked: false } : leg)) },
+    );
+  };
   return (
     <div style={{ padding: 24, maxWidth: 760 }}>
       <TripWorkspace
@@ -43,6 +61,8 @@ function Workspace({ initial }: { initial: TripPlan }) {
         feedbackStars={null}
         feedbackVerdict={null}
         onChooseOption={choose}
+        onLockChoice={lockChoice}
+        onReopenChoice={reopenChoice}
         changedLegIds={changedLegs}
         changedStayIds={changedStays}
         onAnswerQuestion={() => undefined}
@@ -51,28 +71,61 @@ function Workspace({ initial }: { initial: TripPlan }) {
   );
 }
 
-/** Three cities: a heading with dates and nights for each, its stay and the stay's options, and the leg into it. */
+/** Three cities: every stay and leg is a slot with all its options shown, the suggested one marked, each with Lock in. */
 export const ThreeCities: Story = { render: () => <Workspace initial={threeCityPlan} /> };
+
+/** The same trip with everything locked in: each slot shows only its chosen option and a Change button. */
+export const EveryChoiceLocked: Story = { render: () => <Workspace initial={lockedThreeCityPlan} /> };
 
 /** A city with two stays: Kyoto's first two nights at one hotel, the last at another. */
 export const SplitStay: Story = { render: () => <Workspace initial={splitStayPlan} /> };
 
-/** One leg with a flight, an estimated train and an estimated drive: any mode can be chosen, estimates say so. */
-export const LegWithFlightAndEstimatedTrain: Story = {
+/** A city flown into and out of: the airport transfer into it is still to choose, the one out is locked in. */
+export const AirportTransfers: Story = { render: () => <Workspace initial={airportTransferPlan} /> };
+
+/** A one-city trip has the same slots: its stay, and the flight as its outbound leg. */
+export const SingleCity: Story = { render: () => <Workspace initial={samplePlan} /> };
+
+function LegTabs({ options: initial, locked = false }: { options: TicketOption[]; locked?: boolean }) {
+  const [options, setOptions] = useState(initial);
+  const [isLocked, setLocked] = useState(locked);
+  const chosen = options.find((option) => option.selected) ?? options[0] ?? null;
+  return (
+    <div style={{ padding: 24, maxWidth: 640 }}>
+      <ChoiceSlot
+        title="Tokyo → Kyoto · 13 Apr"
+        icon="route"
+        state={slotState(isLocked, options.length)}
+        chosen={chosen}
+        options={options}
+        tabs={transportKinds(options).map((group) => ({ label: group.kind, options: group.options }))}
+        emptyText="No transport options were found for this leg."
+        renderOption={(option) => <TicketCard ticket={option} selected={false} choosable={false} />}
+        onLock={(optionId) => {
+          setOptions(options.map((option) => ({ ...option, selected: option.id === optionId })));
+          setLocked(true);
+        }}
+        onReopen={() => setLocked(false)}
+      />
+    </div>
+  );
+}
+
+/** One leg with a flight, an estimated train and an estimated drive, one tab for each kind of transport. */
+export const LegWithFlightTrainAndBusTabs: Story = {
   render: () => {
-    const [options, setOptions] = useState(threeCityPlan.tickets.filter((ticket) => ticket.leg_id === "leg_1"));
-    const leg = threeCityPlan.legs?.find((entry) => entry.id === "leg_1");
-    if (!leg) return <p>The fixture has no leg.</p>;
-    const chosen = options.find((option) => option.selected) ?? options[0];
-    return (
-      <div style={{ padding: 24, maxWidth: 640 }}>
-        <TransportLegCard
-          leg={leg}
-          options={options}
-          chosenId={chosen.id}
-          onChoose={async (optionId) => setOptions(options.map((option) => ({ ...option, selected: option.id === optionId })))}
-        />
-      </div>
-    );
+    const bus: TicketOption = {
+      ...threeCityPlan.tickets.filter((ticket) => ticket.leg_id === "leg_1")[0],
+      id: "leg1_bus",
+      mode: "bus",
+      name: "Bus or shuttle (estimate)",
+      selected: false,
+      price: null,
+      estimated: true,
+    };
+    return <LegTabs options={[...threeCityPlan.tickets.filter((ticket) => ticket.leg_id === "leg_1"), bus]} />;
   },
 };
+
+/** A leg no source found any option for says so, with a directions link when both places are known. */
+export const LegWithNoOptions: Story = { render: () => <LegTabs options={[]} /> };

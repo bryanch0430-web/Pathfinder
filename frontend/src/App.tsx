@@ -630,6 +630,8 @@ export default function App() {
                   changedStayIds={pf.changedStayIds}
                   changedLegIds={pf.changedLegIds}
                   onChooseOption={pf.choose}
+                  onLockChoice={pf.lockChoice}
+                  onReopenChoice={pf.reopenChoice}
                   onLoadHotelRooms={pf.hotelRooms}
                   onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
                 />
