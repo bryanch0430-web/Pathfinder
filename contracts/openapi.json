@@ -1021,6 +1021,58 @@
         }
       }
     },
+    "/api/journeys/{session_id}/lock": {
+      "post": {
+        "summary": "Lock Choice",
+        "description": "Lock or unlock a chosen stay or leg on the latest version, in place: a lock is not a change of plan.",
+        "operationId": "lock_choice_api_journeys__session_id__lock_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Lock Choice Api Journeys  Session Id  Lock Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/journeys/{session_id}/plan/hotels/{hotel_id}/rooms": {
       "get": {
         "summary": "Hotel Rooms",
@@ -2544,6 +2596,11 @@
               }
             ],
             "title": "Plan Version"
+          },
+          "lock": {
+            "type": "boolean",
+            "title": "Lock",
+            "default": false
           }
         },
         "type": "object",
@@ -2974,6 +3031,47 @@
         },
         "type": "object",
         "title": "KeyPatch"
+      },
+      "LockRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "hotel",
+              "transport"
+            ],
+            "title": "Kind"
+          },
+          "target_id": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Target Id"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "target_id",
+          "locked"
+        ],
+        "title": "LockRequest",
+        "description": "Lock or unlock a chosen stay or leg without choosing anything."
       },
       "ProfilePatch": {
         "properties": {
