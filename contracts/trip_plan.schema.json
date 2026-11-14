@@ -1976,6 +1976,11 @@
           ],
           "title": "Kind",
           "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "title": "Locked",
+          "type": "boolean"
         }
       },
       "title": "TransportLeg",
