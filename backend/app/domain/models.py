@@ -415,7 +415,8 @@ class TicketOption(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ticket"))
     #: ``drive`` and ``ground`` are the modes of an estimated hop between cities; ``ticket`` and ``ferry`` only
     #: occur in plans stored before the model dropped them.
-    mode: Literal["flight", "train", "ticket", "ferry", "bus", "drive", "ground"]
+    #: ``shuttle`` only when a source names the vehicle a shuttle; an estimate is never called one.
+    mode: Literal["flight", "train", "ticket", "ferry", "bus", "shuttle", "drive", "ground"]
     #: The leg (hop of the trip) this option is for; empty until the plan fills it in.
     leg_id: str = ""
     name: str

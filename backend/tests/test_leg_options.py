@@ -75,7 +75,8 @@ def test_a_short_hop_gets_a_rough_ground_estimate_and_no_flight(
 ) -> None:
     options = _options(settings, KYOTO, OSAKA)
 
-    assert [o.mode for o in options] == ["ground"]
+    # Part 3 of choose-and-lock: a leg under 300 km with no transit bus also gets one estimated bus-or-shuttle.
+    assert [o.mode for o in options] == ["ground", "bus"]
     only = options[0]
     assert (
         only.estimated

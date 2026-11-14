@@ -1641,6 +1641,7 @@
             "ticket",
             "ferry",
             "bus",
+            "shuttle",
             "drive",
             "ground"
           ],

@@ -30,6 +30,10 @@ from app.infrastructure.providers.routes import estimate_leg
 
 FLIGHT_MIN_KM = 150
 GROUND_MAX_KM = 900
+#: A leg shorter than this with no bus from the transit lookup gets one estimated bus-or-shuttle option.
+BUS_ESTIMATE_MAX_KM = 300
+#: A bus is slower than the drive between the same places by about this factor.
+BUS_DRIVE_FACTOR = 1.3
 AIRPORT_MINUTES = 150
 ESTIMATE_DEPARTS = "09:00"
 #: Most options one leg keeps.
@@ -52,6 +56,9 @@ _RAIL = frozenset(
     }
 )
 _BUS = frozenset({"BUS", "INTERCITY_BUS", "TROLLEYBUS", "SHARE_TAXI"})
+#: Vehicle types a routes source labels as a shuttle. None of the types this repo reads is one, so no option is
+#: called a shuttle until a source names one here.
+_SHUTTLE: frozenset[str] = frozenset()
 
 
 def _routed(leg: RouteLeg) -> bool:
@@ -68,6 +75,8 @@ def ground_mode(leg: RouteLeg) -> str:
     if not steps:
         return "ground"
     longest = max(steps, key=lambda step: step.minutes or 0)
+    if longest.vehicle in _SHUTTLE:
+        return "shuttle"
     if longest.vehicle in _RAIL:
         return "train"
     if longest.vehicle in _BUS:
@@ -253,6 +262,23 @@ async def _ground_options(
     return options
 
 
+def _bus_estimate(
+    leg: TransportLeg, origin: GeoPoint, destination: GeoPoint, options: list[TicketOption]
+) -> TicketOption:
+    """One estimated bus-or-shuttle: the drive time (the drive option's, else the distance model's) times 1.3."""
+    drive = next((o for o in options if o.mode == "drive" and o.duration_minutes), None)
+    base = estimate_leg(origin, destination, "drive")
+    minutes = round((drive.duration_minutes if drive else base.duration_minutes or 0) * BUS_DRIVE_FACTOR)
+    return _estimated(
+        leg,
+        base.model_copy(update={"duration_minutes": minutes}),
+        "bus",
+        "Bus or shuttle (estimate)",
+        "transit",
+        option_id=f"{leg.id}_bus",
+    )
+
+
 async def _flight_options(
     leg: TransportLeg,
     *,
@@ -330,6 +356,10 @@ async def leg_options(
         options += await _ground_options(
             leg, origin.geo, destination.geo, registry=registry, toolbox=toolbox
         )
+        if km < BUS_ESTIMATE_MAX_KM and not any(
+            o.mode in ("bus", "shuttle") for o in options
+        ):
+            options.append(_bus_estimate(leg, origin.geo, destination.geo, options))
     ranked = rank_options(options)[:MAX_LEG_OPTIONS]
     return [
         option.model_copy(update={"selected": index == 0})
