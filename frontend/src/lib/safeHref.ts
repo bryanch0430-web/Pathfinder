@@ -23,7 +23,8 @@ function baseUrl(): string {
   }
 }
 
-const API_BASE: string = import.meta.env.VITE_API_BASE ?? "";
+// Vite sets ``import.meta.env``; a test runner outside Vite has none.
+const API_BASE: string = (import.meta as { env?: { VITE_API_BASE?: string } }).env?.VITE_API_BASE ?? "";
 
 /** What an `<img>` may load: the server's own picture route (a Google photo, key added there) or an https address
  * a source returned; anything else (a `javascript:` or `data:` URL, plain http) is `undefined` and no image is drawn. */
