@@ -3,23 +3,49 @@
 Ranking only labels. It never re-orders a list, never changes which option is chosen, and never invents a value:
 every factor is read from a field a source gave, scaled 0..1 within the option list (the best option of a
 factor scores 1, the worst 0), and a missing value scores 0.5 and is never given as a reason. The weights and the
-phrases are fixed here; no model writes either. The phrases are English, the plan's source language; the
+phrases are fixed here; no model writes either. Three further factors (review count, a trip's profile fit for the
+alternatives of a stop, business amenities of a business trip's stays) take a fixed share and the original weights
+share the rest (``effective_weights``). The phrases are English, the plan's source language; the
 interface shows them in the reader's language from its own table (``reason.*``).
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
+from app.application.profile_rules import family_suited
+
 if TYPE_CHECKING:
-    from app.domain.models import HotelStay, PlanAlternative, TicketOption, TripPlan
+    from app.domain.models import (
+        HotelStay,
+        PlanAlternative,
+        TicketOption,
+        TravellerProfile,
+        TripPlan,
+    )
 
 STAY_WEIGHTS = {"price": 0.35, "rating": 0.25, "distance": 0.20, "match": 0.20}
 #: A business trip: distance (to the centre) counts 0.35 and price 0.20.
 BUSINESS_STAY_WEIGHTS = {"price": 0.20, "rating": 0.25, "distance": 0.35, "match": 0.20}
 ALTERNATIVE_WEIGHTS = {"rating": 0.40, "distance": 0.35, "price": 0.25}
 TRANSPORT_WEIGHTS = {"time": 0.60, "price": 0.40}
+
+#: Shares taken by the added factors; the weights above share what is left (see ``effective_weights``).
+#: Review count counts for every stay and alternative; business amenities only for a business trip's stays;
+#: profile fit only for the alternatives of a trip with children.
+STAY_EXTRA_WEIGHTS = {"reviews": 0.10}
+BUSINESS_STAY_EXTRA_WEIGHTS = {"reviews": 0.05, "amenities": 0.10}
+ALTERNATIVE_EXTRA_WEIGHTS = {"reviews": 0.10, "profile": 0.10}
+
+#: What a business traveller looks for in a stay's amenities, as words in the source's own amenity labels.
+BUSINESS_AMENITY_WORDS = {
+    "wifi": ("wi-fi", "wifi"),
+    "business centre": ("business center", "business centre"),
+    "meeting": ("meeting", "conference"),
+    "workspace": ("desk", "workspace", "work space", "coworking"),
+}
 
 #: Flights add this many minutes at the airports to the time in the air.
 AIRPORT_MINUTES = 150
@@ -38,6 +64,9 @@ REASONS = {
     "distance": "closest",
     "match": "matches what you asked of the room",
     "time": "fastest door to door",
+    "reviews": "most reviewed",
+    "profile_children": "suits children",
+    "amenities": "business amenities",
 }
 
 _NEUTRAL = 0.5
@@ -68,6 +97,35 @@ def _scaled(
             share = (value - low) / (high - low)
             out.append(round(share if higher_is_better else 1 - share, 6))
     return out
+
+
+def effective_weights(base: dict, extra: dict) -> dict:
+    """The weights in use: each added factor keeps its own share and the base weights share the rest, so they sum to 1."""
+    room = 1.0 - sum(extra.values())
+    return {**{name: weight * room for name, weight in base.items()}, **extra}
+
+
+def _review_scale(counts: Sequence[int | None]) -> list[float | None]:
+    """Review counts scaled 0..1 on a log scale (4000 reviews against 40 is a clear lead, 4040 against 4000 is not)."""
+    return _scaled(
+        [math.log1p(c) if c is not None and c >= 0 else None for c in counts],
+        higher_is_better=True,
+    )
+
+
+def _business_amenities(amenities: Sequence[str]) -> float | None:
+    """How many of the business amenities a stay lists (wifi, business centre, meeting rooms, workspace); None when the
+    source listed no amenities at all."""
+    if not amenities:
+        return None
+    lowered = [str(a).lower() for a in amenities]
+    return float(
+        sum(
+            1
+            for words in BUSINESS_AMENITY_WORDS.values()
+            if any(word in label for label in lowered for word in words)
+        )
+    )
 
 
 def _best(scaled: Sequence[float | None], index: int) -> bool:
@@ -129,12 +187,15 @@ def rank_stays(
     per_night_budget: float | None = None,
     weights: dict | None = None,
     distance_to: str = "stops",
+    extra_weights: dict | None = None,
 ) -> None:
     """Rank the stays offered for one city: price against the per-night budget, rating, distance to that city's stops,
-    and the stay-research match. ``per_night_budget`` is in the stays' currency; None when there is none."""
+    the stay-research match and the review count (and, when ``extra_weights`` has "amenities", the business amenities).
+    ``per_night_budget`` is in the stays' currency; None when there is none."""
     if not stays:
         return
-    weights = weights or STAY_WEIGHTS
+    extra = STAY_EXTRA_WEIGHTS if extra_weights is None else extra_weights
+    weights = effective_weights(weights or STAY_WEIGHTS, extra)
     prices = [
         (s.price_per_night.amount, s.price_per_night.currency)
         if s.price_per_night
@@ -184,6 +245,17 @@ def rank_stays(
             return REASONS["match"]
         return None
 
+    reviews = _review_scale([s.review_count for s in stays])
+    amenities = _scaled(
+        [_business_amenities(s.amenities) for s in stays], higher_is_better=True
+    )
+
+    def reviews_phrase(i: int) -> str | None:
+        return REASONS["reviews"] if _best(reviews, i) else None
+
+    def amenities_phrase(i: int) -> str | None:
+        return REASONS["amenities"] if _best(amenities, i) else None
+
     _finish(
         stays,
         [
@@ -191,14 +263,49 @@ def rank_stays(
             ("rating", weights["rating"], rating, rating_phrase),
             ("distance", weights["distance"], distance, distance_phrase),
             ("match", weights["match"], match, match_phrase),
+            ("reviews", weights["reviews"], reviews, reviews_phrase),
+            *(
+                [("amenities", weights["amenities"], amenities, amenities_phrase)]
+                if "amenities" in weights
+                else []
+            ),
         ],
     )
 
 
-def rank_alternatives(options: Sequence[PlanAlternative]) -> None:
-    """Rank the choices for one stop or meal: rating, distance from the default, and price level."""
+def rank_alternatives(
+    options: Sequence[PlanAlternative],
+    *,
+    profile: TravellerProfile | None = None,
+) -> None:
+    """Rank the choices for one stop or meal: rating, distance from the default, price level and review count, and for
+    a trip with children whether the place suits children (from the place source's own type labels)."""
     if not options:
         return
+    extra = dict(ALTERNATIVE_EXTRA_WEIGHTS)
+    if profile is None or not profile.with_children:
+        del extra["profile"]
+    weights = effective_weights(ALTERNATIVE_WEIGHTS, extra)
+    reviews = _review_scale([o.review_count for o in options])
+    suited = _scaled(
+        [
+            (
+                1.0
+                if family_suited(
+                    {
+                        "tags": o.source_types,
+                        "name": o.name,
+                        "description": o.source_summary,
+                    }
+                )
+                else 0.0
+            )
+            if o.source_types
+            else None
+            for o in options
+        ],
+        higher_is_better=True,
+    )
     rating = _scaled([o.rating for o in options], higher_is_better=True)
     distance = _scaled(
         [float(o.distance_m) if o.distance_m is not None else None for o in options],
@@ -212,21 +319,41 @@ def rank_alternatives(options: Sequence[PlanAlternative]) -> None:
         [
             (
                 "rating",
-                ALTERNATIVE_WEIGHTS["rating"],
+                weights["rating"],
                 rating,
                 lambda i: REASONS["rating"] if _best(rating, i) else None,
             ),
             (
                 "distance",
-                ALTERNATIVE_WEIGHTS["distance"],
+                weights["distance"],
                 distance,
                 lambda i: REASONS["distance"] if _best(distance, i) else None,
             ),
             (
                 "price",
-                ALTERNATIVE_WEIGHTS["price"],
+                weights["price"],
                 price,
                 lambda i: REASONS["price_low"] if _best(price, i) else None,
+            ),
+            (
+                "reviews",
+                weights["reviews"],
+                reviews,
+                lambda i: REASONS["reviews"] if _best(reviews, i) else None,
+            ),
+            *(
+                [
+                    (
+                        "profile",
+                        weights["profile"],
+                        suited,
+                        lambda i: REASONS["profile_children"]
+                        if _best(suited, i)
+                        else None,
+                    )
+                ]
+                if "profile" in weights
+                else []
             ),
         ],
     )
@@ -302,7 +429,13 @@ def rank_plan(plan: TripPlan) -> None:
                 budget = allowance[0]
         business = plan.profile is not None and plan.profile.purpose == "business"
         if business:
-            rank_stays(group, per_night_budget=budget, weights=BUSINESS_STAY_WEIGHTS, distance_to="centre")
+            rank_stays(
+                group,
+                per_night_budget=budget,
+                weights=BUSINESS_STAY_WEIGHTS,
+                distance_to="centre",
+                extra_weights=BUSINESS_STAY_EXTRA_WEIGHTS,
+            )
         else:
             rank_stays(group, per_night_budget=budget)
 
@@ -331,4 +464,4 @@ def rank_plan(plan: TripPlan) -> None:
 
     for _day, item in plan.iter_items():
         if item.alternatives:
-            rank_alternatives(item.alternatives)
+            rank_alternatives(item.alternatives, profile=plan.profile)
