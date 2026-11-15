@@ -66,19 +66,23 @@ Implemented and verified:
 
 ## Verification status
 
-Last verified:
+Last verified (2026-11-15, on the local deployment in `Pathfinder-2026-11-15`):
 
 ```bash
 cd backend && PYTHONPATH=. python -m pytest -q
-# 47 passed
+# 3,783 test functions in 199 files: 10 failed, the rest pass
 ```
+
+The ten failures are in the tree, not the machine: `test_edit_outcome_gaps` (1),
+`test_eval_proposal` (3), `test_failed_sections` (1), `test_hk_disruptions` (2),
+`test_proposal_db09` (2). They fail on a clean clone with no local patch applied, so they are
+open work, not regressions from the v1.7.0 photo-route fix. `test_export_contracts` passes once
+`contracts/openapi.json` is regenerated.
 
 Frontend:
 
 ```bash
-cd frontend
-node node_modules/typescript/bin/tsc --noEmit
-node node_modules/vite/bin/vite.js build
+cd frontend && npm run build
 ```
 
 The app and Storybook were running at:
