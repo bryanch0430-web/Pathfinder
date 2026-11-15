@@ -224,7 +224,6 @@ async def build_trip(
     kept_options = kept_options or {}
     places = [segment.destination for segment in segments]
     nights = [segment.dates.night_count for segment in segments]
-    date_range = DateRange(start=segments[0].dates.start, end=segments[-1].dates.end)
     # One city keeps the round trip its own ticket agent looks up; the legs are for a route of several.
     legs = (
         build_legs(segments, context.origin, context.one_way)
