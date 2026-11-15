@@ -5,6 +5,7 @@ Pure functions: nothing here calls a source or a model.
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 from app.application.budget_check import PrePlanQuestion
@@ -18,6 +19,17 @@ class RouteQuestion(Exception):
     def __init__(self, question: str) -> None:
         super().__init__(question)
         self.question = question
+
+
+#: The words that ask for the best order of the cities ("best order", "shortest route").
+_BEST_ORDER = re.compile(
+    r"\b(?:best|nearest|shortest|better|optimal|optimi[sz]e)\b[^.!?]{0,30}\b(?:order|route)\b"
+)
+
+
+def asks_for_best_order(message: str) -> bool:
+    """The message asks for the cities in their best order (the nearest one after the other, from where the trip starts)."""
+    return _BEST_ORDER.search(" ".join(message.split()).lower()) is not None
 
 
 FEWER_NIGHTS_THAN_CITIES = "The trip has fewer nights than cities. Which cities should I drop, or should the trip be longer?"
@@ -60,6 +72,15 @@ def allocate_nights(stops: list[TripStop], total_nights: int) -> tuple[list[int]
             f"The dates cover {extra} more {plural} than you listed; I added {pronoun} to {stops[0].city}."
         )
     return nights, ""
+
+
+def best_order_sentence(names: list[str], origin: str | None) -> str:
+    """One plain sentence saying the cities were put in their best order; ``origin`` is the place the order starts
+    from, None when it is not known and the first city is where it starts."""
+    start = (
+        f"starting with the one nearest {origin}" if origin else f"starting from {names[0]}"
+    )
+    return f"I planned the cities in the best order, {start}: {' → '.join(names)}."
 
 
 def route_question(context: TripContext) -> PrePlanQuestion | None:
