@@ -21,6 +21,7 @@ export type IconName =
   | "rain"
   | "search"
   | "send"
+  | "stop"
   | "check"
   | "alert"
   | "clock"
@@ -174,6 +175,7 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   send: <path d="M21 3 10.8 13.2M21 3l-6.5 18-3.7-7.8L3 9.5z" />,
+  stop: <path d="M7 7h10v10H7z" />,
   check: <path d="m4.5 12.5 5 5 10-11" />,
   alert: (
     <>
