@@ -26,6 +26,7 @@ from app.domain.models import (
     TripSegment,
 )
 from app.infrastructure.http import haversine_km
+from app.infrastructure.providers.flights import airport_for, resolve_airport
 from app.infrastructure.providers.routes import estimate_leg
 
 FLIGHT_MIN_KM = 150
@@ -279,8 +280,18 @@ def _bus_estimate(
     )
 
 
+def _flight_place(name: str, place: Destination) -> str:
+    """What a flight search is asked for: the name when the table of cities knows it (as it always was), else the
+    nearest airport to the place's coordinates, else the name."""
+    if resolve_airport(name) is not None:
+        return name
+    return airport_for(name, place.geo) or name
+
+
 async def _flight_options(
     leg: TransportLeg,
+    origin: Destination,
+    destination: Destination,
     *,
     registry: Any,
     toolbox: Toolbox,
@@ -298,8 +309,8 @@ async def _flight_options(
                 toolbox.call(
                     "flights.search",
                     source.search,
-                    origin=leg.from_place,
-                    destination=leg.to_place,
+                    origin=_flight_place(leg.from_place, origin),
+                    destination=_flight_place(leg.to_place, destination),
                     depart_date=leg.depart_date,
                     return_date=None,
                     party_size=party_size,
@@ -347,6 +358,8 @@ async def leg_options(
     if km is None or km > FLIGHT_MIN_KM:
         options += await _flight_options(
             leg,
+            origin,
+            destination,
             registry=registry,
             toolbox=toolbox,
             party_size=party_size,

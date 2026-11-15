@@ -6,12 +6,16 @@ typed no-data result rather than an invented flight.
 
 from __future__ import annotations
 
+import csv
 from datetime import date, datetime
+from functools import cache
+from pathlib import Path
+from typing import Any
 
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FlightCandidate, Money, PriceKind, SourceRef, utcnow
-from app.infrastructure.http import request_json
+from app.infrastructure.http import haversine_km, request_json
 
 AIRPORTS: dict[str, list[str]] = {
     "hong kong": ["HKG"],
@@ -57,9 +61,48 @@ AIRPORTS: dict[str, list[str]] = {
 }
 
 
+#: How far from a city the nearest airport may be, and the bundled list of airports (its comment names the source).
+AIRPORT_RADIUS_KM = 120.0
+_AIRPORT_FILE = Path(__file__).with_name("airports.csv")
+
+
+@cache
+def _bundled_airports() -> tuple[tuple[str, float, float, str], ...]:
+    """(IATA code, latitude, longitude, size) of every large or medium airport with scheduled service. Read from the file
+    beside this module once; no network call is ever made."""
+    with _AIRPORT_FILE.open(encoding="utf-8", newline="") as handle:
+        rows = csv.DictReader(line for line in handle if not line.startswith("#"))
+        return tuple((row["iata"], float(row["lat"]), float(row["lng"]), row["size"]) for row in rows)
+
+
+def airport_near(lat: float, lng: float, *, max_km: float = AIRPORT_RADIUS_KM) -> str | None:
+    """The IATA code of the nearest large airport within ``max_km`` of a point; when there is none, the nearest medium one;
+    else None. A large airport comes first because a medium one close to a city (Iwakuni beside Hiroshima) often has
+    almost no scheduled flights, while the large one a little further has them."""
+    nearest: dict[str, tuple[float, str]] = {}
+    for code, a_lat, a_lng, size in _bundled_airports():
+        km = haversine_km(lat, lng, a_lat, a_lng)
+        if km <= max_km and (size not in nearest or km < nearest[size][0]):
+            nearest[size] = (km, code)
+    for size in ("large", "medium"):
+        if size in nearest:
+            return nearest[size][1]
+    return None
+
+
+def airport_for(name: str, geo: Any = None) -> str | None:
+    """The airport for a place: the table of known cities first (it is the override), else the nearest airport to
+    its coordinates, else None."""
+    code = resolve_airport(name)
+    if code is not None or geo is None:
+        return code
+    return airport_near(geo.lat, geo.lng)
+
+
 def resolve_airport(name: str) -> str | None:
     key = name.strip().lower()
-    if key.upper() in {code for codes in AIRPORTS.values() for code in codes}:
+    known = {code for codes in AIRPORTS.values() for code in codes} | {code for code, *_ in _bundled_airports()}
+    if key.upper() in known:
         return key.upper()
     if key in AIRPORTS:
         return AIRPORTS[key][0]
