@@ -17,6 +17,7 @@ from typing import Sequence
 from app.application.budget_check import asked_about
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import conversation_block, trip_state, with_conversation
+from app.application.route_plan import asks_for_best_order
 from app.domain.errors import CanaryLeak
 from app.domain.models import (
     TRIP_FIELD_MAX_LENGTH,
@@ -136,6 +137,7 @@ async def understand(
     today = today or date.today()
     updated = context.model_copy(deep=True)
     updated.set_route_overflow(0)
+    updated.set_best_order(asks_for_best_order(message))
     before = updated.model_dump()
     labeled = _labeled_clarify(message)
     if labeled:

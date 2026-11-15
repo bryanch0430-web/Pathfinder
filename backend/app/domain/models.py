@@ -1019,6 +1019,17 @@ class TripContext(BaseModel):
     def set_route_overflow(self, count: int) -> None:
         self._route_overflow = count
 
+    #: The last message asked for the cities in their best order. Not stored: it only tells the planning that
+    #: follows that message.
+    _best_order: bool = PrivateAttr(default=False)
+
+    @property
+    def best_order(self) -> bool:
+        return self._best_order
+
+    def set_best_order(self, asked: bool) -> None:
+        self._best_order = asked
+
     @property
     def route(self) -> list[TripStop]:
         """The cities in travel order: ``stops`` when set, else one stop for the destination, else none."""

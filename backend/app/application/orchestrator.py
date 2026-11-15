@@ -923,6 +923,8 @@ class TurnService:
                     kept = getattr(current, name)
                     after = [*kept, *(item for item in after if item not in before and item not in kept)]
                 setattr(current, name, after)
+            # Not stored, so it is carried over by hand: the planning that follows this message reads it.
+            current.set_best_order(changed.best_order)
             changed = current
         self.store.save_context(changed)
         return changed
@@ -994,6 +996,11 @@ class TurnService:
             plan.assessment = reassess(plan, context, self.settings)
         await sync_session_transfers(plan, registry=self.plan_path.registry, store=self.store, session_id=session_id)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
+        if context.best_order and len(plan.segments) > 1:
+            # The cities were put in their best order: the form follows the plan, so a later turn does not put them back.
+            stored = self.store.get_context(session_id)
+            if stored is not None and sync_route(stored, plan):
+                self.store.save_context(stored)
         # What the assessment could not settle is asked with the plan; the answer is an edit like any other.
         question = plan.assessment.question if plan.assessment is not None else ""
         self.store.add_message(

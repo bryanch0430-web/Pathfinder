@@ -74,6 +74,15 @@ def allocate_nights(stops: list[TripStop], total_nights: int) -> tuple[list[int]
     return nights, ""
 
 
+def best_order_sentence(names: list[str], origin: str | None) -> str:
+    """One plain sentence saying the cities were put in their best order; ``origin`` is the place the order starts
+    from, None when it is not known and the first city is where it starts."""
+    start = (
+        f"starting with the one nearest {origin}" if origin else f"starting from {names[0]}"
+    )
+    return f"I planned the cities in the best order, {start}: {' → '.join(names)}."
+
+
 def route_question(context: TripContext) -> PrePlanQuestion | None:
     """The question to ask before planning when the nights of the cities and the trip's dates cannot both be met."""
     if len(context.route) < 2:

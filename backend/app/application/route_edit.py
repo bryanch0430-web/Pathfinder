@@ -14,7 +14,13 @@ from pydantic import BaseModel, Field
 
 from app.application.edit_scope import which_visit_question
 from app.application.route_plan import RouteQuestion, asks_for_best_order, nearest_order
-from app.domain.models import TRIP_STOPS_MAX, Destination, TripContext, TripPlan, TripStop
+from app.domain.models import (
+    TRIP_STOPS_MAX,
+    Destination,
+    TripContext,
+    TripPlan,
+    TripStop,
+)
 
 WORD_NUMBERS = {
     "one": 1,

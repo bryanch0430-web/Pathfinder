@@ -15,7 +15,13 @@ from typing import TYPE_CHECKING, Any
 from app.application.assessment import assess_and_improve
 from app.application.planner import Planner, _constraints, annotate_stays
 from app.application.refine import evaluate_plan
-from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
+from app.application.route_plan import (
+    RouteQuestion,
+    allocate_nights,
+    best_order_sentence,
+    build_segments,
+    nearest_order,
+)
 from app.application.search_cache import CachedToolbox, SearchCache
 from app.application.stitch import city_context, stitch
 from app.application.toolbox import Toolbox
@@ -180,6 +186,26 @@ async def plan_route(
         )
         for stop in route
     ]
+    # A city that is visited twice is a deliberate return, so a route that has one is left as it was given.
+    if (
+        context.best_order
+        and len(places) > 1
+        and len({_key(place.name) for place in places}) == len(places)
+    ):
+        home = (
+            await _origin(path, context.origin, toolbox)
+            if context.origin.strip()
+            else None
+        )
+        start = home.geo if home is not None else None
+        order = nearest_order(start, places)
+        places = [places[i] for i in order]
+        nights = [nights[i] for i in order]
+        sentence = best_order_sentence(
+            [place.name for place in places],
+            home.name if start is not None else None,
+        )
+        note = f"{note} {sentence}" if note else sentence
     segments = build_segments(places, nights, date_range.start)
     return await build_trip(
         path,
