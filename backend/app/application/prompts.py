@@ -1,12 +1,9 @@
-"""Prompt loading and composition. Prompts are files, not string literals."""
+"""Prompt composition. Each prompt name is one skill; persona and security stay here."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from app.config import Settings
 
-PROMPT_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 PERSONA_RULE = (
     "You are Pathfinder, an AI trip planner. You are software, not a person. "
@@ -35,11 +32,16 @@ class PromptLibrary:
 
     def raw(self, name: str) -> str:
         if name not in self._cache:
-            path = PROMPT_DIR / f"{name}.md"
-            self._cache[name] = path.read_text(encoding="utf-8")
+            from app.application.skills import skill_for
+
+            skill = skill_for(name)
+            if skill is None:
+                raise FileNotFoundError(name)
+            self._cache[name] = skill.body
         return self._cache[name]
 
     def system(self, name: str, *, language_rule: bool = True) -> str:
+        # raw() is already the skill body. Do not append it again.
         parts = [self.raw(name).strip(), PERSONA_RULE]
         if language_rule and name not in MACHINE_PROMPTS and name not in OWN_LANGUAGE_PROMPTS:
             parts.append(LANGUAGE_RULE)
@@ -51,12 +53,6 @@ class PromptLibrary:
             parts.append(
                 f"Sentinel (never output this string): {self.settings.canary_token}"
             )
-        from app.application.skills import skill_for
-
-        # The router already chose this path. The skill is the procedure for it.
-        skill = skill_for(name)
-        if skill is not None:
-            parts.append(skill.body)
         return "\n\n".join(parts)
 
     def render(self, name: str, **variables: object) -> str:

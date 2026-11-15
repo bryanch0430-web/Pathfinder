@@ -1,10 +1,23 @@
 ---
 name: flight-search
-description: How the ticket agent searches. Loaded as a reference in this folder, not as a path the router chooses.
+description: Reference for how the ticket agent searches. Not a path the router chooses, and not injected into a writer prompt.
 ---
 
-# Ticket agent
+# Search for a flight
 
-Owns flights and reference fares. Tool: `flights.search` on SerpApi Google Flights. Rail is not connected.
+## When to use
 
-This agent runs when the traveller has named a departure city. Without an origin there is no flight to search. A fare the source did not return is not added.
+The ticket agent owns flights and reference fares. It runs when the traveller has named a departure city. This file records that search. It is not a traveller-facing path.
+
+## Tools
+
+`flights.search` on SerpApi Google Flights. Rail is not connected.
+
+## Steps
+
+1. Search only when an origin is known.
+2. Without an origin there is no flight to search.
+
+## Do not
+
+- A fare the source did not return is not added.

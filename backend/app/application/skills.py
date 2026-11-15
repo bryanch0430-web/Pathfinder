@@ -1,8 +1,8 @@
-"""Skill folders. A path skill is loaded after the router has already chosen that path.
+"""One skill per writer job. The gateway still asks for a prompt name.
 
-The description says when the skill applies. The body is the procedure the writer
-reads, on top of the prompt in ``app/prompts``. Routing stays where it is.
-Agent skills in this folder record how a search works. They are not a fifth path.
+``modify`` maps to ``edit-itinerary``, and the same for every other prompt name.
+The skill body is the instruction. Search skills in this folder record how a
+Python agent searches. Nothing injects them, and they are not a path.
 """
 
 from dataclasses import dataclass
@@ -31,18 +31,25 @@ def load_skills() -> list[Skill]:
     return found
 
 
-#: The prompt name the gateway loads, and the one skill appended to it.
-_PATH_SKILLS = {
+#: Prompt name the gateway loads, and the one skill whose body is that prompt.
+_PROMPT_SKILLS = {
     "modify": "edit-itinerary",
     "clarify": "clarify-trip",
     "planner": "compose-itinerary",
     "ask": "answer-question",
+    "router": "route-message",
+    "understand": "read-trip-request",
+    "intake": "read-shared-material",
+    "research": "judge-stay",
+    "audit": "audit-candidates",
+    "repair": "repair-plan",
+    "translate": "translate-plan",
 }
 
 
 def skill_for(prompt: str) -> Skill | None:
-    """The skill for a path the router already chose. Other skills stay on disk."""
-    name = _PATH_SKILLS.get(prompt)
+    """The skill for a prompt name. Search skills stay on disk."""
+    name = _PROMPT_SKILLS.get(prompt)
     if not name:
         return None
     for skill in load_skills():
