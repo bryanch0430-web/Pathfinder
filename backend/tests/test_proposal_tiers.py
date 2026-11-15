@@ -281,3 +281,26 @@ def test_a_turn_that_changes_a_stay_holds_one_whole_edit_and_writes_nothing(
         s.name for s in before.hotels
     ]
 
+
+def test_a_turn_that_thins_several_days_holds_separate_ticks_and_no_whole_edit(
+    settings: Settings,
+) -> None:
+    async def body(trip: Trip):
+        plan = trip.plan.model_copy(deep=True)
+        for day in plan.days[1:3]:
+            if not day.items:
+                continue
+            extra = day.items[0].model_copy(update={"id": f"{day.items[0].id}_more", "name": f"Second sight {day.date}", "start": "16:00", "end": "17:00"})
+            day.items.append(extra)
+        plan.version += 1
+        trip.ledger.store.save_plan(plan, "Two sights a day")
+        before = trip.plan
+        events = await _review_turn(trip, "Only one place a day, please.")
+        return before, trip.plan, events
+
+    before, after, events = _run(settings, TWO, body)
+
+    held = [e for e in events if e.event == "proposal"]
+    ids = [c["id"] for c in held[-1].data["proposal"]["changes"]]
+    assert len(ids) >= 2 and "whole-edit" not in ids and all(i.startswith("drop-") for i in ids), ids
+    assert after.version == before.version
