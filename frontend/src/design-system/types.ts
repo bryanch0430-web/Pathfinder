@@ -183,6 +183,8 @@ export interface HotelStay {
   notes: string;
   confirmed: boolean;
   locked: boolean;
+  /** The traveller marked the locked stay as booked with the hotel. */
+  booked?: boolean;
   names?: Record<string, string>;
   amenities?: string[];
   hotel_class?: number | null;
@@ -258,6 +260,8 @@ export interface TransportLeg {
   kind: "outbound" | "between" | "return" | "to_stay" | "from_stay";
   /** The traveller locked the chosen option in: only it is shown, until they press Change. */
   locked?: boolean;
+  /** The traveller marked the locked leg as booked with the provider. */
+  booked?: boolean;
   /** For a transfer: the city (segment) it is in and the IATA code of its airport. */
   segment_id?: string;
   airport?: string;
