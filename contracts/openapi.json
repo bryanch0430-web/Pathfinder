@@ -1058,6 +1058,44 @@
         }
       }
     },
+    "/api/journeys/{session_id}/calendar.ics": {
+      "get": {
+        "summary": "Get Calendar",
+        "description": "The latest plan as an iCalendar file: stops, stays and the chosen transport, in each city's time zone.",
+        "operationId": "get_calendar_api_journeys__session_id__calendar_ics_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/journeys/{session_id}/segments": {
       "get": {
         "summary": "Get Legs",
