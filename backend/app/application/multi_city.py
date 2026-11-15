@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from app.application.assessment import assess_and_improve
+from app.application.budget_share import city_budget_shares
 from app.application.planner import Planner, _constraints, annotate_stays
 from app.application.refine import evaluate_plan
 from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
@@ -271,17 +272,13 @@ async def build_trip(
         tickets = await _round_trip(path, context, segments[0], toolbox, emit)
 
     # The legs come off the budget first; what is left is shared per night among the cities.
-    shares: list[float | None] = [None] * len(segments)
-    if context.budget is not None:
-        spent = sum(
-            path.planner.fx.convert(
-                ticket.price.amount, ticket.price.currency, context.currency
-            )
-            for ticket in tickets
-            if ticket.selected and ticket.price is not None
-        )
-        per_night = max(0.0, context.budget - spent) / max(date_range.night_count, 1)
-        shares = [round(per_night * stay, 2) for stay in nights]
+    shares = city_budget_shares(
+        context.budget,
+        context.currency,
+        nights,
+        [ticket for ticket in tickets if ticket.selected],
+        path.planner.fx,
+    )
 
     from app.application.planning import AGENT_FACTORIES
 
