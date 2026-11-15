@@ -554,7 +554,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"items": items}
 
     @app.get("/api/images/place")
-    async def place_image(request: Request, ref: str = Query(pattern=PHOTO_REF.pattern, max_length=300)) -> Response:
+    async def place_image(request: Request, ref: str = Query(pattern=PHOTO_REF.pattern, max_length=2048)) -> Response:
         """A Google place photo, fetched with the server's key and kept on disk.
 
         A page's <img> cannot send the identity headers, so the route is open; what keeps it from being a way to

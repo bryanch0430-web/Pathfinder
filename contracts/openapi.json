@@ -225,7 +225,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "maxLength": 300,
+              "maxLength": 2048,
               "pattern": "^places/[A-Za-z0-9_-]+/photos/[A-Za-z0-9_-]+$",
               "title": "Ref"
             }
