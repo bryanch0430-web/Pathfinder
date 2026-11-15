@@ -314,6 +314,14 @@ class DayPlan(BaseModel):
     #: The segment (city) the traveller sleeps in that night; the last day belongs to the last segment.
     segment_id: str = ""
 
+    @model_validator(mode="after")
+    def _no_overlap(self) -> "DayPlan":
+        ordered = sorted(self.items, key=lambda item: item.start)
+        for previous, current in zip(ordered, ordered[1:]):
+            if current.start < previous.end:
+                raise ValueError(f"items overlap on {self.date}: {previous.name} / {current.name}")
+        return self
+
 
 class RoomType(BaseModel):
     """One room the hotel source lists for the stay's dates, fetched only when the traveller opens the hotel."""

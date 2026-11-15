@@ -25,6 +25,8 @@ from pydantic import BaseModel, Field, StringConstraints, ValidationError, field
 
 from app.application.intake import Attachment
 from app.application.airport_transfers import sync_session_transfers
+from app.application.planner import PACE_BUFFER_MINUTES, _pace
+from app.application.transfers import refresh_transfers
 from app.application.choices import (
     ChoiceNotFound,
     ChoiceRefused,
@@ -255,9 +257,10 @@ class LayoutMove(BaseModel):
 
 
 class LayoutRequest(BaseModel):
-    """The stops the direct-edit grid moved or retimed."""
+    """The stops the direct-edit grid moved or retimed, and the plan version the grid was showing."""
 
     items: list[LayoutMove] = Field(max_length=200)
+    plan_version: int | None = Field(default=None, ge=1)
 
 
 class ProposalDecision(BaseModel):
@@ -818,11 +821,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="This trip has no plan.")
+        if payload.plan_version is not None and payload.plan_version != plan.version:
+            raise HTTPException(
+                status_code=409,
+                detail="This edit was made on an earlier version of the plan; open the latest version and edit again.",
+            )
         try:
             updated = apply_layout(plan, [item.model_dump() for item in payload.items])
-        except ValueError:
-            raise HTTPException(status_code=422, detail="That edit does not fit this plan.") from None
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc) or "That edit does not fit this plan.") from None
         if updated is not plan:
+            # The transfers between stops follow the stops that moved, and the airport transfers follow the stays.
+            context = c.store.get_context(session_id)
+            toolbox = Toolbox(path="modify", tracer=NoopTracer(), store=c.store, request_id=new_id("layout"))
+            await refresh_transfers(
+                plan,
+                updated,
+                toolbox=toolbox,
+                source=getattr(c.registry, "transfers", None),
+                buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
+            )
+            said = await sync_session_transfers(
+                updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+            )
+            if said:
+                updated.change_summary = " ".join([updated.change_summary, *said]).strip()
             try:
                 c.store.save_plan(updated, updated.change_summary)
             except PlanConflict as exc:

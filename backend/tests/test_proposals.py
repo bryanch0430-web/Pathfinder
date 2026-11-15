@@ -75,12 +75,12 @@ def test_a_free_day_is_one_move_waiting_to_be_accepted() -> None:
 def test_the_grid_moves_a_stop_to_another_morning_and_refuses_a_locked_one() -> None:
     plan = make_plan(days=2, with_tickets=False)
     item = plan.days[1].items[0]
-    moved = apply_layout(plan, [{"id": item.id, "day": 1, "start": "09:00", "end": "11:00"}])
+    moved = apply_layout(plan, [{"id": item.id, "day": 1, "start": "10:00", "end": "11:00"}])
 
     assert moved.version == plan.version + 1
-    assert any(row.id == item.id and row.start == "09:00" and row.end == "11:00" for row in moved.days[0].items)
+    assert any(row.id == item.id and row.start == "10:00" and row.end == "11:00" for row in moved.days[0].items)
     assert all(row.id != item.id for row in moved.days[1].items)
-    assert apply_layout(moved, [{"id": item.id, "day": 1, "start": "09:00", "end": "11:00"}]) is moved
+    assert apply_layout(moved, [{"id": item.id, "day": 1, "start": "10:00", "end": "11:00"}]) is moved
 
     item.locked = True
     try:
@@ -90,14 +90,16 @@ def test_the_grid_moves_a_stop_to_another_morning_and_refuses_a_locked_one() -> 
     raise AssertionError("a locked stop must stay where it is")
 
 
-def test_an_overlapping_edit_still_loads() -> None:
+def test_an_overlapping_edit_is_refused_and_leaves_the_plan_as_it_was() -> None:
     plan = make_plan(days=1, with_tickets=False)
     first, second = plan.days[0].items[0], plan.days[0].items[1]
-    moved = apply_layout(plan, [{"id": second.id, "day": 1, "start": first.start, "end": first.end}])
-
-    loaded = TripPlan.model_validate_json(moved.model_dump_json())
-    same_time = [item for item in loaded.days[0].items if item.start == first.start and item.end == first.end]
-    assert len(same_time) == 2
+    try:
+        apply_layout(plan, [{"id": second.id, "day": 1, "start": first.start, "end": first.end}])
+    except ValueError as refused:
+        assert first.name in str(refused) and second.name in str(refused)
+    else:
+        raise AssertionError("two stops at the same time must not be saved")
+    assert TripPlan.model_validate_json(plan.model_dump_json()).days[0].items
 
 
 def test_an_edit_that_changed_nothing_records_why() -> None:

@@ -349,10 +349,16 @@ def apply_change(plan: TripPlan, change: dict[str, Any]) -> TripPlan:
 _CLOCK = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
+#: The rows that follow the trip and are not the traveller's to move by hand.
+_DERIVED_ROWS = ("transit", "ticket", "hotel")
+
+
 def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
     """Move stops to the day and times the traveller set in the grid. Unlisted rows stay put.
 
-    A locked stop is refused. Travel legs are left where they are: the next edit fills them in again.
+    A ``ValueError`` with a sentence the page can show refuses a layout that would break the plan: a locked or confirmed
+    stop that moves, a travel, ticket or hotel row that moves, a stop on a day of another city, two items that overlap.
+    Transfers between stops are worked out again by the caller.
     """
     home: dict[str, tuple[int, Any]] = {}
     for index, day in enumerate(plan.days, start=1):
@@ -363,18 +369,26 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         item_id = str(move.get("id") or "")
         found = home.get(item_id)
         if found is None:
-            raise ValueError("unknown")
+            raise ValueError("One of those stops is no longer in the plan.")
         day_number, item = found
         start, end = str(move.get("start") or ""), str(move.get("end") or "")
         target = int(move.get("day") or 0)
         if _CLOCK.match(start) is None or _CLOCK.match(end) is None or start >= end:
-            raise ValueError("time")
+            raise ValueError(f"{item.name} needs a start time that is before its end time.")
         if not 1 <= target <= len(plan.days):
-            raise ValueError("day")
-        if (item.locked or item.confirmed) and (target != day_number or start != item.start or end != item.end):
-            raise ValueError("locked")
-        if target != day_number or start != item.start or end != item.end:
-            wanted[item_id] = (target, start, end)
+            raise ValueError("That day is not in this trip.")
+        if target == day_number and start == item.start and end == item.end:
+            continue
+        kind = getattr(item.type, "value", str(item.type))
+        if kind in _DERIVED_ROWS:
+            raise ValueError(f"{item.name} is a {kind} row; it follows the trip and cannot be moved by hand.")
+        if item.locked or item.confirmed:
+            raise ValueError(f"{item.name} is locked or confirmed; unlock it before moving it.")
+        here, there = plan.days[day_number - 1].segment_id, plan.days[target - 1].segment_id
+        city = next((s.destination.name for s in plan.segments if s.id == here), "")
+        if here and there and here != there and city:
+            raise ValueError(f"{item.name} is in {city}; it can only move to a day in {city}")
+        wanted[item_id] = (target, start, end)
     if not wanted:
         return plan
     updated = plan.model_copy(deep=True)
@@ -393,6 +407,12 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         updated.days[target - 1].items.append(item)
     for day in updated.days:
         day.items.sort(key=lambda item: item.start)
+    touched = {home[item_id][0] - 1 for item_id in wanted} | {target - 1 for target, _, _ in wanted.values()}
+    for index in sorted(touched):
+        day = updated.days[index]
+        for previous, current in zip(day.items, day.items[1:]):
+            if current.start < previous.end:
+                raise ValueError(f"{previous.name} and {current.name} would overlap on {day.date}")
     updated.version = plan.version + 1
     updated.change_summary = "Direct edit"
     updated.updated_at = utcnow()
