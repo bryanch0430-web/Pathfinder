@@ -833,7 +833,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session_id: str, message_id: str, payload: ProposalDecision, request: Request
     ) -> dict[str, Any]:
         """Write one offered change into the current plan, or leave the plan and mark that change rejected."""
-        from app.application.proposals import apply_change, mark_decision
+        from app.application.proposals import WHOLE_CHANGES, apply_change, mark_decision
 
         c = container(request)
         require_session(c, request, session_id)
@@ -871,6 +871,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(
                     status_code=409, detail="The plan changed meanwhile; reload it and choose again."
                 ) from exc
+            held_form = (proposal or {}).get("context")
+            if held_form and change.get("id") in WHOLE_CHANGES:
+                # The trip form follows the route the accepted edit made; a held edit never wrote it.
+                form = c.store.get_context(session_id)
+                if form is not None:
+                    try:
+                        held_context = TripContext.model_validate(held_form)
+                    except ValidationError:
+                        held_context = None
+                    if held_context is not None:
+                        form.stops, form.destination, form.one_way = (
+                            held_context.stops,
+                            held_context.destination,
+                            held_context.one_way,
+                        )
+                        c.store.save_context(form)
         else:
             updated = plan
         mark_decision(changes, payload.change_id, payload.accept)

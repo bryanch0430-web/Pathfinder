@@ -115,6 +115,9 @@ def is_stops_only(old: TripPlan, new: TripPlan) -> bool:
 
 WHOLE_EDIT_DETAIL = "Accepting applies every part of this edit; rejecting keeps your plan as it is."
 
+#: The changes that carry a whole edited plan; accepting one also writes the trip form the edit held.
+WHOLE_CHANGES = ("whole-edit", "rebuild")
+
 
 def _whole_edit(new: TripPlan, summary: str) -> dict[str, Any]:
     """One change that carries the whole edited plan: for an edit that is more than stops, where separate ticks would

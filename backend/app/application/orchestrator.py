@@ -1078,9 +1078,10 @@ class TurnService:
         )
         if transfer_said:
             updated.change_summary = " ".join([updated.change_summary, *transfer_said]).strip()
-        if (len(plan.segments) > 1 or len(updated.segments) > 1) and sync_route(context, updated):
-            # The trip form follows the route the edit made (the cities, their nights, the first as the destination).
-            self.store.save_context(context)
+        # The trip form follows the route the edit made (the cities, their nights, the first as the destination).
+        # It is written only when the edit is: an edit that waits to be accepted carries it in the proposal.
+        form = context.model_copy(deep=True)
+        form_changed = (len(plan.segments) > 1 or len(updated.segments) > 1) and sync_route(form, updated)
         # The scope the edit really used is what the account of the decision says, not the words of the message.
         tracer.metadata.update(
             {
@@ -1099,7 +1100,7 @@ class TurnService:
         unchanged = updated.version == plan.version
         if updated.assessment is not None and not unchanged:
             # The assessment follows the edit, from the plan's own checks (no further research here).
-            updated.assessment = reassess(updated, context, self.settings)
+            updated.assessment = reassess(updated, form, self.settings)
         offers = list(getattr(result, "offers", None) or [])
         pending = offers if review and not diff else []
         if review and diff:
@@ -1116,6 +1117,7 @@ class TurnService:
             tracer.metadata["edit_steps"] = record["steps"]
         if pending:
             # The web asked to wait. The edited plan stays in the reply until a change is ticked.
+            held = {"changes": pending, **({"context": form.model_dump(mode="json")} if form_changed else {})}
             prose = (
                 f"{updated.change_summary} Tick one suggestion to apply it, or cross it to leave the plan as it is."
                 if offers
@@ -1126,17 +1128,19 @@ class TurnService:
                 role="assistant",
                 content=prose,
                 intent=Intent.MODIFY,
-                meta={"proposal": {"changes": pending}, "log": record, "diff": []},
+                meta={"proposal": held, "log": record, "diff": []},
             )
             self.store.add_message(reply)
             yield TurnEvent(event="token", data={"text": prose})
             yield TurnEvent(
                 event="proposal",
-                data={"message_id": reply.id, "proposal": {"changes": pending}, "log": record},
+                data={"message_id": reply.id, "proposal": held, "log": record},
             )
             yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
             self.store.touch_session(session_id)
             return
+        if form_changed:
+            self.store.save_context(form)
         self.store.save_plan(updated, None if unchanged else updated.change_summary, replace=unchanged)
         description = _describe_diff(diff, updated)
         if diff:
