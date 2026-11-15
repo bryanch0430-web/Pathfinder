@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, StringConstraints, ValidationError, field
 
 from app.application.intake import Attachment
 from app.application.airport_transfers import sync_session_transfers
+from app.application.plan_import import clean_imported_plan, schema_version
 from app.application.planner import PACE_BUFFER_MINUTES, _pace
 from app.application.transfers import refresh_transfers
 from app.application.choices import (
@@ -356,6 +357,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
         handbook=SlidingWindowLimiter(settings.rate_limit_handbook_per_minute),
         key_test=SlidingWindowLimiter(settings.rate_limit_key_test_per_minute),
+        edit=SlidingWindowLimiter(settings.rate_limit_edit_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     charge_ai = rate_limit("ai", "Too many planning requests.")
@@ -366,6 +368,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     charge_lookup = rate_limit("lookup", "Too many place look-ups.")
     charge_handbook = rate_limit("handbook", "Too many handbook look-ups.")
     charge_key_test = rate_limit("key_test", "Too many key tests.")
+    charge_edit = rate_limit("edit", "Too many edits.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -796,6 +799,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         c = container(request)
         require_session(c, request, session_id)
+        await charge_edit(request)
         current = c.store.get_plan(session_id)
         chosen = c.store.get_plan(session_id, payload.version)
         if current is None or chosen is None:
@@ -818,6 +822,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         c = container(request)
         require_session(c, request, session_id)
+        await charge_edit(request)
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="This trip has no plan.")
@@ -864,6 +869,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         c = container(request)
         require_session(c, request, session_id)
+        await charge_edit(request)
         message = next(
             (row for row in c.store.list_messages(session_id, limit=200) if row.id == message_id),
             None,
@@ -950,10 +956,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not token and user is None:
             raise HTTPException(status_code=401, detail="Sign in or send a client token.")
         await charge_create(request)
+        if payload.plan.get("schema_version") != schema_version():
+            raise HTTPException(
+                status_code=422,
+                detail="That file was saved by a different version of Pathfinder and cannot be opened here.",
+            )
         try:
             incoming = TripPlan.model_validate(payload.plan)
         except ValidationError:
             raise HTTPException(status_code=422, detail="That file is not a Pathfinder plan.") from None
+        # A file is data from outside: no locks, no confirmations, web links only, derived data built here.
+        clean_imported_plan(incoming)
         session = c.store.create_session(token, user.id if user else "")
         plan = incoming.model_copy(deep=True)
         plan.session_id = session.id
@@ -974,6 +987,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             language=settings.default_locale,
         )
         c.store.save_context(context)
+        await sync_session_transfers(plan, registry=c.registry, store=c.store, session_id=session.id)
         c.store.save_plan(plan, plan.change_summary)
         plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {
