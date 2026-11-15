@@ -32,6 +32,7 @@ FIXED_OPTIONS = (1000, 2500, 5000)
 BUDGET_REASON = "budget_below_floor"
 PAST_DATES_REASON = "start_date_past"
 TOO_MANY_CITIES_REASON = "too_many_cities"
+TRIP_TOO_LONG_REASON = "trip_too_long"
 #: The last sentence of the budget question and the opening of the dates question: a reply to the turn that carries
 #: one of them answers that question (see ``asked_about``).
 BUDGET_QUESTION_TAIL = "Raise the budget, shorten the trip, or plan anyway with an over-budget hotel?"
@@ -48,12 +49,49 @@ class PrePlanQuestion:
     reason_code: str = ""
 
 
-def too_many_cities_question(limit: int = TRIP_STOPS_MAX) -> PrePlanQuestion:
+def too_many_cities_question(limit: int = TRIP_STOPS_MAX, count: int = 0) -> PrePlanQuestion:
     """Asked instead of storing a route of more cities than a trip can hold: nothing is cut in silence."""
+    named = f", and this one has {count}" if count > limit else ""
     return PrePlanQuestion(
-        question=f"I can plan up to {limit} cities in one trip. Which ones should I keep?",
+        question=(
+            f"I can plan up to {limit} cities in one trip{named}. Which ones should I keep? "
+            "Keeping fewer cities, or fewer days, both fit."
+        ),
         slots=["destination"],
         reason_code=TOO_MANY_CITIES_REASON,
+    )
+
+
+def trip_days(context: TripContext) -> int:
+    """The days the form's dates cover (0 when it has none), read without the range's own 60-day check."""
+    if context.start_date and context.end_date:
+        return max((context.end_date - context.start_date).days + 1, 0)
+    return context.days or 0
+
+
+def trip_too_large_question(context: TripContext, settings: Settings) -> PrePlanQuestion | None:
+    """The question to ask before planning a trip of more cities or days than a trip can hold, else None.
+
+    The limits are the settings' (8 cities and 30 days unless changed). Nothing is cut in silence and nothing runs:
+    the traveller keeps fewer cities or fewer days, and the dates option is the trip's own start with the limit's days.
+    """
+    if len(context.route) > settings.max_cities:
+        return too_many_cities_question(settings.max_cities, len(context.route))
+    days = trip_days(context)
+    if days <= settings.max_days:
+        return None
+    options: dict[str, list[str]] = {}
+    if context.start_date:
+        last = context.start_date + timedelta(days=settings.max_days - 1)
+        options["dates"] = [f"{context.start_date.isoformat()} to {last.isoformat()}"]
+    return PrePlanQuestion(
+        question=(
+            f"I can plan up to {settings.max_days} days in one trip, and this one runs {days}. "
+            "Keep fewer days (pick shorter dates), or keep fewer cities?"
+        ),
+        slots=["dates"],
+        options=options,
+        reason_code=TRIP_TOO_LONG_REASON,
     )
 
 

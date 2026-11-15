@@ -33,6 +33,7 @@ from app.application.budget_check import (
     budget_question,
     floor_per_person_night,
     too_many_cities_question,
+    trip_too_large_question,
 )
 from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
@@ -69,6 +70,7 @@ from app.domain.errors import (
     operator_text,
 )
 from app.domain.models import (
+    TRIP_STOPS_MAX,
     Intent,
     Message,
     RouteDecision,
@@ -636,9 +638,10 @@ class TurnService:
                 # A budget that cannot pay for the trip, or a start date that has gone by, is asked about before any
                 # agent runs: planning it would end in a trip with no hotel.
                 asked = (
-                    too_many_cities_question()
+                    too_many_cities_question(min(TRIP_STOPS_MAX, self.settings.max_cities), route_overflow)
                     if route_overflow
-                    else route_question(context)
+                    else trip_too_large_question(context, self.settings)
+                    or route_question(context)
                     or budget_question(context, floor=self._budget_floor(context.currency), today=date.today())
                 )
                 if asked is None and not route_overflow:
