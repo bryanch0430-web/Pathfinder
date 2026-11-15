@@ -13,8 +13,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.application.edit_scope import which_visit_question
-from app.application.route_plan import RouteQuestion, nearest_order
-from app.domain.models import TRIP_STOPS_MAX, TripContext, TripPlan, TripStop
+from app.application.route_plan import RouteQuestion, asks_for_best_order, nearest_order
+from app.domain.models import TRIP_STOPS_MAX, Destination, TripContext, TripPlan, TripStop
 
 WORD_NUMBERS = {
     "one": 1,
@@ -77,9 +77,10 @@ def _longest(route: list[list], *, besides: int | None = None) -> int:
 
 
 def apply_route_change(
-    plan: TripPlan, change: RouteChange
+    plan: TripPlan, change: RouteChange, origin: Destination | None = None
 ) -> tuple[list[TripStop], str]:
-    """The new ordered stops with their nights, and a sentence saying which nights moved.
+    """The new ordered stops with their nights, and a sentence saying which nights moved. ``origin`` is where the
+    trip starts: the best order of a reorder starts from it when its coordinates are known.
 
     A change that cannot be made without guessing is a ``RouteQuestion``.
     """
@@ -94,7 +95,7 @@ def apply_route_change(
     elif change.op == "nights":
         sentence = _set_nights(plan, route, change)
     else:
-        sentence = _reorder(plan, route, change)
+        sentence = _reorder(plan, route, change, origin)
     return [TripStop(city=name, nights=count) for name, count in route], sentence
 
 
@@ -158,7 +159,12 @@ def _set_nights(plan: TripPlan, route: list[list], change: RouteChange) -> str:
     )
 
 
-def _reorder(plan: TripPlan, route: list[list], change: RouteChange) -> str:
+def _reorder(
+    plan: TripPlan,
+    route: list[list],
+    change: RouteChange,
+    origin: Destination | None = None,
+) -> str:
     if change.order:
         remaining = list(route)
         ordered: list[list] = []
@@ -180,12 +186,14 @@ def _reorder(plan: TripPlan, route: list[list], change: RouteChange) -> str:
                 "Which order should all of the cities be in? "
                 + ", ".join(row[0] for row in route)
             )
+        start = None
     else:
         places = [segment.destination for segment in plan.segments]
-        ordered = [route[i] for i in nearest_order(None, places)]
+        start = origin if origin is not None and origin.geo is not None else None
+        ordered = [route[i] for i in nearest_order(start.geo if start else None, places)]
     route[:] = ordered
     return (
-        "Reordered the cities: "
+        (f"Reordered the cities, starting with the one nearest {start.name}: " if start else "Reordered the cities: ")
         + " → ".join(row[0] for row in route)
         + ". Each city keeps its nights."
     )
@@ -234,11 +242,7 @@ def rule_route_change(message: str, plan: TripPlan) -> RouteChange | None:
     match changes nothing, and "add a museum" is never a city."""
     text = " ".join(message.split())
     lower = text.lower()
-    order_words = re.search(
-        r"\b(?:best|nearest|shortest|better|optimal|optimi[sz]e)\b[^.!?]{0,30}\b(?:order|route)\b",
-        lower,
-    )
-    if order_words and len(plan.segments) > 2:
+    if asks_for_best_order(lower) and len(plan.segments) > 2:
         return RouteChange(op="reorder")
     swap = re.search(
         rf"\bswap\s+(?:the\s+)?({_NAME})\s+and\s+(?:the\s+)?({_NAME})\b",

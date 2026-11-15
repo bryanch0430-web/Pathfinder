@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.application.edit_scope import segment_for_edit, which_visit_question
 from app.application.modification import EditQuestion, EditResult, interpret_plan
-from app.application.multi_city import build_trip, finish_trip
+from app.application.multi_city import _origin, build_trip, finish_trip
 from app.application.planner import Planner, annotate_stays
 from app.application.route_edit import (
     RouteChange,
@@ -228,9 +228,15 @@ async def edit_route(
     tracer: Any,
     emit: Any,
 ) -> EditResult:
-    """A city added, dropped, moved or given other nights; the trip keeps its dates."""
+    """A city added, dropped, moved or given other nights; the trip keeps its dates. The best order of the cities
+    starts from where the trip starts."""
+    home = None
+    if change.op == "reorder" and not change.order and context.origin.strip():
+        home = await _origin(
+            modify.plan_path, context.origin, _cached(toolbox, plan.session_id)
+        )
     try:
-        stops, sentence = apply_route_change(plan, change)
+        stops, sentence = apply_route_change(plan, change, home)
     except RouteQuestion as asked:
         return _asks(plan, asked.question, message)
     return await _apply_route(

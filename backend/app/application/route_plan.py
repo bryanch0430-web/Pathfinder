@@ -5,6 +5,7 @@ Pure functions: nothing here calls a source or a model.
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 from app.application.budget_check import PrePlanQuestion
@@ -18,6 +19,17 @@ class RouteQuestion(Exception):
     def __init__(self, question: str) -> None:
         super().__init__(question)
         self.question = question
+
+
+#: The words that ask for the best order of the cities ("best order", "shortest route").
+_BEST_ORDER = re.compile(
+    r"\b(?:best|nearest|shortest|better|optimal|optimi[sz]e)\b[^.!?]{0,30}\b(?:order|route)\b"
+)
+
+
+def asks_for_best_order(message: str) -> bool:
+    """The message asks for the cities in their best order (the nearest one after the other, from where the trip starts)."""
+    return _BEST_ORDER.search(" ".join(message.split()).lower()) is not None
 
 
 FEWER_NIGHTS_THAN_CITIES = "The trip has fewer nights than cities. Which cities should I drop, or should the trip be longer?"
