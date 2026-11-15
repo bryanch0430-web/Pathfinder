@@ -173,6 +173,11 @@ def _kept_options(
 
 #: Said when a route change releases a lock (the leg or the stay no longer exists as it was).
 RELEASED_LOCK = "Your locked choice for {what} no longer fits the new route, so it is open again."
+RELEASED_BOOKING = (
+    "Your booked choice for {what} no longer fits the new route, so it is open again; "
+    "change or cancel that booking with the provider."
+)
+
 #: The summary of a trip moved to other dates (the single-city edit says the same).
 DATES_CHANGED = "Changed the trip dates; rebuilt the itinerary."
 
@@ -400,8 +405,10 @@ def _carry_locks(old: TripPlan, new: TripPlan, kept_options: dict[str, list[Tick
         match = next((l for l in new.route_legs() if (l.kind, l.from_place, l.to_place, l.depart_date) == key), None)
         if match is not None and match.id in kept_options:
             match.locked = True
+            match.booked = leg.booked
         else:
-            said.append(RELEASED_LOCK.format(what=f"{leg.from_place} → {leg.to_place}"))
+            told = RELEASED_BOOKING if leg.booked else RELEASED_LOCK
+            said.append(told.format(what=f"{leg.from_place} → {leg.to_place}"))
     for stay in old.hotels:
         if not stay.locked:
             continue
@@ -416,12 +423,15 @@ def _carry_locks(old: TripPlan, new: TripPlan, kept_options: dict[str, list[Tick
             None,
         )
         if match is None:
-            said.append(RELEASED_LOCK.format(what=f"the stay in {city}"))
+            told = RELEASED_BOOKING if stay.booked else RELEASED_LOCK
+            said.append(told.format(what=f"the stay in {city}"))
         else:
             match.locked = True
+            match.booked = stay.booked
             for option in new.hotel_options:
                 if option.id == match.id:
                     option.locked = True
+                    option.booked = stay.booked
     return said
 
 

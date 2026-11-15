@@ -3,6 +3,7 @@ import { changedIdsOf, NO_IDS, STAY_KINDS } from "./planChanges";
 import {
   ApiError,
   chooseOption,
+  setChoiceBooked,
   setChoiceLock,
   clearMessages,
   createSession,
@@ -193,6 +194,8 @@ export interface PathfinderHook {
   lockChoice: (kind: "hotel" | "transport", targetId: string, optionId: string) => Promise<void>;
   /** Unlock a stay or leg so its options come back (no new version). */
   reopenChoice: (kind: "hotel" | "transport", targetId: string) => Promise<void>;
+  /** Mark a locked stay or leg as booked by the traveller, or not booked (no new version). */
+  markBooked: (kind: "hotel" | "transport", targetId: string, booked: boolean) => Promise<void>;
   /** The room types the hotel source lists for a stay; they are kept on the shown plan. Rejects with the server's reason. */
   hotelRooms: (hotelId: string) => Promise<RoomType[]>;
   feedback: (useful: boolean, starsOverride?: number | null) => Promise<void>;
@@ -1133,6 +1136,17 @@ export function usePathfinder(locale: string): PathfinderHook {
     [shownVersion],
   );
 
+  const markBooked = useCallback(
+    async (kind: "hotel" | "transport", targetId: string, booked: boolean): Promise<void> => {
+      const id = sessionRef.current;
+      if (!id) return;
+      const data = await setChoiceBooked(id, { kind, target_id: targetId, booked, plan_version: shownVersion });
+      if (sessionRef.current !== id) return;
+      setPlan(data.plan);
+    },
+    [shownVersion],
+  );
+
   const hotelRooms = useCallback(async (hotelId: string): Promise<RoomType[]> => {
     const id = sessionRef.current;
     if (!id) return [];
@@ -1302,6 +1316,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     choose,
     lockChoice,
     reopenChoice,
+    markBooked,
     hotelRooms,
     feedback,
     setStars: setFeedbackStars,

@@ -1401,6 +1401,8 @@ export function ChoiceSlot<T extends { id: string }>({
   error,
   onLock,
   onReopen,
+  booked = false,
+  onBooked,
 }: {
   title: ReactNode;
   icon: IconName;
@@ -1418,6 +1420,9 @@ export function ChoiceSlot<T extends { id: string }>({
   error?: string;
   onLock?: (optionId: string) => void;
   onReopen?: () => void;
+  /** The traveller marked the locked choice as booked: Change is hidden until it is marked not booked. */
+  booked?: boolean;
+  onBooked?: (booked: boolean) => void;
 }) {
   const { t } = useI18n();
   const groups = tabs && tabs.length > 1 ? tabs : null;
@@ -1511,7 +1516,13 @@ export function ChoiceSlot<T extends { id: string }>({
         <Text size="sm" weight="semibold">{title}</Text>
         {changed ? <Badge tone="success" dot>{t("common.updated")}</Badge> : null}
         {badge}
-        {state === "locked" && onReopen ? (
+        {state === "locked" && booked ? <Badge tone="success">{t("choice.booked")}</Badge> : null}
+        {state === "locked" && onBooked ? (
+          <Button size="sm" variant="ghost" aria-pressed={booked} disabled={busy} loading={busy} onClick={() => onBooked(!booked)}>
+            {booked ? t("choice.markNotBooked") : t("choice.markBooked")}
+          </Button>
+        ) : null}
+        {state === "locked" && onReopen && !booked ? (
           <Button size="sm" variant="ghost" disabled={busy} loading={busy} onClick={onReopen}>
             {t("choice.change")}
           </Button>
@@ -1555,6 +1566,7 @@ function StaySlot({
   onSelect,
   onLock,
   onReopen,
+  onBooked,
   onLoadRooms,
 }: {
   plan: TripPlan;
@@ -1567,6 +1579,7 @@ function StaySlot({
   onSelect: () => void;
   onLock?: (optionId: string) => void;
   onReopen?: () => void;
+  onBooked?: (booked: boolean) => void;
   onLoadRooms?: (hotelId: string) => Promise<RoomType[]>;
 }) {
   const { t } = useI18n();
@@ -1584,6 +1597,8 @@ function StaySlot({
       emptyText={t("city.noStay", { city: "" }).trim()}
       onLock={onLock}
       onReopen={onReopen}
+      booked={Boolean(stay.booked)}
+      onBooked={onBooked}
       renderOption={(option) =>
         option.id === stay.id ? (
           <StayCard hotel={stay} changed={false} selected={selected} onSelect={onSelect} />
@@ -1611,6 +1626,7 @@ function LegSlot({
   error,
   onLock,
   onReopen,
+  onBooked,
 }: {
   plan: TripPlan;
   leg: TransportLeg;
@@ -1621,6 +1637,7 @@ function LegSlot({
   error?: string;
   onLock?: (optionId: string) => void;
   onReopen?: () => void;
+  onBooked?: (booked: boolean) => void;
 }) {
   const { t } = useI18n();
   const options = optionsFor(plan, leg.id);
@@ -1642,6 +1659,8 @@ function LegSlot({
       error={error}
       onLock={onLock}
       onReopen={onReopen}
+      booked={Boolean(leg.booked)}
+      onBooked={onBooked}
       emptyText={
         <>
           {t("choice.noLegOptions")}
@@ -1681,6 +1700,7 @@ export function TripWorkspace({
   onChooseOption,
   onLockChoice,
   onReopenChoice,
+  onMarkBooked,
   onLoadHotelRooms,
   onAnswerQuestion,
   onApplyLayout,
@@ -1694,6 +1714,8 @@ export function TripWorkspace({
   onLockChoice?: (kind: "hotel" | "transport", targetId: string, optionId: string) => Promise<void>;
   /** Unlocks a stay or leg so its options come back. */
   onReopenChoice?: (kind: "hotel" | "transport", targetId: string) => Promise<void>;
+  /** Marks a locked stay or leg as booked by the traveller, or not booked. */
+  onMarkBooked?: (kind: "hotel" | "transport", targetId: string, booked: boolean) => Promise<void>;
   /** The room types the hotel source lists for a stay. */
   onLoadHotelRooms?: (hotelId: string) => Promise<RoomType[]>;
   /** Write the direct-edit grid onto the latest plan. */
@@ -1741,6 +1763,7 @@ export function TripWorkspace({
   const choose = viewingLatest ? onChooseOption : undefined;
   const lockChoice = viewingLatest ? onLockChoice : undefined;
   const reopenChoice = viewingLatest ? onReopenChoice : undefined;
+  const markBooked = viewingLatest ? onMarkBooked : undefined;
   const firstUpdated = updatedIds?.[0] ?? "";
   // The clock follows the city of the day on show.
   const activeZone = segmentOfDay(plan, activeDay || plan.dates.start).destination.timezone;
@@ -1841,6 +1864,7 @@ export function TripWorkspace({
       error={slotActions.errors[leg.id]}
       onLock={lockChoice ? (optionId) => slotActions.act(leg.id, () => lockChoice("transport", leg.id, optionId)) : undefined}
       onReopen={reopenChoice ? () => slotActions.act(leg.id, () => reopenChoice("transport", leg.id)) : undefined}
+      onBooked={markBooked ? (booked) => slotActions.act(leg.id, () => markBooked("transport", leg.id, booked)) : undefined}
     />
   );
   // An airport transfer is a leg inside one city, titled by the airport and the stay it joins.
@@ -1860,6 +1884,7 @@ export function TripWorkspace({
       error={slotActions.errors[leg.id]}
       onLock={lockChoice ? (optionId) => slotActions.act(leg.id, () => lockChoice("transport", leg.id, optionId)) : undefined}
       onReopen={reopenChoice ? () => slotActions.act(leg.id, () => reopenChoice("transport", leg.id)) : undefined}
+      onBooked={markBooked ? (booked) => slotActions.act(leg.id, () => markBooked("transport", leg.id, booked)) : undefined}
     />
   );
   const renderStay = (stay: HotelStay, title: string) => (
@@ -1875,6 +1900,7 @@ export function TripWorkspace({
       onSelect={() => onSelectItem(selectedItemId === stay.id ? null : hotelScopeItem(stay))}
       onLock={lockChoice ? (optionId) => slotActions.act(stay.id, () => lockChoice("hotel", stay.id, optionId)) : undefined}
       onReopen={reopenChoice ? () => slotActions.act(stay.id, () => reopenChoice("hotel", stay.id)) : undefined}
+      onBooked={markBooked ? (booked) => slotActions.act(stay.id, () => markBooked("hotel", stay.id, booked)) : undefined}
       onLoadRooms={onLoadHotelRooms}
     />
   );

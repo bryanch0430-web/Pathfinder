@@ -241,6 +241,17 @@ export function setChoiceLock(
   });
 }
 
+/** Mark a locked stay (`hotel`) or leg (`transport`) as booked or not, in place: no new version, no model call. */
+export function setChoiceBooked(
+  sessionId: string,
+  body: { kind: "hotel" | "transport"; target_id: string; booked: boolean; plan_version?: number },
+): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/booked`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 /** The rooms the hotel source lists for a stay; fetched once, then kept on the plan. Empty when it lists none. */
 export function getHotelRooms(sessionId: string, hotelId: string): Promise<{ rooms: RoomType[] }> {
   return request(`/api/journeys/${sessionId}/plan/hotels/${encodeURIComponent(hotelId)}/rooms`);
