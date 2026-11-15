@@ -82,8 +82,70 @@ def swap_suggestions(plan: TripPlan, item: PlanItem, day_number: int) -> list[di
     return changes
 
 
-def proposal_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
-    """The edits a traveller can accept separately. Empty when nothing they would tick has changed."""
+def _chosen_options(plan: TripPlan) -> list[tuple[str, str]]:
+    """The option chosen on each leg (``("", id)`` for the options of a plan that has no legs)."""
+    chosen: list[tuple[str, str]] = []
+    for leg in plan.legs:
+        options = plan.options_for(leg.id)
+        picked = next((o.id for o in options if o.selected), options[0].id if options else "")
+        chosen.append((leg.id, picked))
+    if not plan.legs:
+        chosen += [("", ticket.id) for ticket in plan.tickets if ticket.selected]
+    return chosen
+
+
+def is_stops_only(old: TripPlan, new: TripPlan) -> bool:
+    """True when the edit changed nothing but stops: the same cities and dates, the same legs with the same chosen option on
+    each, the same chosen stays, and the same party size, budget and origin."""
+
+    def shape(plan: TripPlan) -> tuple:
+        return (
+            [(s.id, s.destination.name, s.dates.start, s.dates.end) for s in plan.segments],
+            (plan.dates.start, plan.dates.end),
+            [(leg.id, leg.kind, leg.from_place, leg.to_place, leg.depart_date) for leg in plan.legs],
+            _chosen_options(plan),
+            [(h.id, h.name, h.check_in, h.check_out) for h in plan.hotels],
+            plan.party_size,
+            (plan.budget.amount, plan.budget.currency) if plan.budget else None,
+            (plan.origin or "").strip().casefold(),
+        )
+
+    return shape(old) == shape(new)
+
+
+WHOLE_EDIT_DETAIL = "Accepting applies every part of this edit; rejecting keeps your plan as it is."
+
+
+def _whole_edit(new: TripPlan, summary: str) -> dict[str, Any]:
+    """One change that carries the whole edited plan: for an edit that is more than stops, where separate ticks would
+    silently drop the rest of it."""
+    label = (summary or "").strip() or (new.change_summary or "").strip() or "Apply this edit to the trip"
+    return {
+        "id": "whole-edit",
+        "label": label,
+        "detail": WHOLE_EDIT_DETAIL,
+        "status": "pending",
+        "puts": [],
+        "drops": [],
+        "plan": new.model_dump(mode="json"),
+    }
+
+
+def review_tier(old: TripPlan, new: TripPlan, changes: list[dict[str, Any]]) -> str:
+    """What the edit asks of the traveller: ``direct`` (nothing, it changed one stop or nothing), ``stops`` (a tick for
+    each of several changes to stops) or ``whole`` (one whole-edit, it was more than stops)."""
+    if not is_stops_only(old, new):
+        return "whole"
+    if not changes:
+        return "direct"
+    if len(changes) == 1 and len(changes[0].get("puts") or []) <= 1:
+        return "direct"
+    return "stops"
+
+
+def proposal_changes(old: TripPlan, new: TripPlan, *, summary: str = "") -> list[dict[str, Any]]:
+    """The edits a traveller can accept: a tick for each change to stops when the edit is only stops, else one whole-edit.
+    Empty when nothing they would tick has changed. ``summary`` is the text the whole-edit is labelled with."""
     if len(old.days) != len(new.days):
         return [
             {
@@ -97,6 +159,8 @@ def proposal_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
                 "plan": new.model_dump(mode="json"),
             }
         ]
+    if not is_stops_only(old, new):
+        return [_whole_edit(new, summary)]
     old_items = {item.id: (index, item) for index, item in _rows(old)}
     new_items = {item.id: (index, item) for index, item in _rows(new)}
     moves, retimes, renames, adds = [], [], [], []

@@ -42,7 +42,7 @@ from app.application.language import chinese_input_reply, refresh_reply, set_lan
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
 from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
-from app.application.proposals import decision_record, proposal_changes
+from app.application.proposals import decision_record, proposal_changes, review_tier
 from app.application.planning import PlanPath
 from app.application.router import (
     MODIFY_VERBS,
@@ -1101,7 +1101,11 @@ class TurnService:
             # The assessment follows the edit, from the plan's own checks (no further research here).
             updated.assessment = reassess(updated, context, self.settings)
         offers = list(getattr(result, "offers", None) or [])
-        pending = offers if review and not diff else proposal_changes(plan, updated) if review and diff else []
+        pending = offers if review and not diff else []
+        if review and diff:
+            changes = proposal_changes(plan, updated, summary=_describe_diff(diff, updated) or updated.change_summary)
+            # An edit of one stop (or of nothing a traveller would tick) applies at once; the rest waits to be accepted.
+            pending = changes if review_tier(plan, updated, changes) != "direct" else []
         summary = (
             "This edit is ready and is not written yet."
             if pending and not offers
