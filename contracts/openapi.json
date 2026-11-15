@@ -1279,6 +1279,58 @@
         }
       }
     },
+    "/api/journeys/{session_id}/booked": {
+      "post": {
+        "summary": "Mark Booked",
+        "description": "Mark a locked stay or leg as booked, or not, on the latest version, in place: like a lock, it is plan data\nand not a change of plan. Only a locked one can be marked booked (422).",
+        "operationId": "mark_booked_api_journeys__session_id__booked_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Mark Booked Api Journeys  Session Id  Booked Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/journeys/{session_id}/plan/hotels/{hotel_id}/rooms": {
       "get": {
         "summary": "Hotel Rooms",
@@ -2686,6 +2738,47 @@
           "password"
         ],
         "title": "AuthRequest"
+      },
+      "BookedRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "hotel",
+              "transport"
+            ],
+            "title": "Kind"
+          },
+          "target_id": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Target Id"
+          },
+          "booked": {
+            "type": "boolean",
+            "title": "Booked"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "target_id",
+          "booked"
+        ],
+        "title": "BookedRequest",
+        "description": "Mark a locked stay or leg as booked by the traveller, or not booked."
       },
       "ChatRequest": {
         "properties": {

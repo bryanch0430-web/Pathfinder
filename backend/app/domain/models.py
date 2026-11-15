@@ -382,6 +382,8 @@ class HotelStay(BaseModel):
     notes: str = ""
     confirmed: bool = False
     locked: bool = False
+    #: The traveller marked the locked stay as booked with the hotel; only a locked stay can be.
+    booked: bool = False
     #: Facts as the hotel source gave them; empty when it gave none.
     amenities: list[str] = Field(default_factory=list)
     hotel_class: int | None = None
@@ -483,6 +485,8 @@ class TransportLeg(BaseModel):
     airport: str = ""
     #: The traveller locked in the chosen option: only it is shown, and chat edits leave it alone.
     locked: bool = False
+    #: The traveller marked the locked leg as booked with the provider; only a locked leg can be.
+    booked: bool = False
 
 
 class CostLine(BaseModel):

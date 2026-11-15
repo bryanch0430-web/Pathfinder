@@ -619,6 +619,11 @@
           "title": "Locked",
           "type": "boolean"
         },
+        "booked": {
+          "default": false,
+          "title": "Booked",
+          "type": "boolean"
+        },
         "amenities": {
           "items": {
             "type": "string"
@@ -1994,6 +1999,11 @@
         "locked": {
           "default": false,
           "title": "Locked",
+          "type": "boolean"
+        },
+        "booked": {
+          "default": false,
+          "title": "Booked",
           "type": "boolean"
         }
       },

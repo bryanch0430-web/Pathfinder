@@ -467,6 +467,7 @@ async def sync_transfers(
                 leg.to_place,
             ):
                 leg.locked = prior.locked
+                leg.booked = prior.booked
                 keep = old_chosen.get(leg.id)
             else:
                 city = next(

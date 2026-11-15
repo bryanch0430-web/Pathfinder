@@ -262,6 +262,7 @@ def _choose_hotel(updated: TripPlan, option_id: str, target_id: str | None = Non
         "segment_id": segment_id,
         "confirmed": False,
         "locked": False,
+        "booked": False,
     }
     if (option.check_in, option.check_out) != (check_in, check_out):
         # The source priced this option (and listed its rooms) for other dates: neither is this stay's.
@@ -327,6 +328,8 @@ def set_lock(plan: TripPlan, kind: str, target_id: str | None, locked: bool) -> 
         stay = next((s for s in plan.hotels if s.id == target_id), None)
         if stay is None:
             raise ChoiceNotFound("stay not found")
+        if not locked and stay.booked:
+            raise ChoiceRefused(NOT_BOOKED_FIRST.format(what=stay.name))
         stay.locked = locked
         for option in plan.hotel_options:
             if option.id == stay.id:
@@ -336,9 +339,43 @@ def set_lock(plan: TripPlan, kind: str, target_id: str | None, locked: bool) -> 
         leg = next((l for l in plan.legs if l.id == target_id), None)
         if leg is None:
             raise ChoiceNotFound("leg not found")
+        if not locked and leg.booked:
+            raise ChoiceRefused(NOT_BOOKED_FIRST.format(what=f"{leg.from_place} → {leg.to_place}"))
         leg.locked = locked
         return f"{leg.from_place} → {leg.to_place}"
     raise ChoiceNotFound("only a stay or a leg can be locked")
+
+
+#: Said when a booked stay or leg would be unlocked: a booking is never dropped by a lock button.
+NOT_BOOKED_FIRST = "{what} is marked booked; mark it not booked first."
+#: Said when an open stay or leg would be marked booked.
+LOCK_BEFORE_BOOKED = "Lock {what} in before marking it booked."
+
+
+def set_booked(plan: TripPlan, kind: str, target_id: str | None, booked: bool) -> str:
+    """Mark a locked stay (``hotel``) or leg (``transport``, ``flight``) as booked or not, in place; the name of what
+    changed. Only a locked one can be marked booked (``ChoiceRefused``)."""
+    if kind == "hotel":
+        stay = next((s for s in plan.hotels if s.id == target_id), None)
+        if stay is None:
+            raise ChoiceNotFound("stay not found")
+        if booked and not stay.locked:
+            raise ChoiceRefused(LOCK_BEFORE_BOOKED.format(what=stay.name))
+        stay.booked = booked
+        for option in plan.hotel_options:
+            if option.id == stay.id:
+                option.booked = booked
+        return stay.name
+    if kind in ("transport", "flight"):
+        leg = next((l for l in plan.legs if l.id == target_id), None)
+        if leg is None:
+            raise ChoiceNotFound("leg not found")
+        name = f"{leg.from_place} → {leg.to_place}"
+        if booked and not leg.locked:
+            raise ChoiceRefused(LOCK_BEFORE_BOOKED.format(what=name))
+        leg.booked = booked
+        return name
+    raise ChoiceNotFound("only a stay or a leg can be marked booked")
 
 
 def _picked_option(plan: TripPlan, leg_id: str) -> str:

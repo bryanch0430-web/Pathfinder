@@ -35,6 +35,7 @@ from app.application.choices import (
     is_chosen,
     locked_conflict,
     normalise_hotel_options,
+    set_booked,
     set_lock,
 )
 from app.application.legs import leg_options_for_plan, legs_for_plan
@@ -289,6 +290,15 @@ class LockRequest(BaseModel):
     kind: Literal["hotel", "transport"]
     target_id: str = Field(max_length=ID_MAX_LENGTH)
     locked: bool
+    plan_version: int | None = Field(default=None, ge=1)
+
+
+class BookedRequest(BaseModel):
+    """Mark a locked stay or leg as booked by the traveller, or not booked."""
+
+    kind: Literal["hotel", "transport"]
+    target_id: str = Field(max_length=ID_MAX_LENGTH)
+    booked: bool
     plan_version: int | None = Field(default=None, ge=1)
 
 
@@ -1143,6 +1153,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             set_lock(plan, payload.kind, payload.target_id, payload.locked)
         except ChoiceNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
+        except ChoiceRefused as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        c.store.save_plan(plan, None, replace=True)
+        return {"plan": tidy_data_gaps(plan, drop_edit_gaps=True).model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/booked")
+    async def mark_booked(session_id: str, payload: BookedRequest, request: Request) -> dict[str, Any]:
+        """Mark a locked stay or leg as booked, or not, on the latest version, in place: like a lock, it is plan data
+        and not a change of plan. Only a locked one can be marked booked (422)."""
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        if payload.plan_version is not None and payload.plan_version != plan.version:
+            raise HTTPException(
+                status_code=409,
+                detail="This was done on an earlier version of the plan; open the latest version and try again.",
+            )
+        try:
+            set_booked(plan, payload.kind, payload.target_id, payload.booked)
+        except ChoiceNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
+        except ChoiceRefused as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         c.store.save_plan(plan, None, replace=True)
         return {"plan": tidy_data_gaps(plan, drop_edit_gaps=True).model_dump(mode="json")}
 
