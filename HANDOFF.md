@@ -70,12 +70,14 @@ Last verified (2026-11-15, on the local deployment in `Pathfinder-2026-11-15`):
 
 ```bash
 cd backend && PYTHONPATH=. python -m pytest -q
-# 3,783 test functions in 199 files: 10 failed, the rest pass
+# 3,783 test functions in 199 files: 16 failed, the rest pass (counted 2026-11-16 on main 3487ed4)
 ```
 
-The ten failures are in the tree, not the machine: `test_edit_outcome_gaps` (1),
-`test_eval_proposal` (3), `test_failed_sections` (1), `test_hk_disruptions` (2),
-`test_proposal_db09` (2). They fail on a clean clone with no local patch applied, so they are
+The sixteen failures are in the tree, not the machine: `test_asking` (1),
+`test_edit_conversation` (1), `test_eval_proposal` (3), `test_failed_sections` (1),
+`test_hk_disruptions` (2), `test_japan_replay` (2), `test_language_intent` (2),
+`test_plan_segments` (1), `test_proposal_db09` (2), `test_proposal_efficiency` (1: TC-11).
+They fail on a clean clone with no local patch applied, so they are
 open work, not regressions from the v1.7.0 photo-route fix. `test_export_contracts` passes once
 `contracts/openapi.json` is regenerated.
 
