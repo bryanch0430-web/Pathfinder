@@ -14,6 +14,7 @@ import re
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
+from app.application.budget_share import city_budget_shares
 from app.application.edit_scope import segment_for_edit, which_visit_question
 from app.application.modification import EditQuestion, EditResult, interpret_plan
 from app.application.multi_city import _origin, build_trip, finish_trip
@@ -580,12 +581,18 @@ async def edit_cities(
     parts = split(plan)
     toolbox = _cached(toolbox, plan.session_id)
     gate = asyncio.Semaphore(3)
-    total = max(plan.dates.night_count, 1)
+    # The same share planning gives each city: the chosen transport with a fare comes off first.
+    shares = city_budget_shares(
+        context.budget,
+        context.currency,
+        [segment.dates.night_count for segment in plan.segments],
+        plan.chosen_tickets(),
+        modify.planner.fx,
+    )
 
     async def one(index: int) -> EditResult:
         segment = plan.segments[index]
-        share = None if context.budget is None else round(context.budget * segment.dates.night_count / total, 2)
-        city = city_context(context, segment, last=index == len(plan.segments) - 1, budget=share)
+        city = city_context(context, segment, last=index == len(plan.segments) - 1, budget=shares[index])
         asked = message if target == "all" else _localise_day(message, plan, index)
         async with gate:
             return await modify.run(

@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from app.application.assessment import assess_and_improve
+from app.application.budget_share import city_budget_shares
 from app.application.planner import Planner, _constraints, annotate_stays
 from app.application.refine import evaluate_plan
 from app.application.route_plan import (
@@ -249,7 +250,6 @@ async def build_trip(
     kept_options = kept_options or {}
     places = [segment.destination for segment in segments]
     nights = [segment.dates.night_count for segment in segments]
-    date_range = DateRange(start=segments[0].dates.start, end=segments[-1].dates.end)
     # One city keeps the round trip its own ticket agent looks up; the legs are for a route of several.
     legs = (
         build_legs(segments, context.origin, context.one_way)
@@ -297,17 +297,13 @@ async def build_trip(
         tickets = await _round_trip(path, context, segments[0], toolbox, emit)
 
     # The legs come off the budget first; what is left is shared per night among the cities.
-    shares: list[float | None] = [None] * len(segments)
-    if context.budget is not None:
-        spent = sum(
-            path.planner.fx.convert(
-                ticket.price.amount, ticket.price.currency, context.currency
-            )
-            for ticket in tickets
-            if ticket.selected and ticket.price is not None
-        )
-        per_night = max(0.0, context.budget - spent) / max(date_range.night_count, 1)
-        shares = [round(per_night * stay, 2) for stay in nights]
+    shares = city_budget_shares(
+        context.budget,
+        context.currency,
+        nights,
+        [ticket for ticket in tickets if ticket.selected],
+        path.planner.fx,
+    )
 
     from app.application.planning import AGENT_FACTORIES
 

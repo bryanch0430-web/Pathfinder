@@ -883,6 +883,8 @@ class Planner:
                         note="Reference fare for the travelling party.",
                     )
                 )
+            elif flight.estimated:
+                unknown.append(f"{flight.name} is an estimate and is not costed.")
             else:
                 unknown.append("Flight fare was not returned.")
         unknown.append("Local transport, meals and attraction tickets are not costed because no source returned prices.")
@@ -946,6 +948,9 @@ class Planner:
                 unknown.append(f"Transport from {where} is an estimate and is not costed.")
             else:
                 unknown.append(f"Fare was not returned for {where}.")
+        for leg in plan.route_legs():
+            if not plan.options_for(leg.id):
+                unknown.append(f"No transport was found from {leg.from_place} to {leg.to_place}, so it is not costed.")
         unknown.append("Local transport, meals and attraction tickets are not costed because no source returned prices.")
         total = round(sum(line.amount for line in lines), 2)
         budget = context.budget
