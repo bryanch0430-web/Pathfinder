@@ -45,7 +45,8 @@ _RANDOM_ID = re.compile(r"^(check|reservation|disruption|msg|trip|sess)_[0-9a-f]
 
 def _clean(value: Any) -> Any:
     if isinstance(value, dict):
-        out = {k: _clean(v) for k, v in value.items() if k not in _VOLATILE_KEYS}
+        # A stay or leg that is not booked carries ``booked: false``, added after the golden was made.
+        out = {k: _clean(v) for k, v in value.items() if k not in _VOLATILE_KEYS and not (k == "booked" and v is False)}
         if isinstance(out.get("legs"), list):
             # Choose-and-lock added ``locked``, ``segment_id`` and ``airport`` (empty by default) to a leg; a stop's own ``locked`` is still compared.
             out["legs"] = [
