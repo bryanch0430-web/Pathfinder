@@ -28,6 +28,7 @@ from app.application.airport_transfers import sync_session_transfers
 from app.application.plan_import import clean_imported_plan, schema_version
 from app.application.planner import PACE_BUFFER_MINUTES, _pace
 from app.application.transfers import refresh_transfers
+from app.application.calendar_export import calendar_file_name, plan_calendar
 from app.application.choices import (
     ChoiceNotFound,
     ChoiceRefused,
@@ -1031,6 +1032,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
         return map_payload(plan)
+
+    @app.get("/api/journeys/{session_id}/calendar.ics")
+    async def get_calendar(session_id: str, request: Request) -> Response:
+        """The latest plan as an iCalendar file: stops, stays and the chosen transport, in each city's time zone."""
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        return Response(
+            content=plan_calendar(plan),
+            media_type="text/calendar; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{calendar_file_name(plan)}"'},
+        )
 
     @app.get("/api/journeys/{session_id}/segments")
     async def get_legs(session_id: str, request: Request, day: str | None = None) -> dict[str, Any]:

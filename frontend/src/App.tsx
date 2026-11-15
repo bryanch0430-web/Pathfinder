@@ -34,6 +34,7 @@ import {
   claimSession,
   getFx,
   getGuides,
+  getPlanCalendar,
   getTrending,
   getVersions,
   login,
@@ -43,7 +44,7 @@ import {
   shareSession,
   suggestPlaces,
 } from "./lib/api";
-import { downloadPlanFile, downloadPlanMarkdown } from "./lib/export";
+import { downloadPlanCalendar, downloadPlanFile, downloadPlanMarkdown } from "./lib/export";
 import { describeFailure, failureOf, type Failure } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { offersSignIn } from "./lib/access";
@@ -414,6 +415,16 @@ export default function App() {
     }
   };
 
+  const handleExportCalendar = async () => {
+    const plan = pf.plan;
+    if (!plan) return;
+    try {
+      downloadPlanCalendar(plan, await getPlanCalendar(plan.session_id));
+    } catch {
+      window.alert(t("errors.calendar"));
+    }
+  };
+
   const handleShare = async () => {
     const sessionId = pf.sessionId;
     if (!sessionId) return;
@@ -560,6 +571,7 @@ export default function App() {
         signIn={signIn}
         onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!, planDisclaimer) : undefined}
         onExportFile={pf.plan ? () => downloadPlanFile(pf.plan!) : undefined}
+        onExportCalendar={pf.plan ? () => void handleExportCalendar() : undefined}
         onImport={() => planFileInput.current?.click()}
         onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
         onShare={pf.plan ? () => void handleShare() : undefined}

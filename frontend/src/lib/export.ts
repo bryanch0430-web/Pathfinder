@@ -121,6 +121,18 @@ export function downloadPlanMarkdown(plan: TripPlan, disclaimer = ""): void {
   URL.revokeObjectURL(url);
 }
 
+/** A calendar file the server made from the stored plan (stops, stays and chosen transport). */
+export function downloadPlanCalendar(plan: TripPlan, calendar: Blob): void {
+  const url = URL.createObjectURL(calendar);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = planFileName(plan, "ics");
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** The plan as stored, so another computer can open the same trip. */
 export function downloadPlanFile(plan: TripPlan): void {
   const blob = new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" });
