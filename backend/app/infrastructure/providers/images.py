@@ -111,17 +111,9 @@ def _write_cache(path: Path, data: bytes, content_type: str) -> None:
         logger.warning("could not cache a place photo")
 
 
-async def fetch_place_photo(ref: str, settings: Settings) -> tuple[bytes, str]:
-    """The bytes and content type of a Google photo: from the disk cache, else fetched once with the server's key.
-
-    Raises ``PhotoUnavailable`` (without any text of the request) when there is no key, the ref is not a photo
-    resource name, Google refuses, or what comes back is not an image."""
-    if not PHOTO_REF.fullmatch(ref) or not settings.google_places_api_key:
-        raise PhotoUnavailable
-    cache = _cache_file(settings, ref)
-    cached = await asyncio.to_thread(_read_cache, cache)
-    if cached is not None:
-        return cached
+async def _get_media(ref: str, settings: Settings) -> httpx.Response:
+    """One media request for a photo name. The text of an httpx error holds the URL, key included, so a failure
+    is logged by its type only."""
     base = (settings.google_places_proxy or "https://places.googleapis.com").rstrip("/")
     try:
         async with httpx.AsyncClient(
@@ -129,7 +121,7 @@ async def fetch_place_photo(ref: str, settings: Settings) -> tuple[bytes, str]:
             follow_redirects=True,
             transport=current_transport(),
         ) as client:
-            response = await client.get(
+            return await client.get(
                 f"{base}/v1/{ref}/media",
                 params={
                     "maxWidthPx": PHOTO_WIDTH_PX,
@@ -140,14 +132,90 @@ async def fetch_place_photo(ref: str, settings: Settings) -> tuple[bytes, str]:
     except Exception as exc:  # noqa: BLE001 - the text of an httpx error holds the URL, key included
         logger.warning("place photo fetch failed: %s", type(exc).__name__)
         raise PhotoUnavailable from None
+
+
+def _image_type(response: httpx.Response) -> str | None:
+    """The content type of a usable photo response, else None."""
     content_type = (
         response.headers.get("content-type", "").split(";")[0].strip().lower()
     )
     if (
-        response.status_code != 200
-        or not content_type.startswith("image/")
-        or len(response.content) > MAX_PHOTO_BYTES
+        response.status_code == 200
+        and content_type.startswith("image/")
+        and len(response.content) <= MAX_PHOTO_BYTES
     ):
+        return content_type
+    return None
+
+
+async def _fresh_photo_name(ref: str, settings: Settings) -> str | None:
+    """A live photo name of the place that ``ref`` belongs to, from one Places lookup of the place; None when the
+    lookup fails or gives no usable photo. A photo name expires, the place id does not."""
+    place = ref.split("/photos/", 1)[0]
+    base = (settings.google_places_proxy or "https://places.googleapis.com").rstrip("/")
+    try:
+        async with httpx.AsyncClient(
+            timeout=settings.http_timeout_seconds,
+            follow_redirects=True,
+            transport=current_transport(),
+        ) as client:
+            response = await client.get(
+                f"{base}/v1/{place}",
+                headers={
+                    "User-Agent": settings.user_agent,
+                    "X-Goog-Api-Key": settings.google_places_api_key,
+                    "X-Goog-FieldMask": "photos",
+                },
+            )
+        photos = response.json().get("photos") if response.status_code == 200 else None
+    except Exception as exc:  # noqa: BLE001 - the text of an httpx error holds the URL, key included
+        logger.warning("place photo lookup failed: %s", type(exc).__name__)
+        return None
+    for photo in photos if isinstance(photos, list) else []:
+        name = photo.get("name") if isinstance(photo, dict) else None
+        if (
+            isinstance(name, str)
+            and PHOTO_REF.fullmatch(name)
+            and name.startswith(f"{place}/photos/")
+        ):
+            return name
+    logger.warning("place photo lookup found no photo")
+    return None
+
+
+async def fetch_place_photo(ref: str, settings: Settings) -> tuple[bytes, str]:
+    """The bytes and content type of a Google photo: from the disk cache, else fetched once with the server's key.
+
+    A photo name that Google no longer knows (404) is looked up again once through the place it belongs to; the
+    new photo is cached under the old name and its own and served.
+
+    Raises ``PhotoUnavailable`` (without any text of the request) when there is no key, the ref is not a photo
+    resource name, Google refuses, or what comes back is not an image."""
+    if not PHOTO_REF.fullmatch(ref) or not settings.google_places_api_key:
+        raise PhotoUnavailable
+    cache = _cache_file(settings, ref)
+    cached = await asyncio.to_thread(_read_cache, cache)
+    if cached is not None:
+        return cached
+    response = await _get_media(ref, settings)
+    if response.status_code == 404:
+        fresh = await _fresh_photo_name(ref, settings)
+        if fresh is None or fresh == ref:
+            logger.warning("place photo fetch refused: HTTP 404")
+            raise PhotoUnavailable
+        fresh_cache = _cache_file(settings, fresh)
+        cached = await asyncio.to_thread(_read_cache, fresh_cache)
+        if cached is not None:
+            await asyncio.to_thread(_write_cache, cache, *cached)
+            return cached
+        response = await _get_media(fresh, settings)
+        fresh_type = _image_type(response)
+        if fresh_type is not None:
+            await asyncio.to_thread(
+                _write_cache, fresh_cache, response.content, fresh_type
+            )
+    content_type = _image_type(response)
+    if content_type is None:
         logger.warning("place photo fetch refused: HTTP %s", response.status_code)
         raise PhotoUnavailable
     await asyncio.to_thread(_write_cache, cache, response.content, content_type)
