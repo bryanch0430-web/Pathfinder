@@ -70,8 +70,12 @@ def agents_for_new_plan(context: TripContext) -> set[AgentName]:
     to sleep; a flight only when the traveller named where they leave from. The planner model runs after this, so
     the choice is made here."""
     names = {AgentName.ATTRACTION, AgentName.WEATHER}
-    start, end = context.start_date, context.end_date
-    if start and end and (end - start).days >= 1:
+    # The trip's dates as the form gives them: a start with an end, or a start with a number of days.
+    try:
+        dates = context.date_range()
+    except ValueError:  # dates that make no range (an end before the start, a trip too long) are reported elsewhere
+        dates = None
+    if dates is not None and dates.night_count >= 1:
         names.add(AgentName.HOTEL)
     if (context.origin or "").strip():
         names.add(AgentName.TICKET)
