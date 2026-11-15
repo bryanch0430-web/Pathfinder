@@ -8,6 +8,7 @@ import html
 import base64
 import binascii
 import json
+import logging
 import re
 from contextlib import aclosing, asynccontextmanager
 from datetime import date
@@ -29,6 +30,7 @@ from app.application.choices import (
     ChoiceRefused,
     apply_choice,
     is_chosen,
+    locked_conflict,
     normalise_hotel_options,
     set_lock,
 )
@@ -84,6 +86,8 @@ from app.infrastructure.providers.images import (
 )
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
+
+logger = logging.getLogger(__name__)
 
 #: What a request may carry in its other free texts. Some are stored with a message or a rating and sent back with
 #: the trip, so none may be longer than anything the page sends: an id (of a session or a stop), a locale tag (BCP 47
@@ -852,19 +856,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if plan is None:
             raise HTTPException(status_code=404, detail="This trip has no plan.")
         if payload.accept:
+            offered_on = (proposal or {}).get("base_version")
+            if change.get("id") in WHOLE_CHANGES and offered_on is not None and offered_on != plan.version:
+                raise HTTPException(status_code=409, detail="The plan changed since this was offered; ask again.")
             try:
                 updated = apply_change(plan, change)
             except (ValueError, ValidationError):
                 raise HTTPException(status_code=422, detail="That change no longer fits this plan.") from None
+            clash = locked_conflict(plan, updated)
+            if clash:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This would change {clash}, which is locked in. Press Change on it first.",
+                )
+            said = await sync_session_transfers(
+                updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+            )
+            if said:
+                updated.change_summary = " ".join([updated.change_summary, *said]).strip()
             context = c.store.get_context(session_id)
             if context is not None:
                 try:
-                    # ponytail: a cost the planner cannot recompute keeps the total the plan already had
-                    updated.cost = c.turn_service.modify_path.planner._cost(
-                        context, updated.first_stay, updated.tickets, updated.dates
-                    )
-                except Exception:
-                    pass
+                    updated.cost = c.turn_service.modify_path.planner.cost_for_plan(context, updated)
+                except ValueError:  # a price that cannot be worked out keeps the total the plan had
+                    logger.warning("the cost of an accepted edit could not be worked out")
             try:
                 c.store.save_plan(updated, updated.change_summary)
             except PlanConflict as exc:

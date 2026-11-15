@@ -1117,7 +1117,11 @@ class TurnService:
             tracer.metadata["edit_steps"] = record["steps"]
         if pending:
             # The web asked to wait. The edited plan stays in the reply until a change is ticked.
-            held = {"changes": pending, **({"context": form.model_dump(mode="json")} if form_changed else {})}
+            held = {
+                "changes": pending,
+                "base_version": plan.version,
+                **({"context": form.model_dump(mode="json")} if form_changed else {}),
+            }
             prose = (
                 f"{updated.change_summary} Tick one suggestion to apply it, or cross it to leave the plan as it is."
                 if offers
