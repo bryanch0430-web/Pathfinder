@@ -1,11 +1,12 @@
 """One skill per writer job. The gateway still asks for a prompt name.
 
 ``modify`` maps to ``edit-itinerary``, and the same for every other prompt name.
-The skill body is the instruction. Search skills in this folder record how a
-Python agent searches. Nothing injects them, and they are not a path.
+The skill body is the instruction. Notes on how the Python agents search are not
+skills; they are in docs/search-skill-notes. The folder is read once per process.
 """
 
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent / "skills"
@@ -18,17 +19,23 @@ class Skill:
     body: str
 
 
-def load_skills() -> list[Skill]:
+@cache
+def _load() -> tuple[Skill, ...]:
+    """Every skill file, read once per process."""
     found: list[Skill] = []
     if not _ROOT.is_dir():
-        return found
+        return ()
     for path in sorted(_ROOT.glob("*/SKILL.md")):
         text = path.read_text(encoding="utf-8")
         meta, body = _frontmatter(text)
         name = meta.get("name", "")
         if name:
             found.append(Skill(name, meta.get("description", ""), body))
-    return found
+    return tuple(found)
+
+
+def load_skills() -> list[Skill]:
+    return list(_load())
 
 
 #: Prompt name the gateway loads, and the one skill whose body is that prompt.
@@ -48,7 +55,7 @@ _PROMPT_SKILLS = {
 
 
 def skill_for(prompt: str) -> Skill | None:
-    """The skill for a prompt name. Search skills stay on disk."""
+    """The skill for a prompt name."""
     name = _PROMPT_SKILLS.get(prompt)
     if not name:
         return None

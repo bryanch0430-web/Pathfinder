@@ -58,7 +58,7 @@ The picture route used to refuse every Google photo of a real place: a Places ph
 
 **Fixed.** A polite request to change the selected hotel changes it instead of being refused as a question, and a refusal only stops a swap when it is aimed at the hotel. A Claude model that refuses a temperature is asked again without it. Bring-your-own-key support (`/api/llm/*`) landed on 8 November without a note of its own; its behaviour is described under [Use your own model key](#use-your-own-model-key).
 
-Known gaps: ground options are estimates timed from the drive, never bookings; a route change can release a lock, and the reply names each one it released; a place no source gave a picture or a link for has none, and nothing is looked up by name; the refine loop reports what it changed but does not re-rank a plan; the suite is 3,783 test functions in 199 files, and ten of them fail on this tree (see `HANDOFF.md`).
+Known gaps: ground options are estimates timed from the drive, never bookings; a route change can release a lock, and the reply names each one it released; a place no source gave a picture or a link for has none, and nothing is looked up by name; the refine loop reports what it changed but does not re-rank a plan; the suite is 3,783 test functions in 199 files, and sixteen of them fail on this tree (see `HANDOFF.md`).
 
 ### v1.6.2 — 8 November 2026, 21:41 HKT
 
