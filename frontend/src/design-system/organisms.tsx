@@ -132,6 +132,7 @@ export function AppHeader({
   onNewTrip,
   onExport,
   onExportFile,
+  onExportCalendar,
   onImport,
   onExportSlides,
   onShare,
@@ -148,6 +149,7 @@ export function AppHeader({
   onNewTrip?: () => void;
   onExport?: () => void;
   onExportFile?: () => void;
+  onExportCalendar?: () => void;
   onImport?: () => void;
   onExportSlides?: () => void;
   onShare?: () => void;
@@ -215,6 +217,11 @@ export function AppHeader({
           {onExportFile ? (
             <Button size="sm" variant="ghost" iconLeft="download" onClick={onExportFile} title={t("header.planFileTitle")}>
               {t("header.planFile")}
+            </Button>
+          ) : null}
+          {onExportCalendar ? (
+            <Button size="sm" variant="ghost" iconLeft="download" onClick={onExportCalendar} title={t("header.calendarTitle")}>
+              {t("header.calendar")}
             </Button>
           ) : null}
           {onImport ? (

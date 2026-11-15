@@ -537,6 +537,18 @@ export async function runEval(datasetId: string, tag: string): Promise<{ run: Ev
   });
 }
 
+/** The stored plan as an .ics calendar file. A plain link cannot send the identity headers, so the page fetches it. */
+export async function getPlanCalendar(sessionId: string): Promise<Blob> {
+  const response = await fetch(`${BASE}/api/journeys/${encodeURIComponent(sessionId)}/calendar.ics`, {
+    headers: { ...authHeader(), ...clientTokenHeader() },
+  });
+  if (!response.ok) {
+    const detail = await errorText(response);
+    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status, detail);
+  }
+  return response.blob();
+}
+
 /** The run report as text. A plain link cannot send the admin header, so the page fetches it. */
 export async function getEvalExport(runId: string): Promise<string> {
   const response = await fetch(`${BASE}/api/eval/trials/${runId}/export`, { headers: adminHeader() });
