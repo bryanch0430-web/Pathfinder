@@ -11,11 +11,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from app.application.edit_scope import segment_for_edit, which_visit_question
-from app.application.modification import EditQuestion, EditResult
+from app.application.modification import EditQuestion, EditResult, interpret_plan
 from app.application.multi_city import build_trip, finish_trip
 from app.application.planner import Planner, annotate_stays
 from app.application.route_edit import (
@@ -26,6 +26,7 @@ from app.application.route_edit import (
     rule_split_stay,
 )
 from app.application.route_plan import RouteQuestion, allocate_nights, build_segments
+from app.application.router import asks_for_new_dates, is_replan_message
 from app.application.search_cache import CachedToolbox, SearchCache
 from app.application.stitch import city_context, split, stitch
 from app.application.validation import diff_plans, is_edit_outcome
@@ -78,6 +79,9 @@ async def edit_multi_city(
     history: Any = (),
 ) -> EditResult:
     """The edit of a plan of several cities."""
+    start = _shifted_start(plan, context, message)
+    if start is not None:
+        return await shift_dates(modify, plan=plan, context=context, start=start, toolbox=toolbox, tracer=tracer, emit=emit)
     draft = await modify._extract(
         message,
         plan,
@@ -168,6 +172,49 @@ def _kept_options(
 
 #: Said when a route change releases a lock (the leg or the stay no longer exists as it was).
 RELEASED_LOCK = "Your locked choice for {what} no longer fits the new route, so it is open again."
+#: The summary of a trip moved to other dates (the single-city edit says the same).
+DATES_CHANGED = "Changed the trip dates; rebuilt the itinerary."
+
+
+def _shifted_start(plan: TripPlan, context: TripContext, message: str) -> date | None:
+    """The new first day of the trip when the message asks for other dates and the trip form holds the plan's dates
+    moved by some days, as the single-city edit reads it: only then does the trip move. A form of another length is
+    not a move; it is left to the edit of the cities."""
+    if interpret_plan(message).requested or not (is_replan_message(message) or asks_for_new_dates(message)):
+        return None
+    try:
+        form = context.date_range()
+    except ValueError:  # the form holds an end before its start, or too long a trip
+        return None
+    if form is None or form == plan.dates or form.night_count != plan.dates.night_count:
+        return None
+    return form.start
+
+
+async def shift_dates(
+    modify: ModifyPath,
+    *,
+    plan: TripPlan,
+    context: TripContext,
+    start: date,
+    toolbox: Any,
+    tracer: Any,
+    emit: Any,
+) -> EditResult:
+    """Every city moved by the same number of days, each with its nights: the cities are planned again for their new
+    dates, the legs are looked up again, and the locks the move releases are said."""
+    stops = [TripStop(city=s.destination.name, nights=s.dates.night_count) for s in plan.segments]
+    return await _apply_route(
+        modify,
+        plan=plan,
+        context=context,
+        stops=stops,
+        sentence=DATES_CHANGED,
+        toolbox=toolbox,
+        tracer=tracer,
+        emit=emit,
+        start=start,
+    )
 
 
 async def edit_route(
@@ -226,8 +273,10 @@ async def _apply_route(
     toolbox: Any,
     tracer: Any,
     emit: Any,
+    start: date | None = None,
 ) -> EditResult:
-    """Plan the new route: keep the cities that did not change, plan the others, look up the legs that moved."""
+    """Plan the new route: keep the cities that did not change, plan the others, look up the legs that moved. ``start``
+    is the trip's new first day when its dates move."""
     path = modify.plan_path
     toolbox = _cached(toolbox, plan.session_id)
     known = {
@@ -248,7 +297,7 @@ async def _apply_route(
             known[stop.city.casefold()] = place
         places.append(place)
     segments = build_segments(
-        places, [stop.nights or 1 for stop in stops], plan.dates.start
+        places, [stop.nights or 1 for stop in stops], start or plan.dates.start
     )
 
     old_parts = split(plan)
