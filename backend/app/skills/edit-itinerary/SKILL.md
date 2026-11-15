@@ -31,6 +31,7 @@ The router has already called this turn a change. Read the current plan and the 
 7. Set `operation` to `add`, `move`, `replace`, or `remove`. `move` keeps a stop that is already on the plan and only changes its day. `replace` names the new hotel or the new stop.
 8. Set `place` to the place or hotel they mean, in their words. Empty when they named none. A name may be misspelled or written in another language: keep the characters they used. The place search resolves that name.
 9. Set `target_day` to the day the stop should end on, counting from 1, or null. In "from day 1 to day 3" that is 3, not 1.
+10. `operation` and `place` steer one-city plans; with several cities only `target_day` is read, to pick the city.
 
 ## Output
 
