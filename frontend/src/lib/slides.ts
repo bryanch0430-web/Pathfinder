@@ -1,5 +1,6 @@
 import type PptxGenJS from "pptxgenjs";
 import type { DayPlan, Money, PlanItem, TripPlan } from "../design-system/types";
+import { bookedLines, isBookedTicket } from "./booked";
 import { planFileName } from "./export";
 import { legsOf, optionsFor, routeLabel, segmentOfDay, segmentsOf } from "./segments";
 import { safeHref } from "./safeHref";
@@ -220,7 +221,9 @@ function addTickets(deck: PptxGenJS, plan: TripPlan): void {
       cell(when(ticket.arrive_at)),
       cell(duration(ticket.duration_minutes)),
       cell(priceLabel(ticket.price, ticket.price_kind) || "—"),
-      cell(ticket.confirmed ? "Confirmed" : "Not booked", { color: ticket.confirmed ? OK : BRAND }),
+      isBookedTicket(plan, ticket)
+        ? cell("Booked", { bold: true, color: OK })
+        : cell(ticket.confirmed ? "Confirmed" : "Not booked", { color: ticket.confirmed ? OK : BRAND }),
     ]);
     if (ticket.return_depart_at) {
       rows.push([
@@ -251,7 +254,7 @@ function addHotels(deck: PptxGenJS, plan: TripPlan): void {
     const stay = nights(hotel.check_in, hotel.check_out);
     const rating = hotel.rating !== null ? `${hotel.rating.toFixed(1)}★${hotel.review_count ? ` (${hotel.review_count.toLocaleString("en-US")})` : ""}` : "—";
     return [
-      cell(hotel.name, { bold: true, ...(link ? { hyperlink: { url: link } } : {}) }),
+      cell(hotel.locked && hotel.booked ? `${hotel.name}\nBooked` : hotel.name, { bold: true, ...(link ? { hyperlink: { url: link } } : {}) }),
       cell(multi ? [segmentOfDay(plan, hotel.check_in).destination.name, hotel.area].filter(Boolean).join(" · ") : hotel.area || "—"),
       cell(`${dateLabel(hotel.check_in)} → ${dateLabel(hotel.check_out)}\n${stay} ${stay === 1 ? "night" : "nights"}`),
       cell(priceLabel(hotel.price_per_night, hotel.price_kind) || "—"),
@@ -386,6 +389,10 @@ function addChecklist(deck: PptxGenJS, plan: TripPlan): void {
       cell(reservation.needed_by ? dateLabel(reservation.needed_by) : "—"),
     ];
   });
+  // What the traveller marked booked comes after the bookings still to make.
+  for (const line of bookedLines(plan)) {
+    rows.push([cell(RESERVATION_STATUS.booked, { bold: true, color: OK }), cell(line, { bold: true }), cell("Marked booked by the traveller."), cell("—")]);
+  }
   for (const disruption of plan.disruptions.filter((entry) => !entry.resolved)) {
     rows.push([cell("⚠ Watch", { bold: true, color: BRAND }), cell(disruption.kind, { bold: true }), cell(clip(disruption.summary, 160)), cell("—")]);
   }

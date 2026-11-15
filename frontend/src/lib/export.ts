@@ -1,4 +1,5 @@
 import type { HotelStay, TicketOption, TransportLeg, TripPlan } from "../design-system/types";
+import { bookedLines } from "./booked";
 import { chosenFor, daysBySegment, legHome, legInto, nightsBetween, optionsFor, routeLabel, segmentsOf, staysIn } from "./segments";
 
 function about(value: string | null | undefined): string {
@@ -17,7 +18,8 @@ function optionText(option: TicketOption, currency: string): string {
 function legRows(plan: TripPlan, leg: TransportLeg): string[] {
   const options = optionsFor(plan, leg.id);
   const chosen = chosenFor(plan, leg.id);
-  const rows = [`#### ${leg.from_place} → ${leg.to_place}${leg.depart_date ? ` · ${leg.depart_date}` : ""}`, ""];
+  const booked = leg.locked && leg.booked ? " · Booked" : "";
+  const rows = [`#### ${leg.from_place} → ${leg.to_place}${leg.depart_date ? ` · ${leg.depart_date}` : ""}${booked}`, ""];
   if (!chosen) return [...rows, "No transport was found for this leg.", ""];
   rows.push(`- Chosen: ${optionText(chosen, plan.cost.currency)}`);
   for (const option of options.filter((entry) => entry !== chosen)) rows.push(`- Other: ${optionText(option, plan.cost.currency)}`);
@@ -28,7 +30,8 @@ function stayRow(stay: HotelStay): string {
   const rate = stay.price_per_night
     ? `${stay.price_per_night.currency} ${stay.price_per_night.amount.toLocaleString()} per night`
     : "no rate returned";
-  return `- Stay: **${stay.name}**${stay.area ? ` (${stay.area})` : ""}, ${stay.check_in} → ${stay.check_out} · ${rate}`;
+  const booked = stay.locked && stay.booked ? " · Booked" : "";
+  return `- Stay: **${stay.name}**${stay.area ? ` (${stay.area})` : ""}, ${stay.check_in} → ${stay.check_out} · ${rate}${booked}`;
 }
 
 export function planMarkdown(plan: TripPlan, disclaimer = ""): string {
@@ -84,6 +87,9 @@ export function planMarkdown(plan: TripPlan, disclaimer = ""): string {
   } else {
     addDays(plan.days, "###");
   }
+  // What the traveller marked booked, for every plan; nothing is written when nothing is booked.
+  const booked = bookedLines(plan);
+  if (booked.length) rows.push("## Booked", "", ...booked.map((line) => `- ${line}`), "");
   rows.push("## Costs", "", `Total: ${plan.cost.currency} ${Math.round(plan.cost.total).toLocaleString()}`, "");
   for (const costLine of plan.cost.lines) {
     rows.push(`- ${costLine.label}: ${plan.cost.currency} ${Math.round(costLine.amount).toLocaleString()}`);
@@ -95,7 +101,9 @@ export function planMarkdown(plan: TripPlan, disclaimer = ""): string {
     "",
     ...plan.data_quality.sources_used.map((source) => `- ${source}`),
     "",
-    "Prices and availability are reference estimates unless marked live. No booking was made.",
+    booked.length
+      ? "Prices and availability are reference estimates unless marked live. This app made no booking; what is marked Booked the traveller booked."
+      : "Prices and availability are reference estimates unless marked live. No booking was made.",
   );
   return rows.join("\n");
 }
