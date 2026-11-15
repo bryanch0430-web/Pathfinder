@@ -65,6 +65,19 @@ CANCEL_GRACE_SECONDS = 2.0
 logger = logging.getLogger(__name__)
 
 
+def agents_for_new_plan(context: TripContext) -> set[AgentName]:
+    """Which agents a new plan actually needs. Places and the forecast always; a hotel only when there is a night
+    to sleep; a flight only when the traveller named where they leave from. The planner model runs after this, so
+    the choice is made here."""
+    names = {AgentName.ATTRACTION, AgentName.WEATHER}
+    start, end = context.start_date, context.end_date
+    if start and end and (end - start).days >= 1:
+        names.add(AgentName.HOTEL)
+    if (context.origin or "").strip():
+        names.add(AgentName.TICKET)
+    return names
+
+
 class PlanPath:
     def __init__(self, *, planner: Planner, registry: Any, settings: Settings):
         self.planner = planner
@@ -152,14 +165,17 @@ class PlanPath:
         given: dict[str, AgentResult] | None = None,
         on_results: Callable[[dict[str, AgentResult]], None] | None = None,
     ) -> TripPlan:
-        """One city, from the geocode to a checked plan; ``names`` limits which agents run (all when None)."""
+        """One city, from the geocode to a checked plan. ``names`` limits which agents run; omitted, the trip decides."""
         if destination is None:
             destination = await self._locate(context.destination, toolbox=toolbox, tracer=tracer)
 
-        emit("progress", {"phase": "agents", "message": "Four agents are gathering live data.", "progress": 15})
+        if names is None:
+            names = agents_for_new_plan(context)
         if given:
             # Results the caller already holds (a city visited twice) are not fetched again.
-            names = (names or set(AGENT_FACTORIES)) - {AgentName(key) for key in given}
+            names = names - {AgentName(key) for key in given}
+        gathering = ", ".join(sorted(name.value for name in names)) or "nothing further"
+        emit("progress", {"phase": "agents", "message": f"Gathering {gathering}.", "progress": 15})
         agent_results = await self.run_agents(
             context=context,
             destination=destination,

@@ -78,6 +78,15 @@ export function createSession(clientToken: string, signal?: AbortSignal): Promis
   return request("/api/journeys", { method: "POST", body: JSON.stringify({ client_token: clientToken }), signal });
 }
 
+/** Open a saved plan file as a new trip. `plan` is the JSON from the plan-file download. */
+export function importPlan(clientToken: string, plan: unknown, signal?: AbortSignal): Promise<SessionState> {
+  return request("/api/journeys/import", {
+    method: "POST",
+    body: JSON.stringify({ client_token: clientToken, plan }),
+    signal,
+  });
+}
+
 export function getSession(sessionId: string, signal?: AbortSignal): Promise<SessionState> {
   return request(`/api/journeys/${sessionId}`, { signal });
 }
@@ -97,6 +106,14 @@ export function patchContext(sessionId: string, patch: ContextPatch, signal?: Ab
 export function getPlan(sessionId: string, version?: number): Promise<{ plan: TripPlan }> {
   const query = version ? `?version=${version}` : "";
   return request(`/api/journeys/${sessionId}/itinerary${query}`);
+}
+
+/** Copy a saved version forward so it becomes the plan the next message edits. */
+export function restorePlan(sessionId: string, version: number): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/itinerary/restore`, {
+    method: "POST",
+    body: JSON.stringify({ version }),
+  });
 }
 
 /** Display text for one plan version in `locale`; numbers, times and ids stay on the English plan. */

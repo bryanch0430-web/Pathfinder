@@ -123,6 +123,8 @@ export function AppHeader({
   onHelp,
   onNewTrip,
   onExport,
+  onExportFile,
+  onImport,
   onExportSlides,
   onShare,
   user,
@@ -137,6 +139,8 @@ export function AppHeader({
   onHelp?: () => void;
   onNewTrip?: () => void;
   onExport?: () => void;
+  onExportFile?: () => void;
+  onImport?: () => void;
   onExportSlides?: () => void;
   onShare?: () => void;
   user?: AuthUser | null;
@@ -198,6 +202,16 @@ export function AppHeader({
           {onExport ? (
             <Button size="sm" variant="ghost" iconLeft="download" onClick={onExport}>
               {t("header.export")}
+            </Button>
+          ) : null}
+          {onExportFile ? (
+            <Button size="sm" variant="ghost" iconLeft="download" onClick={onExportFile} title={t("header.planFileTitle")}>
+              {t("header.planFile")}
+            </Button>
+          ) : null}
+          {onImport ? (
+            <Button size="sm" variant="ghost" iconLeft="plus" onClick={onImport} title={t("header.importTitle")}>
+              {t("header.import")}
             </Button>
           ) : null}
           {onExportSlides ? (
@@ -1319,6 +1333,7 @@ export function TripWorkspace({
   versions,
   activeVersion,
   onVersionChange,
+  onRestoreVersion,
   selectedItemId,
   onSelectItem,
   onUseful,
@@ -1349,6 +1364,8 @@ export function TripWorkspace({
   versions: { version: number; change_summary: string; created_at: string }[];
   activeVersion: number;
   onVersionChange: (version: number) => void;
+  /** Copy the version on screen forward so the next message edits it. */
+  onRestoreVersion?: (version: number) => void;
   selectedItemId: string | null;
   onSelectItem: (item: PlanItem | null) => void;
   onUseful: (stars: number) => void;
@@ -1488,6 +1505,11 @@ export function TripWorkspace({
                   </option>
                 ))}
               </select>
+              {!viewingLatest && onRestoreVersion ? (
+                <Button size="sm" variant="ghost" onClick={() => onRestoreVersion(plan.version)}>
+                  {t("workspace.useVersion")}
+                </Button>
+              ) : null}
             </span>
           </div>
         </div>

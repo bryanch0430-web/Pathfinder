@@ -20,7 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, Field, StringConstraints, ValidationError, field_validator
 
 from app.application.intake import Attachment
 from app.application.choices import ChoiceNotFound, ChoiceRefused, apply_choice, normalise_hotel_options
@@ -241,6 +241,19 @@ class ChoiceRequest(BaseModel):
     option_id: str = Field(max_length=ID_MAX_LENGTH)
     #: The plan version the traveller chose on; a choice made on an older version is refused (409).
     plan_version: int | None = Field(default=None, ge=1)
+
+
+class RestoreRequest(BaseModel):
+    """Make a saved version the current plan by copying it as the next version."""
+
+    version: int = Field(ge=1)
+
+
+class ImportPlanRequest(BaseModel):
+    """A plan file from another computer. The plan is the JSON this app saves, or {"plan": that JSON}."""
+
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
+    plan: dict[str, Any]
 
 
 class EvalRunRequest(BaseModel):
@@ -727,6 +740,72 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             plan = await c.turn_service.freshness.on_reopen(plan)
         plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {"plan": plan.model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/itinerary/restore")
+    async def restore_plan(session_id: str, payload: RestoreRequest, request: Request) -> dict[str, Any]:
+        """Copy a saved version forward so the next chat edits that plan, not the one that came after it."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        require_session(c, request, session_id)
+        current = c.store.get_plan(session_id)
+        chosen = c.store.get_plan(session_id, payload.version)
+        if current is None or chosen is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        if chosen.version == current.version:
+            plan = tidy_data_gaps(current, drop_edit_gaps=True)
+            return {"plan": plan.model_dump(mode="json")}
+        restored = chosen.model_copy(deep=True)
+        restored.version = current.version + 1
+        restored.change_summary = f"Restored version {chosen.version}"
+        restored.updated_at = datetime.now(timezone.utc)
+        c.store.save_plan(restored, restored.change_summary)
+        plan = tidy_data_gaps(restored, drop_edit_gaps=True)
+        return {"plan": plan.model_dump(mode="json")}
+
+    @app.post("/api/journeys/import")
+    async def import_plan(payload: ImportPlanRequest, request: Request) -> dict[str, Any]:
+        """Open a saved plan file as a new trip on this computer."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        token, user = session_caller(request, c, payload.client_token)
+        if not token and user is None:
+            raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+        await charge_create(request)
+        try:
+            incoming = TripPlan.model_validate(payload.plan)
+        except ValidationError:
+            raise HTTPException(status_code=422, detail="That file is not a Pathfinder plan.") from None
+        session = c.store.create_session(token, user.id if user else "")
+        plan = incoming.model_copy(deep=True)
+        plan.session_id = session.id
+        plan.trip_id = new_id("trip")
+        plan.version = 1
+        plan.change_summary = "Imported plan"
+        plan.updated_at = datetime.now(timezone.utc)
+        context = TripContext(
+            session_id=session.id,
+            destination=plan.destination.name,
+            origin=plan.origin,
+            start_date=plan.dates.start,
+            end_date=plan.dates.end,
+            days=len(plan.dates.dates) or len(plan.days) or None,
+            party_size=plan.party_size,
+            budget=float(plan.budget.amount) if plan.budget is not None else None,
+            currency=(plan.budget.currency if plan.budget is not None else plan.cost.currency) or settings.default_currency,
+            language=settings.default_locale,
+        )
+        c.store.save_context(context)
+        c.store.save_plan(plan, plan.change_summary)
+        plan = tidy_data_gaps(plan, drop_edit_gaps=True)
+        return {
+            "session": session.model_dump(mode="json", exclude={"client_token"}),
+            "context": context.model_dump(mode="json"),
+            "plan": plan.model_dump(mode="json"),
+            "versions": c.store.list_versions(session.id),
+            "messages": [],
+        }
 
     # Display translation of a plan version; the English plan stays the source of truth.
     @app.get("/api/journeys/{session_id}/translation")

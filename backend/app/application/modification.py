@@ -8,6 +8,7 @@ version increments by one.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
@@ -20,7 +21,7 @@ from app.application.freshness import outdated_sections
 from app.application.language import cuisine_slot
 from app.application.meals import image_of
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
-from app.application.plan_focus import day_number_named, focus_day
+from app.application.plan_focus import date_named, day_number_named, focus_day
 from app.application.planning import PlanPath
 from app.application.planner import (
     NO_STOPS_NOTE,
@@ -141,6 +142,9 @@ class ChangeDraft(BaseModel):
     route_change: RouteChange | None = None
     #: a second hotel for the last nights of a city
     split_stay: SplitStay | None = None
+    #: from the edit skill, when the model is sure. Empty means the word lists decide, as before.
+    operation: str = ""
+    place: str = ""
 
 
 #: the question for a home the traveller asked to add without saying where it is
@@ -149,6 +153,9 @@ HOME_QUESTION = "Where do you live? I'll add it to the plan."
 WHICH_EDIT_QUESTION = "Which stop or day should I change, and what should I change about it?"
 #: below this the writer's own confidence in its reading of an edit is too low to act on
 LOW_EDIT_CONFIDENCE = 0.4
+#: the edit skill may override the word lists only at or above this
+_SKILL_CONFIDENCE = 0.8
+_SKILL_OPS = frozenset({"add", "move", "replace", "remove"})
 #: the fact `HOME_QUESTION` asks for, as the stored question turn names it
 HOME_FACT = "home"
 #: asked once more, in other words, when the answer to `HOME_QUESTION` was not a place
@@ -314,9 +321,10 @@ class ModifyPath:
                 or (set(route_parts) <= {"attraction"} and _grander_without_a_stop(message))
             )
         )
-        if (more_stops or upscale) and not interpret_plan(message).requested:
-            # "More stops" is an add, and "grander" is about the hotel. A pace the writer read into either ("3 places
-            # a day") is only a cap, which adds nothing and may even take a stop away.
+        if (more_stops or upscale or _named_place(message)) and not interpret_plan(message).requested:
+            # "More stops" is an add, "grander" is about the hotel, and a named place ("Shibuya Sky on day 1") is
+            # that place. A pace the writer read into any of them ("3 places a day") is only a cap, which adds
+            # nothing and may even take a stop away.
             draft.new_values = {
                 key: value for key, value in draft.new_values.items() if key not in {"places_per_day", "min_hours", "earliest"}
             }
@@ -629,8 +637,37 @@ class ModifyPath:
             agent_names |= PART_AGENTS["dates"]
         date_range = new_range or plan.dates
         lower_message = message.lower()
-        add_requested = _ADD_REQUEST.search(lower_message) is not None or more_stops
-        remove_requested = _REMOVE_REQUEST.search(lower_message) is not None
+        skill_op, skill_place = _edit_operation(draft, plan, message)
+        hotel_named = (
+            skill_op == "replace"
+            and "hotel" in {part.lower() for part in draft.affected_parts}
+            and bool(skill_place)
+        )
+        if hotel_named:
+            # The model named the hotel. The word lists may not have, so the hotel agent still runs.
+            hotel_requested = True
+            agent_names.add(AgentName.HOTEL)
+        # A hotel name is not also a place to search for. An attraction name replaces what the sentence seemed to name.
+        named = "" if hotel_named else skill_place
+        search_extra = _search_extra(
+            message,
+            place=skill_place or None,
+            hotel=hotel_named,
+        )
+        # A sure "move" is not also an add of a place named "day 3".
+        add_requested = skill_op == "add" or (
+            skill_op != "move"
+            and (
+                _ADD_REQUEST.search(lower_message) is not None
+                or more_stops
+                or _wants_a_new_stop(message, plan, draft)
+            )
+        )
+        remove_requested = skill_op == "remove" or _REMOVE_REQUEST.search(lower_message) is not None
+        if skill_place and skill_place.lower() not in lower_message:
+            # The hotel chooser only sees this sentence. The skill already resolved "that hotel".
+            message = f"{message}\n{skill_place}"
+            lower_message = message.lower()
         # The agents whose data this edit needs (Proposal DB-09). A pace change
         # works from the plan alone, and taking a stop out needs no new places.
         needed = set(agent_names)
@@ -638,6 +675,9 @@ class ModifyPath:
             needed = set()
         elif remove_requested and not add_requested:
             needed.discard(AgentName.ATTRACTION)
+        if skill_op == "move":
+            # The stop is already on the plan. Searching would look for a new one.
+            needed = set()
         fx = getattr(self.plan_path.registry, "fx", None)
         if fx is not None and (budget_mode or needed & {AgentName.HOTEL, AgentName.TICKET}):
             # Rates are needed only when a priced line (stay or flight) can change.
@@ -658,7 +698,9 @@ class ModifyPath:
                     toolbox=toolbox,
                     emit=emit,
                     names=needed,
-                    extra=_search_extra(message) if AgentName.ATTRACTION in needed else None,
+                    extra=search_extra
+                    if AgentName.ATTRACTION in needed or (search_extra or {}).get("hotels_query")
+                    else None,
                 )
 
         updated = plan.model_copy(deep=True)
@@ -693,6 +735,10 @@ class ModifyPath:
         if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
             candidates = (hotels.payload.get("hotels") if hotels else []) or []
+            if hotel_named:
+                candidates = [
+                    row for row in candidates if _matches_name(str(row.get("name") or ""), skill_place)
+                ]
             if updated.hotels and not hotel_requested:
                 kept, refreshed = self.planner.keep_stay(updated.first_stay, candidates, updated.dates)
                 updated.hotels = [kept]
@@ -720,7 +766,11 @@ class ModifyPath:
                         if not refreshed:
                             updated.data_quality.gaps.append(_gap("hotels", STAY_PRICE_NOT_REFRESHED))
                     if searched:
-                        if upscale and not cheaper:
+                        if hotel_named:
+                            outcome = (
+                                f"No other verified hotel named {skill_place} was returned; the current hotel stays."
+                            )
+                        elif upscale and not cheaper:
                             outcome = NO_GRANDER_HOTEL
                         elif referred_stay is not None and not cheaper:
                             outcome = NO_OTHER_HOTEL
@@ -741,7 +791,13 @@ class ModifyPath:
                 if row:
                     day.weather = WeatherDay.model_validate(row)
 
-        if shape.requested and referred is None:
+        if skill_op == "move":
+            moved, sentence = _move_named(updated, skill_place, _move_day(message, draft.target_day))
+            if moved:
+                draft.description = sentence
+            else:
+                updated.data_quality.gaps.append(_gap("attractions", sentence))
+        elif shape.requested and referred is None:
             draft.description = shape.reason or apply_plan_shape(updated, shape)
         elif AgentName.ATTRACTION in agent_names:
             attraction_result = results.get("attraction")
@@ -749,7 +805,7 @@ class ModifyPath:
             places = payload.get("places") or []
             meals = payload.get("meals") or []
             if add_requested:
-                if places and not _fresh_places(updated, places, message) and AgentName.ATTRACTION in needed:
+                if places and not _fresh_places(updated, places, message, named=named or None) and AgentName.ATTRACTION in needed:
                     # Every candidate the lookup returned is already in the plan: the source is asked again, for as
                     # many as a trip may ask for, by the same agent through the same toolbox and its cap.
                     places = await self._more_places(
@@ -759,9 +815,10 @@ class ModifyPath:
                         toolbox=toolbox,
                         emit=emit,
                         message=message,
+                        place=named or None,
                     ) or places
                 before_add = {item.id for _, item in updated.iter_items()}
-                added = _add_attractions(updated, places, message, day=day_scope)
+                added = _add_attractions(updated, places, message, day=day_scope, named=named or None)
                 if added and more_stops:
                     draft.description = _added_sentence(updated, before_add)
                 if not added and _lookup_limit(toolbox, places):
@@ -822,7 +879,7 @@ class ModifyPath:
                             )
                         )
                     else:
-                        wanted_text = _requested_alternative_text(message)
+                        wanted_text = named or _requested_alternative_text(message)
                         cuisine = _cuisine(message)
                         replaced = _replace_target(
                             updated,
@@ -994,7 +1051,9 @@ class ModifyPath:
                 return stay
         return None
 
-    async def _more_places(self, *, context, destination, date_range, toolbox: Toolbox, emit, message: str) -> list[dict]:
+    async def _more_places(
+        self, *, context, destination, date_range, toolbox: Toolbox, emit, message: str, place: str | None = None
+    ) -> list[dict]:
         """The places of a second lookup with the largest candidate limit a trip may ask for, or [] when the first one
         already asked for that many. The attraction agent runs again, so the toolbox and its per-turn cap apply."""
         if place_candidate_limit(len(date_range.dates)) >= MAX_PLACE_CANDIDATES:
@@ -1006,7 +1065,7 @@ class ModifyPath:
             toolbox=toolbox,
             emit=emit,
             names={AgentName.ATTRACTION},
-            extra={**(_search_extra(message) or {}), "places_limit": MAX_PLACE_CANDIDATES},
+            extra={**(_search_extra(message, place=place) or {}), "places_limit": MAX_PLACE_CANDIDATES},
         )
         result = results.get("attraction")
         return (result.payload.get("places") if result else None) or []
@@ -1117,12 +1176,14 @@ _ALTERNATIVE_TEXT = re.compile(
 
 
 def _norm(text: str) -> str:
-    """Lowercase and drop everything that is not a letter or digit.
+    """Letters and digits in any script, with accents and spaces dropped.
 
-    Lets "oceanpark" resolve to "Ocean Park" and "HK Disneyland" to
-    "Hong Kong Disneyland", which people type all the time.
+    "oceanpark" meets "Ocean Park". A Chinese name stays Chinese: an ASCII-only
+    filter turned 合味道紀念館 into "", so it matched nothing the search returned.
     """
-    return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
+    folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text or ""))
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    return "".join(char for char in folded.casefold() if char.isalnum())
 
 
 def _requested_alternative_text(message: str) -> str | None:
@@ -1336,14 +1397,8 @@ def _replace_target(
     used = {other.name for _, other in _items_in_order(plan)}
     pool = _candidate_pool(item, places, meals, used)
     if prefer_name:
-        needle = _norm(prefer_name)
-        preferred = [
-            row
-            for row in pool
-            if needle and (needle in _norm(row["name"]) or _norm(row["name"]) in needle)
-        ]
-        if preferred:
-            pool = preferred
+        # The place they named, or nothing. A nearby unused row is not a stand-in for it.
+        pool = [row for row in pool if _matches_name(str(row.get("name") or ""), prefer_name)]
     if not pool:
         return False
     anchor_geo = item.geo or plan.destination.geo
@@ -1395,20 +1450,216 @@ def _cuisine(message: str) -> str | None:
     return cuisine_slot(message)
 
 
-def _search_extra(message: str) -> dict[str, str] | None:
+def _search_extra(message: str, *, place: str | None = None, hotel: bool = False) -> dict[str, str] | None:
     extra: dict[str, str] = {}
     cuisine = _cuisine(message)
     if cuisine:
         extra["meals_query"] = f"{cuisine} restaurant"
-    places = _places_query(message)
-    if places:
-        extra["places_query"] = places
+    if hotel and place:
+        extra["hotels_query"] = place
+    else:
+        places = (place or "").strip() or _places_query(message)
+        if places:
+            extra["places_query"] = places
     return extra or None
 
 
+def _skill_operation(draft: ChangeDraft) -> str:
+    """The edit the model named, when it is sure. Otherwise the word lists still decide."""
+    op = (draft.operation or "").strip().lower()
+    if draft.confidence < _SKILL_CONFIDENCE or op not in _SKILL_OPS:
+        return ""
+    return op
+
+
+_MOVE_VERB = re.compile(r"\b(?:move|put|switch)\b", re.IGNORECASE)
+
+
+def _stop_named_on_plan(plan: TripPlan, message: str) -> PlanItem | None:
+    """The stop already on the plan whose name this sentence contains. The longest name wins."""
+    lowered = message.lower()
+    squashed = _norm(message)
+    best: tuple[int, PlanItem] | None = None
+    for _, item in plan.iter_items():
+        for label in (item.name, *item.names.values()):
+            compact = _norm(label)
+            if len(label) < 4 or not compact:
+                continue
+            if label.lower() in lowered or compact in squashed:
+                if best is None or len(compact) > best[0]:
+                    best = (len(compact), item)
+    return None if best is None else best[1]
+
+
+def _stated_move(plan: TripPlan, message: str) -> tuple[str, int] | None:
+    """A stop this sentence names that is already on the plan, and the day it should move to.
+
+    "shibuya sky on day 8 should be on day 2, so move to day 2" is that stop and day 2. A move of the
+    whole trip, or a sentence that names no planned stop, is not one.
+    """
+    if _MOVE_VERB.search(message) is None or asks_for_new_dates(message):
+        return None
+    day = _move_day(message, None)
+    if day is None or not (1 <= day <= len(plan.days)):
+        return None
+    item = _stop_named_on_plan(plan, message)
+    if item is None:
+        return None
+    return item.name, day
+
+
+def _edit_operation(draft: ChangeDraft, plan: TripPlan, message: str) -> tuple[str, str]:
+    """The operation to apply. A stop the plan already has, named with a day, is a move even when the model is unsure."""
+    op = _skill_operation(draft)
+    place = draft.place.strip() if op else ""
+    stated = _stated_move(plan, message)
+    if stated is not None and op not in {"add", "remove"}:
+        return "move", stated[0]
+    return op, place
+
+
 def _places_query(message: str) -> str | None:
+    """What the place search should look up: the place they named, else a kind of place ("museums")."""
+    named = _named_place(message)
+    if named:
+        return named
     wanted = [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
     return " ".join(f"{word}s" for word in wanted) if wanted else None
+
+
+_AFTER_A_KIND = re.compile(
+    r"\b(?:attraction|place|sight|stop)\s+(?:called\s+|named\s+)?(.+)$",
+    re.IGNORECASE,
+)
+_AFTER_GOING = re.compile(
+    r"\b(?:want\s+to\s+go(?:\s+to)?|wanna\s+go(?:\s+to)?|going\s+to\s+go|go\s+to)\s+(.+)$",
+    re.IGNORECASE,
+)
+_AFTER_ADDING = re.compile(
+    r"\b(?:add|include|insert)\s+(?:a\s+|an\s+|the\s+)?(.+)$",
+    re.IGNORECASE,
+)
+_KIND_WORDS = frozenset(
+    {
+        "stop",
+        "stops",
+        "place",
+        "places",
+        "sight",
+        "sights",
+        "attraction",
+        "attractions",
+        "more",
+        "another",
+        "some",
+    }
+)
+
+
+def _trim_place(phrase: str | None) -> str | None:
+    """The place words, without a trailing day ("Shibuya Sky on day 2" is "Shibuya Sky")."""
+    if not phrase:
+        return None
+    phrase = re.sub(
+        r"\s+(?:on|for|to)\s+(?:day\s*\d+.*|\d{1,2}(?:st|nd|rd|th)?\s+[a-z]+.*)$",
+        "",
+        phrase.strip(),
+        flags=re.IGNORECASE,
+    ).strip(" .,?!")
+    phrase = re.sub(r"^(?:the|a|an)\s+", "", phrase, flags=re.IGNORECASE).strip()
+    if not 2 <= len(phrase) <= 60:
+        return None
+    return phrase
+
+
+def _is_only_a_day(phrase: str) -> bool:
+    """'day 3' is which day, not the name of a place."""
+    return re.fullmatch(r"day\s*\d+", phrase.strip(), flags=re.IGNORECASE) is not None
+
+
+def _is_a_kind(phrase: str) -> bool:
+    """True for a kind of place ("a museum", "a museum near the hotel"), not a name ("Shibuya Sky")."""
+    words = re.findall(r"[a-z]+", phrase.lower())
+    if not words:
+        # No English kind word. A name in another script is still a name.
+        return not any(char.isalpha() for char in phrase)
+    kinds = _KIND_WORDS | set(_ADD_KEYWORDS)
+    first = words[0][:-1] if words[0].endswith("s") else words[0]
+    # The first word decides: "museum near home" is still a museum. "Shibuya Sky" is a name.
+    return first in kinds or all(word in kinds for word in words)
+
+
+def _named_place(message: str) -> str | None:
+    """The place the sentence names, when it names one.
+
+    "change it to shibuya sky", "have the attraction shibuya sky", "add Shibuya Sky on day 2".
+    "add a museum" names a kind, so it stays a kind.
+    """
+    text = message.strip().rstrip(" .?!")
+    phrases = [_requested_alternative_text(message)]
+    for pattern in (_AFTER_A_KIND, _AFTER_GOING, _AFTER_ADDING):
+        match = pattern.search(text)
+        if match:
+            phrases.append(match.group(1))
+    for phrase in phrases:
+        cleaned = _trim_place(phrase)
+        # "want to go Shibuya Sky" leaves "go Shibuya Sky" after the word "to". The go-pattern below has the name.
+        if cleaned and not cleaned.lower().startswith("go ") and not _is_a_kind(cleaned) and not _is_only_a_day(cleaned):
+            return cleaned
+    return None
+
+
+def _matches_name(found: str, wanted: str) -> bool:
+    """The source's name is the place they asked for, not a shorter word inside it ("Sky" for "Shibuya Sky").
+
+    One wrong letter is still the name ("shubuya sky"). A name in another script is compared as itself.
+    """
+    needle, name = _norm(wanted), _norm(found)
+    if len(needle) < 2 or len(name) < 2:
+        return False
+    if needle.isascii() and len(needle) < 3:
+        return False
+    if needle in name:
+        return True
+    if name in needle and len(name) * 2 >= len(needle):
+        return True
+    # A one-letter typo on the whole name. Short words stay exact, so "sky" is not "shibuya".
+    if (
+        needle.isascii()
+        and name.isascii()
+        and min(len(needle), len(name)) >= 6
+        and abs(len(needle) - len(name)) <= 1
+        and _letter_edits(needle, name) <= 1
+    ):
+        return True
+    return False
+
+
+def _letter_edits(left: str, right: str) -> int:
+    """How many single-character edits turn ``left`` into ``right``. Used only for a one-letter typo."""
+    previous = list(range(len(right) + 1))
+    for index, char in enumerate(left, start=1):
+        current = [index]
+        for other_index, other in enumerate(right, start=1):
+            current.append(
+                min(current[-1] + 1, previous[other_index] + 1, previous[other_index - 1] + (char != other))
+            )
+        previous = current
+    return previous[-1]
+
+
+def _other_script(text: str) -> bool:
+    """True when the name has a letter that is not Latin, so an English result can still be that place."""
+    return any(char.isalpha() and ord(char) > 127 for char in text or "")
+
+
+def _wants_a_new_stop(message: str, plan: TripPlan, draft: ChangeDraft) -> bool:
+    """A place to put in, and no stop already in the plan that the sentence is changing."""
+    if not _named_place(message):
+        return False
+    if _CHANGE_WORDS.search(message) or _REMOVE_REQUEST.search(message):
+        return False
+    return _resolve_target(plan, draft, message) is None
 
 
 _MEAL_WORDS = re.compile(
@@ -2026,18 +2277,37 @@ def _already_planned(plan: TripPlan, row: dict) -> bool:
     )
 
 
-def _fresh_places(plan: TripPlan, places: list[dict], message: str) -> list[dict]:
-    """The verified candidates an add may use: not in the plan already, and of the kind the message names."""
-    wanted = [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
+def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: str | None = None) -> list[dict]:
+    """The verified candidates an add may use: not in the plan already, and the place or kind the message names."""
+    named = (named or "").strip() or _named_place(message)
+    wanted = [] if named else [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
     pool = []
     for row in places:
         if not row.get("name") or not row.get("source_refs") or _already_planned(plan, row):
+            continue
+        if named and not any(_matches_name(label, named) for label in _row_labels(row)):
             continue
         text = f"{row.get('name', '')} {row.get('description', '')}".lower()
         if wanted and not any(word in text for word in wanted):
             continue
         pool.append(row)
+    if named and not pool and _other_script(named):
+        # The source resolved a name in another language to its own spelling ("合味道紀念館" → the museum's
+        # English name). The first hit of that named search is the place. A Latin typo does not take this path.
+        for row in places:
+            if row.get("name") and row.get("source_refs") and not _already_planned(plan, row):
+                pool.append(row)
+                break
     return pool
+
+
+def _row_labels(row: dict) -> list[str]:
+    """The source's own name and any other spelling it returned."""
+    labels = [str(row.get("name") or "")]
+    names = row.get("names")
+    if isinstance(names, dict):
+        labels.extend(str(value) for value in names.values() if value)
+    return [label for label in labels if label]
 
 
 def _added_sentence(plan: TripPlan, before: set[str]) -> str:
@@ -2534,6 +2804,19 @@ def _late_available(day: DayPlan) -> bool:
     return all(end <= item.start or start >= item.end for item in day.items if item is not dinner)
 
 
+def _open_span(day: DayPlan, duration: int = 90) -> tuple[str, str] | None:
+    """The first free stretch of ``duration`` minutes, when none of the fixed slots is open."""
+    taken = [
+        (_clock_minutes(item.start), _clock_minutes(item.end))
+        for item in day.items
+        if item.start and item.end
+    ]
+    start = _free_start(taken, _MIN_START, duration)
+    if start is None:
+        return None
+    return _hhmm(start), _hhmm(start + duration)
+
+
 def _late_slot(day: DayPlan) -> tuple[str, str] | None:
     """Use the early evening by moving dinner, instead of refusing a full day."""
     if not _late_available(day):
@@ -2546,10 +2829,12 @@ def _late_slot(day: DayPlan) -> tuple[str, str] | None:
     return "18:30", "19:30"
 
 
-def _add_attractions(plan: TripPlan, places: list[dict], message: str, *, day: int | None = None) -> list[str]:
+def _add_attractions(
+    plan: TripPlan, places: list[dict], message: str, *, day: int | None = None, named: str | None = None
+) -> list[str]:
     """Add verified candidates instead of renaming every existing stop. ``day`` (1-based) is the day they go on, when
     the edit is about one day; else the day the message names, else the day with the fewest stops."""
-    pool = _fresh_places(plan, places, message)
+    pool = _fresh_places(plan, places, message, named=named)
     if not pool:
         return []
 
@@ -2558,6 +2843,13 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str, *, day: i
         message.lower(),
     ) else 1
     day_number = day or _rule_day(message)
+    if not (day_number and 1 <= day_number <= len(plan.days)):
+        # "8 March" is a date of the trip, not "day 8".
+        named_date = date_named(message, plan)
+        day_number = next(
+            (index for index, entry in enumerate(plan.days, start=1) if named_date and entry.date == named_date),
+            None,
+        )
     preferred = plan.days[day_number - 1] if day_number and 1 <= day_number <= len(plan.days) else None
     added: list[str] = []
     for row in pool[:count]:
@@ -2609,6 +2901,48 @@ def _add_attractions(plan: TripPlan, places: list[dict], message: str, *, day: i
         day.items.sort(key=lambda entry: entry.start)
         added.append(item.name)
     return added
+
+
+_TO_DAY = re.compile(r"\b(?:to|onto|on)\s+day\s*(\d+)\b", re.IGNORECASE)
+
+
+def _move_day(message: str, told: int | None) -> int | None:
+    """The day a move ends on. "from day 1 to day 3" is day 3, even when the model returns 1."""
+    named = [int(number) for number in _TO_DAY.findall(message)]
+    return named[-1] if named else told
+
+
+def _move_named(plan: TripPlan, place: str, day_number: int | None) -> tuple[bool, str]:
+    """Move a stop already on the plan onto another day. The place is not searched for again."""
+    stayed = "I could not move that stop onto the day you named, so the itinerary stayed as it was."
+    if not place or day_number is None or not (1 <= day_number <= len(plan.days)):
+        return False, stayed
+    found = None
+    for day, item in _items_in_order(plan):
+        if item.type is ItemType.TRANSIT:
+            continue
+        if _matches_name(item.name, place):
+            found = (day, item)
+            break
+    if found is None:
+        return False, stayed
+    source, item = found
+    target = plan.days[day_number - 1]
+    if source is target:
+        return False, f"{item.name} is already on Day {day_number}, so the itinerary stayed as it was."
+    if item.locked or item.confirmed:
+        return False, f"{item.name} is locked, so the itinerary stayed as it was."
+    source.items.remove(item)
+    slot = _free_slot(target) or _late_slot(target) or _open_span(target)
+    if slot is None:
+        source.items.append(item)
+        source.items.sort(key=lambda entry: entry.start)
+        return False, f"Day {day_number} has no free time slot, so {item.name} stayed as it was."
+    item.start, item.end = slot
+    item.transfer = None
+    target.items.append(item)
+    target.items.sort(key=lambda entry: entry.start)
+    return True, f"Moved {item.name} to Day {day_number} at {item.start}."
 
 
 def _remove_attraction(plan: TripPlan, draft: ChangeDraft, message: str) -> str | None:

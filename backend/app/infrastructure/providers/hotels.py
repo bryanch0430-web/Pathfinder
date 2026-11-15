@@ -37,6 +37,25 @@ OVER_BUDGET_NOTE = (
 )
 
 
+def _hotel_query(destination: str, query: str | None) -> str:
+    asked = (query or "").strip()
+    if not asked:
+        return f"hotels in {destination}"
+    if destination.lower() in asked.lower():
+        return asked
+    return f"{asked} in {destination}"
+
+
+def _hotel_name_matches(name: str, query: str) -> bool:
+    needle = re.sub(r"[^a-z0-9]+", " ", query.lower()).strip()
+    found = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+    if len(needle) < 3 or len(found) < 3:
+        return False
+    if needle in found:
+        return True
+    return found in needle and len(found) * 2 >= len(needle)
+
+
 class SerpApiHotelSource:
     name = "serpapi-hotels"
 
@@ -53,6 +72,7 @@ class SerpApiHotelSource:
         party_size: int,
         budget: float | None,
         currency: str,
+        query: str | None = None,
     ) -> list[HotelCandidate]:
         if not self.available:
             raise ProviderNoData("SerpApi key is not configured", source=self.name)
@@ -63,7 +83,7 @@ class SerpApiHotelSource:
             source=self.name,
             params={
                 "engine": "google_hotels",
-                "q": f"hotels in {destination}",
+                "q": _hotel_query(destination, query),
                 "check_in_date": check_in.isoformat(),
                 "check_out_date": check_out.isoformat(),
                 "adults": max(party_size, 1),
@@ -183,6 +203,7 @@ class WikivoyageHotelSource:
         party_size: int,
         budget: float | None,
         currency: str,
+        query: str | None = None,
     ) -> list[HotelCandidate]:
         wikitext, title = await self._wiki._wikitext(destination)
         section = _sections(wikitext).get("sleep", "")
@@ -217,6 +238,8 @@ class WikivoyageHotelSource:
                     notes=f"Guide listing ({price_text}). Not a live rate." if price_text else "Guide listing.",
                 )
             )
+        if query:
+            out = [hotel for hotel in out if _hotel_name_matches(hotel.name, query)]
         return out[:8]
 
 

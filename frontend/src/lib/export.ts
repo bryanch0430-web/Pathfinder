@@ -120,3 +120,16 @@ export function downloadPlanMarkdown(plan: TripPlan, disclaimer = ""): void {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+/** The plan as stored, so another computer can open the same trip. */
+export function downloadPlanFile(plan: TripPlan): void {
+  const blob = new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = planFileName(plan, "json");
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

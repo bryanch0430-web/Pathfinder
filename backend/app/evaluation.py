@@ -782,7 +782,7 @@ class SandboxHotels:
     def __init__(self, destination: str):
         self.destination = destination
 
-    async def search(self, *, destination, check_in, check_out, party_size, budget, currency):
+    async def search(self, *, destination, check_in, check_out, party_size, budget, currency, query=None):
         lat, lng = BASE.get(self.destination, (35.0, 135.0))
         return [
             HotelCandidate(name=f"The {self.destination} Grand", area="Central", geo=GeoPoint(lat=lat + 0.01, lng=lng + 0.01), nightly_price=Money(amount=120, currency="USD"), price_kind=PriceKind.REFERENCE, rating=4.6, review_count=800, source_refs=[_ref(f"The {self.destination} Grand")], notes="Sandbox rate."),

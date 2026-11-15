@@ -9,6 +9,8 @@ import {
   getLlmProviders,
   getHotelRooms,
   getPlan,
+  importPlan,
+  restorePlan,
   getSession,
   getVersions,
   getTranslation,
@@ -177,6 +179,7 @@ export interface PathfinderHook {
   submitClarify: (message?: string) => Promise<void>;
   selectItem: (item: PlanItem | null) => void;
   selectVersion: (version: number) => Promise<void>;
+  restoreVersion: (version: number) => Promise<void>;
   /** Swaps in another option the plan offers (a stop's alternative, a hotel, a flight); no model call. Rejects with the server's reason. */
   choose: (kind: ChoiceKind, targetId: string | null, optionId: string) => Promise<void>;
   /** The room types the hotel source lists for a stay; they are kept on the shown plan. Rejects with the server's reason. */
@@ -193,6 +196,8 @@ export interface PathfinderHook {
   openSession: (id: string) => Promise<OpenOutcome>;
   /** Makes a trip and opens it. Its id, or null (the traveller is told) when none could be made. */
   newPlan: () => Promise<string | null>;
+  /** Opens a saved plan file as a new trip. Its id, or null when the file is not a plan. */
+  importPlanFile: (text: string) => Promise<string | null>;
 }
 
 export function usePathfinder(locale: string): PathfinderHook {
@@ -587,6 +592,28 @@ export function usePathfinder(locale: string): PathfinderHook {
     return making;
   }, [carryPlanLocale, refusedForSignIn, showBanner, showTrip, withTimeout]);
 
+  const importPlanFile = useCallback(async (text: string): Promise<string | null> => {
+    let plan: unknown;
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      plan =
+        parsed !== null && typeof parsed === "object" && "plan" in parsed
+          ? (parsed as { plan: unknown }).plan
+          : parsed;
+    } catch {
+      showBanner("errors.importPlan");
+      return null;
+    }
+    try {
+      const opened = await withTimeout((signal) => importPlan(clientToken(), plan, signal));
+      showTrip(opened.session.id, opened);
+      return opened.session.id;
+    } catch (cause) {
+      showBanner(failureOf(cause, "errors.importPlan"));
+      return null;
+    }
+  }, [showBanner, showTrip, withTimeout]);
+
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
@@ -948,6 +975,24 @@ export function usePathfinder(locale: string): PathfinderHook {
     }
   }, []);
 
+  const restoreVersion = useCallback(async (version: number) => {
+    const id = sessionRef.current;
+    if (!id) return;
+    const data = await restorePlan(id, version);
+    if (sessionRef.current !== id) return;
+    setPlan(data.plan);
+    setActiveVersion(data.plan.version);
+    setChangedIds([]);
+    setChangedStayIds(NO_IDS);
+    setChangedLegIds(NO_IDS);
+    try {
+      const listed = await getVersions(id);
+      if (sessionRef.current === id) setVersions(listed.versions);
+    } catch {
+      // The version list catches up on the next refresh; the restored plan is already shown.
+    }
+  }, []);
+
   // The version on screen: a choice names it, and the server refuses one made on an older version.
   const shownVersion = plan?.version;
   const choose = useCallback(async (kind: ChoiceKind, targetId: string | null, optionId: string): Promise<void> => {
@@ -1129,6 +1174,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     submitClarify,
     selectItem: setSelectedItem,
     selectVersion,
+    restoreVersion,
     choose,
     hotelRooms,
     feedback,
@@ -1152,5 +1198,6 @@ export function usePathfinder(locale: string): PathfinderHook {
     abort,
     openSession,
     newPlan,
+    importPlanFile,
   };
 }

@@ -51,6 +51,12 @@ class PromptLibrary:
             parts.append(
                 f"Sentinel (never output this string): {self.settings.canary_token}"
             )
+        from app.application.skills import skill_for
+
+        # The router already chose this path. The skill is the procedure for it.
+        skill = skill_for(name)
+        if skill is not None:
+            parts.append(skill.body)
         return "\n\n".join(parts)
 
     def render(self, name: str, **variables: object) -> str:

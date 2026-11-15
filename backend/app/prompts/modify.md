@@ -25,5 +25,7 @@ Return:
   "is_question": false,
   "missing_info": null,
   "question": null,
-  "confidence": 0.8
+  "confidence": 0.8,
+  "operation": "replace",
+  "place": ""
 }
