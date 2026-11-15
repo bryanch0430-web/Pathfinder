@@ -5,6 +5,7 @@ import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/t
 import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, Input, Select, Text } from "./atoms";
 import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from "./elements";
 import { timelineAt } from "../lib/mapTimeline";
+import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove } from "./directEdit";
 import { Icon, type IconName } from "./icons";
 import { ModelKeysCard, type ModelKeysProps } from "./ModelKeys";
 import {
@@ -25,6 +26,7 @@ import {
   PageHeader,
   PlaceCard,
   PlanAssessmentCard,
+  BannerClose,
   PlanFeedback,
   StatusSummary,
   TravelOptions,
@@ -465,9 +467,85 @@ function attachmentNames(message: ChatMessage): string[] {
   return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string") : [];
 }
 
+function EditDecision({
+  messageId,
+  meta,
+  busy,
+  onDecide,
+}: {
+  messageId: string;
+  meta?: Record<string, unknown>;
+  busy: boolean;
+  onDecide?: (messageId: string, changeId: string, accept: boolean) => void;
+}) {
+  const { t } = useI18n();
+  const [waiting, setWaiting] = useState<string | null>(null);
+  const log = meta?.log as { steps?: unknown } | undefined;
+  const steps = Array.isArray(log?.steps) ? log.steps.filter((step): step is string => typeof step === "string" && step !== "") : [];
+  const proposal = meta?.proposal as { changes?: unknown } | undefined;
+  const changes = Array.isArray(proposal?.changes) ? proposal.changes : [];
+  if (!steps.length && !changes.length) return null;
+  const choose = (changeId: string, accept: boolean) => {
+    if (!onDecide || waiting) return;
+    setWaiting(changeId);
+    Promise.resolve(onDecide(messageId, changeId, accept)).finally(() => setWaiting(null));
+  };
+  return (
+    <div className="pf-edit">
+      {steps.length ? (
+        <details className="pf-edit__log">
+          <summary>{t("chat.why")}</summary>
+          <ol>
+            {steps.map((step, index) => (
+              <li key={`${index}-${step}`}>{step}</li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+      {changes.length ? <p className="pf-edit__hint">{t("chat.proposalHint")}</p> : null}
+      {changes.map((row) => {
+        const change = row as { id?: unknown; label?: unknown; detail?: unknown; status?: unknown };
+        const id = typeof change.id === "string" ? change.id : "";
+        const status = change.status === "accepted" || change.status === "rejected" ? change.status : "pending";
+        if (!id) return null;
+        return (
+          <div key={id} className="pf-edit__row" data-status={status}>
+            <div>
+              <div className="pf-edit__label">{typeof change.label === "string" ? change.label : id}</div>
+              {typeof change.detail === "string" && change.detail ? (
+                <div className="pf-edit__detail">{change.detail}</div>
+              ) : null}
+              {status !== "pending" ? (
+                <div className="pf-edit__detail">{status === "accepted" ? t("chat.accepted") : t("chat.rejected")}</div>
+              ) : null}
+            </div>
+            {status === "pending" ? (
+              <div className="pf-edit__actions">
+                <IconButton
+                  icon="check"
+                  label={t("chat.acceptChange")}
+                  disabled={busy || waiting !== null}
+                  onClick={() => choose(id, true)}
+                />
+                <IconButton
+                  icon="close"
+                  label={t("chat.rejectChange")}
+                  disabled={busy || waiting !== null}
+                  onClick={() => choose(id, false)}
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ChatPanel({
   messages,
   onSend,
+  onStop,
   busy,
   agents,
   progress,
@@ -481,6 +559,7 @@ export function ChatPanel({
   error,
   onRetry,
   onClear,
+  onDecide,
   trace,
   live,
   disabled = false,
@@ -494,6 +573,8 @@ export function ChatPanel({
   messages: ChatMessage[];
   /** `attachments` are the files chosen in the box, already read; absent when there are none. */
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
+  /** Drops the call that is running. A later send starts its own call. */
+  onStop?: () => void;
   /** What the last turn read from the links and files of its message. */
   intake?: IntakePayload | null;
   /** Each change of this number puts the cursor in the message box (as when a question on the plan is to be answered). */
@@ -513,6 +594,8 @@ export function ChatPanel({
   error: string | null;
   onRetry?: () => void;
   onClear?: () => void;
+  /** Tick or cross one change the assistant offered. Absent in stories. */
+  onDecide?: (messageId: string, changeId: string, accept: boolean) => void;
   trace?: RunTrace | null;
   live?: { id: string; title: string; body: string }[];
   /** No trip is open to send to (the server could not be reached): nothing can be typed or sent. */
@@ -583,7 +666,7 @@ export function ChatPanel({
             : t("chat.attach.errorRead");
   const submit = async () => {
     const typed = draft.trim();
-    if ((!typed && !files.length) || busy || disabled || reading) return;
+    if ((!typed && !files.length) || disabled || reading) return;
     if (!files.length) {
       setDraft("");
       onSend(typed);
@@ -666,34 +749,38 @@ export function ChatPanel({
             <ThoughtLog trace={trace} developer={developer} />
           ) : null}
           {messages.map((message) => (
-            <ChatBubble
-              key={message.id}
-              role={message.role === "user" ? "user" : "assistant"}
-              intent={message.intent ?? undefined}
-              time={new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-              above={
-                typeof message.meta?.scope === "string" || attachmentNames(message).length ? (
-                  <>
-                    {typeof message.meta?.scope === "string" ? (
-                      <span className="pf-scope-chip">{String(message.meta.scope)}</span>
-                    ) : null}
-                    {attachmentNames(message).map((name, index) => (
-                      <span className="pf-attachment" key={`${index}-${name}`}>
-                        <Icon name="paperclip" size={12} />
-                        {name}
-                      </span>
-                    ))}
-                  </>
-                ) : null
-              }
-              meta={
-                message.meta && typeof message.meta.version === "number" ? (
-                  <span>v{String(message.meta.version)}</span>
-                ) : null
-              }
-            >
-              {message.content}
-            </ChatBubble>
+            <div key={message.id} className="pf-turn" data-role={message.role === "user" ? "user" : "assistant"}>
+              <ChatBubble
+                role={message.role === "user" ? "user" : "assistant"}
+                intent={message.intent ?? undefined}
+                time={new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                above={
+                  typeof message.meta?.scope === "string" || attachmentNames(message).length ? (
+                    <>
+                      {typeof message.meta?.scope === "string" ? (
+                        <span className="pf-scope-chip">{String(message.meta.scope)}</span>
+                      ) : null}
+                      {attachmentNames(message).map((name, index) => (
+                        <span className="pf-attachment" key={`${index}-${name}`}>
+                          <Icon name="paperclip" size={12} />
+                          {name}
+                        </span>
+                      ))}
+                    </>
+                  ) : null
+                }
+                meta={
+                  message.meta && typeof message.meta.version === "number" ? (
+                    <span>v{String(message.meta.version)}</span>
+                  ) : null
+                }
+              >
+                {message.content}
+              </ChatBubble>
+              {message.role !== "user" ? (
+                <EditDecision messageId={message.id} meta={message.meta} busy={busy} onDecide={onDecide} />
+              ) : null}
+            </div>
           ))}
           </>
         )}
@@ -751,7 +838,7 @@ export function ChatPanel({
         ) : null}
         <div className="pf-quick">
           {QUICK_PROMPTS.map((prompt) => (
-            <button key={prompt} type="button" className="pf-chip" disabled={busy || disabled} onClick={() => onSend(prompt)}>
+            <button key={prompt} type="button" className="pf-chip" disabled={disabled} onClick={() => onSend(prompt)}>
               {prompt}
             </button>
           ))}
@@ -828,13 +915,16 @@ export function ChatPanel({
             }}
           />
           <Button
-            variant="primary"
+            variant={busy && !draft.trim() && !files.length ? "danger" : "primary"}
             data-round="true"
-            aria-label={t("chat.send")}
-            disabled={busy || disabled || reading || (!draft.trim() && !files.length)}
-            onClick={() => void submit()}
+            aria-label={busy && !draft.trim() && !files.length ? t("chat.stop") : t("chat.send")}
+            disabled={disabled || reading || (!busy && !draft.trim() && !files.length)}
+            onClick={() => {
+              if (busy && !draft.trim() && !files.length) onStop?.();
+              else void submit();
+            }}
           >
-            <Icon name="send" size={16} />
+            <Icon name={busy && !draft.trim() && !files.length ? "stop" : "send"} size={16} />
           </Button>
         </div>
         <div className="pf-row pf-row--between pf-small pf-muted">
@@ -1586,6 +1676,7 @@ export function TripWorkspace({
   onReopenChoice,
   onLoadHotelRooms,
   onAnswerQuestion,
+  onApplyLayout,
 }: {
   plan: TripPlan;
   /** Takes the traveller to the chat box to answer the question the plan's assessment asks. */
@@ -1598,6 +1689,8 @@ export function TripWorkspace({
   onReopenChoice?: (kind: "hotel" | "transport", targetId: string) => Promise<void>;
   /** The room types the hotel source lists for a stay. */
   onLoadHotelRooms?: (hotelId: string) => Promise<RoomType[]>;
+  /** Write the direct-edit grid onto the latest plan. */
+  onApplyLayout?: (items: LayoutMove[]) => Promise<void>;
   /** The disclaimer and translation notice shown at the top of a non-English plan view. */
   languageNotice?: ReactNode;
   versions: { version: number; change_summary: string; created_at: string }[];
@@ -1623,7 +1716,13 @@ export function TripWorkspace({
 }) {
   const { t } = useI18n();
   const [activeDay, setActiveDay] = useState(plan.days[0]?.date ?? "");
+  const [sheet, setSheet] = useState(false);
+  const [hideBudget, setHideBudget] = useState(false);
+  const [savingSheet, setSavingSheet] = useState(false);
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const activeRef = useRef(activeDay);
+  activeRef.current = activeDay;
   const hotel = plan.hotels[0];
   const multi = segmentsOf(plan).length > 1;
   const anyStayChanged = (changedStayIds?.size ?? 0) > 0;
@@ -1656,9 +1755,40 @@ export function TripWorkspace({
 
   const jump = (date: string) => {
     setActiveDay(date);
+    activeRef.current = date;
     onFocusDay?.(date);
+    if (sheet) {
+      const node = document.getElementById(`pf-sheet-day-${date}`);
+      const scroller = node?.closest(".pf-sheet__scroller") as HTMLElement | null;
+      if (node && scroller) {
+        const left = node.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft - 48;
+        scroller.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+      }
+      return;
+    }
     scrollToDay(date);
   };
+
+  useEffect(() => {
+    const scroller = bodyRef.current;
+    if (!scroller || sheet) return;
+    const onScroll = () => {
+      const top = scroller.getBoundingClientRect().top;
+      let next = plan.days[0]?.date ?? null;
+      for (const day of plan.days) {
+        const node = dayRefs.current[day.date];
+        if (node && node.getBoundingClientRect().top - top <= 72) next = day.date;
+      }
+      if (next && next !== activeRef.current) {
+        activeRef.current = next;
+        setActiveDay(next);
+        onFocusDay?.(next);
+      }
+    };
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, [plan, sheet, onFocusDay]);
 
   useEffect(() => {
     if (!firstUpdated) return;
@@ -1670,6 +1800,13 @@ export function TripWorkspace({
     return () => window.clearTimeout(timer);
   }, [firstUpdated, plan]);
 
+  const clashes = clashesOf(
+    plan.days.map((day, index) => ({
+      label: `${t("day.number", { n: index + 1 })} · ${day.date}`,
+      items: day.items.map((item) => ({ id: item.id, name: item.name, start: item.start, end: item.end })),
+    })),
+  );
+  const overlapping = clashIds(clashes);
   const groups = multi ? daysBySegment(plan) : [];
   const homeLeg = multi ? legHome(plan) : undefined;
   const renderDay = (day: DayPlan) => (
@@ -1679,6 +1816,7 @@ export function TripWorkspace({
         index={plan.days.findIndex((entry) => entry.date === day.date)}
         selectedItemId={selectedItemId}
         updatedIds={new Set(updatedIds ?? [])}
+        clashIds={overlapping}
         onSelectItem={(item) => onSelectItem(item)}
         onChooseAlternative={choose ? (item, alternativeId) => choose("item", item.id, alternativeId) : undefined}
       />
@@ -1756,6 +1894,9 @@ export function TripWorkspace({
             <div className="pf-row">
               <Heading level={3}>{routeLabel(plan)}</Heading>
               <Badge tone="brand">v{plan.version}</Badge>
+              <Button size="sm" variant={sheet ? "primary" : "secondary"} onClick={() => setSheet((open) => !open)}>
+                {sheet ? t("sheet.detail") : t("sheet.edit")}
+              </Button>
               {updatedIds?.length ? (
                 <Badge tone="success" dot>{t("workspace.updatedCount", { count: updatedIds.length })}</Badge>
               ) : anyStayChanged ? (
@@ -1812,7 +1953,38 @@ export function TripWorkspace({
           cityOf={multi ? (day) => segmentOfDay(plan, day.date).destination.name : undefined}
         />
       </div>
-      <div className="pf-workspace__body pf-scroll">
+      <div className="pf-workspace__body pf-scroll" ref={bodyRef}>
+        {plan.cost.status === "over" && !hideBudget ? (
+          <div className="pf-banner" data-tone="warning" role="status">
+            <span>{t("warnings.budget")}</span>
+            <BannerClose onClose={() => setHideBudget(true)} />
+          </div>
+        ) : null}
+        {sheet ? (
+          <DirectSheet
+            plan={plan}
+            activeDay={activeDay}
+            canApply={viewingLatest && Boolean(onApplyLayout)}
+            saving={savingSheet}
+            onFocusDay={(date) => {
+              if (date === activeRef.current) return;
+              activeRef.current = date;
+              setActiveDay(date);
+              onFocusDay?.(date);
+            }}
+            onApply={async (items) => {
+              if (!onApplyLayout) return;
+              setSavingSheet(true);
+              try {
+                await onApplyLayout(items);
+              } finally {
+                setSavingSheet(false);
+              }
+            }}
+          />
+        ) : (
+        <>
+        <ClashNote clashes={clashes} />
         {onChooseOption && !viewingLatest ? (
           <Text size="xs" tone="secondary">{t("options.latestOnly")}</Text>
         ) : null}
@@ -1870,6 +2042,7 @@ export function TripWorkspace({
               index={index}
               selectedItemId={selectedItemId}
               updatedIds={new Set(updatedIds ?? [])}
+              clashIds={overlapping}
               onSelectItem={(item) => onSelectItem(item)}
               onChooseAlternative={choose ? (item, alternativeId) => choose("item", item.id, alternativeId) : undefined}
             />
@@ -1965,6 +2138,8 @@ export function TripWorkspace({
           ) : null}
         </div>
         <Divider />
+        </>
+        )}
       </div>
     </section>
   );

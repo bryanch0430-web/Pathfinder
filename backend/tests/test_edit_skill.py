@@ -7,6 +7,7 @@ from app.application.modification import (
     _edit_operation,
     _move_day,
     _move_named,
+    _replace_target,
     _search_extra,
     _skill_operation,
     _stated_move,
@@ -85,6 +86,35 @@ def test_moving_shibuya_sky_from_day_8_to_day_2_reads_the_plan() -> None:
     assert "Day 2" in sentence
     assert any(item.name == "Shibuya Sky" for item in plan.days[1].items)
     assert all(item.name != "Shibuya Sky" for item in plan.days[7].items)
+
+
+def test_change_to_a_cheaper_place_is_not_the_name_of_a_place() -> None:
+    message = "change to anoter cheaper place"
+    plan = make_plan(days=1, with_tickets=False)
+    meal = next(item for item in plan.days[0].items if item.type.value == "meal")
+    meal.name = "Ivy Place"
+    meal.price_level = "JPY 2000-6000"
+    operation, place = _edit_operation(
+        ChangeDraft(operation="replace", place="anoter cheaper place", confidence=0.9),
+        plan,
+        message,
+    )
+    assert (operation, place) == ("replace", "")
+    assert _search_extra(message, place="anoter cheaper place") is None
+    replaced = _replace_target(
+        plan,
+        [],
+        [
+            {"name": "Dear Cafe", "price_level": "JPY 4000-8000"},
+            {"name": "Morning Bowl", "price_level": "JPY 800-1500"},
+        ],
+        (plan.days[0], meal),
+        message,
+        distance_aware=False,
+        cheaper=True,
+    )
+    assert replaced
+    assert meal.name == "Morning Bowl"
 
 
 def test_a_day_trip_with_no_origin_does_not_search_for_a_hotel_or_a_flight() -> None:

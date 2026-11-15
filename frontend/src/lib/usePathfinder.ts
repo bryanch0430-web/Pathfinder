@@ -10,6 +10,8 @@ import {
   getLlmProviders,
   getHotelRooms,
   getPlan,
+  applyLayout,
+  decideProposal,
   importPlan,
   restorePlan,
   getSession,
@@ -273,6 +275,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [ready, setReady] = useState(false);
   const [opening, setOpening] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // Bumped when a turn is stopped or replaced, so the old stream cannot clear the new one's busy flag.
+  const turnGen = useRef(0);
   const sessionRef = useRef<string | null>(null);
   // Every open, new trip and reload takes the next number, and only the latest is shown when its answer
   // arrives: the traveller's last click wins, whatever order the answers come back in.
@@ -759,8 +763,16 @@ export function usePathfinder(locale: string): PathfinderHook {
   const send = useCallback(
     async (message: string, attachments?: ChatAttachment[]) => {
       const id = sessionRef.current;
-      const { busy, plan, selectedItem } = shownRef.current;
-      if (!id || busy) return;
+      const { plan, selectedItem } = shownRef.current;
+      if (!id) return;
+      // A message sent while one is running stops that POST first. The server drops its lock when the
+      // connection closes, and this call starts without waiting for the old repair to finish.
+      if (shownRef.current.busy || abortRef.current) {
+        turnGen.current += 1;
+        abortRef.current?.abort();
+        abortRef.current = null;
+      }
+      const generation = ++turnGen.current;
       shownRef.current.busy = true;
       setBusy(true);
       clearBanner();
@@ -826,12 +838,13 @@ export function usePathfinder(locale: string): PathfinderHook {
             scope_item_id: selectedItem?.id ?? null,
             scope_label: scopeLabel || null,
             developer: readStoredValue("developer") === "1",
+            review: true,
             ...(attachments?.length ? { attachments } : {}),
           },
           {
             onEvent: (event, data) => {
-              // Another trip was opened since this turn began: its events are not for this view.
-              if (sessionRef.current !== id) return;
+              // A stopped or replaced turn, or another trip, must not write into the view.
+              if (turnGen.current !== generation || controller.signal.aborted || sessionRef.current !== id) return;
               if (event === "intake") setIntake(data as unknown as IntakePayload);
               if (event === "route") setRoute(data as unknown as RoutePayload);
               if (event === "locale" && isPlanLocale(data.plan_locale)) {
@@ -876,6 +889,36 @@ export function usePathfinder(locale: string): PathfinderHook {
                   );
                 }
               }
+              if (event === "proposal") {
+                const messageId = String(data.message_id ?? "");
+                const extra = { proposal: data.proposal, log: data.log };
+                setMessages((current) => {
+                  const index = streamingId
+                    ? current.findIndex((item) => item.id === streamingId || item.id === messageId)
+                    : current.findIndex((item) => item.id === messageId);
+                  if (index === -1) {
+                    return [
+                      ...current,
+                      {
+                        id: messageId || `stream-${Date.now()}`,
+                        role: "assistant",
+                        content: "",
+                        created_at: new Date().toISOString(),
+                        meta: extra,
+                      },
+                    ];
+                  }
+                  const item = current[index];
+                  const next = current.slice();
+                  next[index] = {
+                    ...item,
+                    id: messageId || item.id,
+                    meta: { ...(item.meta ?? {}), ...extra },
+                  };
+                  return next;
+                });
+                if (messageId) streamingId = messageId;
+              }
               if (event === "plan") {
                 setPlan(data.plan as unknown as TripPlan);
                 const diff = (data.diff ?? []) as PlanDiffEntry[];
@@ -918,21 +961,19 @@ export function usePathfinder(locale: string): PathfinderHook {
           controller.signal,
         );
       } catch (cause) {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && turnGen.current === generation) {
           const failure = await failureOfCall(cause, "errors.turn");
-          if (!controller.signal.aborted) failTurn(failure);
+          if (!controller.signal.aborted && turnGen.current === generation) failTurn(failure);
         }
       } finally {
-        // A newer stream (in the trip opened since) owns the busy state and the controller.
-        const superseded = abortRef.current !== null && abortRef.current !== controller;
-        if (!superseded) {
+        // A newer message or a stop already owns the view.
+        if (turnGen.current === generation) {
           abortRef.current = null;
           shownRef.current.busy = false;
           setBusy(false);
           setProgress(100);
+          if (!controller.signal.aborted && sessionRef.current === id) await refresh();
         }
-        // An aborted stream means the view moved on; there is nothing of this trip to reload.
-        if (!controller.signal.aborted && sessionRef.current === id) await refresh();
       }
     },
     [adoptPlanLocale, clearBanner, failureOfCall, locale, refresh, showBanner],
@@ -1000,6 +1041,48 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   // The version on screen: a choice names it, and the server refuses one made on an older version.
   const shownVersion = plan?.version;
+  const saveLayout = useCallback(async (items: { id: string; day: number; start: string; end: string }[]) => {
+    const id = sessionRef.current;
+    if (!id) return;
+    try {
+      const result = await applyLayout(id, items);
+      if (sessionRef.current !== id) return;
+      setPlan(result.plan);
+      setActiveVersion(result.plan.version);
+      try {
+        const listed = await getVersions(id);
+        if (sessionRef.current === id) setVersions(listed.versions);
+      } catch {
+        // The version list catches up on the next refresh; the plan is already shown.
+      }
+    } catch (cause) {
+      const failure = await failureOfCall(cause, "errors.layout");
+      if (sessionRef.current === id) showBanner(failure);
+      throw cause;
+    }
+  }, [failureOfCall, showBanner]);
+
+  const decideChange = useCallback(async (messageId: string, changeId: string, accept: boolean) => {
+    const id = sessionRef.current;
+    if (!id) return;
+    try {
+      const result = await decideProposal(id, messageId, changeId, accept);
+      if (sessionRef.current !== id) return;
+      setPlan(result.plan);
+      setActiveVersion(result.plan.version);
+      setMessages((current) => current.map((item) => (item.id === result.message.id ? result.message : item)));
+      try {
+        const listed = await getVersions(id);
+        if (sessionRef.current === id) setVersions(listed.versions);
+      } catch {
+        // The version list catches up on the next refresh; the plan is already shown.
+      }
+    } catch (cause) {
+      const failure = await failureOfCall(cause, "errors.proposal");
+      if (sessionRef.current === id) showBanner(failure);
+    }
+  }, [failureOfCall, showBanner]);
+
   const choose = useCallback(async (kind: ChoiceKind, targetId: string | null, optionId: string, lock = false): Promise<void> => {
     const id = sessionRef.current;
     if (!id) return;
@@ -1108,7 +1191,14 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [clearBanner, failureOfCall, showBanner]);
 
   const abort = useCallback(() => {
+    turnGen.current += 1;
     abortRef.current?.abort();
+    abortRef.current = null;
+    shownRef.current.busy = false;
+    setBusy(false);
+    setAgents({});
+    setProgress(0);
+    setProgressMessage("");
   }, []);
 
   const scrapTrip = useCallback(async (again?: () => Promise<unknown>): Promise<ScrapOutcome> => {
@@ -1198,6 +1288,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     saveContext,
     generate,
     send,
+    decideChange,
+    applyLayout: saveLayout,
     setClarifyValue: (slot, value) => setClarifyValues((current) => ({ ...current, [slot]: value })),
     submitClarify,
     selectItem: setSelectedItem,

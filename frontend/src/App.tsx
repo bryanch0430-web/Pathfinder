@@ -594,6 +594,7 @@ export default function App() {
                   onClarifyChange={pf.setClarifyValue}
                   onClarifySubmit={(message) => void pf.submitClarify(message)}
                   onSend={(message, attachments) => void pf.send(message, attachments)}
+                  onStop={pf.abort}
                   intake={pf.intake}
                   focusSignal={composerFocus}
                   scope={scope}
@@ -605,6 +606,7 @@ export default function App() {
                   onDraftChange={pf.setDraft}
                   onRetry={() => void pf.retry()}
                   onClear={() => void pf.clearChat()}
+                  onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
                   trace={pf.trace}
                   live={pf.live}
                 />
@@ -655,6 +657,7 @@ export default function App() {
                   onLockChoice={pf.lockChoice}
                   onReopenChoice={pf.reopenChoice}
                   onLoadHotelRooms={pf.hotelRooms}
+                  onApplyLayout={pf.applyLayout}
                   onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
                 />
               ) : (

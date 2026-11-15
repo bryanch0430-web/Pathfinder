@@ -137,7 +137,7 @@ OUTCOMES = [
         "Replace this with kiyomizu dera",
         "Gion",
         None,
-        "Kiyomizu-dera is already in the plan on Day 1 at 09:00, so it cannot be added twice.",
+        "Kiyomizu-dera is already in the plan on Day 1 at 15:00, so it cannot be added twice.",
         id="a stop that is already in the plan",
     ),
     pytest.param(

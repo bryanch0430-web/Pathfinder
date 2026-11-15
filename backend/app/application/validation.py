@@ -61,7 +61,7 @@ def validate_plan(plan: TripPlan, settings: Settings) -> list[str]:
                 errors.append(f"{item.name}: attraction without a source")
             if item.type.value == "attraction" and not item.geo:
                 errors.append(f"{item.name}: attraction without coordinates")
-        # A day whose stops overlap cannot be read back from the store (DayPlan refuses it).
+        # Overlapping stops are kept. The line is a warning for the caller; loading the plan does not refuse it.
         ordered = sorted(day.items, key=lambda item: item.start)
         for previous, current in zip(ordered, ordered[1:]):
             if current.start < previous.end:

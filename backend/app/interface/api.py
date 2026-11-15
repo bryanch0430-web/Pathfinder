@@ -198,6 +198,8 @@ class ChatRequest(BaseModel):
     scope_label: str | None = None
     #: When true, the trace event includes each model's reasoning text.
     developer: bool = False
+    #: When true, an edit is listed in the chat and written only after the traveller accepts it.
+    review: bool = False
     #: PDFs or pictures to read with the message (the intake step); more than the limit is refused.
     attachments: list[AttachmentIn] = Field(default_factory=list, max_length=5)
 
@@ -239,6 +241,26 @@ class FeedbackRequest(BaseModel):
     stars: int | None = Field(default=None, ge=1, le=5)
     reason_code: str = Field(default="", max_length=REASON_MAX_LENGTH)
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
+
+
+class LayoutMove(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    day: int = Field(ge=1, le=60)
+    start: str = Field(min_length=4, max_length=5)
+    end: str = Field(min_length=4, max_length=5)
+
+
+class LayoutRequest(BaseModel):
+    """The stops the direct-edit grid moved or retimed."""
+
+    items: list[LayoutMove] = Field(max_length=200)
+
+
+class ProposalDecision(BaseModel):
+    """Accept or reject one change the last edit offered."""
+
+    change_id: str = Field(min_length=1, max_length=80)
+    accept: bool
 
 
 class ChoiceRequest(BaseModel):
@@ -782,6 +804,88 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plan = tidy_data_gaps(restored, drop_edit_gaps=True)
         return {"plan": plan.model_dump(mode="json")}
 
+    @app.post("/api/journeys/{session_id}/layout")
+    async def apply_direct_edit(session_id: str, payload: LayoutRequest, request: Request) -> dict[str, Any]:
+        """Write the grid's days and times onto the latest plan."""
+        from app.application.proposals import apply_layout
+
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        try:
+            updated = apply_layout(plan, [item.model_dump() for item in payload.items])
+        except ValueError:
+            raise HTTPException(status_code=422, detail="That edit does not fit this plan.") from None
+        if updated is not plan:
+            try:
+                c.store.save_plan(updated, updated.change_summary)
+            except PlanConflict as exc:
+                raise HTTPException(
+                    status_code=409, detail="The plan changed meanwhile; reload it and edit again."
+                ) from exc
+        shown = tidy_data_gaps(updated, drop_edit_gaps=True)
+        return {"plan": shown.model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/proposals/{message_id}")
+    async def decide_proposal(
+        session_id: str, message_id: str, payload: ProposalDecision, request: Request
+    ) -> dict[str, Any]:
+        """Write one offered change into the current plan, or leave the plan and mark that change rejected."""
+        from app.application.proposals import apply_change, mark_decision
+
+        c = container(request)
+        require_session(c, request, session_id)
+        message = next(
+            (row for row in c.store.list_messages(session_id, limit=200) if row.id == message_id),
+            None,
+        )
+        if message is None:
+            raise HTTPException(status_code=404, detail="That reply is not in this trip.")
+        proposal = message.meta.get("proposal") if isinstance(message.meta, dict) else None
+        changes = list((proposal or {}).get("changes") or [])
+        change = next((row for row in changes if row.get("id") == payload.change_id), None)
+        if change is None or change.get("status") != "pending":
+            raise HTTPException(status_code=409, detail="That change is no longer waiting.")
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        if payload.accept:
+            try:
+                updated = apply_change(plan, change)
+            except (ValueError, ValidationError):
+                raise HTTPException(status_code=422, detail="That change no longer fits this plan.") from None
+            context = c.store.get_context(session_id)
+            if context is not None:
+                try:
+                    # ponytail: a cost the planner cannot recompute keeps the total the plan already had
+                    updated.cost = c.turn_service.modify_path.planner._cost(
+                        context, updated.first_stay, updated.tickets, updated.dates
+                    )
+                except Exception:
+                    pass
+            try:
+                c.store.save_plan(updated, updated.change_summary)
+            except PlanConflict as exc:
+                raise HTTPException(
+                    status_code=409, detail="The plan changed meanwhile; reload it and choose again."
+                ) from exc
+        else:
+            updated = plan
+        mark_decision(changes, payload.change_id, payload.accept)
+        verb = "Accepted" if payload.accept else "Rejected"
+        prior = list((message.meta.get("log") or {}).get("steps") or [])
+        message.meta["proposal"] = {"changes": changes}
+        message.meta["log"] = {
+            "ok": payload.accept,
+            "reason": f"{verb}: {change.get('label') or 'a change'}",
+            "steps": [*prior, f"{verb}: {change.get('label') or 'a change'}"][:8],
+        }
+        c.store.add_message(message)
+        shown = tidy_data_gaps(updated, drop_edit_gaps=True)
+        return {"plan": shown.model_dump(mode="json"), "message": message.model_dump(mode="json")}
+
     @app.post("/api/journeys/import")
     async def import_plan(payload: ImportPlanRequest, request: Request) -> dict[str, Any]:
         """Open a saved plan file as a new trip on this computer."""
@@ -1268,6 +1372,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 scope_item_id=payload.scope_item_id,
                 scope_label=payload.scope_label,
                 developer=payload.developer,
+                review=payload.review,
                 attachments=attachments,
                 on_wait=deadline.pause,
                 on_start=deadline.restart,

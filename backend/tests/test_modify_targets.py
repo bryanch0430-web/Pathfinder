@@ -285,6 +285,9 @@ def test_requested_alternative_takes_the_last_marker() -> None:
     )
     assert _requested_alternative_text("swap the hotel for something quieter") is None
     assert _requested_alternative_text("make it cheaper") is None
+    assert _requested_alternative_text("change to anoter cheaper place") is None
+    assert _requested_alternative_text("change to another cheaper place") is None
+    assert _requested_alternative_text("change it to disneyland") == "disneyland"
 
 
 def test_requested_alternative_finds_an_existing_stop(settings: Settings) -> None:

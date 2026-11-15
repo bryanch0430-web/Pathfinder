@@ -42,6 +42,7 @@ from app.application.language import chinese_input_reply, refresh_reply, set_lan
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
 from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
+from app.application.proposals import decision_record, proposal_changes
 from app.application.planning import PlanPath
 from app.application.router import (
     MODIFY_VERBS,
@@ -241,6 +242,7 @@ class TurnService:
         scope_label: str | None = None,
         developer: bool = False,
         attachments: Sequence[Attachment] = (),
+        review: bool = False,
         on_wait: Callable[[], None] | None = None,
         on_start: Callable[[], None] | None = None,
         on_segments: Callable[[int], None] | None = None,
@@ -261,6 +263,7 @@ class TurnService:
                     scope_label=scope_label,
                     developer=developer,
                     attachments=attachments,
+                    review=review,
                     on_segments=on_segments,
                 )
                 async with aclosing(turn) as events:
@@ -277,6 +280,7 @@ class TurnService:
         scope_label: str | None = None,
         developer: bool = False,
         attachments: Sequence[Attachment] = (),
+        review: bool = False,
         on_segments: Callable[[int], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         session = self.store.get_session(session_id)
@@ -673,6 +677,7 @@ class TurnService:
                     scope_item_id=scope_item_id,
                     history=history,
                     answering=answering,
+                    review=review,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -1016,6 +1021,7 @@ class TurnService:
         scope_item_id: str | None = None,
         history: Sequence[Message] = (),
         answering: EditQuestion | None = None,
+        review: bool = False,
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
@@ -1094,6 +1100,39 @@ class TurnService:
         if updated.assessment is not None and not unchanged:
             # The assessment follows the edit, from the plan's own checks (no further research here).
             updated.assessment = reassess(updated, context, self.settings)
+        offers = list(getattr(result, "offers", None) or [])
+        pending = offers if review and not diff else proposal_changes(plan, updated) if review and diff else []
+        summary = (
+            "This edit is ready and is not written yet."
+            if pending and not offers
+            else updated.change_summary
+        )
+        record = decision_record(message, summary, pending, held=bool(pending)) if review else None
+        if record is not None:
+            tracer.metadata["edit_steps"] = record["steps"]
+        if pending:
+            # The web asked to wait. The edited plan stays in the reply until a change is ticked.
+            prose = (
+                f"{updated.change_summary} Tick one suggestion to apply it, or cross it to leave the plan as it is."
+                if offers
+                else f"{summary} Nothing is written until you accept a change."
+            )
+            reply = Message(
+                session_id=session_id,
+                role="assistant",
+                content=prose,
+                intent=Intent.MODIFY,
+                meta={"proposal": {"changes": pending}, "log": record, "diff": []},
+            )
+            self.store.add_message(reply)
+            yield TurnEvent(event="token", data={"text": prose})
+            yield TurnEvent(
+                event="proposal",
+                data={"message_id": reply.id, "proposal": {"changes": pending}, "log": record},
+            )
+            yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
+            self.store.touch_session(session_id)
+            return
         self.store.save_plan(updated, None if unchanged else updated.change_summary, replace=unchanged)
         description = _describe_diff(diff, updated)
         if diff:
@@ -1114,16 +1153,20 @@ class TurnService:
             # Nothing changed. Do not claim a version: say why, using the reason
             # the edit recorded (a data gap, an unmatched stop, a duplicate).
             prose = updated.change_summary or description or "Nothing in the plan matched that request."
-        self.store.add_message(
-            Message(
-                session_id=session_id,
-                role="assistant",
-                content=prose,
-                intent=Intent.MODIFY,
-                meta={"diff": diff},
-            )
+        reply = Message(
+            session_id=session_id,
+            role="assistant",
+            content=prose,
+            intent=Intent.MODIFY,
+            meta={"diff": diff, **({"log": record} if record is not None else {})},
         )
+        self.store.add_message(reply)
         yield TurnEvent(event="token", data={"text": prose})
+        if record is not None:
+            yield TurnEvent(
+                event="proposal",
+                data={"message_id": reply.id, "proposal": {"changes": []}, "log": record},
+            )
         yield TurnEvent(
             event="plan",
             data={"plan": updated.model_dump(mode="json"), "diff": diff},
@@ -1500,7 +1543,11 @@ def _why_lines(tracer: Any) -> list[str]:
         if dropped:
             sentence += " Dropped " + ", ".join(str(item) for item in dropped[:4]) + " because the page was not about this city or this question."
         lines.append(sentence)
-    return lines[:8]
+    for line in (getattr(tracer, "metadata", {}) or {}).get("edit_steps") or []:
+        text = str(line).strip()
+        if text and text not in lines:
+            lines.append(text)
+    return lines[:12]
 
 
 def _route_data(decision: RouteDecision, settings: Settings) -> dict[str, Any]:

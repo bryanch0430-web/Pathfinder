@@ -78,6 +78,29 @@ export function createSession(clientToken: string, signal?: AbortSignal): Promis
   return request("/api/journeys", { method: "POST", body: JSON.stringify({ client_token: clientToken }), signal });
 }
 
+/** Write the direct-edit grid onto the latest plan. `day` is 1-based. */
+export function applyLayout(
+  sessionId: string,
+  items: { id: string; day: number; start: string; end: string }[],
+): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/layout`, {
+    method: "POST",
+    body: JSON.stringify({ items }),
+  });
+}
+
+export function decideProposal(
+  sessionId: string,
+  messageId: string,
+  changeId: string,
+  accept: boolean,
+): Promise<{ plan: TripPlan; message: ChatMessage }> {
+  return request(`/api/journeys/${sessionId}/proposals/${messageId}`, {
+    method: "POST",
+    body: JSON.stringify({ change_id: changeId, accept }),
+  });
+}
+
 /** Open a saved plan file as a new trip. `plan` is the JSON from the plan-file download. */
 export function importPlan(clientToken: string, plan: unknown, signal?: AbortSignal): Promise<SessionState> {
   return request("/api/journeys/import", {
@@ -541,6 +564,8 @@ export async function streamChat(
     scope_item_id?: string | null;
     scope_label?: string | null;
     developer?: boolean;
+    /** Edits come back as ticks in the chat. The plan changes only after one is accepted. */
+    review?: boolean;
     /** Images and PDFs sent with the message; `data` is base64 without a `data:` prefix. */
     attachments?: ChatAttachment[];
   },

@@ -45,6 +45,8 @@ from app.application.router import (
 )
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
+from app.application.proposals import locks_to_one_row, swap_suggestions
+from app.application.ranking import _price_level
 from app.application.route_edit import MULTI_CITY_RULES, RouteChange, SplitStay, route_differs, rule_route_change
 from app.application.trip_rules import blocked_dates, travel_windows
 from app.application.validation import diff_plans, is_edit_outcome, repair_plan, tidy_data_gaps, validate_plan
@@ -207,12 +209,14 @@ class EditResult(tuple):
     ``scope`` is "stop" (one row, selected or named), "day" (more stops on one day) or "plan"; ``day`` is the day of a
     day-scoped edit (1-based) and ``selected`` says whether the stop or day came from the stop selected on the page.
     ``asks`` is set when the edit changed nothing because it needs a fact first: the plan is the one it read, with the
-    question as its change summary, so a caller that does not ask still shows the question as the reply."""
+    question as its change summary, so a caller that does not ask still shows the question as the reply.
+    ``offers`` are swaps for a move whose day has no free time. They are not applied."""
 
     scope: str
     day: int | None
     selected: bool
     asks: EditQuestion | None
+    offers: list
 
     def __new__(
         cls,
@@ -223,9 +227,11 @@ class EditResult(tuple):
         day: int | None = None,
         selected: bool = False,
         asks: EditQuestion | None = None,
+        offers: list | None = None,
     ):
         result = super().__new__(cls, (plan, diff))
         result.scope, result.day, result.selected, result.asks = scope, day, selected, asks
+        result.offers = list(offers or [])
         return result
 
 
@@ -826,12 +832,21 @@ class ModifyPath:
                 if row:
                     day.weather = WeatherDay.model_validate(row)
 
+        move_offers: list[dict] = []
         if skill_op == "move":
-            moved, sentence = _move_named(updated, skill_place, _move_day(message, draft.target_day))
+            day_number = _move_day(message, draft.target_day)
+            moved, sentence = _move_named(updated, skill_place, day_number)
             if moved:
                 draft.description = sentence
             else:
                 updated.data_quality.gaps.append(_gap("attractions", sentence))
+                if day_number and "no free time slot" in sentence:
+                    found = next(
+                        (item for _, item in updated.iter_items() if _matches_name(item.name, skill_place)),
+                        None,
+                    )
+                    if found is not None:
+                        move_offers = swap_suggestions(updated, found, day_number)
         elif shape.requested and referred is None:
             draft.description = shape.reason or apply_plan_shape(updated, shape)
         elif AgentName.ATTRACTION in agent_names:
@@ -915,6 +930,8 @@ class ModifyPath:
                         )
                     else:
                         wanted_text = named or _requested_alternative_text(message)
+                        if wanted_text and _is_a_wish(wanted_text):
+                            wanted_text = None
                         cuisine = _cuisine(message)
                         replaced = _replace_target(
                             updated,
@@ -925,6 +942,7 @@ class ModifyPath:
                             distance_aware=_FAR_MOTION.search(message) is not None,
                             prefer_name=wanted_text,
                             cuisine=cuisine,
+                            cheaper=cheaper,
                         )
                         closure = _CLOSURE.search(message) is not None
                         # The search the cap refused found nothing because it was never made.
@@ -953,11 +971,14 @@ class ModifyPath:
                             if cuisine:
                                 outcome = f"No verified {cuisine} restaurant came back, so {before} stayed as it was."
                             else:
-                                detail = (
-                                    f"I could not find a verified {wanted_text!r} in the configured sources"
-                                    if wanted_text
-                                    else f"No verified alternative for {before!r} came back from the configured sources"
-                                )
+                                if cheaper and not wanted_text:
+                                    detail = f"No cheaper verified place came back for {before}"
+                                elif wanted_text:
+                                    detail = f"I could not find a verified {wanted_text!r} in the configured sources"
+                                else:
+                                    detail = (
+                                        f"No verified alternative for {before!r} came back from the configured sources"
+                                    )
                                 outcome = f"{detail}, so that stop stayed as it was."
                             updated.data_quality.gaps.append(_gap("attractions", outcome))
 
@@ -983,7 +1004,9 @@ class ModifyPath:
                 updated.origin = context.origin.strip()
             draft.description = _details_sentence(context, form_changes)
 
-        if referred:
+        # A named stop limits the edit to that row. A move is about two days: the same lock puts the stop back
+        # on the day it left, and the plan then looks as if nothing matched.
+        if referred and locks_to_one_row(skill_op):
             keep_only(old_plan, updated, referred)
             draft.description = _one_item_summary(old_plan, updated, referred)
         if _first_flight(old_plan) != _first_flight(updated):
@@ -1069,11 +1092,15 @@ class ModifyPath:
             # Said where the traveller lives while asking for something else: the home is kept as a note as well.
             _note_home(updated, noted_home)
         # The scope this edit really used, for the account of the decision: one row, one day, or the plan.
-        if referred:
-            return EditResult(updated, diff, scope="stop", selected=referred == scope_item_id)
+        if referred and locks_to_one_row(skill_op):
+            return EditResult(
+                updated, diff, scope="stop", selected=referred == scope_item_id, offers=move_offers
+            )
         if day_scope is not None and more_stops:
-            return EditResult(updated, diff, scope="day", day=day_scope, selected=day_from_selection)
-        return EditResult(updated, diff)
+            return EditResult(
+                updated, diff, scope="day", day=day_scope, selected=day_from_selection, offers=move_offers
+            )
+        return EditResult(updated, diff, offers=move_offers)
 
     def _grander_stay(self, plan: TripPlan, candidates: list[dict], context: TripContext) -> HotelStay | None:
         """The stay of a higher class than the plan's (a higher rating, else a higher rate) that the budget can still
@@ -1237,7 +1264,7 @@ def _requested_alternative_text(message: str) -> str | None:
     if best is None:
         return None
     phrase = cleaned[best[0] + best[1] :].strip(" .,?!")
-    if not phrase:
+    if not phrase or _is_a_wish(phrase):
         return None
     # "something quieter", "anything else" are preferences, not place names, and "closer to the hotel" is a distance.
     if phrase.lower().startswith(
@@ -1245,6 +1272,58 @@ def _requested_alternative_text(message: str) -> str | None:
     ):
         return None
     return phrase
+
+
+_WISH_FILLER = frozenset(
+    {"a", "an", "the", "place", "places", "spot", "spots", "stop", "stops", "option", "options", "one", "more"}
+)
+_WISH_WORDS = frozenset(
+    {
+        "another",
+        "other",
+        "others",
+        "else",
+        "different",
+        "somewhere",
+        "something",
+        "some",
+        "any",
+        "anything",
+        "cheap",
+        "cheaper",
+        "cheapest",
+        "better",
+        "nicer",
+        "quiet",
+        "quieter",
+        "closer",
+        "nearer",
+        "nearby",
+        "new",
+    }
+)
+
+
+def _close_wish(word: str) -> bool:
+    """One wrong letter in a request word: "anoter" is "another", not the name of a place."""
+    return any(
+        len(known) >= 6 and abs(len(known) - len(word)) <= 1 and _letter_edits(word, known) <= 1
+        for known in _WISH_WORDS
+    )
+
+
+def _is_a_wish(phrase: str) -> bool:
+    """True when the words are a request ("another cheaper place"), not a place they named."""
+    words = re.findall(r"[a-z]+", phrase.lower())
+    if not words:
+        return False
+
+    def wish(word: str) -> bool:
+        return word in _WISH_WORDS or word in _WISH_FILLER or _close_wish(word)
+
+    if not all(wish(word) for word in words):
+        return False
+    return any(word not in _WISH_FILLER for word in words)
 
 
 def _requested_alternative(plan: TripPlan, message: str) -> tuple[DayPlan, PlanItem] | None:
@@ -1415,6 +1494,20 @@ def _apply_candidate(item: PlanItem, row: dict, day_date: date | None = None) ->
     item.tags = (row.get("tags") or [])[:4]
 
 
+def _comparable_price(value: object) -> tuple[str, float] | None:
+    """A price two stops can be compared by: a source's price level, or the first amount in a range."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    level = _price_level(text)
+    if level is not None:
+        return ("level", level)
+    numbers = re.findall(r"\d[\d,]*", text)
+    if not numbers:
+        return None
+    return ("amount", float(numbers[0].replace(",", "")))
+
+
 def _replace_target(
     plan: TripPlan,
     places: list[dict],
@@ -1425,15 +1518,31 @@ def _replace_target(
     distance_aware: bool,
     prefer_name: str | None = None,
     cuisine: str | None = None,
+    cheaper: bool = False,
 ) -> bool:
     day, item = target
     if item.locked or item.confirmed:
         return False
     used = {other.name for _, other in _items_in_order(plan)}
     pool = _candidate_pool(item, places, meals, used)
-    if prefer_name:
+    if prefer_name and not _is_a_wish(prefer_name):
         # The place they named, or nothing. A nearby unused row is not a stand-in for it.
         pool = [row for row in pool if _matches_name(str(row.get("name") or ""), prefer_name)]
+    if cheaper and not (prefer_name and not _is_a_wish(prefer_name)):
+        # "change to a cheaper place": a lower price a source stated, not the words of the request.
+        current = _comparable_price(item.price_level)
+        if current is not None:
+            lower = [
+                row
+                for row in pool
+                if (price := _comparable_price(row.get("price_level") or row.get("price_range")))
+                and price[0] == current[0]
+                and price[1] < current[1]
+            ]
+            if not lower:
+                return False
+            lower.sort(key=lambda row: _comparable_price(row.get("price_level") or row.get("price_range"))[1])  # type: ignore[index]
+            pool = lower
     if not pool:
         return False
     anchor_geo = item.geo or plan.destination.geo
@@ -1486,6 +1595,8 @@ def _cuisine(message: str) -> str | None:
 
 
 def _search_extra(message: str, *, place: str | None = None, hotel: bool = False) -> dict[str, str] | None:
+    if place and _is_a_wish(place):
+        place = None
     extra: dict[str, str] = {}
     cuisine = _cuisine(message)
     if cuisine:
@@ -1547,6 +1658,9 @@ def _edit_operation(draft: ChangeDraft, plan: TripPlan, message: str) -> tuple[s
     """The operation to apply. A stop the plan already has, named with a day, is a move even when the model is unsure."""
     op = _skill_operation(draft)
     place = draft.place.strip() if op else ""
+    # "change to another cheaper place" is the request. It is not the name of a place to search for.
+    if place and _is_a_wish(place):
+        place = ""
     stated = _stated_move(plan, message)
     if stated is not None and op not in {"add", "remove"}:
         return "move", stated[0]
@@ -1639,7 +1753,13 @@ def _named_place(message: str) -> str | None:
     for phrase in phrases:
         cleaned = _trim_place(phrase)
         # "want to go Shibuya Sky" leaves "go Shibuya Sky" after the word "to". The go-pattern below has the name.
-        if cleaned and not cleaned.lower().startswith("go ") and not _is_a_kind(cleaned) and not _is_only_a_day(cleaned):
+        if (
+            cleaned
+            and not cleaned.lower().startswith("go ")
+            and not _is_a_kind(cleaned)
+            and not _is_only_a_day(cleaned)
+            and not _is_a_wish(cleaned)
+        ):
             return cleaned
     return None
 
