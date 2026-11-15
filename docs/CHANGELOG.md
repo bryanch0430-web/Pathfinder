@@ -5,9 +5,36 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
-## Unreleased
+## v1.7.0 — 2026-11-15
 
-Bring your own model key, and a local model as the last resort.
+Trips of several cities, every stay and leg a lockable choice slot, and a picture, link and rank on
+each option. Collects everything since v1.6.2.
+
+- **A trip is a route of cities.** Up to eight cities in order, each with its nights, and a one-way choice; a trip may run thirty days. Cities are planned one at a time and stitched, costed, checked and assessed as one plan. Each hop is a leg with ranked flight and ground options, the ground ones marked as estimates. A turn's deadline and tool-call cap grow with its cities, and hotel and flight results are kept for the session. A message naming several cities makes them the ordered stops; more than eight is asked about, not cut.
+- **A bare country or region asks which cities.** Four days or more for a whole country or region asks instead of planning, a trip stored for the country is planned again by city once the form names them, and cities read from shared material become stops even when the form already names a country.
+- **A choice is a slot you can lock.** Every stay, leg and airport transfer shows its options with **Lock in**, or only the locked one with **Change**, and a pill counts the choices still open and jumps to the first one. A locked leg refuses another choice until it is unlocked; a chat edit leaves a locked stay alone and says so; a route change keeps the locks it did not touch and names the ones it released. A booked flight gives airport transfers, recomputed when the flight or the stay changes. A leg under 300 km with no transit bus gets one estimated bus-or-shuttle option.
+- **Pictures, links and ranks.** Stops, meals, alternatives and stays carry a picture with its credit (Google photo through a key-holding route, Wikimedia page image, hotel thumbnail); stops, stays and transport carry Book, Website and Map links from what a source returned; options carry a rank and up to three reasons written by code.
+- **The photo route accepted no Google photo.** A Places photo resource name is about 460 characters, and the route refused anything over 300 with `422`, so every place photo showed as a broken image. The cap is now 2048 and `contracts/openapi.json` is regenerated.
+- **The traveller's profile changes the plan.** Pace, children, business and step-free needs change stops a day, hours, which places come first, stay ranking, transfers and what the assessment lists.
+- **Meals, alternatives and a refine loop.** Meals carry backup options near the day's stops; a stop, hotel or flight can be taken from the plan's options without a model call; room types open on demand; a deterministic refine loop fixes closed or mistimed stops, transfers that do not fit and a wasteful order, and reports every change.
+- **Research, intake and the whole plan.** Stay research ranks hotels against the room wish; a shared link, PDF or picture fills the form before planning; an edit or question with nothing selected is read against the whole plan, written out for the prompt and cut to fit without losing a day.
+- **Local admin mode.** `LOCAL_ADMIN=true` with `ENVIRONMENT=development` opens the app and the admin pages for a browser on the owner's machine, refusing other hosts and cross-site writes.
+- **Fixed.** A polite request to change the selected hotel changes it; a refusal only stops a swap aimed at the hotel; a Claude model that refuses a temperature is asked again without it.
+- **Bring your own model key**, which landed on 8 November and is described below; it had no version note until now.
+
+**Upgrading.** `contracts/openapi.json` changed with the photo-route cap, so a client generated from it must be
+regenerated. No other dependency is new since v1.6.2. The own-key work adds `cryptography`, which encrypts the saved keys. An existing
+`backend\.venv` does not have it, and the backend stops with an `ImportError` until it does. Run this once after
+pulling, from the repository root:
+
+```powershell
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
+On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. A virtual environment
+made with `uv` has no `pip`; there, run `uv pip install --python backend\.venv\Scripts\python.exe -r backend\requirements.txt`.
+
+### Bring your own model key
 
 - **Use your own LLM key.** Settings has a Model and API keys card for Anthropic Claude, OpenAI, Poe, xAI Grok and Google Gemini. Keys are tested before they are saved, stored encrypted, and shown only as a masked tail. A refused key (`auth`, `model`, `other`) is not saved; a rate-limited, unreachable or out-of-credit one is saved with a warning.
 - **Order of use** is the caller's chosen key, the server key, the `.env` writer key, the local model (only when reachable), then none. There is no fall-through at run time.

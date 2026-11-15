@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.7.0 | 2026-11-15 14:35 | Trips of several cities; every stay, leg and transfer is a lockable choice slot; pictures, links and ranks |
 | v1.6.2 | 2026-11-08 21:41 | Clarify answers stay in their slot; flights shape the day; far stops move |
 | v1.6.1 | 2026-11-06 18:00 | Every leg visible; Walk/Transit/Taxi; ferry, cable car, tram |
 | v1.6.0 | 2026-11-06 14:13 | Chat remembers recent turns; honest budgets; edits ask instead of refusing |
@@ -34,6 +35,30 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.7.0 — 15 November 2026, 14:35 HKT
+
+A trip may now visit several cities, every stay and every leg is a choice you can lock in place, and each option arrives with a picture, a link and a rank. This entry collects everything since v1.6.2.
+
+**A trip is a route of cities.** The trip form holds up to eight cities in order, each with its nights, and a one-way choice; a trip may run thirty days. The route step works out the nights of each city and the nearest order, then the existing pipeline plans one city at a time and the results are stitched, costed, checked and assessed as one plan. Each hop between cities is a leg with its own ranked flight and ground options, and the ground ones are marked as estimates. A turn's deadline and its tool-call cap grow with the cities it covers, and hotel and flight results are kept for the session, so planning the same route again pays for no search. A message that names several cities makes them the trip's ordered stops, and more than eight is asked about instead of cut. A bare country or region for four days or more asks which cities to visit; when the form names them, a trip stored for the whole country is planned again by city, and cities read from shared material become the trip's stops even when the form already names a country.
+
+**Every stay, leg and transfer is a choice slot.** A slot shows every option with a **Lock in** button, or only the locked one with a **Change** button, and a pill counts the choices still open and jumps to the first open one. A stay or a leg can be locked in place without a new version, and a locked leg refuses another choice until it is unlocked. A chat edit leaves a locked stay as it is and says so, and a route change keeps the locks it did not touch and names the ones it released. A booked flight now gives airport transfers between the airport and each city's stay, chosen and locked like any leg and worked out again when the flight or the stay changes. A leg under 300 km with no transit bus gets one estimated bus-or-shuttle option timed from the drive.
+
+**Options carry a picture, a link and a rank.** Stops, meals, alternatives and stays carry a picture with its credit: a Google photo through a key-holding image route, a Wikimedia page image without a key, or a hotel's thumbnail. Stops, stays and transport carry **Book**, **Website** and **Map** links built from what a source returned, never a guessed address. A stay, a stop or a leg option carries a rank and up to three reasons written by code, shown as a badge and a reason line; the stay options of a one-city trip are ranked together whether or not they name their city.
+
+The picture route used to refuse every Google photo of a real place: a Places photo resource name is about 460 characters long and the route answered `422` above 300. It now accepts up to 2048 and the shared contract is regenerated; Google serves the same photo unchanged.
+
+**The traveller's profile changes the plan.** Pace, children, business and step-free needs are read from the message or the form and change the stops a day, the hours, which places come first, the stay ranking, the transfers and what the assessment lists.
+
+**Meals, alternatives and a refine loop.** Each meal comes with its slot, its source facts and up to two backup options near that day's stops. A traveller can take another stop, hotel or flight from the plan's options without a model call, and open a hotel's room types on demand. A deterministic refine loop then checks each composed plan and each choice — closed or mistimed stops, transfers that do not fit, a wasteful order — and reports every change it made. An option found for other dates says its price for these dates was not checked.
+
+**Research, intake and the whole plan.** A stay research step ranks the found hotels against what the traveller asked of the room. A shared link, a PDF or a picture fills the trip form before planning. An edit or a question with nothing selected and no day named is read against the whole plan, which is written out for the prompt with its stay, transport, prices and ratings and cut to fit without losing a day. A plan assessment sets off further research before an open point becomes a question.
+
+**Local admin mode.** With `LOCAL_ADMIN=true` and `ENVIRONMENT=development`, a browser on the owner's own machine opens the app and every admin page without a token. It refuses other hosts and cross-site writes.
+
+**Fixed.** A polite request to change the selected hotel changes it instead of being refused as a question, and a refusal only stops a swap when it is aimed at the hotel. A Claude model that refuses a temperature is asked again without it. Bring-your-own-key support (`/api/llm/*`) landed on 8 November without a note of its own; its behaviour is described under [Use your own model key](#use-your-own-model-key).
+
+Known gaps: ground options are estimates timed from the drive, never bookings; a route change can release a lock, and the reply names each one it released; a place no source gave a picture or a link for has none, and nothing is looked up by name; the refine loop reports what it changed but does not re-rank a plan; the suite is 3,783 test functions in 199 files, and ten of them fail on this tree (see `HANDOFF.md`).
 
 ### v1.6.2 — 8 November 2026, 21:41 HKT
 

@@ -254,7 +254,9 @@ def _apply(
         if isinstance(row, dict)
     ]
     stops = [(city, nights) for city, nights in stops if named(city)]
-    if 2 <= len(stops) <= TRIP_STOPS_MAX and not context.stops and _key(context.destination) in ("", _key(stops[0][0])):
+    if 2 <= len(stops) <= TRIP_STOPS_MAX and not context.stops:
+        # The cities win over whatever the form held as a destination (a country or region, or a later city).
+        replaced = _key(context.destination) not in ("", _key(stops[0][0]))
         context.stops = [
             TripStop(
                 city=city,
@@ -264,6 +266,8 @@ def _apply(
         ]
         context.destination = stops[0][0]
         result.filled.append("destination")
+        if replaced:
+            result.filled.append("stops")
     origin = _line(draft.origin, 80)
     if named(origin) and not context.origin.strip():
         context.origin = origin

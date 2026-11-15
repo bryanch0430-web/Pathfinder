@@ -300,6 +300,47 @@ def normalise_hotel_options(plan: TripPlan) -> None:
 # --- flight ------------------------------------------------------------------
 
 
+def is_chosen(plan: TripPlan, kind: str, target_id: str | None, option_id: str) -> bool:
+    """True when ``option_id`` is already the chosen option of the slot the request names."""
+    if kind == "hotel":
+        stay = next((s for s in plan.hotels if s.id == target_id), None) if target_id else None
+        if stay is None:
+            option = next((s for s in plan.hotel_options if s.id == option_id), None)
+            stay = next((s for s in plan.hotels if s.id == option_id), None) or (
+                next(iter(plan.stays_in(option.segment_id)), None) if option is not None and option.segment_id else None
+            )
+        return stay is not None and stay.id == option_id
+    if kind in ("flight", "transport"):
+        option = next((t for t in plan.tickets if t.id == option_id), None)
+        if option is None:
+            return False
+        leg_id = plan.leg_id_of(option)
+        if target_id is not None and leg_id != target_id:
+            return False
+        return bool(option.selected)
+    return False
+
+
+def set_lock(plan: TripPlan, kind: str, target_id: str | None, locked: bool) -> str:
+    """Lock or unlock a chosen stay (``hotel``) or a leg (``transport``, ``flight``) in place; the name of what changed."""
+    if kind == "hotel":
+        stay = next((s for s in plan.hotels if s.id == target_id), None)
+        if stay is None:
+            raise ChoiceNotFound("stay not found")
+        stay.locked = locked
+        for option in plan.hotel_options:
+            if option.id == stay.id:
+                option.locked = locked
+        return stay.name
+    if kind in ("transport", "flight"):
+        leg = next((l for l in plan.legs if l.id == target_id), None)
+        if leg is None:
+            raise ChoiceNotFound("leg not found")
+        leg.locked = locked
+        return f"{leg.from_place} → {leg.to_place}"
+    raise ChoiceNotFound("only a stay or a leg can be locked")
+
+
 def _choose_flight(updated: TripPlan, option_id: str, target_id: str | None = None) -> str:
     """Choose among the options of the option's own leg; ``target_id``, when given, must be that leg."""
     option = next((ticket for ticket in updated.tickets if ticket.id == option_id), None)
@@ -309,6 +350,9 @@ def _choose_flight(updated: TripPlan, option_id: str, target_id: str | None = No
         raise ChoiceNotFound("transport option not found on that leg")
     leg = updated.options_for(updated.leg_id_of(option))
     before = next((ticket for ticket in leg if ticket.selected), leg[0] if leg else None)
+    locked_leg = next((l for l in updated.legs if l.id == updated.leg_id_of(option) and l.locked), None)
+    if locked_leg is not None and (before is None or before.id != option.id):
+        raise ChoiceRefused("That leg is locked in; press Change before choosing another.")
     for ticket in leg:
         ticket.selected = ticket.id == option.id
     updated.reservations = [row for row in updated.reservations if not row.name.startswith("Flight · ")] + _reservations(

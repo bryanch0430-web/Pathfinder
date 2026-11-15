@@ -104,6 +104,7 @@ class GoogleGeocoder:
             timezone="",
             geo=GeoPoint(lat=float(geometry["lat"]), lng=float(geometry["lng"])),
             source=self.name,
+            kind=_google_kind(row.get("types")),
         )
         _GEOCODE_CACHE[cache_key] = location
         return location
@@ -117,6 +118,31 @@ class TentativeLocation(GeoLocation):
 #: Koréa, Côte d'Ivoire (population 3,012). A small plain village is treated as tentative
 #: unless the caller's country hint picked it.
 _PROMINENT_FEATURES = ("PCL", "ADM", "PPLC", "PPLA")
+
+
+def _meteo_kind(feature_code: object) -> str:
+    """The kind of place from a GeoNames feature code: PCL* a country, ADM1 a first-level region, any other code a
+    city or town; no code, unknown."""
+    code = str(feature_code or "")
+    if not code:
+        return "unknown"
+    if code.startswith("PCL"):
+        return "country"
+    if code == "ADM1":
+        return "region"
+    return "city"
+
+
+def _google_kind(types: object) -> str:
+    """The kind of place from a Geocoding result's ``types``: country, administrative_area_level_1, anything else
+    a city or town; no types, unknown."""
+    if not isinstance(types, list) or not types:
+        return "unknown"
+    if "country" in types:
+        return "country"
+    if "administrative_area_level_1" in types:
+        return "region"
+    return "city"
 _PROMINENT_POPULATION = 15_000
 
 
@@ -165,6 +191,7 @@ class OpenMeteoGeocoder:
             timezone=str(chosen.get("timezone") or ""),
             geo=GeoPoint(lat=float(chosen["latitude"]), lng=float(chosen["longitude"])),
             source=self.name,
+            kind=_meteo_kind(chosen.get("feature_code")),
         )
 
 

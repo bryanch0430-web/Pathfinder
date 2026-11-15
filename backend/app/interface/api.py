@@ -23,7 +23,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints, ValidationError, field_validator
 
 from app.application.intake import Attachment
-from app.application.choices import ChoiceNotFound, ChoiceRefused, apply_choice, normalise_hotel_options
+from app.application.airport_transfers import sync_session_transfers
+from app.application.choices import (
+    ChoiceNotFound,
+    ChoiceRefused,
+    apply_choice,
+    is_chosen,
+    normalise_hotel_options,
+    set_lock,
+)
 from app.application.legs import leg_options_for_plan, legs_for_plan
 from app.application.limits import turn_deadline_for
 from app.application.toolbox import Toolbox
@@ -240,6 +248,17 @@ class ChoiceRequest(BaseModel):
     target_id: str | None = Field(default=None, max_length=ID_MAX_LENGTH)
     option_id: str = Field(max_length=ID_MAX_LENGTH)
     #: The plan version the traveller chose on; a choice made on an older version is refused (409).
+    plan_version: int | None = Field(default=None, ge=1)
+    #: Lock the chosen stay or leg in the same step (only a stay or a leg can be locked).
+    lock: bool = False
+
+
+class LockRequest(BaseModel):
+    """Lock or unlock a chosen stay or leg without choosing anything."""
+
+    kind: Literal["hotel", "transport"]
+    target_id: str = Field(max_length=ID_MAX_LENGTH)
+    locked: bool
     plan_version: int | None = Field(default=None, ge=1)
 
 
@@ -548,7 +567,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"items": items}
 
     @app.get("/api/images/place")
-    async def place_image(request: Request, ref: str = Query(pattern=PHOTO_REF.pattern, max_length=300)) -> Response:
+    async def place_image(request: Request, ref: str = Query(pattern=PHOTO_REF.pattern, max_length=2048)) -> Response:
         """A Google place photo, fetched with the server's key and kept on disk.
 
         A page's <img> cannot send the identity headers, so the route is open; what keeps it from being a way to
@@ -886,11 +905,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="No plan for this session")
         if payload.kind == "item" and not payload.target_id:
             raise HTTPException(status_code=422, detail="Choosing a stop's option needs the stop's target_id")
+        if payload.lock and payload.kind == "item":
+            raise HTTPException(status_code=422, detail="Only a stay or a leg can be locked.")
         if payload.plan_version is not None and payload.plan_version != plan.version:
             raise HTTPException(
                 status_code=409,
                 detail="This choice was made on an earlier version of the plan; open the latest version and choose again.",
             )
+        if payload.lock and is_chosen(plan, payload.kind, payload.target_id, payload.option_id):
+            # The option is already the chosen one: only the lock changes, on the version as it stands.
+            try:
+                target = payload.target_id or next(
+                    (s.id for s in plan.hotels if s.id == payload.option_id), None
+                ) or next((plan.leg_id_of(t) for t in plan.tickets if t.id == payload.option_id), None)
+                set_lock(plan, payload.kind, target, True)
+            except ChoiceNotFound as exc:
+                raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
+            c.store.save_plan(plan, None, replace=True)
+            return {"plan": tidy_data_gaps(plan, drop_edit_gaps=True).model_dump(mode="json")}
         # The day's transfers come from the transport model (no network), logged like the edit path's.
         toolbox = Toolbox(path="modify", tracer=NoopTracer(), store=c.store, request_id=new_id("choose"))
         try:
@@ -908,11 +940,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
         except ChoiceRefused as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        said = await sync_session_transfers(
+            updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+        )
+        if said:
+            updated.change_summary = " ".join([updated.change_summary, *said]).strip()
+        if payload.lock:
+            option_leg = next((plan.leg_id_of(t) for t in plan.tickets if t.id == payload.option_id), None)
+            set_lock(updated, payload.kind, payload.option_id if payload.kind == "hotel" else option_leg, True)
         try:
             c.store.save_plan(updated, updated.change_summary)
         except PlanConflict as exc:
             raise HTTPException(status_code=409, detail="The plan changed meanwhile; reload it and choose again.") from exc
         return {"plan": tidy_data_gaps(updated, drop_edit_gaps=True).model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/lock")
+    async def lock_choice(session_id: str, payload: LockRequest, request: Request) -> dict[str, Any]:
+        """Lock or unlock a chosen stay or leg on the latest version, in place: a lock is not a change of plan."""
+        c = container(request)
+        require_session(c, request, session_id)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        if payload.plan_version is not None and payload.plan_version != plan.version:
+            raise HTTPException(
+                status_code=409,
+                detail="This was done on an earlier version of the plan; open the latest version and try again.",
+            )
+        try:
+            set_lock(plan, payload.kind, payload.target_id, payload.locked)
+        except ChoiceNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc).capitalize()) from exc
+        c.store.save_plan(plan, None, replace=True)
+        return {"plan": tidy_data_gaps(plan, drop_edit_gaps=True).model_dump(mode="json")}
 
     @app.get("/api/journeys/{session_id}/plan/hotels/{hotel_id}/rooms")
     async def hotel_rooms(session_id: str, hotel_id: str, request: Request) -> dict[str, Any]:

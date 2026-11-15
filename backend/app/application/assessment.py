@@ -383,7 +383,7 @@ def _assess_route(
                 )
             )
             unverified.append(f"Where to stay in {segment.destination.name}.")
-    for leg in plan.legs:
+    for leg in plan.route_legs():
         options = plan.options_for(leg.id)
         where = f"{leg.from_place} to {leg.to_place}"
         if not options:

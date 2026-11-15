@@ -415,7 +415,8 @@ class TicketOption(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ticket"))
     #: ``drive`` and ``ground`` are the modes of an estimated hop between cities; ``ticket`` and ``ferry`` only
     #: occur in plans stored before the model dropped them.
-    mode: Literal["flight", "train", "ticket", "ferry", "bus", "drive", "ground"]
+    #: ``shuttle`` only when a source names the vehicle a shuttle; an estimate is never called one.
+    mode: Literal["flight", "train", "ticket", "ferry", "bus", "shuttle", "taxi", "drive", "ground"]
     #: The leg (hop of the trip) this option is for; empty until the plan fills it in.
     leg_id: str = ""
     name: str
@@ -467,14 +468,21 @@ def selected_ticket(tickets: list[TicketOption], leg_id: str | None = None) -> T
 
 
 class TransportLeg(BaseModel):
-    """One hop of the trip: origin to the first city, between two cities, or the way home."""
+    """One hop of the trip: origin to the first city, between two cities, or the way home. ``to_stay`` and ``from_stay``
+    are not hops between cities: they are the way between an airport and a stay in one city, worked out from the
+    flights and the stays."""
 
     id: str = Field(default_factory=lambda: new_id("leg"))
     from_place: str = ""
     to_place: str = ""
     #: Named so because a field called ``date`` with a default hides the ``date`` type inside the class.
     depart_date: date | None = None
-    kind: Literal["outbound", "between", "return"] = "outbound"
+    kind: Literal["outbound", "between", "return", "to_stay", "from_stay"] = "outbound"
+    #: For a transfer: the city (segment) it is in and the IATA code of the airport it goes to or comes from.
+    segment_id: str = ""
+    airport: str = ""
+    #: The traveller locked in the chosen option: only it is shown, and chat edits leave it alone.
+    locked: bool = False
 
 
 class CostLine(BaseModel):
@@ -611,6 +619,9 @@ class TripPlan(BaseModel):
     segments: list[TripSegment] = Field(default_factory=list)
     #: The profile the plan was made for; None for the default one.
     profile: TravellerProfile | None = None
+    #: True once the airport transfers were worked out from the plan's flights and stays (a plan with no flights has
+    #: none to work out). A plan stored before they existed is False and edits leave it without them.
+    transfers_synced: bool = False
     party_size: int = Field(default=1, ge=1, le=20)
     budget: Money | None = None
     summary: str = ""
@@ -742,15 +753,42 @@ class TripPlan(BaseModel):
         """The chosen stays of a segment, in date order."""
         return sorted((stay for stay in self.hotels if stay.segment_id == segment_id), key=lambda s: s.check_in)
 
+    def route_legs(self) -> list[TransportLeg]:
+        """The hops of the trip: out, between the cities and home (not the airport transfers)."""
+        return [leg for leg in self.legs if leg.kind in ("outbound", "between", "return")]
+
+    def transfer_legs(self) -> list[TransportLeg]:
+        """The airport transfers: from an airport to a stay, and from a stay to an airport."""
+        return [leg for leg in self.legs if leg.kind in ("to_stay", "from_stay")]
+
     def leg_id_of(self, ticket: TicketOption) -> str:
-        """The leg an option belongs to; an option no leg claims (added after validation) is on the first leg."""
+        """The leg an option belongs to; an option no leg claims (added after validation) is on the first hop."""
         if any(leg.id == ticket.leg_id for leg in self.legs):
             return ticket.leg_id
-        return self.legs[0].id if self.legs else ticket.leg_id
+        hops = self.route_legs()
+        return hops[0].id if hops else ticket.leg_id
 
     def options_for(self, leg_id: str) -> list[TicketOption]:
         """The transport options of one leg, in the order they are kept."""
         return [ticket for ticket in self.tickets if self.leg_id_of(ticket) == leg_id]
+
+    def open_choices(self) -> list[tuple[str, str]]:
+        """The choices still to make: ``("hotel", stay id)`` for each chosen stay that is not locked and has two or more
+        options in its city, ``("transport", leg id)`` for each leg that is not locked and has two or more options. A slot
+        with one option or none needs no decision."""
+        first = self.segments[0].id if self.segments else ""
+        out: list[tuple[str, str]] = []
+        for stay in self.hotels:
+            if stay.locked:
+                continue
+            city = stay.segment_id or first
+            options = {option.id for option in self.hotel_options if (option.segment_id or first) == city}
+            if len(options | {stay.id}) >= 2:
+                out.append(("hotel", stay.id))
+        for leg in self.legs:
+            if not leg.locked and len(self.options_for(leg.id)) >= 2:
+                out.append(("transport", leg.id))
+        return out
 
     def chosen_tickets(self) -> list[TicketOption]:
         """The chosen option of each leg in leg order; a leg with no options is skipped."""
@@ -758,7 +796,7 @@ class TripPlan(BaseModel):
             chosen = selected_ticket(self.tickets)
             return [chosen] if chosen else []
         chosen_ones = []
-        for leg in self.legs:
+        for leg in self.route_legs():
             options = self.options_for(leg.id)
             if options:
                 chosen_ones.append(next((t for t in options if t.selected), options[0]))
@@ -1344,6 +1382,9 @@ class GeoLocation(BaseModel):
     timezone: str = ""
     geo: GeoPoint
     source: str = ""
+    #: What the geocoder says the place is: a whole country, a first-level region, a city or town, or "unknown"
+    #: when the answer did not say. Never guessed from the name.
+    kind: Literal["country", "region", "city", "unknown"] = "unknown"
 
 
 # ---------------------------------------------------------------------------
