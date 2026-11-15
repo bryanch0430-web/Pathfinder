@@ -341,6 +341,35 @@ def set_lock(plan: TripPlan, kind: str, target_id: str | None, locked: bool) -> 
     raise ChoiceNotFound("only a stay or a leg can be locked")
 
 
+def _picked_option(plan: TripPlan, leg_id: str) -> str:
+    """The id of the option chosen on a leg (the first when none is marked)."""
+    options = plan.options_for(leg_id)
+    return next((o.id for o in options if o.selected), options[0].id if options else "")
+
+
+def locked_conflict(before: TripPlan, after: TripPlan) -> str | None:
+    """The name of the first stay or leg that is locked in ``before`` and is not the same in ``after`` (its
+    dates, its name, or on a leg the option chosen), or None. A locked choice is changed only by pressing
+    Change on it, never by an edit that carries it along."""
+    for stay in before.hotels:
+        if not stay.locked:
+            continue
+        kept = next((s for s in after.hotels if s.id == stay.id), None)
+        if kept is None or (kept.name, kept.check_in, kept.check_out) != (stay.name, stay.check_in, stay.check_out):
+            return stay.name
+    for leg in before.route_legs():
+        if not leg.locked:
+            continue
+        kept = next((l for l in after.legs if l.id == leg.id), None)
+        if (
+            kept is None
+            or (kept.from_place, kept.to_place, kept.depart_date) != (leg.from_place, leg.to_place, leg.depart_date)
+            or _picked_option(after, leg.id) != _picked_option(before, leg.id)
+        ):
+            return f"{leg.from_place} \u2192 {leg.to_place}"
+    return None
+
+
 def _choose_flight(updated: TripPlan, option_id: str, target_id: str | None = None) -> str:
     """Choose among the options of the option's own leg; ``target_id``, when given, must be that leg."""
     option = next((ticket for ticket in updated.tickets if ticket.id == option_id), None)

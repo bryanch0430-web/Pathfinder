@@ -78,6 +78,39 @@ export function createSession(clientToken: string, signal?: AbortSignal): Promis
   return request("/api/journeys", { method: "POST", body: JSON.stringify({ client_token: clientToken }), signal });
 }
 
+/** Write the direct-edit grid onto the latest plan. `day` is 1-based; `planVersion` is the version the grid showed. */
+export function applyLayout(
+  sessionId: string,
+  items: { id: string; day: number; start: string; end: string }[],
+  planVersion?: number,
+): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/layout`, {
+    method: "POST",
+    body: JSON.stringify({ items, plan_version: planVersion }),
+  });
+}
+
+export function decideProposal(
+  sessionId: string,
+  messageId: string,
+  changeId: string,
+  accept: boolean,
+): Promise<{ plan: TripPlan; message: ChatMessage }> {
+  return request(`/api/journeys/${sessionId}/proposals/${messageId}`, {
+    method: "POST",
+    body: JSON.stringify({ change_id: changeId, accept }),
+  });
+}
+
+/** Open a saved plan file as a new trip. `plan` is the JSON from the plan-file download. */
+export function importPlan(clientToken: string, plan: unknown, signal?: AbortSignal): Promise<SessionState> {
+  return request("/api/journeys/import", {
+    method: "POST",
+    body: JSON.stringify({ client_token: clientToken, plan }),
+    signal,
+  });
+}
+
 export function getSession(sessionId: string, signal?: AbortSignal): Promise<SessionState> {
   return request(`/api/journeys/${sessionId}`, { signal });
 }
@@ -97,6 +130,14 @@ export function patchContext(sessionId: string, patch: ContextPatch, signal?: Ab
 export function getPlan(sessionId: string, version?: number): Promise<{ plan: TripPlan }> {
   const query = version ? `?version=${version}` : "";
   return request(`/api/journeys/${sessionId}/itinerary${query}`);
+}
+
+/** Copy a saved version forward so it becomes the plan the next message edits. */
+export function restorePlan(sessionId: string, version: number): Promise<{ plan: TripPlan }> {
+  return request(`/api/journeys/${sessionId}/itinerary/restore`, {
+    method: "POST",
+    body: JSON.stringify({ version }),
+  });
 }
 
 /** Display text for one plan version in `locale`; numbers, times and ids stay on the English plan. */
@@ -524,6 +565,8 @@ export async function streamChat(
     scope_item_id?: string | null;
     scope_label?: string | null;
     developer?: boolean;
+    /** Edits come back as ticks in the chat. The plan changes only after one is accepted. */
+    review?: boolean;
     /** Images and PDFs sent with the message; `data` is base64 without a `data:` prefix. */
     attachments?: ChatAttachment[];
   },

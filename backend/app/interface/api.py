@@ -8,6 +8,7 @@ import html
 import base64
 import binascii
 import json
+import logging
 import re
 from contextlib import aclosing, asynccontextmanager
 from datetime import date
@@ -20,15 +21,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, Field, StringConstraints, ValidationError, field_validator
 
 from app.application.intake import Attachment
 from app.application.airport_transfers import sync_session_transfers
+from app.application.plan_import import clean_imported_plan, schema_version
+from app.application.planner import PACE_BUFFER_MINUTES, _pace
+from app.application.transfers import refresh_transfers
 from app.application.choices import (
     ChoiceNotFound,
     ChoiceRefused,
     apply_choice,
     is_chosen,
+    locked_conflict,
     normalise_hotel_options,
     set_lock,
 )
@@ -84,6 +89,8 @@ from app.infrastructure.providers.images import (
 )
 from app.interface.rate_limit import RateLimits, SlidingWindowLimiter, rate_limit
 from app.interface.sse import KEEPALIVE, KEEPALIVE_FRAME, TIMED_OUT, Deadline, paced, sse_frame
+
+logger = logging.getLogger(__name__)
 
 #: What a request may carry in its other free texts. Some are stored with a message or a rating and sent back with
 #: the trip, so none may be longer than anything the page sends: an id (of a session or a stop), a locale tag (BCP 47
@@ -198,6 +205,8 @@ class ChatRequest(BaseModel):
     scope_label: str | None = None
     #: When true, the trace event includes each model's reasoning text.
     developer: bool = False
+    #: When true, an edit is listed in the chat and written only after the traveller accepts it.
+    review: bool = False
     #: PDFs or pictures to read with the message (the intake step); more than the limit is refused.
     attachments: list[AttachmentIn] = Field(default_factory=list, max_length=5)
 
@@ -241,6 +250,27 @@ class FeedbackRequest(BaseModel):
     client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
 
 
+class LayoutMove(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    day: int = Field(ge=1, le=60)
+    start: str = Field(min_length=4, max_length=5)
+    end: str = Field(min_length=4, max_length=5)
+
+
+class LayoutRequest(BaseModel):
+    """The stops the direct-edit grid moved or retimed, and the plan version the grid was showing."""
+
+    items: list[LayoutMove] = Field(max_length=200)
+    plan_version: int | None = Field(default=None, ge=1)
+
+
+class ProposalDecision(BaseModel):
+    """Accept or reject one change the last edit offered."""
+
+    change_id: str = Field(min_length=1, max_length=80)
+    accept: bool
+
+
 class ChoiceRequest(BaseModel):
     """Pick another option shown on the plan: a stop's alternative, a hotel option or a flight option."""
 
@@ -260,6 +290,19 @@ class LockRequest(BaseModel):
     target_id: str = Field(max_length=ID_MAX_LENGTH)
     locked: bool
     plan_version: int | None = Field(default=None, ge=1)
+
+
+class RestoreRequest(BaseModel):
+    """Make a saved version the current plan by copying it as the next version."""
+
+    version: int = Field(ge=1)
+
+
+class ImportPlanRequest(BaseModel):
+    """A plan file from another computer. The plan is the JSON this app saves, or {"plan": that JSON}."""
+
+    client_token: str = Field(default="", max_length=TOKEN_MAX_LENGTH)
+    plan: dict[str, Any]
 
 
 class EvalRunRequest(BaseModel):
@@ -314,6 +357,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lookup=SlidingWindowLimiter(settings.rate_limit_lookup_per_minute),
         handbook=SlidingWindowLimiter(settings.rate_limit_handbook_per_minute),
         key_test=SlidingWindowLimiter(settings.rate_limit_key_test_per_minute),
+        edit=SlidingWindowLimiter(settings.rate_limit_edit_per_minute),
     )
     limit_auth = Depends(rate_limit("auth", "Too many sign-in attempts."))
     charge_ai = rate_limit("ai", "Too many planning requests.")
@@ -324,6 +368,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     charge_lookup = rate_limit("lookup", "Too many place look-ups.")
     charge_handbook = rate_limit("handbook", "Too many handbook look-ups.")
     charge_key_test = rate_limit("key_test", "Too many key tests.")
+    charge_edit = rate_limit("edit", "Too many edits.")
 
     def container(request: Request) -> Container:
         return request.app.state.container
@@ -746,6 +791,212 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             plan = await c.turn_service.freshness.on_reopen(plan)
         plan = tidy_data_gaps(plan, drop_edit_gaps=True)
         return {"plan": plan.model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/itinerary/restore")
+    async def restore_plan(session_id: str, payload: RestoreRequest, request: Request) -> dict[str, Any]:
+        """Copy a saved version forward so the next chat edits that plan, not the one that came after it."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        require_session(c, request, session_id)
+        await charge_edit(request)
+        current = c.store.get_plan(session_id)
+        chosen = c.store.get_plan(session_id, payload.version)
+        if current is None or chosen is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        if chosen.version == current.version:
+            plan = tidy_data_gaps(current, drop_edit_gaps=True)
+            return {"plan": plan.model_dump(mode="json")}
+        restored = chosen.model_copy(deep=True)
+        restored.version = current.version + 1
+        restored.change_summary = f"Restored version {chosen.version}"
+        restored.updated_at = datetime.now(timezone.utc)
+        c.store.save_plan(restored, restored.change_summary)
+        plan = tidy_data_gaps(restored, drop_edit_gaps=True)
+        return {"plan": plan.model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/layout")
+    async def apply_direct_edit(session_id: str, payload: LayoutRequest, request: Request) -> dict[str, Any]:
+        """Write the grid's days and times onto the latest plan."""
+        from app.application.proposals import apply_layout
+
+        c = container(request)
+        require_session(c, request, session_id)
+        await charge_edit(request)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        if payload.plan_version is not None and payload.plan_version != plan.version:
+            raise HTTPException(
+                status_code=409,
+                detail="This edit was made on an earlier version of the plan; open the latest version and edit again.",
+            )
+        try:
+            updated = apply_layout(plan, [item.model_dump() for item in payload.items])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc) or "That edit does not fit this plan.") from None
+        if updated is not plan:
+            # The transfers between stops follow the stops that moved, and the airport transfers follow the stays.
+            context = c.store.get_context(session_id)
+            toolbox = Toolbox(path="modify", tracer=NoopTracer(), store=c.store, request_id=new_id("layout"))
+            await refresh_transfers(
+                plan,
+                updated,
+                toolbox=toolbox,
+                source=getattr(c.registry, "transfers", None),
+                buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
+            )
+            said = await sync_session_transfers(
+                updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+            )
+            if said:
+                updated.change_summary = " ".join([updated.change_summary, *said]).strip()
+            try:
+                c.store.save_plan(updated, updated.change_summary)
+            except PlanConflict as exc:
+                raise HTTPException(
+                    status_code=409, detail="The plan changed meanwhile; reload it and edit again."
+                ) from exc
+        shown = tidy_data_gaps(updated, drop_edit_gaps=True)
+        return {"plan": shown.model_dump(mode="json")}
+
+    @app.post("/api/journeys/{session_id}/proposals/{message_id}")
+    async def decide_proposal(
+        session_id: str, message_id: str, payload: ProposalDecision, request: Request
+    ) -> dict[str, Any]:
+        """Write one offered change into the current plan, or leave the plan and mark that change rejected."""
+        from app.application.proposals import WHOLE_CHANGES, apply_change, mark_decision
+
+        c = container(request)
+        require_session(c, request, session_id)
+        await charge_edit(request)
+        message = next(
+            (row for row in c.store.list_messages(session_id, limit=200) if row.id == message_id),
+            None,
+        )
+        if message is None:
+            raise HTTPException(status_code=404, detail="That reply is not in this trip.")
+        proposal = message.meta.get("proposal") if isinstance(message.meta, dict) else None
+        changes = list((proposal or {}).get("changes") or [])
+        change = next((row for row in changes if row.get("id") == payload.change_id), None)
+        if change is None or change.get("status") != "pending":
+            raise HTTPException(status_code=409, detail="That change is no longer waiting.")
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        if payload.accept:
+            offered_on = (proposal or {}).get("base_version")
+            if change.get("id") in WHOLE_CHANGES and offered_on is not None and offered_on != plan.version:
+                raise HTTPException(status_code=409, detail="The plan changed since this was offered; ask again.")
+            try:
+                updated = apply_change(plan, change)
+            except (ValueError, ValidationError):
+                raise HTTPException(status_code=422, detail="That change no longer fits this plan.") from None
+            clash = locked_conflict(plan, updated)
+            if clash:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This would change {clash}, which is locked in. Press Change on it first.",
+                )
+            said = await sync_session_transfers(
+                updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+            )
+            if said:
+                updated.change_summary = " ".join([updated.change_summary, *said]).strip()
+            context = c.store.get_context(session_id)
+            if context is not None:
+                try:
+                    updated.cost = c.turn_service.modify_path.planner.cost_for_plan(context, updated)
+                except ValueError:  # a price that cannot be worked out keeps the total the plan had
+                    logger.warning("the cost of an accepted edit could not be worked out")
+            try:
+                c.store.save_plan(updated, updated.change_summary)
+            except PlanConflict as exc:
+                raise HTTPException(
+                    status_code=409, detail="The plan changed meanwhile; reload it and choose again."
+                ) from exc
+            held_form = (proposal or {}).get("context")
+            if held_form and change.get("id") in WHOLE_CHANGES:
+                # The trip form follows the route the accepted edit made; a held edit never wrote it.
+                form = c.store.get_context(session_id)
+                if form is not None:
+                    try:
+                        held_context = TripContext.model_validate(held_form)
+                    except ValidationError:
+                        held_context = None
+                    if held_context is not None:
+                        form.stops, form.destination, form.one_way = (
+                            held_context.stops,
+                            held_context.destination,
+                            held_context.one_way,
+                        )
+                        c.store.save_context(form)
+        else:
+            updated = plan
+        mark_decision(changes, payload.change_id, payload.accept)
+        verb = "Accepted" if payload.accept else "Rejected"
+        prior = list((message.meta.get("log") or {}).get("steps") or [])
+        message.meta["proposal"] = {"changes": changes}
+        message.meta["log"] = {
+            "ok": payload.accept,
+            "reason": f"{verb}: {change.get('label') or 'a change'}",
+            "steps": [*prior, f"{verb}: {change.get('label') or 'a change'}"][:8],
+        }
+        c.store.add_message(message)
+        shown = tidy_data_gaps(updated, drop_edit_gaps=True)
+        return {"plan": shown.model_dump(mode="json"), "message": message.model_dump(mode="json")}
+
+    @app.post("/api/journeys/import")
+    async def import_plan(payload: ImportPlanRequest, request: Request) -> dict[str, Any]:
+        """Open a saved plan file as a new trip on this computer."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        token, user = session_caller(request, c, payload.client_token)
+        if not token and user is None:
+            raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+        await charge_create(request)
+        if payload.plan.get("schema_version") != schema_version():
+            raise HTTPException(
+                status_code=422,
+                detail="That file was saved by a different version of Pathfinder and cannot be opened here.",
+            )
+        try:
+            incoming = TripPlan.model_validate(payload.plan)
+        except ValidationError:
+            raise HTTPException(status_code=422, detail="That file is not a Pathfinder plan.") from None
+        # A file is data from outside: no locks, no confirmations, web links only, derived data built here.
+        clean_imported_plan(incoming)
+        session = c.store.create_session(token, user.id if user else "")
+        plan = incoming.model_copy(deep=True)
+        plan.session_id = session.id
+        plan.trip_id = new_id("trip")
+        plan.version = 1
+        plan.change_summary = "Imported plan"
+        plan.updated_at = datetime.now(timezone.utc)
+        context = TripContext(
+            session_id=session.id,
+            destination=plan.destination.name,
+            origin=plan.origin,
+            start_date=plan.dates.start,
+            end_date=plan.dates.end,
+            days=len(plan.dates.dates) or len(plan.days) or None,
+            party_size=plan.party_size,
+            budget=float(plan.budget.amount) if plan.budget is not None else None,
+            currency=(plan.budget.currency if plan.budget is not None else plan.cost.currency) or settings.default_currency,
+            language=settings.default_locale,
+        )
+        c.store.save_context(context)
+        await sync_session_transfers(plan, registry=c.registry, store=c.store, session_id=session.id)
+        c.store.save_plan(plan, plan.change_summary)
+        plan = tidy_data_gaps(plan, drop_edit_gaps=True)
+        return {
+            "session": session.model_dump(mode="json", exclude={"client_token"}),
+            "context": context.model_dump(mode="json"),
+            "plan": plan.model_dump(mode="json"),
+            "versions": c.store.list_versions(session.id),
+            "messages": [],
+        }
 
     # Display translation of a plan version; the English plan stays the source of truth.
     @app.get("/api/journeys/{session_id}/translation")
@@ -1189,6 +1440,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 scope_item_id=payload.scope_item_id,
                 scope_label=payload.scope_label,
                 developer=payload.developer,
+                review=payload.review,
                 attachments=attachments,
                 on_wait=deadline.pause,
                 on_start=deadline.restart,

@@ -17,7 +17,9 @@ data/
 *.key
 
 # python
-.venv/
+.venv*/
+# accidental npm lock from running npm in the repo root (frontend/package-lock.json stays)
+/package-lock.json
 __pycache__/
 *.pyc
 .pytest_cache/

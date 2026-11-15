@@ -886,6 +886,7 @@ export function ItineraryItem({
   item,
   selected = false,
   updated = false,
+  clash = false,
   onSelect,
   number,
   showSource = true,
@@ -893,6 +894,8 @@ export function ItineraryItem({
   item: PlanItem;
   selected?: boolean;
   updated?: boolean;
+  /** Shares its time with another stop. The plan is still shown. */
+  clash?: boolean;
   onSelect?: () => void;
   number?: number;
   showSource?: boolean;
@@ -906,6 +909,7 @@ export function ItineraryItem({
       data-status={item.data_status}
       data-selected={selected}
       data-updated={updated}
+      data-clash={clash}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
@@ -1099,6 +1103,7 @@ export function DaySection({
   index,
   selectedItemId,
   updatedIds,
+  clashIds,
   onSelectItem,
   innerRef,
   onChooseAlternative,
@@ -1107,6 +1112,7 @@ export function DaySection({
   index: number;
   selectedItemId?: string | null;
   updatedIds?: Set<string>;
+  clashIds?: Set<string>;
   onSelectItem?: (item: PlanItem) => void;
   innerRef?: (node: HTMLElement | null) => void;
   /** Swaps a stop for one of its alternatives; resolves when the updated plan is shown, rejects with the reason. */
@@ -1133,6 +1139,7 @@ export function DaySection({
             number={itemIndex + 1}
             selected={selectedItemId === item.id}
             updated={updatedIds?.has(item.id) ?? false}
+            clash={clashIds?.has(item.id) ?? false}
             onSelect={() => onSelectItem?.(item)}
           />
           {item.alternatives?.length ? (
@@ -1724,6 +1731,15 @@ const PLAN_LANGUAGE_NOTICE: Record<PlanLanguageNoticeKind, MessageKey> = {
  * the AI-translation disclaimer, and, when the English original is shown
  * instead, a notice saying why.
  */
+export function BannerClose({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button type="button" className="pf-banner__close" aria-label={t("banner.close")} onClick={onClose}>
+      <Icon name="close" size={12} />
+    </button>
+  );
+}
+
 export function PlanLanguageBanner({
   disclaimer,
   notice = null,
@@ -1735,19 +1751,28 @@ export function PlanLanguageBanner({
   reason?: string;
 }) {
   const { t } = useI18n();
+  const [hideDisclaimer, setHideDisclaimer] = useState(false);
+  const [hideNotice, setHideNotice] = useState(false);
+  const showDisclaimer = !hideDisclaimer;
+  const showNotice = Boolean(notice) && !hideNotice;
+  if (!showDisclaimer && !showNotice) return null;
   return (
     <div className="pf-plan-language" role="note" aria-label={t("planLang.label")}>
-      <div className="pf-banner" data-tone="info">
-        <Icon name="globe" size={14} />
-        <span>{disclaimer?.trim() || t("planLang.disclaimer")}</span>
-      </div>
-      {notice ? (
+      {showDisclaimer ? (
+        <div className="pf-banner" data-tone="info">
+          <Icon name="globe" size={14} />
+          <span>{disclaimer?.trim() || t("planLang.disclaimer")}</span>
+          <BannerClose onClose={() => setHideDisclaimer(true)} />
+        </div>
+      ) : null}
+      {showNotice && notice ? (
         <div className="pf-banner" data-tone={notice === "translating" ? "info" : "warning"} role="status">
           <Icon name={notice === "translating" ? "info" : "alert"} size={14} />
           <span>
             {t(PLAN_LANGUAGE_NOTICE[notice])}
             {reason && notice !== "translating" ? ` ${t("planLang.reason", { reason })}` : ""}
           </span>
+          <BannerClose onClose={() => setHideNotice(true)} />
         </div>
       ) : null}
     </div>

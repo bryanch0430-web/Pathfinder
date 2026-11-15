@@ -590,6 +590,7 @@ class HotelAgent(BaseAgent):
             if not getattr(source, "available", True):
                 continue
             try:
+                asked = str(request.extra.get("hotels_query") or "").strip()
                 results = await self._call(
                     request,
                     "hotels.search",
@@ -601,6 +602,7 @@ class HotelAgent(BaseAgent):
                     budget=request.context.budget,
                     currency=request.context.currency,
                     timeout=max(self.settings.agent_timeout_seconds, 20.0),
+                    **({"query": asked} if asked else {}),
                 )
                 if results:
                     candidates = results

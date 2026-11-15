@@ -47,6 +47,46 @@ GOOGLE_INCLUDED_TYPE = {
 }
 #: Search words per category when no query is given ("best breakfast in Kyoto").
 CATEGORY_WORDS = {"breakfast": "breakfast", "cafe": "cafe"}
+#: Words a kind-of-place query is made of ("museums", "best attractions"). A query with any other word
+#: is a place they named ("Shibuya Sky"), and a type filter would drop it when the source files it as
+#: an observation deck rather than a tourist attraction.
+_CATEGORY_QUERY_WORDS = frozenset(
+    {
+        "best",
+        "museum",
+        "museums",
+        "gallery",
+        "galleries",
+        "temple",
+        "temples",
+        "shrine",
+        "shrines",
+        "park",
+        "parks",
+        "garden",
+        "gardens",
+        "market",
+        "markets",
+        "castle",
+        "castles",
+        "tower",
+        "towers",
+        "viewpoint",
+        "viewpoints",
+        "beach",
+        "beaches",
+        "hike",
+        "hikes",
+        "attraction",
+        "attractions",
+        "restaurant",
+        "restaurants",
+        "cafe",
+        "cafes",
+        "food",
+        "breakfast",
+    }
+)
 #: Food place types that name a kind of place rather than a cuisine.
 _CUISINE_TYPES = {
     "cafe": "Cafe",
@@ -57,6 +97,12 @@ _CUISINE_TYPES = {
     "tea_house": "Tea",
 }
 _GENERIC_FOOD_TYPES = {"restaurant", "food", "meal_takeaway", "meal_delivery", "fast_food_restaurant"}
+
+
+def _query_is_a_kind(query: str) -> bool:
+    """True when the query is a kind of place ("museums"), not a name ("Shibuya Sky")."""
+    words = re.findall(r"[a-z]+", query.lower())
+    return bool(words) and all(word in _CATEGORY_QUERY_WORDS for word in words)
 
 
 def cuisine_label(primary_type: str | None, types: list[str]) -> str | None:
@@ -140,14 +186,16 @@ class GooglePlacesSource:
         text_query = query.strip() if query and query.strip() else f"best {words} in {destination}"
         if query and destination.lower() not in text_query.lower():
             text_query = f"{text_query} in {destination}"
+        named_place = category not in FOOD_CATEGORIES and bool(query and query.strip()) and not _query_is_a_kind(query)
         base = (self.settings.google_places_proxy or "https://places.googleapis.com").rstrip("/")
         payload: dict = {
             "textQuery": text_query,
             "languageCode": "en",
             # Text search serves one page of 20 at most; more would need a second, paged request.
             "maxResultCount": min(max(limit * 2, 10), GOOGLE_MAX_RESULTS),
-            "includedType": GOOGLE_INCLUDED_TYPE.get(category, "tourist_attraction"),
         }
+        if not named_place:
+            payload["includedType"] = GOOGLE_INCLUDED_TYPE.get(category, "tourist_attraction")
         if bias is not None:
             lat, lng, radius = bias
             payload["locationBias"] = {

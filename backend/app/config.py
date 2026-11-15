@@ -240,6 +240,7 @@ class Settings(BaseSettings):
     rate_limit_lookup_per_minute: int = 60
     rate_limit_key_test_per_minute: int = 6
     rate_limit_handbook_per_minute: int = 60
+    rate_limit_edit_per_minute: int = 60
 
     # --- streaming ---------------------------------------------------------
     # The chat stream sends an SSE comment after this many quiet seconds so

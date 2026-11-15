@@ -92,6 +92,8 @@ class RateLimits:
     handbook: SlidingWindowLimiter
     #: LLM key tests, which spend tokens on the key's own provider account
     key_test: SlidingWindowLimiter
+    #: edits made by hand (the grid, a held change, a restored version), each of which writes a new plan version
+    edit: SlidingWindowLimiter
 
 
 def client_key(request: Request) -> str:

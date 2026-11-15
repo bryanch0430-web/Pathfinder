@@ -697,6 +697,212 @@
         }
       }
     },
+    "/api/journeys/{session_id}/itinerary/restore": {
+      "post": {
+        "summary": "Restore Plan",
+        "description": "Copy a saved version forward so the next chat edits that plan, not the one that came after it.",
+        "operationId": "restore_plan_api_journeys__session_id__itinerary_restore_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Restore Plan Api Journeys  Session Id  Itinerary Restore Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/layout": {
+      "post": {
+        "summary": "Apply Direct Edit",
+        "description": "Write the grid's days and times onto the latest plan.",
+        "operationId": "apply_direct_edit_api_journeys__session_id__layout_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LayoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Apply Direct Edit Api Journeys  Session Id  Layout Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/{session_id}/proposals/{message_id}": {
+      "post": {
+        "summary": "Decide Proposal",
+        "description": "Write one offered change into the current plan, or leave the plan and mark that change rejected.",
+        "operationId": "decide_proposal_api_journeys__session_id__proposals__message_id__post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Decide Proposal Api Journeys  Session Id  Proposals  Message Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journeys/import": {
+      "post": {
+        "summary": "Import Plan",
+        "description": "Open a saved plan file as a new trip on this computer.",
+        "operationId": "import_plan_api_journeys_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Import Plan Api Journeys Import Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/journeys/{session_id}/translation": {
       "get": {
         "summary": "Get Translation",
@@ -2541,6 +2747,11 @@
             "title": "Developer",
             "default": false
           },
+          "review": {
+            "type": "boolean",
+            "title": "Review",
+            "default": false
+          },
           "attachments": {
             "items": {
               "$ref": "#/components/schemas/AttachmentIn"
@@ -2982,6 +3193,27 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ImportPlanRequest": {
+        "properties": {
+          "client_token": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Client Token",
+            "default": ""
+          },
+          "plan": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Plan"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "title": "ImportPlanRequest",
+        "description": "A plan file from another computer. The plan is the JSON this app saves, or {\"plan\": that JSON}."
+      },
       "KeyChoice": {
         "properties": {
           "key_id": {
@@ -3031,6 +3263,72 @@
         },
         "type": "object",
         "title": "KeyPatch"
+      },
+      "LayoutMove": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "day": {
+            "type": "integer",
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Day"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 5,
+            "minLength": 4,
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 5,
+            "minLength": 4,
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "day",
+          "start",
+          "end"
+        ],
+        "title": "LayoutMove"
+      },
+      "LayoutRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutMove"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Items"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "LayoutRequest",
+        "description": "The stops the direct-edit grid moved or retimed, and the plan version the grid was showing."
       },
       "LockRequest": {
         "properties": {
@@ -3093,6 +3391,42 @@
         },
         "type": "object",
         "title": "ProfilePatch"
+      },
+      "ProposalDecision": {
+        "properties": {
+          "change_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Change Id"
+          },
+          "accept": {
+            "type": "boolean",
+            "title": "Accept"
+          }
+        },
+        "type": "object",
+        "required": [
+          "change_id",
+          "accept"
+        ],
+        "title": "ProposalDecision",
+        "description": "Accept or reject one change the last edit offered."
+      },
+      "RestoreRequest": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "RestoreRequest",
+        "description": "Make a saved version the current plan by copying it as the next version."
       },
       "TripStop": {
         "properties": {

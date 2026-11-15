@@ -9,9 +9,10 @@
 | Judge (evaluation only, optional) | OpenAI-compatible model; reference `deepseek-chat` (DeepSeek) | `backend/app/infrastructure/judge.py`; disabled unless `JUDGE_API_KEY` is set |
 | Embeddings | Local signed hashing, 192 dimensions | `backend/app/application/memory.py` |
 
-Prompts are committed as files in `backend/app/prompts/` (`router.md`, `understand.md`,
-`planner.md`, `modify.md`, `ask.md`, `clarify.md`, `repair.md`). They are English-first and
-carry a language rule and a canary sentinel.
+Each writer job is one skill in `backend/app/skills/*/SKILL.md`. The gateway still
+loads them by prompt name (`router`, `understand`, `planner`, `modify`, `ask`,
+`clarify`, `repair`, and the rest). They are English-first and carry a language
+rule and a canary sentinel. Search skills in that folder are references only.
 
 ## Development assistance
 
@@ -25,12 +26,12 @@ This repository was produced with an AI coding agent (DeepSeek Harness,
   modify turns.
 
 Product direction, design decisions, the demo and the final review are the **human
-owner's**. Every runtime prompt is committed under `backend/app/prompts/`.
+owner's**. Every runtime skill is committed under `backend/app/skills/`.
 
 ## Development artifacts
 
 - the functional baseline: `docs/SPEC.md`;
-- every runtime prompt: `backend/app/prompts/`;
+- every runtime skill: `backend/app/skills/`;
 - the evaluation fixtures and commands: `backend/eval/fixtures/`, `docs/EVALUATION.md`.
 
 The full coding-assistant conversation is not reproduced verbatim; it is not part of the

@@ -43,7 +43,7 @@ import {
   shareSession,
   suggestPlaces,
 } from "./lib/api";
-import { downloadPlanMarkdown } from "./lib/export";
+import { downloadPlanFile, downloadPlanMarkdown } from "./lib/export";
 import { describeFailure, failureOf, type Failure } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { offersSignIn } from "./lib/access";
@@ -364,6 +364,14 @@ export default function App() {
     return id;
   };
 
+  const planFileInput = useRef<HTMLInputElement>(null);
+  const openImportedPlan = async (file: File) => {
+    const id = await pf.importPlanFile(await file.text());
+    if (!id) return;
+    changeTab("plan");
+    writeTrips((current) => (current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }]));
+  };
+
   const handleAuth = async (
     mode: "login" | "register",
     email: string,
@@ -529,6 +537,17 @@ export default function App() {
 
   return (
     <>
+      <input
+        ref={planFileInput}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void openImportedPlan(file);
+        }}
+      />
       <AppHeader
         activeTab={tab}
         onTabChange={changeTab}
@@ -540,6 +559,8 @@ export default function App() {
         onLogout={handleLogout}
         signIn={signIn}
         onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!, planDisclaimer) : undefined}
+        onExportFile={pf.plan ? () => downloadPlanFile(pf.plan!) : undefined}
+        onImport={() => planFileInput.current?.click()}
         onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
         onShare={pf.plan ? () => void handleShare() : undefined}
         onNewTrip={() => void createTripTab()}
@@ -573,6 +594,7 @@ export default function App() {
                   onClarifyChange={pf.setClarifyValue}
                   onClarifySubmit={(message) => void pf.submitClarify(message)}
                   onSend={(message, attachments) => void pf.send(message, attachments)}
+                  onStop={pf.abort}
                   intake={pf.intake}
                   focusSignal={composerFocus}
                   scope={scope}
@@ -584,6 +606,7 @@ export default function App() {
                   onDraftChange={pf.setDraft}
                   onRetry={() => void pf.retry()}
                   onClear={() => void pf.clearChat()}
+                  onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
                   trace={pf.trace}
                   live={pf.live}
                 />
@@ -613,6 +636,7 @@ export default function App() {
                   versions={pf.versions}
                   activeVersion={pf.activeVersion}
                   onVersionChange={(version) => void pf.selectVersion(version)}
+                  onRestoreVersion={(version) => void pf.restoreVersion(version)}
                   selectedItemId={pf.selectedItem?.id ?? null}
                   onSelectItem={selectItem}
                   onUseful={(stars) => {
@@ -633,6 +657,7 @@ export default function App() {
                   onLockChoice={pf.lockChoice}
                   onReopenChoice={pf.reopenChoice}
                   onLoadHotelRooms={pf.hotelRooms}
+                  onApplyLayout={pf.applyLayout}
                   onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
                 />
               ) : (

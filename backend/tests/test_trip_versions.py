@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.domain.models import TripPlan
+from tests.plan_samples import make_plan
 from app.infrastructure.store import SQLiteStore
 from app.interface.api import create_app
 from scripts.seed_platform_demo import DESTINATIONS, _plan
@@ -130,3 +131,68 @@ def test_the_api_lists_and_serves_the_versions_of_the_newest_trip(settings: Sett
     assert [row["version"] for row in opened["versions"]] == [1] == [row["version"] for row in revisions]
     assert first.json()["plan"]["destination"]["name"] == "Kyoto"
     assert second.status_code == 404
+
+
+def test_restoring_an_older_version_copies_it_forward(settings: Settings) -> None:
+    with TestClient(create_app(settings)) as client:
+        guest = {"X-Client-Token": "guest-restore"}
+        session_id = client.post("/api/journeys", json={"client_token": "guest-restore"}).json()["session"]["id"]
+        store = client.app.state.container.store
+        first = _plan_of("Tokyo", "trip_tokyo", 1, 0).model_copy(update={"session_id": session_id})
+        second = first.model_copy(deep=True)
+        second.version = 2
+        second.days[0].items[0].name = "Replaced stop"
+        second.updated_at = second.updated_at + timedelta(seconds=10)
+        store.save_plan(first, "Initial plan")
+        store.save_plan(second, "Swapped a stop")
+
+        restored = client.post(
+            f"/api/journeys/{session_id}/itinerary/restore",
+            json={"version": 1},
+            headers=guest,
+        )
+        again = client.post(
+            f"/api/journeys/{session_id}/itinerary/restore",
+            json={"version": 3},
+            headers=guest,
+        )
+
+    assert restored.status_code == 200
+    plan = restored.json()["plan"]
+    assert plan["version"] == 3
+    assert plan["change_summary"] == "Restored version 1"
+    assert plan["days"][0]["items"][0]["name"] == first.days[0].items[0].name
+    assert again.status_code == 200
+    assert again.json()["plan"]["version"] == 3
+
+
+def test_importing_a_plan_file_opens_it_as_a_new_trip(settings: Settings) -> None:
+    saved = make_plan(days=2, with_tickets=False)
+    saved.days[0].items[0].name = "Shibuya Sky"
+    body = saved.model_dump(mode="json")
+    body["session_id"] = "somewhere-else"
+    body["version"] = 4
+    with TestClient(create_app(settings)) as client:
+        guest = {"X-Client-Token": "guest-import"}
+        response = client.post(
+            "/api/journeys/import",
+            headers=guest,
+            json={"client_token": "guest-import", "plan": body},
+        )
+        assert response.status_code == 200, response.text
+        opened = response.json()
+        session_id = opened["session"]["id"]
+        assert session_id != "somewhere-else"
+        assert opened["plan"]["version"] == 1
+        assert opened["plan"]["session_id"] == session_id
+        assert opened["plan"]["days"][0]["items"][0]["name"] == "Shibuya Sky"
+        assert opened["context"]["destination"] == opened["plan"]["destination"]["name"]
+        again = client.get(f"/api/journeys/{session_id}", headers=guest)
+        assert again.status_code == 200
+        assert again.json()["plan"]["days"][0]["items"][0]["name"] == "Shibuya Sky"
+        bad = client.post(
+            "/api/journeys/import",
+            headers=guest,
+            json={"client_token": "guest-import", "plan": {"summary": "not a plan"}},
+        )
+        assert bad.status_code == 422
