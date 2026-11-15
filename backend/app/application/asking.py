@@ -200,6 +200,9 @@ class AskPath:
             if start and end:
                 source = self.registry.weather[0]
                 try:
+                    if plan is not None and len(plan.segments) > 1:
+                        # A trip of several cities: the city of the day asked about, or every city over its own days.
+                        return await _weather_by_city(plan, source, toolbox, target_date)
                     location = _destination_geo(plan, context)
                     if location is None and context.destination:
                         location = await toolbox.call(
@@ -627,6 +630,39 @@ def _relates_to_plan(
     return bool(re.search(PLAN_TOPIC_WORDS, lower))
 
 
+async def _weather_by_city(plan: TripPlan, source: Any, toolbox: Toolbox, target_date: date | None):
+    """The forecast of a trip of several cities: for the city a named day is in (the day two cities share belongs to the one
+    arrived in), else for each city over the days it holds. Each row says which city it is for."""
+    from datetime import timedelta
+
+    from app.domain.models import GeoLocation
+
+    if target_date is not None:
+        asked = [(plan.segment_of(target_date), target_date, target_date)]
+    else:
+        asked = []
+        for index, segment in enumerate(plan.segments):
+            last = index == len(plan.segments) - 1
+            end = segment.dates.end
+            if not last and end > segment.dates.start:
+                end = end - timedelta(days=1)  # the day it is left belongs to the next city
+            asked.append((segment, segment.dates.start, end))
+    rows: list[dict] = []
+    for segment, start, end in asked:
+        geo = segment.destination.geo
+        if geo is None:
+            return "weather", {"unavailable": _NO_FORECAST}, "weather"
+        result = await toolbox.call(
+            "weather.forecast",
+            source.forecast,
+            geo=GeoLocation(name=segment.destination.name, geo=geo),
+            start=start,
+            end=end,
+        )
+        rows += [{**row.model_dump(mode="json"), "city": segment.destination.name} for row in result]
+    return "weather", rows, source.name
+
+
 def _destination_geo(plan: TripPlan | None, context: TripContext):
     from app.domain.models import GeoLocation
 
@@ -885,15 +921,18 @@ def _fallback_answer(facts: dict, source: str) -> str:
     if "weather" in facts:
         rows = facts["weather"]
         parts = []
-        for row in rows[:4]:
+        # A trip of several cities says which city each day is for, and every day is told.
+        by_city = any(isinstance(row, dict) and row.get("city") for row in rows)
+        for row in rows if by_city else rows[:4]:
+            day = f"{row.get('date')} ({row['city']})" if by_city and row.get("city") else f"{row.get('date')}"
             if row.get("status") == "ok" and row.get("high_c") is not None:
                 low = row.get("low_c")
                 parts.append(
-                    f"{row.get('date')}: {row.get('summary')}, {round(row.get('high_c'))}°"
+                    f"{day}: {row.get('summary')}, {round(row.get('high_c'))}°"
                     + (f" / {round(low)}°" if low is not None else "")
                 )
             else:
-                parts.append(f"{row.get('date')}: no forecast available")
+                parts.append(f"{day}: no forecast available")
         return "Forecast — " + "; ".join(parts) + f" ({source})."
     if "matching_items" in facts:
         rows = facts["matching_items"]
