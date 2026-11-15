@@ -74,7 +74,7 @@ export const EN = {
   "sheet.start": "Start time",
   "sheet.duration": "Minutes",
   "warnings.overlap": "{a} and {b} overlap on {day}.",
-  "warnings.kept": "The plan is kept. Change the times if you want them apart.",
+  "warnings.kept": "Nothing is saved while stops overlap. Change the times to apply.",
   "banner.close": "Close",
   "warnings.budget": "The cost is over the budget. The plan is kept.",
   "chat.dataNotInstructions": "Your message is handled as data, not as instructions",

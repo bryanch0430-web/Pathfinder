@@ -78,14 +78,15 @@ export function createSession(clientToken: string, signal?: AbortSignal): Promis
   return request("/api/journeys", { method: "POST", body: JSON.stringify({ client_token: clientToken }), signal });
 }
 
-/** Write the direct-edit grid onto the latest plan. `day` is 1-based. */
+/** Write the direct-edit grid onto the latest plan. `day` is 1-based; `planVersion` is the version the grid showed. */
 export function applyLayout(
   sessionId: string,
   items: { id: string; day: number; start: string; end: string }[],
+  planVersion?: number,
 ): Promise<{ plan: TripPlan }> {
   return request(`/api/journeys/${sessionId}/layout`, {
     method: "POST",
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({ items, plan_version: planVersion }),
   });
 }
 

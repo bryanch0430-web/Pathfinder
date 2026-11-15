@@ -183,6 +183,10 @@ export interface PathfinderHook {
   selectItem: (item: PlanItem | null) => void;
   selectVersion: (version: number) => Promise<void>;
   restoreVersion: (version: number) => Promise<void>;
+  /** Accepts or rejects one change that a held edit offered. */
+  decideChange: (messageId: string, changeId: string, accept: boolean) => Promise<void>;
+  /** Writes the direct-edit grid onto the plan. Rejects with the server's reason, after showing it. */
+  applyLayout: (items: { id: string; day: number; start: string; end: string }[]) => Promise<void>;
   /** Swaps in another option the plan offers (a stop's alternative, a hotel, a flight); no model call. Rejects with the server's reason. */
   choose: (kind: ChoiceKind, targetId: string | null, optionId: string, lock?: boolean) => Promise<void>;
   /** Choose this option for a stay or leg and lock it in (a lock alone, when it is already the chosen one, makes no new version). */
@@ -1045,7 +1049,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     const id = sessionRef.current;
     if (!id) return;
     try {
-      const result = await applyLayout(id, items);
+      const result = await applyLayout(id, items, shownVersion);
       if (sessionRef.current !== id) return;
       setPlan(result.plan);
       setActiveVersion(result.plan.version);
@@ -1060,7 +1064,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       if (sessionRef.current === id) showBanner(failure);
       throw cause;
     }
-  }, [failureOfCall, showBanner]);
+  }, [failureOfCall, showBanner, shownVersion]);
 
   const decideChange = useCallback(async (messageId: string, changeId: string, accept: boolean) => {
     const id = sessionRef.current;

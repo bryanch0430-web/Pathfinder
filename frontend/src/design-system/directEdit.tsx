@@ -205,7 +205,7 @@ export function DirectSheet({
     <div className="pf-sheet">
       <div className="pf-sheet__bar">
         <Text size="xs" tone="secondary">{stay ? `${stay} · ${t("sheet.hint")}` : t("sheet.hint")}</Text>
-        <Button size="sm" variant="primary" disabled={!canApply || !dirty || saving} loading={saving} onClick={apply}>
+        <Button size="sm" variant="primary" disabled={!canApply || !dirty || saving || clashes.length > 0} loading={saving} onClick={apply}>
           {t("sheet.apply")}
         </Button>
       </div>

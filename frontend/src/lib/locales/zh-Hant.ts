@@ -74,7 +74,7 @@ export const ZH_HANT: Messages = {
   "sheet.start": "開始時間",
   "sheet.duration": "分鐘",
   "warnings.overlap": "{a} 和 {b} 在 {day} 時間重疊。",
-  "warnings.kept": "行程仍會保留。若要分開，改一下時間即可。",
+  "warnings.kept": "行程重疊時不會儲存。請先改開時間再套用。",
   "banner.close": "關閉",
   "warnings.budget": "花費超出預算。行程仍會保留。",
   "chat.dataNotInstructions": "你的訊息會被當作資料處理，而不是指令",

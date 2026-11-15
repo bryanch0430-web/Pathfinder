@@ -72,7 +72,7 @@ export const ZH_HANS: Messages = {
   "sheet.start": "开始时间",
   "sheet.duration": "分钟",
   "warnings.overlap": "{a} 和 {b} 在 {day} 时间重叠。",
-  "warnings.kept": "行程仍会保留。若要分开，改一下时间即可。",
+  "warnings.kept": "行程重叠时不会保存。请先改开时间再应用。",
   "banner.close": "关闭",
   "warnings.budget": "花费超出预算。行程仍会保留。",
   "chat.dataNotInstructions": "你的消息会被当作数据处理，而不是指令",
