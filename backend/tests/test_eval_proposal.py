@@ -327,15 +327,15 @@ def test_tc03_failing_cases_name_the_unhandled_disruption(unhandled: dict) -> No
         assert not outcomes["outdoor_stops_moved"]
         assert case["failure_class"] == "unmet_weather"
         assert "Outdoor stops on an alert day" in case["judge_reason"]
-    # hk03: the 40-minute delay makes day-1 metro transfers too short. hk06: the
-    # delay day has only walking legs, so travel times hold, but the delay is
-    # neither detected nor recorded.
-    for case_id, failure in (("hk03", "unmet_travel_times"), ("hk06", "transit_delay_not_handled")):
+    # hk06: the 30-minute delay makes a day-2 metro transfer too short. hk03: the delay is on the
+    # arrival day, which starts at 15:00 and has one long gap, so travel times hold, but the delay
+    # is neither detected nor recorded.
+    for case_id, failure in (("hk03", "transit_delay_not_handled"), ("hk06", "unmet_travel_times")):
         case = _case(unhandled, "hongkong", case_id)
         outcomes = case["plan_checks"]["disruption"]["outcomes"]
         assert not outcomes["delay_detected"] and not outcomes["delay_recorded"]
         assert case["failure_class"] == failure
-    assert not _case(unhandled, "hongkong", "hk03")["plan_checks"]["disruption"]["outcomes"]["transfers_absorb_delay"]
+    assert not _case(unhandled, "hongkong", "hk06")["plan_checks"]["disruption"]["outcomes"]["transfers_absorb_delay"]
     metrics = _metrics(unhandled, "hongkong")
     assert metrics["recovery_typhoon"]["value"] == metrics["recovery_transit_delay"]["value"] == 0.0
 
