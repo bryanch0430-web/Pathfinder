@@ -133,7 +133,7 @@ def test_a_day_trip_with_no_origin_does_not_search_for_a_hotel_or_a_flight() -> 
 
 def test_the_edit_prompt_stays_within_its_size(settings) -> None:
     """The edit is one writer call; its prompt is what makes a local edit cheaper than a replan (TC-11).
-    At 3,651 characters the closest case, ed01, is 25 tokens cheaper; about 100 characters more and it is not."""
+    At 3,643 characters the closest case, ed01, is 27 tokens cheaper; about 100 characters more and it is not."""
     assert len(PromptLibrary(settings).system("modify")) <= 3660
 
 
