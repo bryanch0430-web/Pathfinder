@@ -15,14 +15,21 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.application.freshness import RETRY_AFTER_SECONDS, SECTIONS, FreshnessService
+from app.application.choices import flight_times_note
+from app.application.freshness import (
+    RETRY_AFTER_SECONDS,
+    SECTIONS,
+    FreshnessService,
+    _apply_flight_checks,
+    _flight_checks,
+)
 from app.application.llm_gateway import LLMGateway
 from app.application.planner import Planner
 from app.application.planning import PlanPath
 from app.application.toolbox import Toolbox
 from app.config import Settings
 from app.domain.errors import ProviderError
-from app.domain.models import EvalCase, FailureKind, TripPlan, utcnow
+from app.domain.models import ConstraintStatus, EvalCase, FailureKind, TripPlan, utcnow
 from app.eval_efficiency import accepted_plan, build_rig, case_context, cost_sandbox
 from app.eval_metering import RunLedger
 from app.infrastructure.observability import NoopTracer
@@ -151,13 +158,52 @@ def test_what_is_fetched_afterwards_is_what_a_plan_made_with_the_sources_up_hold
         (ticket.name, ticket.price) for ticket in made_whole.tickets
     ]
     assert shown.cost.model_dump() == made_whole.cost.model_dump()
-    assert [(check.text, check.status) for check in shown.constraints] == [
-        (check.text, check.status) for check in made_whole.constraints
+    # The same checks in the same order. The arrival check reads the days as they are, which were laid out
+    # before the flight was known: its status has a test of its own below.
+    assert [check.text for check in shown.constraints] == [check.text for check in made_whole.constraints]
+    assert [(check.text, check.status) for check in shown.constraints if check.text != "flight arrival"] == [
+        (check.text, check.status) for check in made_whole.constraints if check.text != "flight arrival"
     ]
     assert [reservation.name for reservation in shown.reservations] == [
         reservation.name for reservation in made_whole.reservations
     ]
     assert set(made_whole.data_quality.sources_used) <= set(shown.data_quality.sources_used)
+
+
+def test_a_flight_fetched_afterwards_is_checked_against_the_days_as_they_are(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    """The plan was laid out with no flight to respect: the check fails, a note names the stops, and none is moved."""
+    scene = _scene(settings, offline_gateway)
+    for source in scene.sources.values():
+        source.down = False
+    scene.clock[0] = scene.plan.updated_at + timedelta(days=1)
+
+    shown = scene.reopen()
+
+    [arrival] = [check for check in shown.constraints if check.text == "flight arrival"]
+    assert arrival.status == ConstraintStatus.FAIL
+    assert arrival.evidence == f"On {shown.days[0].date.isoformat()}, nothing starts before 15:00."
+    [note] = [note for note in shown.data_quality.notes if note.startswith("The chosen flight")]
+    assert shown.days[0].items[0].name in note
+    assert [(item.name, item.start) for day in shown.days for item in day.items] == [
+        (item.name, item.start) for day in scene.plan.days for item in day.items
+    ]
+
+
+def test_the_flight_check_passes_where_the_days_fit_and_is_written_once(settings: Settings) -> None:
+    whole = asyncio.run(accepted_plan(settings, _context()))
+    checks = _flight_checks(whole)
+    assert [(check.text, check.status) for check in checks] == [("flight arrival", ConstraintStatus.PASS)]
+    assert flight_times_note(whole) is None
+    # A plan that already carries the check and a note gets each once, however often it is read again.
+    whole.data_quality.notes.append("The chosen flight (old) does not leave time for X; move or drop those stops.")
+    _apply_flight_checks(whole)
+    _apply_flight_checks(whole)
+    assert [check.text for check in whole.constraints].count("flight arrival") == 1
+    assert [note for note in whole.data_quality.notes if note.startswith("The chosen flight")] == []
+    whole.tickets = []
+    assert _flight_checks(whole) == []
 
 
 def test_only_the_section_that_failed_is_fetched_again(settings: Settings, offline_gateway: LLMGateway) -> None:

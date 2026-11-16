@@ -1866,6 +1866,14 @@ def _constraints(
                 ),
             )
         )
+    checks.extend(_window_checks(days, windows))
+    return checks
+
+
+def _window_checks(days: list[DayPlan], windows: dict[date, DayWindow]) -> list[ConstraintCheck]:
+    """One check per reason a day has an opening or a closing time: nothing planned outside it."""
+    by_day = {day.date: day for day in days}
+    checks: list[ConstraintCheck] = []
     for when, window in sorted(windows.items()):
         day = by_day.get(when)
         items = day.items if day else []

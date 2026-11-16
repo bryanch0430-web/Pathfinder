@@ -427,15 +427,24 @@ def _choose_flight(updated: TripPlan, option_id: str, target_id: str | None = No
     if before is not None and before.id != option.id:
         _retell(updated, "Flight" if option.mode == "flight" else "Transport", before.name, option.name)
     updated.data_quality.notes = [note for note in updated.data_quality.notes if not note.startswith(FLIGHT_TIMES_NOTE)]
-    clash = _flight_clashes(updated)
-    if clash:
-        updated.data_quality.notes.append(
-            f"{FLIGHT_TIMES_NOTE} ({option.name}) does not leave time for {clash}; move or drop those stops."
-        )
+    note = flight_times_note(updated, option.name)
+    if note:
+        updated.data_quality.notes.append(note)
     what = "the flight" if option.mode == "flight" else "the transport option"
     return f"Chose {what} {option.name}." if before is None or before.id == option.id else (
         f"Chose {what} {option.name} instead of {before.name}."
     )
+
+
+def flight_times_note(plan: TripPlan, name: str | None = None) -> str | None:
+    """What a plan says when the chosen flight leaves no time for stops it already holds, else nothing.
+    ``name`` is the option just chosen; without it the chosen flight is named."""
+    clash = _flight_clashes(plan)
+    if not clash:
+        return None
+    ticket = selected_ticket(plan.tickets)
+    label = name or (ticket.name if ticket else "")
+    return f"{FLIGHT_TIMES_NOTE} ({label}) does not leave time for {clash}; move or drop those stops."
 
 
 def _flight_clashes(plan: TripPlan) -> str:

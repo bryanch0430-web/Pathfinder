@@ -23,7 +23,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from app.application.agents import AgentContext, BaseAgent, HotelAgent, TicketAgent, WeatherAgent
-from app.application.planner import Planner, _constraints, _reservations
+from app.application.choices import FLIGHT_TIMES_NOTE, flight_times_note
+from app.application.planner import Planner, _constraints, _reservations, _window_checks
+from app.application.trip_rules import flight_windows
 from app.application.limits import segment_count, tool_cap_for
 from app.application.toolbox import Toolbox
 from app.config import Settings
@@ -42,6 +44,7 @@ from app.domain.models import (
     TripPlan,
     WeatherDay,
     new_id,
+    selected_ticket,
     utcnow,
 )
 from app.domain.ports import Tracer
@@ -298,6 +301,9 @@ class FreshnessService:
             if filled or priced_again:
                 # The checks that read the plan's own data (the budget among them) follow the cost they read.
                 updated.constraints = _recheck_derived(updated, request_context, checks_before)
+                if "tickets" in filled:
+                    # A plan made whole was laid out around its flight. This one was not: say where it does not fit.
+                    _apply_flight_checks(updated)
             span.attrs["refreshed"] = refreshed
         if not (outdated or refreshed or requested or stale_marks):
             return None  # only a section that never arrived was tried again, and nothing came back
@@ -545,6 +551,28 @@ def _recheck_derived(
         else check
         for check in plan.constraints
     ]
+
+
+#: The checks the chosen flight's times make (``trip_rules.flight_windows``).
+FLIGHT_CHECKS = ("flight arrival", "flight departure")
+
+
+def _flight_checks(plan: TripPlan) -> list[ConstraintCheck]:
+    """The arrival and departure checks of the chosen flight, read against the days as they are."""
+    ticket = selected_ticket(plan.tickets)
+    if ticket is None:
+        return []
+    return _window_checks(plan.days, flight_windows([ticket.model_dump()], [day.date for day in plan.days]))
+
+
+def _apply_flight_checks(plan: TripPlan) -> None:
+    """A flight that came back after the plan was laid out: its checks and, where stops fall outside its times, the
+    note a change of flight writes. Each is written once, and no stop is moved: the traveller decides."""
+    plan.constraints = [check for check in plan.constraints if check.text not in FLIGHT_CHECKS] + _flight_checks(plan)
+    plan.data_quality.notes = [note for note in plan.data_quality.notes if not note.startswith(FLIGHT_TIMES_NOTE)]
+    note = flight_times_note(plan)
+    if note:
+        plan.data_quality.notes.append(note)
 
 
 def _name(value: str) -> str:
