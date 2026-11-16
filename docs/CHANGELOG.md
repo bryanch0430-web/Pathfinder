@@ -5,6 +5,20 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## Unreleased — 2026-11-17
+
+Fixes found while tracing the evaluation figures of 16 November. The causes are in `docs/EVAL_REGRESSIONS.md`.
+
+- **A plain request for more stops adds one again.** "Add one more attraction on day 2", "add two more stops" and "can u add this days more stop" added nothing, because the day phrase or the count was read as the name of a place. (`c78ae6c`)
+- **A language or cuisine request searches for no place.** "Translate the plan to Chinese" searched places for "Chinese", and "a Chinese restaurant" started a place search beside the meal search. (`c78ae6c`)
+- **A flight that arrives late for the plan is said so on reopening.** A trip planned while the flight source was down gets its flight when it is reopened. It now also gets the `flight arrival` check, and a note names the stops the flight leaves no time for. No stop is moved. (`002282b`)
+- **An edit costs fewer tokens.** The edit skill says the same rules in fewer words; the edit still reads the whole plan, the forecast and the tags. (`d153ae3`)
+- **The calendar export works on Windows.** `tzdata` is a requirement; `zoneinfo` has no time zone database of its own there. (`c78ae6c`)
+
+**Upgrading.** `tzdata` is new in `backend/requirements.txt`. Run `uv pip install -r backend/requirements.txt` in the backend environment once after pulling.
+
+---
+
 ## v1.7.0 — 2026-11-15
 
 Trips of several cities, every stay and leg a lockable choice slot, and a picture, link and rank on

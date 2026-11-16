@@ -3,7 +3,7 @@
 **Scope.** `docs/EVALUATION.md` records the offline results of 5 Nov 2026 at commit `74dbe5d`. The same datasets
 run at `25170d3` (16 Nov 2026) gave worse figures on four of them, and the backend suite had 20 failing tests.
 This report names the commit and the cause of each, says which were fixed, and lists what is still open.
-Written 17 Nov 2026.
+Written 17 Nov 2026, and brought up to date the same day after a second round of fixes (3.4 and 4.2).
 
 The offline sandbox has no live model and no network, so every difference comes from code merged between the two
 commits.
@@ -14,8 +14,8 @@ commits.
 |---|---|---|---|---|---|
 | `hongkong` | 8/8, closure recovery 100% | 7/8, closure recovery 50% | 8/8, closure recovery 100% | A fixture closed a venue the plan no longer held (`4f7580e`) | fixed |
 | `injection` | 83/84 | 82/84 | 82/84 | A new model-written clarifying question is sent unchecked (`e40399d`) | open |
-| `efficiency` | router saves 36.3% of tokens | 10.2% | 10.2% | Prompts grew | open |
-| `edit_vs_replan` | edit saves 57.7% of tokens | 3.2% | 3.2% | The edit prompt grew 2.6 times | open |
+| `efficiency` | router saves 36.3% of tokens | 10.2% | 13.4% | Prompts grew | partly recovered (3.4) |
+| `edit_vs_replan` | edit saves 57.7% of tokens | 3.2% | 13.8% | The edit prompt grew 2.6 times | partly recovered; every case is cheaper than a replan again (3.4) |
 | `japan`, `routing`, `travelplanner` | 6/6, 64/84, 3/3 | same | same | | |
 
 | Backend suite | Failed | Passed | Skipped |
@@ -23,6 +23,7 @@ commits.
 | `25170d3` | 20 | 3,948 | 1 |
 | After `c78ae6c` | 9 | 3,959 | 1 |
 | After `88a4036` | 7 | 3,961 | 1 |
+| After the second round (`cd28311`) | 0 | 3,972 | 1 |
 
 Each finding has a class:
 
@@ -132,15 +133,40 @@ Per case, the local edit now costs 1,392 to 1,480 tokens. In ed01 it costs 1,407
 fails `tests/test_proposal_efficiency.py::test_tc11_local_edit_costs_less_and_keeps_accepted_items`. The edit still
 makes one writer call and 0 to 2 tool calls against 9 to 12 for a replan.
 
-Not changed, because each is a design choice:
+Not changed in the first round, because each is a design choice (the first was done in the second round, 3.4):
 
 - shorten the edit skill;
 - send the outline instead of the whole plan when the message names a day or a stop;
 - model a provider prompt cache in the meter, which would discount the fixed 1,068-token system part.
 
+### 3.4 What the second round changed (17 Nov)
+
+The edit skill was rewritten in fewer words with every rule kept (`d153ae3`, `dc66384`): the system prompt of
+`modify` went from 4,271 to 3,643 characters. Nothing the prompt carries was taken out: an edit still reads the
+whole plan, the forecast and the tags.
+
+| Path, estimated tokens per turn | 16 Nov | 17 Nov |
+|---|---:|---:|
+| Router path | 1,316 | 1,269 |
+| Full pipeline | 1,465 | 1,465 |
+| Local edit | 1,438 | 1,281 |
+| Replan | 1,486 | 1,486 |
+
+- `edit_vs_replan`: the edit saves 13.8% of tokens (3.2% before). Every case is now cheaper than its replan, by
+  27, 387, 411, 128 and 73 tokens for ed01 to ed05.
+- `efficiency`: the router saves 13.4% of tokens (10.2% before), because its three edit turns read the same skill.
+- The margin of ed01 is thin. About 100 more characters in the edit prompt make it cost more than a replan again.
+  `tests/test_edit_skill.py::test_the_edit_prompt_stays_within_its_size` holds the prompt at 3,660 characters, and
+  `::test_the_shorter_edit_skill_keeps_every_rule` lists the 18 phrases that must stay.
+- The wording of a prompt a live model reads changed. No offline test can show how a live model reads it.
+
+The other two ways of 3.3 are still there if a wider margin is wanted; each reverses a tested decision
+(`tests/test_modify_plan_context.py`): without the forecast and tags the edit saves about 74 tokens more a call, and
+with the outline in place of the whole plan about 190.
+
 ## 4. The 20 failing tests
 
-### 4.1 Fixed
+### 4.1 Fixed in the first round
 
 | Tests | First fails at | Class | Cause | Fix |
 |---|---|---|---|---|
@@ -151,28 +177,30 @@ Not changed, because each is a design choice:
 | `test_plan_segments.py::test_no_code_outside_the_model_reads_the_hotels_by_position` | `7c21e46`, in the merge `3487ed4` | (a), a limit | `apply_change` in `proposals.py` read `hotels[1:]` | It uses `first_stay`, with the same behaviour (`c78ae6c`). The limit stays: see 5. |
 | `test_eval_proposal.py::test_tc03_hongkong_case_passes[hk07]`, `::test_tc08_closed_venue_is_replaced` | `4f7580e` | (b) | 3.1 | `88a4036` |
 
-### 4.2 Still failing (7)
+### 4.2 Fixed in the second round (17 Nov)
 
-| Tests | First fails at | Class | Cause |
-|---|---|---|---|
-| `test_eval_proposal.py::test_tc03_failing_cases_name_the_unhandled_disruption` | `4f7580e` | (b) | Day 1 of hk03 is shorter, so with the delay handling off its failure class is `transit_delay_not_handled`, not `unmet_travel_times` |
-| `test_hk_disruptions.py` (2) | `4f7580e` | (b) | Scenes written for a full day 1. No short metro transfer is left on day 1 for the delay to matter, and another outdoor stop is dropped first. |
-| `test_proposal_db09.py` (2) | `4f7580e` | (b) | The scene marks "teamLab Planets, day 1, third row" as confirmed. Day 1 now holds Senso-ji at 15:00 and dinner, and teamLab Planets is not planned. |
-| `test_failed_sections.py::test_what_is_fetched_afterwards_is_what_a_plan_made_with_the_sources_up_holds` | `4f7580e` | (a) | A plan made while the flight source was down, then reopened, gets the flight but neither the `flight arrival` check nor a later start of day 1. A plan made with the source up has both. The refill is in `application/freshness.py`; `flight_windows` is applied only in `planner.py` and `choices.py`. |
-| `test_proposal_efficiency.py::test_tc11_local_edit_costs_less_and_keeps_accepted_items` | `3487ed4` | (a) | 3.3, case ed01 |
+| Tests | First failed at | Class | Cause | Fix |
+|---|---|---|---|---|
+| `test_hk_disruptions.py` (2) | `4f7580e` | (b) | Scenes written for a full day 1. From Singapore, day 1 starts at 15:00, so no short metro transfer was left for the delay to matter, and another outdoor stop was dropped first. | The two scenes plan for a traveller already in Hong Kong; the other 14 tests of the file keep their flight (`07e3839`) |
+| `test_proposal_db09.py` (2) | `4f7580e` | (b) | The scene confirmed "teamLab Planets, day 1, third row", which is no longer planned. With no protected stop left to put back, a pace change had no transfer to fetch. | The scene confirms Tokyo Skytree on day 2, the day of the locked stop (`41dddc0`) |
+| `test_eval_proposal.py::test_tc03_failing_cases_name_the_unhandled_disruption` | `4f7580e` | (b) | With the delay handling off, hk03 and hk06 changed places: hk03's delay is on the short arrival day and is absorbed by accident; hk06's day 2 has a metro leg that becomes too short (`Victoria Peak -> M+ has 25 min, needs 43`). | The expectations are swapped; no fixture changed (`c8f4217`) |
+| `test_failed_sections.py::test_what_is_fetched_afterwards_is_what_a_plan_made_with_the_sources_up_holds` | `4f7580e` | (a) | A plan made while the flight source was down, then reopened, got the flight but no `flight arrival` check. | The refill adds the check, read against the days as they are, and the note a change of flight writes. No stop is moved (`002282b`). The test compares the texts of the checks, and two new tests cover the failing and the passing status. |
+| `test_proposal_efficiency.py::test_tc11_local_edit_costs_less_and_keeps_accepted_items` | `3487ed4` | (a) | 3.3: three of the five cases cost more than a replan (ed01 by 130 tokens, ed05 by 84, ed04 by 29). | A shorter edit skill with the same rules (`d153ae3`, `dc66384`) |
 
-The five class (b) tests need their scenes or expectations rewritten for an arrival day that starts at 15:00. Moving
-the sandbox flight to land at 07:00 would also clear them, but the datasets would then stop exercising the arrival
-rule, so that was not done.
+No backend test fails after this round.
 
 ## 5. Open items
 
 1. **i09.** Choose one of the three options in 3.2.
-2. **Token cost of an edit.** Choose among the options in 3.3, or accept the cost and change what TC-11 asserts.
-3. **A flight fetched after the plan was made** brings no arrival check (4.2).
+2. **The margin of TC-11 is thin** (3.4). A wider one needs one of the two changes named there.
+3. **An edit does not apply the flight's times.** `ModifyPath` rebuilds the checks from the traveller's own rules
+   only (`travel_windows` in `backend/app/application/modification.py`), so a stop added before the flight lands is
+   not flagged and an edit can drop the `flight arrival` check. Read in the code on 17 Nov, not yet shown by a test.
+   `_flight_checks` in `backend/app/application/freshness.py` is the helper it would use.
 4. **Held edits know one stay.** `_stay_changes` and `apply_change` in `backend/app/application/proposals.py` read and
    replace only the first stay, so a held edit on a trip of several cities cannot change the stay of a later city.
-5. **Five stale test scenes** (4.2).
+5. **hk03 no longer tests a delay that matters.** Its delay is on the arrival day, which has one long gap. hk06 does
+   test one. hk03 is a held-out item and was not changed.
 6. **`docs/EVALUATION.md` section 4** still shows the 5 Nov figures. The figures of section 1 here are the current
    ones.
 
