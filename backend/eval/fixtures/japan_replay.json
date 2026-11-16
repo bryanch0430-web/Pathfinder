@@ -432,7 +432,7 @@
      "method": "POST",
      "url": "https://places.googleapis.com/v1/places:searchText",
      "when": {
-      "includedType": "tourist_attraction"
+      "includedType": "^(tourist_attraction)?$"
      },
      "filter": "textQuery",
      "json_from": "google.attractions"
@@ -1429,7 +1429,7 @@
      "method": "POST",
      "url": "https://places.googleapis.com/v1/places:searchText",
      "when": {
-      "includedType": "tourist_attraction"
+      "includedType": "^(tourist_attraction)?$"
      },
      "filter": "textQuery",
      "json_from": "google.attractions"
@@ -2390,7 +2390,7 @@
      "method": "POST",
      "url": "https://places.googleapis.com/v1/places:searchText",
      "when": {
-      "includedType": "tourist_attraction"
+      "includedType": "^(tourist_attraction)?$"
      },
      "filter": "textQuery",
      "json_from": "google.attractions"

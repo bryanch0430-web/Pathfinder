@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_candidate_limit
 from app.application.freshness import outdated_sections
-from app.application.language import cuisine_slot
+from app.application.language import cuisine_slot, language_slot
 from app.application.meals import image_of
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
 from app.application.plan_focus import date_named, day_number_named, focus_day
@@ -1722,8 +1722,18 @@ def _trim_place(phrase: str | None) -> str | None:
 
 
 def _is_only_a_day(phrase: str) -> bool:
-    """'day 3' is which day, not the name of a place."""
-    return re.fullmatch(r"day\s*\d+", phrase.strip(), flags=re.IGNORECASE) is not None
+    """'day 3' and 'on day 3' are which day, not the name of a place."""
+    return re.fullmatch(r"(?:(?:on|onto|to|for|in)\s+)?day\s*\d+", phrase.strip(), flags=re.IGNORECASE) is not None
+
+
+#: How many, or which day's: "one more attraction", "two more stops", "this days more stop" still name a kind.
+_QUANTITY_WORDS = frozenset(
+    {"one", "two", "three", "four", "more", "another", "extra", "additional", "few", "couple", "of", "this", "that", "day", "days"}
+)
+#: After a cuisine these are a kind of meal stop ("a Chinese restaurant"), which the meal search looks up.
+_MEAL_KINDS = frozenset(
+    {"restaurant", "restaurants", "cafe", "cafes", "bar", "eatery", "diner", "place", "places", "spot", "food", "meal", "lunch", "dinner", "breakfast"}
+)
 
 
 def _is_a_kind(phrase: str) -> bool:
@@ -1733,6 +1743,12 @@ def _is_a_kind(phrase: str) -> bool:
         # No English kind word. A name in another script is still a name.
         return not any(char.isalpha() for char in phrase)
     kinds = _KIND_WORDS | set(_ADD_KEYWORDS)
+    if words[-1] in _MEAL_KINDS and _cuisine(phrase):
+        return True
+    words = [word for word in words if word not in _QUANTITY_WORDS]
+    if not words:
+        # Only a count ("one more"): nothing here is a name.
+        return True
     first = words[0][:-1] if words[0].endswith("s") else words[0]
     # The first word decides: "museum near home" is still a museum. "Shibuya Sky" is a name.
     return first in kinds or all(word in kinds for word in words)
@@ -1744,6 +1760,9 @@ def _named_place(message: str) -> str | None:
     "change it to shibuya sky", "have the attraction shibuya sky", "add Shibuya Sky on day 2".
     "add a museum" names a kind, so it stays a kind.
     """
+    if language_slot(message) is not None:
+        # "Translate the plan to Chinese" names a language.
+        return None
     text = message.strip().rstrip(" .?!")
     phrases = [_requested_alternative_text(message)]
     for pattern in (_AFTER_A_KIND, _AFTER_GOING, _AFTER_ADDING):
