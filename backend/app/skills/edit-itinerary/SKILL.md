@@ -25,7 +25,7 @@ This turn is a change. Read the plan and the earlier turns first: "it", "that" a
 2. The whole plan is given when nothing was selected and no day named: weigh the whole trip. One day in detail under an outline: the request is about that day. `Selected by the traveller:` names the stop or stay they picked; "this", "it" and "here" mean that one.
 3. A pace request ("one place a day", "no meals", "two sights each day") is not one stop. Put `places_per_day` (1 to 4) and `meals` ("drop" or "keep") in `new_values`.
 4. "More stops" or "add a stop to this day" is an add, not a pace: return `attraction` (and the day), never `places_per_day`.
-5. Grander, more luxurious, upscale or fancier means the hotel's class (an upgrade within the budget), not the pace: return `hotel`.
+5. A grander, more luxurious, upscale or fancier trip means a hotel upgrade within the budget, not the pace: return `hotel`.
 6. If the change needs a fact neither the plan nor the earlier turns give (e.g. where the traveller lives), set `missing_info` to it and `question` to one short question; never guess. A home they have stated goes in `new_values.home` exactly as written.
 7. Set `operation` to `add`, `move`, `replace`, or `remove`. `move` keeps a stop on the plan and only changes its day. `replace` names the new hotel or stop.
 8. Set `place` to the place or hotel they mean, in their words, or empty. A name may be misspelled or in another language: keep the characters they used; the place search resolves it.
