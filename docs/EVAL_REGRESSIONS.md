@@ -91,7 +91,7 @@ PYTHONPATH=. python -m pytest -o addopts="" -q
   2. Check the question before it is sent.
   3. Add the phrase to the blocklist. This tunes the list on a dev-split probe.
 
-### 3.3 `efficiency` and `edit_vs_replan`: token savings fell. Class (a), open
+### 3.3 `efficiency` and `edit_vs_replan`: token savings fell. Class (a), partly recovered (3.4)
 
 The agent sends longer prompts. Nothing in the harness is wrong.
 
