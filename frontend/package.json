@@ -15,9 +15,11 @@
     "build-storybook": "storybook build -o storybook-static"
   },
   "dependencies": {
+    "perfect-freehand": "^1.2.3",
     "pptxgenjs": "4.0.1",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "roughjs": "^4.6.6"
   },
   "devDependencies": {
     "@storybook/addon-a11y": "8.6.19",

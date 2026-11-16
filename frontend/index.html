@@ -3,8 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#F4F2EE" />
+    <meta name="theme-color" content="#fbfbfa" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Caveat:wght@400;700&family=Yomogi&&display=swap" rel="stylesheet" />
     <title>Pathfinder — agentic trip planner</title>
+    <script>
+      try {
+        if (localStorage.getItem("pathfinder-theme") === "dark") {
+          document.documentElement.classList.add("is-dark");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

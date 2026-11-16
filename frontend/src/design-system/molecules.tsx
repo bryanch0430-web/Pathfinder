@@ -10,6 +10,7 @@ import {
   type AgentStatus,
 } from "./elements";
 import { Icon, type IconName } from "./icons";
+import { isPendingChoice } from "./pendingChoice";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
 import { profileOf } from "../lib/profile";
@@ -902,6 +903,7 @@ export function ItineraryItem({
 }) {
   const { t } = useI18n();
   const transferText = transferLine(item, t);
+  const pending = isPendingChoice(item.notes);
   return (
     <div
       className="pf-item"
@@ -938,7 +940,7 @@ export function ItineraryItem({
         <PlaceImage image={item.image} />
         <PlaceFacts place={item} />
         {transferText ? <span className="pf-item__facts">{transferText}</span> : null}
-        {item.notes ? <span className="pf-item__notes">{item.notes}</span> : null}
+        {item.notes && !pending ? <span className="pf-item__notes">{item.notes}</span> : null}
         {item.hours_status ? (
           <span className="pf-item__notes" data-hours={item.hours_status}>
             {item.hours_status === "stated" && item.opening_hours?.length

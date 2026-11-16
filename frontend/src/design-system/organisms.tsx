@@ -130,9 +130,9 @@ export function AppHeader({
   onLocaleChange,
   onHelp,
   onNewTrip,
-  onExport,
   onExportFile,
   onExportCalendar,
+  onExportSketch,
   onImport,
   onExportSlides,
   onShare,
@@ -140,6 +140,8 @@ export function AppHeader({
   onAuth,
   onLogout,
   signIn = true,
+  theme,
+  onTheme,
 }: {
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
@@ -147,9 +149,9 @@ export function AppHeader({
   onLocaleChange: (locale: string) => void;
   onHelp?: () => void;
   onNewTrip?: () => void;
-  onExport?: () => void;
   onExportFile?: () => void;
   onExportCalendar?: () => void;
+  onExportSketch?: () => void;
   onImport?: () => void;
   onExportSlides?: () => void;
   onShare?: () => void;
@@ -161,10 +163,20 @@ export function AppHeader({
    * before the mode was turned on can still be cleared.
    */
   signIn?: boolean;
+  theme?: "light" | "dark";
+  onTheme?: () => void;
 }) {
   const { t } = useI18n();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement | null>(null);
+  const exportRef = useRef<HTMLDivElement | null>(null);
+  const exportItems = [
+    { id: "file", label: t("header.planFile"), title: t("header.planFileTitle"), run: onExportFile },
+    { id: "calendar", label: t("header.calendar"), title: t("header.calendarTitle"), run: onExportCalendar },
+    { id: "sketch", label: t("header.sketch"), title: t("header.sketchTitle"), run: onExportSketch },
+    { id: "slides", label: t("header.slides"), title: t("header.slidesTitle"), run: onExportSlides },
+  ];
   useEffect(() => {
     if (!accountOpen) return;
     const close = (event: PointerEvent) => {
@@ -173,6 +185,21 @@ export function AppHeader({
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [accountOpen]);
+  useEffect(() => {
+    if (!exportOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!exportRef.current?.contains(event.target as Node)) setExportOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExportOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [exportOpen]);
 
   return (
     <header className="pf-header">
@@ -204,34 +231,50 @@ export function AppHeader({
           ))}
         </div>
         <div className="pf-header__actions">
+          {onTheme ? (
+            <IconButton icon="sun" label={t("header.theme")} aria-pressed={theme === "dark"} onClick={onTheme} />
+          ) : null}
           <select className="pf-lang" aria-label={t("header.language")} value={locale} onChange={(event) => onLocaleChange(event.target.value)}>
             <option value="en">EN</option>
             <option value="zh-Hans">简</option>
             <option value="zh-Hant">繁</option>
           </select>
-          {onExport ? (
-            <Button size="sm" variant="ghost" iconLeft="download" onClick={onExport}>
+          <div className="pf-export" ref={exportRef}>
+            <Button
+              size="sm"
+              variant="ghost"
+              iconLeft="download"
+              iconRight="chevronDown"
+              aria-haspopup="menu"
+              aria-expanded={exportOpen}
+              onClick={() => setExportOpen((value) => !value)}
+            >
               {t("header.export")}
             </Button>
-          ) : null}
-          {onExportFile ? (
-            <Button size="sm" variant="ghost" iconLeft="download" onClick={onExportFile} title={t("header.planFileTitle")}>
-              {t("header.planFile")}
-            </Button>
-          ) : null}
-          {onExportCalendar ? (
-            <Button size="sm" variant="ghost" iconLeft="download" onClick={onExportCalendar} title={t("header.calendarTitle")}>
-              {t("header.calendar")}
-            </Button>
-          ) : null}
+            {exportOpen ? (
+              <div className="pf-export__menu" role="menu" aria-label={t("header.export")}>
+                {exportItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    className="pf-export__item"
+                    title={item.title}
+                    disabled={!item.run}
+                    onClick={() => {
+                      setExportOpen(false);
+                      item.run?.();
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           {onImport ? (
             <Button size="sm" variant="ghost" iconLeft="plus" onClick={onImport} title={t("header.importTitle")}>
               {t("header.import")}
-            </Button>
-          ) : null}
-          {onExportSlides ? (
-            <Button size="sm" variant="ghost" iconLeft="layers" onClick={onExportSlides} title={t("header.slidesTitle")}>
-              {t("header.slides")}
             </Button>
           ) : null}
           {onShare ? (
@@ -468,6 +511,86 @@ function DeveloperToggle() {
   );
 }
 
+interface DecisionCall {
+  purpose?: string;
+  latency_ms?: number;
+  reasoning?: string;
+  output_preview?: string;
+  user_preview?: string;
+}
+
+interface DecisionRecord {
+  why?: string[];
+  generations?: DecisionCall[];
+}
+
+function decisionOf(meta?: Record<string, unknown>): DecisionRecord | null {
+  const raw = meta?.decision;
+  if (!raw || typeof raw !== "object") return null;
+  const decision = raw as DecisionRecord;
+  const why = (decision.why ?? []).filter((line) => line.trim());
+  const generations = (decision.generations ?? []).filter(
+    (call) => call.purpose || call.reasoning?.trim() || call.output_preview?.trim() || call.user_preview?.trim(),
+  );
+  if (!why.length && !generations.length) return null;
+  return { why, generations };
+}
+
+function decisionFromLive(
+  live: { title: string; body: string }[] | undefined,
+  trace: RunTrace | null | undefined,
+): DecisionRecord | null {
+  const generations = [
+    ...(trace?.generations ?? []).map((call) => ({
+      purpose: call.purpose,
+      latency_ms: call.latency_ms,
+      reasoning: call.reasoning,
+      output_preview: call.output_preview,
+      user_preview: call.user_preview,
+    })),
+    ...(live ?? []).map((step) => ({ purpose: step.title, reasoning: step.body })),
+  ];
+  const why = trace?.why ?? [];
+  if (!generations.length && !why.length) return null;
+  return { why, generations };
+}
+
+/** Developer mode: the reasoning for this reply, closed until the admin opens it. */
+function WhyThisDecision({ decision }: { decision: DecisionRecord | null }) {
+  const { t } = useI18n();
+  const [developer] = useDeveloperMode();
+  if (!developer) return null;
+  const why = decision?.why ?? [];
+  const calls = decision?.generations ?? [];
+  return (
+    <details className="pf-decision">
+      <summary>{t("chat.thinking")}</summary>
+      <div className="pf-decision__body">
+        {why.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
+        {calls.length ? calls.map((call, index) => (
+          <div key={`${call.purpose ?? "call"}-${index}`}>
+            <p className="pf-decision__call">
+              {call.purpose || t("chat.thinking")}
+              {typeof call.latency_ms === "number" && call.latency_ms > 0 ? ` · ${call.latency_ms} ms` : ""}
+            </p>
+            {call.user_preview ? <p className="pf-decision__muted">{call.user_preview}</p> : null}
+            {call.reasoning?.trim() ? (
+              <p>{call.reasoning}</p>
+            ) : why.length ? null : (
+              <p>{t("trace.noReasoning")}</p>
+            )}
+            {call.output_preview ? <pre>{call.output_preview}</pre> : null}
+          </div>
+        )) : (
+          <p>{t("trace.noReasoning")}</p>
+        )}
+      </div>
+    </details>
+  );
+}
+
 /** The names of the files a message was sent with (kept in its `meta`). */
 function attachmentNames(message: ChatMessage): string[] {
   const names = message.meta?.attachments;
@@ -699,7 +822,7 @@ export function ChatPanel({
   return (
     <section className="pf-card pf-chat" aria-label={t("chat.label")}>
       <div className="pf-chat__head">
-        <div className="pf-row">
+        <div className="pf-row pf-chat__identity">
           <span className="pf-logo__mark" style={{ width: 26, height: 26, background: "var(--p30-tone-brand-primary)" }}>
             <Icon name="sparkles" size={14} />
           </span>
@@ -712,7 +835,7 @@ export function ChatPanel({
             </Text>
           </div>
         </div>
-        <div className="pf-row" style={{ gap: 4 }}>
+        <div className="pf-row pf-chat__tools">
           <DeveloperToggle />
           {developer && ((live ?? []).length > 0 || trace) ? (
             <button type="button" className="pf-plan-tab" onClick={() => downloadTurnLog(trace, live, messages)}>
@@ -742,20 +865,9 @@ export function ChatPanel({
           />
         ) : (
           <>
-          {developer ? (live ?? []).map((step) => (
-            <div key={step.id} className="pf-card" style={{ padding: 12 }}>
-              <Text size="xs" weight="semibold">{step.title}</Text>
-              {step.body ? (
-                <pre style={{ margin: 0, whiteSpace: "pre-wrap", maxHeight: 280, overflow: "auto", fontSize: 12 }}>{step.body}</pre>
-              ) : (
-                <Text size="xs" tone="tertiary">{t("trace.noReasoning")}</Text>
-              )}
-            </div>
-          )) : null}
-          {trace && ((trace.why ?? []).length > 0 || (developer && (trace.generations.some((call) => call.reasoning || call.output_preview) || (trace.searches ?? []).length > 0))) ? (
-            <ThoughtLog trace={trace} developer={developer} />
-          ) : null}
-          {messages.map((message) => (
+          {messages.map((message) => {
+            const lastAssistantId = [...messages].reverse().find((item) => item.role !== "user")?.id;
+            return (
             <div key={message.id} className="pf-turn" data-role={message.role === "user" ? "user" : "assistant"}>
               <ChatBubble
                 role={message.role === "user" ? "user" : "assistant"}
@@ -785,10 +897,19 @@ export function ChatPanel({
                 {message.content}
               </ChatBubble>
               {message.role !== "user" ? (
+                <WhyThisDecision
+                  decision={
+                    decisionOf(message.meta)
+                    ?? (message.id === lastAssistantId ? decisionFromLive(live, trace) : null)
+                  }
+                />
+              ) : null}
+              {message.role !== "user" ? (
                 <EditDecision messageId={message.id} meta={message.meta} busy={busy} onDecide={onDecide} />
               ) : null}
             </div>
-          ))}
+            );
+          })}
           </>
         )}
         {error ? (

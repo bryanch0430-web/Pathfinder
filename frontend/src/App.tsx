@@ -44,7 +44,8 @@ import {
   shareSession,
   suggestPlaces,
 } from "./lib/api";
-import { downloadPlanCalendar, downloadPlanFile, downloadPlanMarkdown } from "./lib/export";
+import { downloadPlanCalendar, downloadPlanFile } from "./lib/export";
+import { downloadPlanSketch } from "./lib/sketchFile";
 import { describeFailure, failureOf, type Failure } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { offersSignIn } from "./lib/access";
@@ -55,6 +56,7 @@ import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } fr
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
+import { Sketchbook } from "./design-system/sketch/Sketchbook";
 
 const HASH_TAB: Record<string, AppTab> = {
   plan: "plan",
@@ -118,10 +120,11 @@ export default function App() {
     pf.planLocale !== "en" && pf.translation?.status === "translated"
       ? pf.translation.disclaimer?.trim() || t("planLang.disclaimer")
       : "";
+  // 繁 shows it on the translated plan. 简 keeps the English plan and still shows the same notice.
   const languageBanner =
-    pf.planLocale === "en" ? null : (
+    pf.planLocale === "en" && locale !== "zh-Hans" ? null : (
       <PlanLanguageBanner
-        disclaimer={pf.translation?.disclaimer}
+        disclaimer={pf.planLocale === "en" ? t("planLang.disclaimer") : pf.translation?.disclaimer}
         notice={pf.languageNotice}
         reason={pf.translation?.reason}
       />
@@ -129,6 +132,21 @@ export default function App() {
   const [tab, setTab] = useState<AppTab>(tabFromHash);
   const [mapDay, setMapDay] = useState<string>("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [dark, setDark] = useState(() => {
+    try {
+      return localStorage.getItem("pathfinder-theme") === "dark";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    document.documentElement.classList.toggle("is-dark", dark);
+    try {
+      localStorage.setItem("pathfinder-theme", dark ? "dark" : "light");
+    } catch {
+      /* the theme still applies for this visit */
+    }
+  }, [dark]);
   // Counts the requests to put the cursor in the chat box (the plan's question is answered there).
   const [composerFocus, setComposerFocus] = useState(0);
   const [trending, setTrending] = useState<TrendingPlace[]>([]);
@@ -406,6 +424,15 @@ export default function App() {
     await pf.reload();
   };
 
+  const handleExportSketch = async () => {
+    if (!pf.plan) return;
+    try {
+      await downloadPlanSketch(pf.plan);
+    } catch {
+      window.alert(t("errors.sketch"));
+    }
+  };
+
   const handleExportSlides = async () => {
     if (!pf.plan) return;
     try {
@@ -569,13 +596,15 @@ export default function App() {
         onAuth={() => setAuthOpen(true)}
         onLogout={handleLogout}
         signIn={signIn}
-        onExport={pf.plan ? () => downloadPlanMarkdown(pf.plan!, planDisclaimer) : undefined}
         onExportFile={pf.plan ? () => downloadPlanFile(pf.plan!) : undefined}
         onExportCalendar={pf.plan ? () => void handleExportCalendar() : undefined}
+        onExportSketch={pf.plan ? handleExportSketch : undefined}
         onImport={() => planFileInput.current?.click()}
         onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
         onShare={pf.plan ? () => void handleShare() : undefined}
         onNewTrip={() => void createTripTab()}
+        theme={dark ? "dark" : "light"}
+        onTheme={() => setDark((value) => !value)}
       />
       <div role="tabpanel" id={MAIN_PANEL_ID} aria-labelledby={appTabId(tab)}>
       {tab === "plan" ? (
@@ -686,9 +715,25 @@ export default function App() {
                 </div>
               </div>
             }
+            sketch={<Sketchbook plan={pf.plan} />}
+            videos={
+              pf.plan ? (
+                <div className="pf-watch">
+                  {pf.plan.video_notes?.length ? (
+                    <VideoNotes notes={pf.plan.video_notes} />
+                  ) : (
+                    <p className="pf-watch__empty">{t("videos.body")}</p>
+                  )}
+                  <GuideNotes items={guides} loading={guidesLoading} />
+                </div>
+              ) : (
+                <p className="pf-sketch-empty">{t("videos.body")}</p>
+              )
+            }
+            trending={trendingRail}
             right={
-              <>
-                {pf.plan ? (
+              pf.plan ? (
+                <>
                   <MapPanel
                     key={pf.sessionId}
                     plan={pf.plan}
@@ -701,16 +746,10 @@ export default function App() {
                     updatedIds={pf.changedIds}
                     changedStayIds={pf.changedStayIds}
                   />
-                ) : (
-                  <>
-                    {trendingRail}
-                    <HowItWorks />
-                  </>
-                )}
-                {pf.plan ? <VideoNotes notes={pf.plan.video_notes} /> : null}
-                {pf.plan ? <GuideNotes items={guides} loading={guidesLoading} /> : null}
-                {pf.plan ? trendingRail : null}
-              </>
+                </>
+              ) : (
+                <p className="pf-sketch-empty">{t("map.empty")}</p>
+              )
             }
           />
         )
@@ -863,6 +902,7 @@ function WelcomePanel({
           </div>
         ))}
       </div>
+      <HowItWorks />
     </section>
   );
 }

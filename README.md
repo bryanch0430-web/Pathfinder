@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.8.0 | 2026-11-17 02:55 | UI/UX visual upgrade: a studio canvas, sketchbook, and one Export menu |
 | v1.7.0 | 2026-11-15 14:35 | Trips of several cities; every stay, leg and transfer is a lockable choice slot; pictures, links and ranks |
 | v1.6.2 | 2026-11-08 21:41 | Clarify answers stay in their slot; flights shape the day; far stops move |
 | v1.6.1 | 2026-11-06 18:00 | Every leg visible; Walk/Transit/Taxi; ferry, cable car, tram |
@@ -35,6 +36,26 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.8.0 — 17 November 2026, 02:55 HKT
+
+This release is a UI/UX visual upgrade. The planner still takes one path per message. What changed is how the trip is shown, and a few replies that were being asked about the selected stop when they were not about the trip.
+
+**The plan is a studio.** Chat, Plan and Trip map are three windows of one height: a narrow chat, a wide plan, and the map on the right. Each can be dragged, resized and hidden. Reset layout puts that picture back and scales it to the screen. The toolbar sits above the windows. Sketch, Watch before you go and Trending open from the toolbar when they are wanted, so the map is only the map. Cited local-guide notes sit with Watch before you go. With no route yet, the map says the path has not been decided. How the AI worked sits on the plan page until a plan exists. Highlighted words in a dark message stay readable.
+
+**One Export menu, and a sketchbook.** Export offers the plan file (JSON), the calendar, the sketch and the slides. The sketchbook draws the current plan, including times. The saved sketch uses the same handwritten font as the page, so words stay inside their boxes. Simplified Chinese shows the same translation disclaimer as Traditional Chinese.
+
+**Why this decision stays with the reply.** With Developer on, each assistant reply has a Why this decision control. It says whether the reply was written from the plan or as chat, and which source it used, and it is still there after a reload. A message that does not name the trip, including a greeting or an insult, is answered in chat. It is not turned into a question about the selected stop. A short reply such as "the other one" still asks about the plan.
+
+**Brought in from main, which this tree was behind.** These had landed on GitHub with no row in this table.
+
+- **A plain request for more stops adds one again.** "Add one more attraction on day 2", "add two more stops" and "can u add this days more stop" added nothing, because the day phrase or the count was read as the name of a place.
+- **A language or cuisine request searches for no place.** "Translate the plan to Chinese" searched places for "Chinese", and "a Chinese restaurant" started a place search beside the meal search.
+- **A flight that arrives late for the plan is said so on reopening.** A trip planned while the flight source was down gets its flight when it is reopened. It now also gets the flight-arrival check, and a note names the stops the flight leaves no time for. No stop is moved.
+- **An edit costs fewer tokens.** The edit skill says the same rules in fewer words. The edit still reads the whole plan, the forecast and the tags.
+- **The calendar export works on Windows.** `tzdata` is now a requirement, because `zoneinfo` has no time zone database of its own there.
+
+The evaluation causes are in [`docs/EVAL_REGRESSIONS.md`](docs/EVAL_REGRESSIONS.md). An OpenAI-compatible endpoint can be named in Settings and in `.env`.
 
 ### v1.7.0 — 15 November 2026, 14:35 HKT
 
@@ -318,6 +339,25 @@ The writer is OpenAI-compatible. The reference configuration uses xAI
 turns. DeepSeek, xAI or any chat-completions endpoint works by changing
 `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
 
+#### Any OpenAI-compatible endpoint
+
+A gateway that speaks `POST /chat/completions` needs no code change: point the `OPENAI_*` block
+at its `/v1` address and set a label that names the protocol.
+
+```bash
+LLM_PROVIDER=openai          # or openai-compatible, compatible, custom
+OPENAI_BASE_URL=https://api.example.com/v1
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=the-model-id-that-endpoint-serves
+```
+
+Labels `openai`, `openai-compatible` (also spelled `openai_compatible` or `openai compatible`),
+`compatible` and `custom` all read this block, falling back to `LLM_*` when a
+field is blank, exactly as the `XAI_*` block does. `writer_vendor` then reports
+`openai-compatible`, and `/api/runtime` names the protocol rather than guessing a vendor.
+The model id is whatever the gateway lists at `GET {OPENAI_BASE_URL}/models`; a display name
+is often not the id.
+
 `WIKIMEDIA_USER_AGENT` is preset with a contact URL and framework name. Wikimedia refuses
 a generic crawler string with HTTP 403; keep this value descriptive if you fork the
 project.
@@ -327,7 +367,7 @@ project.
 A traveller can use their own key instead of the server's.
 
 1. Open **Settings** and find the **Model and API keys** card.
-2. Choose a provider (Anthropic Claude, OpenAI, Poe, xAI Grok or Google Gemini), paste the key and pick a model.
+2. Choose a provider (Anthropic Claude, OpenAI, **OpenAI-compatible API**, Poe, xAI Grok or Google Gemini), paste the key and pick a model. For **OpenAI-compatible API**, also paste the endpoint's base URL (ending at `/v1`): that address, not a fixed one, is what the key calls, and the model id is required because no default is assumed.
 3. Save it. The key is tested first. A key the provider refuses is not saved; a key that is rate-limited, out of credit or unreachable is saved with a warning.
 4. A saved key becomes the active one and your other keys are made inactive. Use the choice control only to switch to another saved key. Only a key's masked tail is shown again.
 

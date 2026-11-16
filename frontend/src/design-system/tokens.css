@@ -6,66 +6,65 @@
    ========================================================================== */
 
 :root {
-  /* colour · brand */
-  --p30-tone-brand-primary: #cc0d0d;
-  --p30-tone-brand-secondary: #a30a0a;
-  --p30-tone-brand-tertiary: #8a0909;
-  --p30-tone-brand-muted: #e8a5a5;
-  --p30-tone-brand-light: rgba(204, 13, 13, 0.06);
-  --p30-tone-brand-border: rgba(204, 13, 13, 0.2);
-  --p30-tone-brand-glow: rgba(204, 13, 13, 0.25);
+  /* colour · brand. Chrome is ink. Washed red is reserved for danger and stays. */
+  --p30-tone-brand-primary: #111111;
+  --p30-tone-brand-secondary: #2f3437;
+  --p30-tone-brand-tertiary: #111111;
+  --p30-tone-brand-muted: #e7e6e3;
+  --p30-tone-brand-light: #f7f6f3;
+  --p30-tone-brand-border: #eaeaea;
+  --p30-tone-brand-glow: transparent;
 
-  /* colour · neutral */
+  /* colour · neutral. Warm bone canvas, charcoal ink, 1px hairlines. */
   --p30-tone-neutral-white: #ffffff;
-  --p30-tone-neutral-black: #000000;
-  --p30-tone-neutral-gray50: #f7f5f2;
-  --p30-tone-neutral-gray100: #f4f2ee;
-  --p30-tone-neutral-gray200: #eae7e0;
-  --p30-tone-neutral-gray300: #dcd8cf;
-  --p30-tone-neutral-gray400: #b8b2a6;
-  --p30-tone-neutral-gray500: #8f897a;
-  --p30-tone-neutral-gray600: #5c574d;
-  --p30-tone-neutral-gray700: #403c34;
-  --p30-tone-neutral-gray800: #2b2822;
-  --p30-tone-neutral-gray900: #1b1915;
-  --p30-tone-neutral-bgLayout: #f4f2ee;
+  --p30-tone-neutral-black: #111111;
+  --p30-tone-neutral-gray50: #fbfbfa;
+  --p30-tone-neutral-gray100: #f7f6f3;
+  --p30-tone-neutral-gray200: #f3f2ef;
+  --p30-tone-neutral-gray300: #eaeaea;
+  --p30-tone-neutral-gray400: #dcdcda;
+  --p30-tone-neutral-gray500: #72716e;
+  --p30-tone-neutral-gray600: #666562;
+  --p30-tone-neutral-gray700: #2f3437;
+  --p30-tone-neutral-gray800: #1a1a1a;
+  --p30-tone-neutral-gray900: #111111;
+  --p30-tone-neutral-bgLayout: #fbfbfa;
   --p30-tone-neutral-bgContainer: #ffffff;
-  --p30-tone-neutral-bgElevated: #f4f2ee;
-  --p30-tone-neutral-border: rgba(0, 0, 0, 0.06);
+  --p30-tone-neutral-bgElevated: #f7f6f3;
+  --p30-tone-neutral-border: #eaeaea;
   --p30-tone-neutral-fillSecondary: #f4f2ee;
   --p30-tone-neutral-fillTertiary: #eae7e0;
   --p30-tone-neutral-fillQuaternary: #dcd8cf;
-  --p30-tone-neutral-text-body: #2b2822;
-  --p30-tone-neutral-text-secondary: #5c574d;
-  --p30-tone-neutral-text-tertiary: #8f897a;
-  --p30-tone-neutral-text-placeholder: #b8b2a6;
-  --p30-tone-neutral-text-disabled: #b8b2a6;
+  --p30-tone-neutral-text-body: #111111;
+  --p30-tone-neutral-text-secondary: #2f3437;
+  --p30-tone-neutral-text-tertiary: #666562;
+  --p30-tone-neutral-text-placeholder: #72716e;
+  --p30-tone-neutral-text-disabled: #72716e;
   --p30-tone-neutral-text-onPrimary: #ffffff;
   --p30-tone-neutral-text-onDanger: #ffffff;
   --p30-tone-neutral-text-onSuccess: #ffffff;
 
-  /* colour · feedback */
-  --p30-tone-feedback-success: #2a9d5c;
-  --p30-tone-feedback-successBg: rgba(42, 157, 92, 0.1);
-  --p30-tone-feedback-successBorder: rgba(42, 157, 92, 0.24);
-  --p30-tone-feedback-warning: #e08e2b;
-  --p30-tone-feedback-warningBg: rgba(224, 142, 43, 0.1);
-  --p30-tone-feedback-warningBorder: rgba(224, 142, 43, 0.24);
-  --p30-tone-feedback-danger: #d93a49;
-  --p30-tone-feedback-dangerBg: rgba(217, 58, 73, 0.1);
-  --p30-tone-feedback-dangerBorder: rgba(217, 58, 73, 0.24);
-  --p30-tone-feedback-info: #0099cc;
-  --p30-tone-feedback-infoBg: rgba(0, 153, 204, 0.1);
-  --p30-tone-feedback-infoBorder: rgba(0, 153, 204, 0.24);
-  --p30-tone-feedback-busy: #7048c4;
-  --p30-tone-feedback-busyBg: rgba(112, 72, 196, 0.1);
-  --p30-tone-feedback-busyBorder: rgba(112, 72, 196, 0.24);
+  /* colour · feedback. Washed, and only for meaning. */
+  --p30-tone-feedback-success: #346538;
+  --p30-tone-feedback-successBg: #edf3ec;
+  --p30-tone-feedback-successBorder: #d5e4d4;
+  --p30-tone-feedback-warning: #956400;
+  --p30-tone-feedback-warningBg: #fbf3db;
+  --p30-tone-feedback-warningBorder: #ead9a4;
+  --p30-tone-feedback-danger: #9f2f2d;
+  --p30-tone-feedback-dangerBg: #fdebec;
+  --p30-tone-feedback-dangerBorder: #f3d0d0;
+  --p30-tone-feedback-info: #1f6c9f;
+  --p30-tone-feedback-infoBg: #e1f3fe;
+  --p30-tone-feedback-infoBorder: #c5e4f4;
+  --p30-tone-feedback-busy: #1f6c9f;
+  --p30-tone-feedback-busyBg: #e1f3fe;
+  --p30-tone-feedback-busyBorder: #c5e4f4;
 
   /* typography */
-  --p30-type-family-sans: "LINE Seed Sans", "LINE Seed TW", -apple-system, BlinkMacSystemFont,
-    "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --p30-type-family-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
-    Courier, monospace;
+  --p30-type-family-serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --p30-type-family-sans: "Geist", "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --p30-type-family-mono: "Geist Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
   --p30-type-size-body-xxs: 10px;
   --p30-type-size-body-xs: 12px;
   --p30-type-size-body-sm: 12px;
@@ -108,8 +107,8 @@
   --p30-round-xs: 4px;
   --p30-round-sm: 8px;
   --p30-round-md: 12px;
-  --p30-round-lg: 16px;
-  --p30-round-xl: 20px;
+  --p30-round-lg: 12px;
+  --p30-round-xl: 12px;
   --p30-round-pill: 9999px;
   --p30-round-circle: 9999px;
 
@@ -119,17 +118,17 @@
   --p30-stroke-default: 1px;
   --p30-stroke-thick: 2px;
 
-  /* shadow · neumorphic */
+  /* shadow · none. Depth is a hairline, not a cast shadow. */
   --p30-depth-none: none;
-  --p30-depth-xs: 2px 2px 4px rgba(163, 158, 148, 0.35), -2px -2px 4px rgba(255, 255, 255, 0.7);
-  --p30-depth-sm: 4px 4px 8px rgba(163, 158, 148, 0.4), -4px -4px 8px rgba(255, 255, 255, 0.8);
-  --p30-depth-md: 6px 6px 12px rgba(163, 158, 148, 0.4), -6px -6px 12px rgba(255, 255, 255, 0.8);
-  --p30-depth-lg: 8px 8px 16px rgba(163, 158, 148, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.8);
-  --p30-depth-xl: 12px 12px 24px rgba(163, 158, 148, 0.45), -12px -12px 24px rgba(255, 255, 255, 0.85);
-  --p30-depth-raised: 3px 3px 6px rgba(163, 158, 148, 0.4), -3px -3px 6px rgba(255, 255, 255, 0.8);
-  --p30-depth-inset: inset 3px 3px 6px rgba(163, 158, 148, 0.4), inset -3px -3px 6px rgba(255, 255, 255, 0.8);
-  --p30-depth-pressed: inset 2px 2px 4px rgba(163, 158, 148, 0.4), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
-  --p30-depth-glow: 0 4px 12px rgba(204, 13, 13, 0.25);
+  --p30-depth-xs: none;
+  --p30-depth-sm: none;
+  --p30-depth-md: none;
+  --p30-depth-lg: none;
+  --p30-depth-xl: none;
+  --p30-depth-raised: none;
+  --p30-depth-inset: none;
+  --p30-depth-pressed: none;
+  --p30-depth-glow: none;
 
   /* motion */
   --p30-dur-instant: 0ms;
@@ -138,11 +137,11 @@
   --p30-dur-slow: 0.3s;
   --p30-dur-slower: 0.5s;
   --p30-dur-slowest: 0.8s;
-  --p30-ease-easeIn: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-  --p30-ease-easeOut: cubic-bezier(0.23, 1, 0.32, 1);
-  --p30-ease-easeInOut: cubic-bezier(0.645, 0.045, 0.355, 1);
-  --p30-ease-easeOutBack: cubic-bezier(0.12, 0.8, 0.4, 1);
-  --p30-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --p30-ease-easeIn: cubic-bezier(0.16, 1, 0.3, 1);
+  --p30-ease-easeOut: cubic-bezier(0.16, 1, 0.3, 1);
+  --p30-ease-easeInOut: cubic-bezier(0.16, 1, 0.3, 1);
+  --p30-ease-easeOutBack: cubic-bezier(0.16, 1, 0.3, 1);
+  --p30-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* opacity */
   --p30-alpha-fullyTransparent: 0;
@@ -163,7 +162,7 @@
   --p30-bp-xxl: 1600px;
 
   /* layout */
-  --p30-frame-max: 1400px;
+  --p30-frame-max: 1600px;
   --p30-frame-header: 56px;
   --p30-frame-side-sm: 72px;
   --p30-frame-side-lg: 240px;
@@ -198,15 +197,15 @@
   --pf-route: var(--p30-tone-feedback-info);
   --pf-route-soft: var(--p30-tone-feedback-infoBg);
   --pf-attraction: var(--p30-tone-feedback-info);
-  --pf-hotel: var(--p30-tone-brand-primary);
+  --pf-hotel: var(--p30-tone-feedback-danger);
   --pf-meal: var(--p30-tone-feedback-success);
-  --pf-transit: var(--p30-tone-feedback-busy);
+  --pf-transit: var(--p30-tone-feedback-info);
   --pf-ticket: var(--p30-tone-feedback-warning);
   --pf-ok: var(--p30-tone-feedback-success);
   --pf-warn: var(--p30-tone-feedback-warning);
   --pf-bad: var(--p30-tone-feedback-danger);
-  --pf-radius-card: var(--p30-round-xl);
-  --pf-radius-control: var(--p30-round-sm);
-  --pf-shadow-card: var(--p30-depth-raised);
+  --pf-radius-card: 12px;
+  --pf-radius-control: 8px;
+  --pf-shadow-card: none;
   --pf-gap: var(--p30-gap-md);
 }

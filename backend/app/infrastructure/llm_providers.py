@@ -28,6 +28,19 @@ class ProviderSpec:
     default_model: str
     key_prefix: str
     supports_search: bool
+    #: True when the traveller supplies ``base_url``: the generic OpenAI-compatible entry, which
+    #: cannot know the host, the model or the key format of an endpoint it has never seen.
+    needs_base_url: bool = False
+
+    def endpoint(self, base_url: str | None = None) -> str:
+        """The base URL to call: the caller's own only for the generic entry, else the vendor's constant.
+
+        A stray ``base_url`` for a fixed vendor is ignored rather than obeyed, so a saved row can
+        never redirect a provider's traffic to a host it does not own.
+        """
+        if self.needs_base_url and base_url and base_url.strip():
+            return base_url.strip().rstrip("/")
+        return self.base_url
 
 
 # Default models are starting values; the UI fills the real list from /models after a successful test.
@@ -38,6 +51,11 @@ PROVIDERS: dict[str, ProviderSpec] = {
     ),
     "openai": ProviderSpec(
         "openai", "OpenAI", "openai", "https://api.openai.com/v1", "gpt-4o-mini", "sk-", False,
+    ),
+    # Any gateway, proxy or self-hosted server that speaks POST /chat/completions: the traveller
+    # gives the base URL, the model id and the key, so no host is baked in here.
+    "openai-compatible": ProviderSpec(
+        "openai-compatible", "OpenAI-compatible API", "openai", "", "", "", False, True,
     ),
     "poe": ProviderSpec(
         "poe", "Poe", "openai", "https://api.poe.com/v1", "GPT-4o-mini", "", False,
@@ -52,13 +70,17 @@ PROVIDERS: dict[str, ProviderSpec] = {
 }
 
 
-def build_llm(spec: ProviderSpec, api_key: str, model: str, settings: Settings) -> LLM:
+def build_llm(
+    spec: ProviderSpec, api_key: str, model: str, settings: Settings, base_url: str | None = None
+) -> LLM:
     if spec.wire == "anthropic":
         return AnthropicLLM(settings, api_key=api_key, model=model)
-    return OpenAICompatibleLLM(settings, base_url=spec.base_url, api_key=api_key, model=model, label=spec.label)
+    return OpenAICompatibleLLM(
+        settings, base_url=spec.endpoint(base_url), api_key=api_key, model=model, label=spec.label
+    )
 
 
-async def list_models(spec: ProviderSpec, api_key: str) -> list[str]:
+async def list_models(spec: ProviderSpec, api_key: str, base_url: str | None = None) -> list[str]:
     """The model ids the key can use, sorted. ``[]`` on any error; never raises."""
     headers = {"Authorization": f"Bearer {api_key}"}
     if spec.wire == "anthropic":
@@ -66,7 +88,7 @@ async def list_models(spec: ProviderSpec, api_key: str) -> list[str]:
     params = {"limit": 1000} if spec.wire == "anthropic" else None
     try:
         async with httpx.AsyncClient(timeout=10.0, transport=current_transport()) as client:
-            response = await client.get(f"{spec.base_url}/models", headers=headers, params=params)
+            response = await client.get(f"{spec.endpoint(base_url)}/models", headers=headers, params=params)
         if response.status_code >= 400:
             return []
         rows = response.json().get("data")
@@ -87,9 +109,11 @@ class KeyTestResult:
     models: list[str] = field(default_factory=list)
 
 
-async def probe_key(spec: ProviderSpec, api_key: str, model: str, settings: Settings) -> KeyTestResult:
+async def probe_key(
+    spec: ProviderSpec, api_key: str, model: str, settings: Settings, base_url: str | None = None
+) -> KeyTestResult:
     """Make one tiny request with the key, then fetch the model list."""
-    llm = build_llm(spec, api_key, model, settings)
+    llm = build_llm(spec, api_key, model, settings, base_url=base_url)
     started = time.perf_counter()
     try:
         await llm.complete(
@@ -106,11 +130,14 @@ async def probe_key(spec: ProviderSpec, api_key: str, model: str, settings: Sett
         if not str(exc).startswith("writer model returned"):
             return _failure(exc, api_key, started)
         latency = int((time.perf_counter() - started) * 1000)
-        return KeyTestResult(True, "ok", "The model answered without text; the key works.", latency, await list_models(spec, api_key))
+        return KeyTestResult(
+            True, "ok", "The model answered without text; the key works.", latency,
+            await list_models(spec, api_key, base_url),
+        )
     except ProviderError as exc:
         return _failure(exc, api_key, started)
     latency = int((time.perf_counter() - started) * 1000)
-    return KeyTestResult(True, "ok", "OK", latency, await list_models(spec, api_key))
+    return KeyTestResult(True, "ok", "OK", latency, await list_models(spec, api_key, base_url))
 
 
 #: ``ProviderError`` keeps no status: the adapters' message is "<label> returned HTTP <status>".

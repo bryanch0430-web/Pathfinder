@@ -841,6 +841,12 @@
   border-bottom-right-radius: var(--p30-round-xs);
 }
 
+.pf-bubble[data-role="user"] .pf-bubble__body::selection,
+.pf-bubble[data-role="user"] .pf-bubble__body *::selection {
+  background: #f4f3f1;
+  color: #141413;
+}
+
 .pf-bubble[data-role="assistant"] .pf-bubble__body {
   border-bottom-left-radius: var(--p30-round-xs);
 }
@@ -873,6 +879,50 @@
 
 .pf-turn[data-role="assistant"] {
   align-items: flex-start;
+}
+
+.pf-decision {
+  width: min(100%, 36rem);
+  margin-top: 6px;
+  color: var(--pf-ink-secondary);
+  font-size: 12px;
+}
+
+.pf-decision summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pf-decision__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--pf-line);
+  border-radius: 8px;
+  background: var(--pf-bg);
+}
+
+.pf-decision__body p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.pf-decision__call {
+  font-weight: 600;
+}
+
+.pf-decision__muted {
+  color: var(--pf-ink-tertiary);
+}
+
+.pf-decision pre {
+  margin: 0;
+  white-space: pre-wrap;
+  max-height: 280px;
+  overflow: auto;
+  font-size: 12px;
 }
 
 .pf-edit {
@@ -1155,6 +1205,49 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pf-export {
+  position: relative;
+}
+
+.pf-export__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-lg);
+  background: var(--pf-surface);
+  box-shadow: var(--pf-shadow-card);
+}
+
+.pf-export__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--p30-round-md);
+  background: transparent;
+  color: var(--pf-ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pf-export__item:hover:not(:disabled) {
+  background: var(--pf-fill-secondary, var(--p30-tone-neutral-fillQuaternary));
+}
+
+.pf-export__item:disabled {
+  color: var(--pf-ink-tertiary);
+  cursor: not-allowed;
 }
 
 .pf-account__popover {
@@ -1651,6 +1744,23 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--p30-gap-sm);
+}
+
+.pf-watch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.pf-watch__empty {
+  margin: 0;
+  padding: 8px 12px 0;
+  color: var(--pf-ink-secondary);
+  font-family: "Caveat", "Yomogi", cursive;
+  font-size: 1.45rem;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .pf-videos {
@@ -2375,11 +2485,33 @@
 
 .pf-chat__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: var(--p30-gap-sm);
+  flex-wrap: wrap;
+  gap: 8px;
   padding: var(--p30-gap-sm) var(--p30-gap-md);
   border-bottom: 1px solid var(--pf-line);
+}
+
+.pf-chat__identity {
+  min-width: 0;
+  flex: 1 1 140px;
+}
+
+.pf-chat__identity .pf-stack {
+  min-width: 0;
+}
+
+.pf-chat__tools {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pf-chat__tools > * {
+  flex: none;
 }
 
 .pf-chat__messages {

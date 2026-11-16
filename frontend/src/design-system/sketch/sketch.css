@@ -1,0 +1,85 @@
+/* Sketchbook pages (components/sketch). Colours come from the app tokens, so dark mode follows. */
+.tv-sketch {
+  --sk-hand: 'Caveat', 'Yomogi', 'Segoe Print', cursive;
+  --sk-paper: #fbf8f1;
+  --sk-dot: rgba(60, 50, 30, .14);
+  --sk-ink: #22201c;
+  --sk-ink-soft: rgba(34, 32, 28, .08);
+  --sk-muted: #6f6b63;
+  --sk-muted-soft: #fbf0c4; /* sticky notes */
+  --sk-accent: #1f6c9f;
+  --sk-accent-soft: rgba(31, 108, 159, .28);
+  --sk-red: #c0392b;
+  --sk-red-soft: rgba(192, 57, 43, .2);
+  --sk-green: #346538;
+  --sk-green-soft: rgba(52, 101, 56, .2);
+  --sk-yellow: #956400;
+  --sk-yellow-soft: #fbf3db;
+  --sk-hl: rgba(255, 214, 10, .5);
+  display: flex; flex-direction: column; gap: .5rem;
+  width: 100%; height: 100%; min-height: 0; padding: .75rem;
+  touch-action: pan-y; outline: none;
+}
+html.is-dark .tv-sketch {
+  --sk-paper: #1f1e1b;
+  --sk-dot: rgba(255, 250, 235, .09);
+  --sk-ink: #ece8df;
+  --sk-ink-soft: rgba(236, 232, 223, .06);
+  --sk-muted: #a8a397;
+  --sk-muted-soft: #3a3421;
+  --sk-accent-soft: rgba(142, 197, 234, .22);
+  --sk-red: #ef7f73;
+  --sk-red-soft: rgba(239, 127, 115, .2);
+  --sk-green-soft: rgba(140, 200, 140, .18);
+  --sk-hl: rgba(255, 214, 10, .28);
+  --sk-yellow: #e3b341;
+  --sk-yellow-soft: #3a3420;
+}
+.tv-sketch:focus-visible .tv-sketch__page { outline: 2px solid var(--sk-accent); outline-offset: 3px; }
+
+.tv-sketch__stage { flex: 1; min-height: 0; overflow: auto; }
+.tv-sketch__page {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  font-family: var(--sk-hand); user-select: text;
+  animation: tv-sketch-turn .28s cubic-bezier(.2, .8, .2, 1);
+}
+.tv-sketch__paper { fill: var(--sk-paper); }
+.tv-sketch__dot { fill: var(--sk-dot); }
+html.is-dark .tv-sketch__grain { opacity: .5; }
+.tv-sketch__hl { fill: var(--sk-hl); }
+.tv-sketch__ink text { font-family: var(--sk-hand); }
+
+/* Bottom bar: the guide and what they're saying, the pager, and a redraw. */
+.tv-sketch__bar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .75rem; min-height: 48px; }
+.tv-sketch__guide { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.tv-sketch__say {
+  position: relative; margin: 0; min-width: 0; padding: .4rem .7rem; border: 1px solid var(--tv-line-strong);
+  border-radius: 12px 12px 12px 3px; background: var(--tv-surface); color: var(--tv-ink);
+  font: 600 1.1rem/1.2 var(--sk-hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  opacity: 0; transform: translateY(4px) scale(.96); transform-origin: 0 100%;
+  transition: opacity .2s ease, transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+.tv-sketch__say.is-on { opacity: 1; transform: none; }
+.tv-sketch__nav { display: flex; align-items: center; justify-content: center; gap: .75rem; }
+.tv-sketch__count { min-width: 11rem; text-align: center; font-size: .88rem; color: var(--tv-ink); }
+.tv-sketch__actions { justify-self: end; display: flex; gap: .5rem; }
+
+/* The guide's pen while drawing. */
+.tv-sketch__pen { pointer-events: none; }
+.tv-sketch__pen-body { fill: var(--sk-muted-soft); stroke: var(--sk-ink); stroke-width: 1.6; stroke-linejoin: round; }
+.tv-sketch__pen-ring { fill: var(--sk-paper); stroke: var(--sk-ink); stroke-width: 1.6; }
+
+@media (max-width: 640px) {
+  .tv-sketch__bar { grid-template-columns: minmax(0, 1fr) auto; }
+  .tv-sketch__nav { grid-row: 2; grid-column: 1 / -1; }
+  .tv-sketch__count { min-width: 0; }
+}
+
+@keyframes tv-sketch-turn { from { opacity: 0; transform: translateX(12px); } }
+@media (prefers-reduced-motion: reduce) {
+  .tv-sketch__page { animation: none; }
+  .tv-sketch__say { transition: none; }
+}

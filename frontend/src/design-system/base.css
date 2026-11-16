@@ -69,14 +69,30 @@ ol {
 }
 
 :focus-visible {
-  outline: var(--p30-stroke-thick) solid var(--p30-tone-feedback-info);
-  outline-offset: 2px;
-  border-radius: var(--p30-round-xs);
+  outline: 1px solid var(--pf-ink);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 ::selection {
-  background: var(--p30-tone-brand-muted);
-  color: var(--p30-tone-neutral-gray900);
+  background: #111111;
+  color: #fbfbfa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .pf-spinner {
+    animation-duration: 0.7s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
 
 .pf-visually-hidden {

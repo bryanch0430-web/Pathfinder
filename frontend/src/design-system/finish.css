@@ -1,0 +1,597 @@
+/*
+ * Finish layer for the router planner.
+ * Bone canvas, charcoal ink, hairlines, Instrument Serif for display,
+ * Geist for UI, Geist Mono for labels. Chat and Map dock beside the plan
+ * when the canvas can spare 420px, and become one sheet when it cannot.
+ */
+
+html.is-dark {
+  color-scheme: dark;
+  --p30-tone-neutral-white: #1c1c1b;
+  --p30-tone-neutral-black: #f4f3f1;
+  --p30-tone-neutral-gray50: #1a1a19;
+  --p30-tone-neutral-gray100: #222221;
+  --p30-tone-neutral-gray200: #2a2a28;
+  --p30-tone-neutral-gray300: #3a3a38;
+  --p30-tone-neutral-gray400: #8a8986;
+  --p30-tone-neutral-gray500: #a3a29e;
+  --p30-tone-neutral-gray600: #c8c7c3;
+  --p30-tone-neutral-gray700: #e6e4e0;
+  --p30-tone-neutral-gray800: #f4f3f1;
+  --p30-tone-neutral-gray900: #f7f6f3;
+  --p30-tone-neutral-bgLayout: #141413;
+  --p30-tone-neutral-bgContainer: #1c1c1b;
+  --p30-tone-neutral-bgElevated: #222221;
+  --p30-tone-neutral-border: rgba(255, 255, 255, 0.14);
+  --p30-tone-neutral-fillSecondary: #222221;
+  --p30-tone-neutral-fillTertiary: #2a2a28;
+  --p30-tone-neutral-fillQuaternary: #3a3a38;
+  --p30-tone-neutral-text-body: #f4f3f1;
+  --p30-tone-neutral-text-secondary: #e6e4e0;
+  --p30-tone-neutral-text-tertiary: rgba(244, 243, 241, 0.68);
+  --p30-tone-neutral-text-placeholder: rgba(244, 243, 241, 0.46);
+  --p30-tone-neutral-text-disabled: rgba(244, 243, 241, 0.4);
+  --p30-tone-neutral-text-onPrimary: #141413;
+  --p30-tone-brand-primary: #f4f3f1;
+  --p30-tone-brand-secondary: #e6e4e0;
+  --p30-tone-brand-tertiary: #f4f3f1;
+  --p30-tone-brand-muted: #2a2a28;
+  --p30-tone-brand-light: rgba(255, 255, 255, 0.06);
+  --p30-tone-brand-border: rgba(255, 255, 255, 0.16);
+  background: var(--pf-bg);
+  color: var(--pf-ink);
+}
+
+html.is-dark ::selection {
+  background: #f4f3f1;
+  color: #141413;
+}
+
+/* ------------------------------------------------------------------ type -- */
+
+.pf-heading {
+  font-family: var(--p30-type-family-serif);
+  font-weight: 400;
+  letter-spacing: -0.028em;
+}
+
+.pf-heading[data-level="6"] {
+  font-family: var(--p30-type-family-mono);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+.pf-logo__word {
+  font-family: var(--p30-type-family-serif);
+  font-weight: 400;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+
+.pf-logo__word span {
+  color: inherit;
+  font-style: italic;
+}
+
+.pf-logo__mark {
+  border-radius: 8px;
+}
+
+.pf-field__label,
+.pf-dock__label,
+.pf-day__date,
+.pf-fx__title {
+  font-family: var(--p30-type-family-mono);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pf-day__title {
+  font-family: var(--p30-type-family-serif);
+  font-weight: 400;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+
+.pf-empty__title {
+  font-family: var(--p30-type-family-serif);
+  font-weight: 400;
+  font-size: 1.65rem;
+  letter-spacing: -0.02em;
+}
+
+.pf-empty {
+  gap: 12px;
+  padding: 48px 24px;
+}
+
+.pf-empty__icon {
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid var(--pf-line);
+}
+
+.pf-item__time,
+.pf-map__time,
+.pf-map__speed {
+  font-family: var(--p30-type-family-mono);
+}
+
+/* The header sits outside .pf-app, so the app must not also claim a full viewport. */
+.pf-app {
+  min-height: calc(100vh - var(--p30-frame-header));
+}
+
+/* --------------------------------------------------------------- chrome -- */
+
+.pf-header {
+  background: color-mix(in srgb, var(--pf-bg) 92%, transparent);
+}
+
+.pf-tabs {
+  border: 1px solid var(--pf-line);
+  border-radius: 8px;
+  background: transparent;
+}
+
+.pf-tab {
+  min-height: 32px;
+  border-radius: 6px;
+}
+
+.pf-tab[data-active="true"] {
+  box-shadow: none;
+}
+
+.pf-button,
+.pf-icon-btn,
+.pf-example,
+.pf-trip-bar,
+.pf-card,
+.pf-composer,
+.pf-welcome__mark {
+  box-shadow: none;
+}
+
+.pf-button,
+.pf-lang,
+.pf-plan-tab {
+  border-radius: 8px;
+}
+
+.pf-button:hover,
+.pf-button:active,
+.pf-icon-btn:hover,
+.pf-example:hover,
+.pf-trip-bar:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.pf-icon-btn {
+  border-radius: 8px;
+}
+
+.pf-header .pf-icon-btn[aria-pressed="true"] {
+  background: var(--p30-tone-neutral-gray900);
+  color: var(--p30-tone-neutral-white);
+  border-color: transparent;
+}
+
+.pf-composer {
+  border-radius: 12px;
+  background: var(--pf-bg);
+}
+
+.pf-composer:focus-within {
+  border-color: var(--pf-ink);
+  box-shadow: none;
+}
+
+.pf-progress__bar {
+  background: var(--pf-ink);
+}
+
+.pf-welcome {
+  background: var(--pf-surface);
+}
+
+.pf-welcome__mark {
+  border-radius: 12px;
+}
+
+.pf-example {
+  min-height: 44px;
+  border-radius: 8px;
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pf-example:hover {
+  border-color: var(--pf-ink);
+  color: var(--pf-ink);
+}
+
+.pf-trip-bar {
+  background: var(--pf-surface);
+}
+
+.pf-switch__track,
+.pf-switch__thumb {
+  border: 1px solid var(--pf-line);
+}
+
+/* --------------------------------------------------------------- schedule -- */
+
+.pf-item {
+  min-height: 44px;
+  padding: 10px 8px;
+  border-radius: 8px;
+}
+
+.pf-item__notes,
+.pf-item__time,
+.pf-item__facts {
+  color: var(--pf-ink-secondary);
+}
+
+.pf-item[data-selected="true"] {
+  background: var(--pf-surface);
+  border-color: var(--pf-ink);
+  box-shadow: inset 3px 0 0 var(--pf-ink);
+}
+
+.pf-item[data-selected="true"] .pf-item__name,
+.pf-item[data-selected="true"] .pf-item__time,
+.pf-item[data-selected="true"] .pf-item__notes,
+.pf-item[data-selected="true"] .pf-item__facts {
+  color: var(--pf-ink);
+}
+
+.pf-item[data-type="hotel"] .pf-item__icon {
+  background: var(--p30-tone-feedback-dangerBg);
+  color: var(--pf-hotel);
+}
+
+.pf-item[data-selected="true"] .pf-item__icon {
+  background: var(--p30-tone-neutral-fillSecondary);
+  color: var(--pf-ink);
+  border: 0;
+}
+
+/* ------------------------------------------------------------------- map -- */
+
+.pf-map-pin {
+  width: 28px;
+  height: 28px;
+  border-width: 1px;
+  box-shadow: 0 0 0 1px var(--pf-surface);
+  font-family: var(--p30-type-family-mono);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.pf-map-pin:hover {
+  transform: none;
+}
+
+.pf-map-pin--hotel {
+  box-shadow: none;
+}
+
+.pf-map-pin--sight.is-active,
+.pf-map-pin--meal.is-active {
+  transform: none;
+  box-shadow: none;
+}
+
+.pf-map__timebar {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid var(--pf-line);
+  border-radius: 12px;
+  background: var(--pf-bg);
+}
+
+.pf-map__timebar .pf-icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.pf-map__speeds {
+  flex-direction: row;
+  gap: 4px;
+  padding-top: 0;
+}
+
+.pf-map__speed,
+.pf-map__follow {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.pf-map__time {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------- dock and sheet -- */
+
+.pf-shell__bar {
+  position: sticky;
+  top: var(--p30-frame-header);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: var(--p30-frame-max);
+  margin: 0 auto;
+  padding: 8px 16px 0;
+  background: color-mix(in srgb, var(--pf-bg) 92%, transparent);
+}
+
+.pf-shell__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pf-ink-secondary);
+  font-family: var(--p30-type-family-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pf-shell__toggle:hover {
+  color: var(--pf-ink);
+}
+
+.pf-shell__toggle[aria-pressed="true"] {
+  background: var(--p30-tone-neutral-gray900);
+  color: var(--p30-tone-neutral-white);
+}
+
+.pf-shell .pf-planner {
+  position: relative;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 16px 20px;
+}
+
+.pf-shell .pf-planner[data-dock="true"][data-chat="open"][data-map="open"] {
+  grid-template-columns: var(--pf-w-chat) minmax(320px, 1fr) var(--pf-w-map);
+}
+
+.pf-shell .pf-planner[data-dock="true"][data-chat="closed"][data-map="open"] {
+  grid-template-columns: minmax(320px, 1fr) var(--pf-w-map);
+}
+
+.pf-shell .pf-planner[data-dock="true"][data-chat="open"][data-map="closed"] {
+  grid-template-columns: var(--pf-w-chat) minmax(320px, 1fr);
+}
+
+.pf-shell .pf-planner[data-dock="true"][data-chat="closed"][data-map="closed"],
+.pf-shell .pf-planner[data-dock="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pf-planner__left[hidden],
+.pf-planner__right[hidden],
+.pf-surface-sheet[hidden] {
+  display: none !important;
+}
+
+.pf-dock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  flex: none;
+}
+
+.pf-dock__label {
+  color: var(--pf-ink-tertiary);
+  font-size: 11px;
+}
+
+.pf-dock__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pf-ink-secondary);
+}
+
+.pf-dock__close:hover {
+  background: var(--p30-tone-neutral-fillSecondary);
+  color: var(--pf-ink);
+}
+
+.pf-dock__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.pf-planner__left > .pf-dock__body {
+  overflow: hidden;
+}
+
+.pf-planner__right > .pf-dock__body {
+  overflow: auto;
+}
+
+/* The plan grows with its days, so the page itself scrolls. Chat and the map
+   stay on screen and scroll inside their own columns. */
+.pf-shell[data-dock="true"] {
+  height: auto;
+  overflow: visible;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__centre,
+.pf-shell[data-dock="true"] .pf-plan-panel,
+.pf-shell[data-dock="true"] .pf-plan-panel > .pf-workspace,
+.pf-shell[data-dock="true"] .pf-plan-panel > .pf-welcome,
+.pf-shell[data-dock="true"] .pf-workspace__body {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__left,
+.pf-shell[data-dock="true"] .pf-planner__right {
+  position: sticky;
+  top: calc(var(--p30-frame-header) + 60px);
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  height: calc(100vh - var(--p30-frame-header) - 84px);
+  max-height: calc(100vh - var(--p30-frame-header) - 84px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__right {
+  padding-top: 0;
+}
+
+.pf-shell[data-dock="true"] .pf-left-stack {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__right .pf-map {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 360px;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__right .pf-map__canvas {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 280px;
+}
+
+.pf-col-grip {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  bottom: 12px;
+  width: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pf-col-grip--chat {
+  left: calc(16px + var(--pf-w-chat) + 6px);
+  transform: translateX(-50%);
+}
+
+.pf-col-grip--map {
+  right: calc(16px + var(--pf-w-map) + 6px);
+  transform: translateX(50%);
+}
+
+.pf-col-grip::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--pf-line-strong);
+}
+
+.pf-col-grip:hover::after,
+.pf-col-grip:focus-visible::after {
+  left: 5px;
+  width: 3px;
+  background: var(--pf-ink);
+}
+
+.pf-shell[data-dock="false"] .pf-planner {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pf-surface-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: 0;
+  background: rgba(17, 17, 17, 0.28);
+  cursor: pointer;
+}
+
+html.is-dark .pf-surface-scrim {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.pf-surface-sheet {
+  position: fixed;
+  z-index: 40;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  height: min(78vh, 760px);
+  padding: 0 12px 12px;
+  border: 1px solid var(--pf-line);
+  border-radius: 12px;
+  background: var(--pf-surface);
+  animation: pf-sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pf-surface-sheet .pf-dock__body {
+  overflow: auto;
+}
+
+.pf-surface-sheet .pf-left-stack {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.pf-surface-sheet .pf-chat {
+  height: auto;
+  min-height: 420px;
+  max-height: none;
+}
+
+@keyframes pf-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

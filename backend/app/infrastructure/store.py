@@ -354,6 +354,13 @@ def _migration_4_llm_credentials(conn: sqlite3.Connection, ctx: MigrationContext
     conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_credentials_owner ON llm_credentials(owner)")
 
 
+def _migration_5_credential_base_url(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """A key's own endpoint: set for the generic OpenAI-compatible provider, empty for a fixed vendor."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(llm_credentials)")}
+    if "base_url" not in columns:
+        conn.execute("ALTER TABLE llm_credentials ADD COLUMN base_url TEXT NOT NULL DEFAULT ''")
+
+
 #: Ordered schema steps: step N moves a database from user_version N-1 to N.
 #: Append new steps; never edit, reorder or remove a released one.
 MIGRATIONS: list[MigrationStep] = [
@@ -361,6 +368,7 @@ MIGRATIONS: list[MigrationStep] = [
     _migration_2_share_expiry,
     _migration_3_threat_totals,
     _migration_4_llm_credentials,
+    _migration_5_credential_base_url,
 ]
 
 
@@ -541,6 +549,42 @@ class SQLiteStore:
         if not row:
             return None
         return TripContext.model_validate_json(row["data"])
+
+    def attach_decisions_since(self, session_id: str, after: datetime, decision: dict[str, Any]) -> None:
+        """Keep this turn's model reasoning on the assistant rows of the turn that started at ``after``.
+
+        Compared in Python: a text compare of the stored timestamps misses a row when one
+        carries ``+00:00`` and another does not, and then a reload has no decision to show.
+        """
+        after_cmp = after if after.tzinfo else after.replace(tzinfo=timezone.utc)
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, meta, created_at FROM turns WHERE session_id=? AND role='assistant' ORDER BY created_at DESC",
+                (session_id,),
+            ).fetchall()
+            matched = []
+            for row in rows:
+                created = datetime.fromisoformat(row["created_at"])
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if created + timedelta(seconds=2) >= after_cmp:
+                    matched.append(row)
+                    continue
+                break
+            if not matched and rows:
+                created = datetime.fromisoformat(rows[0]["created_at"])
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if abs((created - after_cmp).total_seconds()) < 180:
+                    matched = [rows[0]]
+            for row in matched:
+                meta = json.loads(row["meta"] or "{}")
+                meta["decision"] = decision
+                conn.execute("UPDATE turns SET meta=? WHERE id=?", (_dump(meta), row["id"]))
+
+    def set_message_meta(self, message_id: str, meta: dict[str, Any]) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("UPDATE turns SET meta=? WHERE id=?", (_dump(meta), message_id))
 
     def add_message(self, message: Message) -> None:
         with self._lock, self._connect() as conn:
@@ -831,6 +875,7 @@ class SQLiteStore:
             owner=row["owner"],
             provider=row["provider"],
             model=row["model"],
+            base_url=row["base_url"] or "",
             ciphertext=bytes(row["ciphertext"]),
             key_tail=row["key_tail"],
             active=bool(row["active"]),
@@ -852,6 +897,7 @@ class SQLiteStore:
         use_for_search: bool,
         test_ok: bool | None,
         error: str,
+        base_url: str = "",
     ) -> StoredCredential:
         """Save a key as the owner's active one; their other keys stay saved but inactive."""
         credential_id = secrets.token_hex(8)
@@ -859,11 +905,11 @@ class SQLiteStore:
         with self._lock, self._connect() as conn:
             conn.execute("UPDATE llm_credentials SET active=0 WHERE owner=?", (owner,))
             conn.execute(
-                "INSERT INTO llm_credentials (id, owner, provider, model, ciphertext, key_tail, active, "
+                "INSERT INTO llm_credentials (id, owner, provider, model, base_url, ciphertext, key_tail, active, "
                 "use_for_search, last_test_ok, last_tested_at, last_error, created_at, updated_at) "
-                "VALUES (?,?,?,?,?,?,1,?,?,?,?,?,?)",
+                "VALUES (?,?,?,?,?,?,?,1,?,?,?,?,?,?)",
                 (
-                    credential_id, owner, provider, model, ciphertext, key_tail, int(use_for_search),
+                    credential_id, owner, provider, model, base_url, ciphertext, key_tail, int(use_for_search),
                     None if test_ok is None else int(test_ok), None if test_ok is None else now,
                     error, now, now,
                 ),
@@ -891,6 +937,7 @@ class SQLiteStore:
         credential_id: str,
         *,
         model: str | None = None,
+        base_url: str | None = None,
         use_for_search: bool | None = None,
         test_ok: bool | None = None,
         error: str | None = None,
@@ -901,6 +948,9 @@ class SQLiteStore:
         if model is not None:
             sets.append("model=?")
             args.append(model)
+        if base_url is not None:
+            sets.append("base_url=?")
+            args.append(base_url)
         if use_for_search is not None:
             sets.append("use_for_search=?")
             args.append(int(use_for_search))
