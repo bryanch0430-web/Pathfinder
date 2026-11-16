@@ -23,7 +23,7 @@ from app.evaluation import _ref
 
 DESTINATION = "Tokyo"
 HOTEL, TICKET, ATTRACTION = "hotel", "ticket", "attraction"
-CONFIRMED_STOP = "teamLab Planets"  # Day 1, third row
+CONFIRMED_STOP = "Tokyo Skytree"  # Day 2, second row
 LOCKED_STOP = "Ghibli Museum"  # Day 2, last row
 
 
@@ -196,7 +196,7 @@ def test_db09_flight_change_naming_a_day_does_not_swap_the_hotel(settings: Setti
 
 def test_db09_removing_a_stop_calls_no_agent(settings: Settings) -> None:
     """Proposal DB-09: taking a stop out needs no new data; only the new neighbours' transfer is fetched."""
-    edit = _edit(settings, "Remove Tsukiji Outer Market from day 1.")
+    edit = _edit(settings, "Remove Tsukiji Outer Market from day 3.")
 
     assert edit.agents == set()
     # The stops either side of the gap now meet: one logged transfer call for that day.
@@ -209,7 +209,7 @@ def test_db09_removing_a_stop_calls_no_agent(settings: Settings) -> None:
 
 def test_db09_a_confirmed_stop_is_not_removed(settings: Settings) -> None:
     """Proposal DB-09: a request to remove a confirmed stop leaves it, and still calls no agent."""
-    edit = _edit(settings, f"Remove {CONFIRMED_STOP} from day 1.")
+    edit = _edit(settings, f"Remove {CONFIRMED_STOP} from day 2.")
 
     assert edit.agents == set()
     assert set(edit.tools) <= {"routes.segments"}
