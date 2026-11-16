@@ -471,7 +471,7 @@ def test_tc07_judge_payload_reads_the_plan(settings: Settings) -> None:
 
 def test_tc08_closed_venue_is_replaced(trials: dict) -> None:
     """Proposal TC-08 (p4): the closed venue is gone, an alternative was fetched, the failure recorded."""
-    for case_id, venue in (("hk02", "Peak Tram"), ("hk07", "Tai Kwun")):
+    for case_id, venue in (("hk02", "Peak Tram"), ("hk07", "Hong Kong Museum of History")):
         case = _case(trials, "hongkong", case_id)
         recovery = case["plan_checks"]["recovery"]
         assert recovery == {

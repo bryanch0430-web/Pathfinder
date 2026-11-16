@@ -332,7 +332,9 @@ def apply_change(plan: TripPlan, change: dict[str, Any]) -> TripPlan:
         updated.hotels = []
     elif change.get("hotel"):
         stay = HotelStay.model_validate(change["hotel"])
-        updated.hotels = [stay, *updated.hotels[1:]] if updated.hotels else [stay]
+        # A held edit knows one stay (``_stay_changes`` reads ``first_stay``): it takes that stay's place.
+        replaced = updated.first_stay
+        updated.hotels = [stay, *(hotel for hotel in updated.hotels if hotel is not replaced)]
     if "tickets" in change:
         updated.tickets = [TicketOption.model_validate(row) for row in change["tickets"]]
     dates = change.get("dates")
