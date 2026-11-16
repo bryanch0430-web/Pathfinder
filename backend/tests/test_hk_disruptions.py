@@ -68,6 +68,7 @@ def _plan(
     detail: dict | None = None,
     destination: str = "Hong Kong",
     days: int = 2,
+    origin: str = "Singapore",
     constraints: tuple[str, ...] = (),
     hook=None,
     toolbox=None,
@@ -81,7 +82,7 @@ def _plan(
     gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
     plan_path = PlanPath(planner=Planner(gateway, settings, registry.fx), registry=registry, settings=settings)
     context = TripContext(
-        session_id="t", destination=destination, origin="Singapore", start_date=START,
+        session_id="t", destination=destination, origin=origin, start_date=START,
         end_date=START + timedelta(days=days - 1), days=days, party_size=2, budget=20000, currency="HKD",
         hard_constraints=list(constraints),
     )
@@ -302,9 +303,10 @@ def test_a_requested_outdoor_stop_stays_and_the_disruption_stays_open(settings: 
     def outdoor_only(registry):
         registry.places = [OutdoorOnly("Hong Kong")]
 
+    # No flight: the whole of day 1 is planned, which is the day the disruption is on.
     plan, _ = _plan(
         settings, fault="typhoon", detail=TYPHOON_DAY_1, days=1, constraints=("must include Victoria Peak",),
-        hook=outdoor_only,
+        hook=outdoor_only, origin="Hong Kong",
     )
     assert [item.name for item in plan.days[0].items if item.type == ItemType.ATTRACTION] == ["Victoria Peak"]
     [entry] = plan.disruptions
@@ -338,8 +340,9 @@ def test_delay_from_the_status_source_alone_is_added_to_that_days_transfers(sett
         registry.routes = [SandboxRoutes()]
 
     detail = {"day": 1, "line": "Tsuen Wan Line", "delay_minutes": 40}
-    plan, log = _plan(settings, fault="transit_delay", detail=detail, days=3, hook=plain_routes)
-    baseline, _ = _plan(settings, days=3)
+    # No flight: the whole of day 1 is planned, which is the day the disruption is on.
+    plan, log = _plan(settings, fault="transit_delay", detail=detail, days=3, hook=plain_routes, origin="Hong Kong")
+    baseline, _ = _plan(settings, days=3, origin="Hong Kong")
     day1 = START.isoformat()
     assert short_transfers(baseline, delay_dates={day1}, delay=40, only_delay_days=True), "the delay matters"
     assert short_transfers(plan, delay_dates={day1}, delay=40, only_delay_days=True) == []
