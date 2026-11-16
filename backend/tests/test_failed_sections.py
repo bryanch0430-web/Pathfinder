@@ -206,6 +206,26 @@ def test_the_flight_check_passes_where_the_days_fit_and_is_written_once(settings
     assert _flight_checks(whole) == []
 
 
+def test_a_ticket_that_is_not_a_flight_makes_no_flight_check(settings: Settings) -> None:
+    """A plan with a ground hop first and the flight added after: the checks and the note read the flight."""
+    whole = asyncio.run(accepted_plan(settings, _context()))
+    flight = whole.tickets[0]
+    late = flight.arrive_at.replace(hour=22, minute=30)
+    train = flight.model_copy(
+        update={"id": "train-1", "mode": "train", "leg_id": "leg-train", "name": "Night train", "selected": True,
+                "arrive_at": late, "return_depart_at": None}
+    )
+    whole.tickets = [train, flight]
+    assert [(check.text, check.status) for check in _flight_checks(whole)] == [("flight arrival", ConstraintStatus.PASS)]
+    _apply_flight_checks(whole)
+    assert [note for note in whole.data_quality.notes if note.startswith("The chosen flight")] == []
+    whole.tickets = [train]
+    assert _flight_checks(whole) == []
+    _apply_flight_checks(whole)
+    assert [check.text for check in whole.constraints if check.text in ("flight arrival", "flight departure")] == []
+    assert [note for note in whole.data_quality.notes if note.startswith("The chosen flight")] == []
+
+
 def test_only_the_section_that_failed_is_fetched_again(settings: Settings, offline_gateway: LLMGateway) -> None:
     scene = _scene(settings, offline_gateway, down=("hotels",))
     before = scene.asked()

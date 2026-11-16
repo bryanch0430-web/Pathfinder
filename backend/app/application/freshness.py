@@ -558,8 +558,9 @@ FLIGHT_CHECKS = ("flight arrival", "flight departure")
 
 
 def _flight_checks(plan: TripPlan) -> list[ConstraintCheck]:
-    """The arrival and departure checks of the chosen flight, read against the days as they are."""
-    ticket = selected_ticket(plan.tickets)
+    """The arrival and departure checks of the chosen flight, read against the days as they are. A ground hop is
+    not a flight: it makes none."""
+    ticket = selected_ticket([ticket for ticket in plan.tickets if ticket.mode == "flight"])
     if ticket is None:
         return []
     return _window_checks(plan.days, flight_windows([ticket.model_dump()], [day.date for day in plan.days]))
@@ -570,7 +571,8 @@ def _apply_flight_checks(plan: TripPlan) -> None:
     note a change of flight writes. Each is written once, and no stop is moved: the traveller decides."""
     plan.constraints = [check for check in plan.constraints if check.text not in FLIGHT_CHECKS] + _flight_checks(plan)
     plan.data_quality.notes = [note for note in plan.data_quality.notes if not note.startswith(FLIGHT_TIMES_NOTE)]
-    note = flight_times_note(plan)
+    flights_only = plan.model_copy(update={"tickets": [ticket for ticket in plan.tickets if ticket.mode == "flight"]})
+    note = flight_times_note(flights_only)
     if note:
         plan.data_quality.notes.append(note)
 
