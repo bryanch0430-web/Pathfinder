@@ -120,7 +120,7 @@
   },
   {
     "id": "hk07",
-    "input": "Plan a 2-day Hong Kong trip for 1 person starting 2027-09-06, budget 5000 HKD. After the plan is made, Tai Kwun closes for the day.",
+    "input": "Plan a 2-day Hong Kong trip for 1 person starting 2027-09-06, budget 5000 HKD. After the plan is made, the Hong Kong Museum of History closes for the day.",
     "expected_intent": "plan",
     "destination": "Hong Kong",
     "origin": "Bangkok",
@@ -129,12 +129,12 @@
     "budget": 5000,
     "currency": "HKD",
     "constraints": [
-      "do not include the closed Tai Kwun"
+      "do not include the closed Hong Kong Museum of History"
     ],
     "fault": "venue_closure",
     "fault_detail": {
-      "venue": "Tai Kwun",
-      "report": "Tai Kwun is closed for the day. Please replace Tai Kwun with a different stop."
+      "venue": "Hong Kong Museum of History",
+      "report": "The Hong Kong Museum of History is closed for the day. Please replace the Hong Kong Museum of History with a different stop."
     },
     "split": "dev"
   },
