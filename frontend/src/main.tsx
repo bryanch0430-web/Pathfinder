@@ -8,6 +8,8 @@ import "./design-system/tokens.css";
 import "./design-system/base.css";
 import "./design-system/design-system.css";
 import "./app/app.css";
+import "./design-system/finish.css";
+import "./design-system/canvas.css";
 
 // Carry `pathfinder30.*` values over to `pathfinder.*` before the first render,
 // so a browser that predates the rename keeps its trips and session.

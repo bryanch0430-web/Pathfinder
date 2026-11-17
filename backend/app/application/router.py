@@ -37,6 +37,35 @@ def looks_like_question(message: str) -> bool:
     if text.endswith("?"):
         return True
     return bool(re.match(ASK_STARTERS, text.lower()))
+
+
+_POINTING = re.compile(r"\b(this|that|these|those|it|selected|here)\b", re.IGNORECASE)
+_SHORT_REPLY = re.compile(
+    r"^(y(?:es|ep|eah)?|no|nope|ok(?:ay)?|sure|thanks|thank you|"
+    r"the other(?: one)?|the (?:first|second|third|last)(?: one)?|both|neither|"
+    r"that one|this one)\b",
+    re.IGNORECASE,
+)
+
+
+def not_about_the_trip(message: str) -> bool:
+    """Chat that does not name the trip, a stop, or a short reply to an open question.
+
+    An insult or a greeting is not a request to clarify the selected stop.
+    """
+    text = (message or "").strip()
+    if not text:
+        return False
+    lower = text.lower()
+    if re.search(_TRAVEL_ANCHORS, lower) or re.search(PLAN_VERBS, lower) or re.search(MODIFY_VERBS, lower):
+        return False
+    if _SHORT_REPLY.match(lower):
+        return False
+    if len(lower.split()) <= 4 and _POINTING.search(lower):
+        return False
+    return True
+
+
 PLAN_VERBS = r"(plan|planning|itinerary|organi[sz]e|arrange|build|create|design|route|schedule)"
 ASK_STARTERS = r"^(what|where|when|which|who|why|how|is|are|can|could|do|does|should|will|would|any)\b"
 

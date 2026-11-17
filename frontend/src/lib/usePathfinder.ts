@@ -214,6 +214,21 @@ export interface PathfinderHook {
   importPlanFile: (text: string) => Promise<string | null>;
 }
 
+/** A saved decision that still has a why-line or a model call. An empty object is not one. */
+function decisionText(meta?: Record<string, unknown>): Record<string, unknown> | null {
+  const raw = meta?.decision;
+  if (!raw || typeof raw !== "object") return null;
+  const decision = raw as {
+    why?: string[];
+    generations?: { purpose?: string; reasoning?: string; output_preview?: string; user_preview?: string }[];
+  };
+  const why = (decision.why ?? []).some((line) => line.trim());
+  const call = (decision.generations ?? []).some(
+    (item) => item.purpose || item.reasoning?.trim() || item.output_preview?.trim() || item.user_preview?.trim(),
+  );
+  return why || call ? (decision as Record<string, unknown>) : null;
+}
+
 export function usePathfinder(locale: string): PathfinderHook {
   // Read through a ref so a locale switch does not recreate the callbacks
   // (and with them re-run the bootstrap effect).
@@ -641,7 +656,16 @@ export function usePathfinder(locale: string): PathfinderHook {
       const data = await getSession(id);
       // The answer came after another trip was opened: it is not for the view that is open now.
       if (sessionRef.current !== id) return;
-      setMessages(data.messages);
+      setMessages((current) =>
+        data.messages.map((incoming) => {
+          const previous = current.find((item) => item.id === incoming.id);
+          const kept = decisionText(previous?.meta);
+          if (kept && !decisionText(incoming.meta)) {
+            return { ...incoming, meta: { ...(incoming.meta ?? {}), decision: kept } };
+          }
+          return incoming;
+        }),
+      );
       setVersions(data.versions);
       setContextState(data.context);
       if (isPlanLocale(data.context.plan_locale)) setPlanLocaleState(data.context.plan_locale);
@@ -961,7 +985,35 @@ export function usePathfinder(locale: string): PathfinderHook {
                     setNotice({ llmKey: { provider: providerLabel(providerId, providers), reason } });
                   });
               }
-              if (event === "trace") setTrace(data as unknown as RunTrace);
+              if (event === "trace") {
+                const traceData = data as unknown as RunTrace;
+                setTrace(traceData);
+                const decision = {
+                  why: traceData.why ?? [],
+                  generations: (traceData.generations ?? []).map((call) => ({
+                    purpose: call.purpose,
+                    model: call.model,
+                    latency_ms: call.latency_ms,
+                    reasoning: call.reasoning ?? "",
+                    output_preview: call.output_preview ?? "",
+                    user_preview: call.user_preview ?? "",
+                  })),
+                };
+                setMessages((current) => {
+                  let index = -1;
+                  for (let cursor = current.length - 1; cursor >= 0; cursor -= 1) {
+                    if (current[cursor].role !== "user") {
+                      index = cursor;
+                      break;
+                    }
+                  }
+                  if (index < 0) return current;
+                  const item = current[index];
+                  const next = current.slice();
+                  next[index] = { ...item, meta: { ...(item.meta ?? {}), decision } };
+                  return next;
+                });
+              }
               if (event === "error") failTurn(data.message ? { text: String(data.message) } : "errors.turn");
             },
           },

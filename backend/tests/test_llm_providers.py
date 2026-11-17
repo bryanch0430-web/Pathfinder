@@ -54,14 +54,56 @@ def test_scrub_replaces_long_secrets_only() -> None:
     assert scrub("abc abcde", ["abc", "abcde", ""]) == "abc abcde"
 
 
-def test_catalogue_has_five_providers() -> None:
-    assert set(PROVIDERS) == {"anthropic", "openai", "poe", "xai", "gemini"}
+def test_catalogue_lists_each_provider() -> None:
+    assert set(PROVIDERS) == {"anthropic", "openai", "openai-compatible", "poe", "xai", "gemini"}
     assert {k for k, v in PROVIDERS.items() if v.supports_search} == {"xai"}
     assert PROVIDERS["anthropic"].default_model == "claude-sonnet-5-5"
     assert PROVIDERS["xai"].default_model == "grok-4.20-0309-non-reasoning"
+    # The generic entry carries no host and no default model: the traveller supplies both.
+    assert PROVIDERS["openai-compatible"].wire == "openai"
+    assert PROVIDERS["openai-compatible"].base_url == ""
+    assert PROVIDERS["openai-compatible"].default_model == ""
+    assert PROVIDERS["openai-compatible"].needs_base_url is True
+    assert [k for k, v in PROVIDERS.items() if v.needs_base_url] == ["openai-compatible"]
     assert {k: v.key_prefix for k, v in PROVIDERS.items()} == {
-        "anthropic": "sk-ant-", "openai": "sk-", "xai": "xai-", "gemini": "AIza", "poe": "",
+        "anthropic": "sk-ant-", "openai": "sk-", "openai-compatible": "", "xai": "xai-",
+        "gemini": "AIza", "poe": "",
     }
+
+
+def test_generic_provider_calls_the_base_url_it_was_given(settings: Settings) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=OPENAI_OK)
+
+    adapter = build_llm(
+        PROVIDERS["openai-compatible"], "sk-gw-0000000000", "some-model", settings,
+        base_url="https://gateway.test/v1/",
+    )
+    with use_transport(httpx.MockTransport(handler)):
+        _complete(adapter)
+
+    assert str(seen[0].url) == "https://gateway.test/v1/chat/completions"
+    assert json.loads(seen[0].content)["model"] == "some-model"
+
+
+def test_a_fixed_vendor_keeps_its_own_base_url(settings: Settings) -> None:
+    """A base URL sent for a vendor that has one is ignored: the constant wins."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=OPENAI_OK)
+
+    adapter = build_llm(
+        PROVIDERS["xai"], "xai-0000000000", "grok-test", settings, base_url="https://elsewhere.test/v1"
+    )
+    with use_transport(httpx.MockTransport(handler)):
+        _complete(adapter)
+
+    assert str(seen[0].url) == f"{PROVIDERS['xai'].base_url}/chat/completions"
 
 
 def test_openai_wire_hits_provider_url(settings: Settings) -> None:

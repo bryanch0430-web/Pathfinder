@@ -20,6 +20,18 @@ DEFAULT_ADMIN_TOKEN = "local-admin"
 DEFAULT_AUTH_SECRET = "local-dev-auth-secret-change-me"
 #: Admin tokens that are only ever placeholders (the default, .env.example).
 PLACEHOLDER_ADMIN_TOKENS = frozenset({DEFAULT_ADMIN_TOKEN, "REPLACE_ME"})
+#: Provider labels that select the XAI_* block.
+XAI_LABELS = frozenset({"xai", "grok"})
+#: Provider labels that select the OPENAI_* block: OpenAI itself, and any gateway that speaks its
+#: protocol on another host (an aggregator, vLLM, LiteLLM, Ollama's /v1, a self-hosted proxy).
+OPENAI_COMPATIBLE_LABELS = frozenset(
+    {
+        "openai",
+        "openai-compatible",  # "openai_compatible" and "openai compatible" normalise to this
+        "compatible",
+        "custom",
+    }
+)
 MIN_AUTH_SECRET_LENGTH = 32
 DEV_ENVIRONMENTS = frozenset({"development", "test"})
 
@@ -73,6 +85,12 @@ class Settings(BaseSettings):
     xai_base_url: str = ""
     xai_api_key: str = ""
     xai_model: str = ""
+
+    #: OpenAI, or any OpenAI-compatible endpoint (an aggregator, OpenRouter, a self-hosted vLLM
+    #: or Ollama). Authoritative when the provider label is in OPENAI_COMPATIBLE_LABELS.
+    openai_base_url: str = ""
+    openai_api_key: str = ""
+    openai_model: str = ""
 
     # --- System 1 router ---------------------------------------------------
     decision_enabled: bool = True
@@ -255,7 +273,8 @@ class Settings(BaseSettings):
     @field_validator("llm_provider", mode="before")
     @classmethod
     def _normalise_provider(cls, value: object) -> str:
-        return str(value).strip().lower()
+        # "  OpenAI Compatible  " and "openai_compatible" are the same label as "openai-compatible".
+        return str(value).strip().lower().replace(" ", "-").replace("_", "-")
 
     @field_validator("data_dir", "database_path", "trace_dir", "eval_dir", "frontend_dist", mode="before")
     @classmethod
@@ -266,25 +285,40 @@ class Settings(BaseSettings):
     @property
     def writer_is_xai(self) -> bool:
         """True when the provider label selects the xAI-specific fields."""
-        return self.llm_provider.strip().lower() in {"xai", "grok"}
+        return self.llm_provider.strip().lower() in XAI_LABELS
+
+    @property
+    def writer_is_openai_compatible(self) -> bool:
+        """True when the provider label selects the OPENAI_* fields.
+
+        OpenAI itself and every gateway that speaks its ``/chat/completions`` protocol share one
+        block, because the only thing that differs between them is ``OPENAI_BASE_URL``.
+        """
+        return self.llm_provider.strip().lower() in OPENAI_COMPATIBLE_LABELS
 
     @property
     def writer_base_url(self) -> str:
         """The base URL the writer will actually call (label-aware)."""
         if self.writer_is_xai:
             return (self.xai_base_url or self.llm_base_url).strip().rstrip("/")
+        if self.writer_is_openai_compatible:
+            return (self.openai_base_url or self.llm_base_url).strip().rstrip("/")
         return self.llm_base_url.strip().rstrip("/")
 
     @property
     def writer_api_key(self) -> str:
         if self.writer_is_xai:
             return self.xai_api_key or self.llm_api_key
+        if self.writer_is_openai_compatible:
+            return self.openai_api_key or self.llm_api_key
         return self.llm_api_key
 
     @property
     def writer_model(self) -> str:
         if self.writer_is_xai and self.xai_api_key:
             return self.xai_model or self.llm_model
+        if self.writer_is_openai_compatible and self.openai_api_key:
+            return self.openai_model or self.llm_model
         return self.llm_model
 
     @property
@@ -305,6 +339,9 @@ class Settings(BaseSettings):
             return "anthropic"
         if "googleapis" in host or "generativelanguage" in host:
             return "google"
+        if self.writer_is_openai_compatible:
+            # Another host serving the OpenAI protocol: report the protocol, not a made-up vendor.
+            return "openai-compatible"
         return "custom"
 
     @property

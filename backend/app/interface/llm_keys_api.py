@@ -29,8 +29,14 @@ NO_SUCH_KEY = "No such key."
 KEY_FORMAT_MESSAGE = "The key must be 8 to 512 printable characters."
 UNREADABLE_MESSAGE = "This saved key can no longer be read. Remove it and add it again."
 MODEL_MAX_LENGTH = 120
+BASE_URL_MAX_LENGTH = 300
+BASE_URL_MESSAGE = "The base URL must be an http or https address without spaces, for example https://host/v1."
+BASE_URL_REQUIRED_MESSAGE = "Send the API's base URL: the OpenAI-compatible provider needs the endpoint it should call."
+MODEL_REQUIRED_MESSAGE = "Send the model id this endpoint serves; it has no default."
 #: Printable ASCII without spaces; checked after stripping.
 _KEY_FORMAT = re.compile(r"[!-~]{8,512}")
+#: http(s)://host[:port][/path] — no spaces, no credentials in the URL, nothing after the host but a path.
+_BASE_URL = re.compile(r"https?://[^\s/?#@]+(:\d+)?(/[^\s]*)?", re.IGNORECASE)
 #: A failed test that still lets the key be saved, with a warning: it authenticated but could not run right now.
 #: Every other kind, an unknown one included, is refused.
 _SAVE_WITH_WARNING = {"rate_limit", "network", "credit"}
@@ -44,10 +50,12 @@ class KeyIn:
     api_key: str = field(repr=False)
     model: str
     use_for_search: bool = True
+    base_url: str = ""
 
 
 class KeyPatch(BaseModel):
     model: ModelName | None = None
+    base_url: Annotated[str, StringConstraints(strip_whitespace=True, max_length=BASE_URL_MAX_LENGTH)] | None = None
     use_for_search: bool | None = None
 
 
@@ -55,8 +63,24 @@ class KeyChoice(BaseModel):
     key_id: Annotated[str, StringConstraints(max_length=64)] | None
 
 
+def clean_base_url(value: Any, spec: ProviderSpec) -> str:
+    """The endpoint a caller sent, normalised; ``""`` for a fixed vendor. Never repeats the value it refused."""
+    if not spec.needs_base_url:
+        # A vendor with its own URL in code keeps it: a base URL sent alongside is ignored, not obeyed.
+        return ""
+    raw = value.strip() if isinstance(value, str) else ""
+    if not raw:
+        raise HTTPException(status_code=422, detail=BASE_URL_REQUIRED_MESSAGE)
+    if len(raw) > BASE_URL_MAX_LENGTH or not _BASE_URL.fullmatch(raw):
+        raise HTTPException(status_code=422, detail=BASE_URL_MESSAGE)
+    return raw.rstrip("/")
+
+
 def parse_key_in(body: Any, *, with_search: bool = False) -> KeyIn:
-    """Read ``{provider, api_key, model[, use_for_search]}``. No refusal names or repeats a value it was sent."""
+    """Read ``{provider, api_key, model[, base_url][, use_for_search]}``.
+
+    No refusal names or repeats a value it was sent.
+    """
     if not isinstance(body, dict):
         raise HTTPException(status_code=422, detail="Send the provider, key and model as a JSON object.")
     spec = PROVIDERS.get(body["provider"]) if isinstance(body.get("provider"), str) else None
@@ -71,10 +95,14 @@ def parse_key_in(body: Any, *, with_search: bool = False) -> KeyIn:
         model = ""
     if not isinstance(model, str) or len(model.strip()) > MODEL_MAX_LENGTH:
         raise HTTPException(status_code=422, detail=f"The model name must be 1 to {MODEL_MAX_LENGTH} characters.")
+    model = model.strip() or spec.default_model
+    if not model:
+        raise HTTPException(status_code=422, detail=MODEL_REQUIRED_MESSAGE)
+    base_url = clean_base_url(body.get("base_url"), spec)
     use_for_search = body.get("use_for_search", True) if with_search else True
     if not isinstance(use_for_search, bool):
         raise HTTPException(status_code=422, detail="use_for_search must be true or false.")
-    return KeyIn(spec, api_key, model.strip() or spec.default_model, use_for_search)
+    return KeyIn(spec, api_key, model, use_for_search, base_url)
 
 
 def register_llm_key_routes(
@@ -115,6 +143,7 @@ def register_llm_key_routes(
             "provider": row.provider,
             "label": spec.label if spec else row.provider,
             "model": row.model or (spec.default_model if spec else ""),
+            "base_url": row.base_url,
             "key_tail": row.key_tail,
             "active": row.active,
             "use_for_search": row.use_for_search,
@@ -146,9 +175,11 @@ def register_llm_key_routes(
             raise HTTPException(status_code=404, detail=NO_SUCH_KEY)
         return row
 
-    async def run_test(request: Request, spec: ProviderSpec, api_key: str, model: str) -> KeyTestResult:
+    async def run_test(
+        request: Request, spec: ProviderSpec, api_key: str, model: str, base_url: str = ""
+    ) -> KeyTestResult:
         await charge_key_test(request)
-        return await probe_key(spec, api_key, model, settings)
+        return await probe_key(spec, api_key, model, settings, base_url=base_url or None)
 
     @app.get("/api/llm/providers")
     async def llm_providers() -> dict[str, Any]:
@@ -160,6 +191,8 @@ def register_llm_key_routes(
                     "default_model": spec.default_model,
                     "key_prefix": spec.key_prefix,
                     "supports_search": spec.supports_search,
+                    # True: the form must ask for the base URL this key should call.
+                    "needs_base_url": spec.needs_base_url,
                 }
                 for spec in PROVIDERS.values()
             ]
@@ -179,14 +212,14 @@ def register_llm_key_routes(
         c = container(request)
         key_owner(request, c)
         key = parse_key_in(body)
-        return asdict(await run_test(request, key.spec, key.api_key, key.model))
+        return asdict(await run_test(request, key.spec, key.api_key, key.model, key.base_url))
 
     @app.post("/api/llm/keys", response_model=None)
     async def save_key(request: Request, body: Any = Body(default=None)) -> dict[str, Any] | JSONResponse:
         c = container(request)
         owner = key_owner(request, c)
         key = parse_key_in(body, with_search=True)
-        result = await run_test(request, key.spec, key.api_key, key.model)
+        result = await run_test(request, key.spec, key.api_key, key.model, key.base_url)
         if not result.ok and result.kind not in _SAVE_WITH_WARNING:
             return JSONResponse(status_code=422, content={"detail": result.message, "kind": result.kind})
         row = c.store.add_credential(
@@ -198,6 +231,7 @@ def register_llm_key_routes(
             key.use_for_search,
             result.ok,
             "" if result.ok else result.message,
+            base_url=key.base_url,
         )
         answer: dict[str, Any] = {"key": key_view(c, row)}
         if not result.ok:
@@ -216,7 +250,7 @@ def register_llm_key_routes(
             api_key = c.box.decrypt(row.ciphertext)
         except UnreadableSecret:
             raise HTTPException(status_code=409, detail=UNREADABLE_MESSAGE) from None
-        result = await run_test(request, spec, api_key, row.model or spec.default_model)
+        result = await run_test(request, spec, api_key, row.model or spec.default_model, row.base_url)
         updated = c.store.update_credential(
             owner, key_id, test_ok=result.ok, error="" if result.ok else result.message
         )
@@ -230,11 +264,19 @@ def register_llm_key_routes(
         c = container(request)
         owner = key_owner(request, c)
         row = owned_row(c, owner, key_id)
+        spec = PROVIDERS.get(row.provider)
         model = payload.model
         if model == "":
-            spec = PROVIDERS.get(row.provider)
             model = spec.default_model if spec else ""
-        updated = c.store.update_credential(owner, key_id, model=model, use_for_search=payload.use_for_search)
+        # Only the generic provider's endpoint can be edited; a fixed vendor's URL is its own constant.
+        base_url = None
+        if payload.base_url is not None:
+            if spec is None or not spec.needs_base_url:
+                raise HTTPException(status_code=422, detail="This provider's endpoint is fixed and cannot be changed.")
+            base_url = clean_base_url(payload.base_url, spec)
+        updated = c.store.update_credential(
+            owner, key_id, model=model, base_url=base_url, use_for_search=payload.use_for_search
+        )
         if updated is None:
             raise HTTPException(status_code=404, detail=NO_SUCH_KEY)
         # The next request builds the writer from the changed row.

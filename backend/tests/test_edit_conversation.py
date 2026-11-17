@@ -222,6 +222,32 @@ def test_more_stops_with_a_stop_selected_are_added_to_that_stops_day_and_nowhere
     assert places.limits and max(places.limits) > min(places.limits), "the pool ran out, so the source was asked for more"
 
 
+def test_an_edit_keeps_the_flight_arrival_check_and_flags_a_stop_before_the_flight_lands(settings: Settings) -> None:
+    async def scenario(trip: Trip) -> None:
+        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        trip.llm.route = {"intent": "modify", "confidence": 0.95}
+        from datetime import datetime, time
+
+        from app.domain.models import TicketOption
+
+        landing = datetime.combine(trip.plan.days[0].date, time(15, 0))
+        flown = trip.plan.model_copy(deep=True)
+        flown.tickets = [TicketOption(id="t_fly", mode="flight", name="Flight", depart_at=landing, arrive_at=landing, selected=True)]
+        flown.constraints = [check for check in flown.constraints if check.text != "flight arrival"]
+        flown.version += 1
+        trip.store.save_plan(flown, "Flight chosen")
+
+        await trip.turn("can u add this days more stop", scope_item_id=trip.stop_on(2).id)
+        stored = trip.store.get_plan(trip.session_id)
+
+        assert stored.version == flown.version + 1
+        [arrival] = [check for check in stored.constraints if check.text == "flight arrival"]
+        assert arrival.status.value == "fail", "a stop before the flight lands is flagged"
+        assert stored.days[0].items[0].start == trip.plan.days[0].items[0].start, "no stop was moved"
+
+    run_trip(settings, scenario, places=DeepPlaces())
+
+
 def test_when_nothing_verified_can_be_added_the_reply_says_so_and_names_the_day(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
         writer(trip.llm, "modify.extract", PACE_DRAFT)

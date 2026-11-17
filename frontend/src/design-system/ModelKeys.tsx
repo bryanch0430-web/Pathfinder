@@ -60,6 +60,7 @@ export function ModelKeysCard({
   const formId = useId();
   const first = providers[0];
   const [providerId, setProviderId] = useState(first?.id ?? "");
+  const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [model, setModel] = useState(first?.default_model ?? "");
@@ -82,17 +83,25 @@ export function ModelKeysCard({
     // A key typed for one vendor is never sent to another one by accident.
     setApiKey("");
     setShowKey(false);
+    setBaseUrl("");
     setModel(providers.find((entry) => entry.id === id)?.default_model ?? "");
     setModels([]);
     setFormNote(null);
   };
 
-  const formBody = (): KeyBody => ({
-    provider: providerId,
-    api_key: apiKey,
-    model: model.trim(),
-    use_for_search: provider?.supports_search ? useForSearch : undefined,
-  });
+  const wantsBaseUrl = Boolean(provider?.needs_base_url);
+
+  const formBody = (): KeyBody => {
+    const body: KeyBody = {
+      provider: providerId,
+      api_key: apiKey,
+      model: model.trim(),
+      use_for_search: provider?.supports_search ? useForSearch : undefined,
+    };
+    // Only the generic provider carries its own endpoint; a fixed vendor's URL is the server's constant.
+    if (wantsBaseUrl) body.base_url = baseUrl.trim();
+    return body;
+  };
 
   const test = async () => {
     setWorking("test");
@@ -125,7 +134,7 @@ export function ModelKeysCard({
   const prefixWarning = provider && keyPrefixMismatch(apiKey, prefix)
     ? t("keys.prefixMismatch", { provider: provider.label, prefix })
     : null;
-  const canSubmit = Boolean(providerId && apiKey.trim() && model.trim());
+  const canSubmit = Boolean(providerId && apiKey.trim() && model.trim() && (!wantsBaseUrl || baseUrl.trim()));
 
   return (
     <div className="pf-card pf-eval__panel" aria-busy={busy || undefined}>
@@ -178,6 +187,22 @@ export function ModelKeysCard({
             ))}
           </Select>
         </Field>
+        {wantsBaseUrl ? (
+          <Field label={t("keys.baseUrl")} htmlFor={`${formId}-base-url`} wide>
+            <Input
+              id={`${formId}-base-url`}
+              value={baseUrl}
+              placeholder="https://host/v1"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              maxLength={300}
+              onChange={(event) => setBaseUrl(event.target.value)}
+            />
+            <Text size="xs" tone="tertiary">{t("keys.baseUrlHint")}</Text>
+          </Field>
+        ) : null}
         <Field label={t("keys.model")} htmlFor={`${formId}-model`}>
           <Input
             id={`${formId}-model`}
@@ -313,6 +338,9 @@ function KeyRow({
         <Text size="xs" tone="tertiary">{t("keys.unreadable")}</Text>
       ) : (
         <>
+          {entry.base_url ? (
+            <span className="pf-mono pf-small pf-muted">{entry.base_url}</span>
+          ) : null}
           <div className="pf-row" style={{ gap: 6 }}>
             <Input
               value={model}

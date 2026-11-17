@@ -328,11 +328,21 @@ def apply_change(plan: TripPlan, change: dict[str, Any]) -> TripPlan:
         updated.days[day_number - 1].items.append(PlanItem.model_validate(row["item"]))
     for day in updated.days:
         day.items.sort(key=lambda item: item.start)
-    if change.get("clear_hotel"):
+    segment_id = str(change.get("segment_id") or "")
+    if segment_id:
+        # The stay of one city of a multi-city plan: it takes the place of that city's first stay, where it stood.
+        replaced = next(iter(updated.stays_in(segment_id)), None)
+        if change.get("clear_hotel"):
+            updated.hotels = [hotel for hotel in updated.hotels if hotel is not replaced]
+        elif change.get("hotel"):
+            stay = HotelStay.model_validate(change["hotel"])
+            at = next((i for i, hotel in enumerate(updated.hotels) if hotel is replaced), len(updated.hotels))
+            updated.hotels = [*(h for h in updated.hotels[:at] if h is not replaced), stay, *updated.hotels[at + 1 :]]
+    elif change.get("clear_hotel"):
         updated.hotels = []
     elif change.get("hotel"):
         stay = HotelStay.model_validate(change["hotel"])
-        # A held edit knows one stay (``_stay_changes`` reads ``first_stay``): it takes that stay's place.
+        # A single-city plan knows one stay (``first_stay``): it takes that stay's place.
         replaced = updated.first_stay
         updated.hotels = [stay, *(hotel for hotel in updated.hotels if hotel is not replaced)]
     if "tickets" in change:
@@ -436,7 +446,20 @@ def _put(day: int, item: PlanItem) -> dict[str, Any]:
 
 
 def _stay_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
-    before, after = old.first_stay, new.first_stay
+    """The change to the stay: one on a single-city plan, one for each city's stay on a multi-city plan."""
+    if len(old.segments) < 2 and len(new.segments) < 2:
+        return _stay_change(old.first_stay, new.first_stay, "hotel", "")
+    changes: list[dict[str, Any]] = []
+    for number, segment in enumerate(new.segments):
+        before, after = next(iter(old.stays_in(segment.id)), None), next(iter(new.stays_in(segment.id)), None)
+        change_id = "hotel" if number == 0 else f"hotel-{segment.id}"
+        changes.extend(_stay_change(before, after, change_id, segment.id))
+    return changes
+
+
+def _stay_change(
+    before: HotelStay | None, after: HotelStay | None, change_id: str, segment_id: str
+) -> list[dict[str, Any]]:
     if before is None and after is None:
         return []
     old_name = before.name if before else ""
@@ -450,7 +473,7 @@ def _stay_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
     else:
         return []
     change: dict[str, Any] = {
-        "id": "hotel",
+        "id": change_id,
         "label": label,
         "detail": "",
         "status": "pending",
@@ -461,6 +484,8 @@ def _stay_changes(old: TripPlan, new: TripPlan) -> list[dict[str, Any]]:
         change["clear_hotel"] = True
     else:
         change["hotel"] = after.model_dump(mode="json")
+    if segment_id:
+        change["segment_id"] = segment_id
     return [change]
 
 

@@ -26,6 +26,8 @@ KEY = "sk-ant-api-test-0000001111"
 GUEST_A = {"X-Client-Token": "guest-a"}
 GUEST_B = {"X-Client-Token": "guest-b"}
 NO_SUCH_KEY = "No such key."
+#: What an OpenAI-wire endpoint answers for the key test: one short completion.
+GATEWAY_OK = {"model": "m", "choices": [{"message": {"content": "OK"}}], "usage": {}}
 
 
 @pytest.fixture()
@@ -83,11 +85,12 @@ def test_providers_list(client: TestClient) -> None:
     providers = response.json()["providers"]
     assert [row["id"] for row in providers] == list(PROVIDERS)
     for row in providers:
-        assert set(row) == {"id", "label", "default_model", "key_prefix", "supports_search"}
+        assert set(row) == {"id", "label", "default_model", "key_prefix", "supports_search", "needs_base_url"}
         spec = PROVIDERS[row["id"]]
         assert (row["label"], row["default_model"], row["key_prefix"], row["supports_search"]) == (
             spec.label, spec.default_model, spec.key_prefix, spec.supports_search,
         )
+        assert row["needs_base_url"] is spec.needs_base_url
     assert response.headers["cache-control"] == "private, no-store"
 
 
@@ -102,9 +105,10 @@ def test_save_lists_masked_and_activates(client: TestClient) -> None:
     assert view["model"] == PROVIDERS["anthropic"].default_model
     assert view["active"] is True and view["last_test_ok"] is True and view["unreadable"] is False
     assert set(view) == {
-        "id", "provider", "label", "model", "key_tail", "active", "use_for_search",
+        "id", "provider", "label", "model", "base_url", "key_tail", "active", "use_for_search",
         "last_test_ok", "last_tested_at", "last_error", "unreadable",
     }
+    assert view["base_url"] == ""
     assert KEY not in saved.text
 
     listed = client.get("/api/llm/keys", headers=GUEST_A)
@@ -116,6 +120,92 @@ def test_save_lists_masked_and_activates(client: TestClient) -> None:
     assert body["status"]["model"] == PROVIDERS["anthropic"].default_model
     assert body["status"]["local"] == {"configured": False, "reachable": False, "model": ""}
     assert KEY not in listed.text
+
+
+def test_generic_provider_saves_the_base_url_it_was_given(
+    client: TestClient, recorder: Recorder, replies: dict[str, Any]
+) -> None:
+    """The OpenAI-compatible entry has no host of its own: the traveller's URL is what gets called."""
+    replies["gateway.test"] = (200, GATEWAY_OK)
+    saved = client.post(
+        "/api/llm/keys",
+        json={
+            "provider": "openai-compatible",
+            "api_key": KEY,
+            "model": "gpt-test-1",
+            "base_url": "https://gateway.test/v1/",
+        },
+        headers=GUEST_A,
+    )
+
+    assert saved.status_code == 200, saved.text
+    view = saved.json()["key"]
+    assert view["base_url"] == "https://gateway.test/v1"
+    assert view["model"] == "gpt-test-1"
+    assert view["provider"] == "openai-compatible" and view["label"] == "OpenAI-compatible API"
+    assert [(call["host"], call["path"]) for call in recorder.calls] == [
+        ("gateway.test", "/v1/chat/completions"),  # the test request
+        ("gateway.test", "/v1/models"),  # then the model list, for the form's suggestions
+    ]
+    assert KEY not in saved.text
+
+
+def test_generic_provider_refuses_a_missing_or_malformed_base_url(client: TestClient) -> None:
+    missing = client.post(
+        "/api/llm/keys",
+        json={"provider": "openai-compatible", "api_key": KEY, "model": "m1"},
+        headers=GUEST_A,
+    )
+    assert missing.status_code == 422
+    assert "base URL" in missing.json()["detail"]
+
+    for bad in ("gateway.test/v1", "ftp://gateway.test/v1", "https://gate way.test/v1", "https://"):
+        refused = client.post(
+            "/api/llm/keys",
+            json={"provider": "openai-compatible", "api_key": KEY, "model": "m1", "base_url": bad},
+            headers=GUEST_A,
+        )
+        assert refused.status_code == 422, bad
+        # The refusal never echoes the value it refused, nor the key.
+        assert bad.rstrip("/") not in refused.text.replace("https://host/v1", ""), bad
+        assert KEY not in refused.text
+
+
+def test_generic_provider_needs_a_model_because_it_has_no_default(client: TestClient) -> None:
+    refused = client.post(
+        "/api/llm/keys",
+        json={"provider": "openai-compatible", "api_key": KEY, "model": "", "base_url": "https://gateway.test/v1"},
+        headers=GUEST_A,
+    )
+
+    assert refused.status_code == 422
+    assert "model" in refused.json()["detail"].lower()
+
+
+def test_a_fixed_vendor_ignores_a_base_url(client: TestClient) -> None:
+    saved = _save(client, GUEST_A, provider="anthropic", base_url="https://gateway.test/v1")
+
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["key"]["base_url"] == ""
+
+
+def test_only_the_generic_provider_lets_its_base_url_be_changed(
+    client: TestClient, replies: dict[str, Any]
+) -> None:
+    replies["gateway.test"] = (200, GATEWAY_OK)
+    fixed = _saved_id(client, GUEST_A, provider="openai")
+    refused = client.patch(f"/api/llm/keys/{fixed}", json={"base_url": "https://gateway.test/v1"}, headers=GUEST_A)
+    assert refused.status_code == 422
+    assert "fixed" in refused.json()["detail"]
+
+    generic = _saved_id(
+        client, GUEST_A, provider="openai-compatible", model="m1", base_url="https://gateway.test/v1"
+    )
+    changed = client.patch(
+        f"/api/llm/keys/{generic}", json={"base_url": "https://gateway.test/v2"}, headers=GUEST_A
+    )
+    assert changed.status_code == 200
+    assert changed.json()["key"]["base_url"] == "https://gateway.test/v2"
 
 
 def test_save_refuses_bad_key(client: TestClient, recorder: Recorder) -> None:
@@ -197,7 +287,7 @@ def test_save_refuses_an_unknown_failure_kind(client: TestClient, monkeypatch: p
     import app.interface.llm_keys_api as keys_api
     from app.infrastructure.llm_providers import KeyTestResult
 
-    async def novel(*_: Any) -> KeyTestResult:
+    async def novel(*_: Any, **__: Any) -> KeyTestResult:
         return KeyTestResult(False, "something_new", "It failed in a new way.", 1)
 
     monkeypatch.setattr(keys_api, "probe_key", novel)

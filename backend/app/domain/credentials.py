@@ -23,3 +23,5 @@ class StoredCredential:
     last_error: str
     created_at: str
     updated_at: str
+    #: The endpoint the traveller gave for a generic OpenAI-compatible key; "" for a fixed vendor.
+    base_url: str = ""

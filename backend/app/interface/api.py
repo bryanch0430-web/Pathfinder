@@ -45,7 +45,7 @@ from app.application.toolbox import Toolbox
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
-from app.application.orchestrator import user_facing_error
+from app.application.orchestrator import restore_message_decisions, user_facing_error
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
 from app.application.soft_guides import CORPUS_VERSION
@@ -757,7 +757,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "context": (c.store.get_context(session_id) or TripContext(session_id=session_id)).model_dump(mode="json"),
             "plan": plan.model_dump(mode="json") if plan else None,
             "versions": c.store.list_versions(session_id),
-            "messages": [message.model_dump(mode="json") for message in c.store.list_messages(session_id, limit=60)],
+            "messages": [
+                message.model_dump(mode="json")
+                for message in restore_message_decisions(
+                    c.store, settings.trace_dir, c.store.list_messages(session_id, limit=60)
+                )
+            ],
         }
 
     @app.patch("/api/journeys/{session_id}/state")

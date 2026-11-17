@@ -5,6 +5,15 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.8.0 — 2026-11-17
+
+A UI/UX visual upgrade. Planning still takes one path per message.
+
+- **A studio canvas.** Chat, Plan and Trip map share one height: a narrow chat, a wide plan, and the map. Reset layout restores that and scales it to the screen. Sketch, Watch before you go and Trending open from the toolbar. The map is only the map; cited guide notes sit with Watch before you go. With no route, the map says the path has not been decided.
+- **One Export menu.** Plan file (JSON), calendar, sketch and slides. The sketchbook draws the current plan, and the saved sketch keeps the handwritten font so words stay in their boxes.
+- **Why this decision stays after a reload.** Developer mode shows it under each reply, including whether the reply was written from the plan or as chat. A message that is not about the trip is answered in chat, not turned into a question about the selected stop.
+- **Highlighted text on a dark message stays readable.**
+
 ## Unreleased — 2026-11-17
 
 Fixes found while tracing the evaluation figures of 16 November. The causes are in `docs/EVAL_REGRESSIONS.md`.

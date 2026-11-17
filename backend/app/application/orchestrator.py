@@ -5,10 +5,13 @@ full sequence: screen -> understand -> route -> gate -> plan/modify/ask/clarify.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from contextlib import aclosing, asynccontextmanager, contextmanager
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, AsyncIterator, Callable, Iterator, Sequence
 
 import httpx
@@ -51,6 +54,7 @@ from app.application.router import (
     is_replan_message,
     language_route,
     looks_like_question,
+    not_about_the_trip,
     replans_new_dates,
     replans_new_destination,
     same_destination,
@@ -272,6 +276,13 @@ class TurnService:
                     async for event in events:
                         yield event
 
+    def _keep_decision(self, session_id: str, after: datetime, tracer: Any) -> None:
+        """Write this turn's reasoning onto the assistant messages it just stored."""
+        try:
+            self.store.attach_decisions_since(session_id, after, _decision_payload(tracer))
+        except Exception:
+            logger.exception("could not keep the turn decision")
+
     async def _run_turn(
         self,
         *,
@@ -305,27 +316,29 @@ class TurnService:
         if screen.flagged:
             for category in screen.categories:
                 self.store.log_injection(category, screen.max_severity.value, channel="user_message")
-        self.store.add_message(
-            Message(
-                session_id=session_id,
-                role="user",
-                content=message,
-                meta={
-                    "locale": locale,
-                    "flagged": screen.flagged,
-                    "categories": screen.categories,
-                    **({"severity": screen.max_severity.value, "blocked": screen.blocked} if screen.flagged else {}),
-                    **({"scope": scope_label} if scope_label else {}),
-                    **({"attachments": [file.name[:200] for file in attachments]} if attachments else {}),
-                },
-            )
+        user_message = Message(
+            session_id=session_id,
+            role="user",
+            content=message,
+            meta={
+                "locale": locale,
+                "flagged": screen.flagged,
+                "categories": screen.categories,
+                **({"severity": screen.max_severity.value, "blocked": screen.blocked} if screen.flagged else {}),
+                **({"scope": scope_label} if scope_label else {}),
+                **({"attachments": [file.name[:200] for file in attachments]} if attachments else {}),
+            },
         )
+        self.store.add_message(user_message)
 
         if screen.blocked:
             with _early_exit(tracer, developer_token, "blocked"):
+                tracer.metadata["reason"] = "security_blocklist"
+                tracer.metadata["intent"] = "unclear"
                 self.store.add_message(
                     Message(session_id=session_id, role="assistant", content=SAFE_REPLY, intent=Intent.UNCLEAR)
                 )
+                self._keep_decision(session_id, user_message.created_at, tracer)
                 yield TurnEvent(
                     event="route",
                     data={
@@ -348,9 +361,12 @@ class TurnService:
         identity = identity_reply(message)
         if identity:
             with _early_exit(tracer, developer_token, "ok"):
+                tracer.metadata["reason"] = "identity"
+                tracer.metadata["intent"] = "ask"
                 self.store.add_message(
                     Message(session_id=session_id, role="assistant", content=identity, intent=Intent.ASK)
                 )
+                self._keep_decision(session_id, user_message.created_at, tracer)
                 yield TurnEvent(
                     event="route",
                     data={
@@ -479,9 +495,11 @@ class TurnService:
                 )
             )
             scoped_question = (
-                plan is not None
+                scope_item_id
+                and plan is not None
                 and looks_like_question(message)
                 and not re.search(MODIFY_VERBS, message.lower())
+                and re.search(r"\b(this|that|it|here|selected)\b", message.lower())
             )
             route_change = rule_route_change(message, plan) if plan is not None else None
             split_stay = rule_split_stay(message, plan) if plan is not None and len(plan.segments) > 1 else None
@@ -593,6 +611,22 @@ class TurnService:
                         "confidence": max(decision.confidence, 0.9),
                         "need_clarification": False,
                         "reason_code": "edit_answer",
+                        "missing_slots": [],
+                    }
+                )
+            if (
+                plan is not None
+                and not context.missing_slots()
+                and (decision.need_clarification or decision.intent == Intent.UNCLEAR)
+                and not_about_the_trip(message)
+            ):
+                # An insult or a greeting is not a question about the selected stop.
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.ASK,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "not_about_the_trip",
                         "missing_slots": [],
                     }
                 )
@@ -755,6 +789,7 @@ class TurnService:
         finally:
             reset_developer_view(developer_token)
             tracer.finish(status=status)
+            self._keep_decision(session_id, user_message.created_at, tracer)
             if status not in ("closed", "cancelled"):
                 if failure is not None:
                     yield failure
@@ -1223,6 +1258,8 @@ class TurnService:
             history=list(history) if history is not None else self.store.list_messages(session_id, limit=8),
             scope_item_id=scope_item_id,
         )
+        tracer.metadata["related_to_plan"] = related
+        tracer.metadata["answer_source"] = source or "none"
         if plan is not None and not related and "does not contain" not in answer:
             answer += "\n\nI can add this to the itinerary if you want."
         self.store.add_message(
@@ -1532,6 +1569,95 @@ def _scope_line(metadata: dict[str, Any]) -> str:
     return ""
 
 
+def _decision_has_text(decision: Any) -> bool:
+    """True when a saved decision still has the why-line or a model call to show."""
+    if not isinstance(decision, dict):
+        return False
+    if any(str(line).strip() for line in decision.get("why") or []):
+        return True
+    for call in decision.get("generations") or []:
+        if not isinstance(call, dict):
+            continue
+        if any(str(call.get(key) or "").strip() for key in ("purpose", "reasoning", "output_preview", "user_preview")):
+            return True
+    return False
+
+
+def restore_message_decisions(store: Any, trace_dir: Path, messages: list[Message]) -> list[Message]:
+    """Fill replies whose decision was never kept, from this trip's trace files.
+
+    An empty decision is treated as missing. Writing one would hide the trace for good, and a
+    reload would have only the "no separate reasoning" line.
+    """
+    if not messages or not any(item.role == "assistant" and not _decision_has_text((item.meta or {}).get("decision")) for item in messages):
+        return messages
+    if not trace_dir.is_dir():
+        return messages
+    session_id = messages[0].session_id
+    traces: list[tuple[str, str, dict[str, Any]]] = []
+    for path in trace_dir.glob("*.json"):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        meta = record.get("metadata") or {}
+        if meta.get("session_id") != session_id:
+            continue
+        tracer = SimpleNamespace(
+            metadata=meta,
+            searches=record.get("searches") or [],
+            generations=record.get("generations") or [],
+        )
+        traces.append(
+            (
+                str(record.get("ended_at") or record.get("started_at") or ""),
+                str(meta.get("message") or ""),
+                _decision_payload(tracer),
+            )
+        )
+    traces.sort(key=lambda item: item[0])
+    restored = list(messages)
+    cursor = 0
+    index = 0
+    while index < len(restored):
+        if restored[index].role != "user":
+            index += 1
+            continue
+        asked = restored[index].content
+        reply = index + 1
+        while reply < len(restored) and restored[reply].role == "user":
+            reply += 1
+        if reply >= len(restored) or restored[reply].role != "assistant":
+            index = reply
+            continue
+        found = next((cursor_index for cursor_index in range(cursor, len(traces)) if traces[cursor_index][1] == asked), None)
+        if found is not None and not _decision_has_text((restored[reply].meta or {}).get("decision")):
+            meta = {**restored[reply].meta, "decision": traces[found][2]}
+            store.set_message_meta(restored[reply].id, meta)
+            restored[reply] = restored[reply].model_copy(update={"meta": meta})
+        if found is not None:
+            cursor = found + 1
+        index = reply + 1
+    return restored
+
+
+def _decision_payload(tracer: Any) -> dict[str, Any]:
+    """What an admin can open under the reply. Kept on the message, not only in the live stream."""
+    generations = []
+    for generation in getattr(tracer, "generations", []) or []:
+        generations.append(
+            {
+                "purpose": str(generation.get("purpose") or ""),
+                "model": str(generation.get("model") or ""),
+                "latency_ms": int(generation.get("latency_ms") or 0),
+                "reasoning": str(generation.get("reasoning") or ""),
+                "output_preview": str(generation.get("output_preview") or "")[:4000],
+                "user_preview": str(generation.get("user_preview") or "")[:240],
+            }
+        )
+    return {"why": _why_lines(tracer), "generations": generations}
+
+
 def _why_lines(tracer: Any) -> list[str]:
     """A traveller-facing account of the decision. Not the model's private draft."""
     reason = str(getattr(tracer, "metadata", {}).get("reason") or "")
@@ -1543,6 +1669,7 @@ def _why_lines(tracer: Any) -> list[str]:
         "replan_destination": "The trip details named another place than the plan is for, so a new trip was planned.",
         "scoped_item_action": "A stop was selected, so only that stop could change.",
         "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
+        "not_about_the_trip": "The message is not about the trip, so it was answered in chat and nothing was edited.",
         "security_blocklist": "The message was blocked before any planning.",
         "identity": "This was a question about the assistant, so no trip was planned.",
         "edit_needs_fact": "The change needs a fact the plan does not have, so it was asked for and nothing was edited.",
@@ -1555,6 +1682,15 @@ def _why_lines(tracer: Any) -> list[str]:
         lines.append(known[reason])
     elif intent:
         lines.append(f"Routed as {intent}" + (f" ({reason})." if reason else "."))
+    meta = getattr(tracer, "metadata", {}) or {}
+    if "related_to_plan" in meta:
+        source = str(meta.get("answer_source") or "the conversation")
+        if meta.get("related_to_plan"):
+            lines.append(f"The reply was written from the plan, using {source}. Nothing was edited.")
+        else:
+            lines.append(
+                f"The reply was written as chat, not from a stop on the plan, using {source}. Nothing was edited."
+            )
     for search in getattr(tracer, "searches", []) or []:
         results = search.get("results") or []
         kept = [row.get("title") or row.get("url") for row in results if row.get("kept") is True and (row.get("title") or row.get("url"))]

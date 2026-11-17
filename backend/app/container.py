@@ -115,6 +115,13 @@ def build_container(settings: Settings | None = None) -> Container:
                 settings.llm_provider,
                 settings.writer_base_url,
             )
+        if settings.writer_is_openai_compatible and settings.writer_vendor not in {"openai", "openai-compatible"}:
+            logger.warning(
+                "LLM_PROVIDER=%s but the effective base URL is not an OpenAI-compatible endpoint (%s); "
+                "set OPENAI_BASE_URL to the gateway's /v1 address",
+                settings.llm_provider,
+                settings.writer_base_url,
+            )
     else:
         logger.info("writer: not configured; turns run offline")
     tracer_proxy = TracerProxy()

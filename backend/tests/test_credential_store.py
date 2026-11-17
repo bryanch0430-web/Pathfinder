@@ -19,16 +19,35 @@ def store(tmp_path: Path) -> SQLiteStore:
 
 
 def _add(store: SQLiteStore, owner: str = "guest-a", provider: str = "openai", model: str = "m1",
-         search: bool = True, tail: str = "sk-…a1b2") -> StoredCredential:
-    return store.add_credential(owner, provider, model, b"cipher-" + provider.encode(), tail, search, True, "")
+         search: bool = True, tail: str = "sk-…a1b2", base_url: str = "") -> StoredCredential:
+    return store.add_credential(
+        owner, provider, model, b"cipher-" + provider.encode(), tail, search, True, "", base_url=base_url
+    )
 
 
 def test_migration_creates_table(store: SQLiteStore) -> None:
-    assert store.schema_version == len(MIGRATIONS) == 4
+    assert store.schema_version == len(MIGRATIONS) == 5
     with sqlite3.connect(store.path) as conn:
         names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(llm_credentials)")}
     assert "llm_credentials" in names
     assert "idx_llm_credentials_owner" in names
+    # Step 5: a key may carry its own endpoint (the generic OpenAI-compatible provider).
+    assert "base_url" in columns
+
+
+def test_a_keys_base_url_is_kept_edited_and_cleared(store: SQLiteStore) -> None:
+    row = _add(store, provider="openai-compatible", model="m2", base_url="https://gateway.test/v1")
+
+    assert row.base_url == "https://gateway.test/v1"
+    assert store.get_credential("guest-a", row.id).base_url == "https://gateway.test/v1"
+
+    edited = store.update_credential("guest-a", row.id, base_url="https://gateway.test/v2")
+    assert edited is not None and edited.base_url == "https://gateway.test/v2"
+
+    # A row without one (a fixed vendor) keeps "".
+    plain = _add(store, provider="openai")
+    assert plain.base_url == ""
 
 
 def test_add_makes_only_one_active(store: SQLiteStore) -> None:

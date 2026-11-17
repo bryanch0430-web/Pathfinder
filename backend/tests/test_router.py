@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from app.application.llm_gateway import LLMGateway
 from app.application.prompts import PromptLibrary
-from app.application.router import RuleRouter, System1Router, looks_like_question
+from app.application.router import RuleRouter, System1Router, looks_like_question, not_about_the_trip
 from app.config import Settings
 from app.domain.models import Intent, TripContext
 from app.infrastructure.llm import NullLLM
@@ -66,3 +66,11 @@ def test_gate_forces_clarification_below_threshold(settings: Settings) -> None:
 
 def test_a_restaurant_question_is_a_question_even_without_a_question_word() -> None:
     assert looks_like_question("Café Bohème TKO is for eating japanese food??") is True
+
+
+def test_an_insult_is_not_about_the_trip_and_a_short_reply_is() -> None:
+    assert not_about_the_trip("....fuck you") is True
+    assert not_about_the_trip("hello") is True
+    assert not_about_the_trip("the other one") is False
+    assert not_about_the_trip("what is the weather on day 2?") is False
+    assert not_about_the_trip("what is this") is False

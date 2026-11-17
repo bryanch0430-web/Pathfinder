@@ -247,7 +247,9 @@ class LLMSelector:
                 api_key = self._box.decrypt(row.ciphertext)
             except UnreadableSecret:
                 return self._unusable(row, source, model, "unreadable")
-            adapter = _Adapter(build_llm(spec, api_key, model, self._settings), api_key)
+            adapter = _Adapter(
+                build_llm(spec, api_key, model, self._settings, base_url=row.base_url or None), api_key
+            )
             with self._lock:
                 # An older version of the same row (another model or key) is never served again.
                 for stale in [key for key in self._adapters if key[0] == row.id]:

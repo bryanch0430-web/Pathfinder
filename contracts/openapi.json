@@ -3380,6 +3380,18 @@
             ],
             "title": "Model"
           },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
           "use_for_search": {
             "anyOf": [
               {

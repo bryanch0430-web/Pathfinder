@@ -314,6 +314,8 @@ export interface LlmProvider {
   default_model: string;
   key_prefix: string;
   supports_search: boolean;
+  /** True for the generic OpenAI-compatible entry: the form must ask for the endpoint to call. */
+  needs_base_url?: boolean;
 }
 
 /** A saved key as the server shows it: only its masked tail, never the key. */
@@ -322,6 +324,8 @@ export interface LlmKey {
   provider: string;
   label: string;
   model: string;
+  /** The endpoint a generic OpenAI-compatible key calls; empty for a fixed vendor. */
+  base_url?: string;
   key_tail: string;
   active: boolean;
   use_for_search: boolean;
@@ -356,6 +360,8 @@ export interface KeyBody {
   provider: string;
   api_key: string;
   model: string;
+  /** The endpoint for the generic OpenAI-compatible provider; omitted for a fixed vendor. */
+  base_url?: string;
   use_for_search?: boolean;
 }
 
@@ -377,8 +383,9 @@ export function getLlmKeys(scope?: KeyScope): Promise<{ keys: LlmKey[]; status: 
 }
 
 export function testLlmKey(body: KeyBody, scope?: KeyScope): Promise<KeyTestResult> {
-  const { provider, api_key, model } = body;
-  return keyRequest("/api/llm/keys/test", scope, { method: "POST", body: JSON.stringify({ provider, api_key, model }) });
+  const { provider, api_key, model, base_url } = body;
+  const sent = base_url ? { provider, api_key, model, base_url } : { provider, api_key, model };
+  return keyRequest("/api/llm/keys/test", scope, { method: "POST", body: JSON.stringify(sent) });
 }
 
 /** Saves a key. A `warning` means it was kept although the test could not finish (rate limit, network, credit). */
@@ -392,7 +399,7 @@ export function retestLlmKey(id: string, scope?: KeyScope): Promise<{ key: LlmKe
 
 export function patchLlmKey(
   id: string,
-  body: { model?: string; use_for_search?: boolean },
+  body: { model?: string; base_url?: string; use_for_search?: boolean },
   scope?: KeyScope,
 ): Promise<{ key: LlmKey }> {
   return keyRequest(`/api/llm/keys/${encodeURIComponent(id)}`, scope, { method: "PATCH", body: JSON.stringify(body) });
