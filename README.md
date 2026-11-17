@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.9.0 | 2026-11-17 22:56 | Three routing gates, a Desk window, and every evaluation suite on one page |
 | v1.8.0 | 2026-11-17 02:55 | UI/UX visual upgrade: a studio canvas, sketchbook, and one Export menu |
 | v1.7.0 | 2026-11-15 14:35 | Trips of several cities; every stay, leg and transfer is a lockable choice slot; pictures, links and ranks |
 | v1.6.2 | 2026-11-08 21:41 | Clarify answers stay in their slot; flights shape the day; far stops move |
@@ -36,6 +37,22 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.9.0 — 17 November 2026, 22:56 HKT
+
+The planner still takes one path per message. This release is about which model chooses that path, and about being able to see every test suite.
+
+**Three routing gates, switched in Settings.** Orchestrator offers Jev, a fast model and a fast reasoning model. Jev stays the decision model. Each of the other two has its own provider, model, key, base URL when the provider needs one, temperature, reasoning effort and reply cap. A blank key uses the server Poe key. The choice applies to the next message. If a bot rejects a reasoning-effort field, that field is left off and the call is tried again. On this Poe key the working defaults are Gemini 3.5 Flash-Lite (temperature 0, reasoning off) and Gemini 3.8 Flash (temperature 0.2). GPT-6 Luna and GPT-6.1 Terra are not on the key.
+
+**Jev stays the gate.** On the frozen routing set of 84 items, one run, four requests at a time, Jev (`jev-latest`) and Gemini 3.5 Flash-Lite both scored 78/84. A paired test cannot separate them (6 disagreements each way, p = 1.00). Jev is the one to keep: median 0.6 seconds, and a confidence of 0.8 keeps 63 answers of which 61 are right. The fast model takes about 5 seconds and reports a high confidence on hits and misses, so the 0.8 cutoff never abstains. Gemini 3.8 Flash is not usable as this gate on Poe: the reasoning field is rejected, 30 of 84 calls failed, and the calls that returned took about 9 seconds at the median. Repeat it with `python scripts/gate_compare.py` from `backend/`.
+
+**Settings are grouped.** A search box and group chips open General, Handoff, Instructions, Profile, Writer, Orchestrator, Policy, Updates and System. Writer is the writing key. The search box is a search field, so a saved password is not typed into it.
+
+**SerpAPI keys rotate.** Under System, an admin keeps one key in use, keys waiting, and keys that are used up or set aside. When the key in use runs out of searches, the next waiting key takes over and that search is tried again.
+
+**The Desk opens in its own window.** It shows whether the chat belongs to a signed-in client or a guest, and the preferences kept for that browser or account. After taking the chat over, the operator can run the same workflow, start a plan, or change stops by hand. A message from the live person is shown as that person. A line that is not about the trip, such as a greeting, is answered at once as Pathfinder for this trip and does not wait on the writer.
+
+**Evaluation lists every suite.** Routing, Injection, Hongkong, Japan, Travelplanner, Efficiency and Edit vs replan sit above the cases. A scored case shows its input, output, component scores and tool calls. A suite that has not been run still lists its frozen cases and what each one expects. The four lookups are called workers on the page. The live agent is still a person.
 
 ### v1.8.0 — 17 November 2026, 02:55 HKT
 
@@ -700,9 +717,13 @@ not live-traffic evidence. Markdown/CSV export are built into the **Evaluation**
 Reports land in
 `data/eval/<run_id>.md`.
 
-The evaluation tab needs at least one run; after the two `hongkong` commands above it
-shows a real comparison and a trend line. Full method and current results:
-[`docs/EVALUATION.md`](docs/EVALUATION.md).
+The Evaluation tab lists every frozen suite: Routing, Injection, Hongkong, Japan,
+Travelplanner, Efficiency and Edit vs replan. A suite that has been run shows each
+case's input, output, component scores and tool calls. A suite that has not been
+run still lists its cases and what each one expects; choose it and run it to score
+it. A comparison and a trend appear once that suite has a run. Full method and
+current results: [`docs/EVALUATION.md`](docs/EVALUATION.md). The three-gate
+comparison on the routing set is `python scripts/gate_compare.py` from `backend/`.
 
 The tab, like the threat list on the Settings page, calls the admin routes, so the page must
 send your `ADMIN_TOKEN`. It reads the token from the browser's local storage; nothing in the

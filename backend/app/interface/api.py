@@ -46,6 +46,9 @@ from app.infrastructure.observability import NoopTracer
 from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import restore_message_decisions, user_facing_error
+from app.application.prompts import LANGUAGE_RULE, PERSONA_RULE
+from app.application.sentiment import frustration_band, frustration_score, line_reading, session_frustration
+from app.application.skills import prompt_entries
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
 from app.application.soft_guides import CORPUS_VERSION
@@ -82,6 +85,7 @@ from app.interface.cache_control import PrivateResponses
 from app.interface.caller_binding import CallerBinding
 from app.interface.identity_format import TOKEN_FORMAT, TOKEN_MAX_LENGTH
 from app.interface.llm_keys_api import register_llm_key_routes
+from app.interface.serpapi_api import register_serpapi_routes
 from app.interface.local_admin import local_admin_for
 from app.infrastructure.providers.images import (
     CACHE_SECONDS,
@@ -194,6 +198,98 @@ class AttachmentIn(BaseModel):
     name: str = Field(default="attachment", max_length=200)
     media_type: str = Field(default="", max_length=100)
     data: str = Field(min_length=1)
+
+
+class ExemplarIn(BaseModel):
+    utterance: str = Field(min_length=1, max_length=600)
+    intent: Literal["plan", "modify", "ask", "unclear"]
+    note: str = Field(default="", max_length=400)
+
+
+class DeskSay(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class DeskNoteIn(BaseModel):
+    note: str = Field(default="", max_length=2000)
+
+
+class DeskRunIn(BaseModel):
+    """A last-resort instruction. It runs the same path a traveller message would, while the chat is held."""
+
+    message: str = Field(min_length=1, max_length=6000)
+
+
+class DeskStopIn(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    name: str = Field(default="", max_length=200)
+    start: str = ""
+    end: str = ""
+    remove: bool = False
+
+
+class DeskPlanIn(BaseModel):
+    version: int
+    items: list[DeskStopIn] = Field(default_factory=list, max_length=80)
+
+
+class EscalationIn(BaseModel):
+    enabled: bool = True
+    message: str = Field(default="", max_length=2000)
+    frustration_at: int | None = Field(default=None, ge=0, le=100)
+    examples: list[str] = Field(default_factory=list, max_length=40)
+
+
+class PromptIn(BaseModel):
+    body: str = Field(default="", max_length=20000)
+
+
+class OrchestratorIn(BaseModel):
+    """One orchestrator model. An empty key leaves the saved key; ``clear_key`` restores the environment key."""
+
+    model: str = ""
+    url: str = ""
+    api_key: str = ""
+    clear_key: bool = False
+
+
+class PoeKeyIn(BaseModel):
+    """The Poe key shared by the two cloud gate choices. Blank keeps the saved key."""
+
+    api_key: str = ""
+    clear_key: bool = False
+
+
+class GateArmIn(BaseModel):
+    """One cloud gate: provider, model, key, and the call settings the request can send."""
+
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
+    api_key: str = ""
+    clear_key: bool = False
+    temperature: float | None = None
+    max_tokens: int | None = None
+    reasoning: str = ""
+
+
+class RuntimeIn(BaseModel):
+    thresholds: dict[str, float] | None = None
+    freshness_hours: dict[str, int] | None = None
+    #: ``jev`` is the decision model. ``plain`` is a fast model with reasoning off.
+    #: ``reason`` is a fast model with reasoning on.
+    gate: Literal["jev", "plain", "reason"] | None = None
+    plain_model: str | None = None
+    reason_model: str | None = None
+    writer_model: str | None = None
+    jev: OrchestratorIn | None = None
+    fast: OrchestratorIn | None = None
+    poe: PoeKeyIn | None = None
+    plain: GateArmIn | None = None
+    reason: GateArmIn | None = None
+
+
+_PROMPT_NAMES = {"persona", "language"}
 
 
 class ChatRequest(BaseModel):
@@ -413,22 +509,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "default_locale": settings.default_locale,
             "locales": settings.supported_locales.split(","),
             "currency": settings.default_currency,
-            "thresholds": {
-                "router_confidence": settings.router_threshold,
-                "memory_similarity": settings.memory_similarity_cutoff,
-                "preplan_budget_seconds": settings.preplan_budget_seconds,
-                "max_repairs": settings.max_repairs,
-            },
-            "freshness_hours": {
-                "weather": settings.weather_fresh_seconds // 3600,
-                "tickets": settings.ticket_fresh_seconds // 3600,
-                "hotels": settings.hotel_fresh_seconds // 3600,
-                "attractions": settings.attraction_fresh_seconds // 3600,
-            },
+            **_runtime_view(settings, c.store),
             # The operator chain, as /api/ready reports it: never the calling traveller's own key.
             "writer": {
                 "available": bool(getattr(writer.llm, "available", False)),
                 "model": getattr(writer.llm, "name", "offline"),
+                "base_url": settings.writer_base_url,
                 "label": settings.llm_provider,
                 "vendor": settings.writer_vendor,
                 "source": writer.source,
@@ -763,7 +849,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     c.store, settings.trace_dir, c.store.list_messages(session_id, limit=60)
                 )
             ],
+            "held": c.store.is_held(session_id),
+            "agent_name": c.store.held_agent(session_id),
         }
+
+    @app.get("/api/journeys/{session_id}/held")
+    async def journey_held(session_id: str, request: Request) -> dict[str, Any]:
+        """Whether a person on the desk has this chat, and that person's account name."""
+        c = container(request)
+        require_session(c, request, session_id)
+        return {"held": c.store.is_held(session_id), "agent_name": c.store.held_agent(session_id)}
 
     @app.patch("/api/journeys/{session_id}/state")
     async def patch_context(session_id: str, payload: ContextPatch, request: Request) -> dict[str, Any]:
@@ -1396,6 +1491,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         require_admin=require_admin,
         charge_key_test=charge_key_test,
     )
+    register_serpapi_routes(app, container=container, require_admin=require_admin)
 
     @app.post("/api/recall/clear")
     async def clear_memory(request: Request, payload: ClearMemoryRequest | None = None) -> dict[str, Any]:
@@ -1564,6 +1660,16 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     # -- evaluation -------------------------------------------------------
 
+    @app.get("/api/eval/suites/{dataset_id}/cases", dependencies=[Depends(require_admin)])
+    async def eval_suite_cases(dataset_id: str) -> dict[str, Any]:
+        from app.evaluation import suite_preview
+
+        try:
+            cases = suite_preview(dataset_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        return {"cases": cases}
+
     @app.get("/api/eval/suites", dependencies=[Depends(require_admin)])
     async def eval_datasets(request: Request) -> dict[str, Any]:
         c = container(request)
@@ -1657,6 +1763,318 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             ],
         }
 
+    @app.get("/api/training/examples")
+    async def training_examples(request: Request) -> dict[str, Any]:
+        return {"examples": container(request).store.list_exemplars()}
+
+    @app.post("/api/training/examples")
+    async def add_training_example(payload: ExemplarIn, request: Request) -> dict[str, str]:
+        return container(request).store.add_exemplar(payload.utterance, payload.intent, payload.note)
+
+    @app.delete("/api/training/examples/{example_id}")
+    async def remove_training_example(example_id: str, request: Request) -> dict[str, bool]:
+        container(request).store.delete_exemplar(example_id)
+        return {"ok": True}
+
+    @app.get("/api/training/turns")
+    async def training_turns(request: Request) -> dict[str, Any]:
+        rows = []
+        for turn in container(request).store.recent_route_records(30):
+            rows.append({**turn, "frustration": frustration_score(turn["input"])})
+        return {"turns": rows}
+
+    @app.get("/api/admin/desk", dependencies=[Depends(require_admin)])
+    async def desk(request: Request) -> dict[str, Any]:
+        store = container(request).store
+        cards = []
+        for session in store.recent_sessions(30):
+            messages = store.list_messages(session["id"], limit=20)
+            mood = _desk_mood(messages)
+            last = messages[-1] if messages else None
+            cards.append(
+                {
+                    "session_id": session["id"],
+                    "updated_at": session["updated_at"],
+                    "held": store.is_held(session["id"]),
+                    "frustration": mood["frustration"],
+                    "frustration_kind": mood["frustration_kind"],
+                    "band": frustration_band(mood["frustration"]),
+                    "sentiment_score": mood["sentiment_score"],
+                    "sentiment_label": mood["sentiment_label"],
+                    "sentiment_notes": mood["sentiment_notes"],
+                    "preview": (last.content if last else "")[:160],
+                    "last_role": last.role if last else "",
+                    **_desk_contact(store, session["id"]),
+                }
+            )
+        cards.sort(key=lambda card: (card["frustration"], card["updated_at"]), reverse=True)
+        return {"chats": cards}
+
+    @app.get("/api/admin/desk/{session_id}", dependencies=[Depends(require_admin)])
+    async def desk_chat(session_id: str, request: Request) -> dict[str, Any]:
+        store = container(request).store
+        messages = store.list_messages(session_id, limit=80)
+        return {
+            "session_id": session_id,
+            "held": store.is_held(session_id),
+            "note": store.desk_note(session_id),
+            "contact": _desk_contact(store, session_id),
+            "messages": [
+                {
+                    "id": message.id,
+                    "role": message.role,
+                    "content": message.content,
+                    "at": message.created_at.isoformat(),
+                    "frustration": frustration_score(message.content) if message.role == "user" else 0,
+                    "sentiment_label": line_reading(message.content)["label"] if message.role == "user" else "",
+                    "live_agent": bool((message.meta or {}).get("live_agent") or (message.meta or {}).get("operator")),
+                    "operator": bool((message.meta or {}).get("operator")),
+                }
+                for message in messages
+            ],
+        }
+
+    def operator_name(request: Request) -> str:
+        """The signed-in account's name. A desk with no account is still a live agent."""
+        user = current_user(request, container(request))
+        if user is not None:
+            named = user.display_name.strip() or user.email.split("@")[0]
+            if named:
+                return named[:80]
+        return "Live agent"
+
+    @app.post("/api/admin/desk/{session_id}/hold", dependencies=[Depends(require_admin)])
+    async def desk_hold(session_id: str, request: Request) -> dict[str, Any]:
+        name = operator_name(request)
+        container(request).store.hold_chat(session_id, name)
+        return {"held": True, "agent_name": name}
+
+    @app.post("/api/admin/desk/{session_id}/release", dependencies=[Depends(require_admin)])
+    async def desk_release(session_id: str, request: Request) -> dict[str, bool]:
+        container(request).store.release_chat(session_id)
+        return {"held": False}
+
+    @app.post("/api/admin/desk/{session_id}/note", dependencies=[Depends(require_admin)])
+    async def desk_note(session_id: str, payload: DeskNoteIn, request: Request) -> dict[str, str]:
+        container(request).store.set_desk_note(session_id, payload.note)
+        return {"note": payload.note.strip()}
+
+    @app.post("/api/admin/desk/{session_id}/say", dependencies=[Depends(require_admin)])
+    async def desk_say(session_id: str, payload: DeskSay, request: Request) -> dict[str, str]:
+        message = Message(
+            session_id=session_id,
+            role="assistant",
+            content=payload.text.strip(),
+            intent=Intent.ASK,
+            meta={"live_agent": True, "agent_name": operator_name(request)},
+        )
+        container(request).store.add_message(message)
+        return {"id": message.id}
+
+    @app.post("/api/admin/desk/{session_id}/run", dependencies=[Depends(require_admin)])
+    async def desk_run(session_id: str, payload: DeskRunIn, request: Request) -> dict[str, Any]:
+        """Run the plan, change, or question path for a chat a person has taken over."""
+        c = container(request)
+        if c.store.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Unknown session")
+        if not c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="Take this chat over first.")
+        reply: list[str] = []
+        intent = ""
+        error = ""
+        async for event in c.turn_service.handle_turn(
+            session_id=session_id,
+            message=payload.message.strip(),
+            operator=True,
+            operator_name=operator_name(request),
+        ):
+            if event.event == "token":
+                reply.append(str((event.data or {}).get("text") or ""))
+            elif event.event == "done":
+                intent = str((event.data or {}).get("intent") or "")
+            elif event.event == "error":
+                error = str((event.data or {}).get("message") or "The workflow stopped.")
+        if error and not reply:
+            raise HTTPException(status_code=502, detail=error)
+        return {"reply": "".join(reply), "intent": intent}
+
+    @app.get("/api/admin/desk/{session_id}/plan", dependencies=[Depends(require_admin)])
+    async def desk_plan(session_id: str, request: Request) -> dict[str, Any]:
+        plan = container(request).store.get_plan(session_id)
+        return {"plan": _desk_plan_view(plan)}
+
+    @app.post("/api/admin/desk/{session_id}/plan", dependencies=[Depends(require_admin)])
+    async def desk_plan_edit(session_id: str, payload: DeskPlanIn, request: Request) -> dict[str, Any]:
+        """Rename, retime, or remove stops. Writes a new plan version."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        if not c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="Take this chat over first.")
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        if not payload.items:
+            raise HTTPException(status_code=400, detail="Nothing to save")
+        if payload.version != plan.version:
+            raise HTTPException(status_code=409, detail="This edit was made on an earlier version. Open it again.")
+        try:
+            updated = _apply_desk_edits(plan, payload.items)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        updated.version = plan.version + 1
+        updated.change_summary = "A person edited the plan."
+        updated.updated_at = datetime.now(timezone.utc)
+        c.store.save_plan(updated, updated.change_summary)
+        name = operator_name(request)
+        c.store.add_message(
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content="I updated the plan.",
+                intent=Intent.MODIFY,
+                meta={"live_agent": True, "agent_name": name},
+            )
+        )
+        return {"plan": _desk_plan_view(updated)}
+
+    def _prompt_allowed(name: str) -> bool:
+        if name in _PROMPT_NAMES:
+            return True
+        return any(prompt == name for prompt, _, _ in prompt_entries())
+
+    @app.put("/api/admin/runtime", dependencies=[Depends(require_admin)])
+    async def runtime_put(payload: RuntimeIn, request: Request) -> dict[str, Any]:
+        values: dict[str, str] = {}
+        if payload.thresholds is not None:
+            missing = [key for key in ("router_confidence", "memory_similarity", "preplan_budget_seconds", "max_repairs") if key not in payload.thresholds]
+            if missing:
+                raise HTTPException(status_code=400, detail="Missing " + ", ".join(missing))
+            values.update(
+                {
+                    "router_confidence": str(payload.thresholds["router_confidence"]),
+                    "memory_similarity": str(payload.thresholds["memory_similarity"]),
+                    "preplan_budget_seconds": str(payload.thresholds["preplan_budget_seconds"]),
+                    "max_repairs": str(payload.thresholds["max_repairs"]),
+                }
+            )
+        if payload.freshness_hours is not None:
+            missing = [key for key in ("weather", "tickets", "hotels", "attractions") if key not in payload.freshness_hours]
+            if missing:
+                raise HTTPException(status_code=400, detail="Missing " + ", ".join(missing))
+            values.update(
+                {
+                    "weather": str(payload.freshness_hours["weather"]),
+                    "tickets": str(payload.freshness_hours["tickets"]),
+                    "hotels": str(payload.freshness_hours["hotels"]),
+                    "attractions": str(payload.freshness_hours["attractions"]),
+                }
+            )
+        if payload.gate is not None:
+            values["router_gate"] = payload.gate
+        drop: list[str] = []
+        secrets_save: dict[str, str] = {}
+        secrets_clear: list[str] = []
+        if payload.plain_model is not None:
+            _take_token(payload.plain_model, "gate_plain_model", values, drop)
+        if payload.reason_model is not None:
+            _take_token(payload.reason_model, "gate_reason_model", values, drop)
+        if payload.writer_model is not None:
+            _take_token(payload.writer_model, "writer_model", values, drop)
+        _take_side(payload.jev, "jev", "decision_model", "decision_api_url", values, drop, secrets_save, secrets_clear)
+        _take_side(payload.fast, "fast", "gate_fast_model", "gate_fast_base_url", values, drop, secrets_save, secrets_clear)
+        if payload.poe is not None:
+            if payload.poe.clear_key:
+                secrets_clear.append("poe")
+            elif payload.poe.api_key.strip():
+                secrets_save["poe"] = payload.poe.api_key.strip()
+        _take_arm(payload.plain, "plain", values, drop, secrets_save, secrets_clear)
+        _take_arm(payload.reason, "reason", values, drop, secrets_save, secrets_clear)
+        if not values and not drop and not secrets_save and not secrets_clear:
+            raise HTTPException(status_code=400, detail="Nothing to save")
+        store = container(request).store
+        box = container(request).box
+        try:
+            store.check_runtime(settings, values)
+            for plain in secrets_save.values():
+                _check_secret(plain)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if drop:
+            store.delete_runtime_keys(drop)
+        if values:
+            store.save_runtime(values)
+        for name in secrets_clear:
+            store.clear_gate_secret(name)
+        for name, plain in secrets_save.items():
+            store.save_gate_secret(name, box.encrypt(plain))
+        store.apply_runtime(settings)
+        store.apply_gate_secrets(settings, box)
+        return _runtime_view(settings, store)
+
+    @app.delete("/api/admin/runtime", dependencies=[Depends(require_admin)])
+    async def runtime_delete(request: Request) -> dict[str, Any]:
+        store = container(request).store
+        store.clear_runtime()
+        store.apply_runtime(settings)
+        store.apply_gate_secrets(settings, container(request).box)
+        return _runtime_view(settings, store)
+
+    @app.get("/api/admin/escalation", dependencies=[Depends(require_admin)])
+    async def escalation_get(request: Request) -> dict[str, Any]:
+        return container(request).store.escalation_policy()
+
+    @app.put("/api/admin/escalation", dependencies=[Depends(require_admin)])
+    async def escalation_put(payload: EscalationIn, request: Request) -> dict[str, Any]:
+        return container(request).store.save_escalation_policy(
+            enabled=payload.enabled,
+            message=payload.message,
+            frustration_at=payload.frustration_at,
+            examples=payload.examples,
+        )
+
+    @app.get("/api/admin/prompts", dependencies=[Depends(require_admin)])
+    async def prompts_get(request: Request) -> dict[str, Any]:
+        store = container(request).store
+        rows = [
+            {
+                "name": "persona",
+                "description": "Added to every model that writes to the traveller.",
+                "default": PERSONA_RULE,
+                "override": store.prompt_override("persona") or "",
+            },
+            {
+                "name": "language",
+                "description": "How replies are worded. The translator sets its own language.",
+                "default": LANGUAGE_RULE,
+                "override": store.prompt_override("language") or "",
+            },
+        ]
+        for name, description, body in prompt_entries():
+            rows.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "default": body,
+                    "override": store.prompt_override(name) or "",
+                }
+            )
+        return {"prompts": rows}
+
+    @app.put("/api/admin/prompts/{name}", dependencies=[Depends(require_admin)])
+    async def prompts_put(name: str, payload: PromptIn, request: Request) -> dict[str, str]:
+        if not _prompt_allowed(name):
+            raise HTTPException(status_code=404, detail="Unknown prompt")
+        container(request).store.set_prompt_override(name, payload.body)
+        return {"name": name}
+
+    @app.delete("/api/admin/prompts/{name}", dependencies=[Depends(require_admin)])
+    async def prompts_delete(name: str, request: Request) -> dict[str, bool]:
+        if not _prompt_allowed(name):
+            raise HTTPException(status_code=404, detail="Unknown prompt")
+        container(request).store.clear_prompt_override(name)
+        return {"ok": True}
+
     @app.get("/api/admin/threats", dependencies=[Depends(require_admin)])
     async def injections(request: Request) -> dict[str, Any]:
         store = container(request).store
@@ -1685,6 +2103,257 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             return index.read_text(encoding="utf-8")
 
     return app
+
+
+def _desk_mood(messages: list[Any]) -> dict[str, Any]:
+    """The latest traveller line, and the session index once three lines are scored."""
+    readings = [line_reading(message.content) for message in messages if getattr(message, "role", "") == "user"]
+    scores = [float(reading["score"]) for reading in readings if reading["score"] is not None]
+    index = session_frustration(scores)
+    latest = readings[-1] if readings else {"score": None, "label": "not_measured", "notes": ["unmeasured"]}
+    line_heat = 0 if latest["score"] is None else round(max(0.0, -float(latest["score"])) * 100)
+    if index is not None:
+        heat, kind = index, "session"
+    elif latest["score"] is not None:
+        heat, kind = line_heat, "line"
+    else:
+        heat, kind = 0, "none"
+    return {
+        "frustration": heat,
+        "frustration_kind": kind,
+        "sentiment_score": latest["score"],
+        "sentiment_label": latest["label"],
+        "sentiment_notes": latest["notes"],
+    }
+
+
+def _desk_contact(store: Any, session_id: str) -> dict[str, Any]:
+    """The trip facts a contact desk shows beside a chat, and who opened the session."""
+    context = store.get_context(session_id)
+    facts = {
+        "destination": "",
+        "origin": "",
+        "start": "",
+        "end": "",
+        "party": None,
+        "budget": None,
+        "currency": "",
+    }
+    trip_preferences: list[str] = []
+    if context is not None:
+        facts = {
+            "destination": context.destination or "",
+            "origin": context.origin or "",
+            "start": context.start_date.isoformat() if context.start_date else "",
+            "end": context.end_date.isoformat() if context.end_date else "",
+            "party": context.party_size,
+            "budget": context.budget,
+            "currency": context.currency or "",
+        }
+        trip_preferences = [str(item).strip() for item in (context.preferences or []) if str(item).strip()]
+    session = store.get_session(session_id)
+    user = store.get_user(session.user_id) if session is not None and session.user_id else None
+    identity = f"{USER_PREFIX}{user.id}" if user is not None else (session.client_token if session is not None else "")
+    profile = store.get_preferences(identity) if identity else None
+    saved = [str(item).strip() for item in (profile.preferences if profile else []) if str(item).strip()]
+    preferences: list[str] = []
+    for value in saved + trip_preferences:
+        if value not in preferences:
+            preferences.append(value)
+    facts.update(
+        {
+            "signed_in": user is not None,
+            "name": (user.display_name if user is not None else "") or "",
+            "email": (user.email if user is not None else "") or "",
+            "preferences": preferences[:40],
+        }
+    )
+    return facts
+
+
+_DESK_TIME = re.compile(r"^\d{2}:\d{2}$")
+
+
+def _desk_plan_view(plan: Any) -> dict[str, Any] | None:
+    if plan is None:
+        return None
+    return {
+        "version": plan.version,
+        "days": [
+            {
+                "date": day.date.isoformat(),
+                "title": day.title,
+                "items": [
+                    {"id": item.id, "name": item.name, "type": item.type.value, "start": item.start, "end": item.end}
+                    for item in day.items
+                ],
+            }
+            for day in plan.days
+        ],
+    }
+
+
+def _apply_desk_edits(plan: Any, edits: list[DeskStopIn]) -> Any:
+    updated = plan.model_copy(deep=True)
+    by_id = {item.id: item for day in updated.days for item in day.items}
+    for edit in edits:
+        if edit.id not in by_id:
+            raise ValueError("That stop is not on this plan.")
+        if edit.remove:
+            for day in updated.days:
+                day.items = [item for item in day.items if item.id != edit.id]
+            continue
+        name = edit.name.strip()
+        if not name:
+            raise ValueError("A stop needs a name.")
+        if not _DESK_TIME.fullmatch(edit.start) or not _DESK_TIME.fullmatch(edit.end) or edit.end <= edit.start:
+            raise ValueError("Times must be HH:MM, and the end after the start.")
+        found = by_id[edit.id]
+        found.name = name
+        found.start = edit.start
+        found.end = edit.end
+    from pydantic import ValidationError
+
+    try:
+        type(updated).model_validate(updated.model_dump())
+    except ValidationError as exc:
+        raise ValueError("That edit does not fit this plan.") from exc
+    return updated
+
+
+def _take_arm(
+    arm: GateArmIn | None,
+    name: str,
+    values: dict[str, str],
+    drop: list[str],
+    secrets_save: dict[str, str],
+    secrets_clear: list[str],
+) -> None:
+    if arm is None:
+        return
+    _take_token(arm.provider.lower(), f"gate_{name}_provider", values, drop)
+    _take_token(arm.model, f"gate_{name}_model", values, drop)
+    _take_token(arm.base_url, f"gate_{name}_base_url", values, drop)
+    _take_token(arm.reasoning.lower(), f"gate_{name}_reasoning", values, drop)
+    if arm.temperature is not None:
+        values[f"gate_{name}_temperature"] = str(arm.temperature)
+    if arm.max_tokens is not None:
+        values[f"gate_{name}_max_tokens"] = str(int(arm.max_tokens))
+    if arm.clear_key:
+        secrets_clear.append(name)
+    elif arm.api_key.strip():
+        secrets_save[name] = arm.api_key.strip()
+
+
+def _take_token(value: str, key: str, values: dict[str, str], drop: list[str]) -> None:
+    text = value.strip()
+    if text:
+        values[key] = text
+    else:
+        drop.append(key)
+
+
+def _take_side(
+    side: OrchestratorIn | None,
+    secret_name: str,
+    model_key: str,
+    url_key: str,
+    values: dict[str, str],
+    drop: list[str],
+    secrets_save: dict[str, str],
+    secrets_clear: list[str],
+) -> None:
+    if side is None:
+        return
+    _take_token(side.model, model_key, values, drop)
+    _take_token(side.url, url_key, values, drop)
+    if side.clear_key:
+        secrets_clear.append(secret_name)
+    elif side.api_key.strip():
+        secrets_save[secret_name] = side.api_key.strip()
+
+
+def _check_secret(plain: str) -> None:
+    if len(plain) < 8 or len(plain) > 512 or any(character.isspace() for character in plain):
+        raise ValueError("The key must be 8 to 512 characters, with no spaces")
+
+
+def _arm_view(active: Settings, name: str, saved: bool) -> dict[str, Any]:
+    """One cloud gate as the form shows it. The key itself stays on the server."""
+    plain = name == "plain"
+    provider = str(getattr(active, f"gate_{name}_provider", "") or "poe")
+    own = str(getattr(active, f"gate_{name}_api_key", "") or "")
+    if own:
+        shown = _key_view(own, saved)
+        source = "arm"
+    elif provider == "poe" and active.poe_api_key:
+        shown = _key_view(active.poe_api_key, False)
+        source = "poe"
+    else:
+        shown = _key_view("", False)
+        source = "none"
+    return {
+        "provider": provider,
+        "model": str(getattr(active, f"gate_{name}_model", "") or ("gemini-3.5-flash-lite" if plain else "gemini-3.8-flash")),
+        "base_url": str(getattr(active, f"gate_{name}_base_url", "") or ""),
+        "temperature": float(getattr(active, f"gate_{name}_temperature", 0.0 if plain else 0.2)),
+        "max_tokens": int(getattr(active, f"gate_{name}_max_tokens", 1024) or 1024),
+        "reasoning": str(getattr(active, f"gate_{name}_reasoning", "") or ("none" if plain else "low")),
+        "key_source": source,
+        **shown,
+    }
+
+
+def _key_view(secret: str, saved: bool) -> dict[str, Any]:
+    return {
+        "key_set": bool(secret),
+        "key_saved": saved,
+        "key_tail": secret[-4:] if len(secret) >= 4 else "",
+    }
+
+
+def _runtime_view(active: Settings, store: Any | None = None) -> dict[str, Any]:
+    jev_saved = bool(store and store.gate_secret_saved("jev"))
+    fast_saved = bool(store and store.gate_secret_saved("fast"))
+    poe_saved = bool(store and store.gate_secret_saved("poe"))
+    return {
+        "thresholds": {
+            "router_confidence": active.router_threshold,
+            "memory_similarity": active.memory_similarity_cutoff,
+            "preplan_budget_seconds": active.preplan_budget_seconds,
+            "max_repairs": active.max_repairs,
+        },
+        "freshness_hours": {
+            "weather": active.weather_fresh_seconds // 3600,
+            "tickets": active.ticket_fresh_seconds // 3600,
+            "hotels": active.hotel_fresh_seconds // 3600,
+            "attractions": active.attraction_fresh_seconds // 3600,
+        },
+        "gate": active.router_gate if active.router_gate in {"jev", "plain", "reason"} else "jev",
+        "writer_model": active.writer_model,
+        "poe_ready": bool(active.poe_api_key),
+        "poe": _key_view(active.poe_api_key, poe_saved),
+        "models": {
+            "plain": active.gate_plain_model or "gemini-3.5-flash-lite",
+            "reason": active.gate_reason_model or "gemini-3.8-flash",
+        },
+        "arms": {
+            "plain": _arm_view(active, "plain", store.gate_secret_saved("plain") if store else False),
+            "reason": _arm_view(active, "reason", store.gate_secret_saved("reason") if store else False),
+        },
+        "orchestrator": {
+            "jev": {
+                "model": active.decision_model,
+                "url": active.decision_api_url,
+                **_key_view(active.decision_api_key, jev_saved),
+            },
+            "fast": {
+                "model": active.gate_fast_model,
+                "url": active.gate_fast_base_url,
+                **_key_view(active.gate_fast_api_key, fast_saved),
+            },
+        },
+    }
 
 
 def map_payload(plan: TripPlan) -> dict[str, Any]:

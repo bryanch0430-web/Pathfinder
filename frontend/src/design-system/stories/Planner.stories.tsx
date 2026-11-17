@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { AppHeader, ChatPanel, MapPanel, TripPanel, TripWorkspace } from "../organisms";
+import { AppHeader, ChatPanel, MapPanel, TripPanel, TripWorkspace, type AppTab } from "../organisms";
 import { PlannerTemplate } from "../templates";
 import { sampleContext, sampleMessages, samplePlan } from "../fixtures";
 import type { PlanItem, TripContext } from "../types";
@@ -11,7 +11,7 @@ type Story = StoryObj;
 
 export const ThreeColumns: Story = {
   render: () => {
-    const [tab, setTab] = useState<"plan" | "saved" | "evaluation" | "settings">("plan");
+    const [tab, setTab] = useState<AppTab>("plan");
     const [locale, setLocale] = useState("en");
     const [context, setContext] = useState<Partial<TripContext>>(sampleContext);
     const [selected, setSelected] = useState<PlanItem | null>(null);
@@ -70,7 +70,6 @@ export const ThreeColumns: Story = {
             onActiveDay={() => undefined}
             selectedItemId={selected?.id ?? null}
             onSelectItem={setSelected}
-            onOptimize={() => undefined}
           />
         }
       />

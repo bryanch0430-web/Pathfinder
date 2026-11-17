@@ -170,6 +170,130 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+_RUNTIME_BASELINE: dict[int, dict[str, float]] = {}
+_GATE_BASELINE: dict[int, str] = {}
+_TEXT_BASELINE: dict[int, dict[str, str]] = {}
+_GATE_CHOICES = frozenset({"jev", "plain", "reason", "fast"})
+# Keep these next to the provider catalogue in llm_providers.PROVIDERS.
+_GATE_PROVIDERS = frozenset({"anthropic", "openai", "openai-compatible", "poe", "xai", "gemini"})
+_REASONING = frozenset({"none", "low", "medium", "high"})
+_HTTP_URL = re.compile(r"https?://\S+$")
+
+
+def _runtime_baseline(settings: Any) -> dict[str, float]:
+    return {
+        "router_threshold": float(settings.router_threshold),
+        "memory_similarity": float(settings.memory_similarity_cutoff),
+        "preplan_budget_seconds": float(settings.preplan_budget_seconds),
+        "max_repairs": float(settings.max_repairs),
+        "weather_fresh_seconds": float(settings.weather_fresh_seconds),
+        "ticket_fresh_seconds": float(settings.ticket_fresh_seconds),
+        "hotel_fresh_seconds": float(settings.hotel_fresh_seconds),
+        "attraction_fresh_seconds": float(settings.attraction_fresh_seconds),
+        "gate_plain_temperature": float(getattr(settings, "gate_plain_temperature", 0.0)),
+        "gate_plain_max_tokens": float(getattr(settings, "gate_plain_max_tokens", 1024)),
+        "gate_reason_temperature": float(getattr(settings, "gate_reason_temperature", 0.2)),
+        "gate_reason_max_tokens": float(getattr(settings, "gate_reason_max_tokens", 1024)),
+    }
+
+
+def _text_baseline(settings: Any) -> dict[str, str]:
+    return {
+        "decision_model": str(getattr(settings, "decision_model", "") or ""),
+        "decision_api_url": str(getattr(settings, "decision_api_url", "") or ""),
+        "decision_api_key": str(getattr(settings, "decision_api_key", "") or ""),
+        "gate_fast_model": str(getattr(settings, "gate_fast_model", "") or ""),
+        "gate_fast_base_url": str(getattr(settings, "gate_fast_base_url", "") or ""),
+        "gate_fast_api_key": str(getattr(settings, "gate_fast_api_key", "") or ""),
+        "gate_plain_model": str(getattr(settings, "gate_plain_model", "") or ""),
+        "gate_plain_provider": str(getattr(settings, "gate_plain_provider", "") or "poe"),
+        "gate_plain_base_url": str(getattr(settings, "gate_plain_base_url", "") or ""),
+        "gate_plain_reasoning": str(getattr(settings, "gate_plain_reasoning", "") or "none"),
+        "gate_plain_api_key": str(getattr(settings, "gate_plain_api_key", "") or ""),
+        "gate_reason_model": str(getattr(settings, "gate_reason_model", "") or ""),
+        "gate_reason_provider": str(getattr(settings, "gate_reason_provider", "") or "poe"),
+        "gate_reason_base_url": str(getattr(settings, "gate_reason_base_url", "") or ""),
+        "gate_reason_reasoning": str(getattr(settings, "gate_reason_reasoning", "") or "low"),
+        "gate_reason_api_key": str(getattr(settings, "gate_reason_api_key", "") or ""),
+        "poe_api_key": str(getattr(settings, "poe_api_key", "") or ""),
+    }
+
+
+def _runtime_token(raw: dict[str, str], key: str, default: str, limit: int) -> str:
+    if key not in raw or str(raw[key]).strip() == "":
+        return default
+    value = str(raw[key]).strip()
+    if len(value) > limit or any(character.isspace() for character in value):
+        raise ValueError(f"{key} must be {limit} characters or fewer, with no spaces")
+    return value
+
+
+def _or_default(raw: dict[str, str], key: str, default: str, limit: int, *, url: bool) -> str:
+    try:
+        return _runtime_url(raw, key, default) if url else _runtime_token(raw, key, default, limit)
+    except ValueError:
+        return default
+
+
+def _runtime_url(raw: dict[str, str], key: str, default: str) -> str:
+    if key not in raw or str(raw[key]).strip() == "":
+        return default
+    value = str(raw[key]).strip().rstrip("/")
+    if len(value) > 300 or _HTTP_URL.fullmatch(value) is None:
+        raise ValueError(f"{key} must be an http(s) address")
+    return value
+
+
+def _or_choice(raw: dict[str, str], key: str, default: str, allowed: frozenset[str]) -> str:
+    try:
+        return _runtime_choice(raw, key, default, allowed)
+    except ValueError:
+        return default if default in allowed else next(iter(allowed))
+
+
+def _runtime_choice(raw: dict[str, str], key: str, default: str, allowed: frozenset[str]) -> str:
+    if key not in raw or str(raw[key]).strip() == "":
+        return default
+    value = str(raw[key]).strip().lower()
+    if value not in allowed:
+        names = " or ".join(sorted(allowed))
+        raise ValueError(f"{key} must be {names}")
+    return value
+
+
+def _runtime_float(raw: dict[str, str], key: str, default: float, low: float, high: float) -> float:
+    if key not in raw or raw[key].strip() == "":
+        return default
+    try:
+        value = float(raw[key])
+    except ValueError as exc:
+        raise ValueError(f"{key} is not a number") from exc
+    if value < low or value > high:
+        raise ValueError(f"{key} must be between {low:g} and {high:g}")
+    return value
+
+
+def _as_utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _first_why(raw: str | None) -> str:
+    if not raw:
+        return ""
+    try:
+        meta = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    decision = meta.get("decision") if isinstance(meta, dict) else None
+    lines = decision.get("why") if isinstance(decision, dict) else None
+    if isinstance(lines, list) and lines:
+        return str(lines[0])[:400]
+    return ""
+
+
 def _dump(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
@@ -354,6 +478,75 @@ def _migration_4_llm_credentials(conn: sqlite3.Connection, ctx: MigrationContext
     conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_credentials_owner ON llm_credentials(owner)")
 
 
+def _migration_8_desk_agent(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """The account name of the person holding a chat, shown to the traveller."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(desk_holds)")}
+    if "agent_name" not in columns:
+        conn.execute("ALTER TABLE desk_holds ADD COLUMN agent_name TEXT NOT NULL DEFAULT ''")
+
+
+def _migration_7_desk_notes(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """A short note an operator keeps on a session. It stays when the chat is handed back."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS desk_notes ("
+        "session_id TEXT PRIMARY KEY, note TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)"
+    )
+
+
+def _migration_6_exemplars_and_desk(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Training examples (a line and the path it should take) and which chats a person is holding."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS route_examples ("
+        "id TEXT PRIMARY KEY, utterance TEXT NOT NULL, intent TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', "
+        "created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS desk_holds ("
+        "session_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL)"
+    )
+
+
+def _migration_10_runtime_policy(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Admin overrides for the policy thresholds and freshness windows. Absent keys keep the environment."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_policy (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+
+
+def _migration_9_escalation_and_prompts(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """When to hand a chat to a person, and any instruction an admin has replaced."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS escalation_policy ("
+        "id INTEGER PRIMARY KEY CHECK (id = 1), enabled INTEGER NOT NULL, message TEXT NOT NULL, "
+        "frustration_at INTEGER, updated_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS escalation_examples ("
+        "id TEXT PRIMARY KEY, utterance TEXT NOT NULL, created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS prompt_overrides ("
+        "name TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+
+
+def _migration_11_gate_secrets(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Encrypted keys for the orchestrator's own models. The model names stay in runtime_policy."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS gate_secrets ("
+        "name TEXT PRIMARY KEY, ciphertext BLOB NOT NULL, updated_at TEXT NOT NULL)"
+    )
+
+
+def _migration_12_serpapi_keys(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """SerpAPI keys kept for rotation. The key itself is encrypted; the row stores only its tail and status."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS serpapi_keys ("
+        "id TEXT PRIMARY KEY, ciphertext BLOB NOT NULL, key_tail TEXT NOT NULL DEFAULT '', "
+        "label TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, position INTEGER NOT NULL, updated_at TEXT NOT NULL)"
+    )
+
+
 def _migration_5_credential_base_url(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
     """A key's own endpoint: set for the generic OpenAI-compatible provider, empty for a fixed vendor."""
     columns = {row[1] for row in conn.execute("PRAGMA table_info(llm_credentials)")}
@@ -369,6 +562,13 @@ MIGRATIONS: list[MigrationStep] = [
     _migration_3_threat_totals,
     _migration_4_llm_credentials,
     _migration_5_credential_base_url,
+    _migration_6_exemplars_and_desk,
+    _migration_7_desk_notes,
+    _migration_8_desk_agent,
+    _migration_9_escalation_and_prompts,
+    _migration_10_runtime_policy,
+    _migration_11_gate_secrets,
+    _migration_12_serpapi_keys,
 ]
 
 
@@ -585,6 +785,451 @@ class SQLiteStore:
     def set_message_meta(self, message_id: str, meta: dict[str, Any]) -> None:
         with self._lock, self._connect() as conn:
             conn.execute("UPDATE turns SET meta=? WHERE id=?", (_dump(meta), message_id))
+
+    def list_exemplars(self) -> list[dict[str, str]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT id, utterance, intent, note, created_at FROM route_examples ORDER BY created_at DESC").fetchall()
+        return [dict(row) for row in rows]
+
+    def exemplar_pairs(self) -> list[tuple[str, str]]:
+        return [(row["utterance"], row["intent"]) for row in self.list_exemplars()]
+
+    def add_exemplar(self, utterance: str, intent: str, note: str = "") -> dict[str, str]:
+        from app.domain.models import new_id
+
+        row = {
+            "id": new_id("ex"),
+            "utterance": utterance.strip()[:600],
+            "intent": intent,
+            "note": note.strip()[:400],
+            "created_at": _now(),
+        }
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO route_examples (id, utterance, intent, note, created_at) VALUES (?,?,?,?,?)",
+                (row["id"], row["utterance"], row["intent"], row["note"], row["created_at"]),
+            )
+        return row
+
+    def delete_exemplar(self, example_id: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM route_examples WHERE id=?", (example_id,))
+
+    def recent_user_turns(self, limit: int = 40) -> list[dict[str, str]]:
+        """The latest traveller lines, newest first, for the training record."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, session_id, content, created_at FROM turns WHERE role='user' ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def recent_route_records(self, limit: int = 30) -> list[dict[str, str]]:
+        """Each recent traveller line beside the reply that followed it.
+
+        The reply is the next assistant turn in that chat. Timestamps are
+        compared as datetimes so a ``+00:00`` suffix cannot hide the pair.
+        """
+        records: list[dict[str, str]] = []
+        with self._connect() as conn:
+            for turn in self.recent_user_turns(limit):
+                asked = _as_utc(turn["created_at"])
+                rows = conn.execute(
+                    "SELECT content, intent, meta, created_at FROM turns "
+                    "WHERE session_id=? AND role='assistant' ORDER BY created_at ASC",
+                    (turn["session_id"],),
+                ).fetchall()
+                output, path, why = "", "", ""
+                for row in rows:
+                    if _as_utc(row["created_at"]) < asked:
+                        continue
+                    output = (row["content"] or "")[:500]
+                    path = row["intent"] or ""
+                    why = _first_why(row["meta"])
+                    break
+                records.append(
+                    {
+                        "id": turn["id"],
+                        "session_id": turn["session_id"],
+                        "input": turn["content"],
+                        "at": turn["created_at"],
+                        "output": output,
+                        "path": path,
+                        "why": why,
+                    }
+                )
+        return records
+
+    def is_held(self, session_id: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute("SELECT session_id FROM desk_holds WHERE session_id=?", (session_id,)).fetchone()
+        return row is not None
+
+    def hold_chat(self, session_id: str, agent_name: str = "") -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO desk_holds (session_id, agent_name, updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(session_id) DO UPDATE SET agent_name=excluded.agent_name, updated_at=excluded.updated_at",
+                (session_id, agent_name.strip()[:80], _now()),
+            )
+
+    def runtime_overrides(self) -> dict[str, str]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT key, value FROM runtime_policy").fetchall()
+        return {row["key"]: row["value"] for row in rows}
+
+    def save_runtime(self, values: dict[str, str]) -> None:
+        with self._lock, self._connect() as conn:
+            for key, value in values.items():
+                conn.execute(
+                    "INSERT INTO runtime_policy (key, value, updated_at) VALUES (?,?,?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+                    (key, value, _now()),
+                )
+
+    def clear_runtime(self) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM runtime_policy")
+            conn.execute("DELETE FROM gate_secrets")
+
+    def check_runtime(self, settings: Any, values: dict[str, str]) -> None:
+        """Raise ValueError when a stored number is outside its range. Does not change ``settings``."""
+        base = _RUNTIME_BASELINE.get(id(settings)) or _runtime_baseline(settings)
+        _runtime_float(values, "router_confidence", base["router_threshold"], 0.0, 1.0)
+        _runtime_float(values, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
+        _runtime_float(values, "preplan_budget_seconds", base["preplan_budget_seconds"], 1.0, 600.0)
+        _runtime_float(values, "max_repairs", base["max_repairs"], 0.0, 6.0)
+        for key, field in (
+            ("weather", "weather_fresh_seconds"),
+            ("tickets", "ticket_fresh_seconds"),
+            ("hotels", "hotel_fresh_seconds"),
+            ("attractions", "attraction_fresh_seconds"),
+        ):
+            _runtime_float(values, key, base[field] / 3600, 1.0, 24 * 365)
+        if "router_gate" in values:
+            _runtime_choice(values, "router_gate", "jev", _GATE_CHOICES)
+        for key, limit in (
+            ("writer_model", 120),
+            ("decision_model", 120),
+            ("gate_fast_model", 120),
+            ("gate_plain_model", 120),
+            ("gate_reason_model", 120),
+            ("gate_plain_provider", 40),
+            ("gate_reason_provider", 40),
+        ):
+            if key in values:
+                _runtime_token(values, key, "", limit)
+        for key in ("decision_api_url", "gate_fast_base_url", "gate_plain_base_url", "gate_reason_base_url"):
+            if key in values:
+                _runtime_url(values, key, "")
+        for key, default in (("gate_plain_provider", "poe"), ("gate_reason_provider", "poe")):
+            if key in values:
+                _runtime_choice(values, key, default, _GATE_PROVIDERS)
+        for key, default in (("gate_plain_reasoning", "none"), ("gate_reason_reasoning", "low")):
+            if key in values:
+                _runtime_choice(values, key, default, _REASONING)
+        _runtime_float(values, "gate_plain_temperature", 0.0, 0.0, 2.0)
+        _runtime_float(values, "gate_reason_temperature", 0.2, 0.0, 2.0)
+        _runtime_float(values, "gate_plain_max_tokens", 1024, 16, 16384)
+        _runtime_float(values, "gate_reason_max_tokens", 1024, 16, 16384)
+
+    def apply_runtime(self, settings: Any) -> None:
+        """Copy stored overrides onto ``settings``. The first call remembers the environment values."""
+        text_base = _TEXT_BASELINE.setdefault(id(settings), _text_baseline(settings))
+        base = _RUNTIME_BASELINE.setdefault(id(settings), _runtime_baseline(settings))
+        raw = self.runtime_overrides()
+        settings.router_threshold = _runtime_float(raw, "router_confidence", base["router_threshold"], 0.0, 1.0)
+        settings.memory_similarity_cutoff = _runtime_float(raw, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
+        settings.preplan_budget_seconds = _runtime_float(raw, "preplan_budget_seconds", base["preplan_budget_seconds"], 1.0, 600.0)
+        settings.max_repairs = int(_runtime_float(raw, "max_repairs", float(base["max_repairs"]), 0.0, 6.0))
+        for key, field in (
+            ("weather", "weather_fresh_seconds"),
+            ("tickets", "ticket_fresh_seconds"),
+            ("hotels", "hotel_fresh_seconds"),
+            ("attractions", "attraction_fresh_seconds"),
+        ):
+            hours = _runtime_float(raw, key, base[field] / 3600, 1.0, 24 * 365)
+            setattr(settings, field, int(hours) * 3600)
+        current = str(getattr(settings, "router_gate", "jev") or "jev").strip().lower()
+        gate_base = _GATE_BASELINE.setdefault(id(settings), current if current in _GATE_CHOICES else "jev")
+        try:
+            settings.router_gate = _runtime_choice(raw, "router_gate", gate_base, _GATE_CHOICES)
+        except ValueError:
+            settings.router_gate = gate_base
+        settings.writer_model_override = _or_default(raw, "writer_model", "", 120, url=False)
+        settings.decision_model = _or_default(raw, "decision_model", text_base["decision_model"], 120, url=False)
+        settings.decision_api_url = _or_default(raw, "decision_api_url", text_base["decision_api_url"], 300, url=True)
+        settings.gate_fast_model = _or_default(raw, "gate_fast_model", text_base["gate_fast_model"], 120, url=False)
+        settings.gate_fast_base_url = _or_default(raw, "gate_fast_base_url", text_base["gate_fast_base_url"], 300, url=True)
+        settings.gate_plain_model = _or_default(raw, "gate_plain_model", text_base["gate_plain_model"], 120, url=False)
+        settings.gate_reason_model = _or_default(raw, "gate_reason_model", text_base["gate_reason_model"], 120, url=False)
+        settings.gate_plain_base_url = _or_default(raw, "gate_plain_base_url", text_base["gate_plain_base_url"], 300, url=True)
+        settings.gate_reason_base_url = _or_default(raw, "gate_reason_base_url", text_base["gate_reason_base_url"], 300, url=True)
+        settings.gate_plain_provider = _or_choice(raw, "gate_plain_provider", text_base["gate_plain_provider"] or "poe", _GATE_PROVIDERS)
+        settings.gate_reason_provider = _or_choice(raw, "gate_reason_provider", text_base["gate_reason_provider"] or "poe", _GATE_PROVIDERS)
+        settings.gate_plain_reasoning = _or_choice(raw, "gate_plain_reasoning", text_base["gate_plain_reasoning"] or "none", _REASONING)
+        settings.gate_reason_reasoning = _or_choice(raw, "gate_reason_reasoning", text_base["gate_reason_reasoning"] or "low", _REASONING)
+        settings.gate_plain_temperature = _runtime_float(raw, "gate_plain_temperature", base["gate_plain_temperature"], 0.0, 2.0)
+        settings.gate_reason_temperature = _runtime_float(raw, "gate_reason_temperature", base["gate_reason_temperature"], 0.0, 2.0)
+        settings.gate_plain_max_tokens = int(_runtime_float(raw, "gate_plain_max_tokens", base["gate_plain_max_tokens"], 16, 16384))
+        settings.gate_reason_max_tokens = int(_runtime_float(raw, "gate_reason_max_tokens", base["gate_reason_max_tokens"], 16, 16384))
+        if settings.router_gate == "fast":
+            settings.router_gate = "reason"
+
+    def delete_runtime_keys(self, keys: list[str]) -> None:
+        if not keys:
+            return
+        with self._lock, self._connect() as conn:
+            conn.executemany("DELETE FROM runtime_policy WHERE key=?", [(key,) for key in keys])
+
+    def gate_secret(self, name: str) -> bytes | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT ciphertext FROM gate_secrets WHERE name=?", (name,)).fetchone()
+        if row is None or row["ciphertext"] is None:
+            return None
+        return bytes(row["ciphertext"])
+
+    def gate_secret_saved(self, name: str) -> bool:
+        return self.gate_secret(name) is not None
+
+    def save_gate_secret(self, name: str, ciphertext: bytes) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO gate_secrets (name, ciphertext, updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(name) DO UPDATE SET ciphertext=excluded.ciphertext, updated_at=excluded.updated_at",
+                (name, ciphertext, _now()),
+            )
+
+    def clear_gate_secret(self, name: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM gate_secrets WHERE name=?", (name,))
+
+    def apply_gate_secrets(self, settings: Any, box: Any) -> None:
+        """Put saved orchestrator keys onto ``settings``. A missing row keeps the environment key."""
+        from app.infrastructure.secret_box import UnreadableSecret
+
+        base = _TEXT_BASELINE.setdefault(id(settings), _text_baseline(settings))
+        for name, field in (
+            ("jev", "decision_api_key"),
+            ("fast", "gate_fast_api_key"),
+            ("poe", "poe_api_key"),
+            ("plain", "gate_plain_api_key"),
+            ("reason", "gate_reason_api_key"),
+        ):
+            blob = self.gate_secret(name)
+            if not blob:
+                setattr(settings, field, base[field])
+                continue
+            try:
+                setattr(settings, field, box.decrypt(blob))
+            except UnreadableSecret:
+                setattr(settings, field, base[field])
+
+    def serpapi_keys(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, key_tail, label, status, position FROM serpapi_keys ORDER BY position, rowid"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def serpapi_count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM serpapi_keys").fetchone()
+        return int(row["n"]) if row else 0
+
+    def serpapi_add(self, *, key_id: str, ciphertext: bytes, key_tail: str, label: str, status: str) -> None:
+        with self._lock, self._connect() as conn:
+            position = conn.execute("SELECT COALESCE(MAX(position), 0) + 1 AS n FROM serpapi_keys").fetchone()["n"]
+            if status == "active":
+                conn.execute("UPDATE serpapi_keys SET status='ready', updated_at=? WHERE status='active'", (_now(),))
+            conn.execute(
+                "INSERT INTO serpapi_keys (id, ciphertext, key_tail, label, status, position, updated_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (key_id, ciphertext, key_tail, label[:80], status, int(position), _now()),
+            )
+
+    def serpapi_set_status(self, key_id: str, status: str) -> bool:
+        """Move one key. Making it active returns the previous active key to the queue."""
+        with self._lock, self._connect() as conn:
+            row = conn.execute("SELECT id, status FROM serpapi_keys WHERE id=?", (key_id,)).fetchone()
+            if row is None:
+                return False
+            if status == "active":
+                conn.execute(
+                    "UPDATE serpapi_keys SET status='ready', updated_at=? WHERE status='active' AND id<>?",
+                    (_now(), key_id),
+                )
+            conn.execute("UPDATE serpapi_keys SET status=?, updated_at=? WHERE id=?", (status, _now(), key_id))
+            if row["status"] == "active" and status != "active":
+                nxt = conn.execute(
+                    "SELECT id FROM serpapi_keys WHERE status='ready' ORDER BY position, rowid LIMIT 1"
+                ).fetchone()
+                if nxt is not None:
+                    conn.execute(
+                        "UPDATE serpapi_keys SET status='active', updated_at=? WHERE id=?", (_now(), nxt["id"])
+                    )
+        return True
+
+    def serpapi_plain(self, box: Any, key_id: str) -> str:
+        with self._connect() as conn:
+            row = conn.execute("SELECT ciphertext FROM serpapi_keys WHERE id=?", (key_id,)).fetchone()
+        if row is None:
+            return ""
+        try:
+            return box.decrypt(bytes(row["ciphertext"]))
+        except Exception:
+            return ""
+
+    def serpapi_active_plain(self, box: Any) -> str:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT ciphertext FROM serpapi_keys WHERE status='active' ORDER BY position, rowid LIMIT 1"
+            ).fetchone()
+        if row is None:
+            return ""
+        try:
+            return box.decrypt(bytes(row["ciphertext"]))
+        except Exception:
+            return ""
+
+    def serpapi_retire(self, box: Any, used: str) -> str:
+        """Mark the active key exhausted when it is `used`, then return the next ready key."""
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, ciphertext FROM serpapi_keys WHERE status='active' ORDER BY position, rowid LIMIT 1"
+            ).fetchone()
+            if row is None:
+                return ""
+            try:
+                plain = box.decrypt(bytes(row["ciphertext"]))
+            except Exception:
+                plain = ""
+            if plain != used:
+                return plain
+            conn.execute(
+                "UPDATE serpapi_keys SET status='exhausted', updated_at=? WHERE id=?", (_now(), row["id"])
+            )
+            nxt = conn.execute(
+                "SELECT id, ciphertext FROM serpapi_keys WHERE status='ready' ORDER BY position, rowid LIMIT 1"
+            ).fetchone()
+            if nxt is None:
+                return ""
+            conn.execute("UPDATE serpapi_keys SET status='active', updated_at=? WHERE id=?", (_now(), nxt["id"]))
+            try:
+                return box.decrypt(bytes(nxt["ciphertext"]))
+            except Exception:
+                return ""
+
+    def serpapi_known(self, box: Any, plain: str) -> bool:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT ciphertext FROM serpapi_keys").fetchall()
+        for row in rows:
+            try:
+                if box.decrypt(bytes(row["ciphertext"])) == plain:
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def prompt_override(self, name: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT body FROM prompt_overrides WHERE name=?", (name,)).fetchone()
+        if row is None or not str(row["body"]).strip():
+            return None
+        return str(row["body"])
+
+    def set_prompt_override(self, name: str, body: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO prompt_overrides (name, body, updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(name) DO UPDATE SET body=excluded.body, updated_at=excluded.updated_at",
+                (name, body, _now()),
+            )
+
+    def clear_prompt_override(self, name: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM prompt_overrides WHERE name=?", (name,))
+
+    def escalation_policy(self) -> dict[str, Any]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT enabled, message, frustration_at FROM escalation_policy WHERE id=1"
+            ).fetchone()
+            examples = conn.execute(
+                "SELECT id, utterance FROM escalation_examples ORDER BY created_at"
+            ).fetchall()
+        if row is None:
+            return {
+                "enabled": True,
+                "message": "I'll pass this chat to a person. They will reply here.",
+                "frustration_at": None,
+                "examples": [],
+            }
+        return {
+            "enabled": bool(row["enabled"]),
+            "message": row["message"],
+            "frustration_at": row["frustration_at"],
+            "examples": [{"id": item["id"], "utterance": item["utterance"]} for item in examples],
+        }
+
+    def save_escalation_policy(self, *, enabled: bool, message: str, frustration_at: int | None, examples: list[str]) -> dict[str, Any]:
+        from app.domain.models import new_id
+
+        text = message.strip()[:2000] or "I'll pass this chat to a person. They will reply here."
+        lines = []
+        seen: set[str] = set()
+        for raw in examples:
+            utterance = raw.strip()[:600]
+            key = utterance.lower()
+            if utterance and key not in seen:
+                seen.add(key)
+                lines.append(utterance)
+            if len(lines) >= 40:
+                break
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO escalation_policy (id, enabled, message, frustration_at, updated_at) VALUES (1,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled, message=excluded.message, "
+                "frustration_at=excluded.frustration_at, updated_at=excluded.updated_at",
+                (1 if enabled else 0, text, frustration_at, _now()),
+            )
+            conn.execute("DELETE FROM escalation_examples")
+            for utterance in lines:
+                conn.execute(
+                    "INSERT INTO escalation_examples (id, utterance, created_at) VALUES (?,?,?)",
+                    (new_id("esc"), utterance, _now()),
+                )
+        return self.escalation_policy()
+
+    def held_agent(self, session_id: str) -> str:
+        with self._connect() as conn:
+            row = conn.execute("SELECT agent_name FROM desk_holds WHERE session_id=?", (session_id,)).fetchone()
+        return str(row["agent_name"]) if row and row["agent_name"] else ""
+
+    def release_chat(self, session_id: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM desk_holds WHERE session_id=?", (session_id,))
+
+    def desk_note(self, session_id: str) -> str:
+        with self._connect() as conn:
+            row = conn.execute("SELECT note FROM desk_notes WHERE session_id=?", (session_id,)).fetchone()
+        return str(row["note"]) if row else ""
+
+    def set_desk_note(self, session_id: str, note: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO desk_notes (session_id, note, updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(session_id) DO UPDATE SET note=excluded.note, updated_at=excluded.updated_at",
+                (session_id, note.strip()[:2000], _now()),
+            )
+
+    def recent_sessions(self, limit: int = 40) -> list[dict[str, str]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, updated_at FROM journeys ORDER BY updated_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def add_message(self, message: Message) -> None:
         with self._lock, self._connect() as conn:

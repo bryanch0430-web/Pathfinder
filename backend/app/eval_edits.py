@@ -217,6 +217,7 @@ async def _edit_case(case: EvalCase, settings: Settings, ledger: RunLedger) -> t
             "tool_calls_made": modify_cost.tool_calls + replan_cost.tool_calls,
             "tool_calls_logged": modify_cost.logged + replan_cost.logged,
         },
+        latency_ms=int(modify_cost.latency_ms),
     )
     ledger.tokens += modify_cost.tokens + replan_cost.tokens
     return result, outcome

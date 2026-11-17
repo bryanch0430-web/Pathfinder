@@ -6,7 +6,7 @@ import re
 from datetime import date
 
 from app.config import Settings
-from app.domain.errors import ProviderError, ProviderNoData
+from app.domain.errors import ProviderNoData
 from app.domain.models import (
     DataStatus,
     GeoPoint,
@@ -18,8 +18,8 @@ from app.domain.models import (
     SourceRef,
     utcnow,
 )
-from app.infrastructure.http import request_json
 from app.infrastructure.providers.images import serpapi_image
+from app.infrastructure.serpapi_keys import serpapi_json
 from app.infrastructure.providers.places import (
     WikivoyagePlacesSource,
     _clean,
@@ -77,9 +77,8 @@ class SerpApiHotelSource:
         if not self.available:
             raise ProviderNoData("SerpApi key is not configured", source=self.name)
         nights = max((check_out - check_in).days, 1)
-        data = await request_json(
-            "GET",
-            "https://serpapi.com/search.json",
+        data = await serpapi_json(
+            self.settings,
             source=self.name,
             params={
                 "engine": "google_hotels",
@@ -90,14 +89,11 @@ class SerpApiHotelSource:
                 "currency": currency,
                 "hl": "en",
                 "gl": "us",
-                "api_key": self.settings.serpapi_key,
             },
             timeout=max(self.settings.http_timeout_seconds, 20),
             retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
-        if data.get("error"):
-            raise ProviderError(f"{self.name} returned an error", source=self.name, detail=str(data["error"])[:300])
         properties = data.get("properties") or []
         if not properties:
             return []
@@ -162,9 +158,8 @@ class SerpApiHotelSource:
         """The rooms the property details list for these dates; empty when there is no key, no token or no room."""
         if not self.available or not property_token:
             return []
-        data = await request_json(
-            "GET",
-            "https://serpapi.com/search.json",
+        data = await serpapi_json(
+            self.settings,
             source=self.name,
             params={
                 "engine": "google_hotels",
@@ -176,14 +171,11 @@ class SerpApiHotelSource:
                 "currency": currency,
                 "hl": "en",
                 "gl": "us",
-                "api_key": self.settings.serpapi_key,
             },
             timeout=max(self.settings.http_timeout_seconds, 20),
             retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
-        if data.get("error"):
-            raise ProviderError(f"{self.name} returned an error", source=self.name, detail=str(data["error"])[:300])
         return parse_rooms(data, currency)
 
 

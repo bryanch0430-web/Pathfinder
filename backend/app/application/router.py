@@ -17,6 +17,9 @@ from typing import Any, Sequence
 
 from app.application.language import cuisine_slot, is_refresh_request, language_slot, mainly_chinese
 from app.application.llm_gateway import LLMGateway
+from app.infrastructure.anthropic_llm import AnthropicLLM
+from app.infrastructure.llm import OpenAICompatibleLLM
+from app.infrastructure.llm_providers import PROVIDERS
 from app.application.prompt_context import plan_outline, recent_turns, trip_slots
 from app.config import Settings
 from app.domain.errors import CanaryLeak
@@ -405,7 +408,11 @@ class LLMRouter:
     ) -> RouteDecision:
         if not self.gateway.available:
             raise RuntimeError("writer unavailable")
-        data = await self.gateway.json("router", user=router_prompt(message, context, plan_summary, history), purpose="router")
+        data = await self.gateway.json(
+            "router",
+            user=router_prompt(message, context, plan_summary, history),
+            purpose="router",
+        )
         intent = str(data.get("intent", "unclear")).lower()
         if intent == "clarify":
             intent = "unclear"
@@ -445,7 +452,7 @@ def router_prompt(
     history: Sequence[Message],
 ) -> str:
     """What the model router reads: trip slots, a day-by-day outline of the plan
-    (names and times, no ids or statuses), earlier turns and the fenced message.
+    (names and times, no ids or statuses), earlier turns, and the fenced message.
 
     The current message is already the last history row; it is sent once, fenced.
     """
@@ -459,6 +466,8 @@ def router_prompt(
 
 
 class System1Router:
+    """Holds the pieces. :class:`RouteOrchestrator` is the one gate that uses them."""
+
     def __init__(
         self,
         *,
@@ -482,46 +491,12 @@ class System1Router:
         plan_summary: dict[str, Any] | None,
         history: Sequence[Message],
     ) -> RouteDecision:
-        ruled = self.rules.route(message=message, context=context, plan_summary=plan_summary, history=history)
-        if ruled.rationale == LANGUAGE_RULES:
-            # Display language, refresh and Chinese input never reach Jev or the writer.
-            return ruled
-        if self.use_model and rules_first_applies(
-            message, ruled, context=context, plan_summary=plan_summary, settings=self.settings
-        ):
-            # Rules first: a message with one unambiguous signal is decided here,
-            # with no Jev or writer call. A message the injection screen flags,
-            # or one the rules are unsure about, takes the model path below.
-            decided = ruled.model_copy(update={"rationale": RULES_FIRST})
-            return _gate(decided, context, plan_summary, self.settings, source="rules")
-        if self.use_model and self.decision_client is not None:
-            try:
-                decision = await self.decision_client.route(
-                    message=message,
-                    context=context,
-                    plan_summary=plan_summary,
-                    history=history,
-                )
-                if decision is not None:
-                    return _gate(decision, context, plan_summary, self.settings, source="jev")
-            except CanaryLeak:
-                raise
-            except Exception:
-                pass
-        if self.use_model and self.gateway.available:
-            try:
-                decision = await self.llm.route(
-                    message=message,
-                    context=context,
-                    plan_summary=plan_summary,
-                    history=history,
-                )
-                return _gate(decision, context, plan_summary, self.settings, source="model")
-            except CanaryLeak:
-                raise
-            except Exception:
-                pass
-        return _gate(ruled, context, plan_summary, self.settings, source="rules")
+        return await RouteOrchestrator(self).decide(
+            message=message,
+            context=context,
+            plan_summary=plan_summary,
+            history=history,
+        )
 
 
 def _gate(
@@ -729,3 +704,140 @@ def _names_a_known_place(lower: str, context: TripContext, plan_summary: dict[st
         for day in plan_summary.get("days") or []:
             names.extend(str(item.get("name") or "") for item in day.get("items") or [])
     return any(len(name) >= 3 and name.lower() in lower for name in names)
+
+
+#: Cloud models this Poe key can call. GPT-6 Luna and GPT-6.1 Terra are not on the list.
+PLAIN_MODEL = "gemini-3.5-flash-lite"
+REASON_MODEL = "gemini-3.8-flash"
+_GATE_MODES = frozenset({"jev", "plain", "reason"})
+
+
+def gate_mode(settings: Settings) -> str:
+    """``fast`` is the old name for the reasoning arm."""
+    raw = str(getattr(settings, "router_gate", "jev") or "jev").strip().lower()
+    if raw == "fast":
+        return "reason"
+    return raw if raw in _GATE_MODES else "jev"
+
+
+def gate_cloud_llm(settings: Settings, mode: str) -> OpenAICompatibleLLM | AnthropicLLM | None:
+    """The plain or reasoning arm. Jev does not come through here.
+
+    An arm key wins. With none saved, a Poe provider uses the server Poe key.
+    """
+    plain = mode == "plain"
+    provider = str(getattr(settings, "gate_plain_provider" if plain else "gate_reason_provider", "") or "poe").strip().lower()
+    spec = PROVIDERS.get(provider)
+    model = str(getattr(settings, "gate_plain_model" if plain else "gate_reason_model", "") or "").strip()
+    model = model or (PLAIN_MODEL if plain else REASON_MODEL)
+    base_url = str(getattr(settings, "gate_plain_base_url" if plain else "gate_reason_base_url", "") or "")
+    key = str(getattr(settings, "gate_plain_api_key" if plain else "gate_reason_api_key", "") or "").strip()
+    if not key and provider == "poe":
+        key = str(getattr(settings, "poe_api_key", "") or "").strip()
+    if spec is None or not key or not model:
+        return None
+    temperature = float(getattr(settings, "gate_plain_temperature" if plain else "gate_reason_temperature", 0.0 if plain else 0.2))
+    max_tokens = int(getattr(settings, "gate_plain_max_tokens" if plain else "gate_reason_max_tokens", 1024) or 1024)
+    reasoning = str(getattr(settings, "gate_plain_reasoning" if plain else "gate_reason_reasoning", "") or "").strip().lower()
+    if reasoning not in {"none", "low", "medium", "high"}:
+        reasoning = "none" if plain else "low"
+    if spec.wire == "anthropic":
+        return AnthropicLLM(
+            settings, api_key=key, model=model, fixed_temperature=temperature, fixed_max_tokens=max_tokens
+        )
+    return OpenAICompatibleLLM(
+        settings,
+        base_url=spec.endpoint(base_url),
+        api_key=key,
+        model=model,
+        label=spec.label,
+        fixed_temperature=temperature,
+        fixed_max_tokens=max_tokens,
+        extra={"reasoning_effort": reasoning},
+    )
+
+
+class RouteOrchestrator:
+    """The one routing gate. Regex, Jev and the writer are steps of this, not separate products.
+
+    The order is the design:
+
+    1. Product rules (display language, refresh, Chinese input). These are
+       invariants, so they never reach a model.
+    2. The regex, only when the line has one unambiguous travel signal. That is
+       selective prediction: the rules abstain on chat, hedges and mixed
+       signals instead of forcing a path (Chow, 1970).
+    3. The chosen gate, for everything the rules abstained on. Jev is the decision
+       model. Plain asks a fast model with reasoning off. Reason asks a fast
+       model with reasoning on.
+    4. The regex guess, if no model answers.
+
+    A line that is not about the trip is still corrected in the turn
+    orchestrator, after an open edit question has had its chance to take a
+    short reply such as "the other one".
+    """
+
+    def __init__(self, router: System1Router):
+        self.router = router
+
+    async def decide(
+        self,
+        *,
+        message: str,
+        context: TripContext,
+        plan_summary: dict[str, Any] | None,
+        history: Sequence[Message],
+    ) -> RouteDecision:
+        router = self.router
+        ruled = router.rules.route(message=message, context=context, plan_summary=plan_summary, history=history)
+        if ruled.rationale == LANGUAGE_RULES:
+            return ruled
+        if router.use_model and rules_first_applies(
+            message, ruled, context=context, plan_summary=plan_summary, settings=router.settings
+        ):
+            decided = ruled.model_copy(update={"rationale": RULES_FIRST})
+            return _gate(decided, context, plan_summary, router.settings, source="rules")
+        mode = gate_mode(router.settings)
+        if mode == "jev" and router.use_model and router.decision_client is not None:
+            try:
+                decision = await router.decision_client.route(
+                    message=message,
+                    context=context,
+                    plan_summary=plan_summary,
+                    history=history,
+                )
+                if decision is not None:
+                    return _gate(decision, context, plan_summary, router.settings, source="jev")
+            except CanaryLeak:
+                raise
+            except Exception:
+                pass
+        cloud = gate_cloud_llm(router.settings, mode) if mode in {"plain", "reason"} else None
+        if cloud is not None and router.use_model:
+            try:
+                gate = LLMGateway(cloud, router.gateway.prompts, router.gateway.tracer, router.settings)
+                decision = await LLMRouter(gate, router.settings).route(
+                    message=message,
+                    context=context,
+                    plan_summary=plan_summary,
+                    history=history,
+                )
+                return _gate(decision, context, plan_summary, router.settings, source=mode)
+            except CanaryLeak:
+                raise
+            except Exception:
+                pass
+        if cloud is None and router.use_model and router.gateway.available:
+            try:
+                decision = await router.llm.route(
+                    message=message,
+                    context=context,
+                    plan_summary=plan_summary,
+                    history=history,
+                )
+                return _gate(decision, context, plan_summary, router.settings, source=mode if mode != "jev" else "model")
+            except CanaryLeak:
+                raise
+            except Exception:
+                pass
+        return _gate(ruled, context, plan_summary, router.settings, source="rules")

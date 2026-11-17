@@ -186,7 +186,9 @@ class LLMSelector:
         if row is not None:
             return self._from_row(row, "server")
         if self._env is not None:
-            return self._env
+            # The model name is read live: an operator can change it without restarting.
+            llm = self._env.llm
+            return Selection(llm, "env", self._settings.llm_provider, str(getattr(llm, "name", "")))
         if self._local is not None and self._probe.reachable():
             return self._local
         return self._none

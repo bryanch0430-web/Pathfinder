@@ -91,6 +91,28 @@ class ToolLog:
         ]
         return {"calls": calls, "errors": errors}
 
+    def trajectory(self, limit: int = 24) -> list[dict[str, Any]]:
+        """One row per tool call: what ran, whether it worked, and a short result."""
+        steps: list[dict[str, Any]] = []
+        for entry in self.entries[:limit]:
+            facts = entry.get("facts") or []
+            returned = []
+            for fact in facts[:3]:
+                label = fact.get("name") or fact.get("text") or fact.get("kind") or ""
+                if label:
+                    returned.append(str(label)[:80])
+            steps.append(
+                {
+                    "phase": entry["phase"],
+                    "tool": entry["tool"],
+                    "status": entry["status"],
+                    "error": entry.get("error_class") or "",
+                    "returned": returned,
+                    "returned_count": len(facts),
+                }
+            )
+        return steps
+
 
 class RecordingToolbox(Toolbox):
     """The app's Toolbox (same allowlist and logging) that also keeps each result."""

@@ -8,6 +8,8 @@ import { timelineAt } from "../lib/mapTimeline";
 import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove } from "./directEdit";
 import { Icon, type IconName } from "./icons";
 import { ModelKeysCard, type ModelKeysProps } from "./ModelKeys";
+import { OrchestratorSettings } from "./OrchestratorSettings";
+import { SerpApiRotation } from "./SerpApiRotation";
 import {
   AgentActivity,
   BudgetPanel,
@@ -44,10 +46,11 @@ import type {
   ChatMessage,
   ClarifyPayload,
   ClientProfile,
+  EvalCaseResult,
   EvalDataset,
+  EvalPreview,
   EvalRun,
   EvalRunSummary,
-  FxSnapshot,
   GuideChunk,
   HotelStay,
   IntakePayload,
@@ -66,7 +69,7 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
-import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type MapLeg } from "../lib/api";
+import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type LlmProvider, type MapLeg } from "../lib/api";
 import { dayScope, overviewStops, travelLine, withinKm } from "../lib/mapScope";
 import {
   chosenFor,
@@ -142,6 +145,7 @@ export function AppHeader({
   signIn = true,
   theme,
   onTheme,
+  onOpenDesk,
 }: {
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
@@ -165,6 +169,8 @@ export function AppHeader({
   signIn?: boolean;
   theme?: "light" | "dark";
   onTheme?: () => void;
+  /** Leaves the planner for the contact desk. Omitted for a traveller. */
+  onOpenDesk?: () => void;
 }) {
   const { t } = useI18n();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -231,6 +237,11 @@ export function AppHeader({
           ))}
         </div>
         <div className="pf-header__actions">
+          {onOpenDesk ? (
+            <Button size="sm" variant="ghost" iconLeft="users" onClick={onOpenDesk}>
+              {t("tab.desk")}
+            </Button>
+          ) : null}
           {onTheme ? (
             <IconButton icon="sun" label={t("header.theme")} aria-pressed={theme === "dark"} onClick={onTheme} />
           ) : null}
@@ -692,6 +703,8 @@ export function ChatPanel({
   onDecide,
   trace,
   live,
+  held = false,
+  agentName = "",
   disabled = false,
   tripId = null,
   draft: heldDraft,
@@ -728,6 +741,10 @@ export function ChatPanel({
   onDecide?: (messageId: string, changeId: string, accept: boolean) => void;
   trace?: RunTrace | null;
   live?: { id: string; title: string; body: string }[];
+  /** A person on the desk has this chat. */
+  held?: boolean;
+  /** That person's account name. */
+  agentName?: string;
   /** No trip is open to send to (the server could not be reached): nothing can be typed or sent. */
   disabled?: boolean;
   /** The trip the chat belongs to. A message typed and not sent stays with its trip, not with the next one opened. */
@@ -831,7 +848,7 @@ export function ChatPanel({
               {t("chat.title")}
             </Text>
             <Text size="xs" tone="tertiary">
-              {t("chat.subtitle")}
+              {held ? t("chat.taken", { name: agentName.trim() || t("chat.liveAgent") }) : t("chat.subtitle")}
             </Text>
           </div>
         </div>
@@ -856,6 +873,9 @@ export function ChatPanel({
           ) : null}
         </div>
       </div>
+      {held ? (
+        <p className="pf-chat__taken" role="status">{t("chat.taken", { name: agentName.trim() || t("chat.liveAgent") })}</p>
+      ) : null}
       <div className="pf-chat__messages pf-scroll" ref={scrollRef}>
         {messages.length === 0 ? (
           <EmptyState
@@ -867,15 +887,25 @@ export function ChatPanel({
           <>
           {messages.map((message) => {
             const lastAssistantId = [...messages].reverse().find((item) => item.role !== "user")?.id;
+            const fromOperator = Boolean(message.meta?.operator);
+            const fromAgent = fromOperator || (message.role !== "user" && Boolean(message.meta?.live_agent));
+            const speaker = fromOperator
+              ? (typeof message.meta?.agent_name === "string" && message.meta.agent_name.trim()) || t("chat.liveAgent")
+              : message.role === "user"
+                ? ""
+                : fromAgent
+                  ? (typeof message.meta?.agent_name === "string" && message.meta.agent_name.trim()) || t("chat.liveAgent")
+                  : t("chat.pathfinder");
             return (
-            <div key={message.id} className="pf-turn" data-role={message.role === "user" ? "user" : "assistant"}>
+            <div key={message.id} className="pf-turn" data-role={fromOperator || message.role !== "user" ? "assistant" : "user"} data-live={fromAgent || undefined}>
               <ChatBubble
-                role={message.role === "user" ? "user" : "assistant"}
-                intent={message.intent ?? undefined}
+                role={fromOperator || message.role !== "user" ? "assistant" : "user"}
+                intent={fromAgent ? undefined : message.intent ?? undefined}
                 time={new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                 above={
-                  typeof message.meta?.scope === "string" || attachmentNames(message).length ? (
+                  speaker || typeof message.meta?.scope === "string" || attachmentNames(message).length ? (
                     <>
+                      {speaker ? <span className="pf-speaker" data-live={fromAgent || undefined}>{speaker}</span> : null}
                       {typeof message.meta?.scope === "string" ? (
                         <span className="pf-scope-chip">{String(message.meta.scope)}</span>
                       ) : null}
@@ -896,7 +926,7 @@ export function ChatPanel({
               >
                 {message.content}
               </ChatBubble>
-              {message.role !== "user" ? (
+              {message.role !== "user" && !fromAgent ? (
                 <WhyThisDecision
                   decision={
                     decisionOf(message.meta)
@@ -904,7 +934,7 @@ export function ChatPanel({
                   }
                 />
               ) : null}
-              {message.role !== "user" ? (
+              {message.role !== "user" && !fromAgent ? (
                 <EditDecision messageId={message.id} meta={message.meta} busy={busy} onDecide={onDecide} />
               ) : null}
             </div>
@@ -2417,8 +2447,6 @@ export function MapPanel({
   onActiveDay,
   selectedItemId,
   onSelectItem,
-  onOptimize,
-  fx,
   updatedIds = [],
   changedStayIds,
 }: {
@@ -2427,8 +2455,6 @@ export function MapPanel({
   onActiveDay: (date: string) => void;
   selectedItemId: string | null;
   onSelectItem: (item: PlanItem | null) => void;
-  onOptimize?: () => void;
-  fx?: FxSnapshot | null;
   updatedIds?: string[];
   /** The stays (by id) the last change touched. */
   changedStayIds?: ReadonlySet<string>;
@@ -2948,7 +2974,6 @@ export function MapPanel({
           </div>
         </div>
         <PlaceCard item={selected} weather={day?.weather ?? null} onClose={() => onSelectItem(null)} />
-        <BudgetPanel cost={plan.cost} fx={fx} onOptimize={onOptimize} />
       </div>
       <Dialog open={Boolean(legTarget)} onClose={() => setLegTarget(null)} title={t("map.optionsTitle")}>
         <TravelOptions data={legOptions} loading={legLoading} error={legError} />
@@ -3146,6 +3171,130 @@ export function SavedTripsView({
 
 /* ----------------------------------------------------------- evaluation -- */
 
+function scoreTone(key: string, value: number): "success" | "warning" | "danger" | "neutral" {
+  const counted = key.endsWith("_ms") || key.includes("latency") || key.endsWith("_tokens") || key.endsWith("_calls") || key.includes("token");
+  if (counted) return "neutral";
+  if (value >= 0.999) return "success";
+  if (value > 0) return "warning";
+  return "danger";
+}
+
+function scoreLabel(key: string, value: number): string {
+  const name = key.replaceAll("_", " ");
+  if (key.endsWith("_ms") || key.includes("latency")) return `${name} ${Math.round(value)} ms`;
+  if (key.endsWith("_tokens") || key.endsWith("_calls") || key.includes("token")) return `${name} ${Math.round(value)}`;
+  if (value >= 0 && value <= 1) return `${name} ${Math.round(value * 100)}%`;
+  return `${name} ${value}`;
+}
+
+function CaseTrace({ item }: { item: EvalCaseResult }) {
+  const { t } = useI18n();
+  const checks = item.plan_checks;
+  const steps = checks?.trajectory ?? [];
+  const calls = Object.entries(checks?.tool_log?.calls ?? {});
+  const tools = steps.length
+    ? []
+    : calls.length
+      ? calls.map(([name, count]) => `${name} × ${count}`)
+      : item.tool_summary;
+  const scores = Object.entries(item.scores ?? {});
+  return (
+    <div className="pf-stack pf-stack--md">
+      <span className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
+        <Badge tone={item.passed ? "success" : "danger"} dot>
+          {item.passed ? t("eval.passed") : item.failure_class || t("eval.failed")}
+        </Badge>
+        {item.latency_ms ? <Badge tone="neutral">{item.latency_ms} ms</Badge> : null}
+      </span>
+      <dl className="pf-eval-trace">
+        <div>
+          <dt><Text size="xs" weight="semibold" tone="tertiary">{t("eval.input")}</Text></dt>
+          <dd><Text size="sm">{item.input}</Text></dd>
+        </div>
+        <div>
+          <dt><Text size="xs" weight="semibold" tone="tertiary">{t("eval.output")}</Text></dt>
+          <dd><Text size="sm">{item.output_summary || t("eval.notLinked")}</Text></dd>
+        </div>
+        <div>
+          <dt><Text size="xs" weight="semibold" tone="tertiary">{t("eval.notes")}</Text></dt>
+          <dd><Text size="sm">{item.judge_reason || t("eval.notLinked")}</Text></dd>
+        </div>
+      </dl>
+      {scores.length ? (
+        <div className="pf-stack">
+          <Text size="xs" weight="semibold" tone="tertiary">{t("eval.components")}</Text>
+          <div className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
+            {scores.map(([key, value]) => (
+              <Badge key={key} tone={scoreTone(key, value)}>{scoreLabel(key, value)}</Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {checks?.gaps?.length ? (
+        <Text size="xs" tone="tertiary">{t("eval.gaps")}: {checks.gaps.join(", ")}</Text>
+      ) : null}
+      {checks?.constraints?.length ? (
+        <div className="pf-stack">
+          <Text size="xs" weight="semibold" tone="tertiary">
+            {t("eval.checks")} · {checks.constraints_met ?? 0}/{checks.constraints_total ?? checks.constraints.length}
+          </Text>
+          {checks.constraints.map((row) => (
+            <Text key={`${row.kind}-${row.text}`} size="xs">
+              {row.met ? t("eval.met") : t("eval.unmet")}: {row.text}{row.evidence ? ` — ${row.evidence}` : ""}
+            </Text>
+          ))}
+        </div>
+      ) : null}
+      {checks?.disruption ? (
+        <Text size="xs">
+          {t("eval.recovery")}: {checks.disruption.kind} · {checks.disruption.handled ? t("eval.handled") : t("eval.notHandled")}
+          {checks.disruption.outcomes
+            ? ` · ${Object.entries(checks.disruption.outcomes).map(([key, value]) => `${key} ${value ? t("eval.met") : t("eval.unmet")}`).join(", ")}`
+            : ""}
+        </Text>
+      ) : null}
+      {checks?.grounding && typeof checks.grounding.items === "number" ? (
+        <Text size="xs" tone="tertiary">
+          {t("eval.groundingLine", { grounded: checks.grounding.grounded ?? 0, items: checks.grounding.items })}
+        </Text>
+      ) : null}
+      <div className="pf-stack">
+        <Text size="xs" weight="semibold" tone="tertiary">{t("eval.tools")}</Text>
+        {steps.length ? (
+          <div className="pf-stack">
+            {steps.map((step, index) => (
+              <Text key={`${step.tool}-${index}`} size="xs">
+                {step.phase} · {step.tool} · {step.status}
+                {step.error ? ` · ${step.error}` : ""}
+                {step.returned?.length ? ` · ${step.returned.join("; ")}` : ""}
+                {step.returned_count && step.returned && step.returned_count > step.returned.length
+                  ? ` (+${step.returned_count - step.returned.length})`
+                  : ""}
+              </Text>
+            ))}
+          </div>
+        ) : tools.length ? (
+          <div className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
+            {tools.map((tool) => <Badge key={tool} tone="neutral">{tool}</Badge>)}
+          </div>
+        ) : <Text size="xs" tone="tertiary">{t("eval.noTools")}</Text>}
+        {(checks?.tool_log?.errors ?? []).map((error) => (
+          <Text key={error} size="xs">{error}</Text>
+        ))}
+      </div>
+      {typeof item.judge_score === "number" ? (
+        <div className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
+          <Badge tone={item.judge_score >= 4 ? "success" : item.judge_score >= 3 ? "warning" : "danger"}>
+            {t("eval.judgeScore")} {item.judge_score.toFixed(1)} / 5
+          </Badge>
+          {(item.judge_flags ?? []).map((flag) => <Badge key={flag} tone="neutral">{flag}</Badge>)}
+        </div>
+      ) : null}
+      <Text size="xs" tone="tertiary" className="pf-mono">{t("eval.trace", { id: item.trace_id || t("eval.notLinked") })}</Text>
+    </div>
+  );
+}
+
 export function EvalDashboard({
   datasets,
   runs,
@@ -3155,6 +3304,9 @@ export function EvalDashboard({
   error,
   onExport,
   onSelectRun,
+  opened = {},
+  previews = {},
+  detail = null,
 }: {
   datasets: EvalDataset[];
   runs: EvalRunSummary[];
@@ -3164,16 +3316,74 @@ export function EvalDashboard({
   error: string | null;
   onExport?: (runId: string) => void;
   onSelectRun?: (runId: string) => void;
+  /** Newest scored run for each suite. */
+  opened?: Record<string, EvalRun>;
+  /** Frozen cases for suites that have not been scored. */
+  previews?: Record<string, EvalPreview[]>;
+  /** A run the comparison table opened, which may be older than `opened`. */
+  detail?: EvalRun | null;
 }) {
   const { t } = useI18n();
   const [dataset, setDataset] = useState(latest?.dataset_id ?? "hongkong");
   const [tag, setTag] = useState("baseline-v1");
   const [caseId, setCaseId] = useState<string | null>(null);
-  const selectedCase = latest?.cases.find((item) => item.id === caseId) ?? null;
-  const metrics = latest?.metrics ?? [];
+  const [caseQuery, setCaseQuery] = useState("");
+  const [caseFilter, setCaseFilter] = useState<"all" | "passed" | "failed">("all");
+  const [suite, setSuite] = useState("all");
+  const catalog = Object.keys(opened).length ? opened : latest ? { [latest.dataset_id]: latest } : {};
+  const runFor = (id: string) => (detail?.dataset_id === id ? detail : catalog[id] ?? null);
+  const metricRun = suite === "all" ? null : runFor(suite);
+  const metrics = metricRun?.metrics ?? [];
   const primaryMetric = metrics.find((metric) => metric.unit === "%")?.key ?? "constraint_satisfaction";
-  const failed = latest?.cases.filter((item) => !item.passed) ?? [];
-  const series = latest ? runs.filter((run) => run.dataset_id === latest.dataset_id) : runs;
+  const snapshot = (metricRun?.model_snapshot ?? {}) as { writer?: string; router?: string; judge?: string };
+  const series = metricRun ? runs.filter((run) => run.dataset_id === metricRun.dataset_id) : runs;
+  const needle = caseQuery.trim().toLowerCase();
+  const groups = datasets
+    .map((item) => {
+      const run = runFor(item.id);
+      const scored = (run?.cases ?? []).map((row) => ({
+        key: row.id,
+        suiteId: item.id,
+        suiteName: item.name,
+        scored: true,
+        result: row,
+        preview: undefined as EvalPreview | undefined,
+      }));
+      const defined = scored.length
+        ? scored
+        : (previews[item.id] ?? []).map((row) => ({
+            key: `${item.id}:${row.case_id}`,
+            suiteId: item.id,
+            suiteName: item.name,
+            scored: false,
+            result: null,
+            preview: row,
+          }));
+      return { id: item.id, name: item.name, run, rows: defined };
+    })
+    .filter((group) => group.rows.length > 0 && (suite === "all" || group.id === suite));
+  const visible = groups
+    .map((group) => ({
+      ...group,
+      rows: group.rows.filter((row) => {
+        const passed = row.result?.passed ?? false;
+        const caseIdText = row.result?.case_id ?? row.preview?.case_id ?? "";
+        const input = row.result?.input ?? row.preview?.input ?? "";
+        const output = row.result?.output_summary ?? row.preview?.expected ?? "";
+        if (row.scored && caseFilter === "passed" && !passed) return false;
+        if (row.scored && caseFilter === "failed" && passed) return false;
+        if (!row.scored && caseFilter !== "all") return false;
+        if (!needle) return true;
+        return caseIdText.toLowerCase().includes(needle) || input.toLowerCase().includes(needle) || output.toLowerCase().includes(needle);
+      }),
+    }))
+    .filter((group) => group.rows.length > 0);
+  const failed = visible.reduce((count, group) => count + group.rows.filter((row) => row.result && !row.result.passed).length, 0);
+  const selectedCase = visible.flatMap((group) => group.rows).find((row) => row.key === caseId)?.result ?? null;
+  const selectedPreview = visible.flatMap((group) => group.rows).find((row) => row.key === caseId)?.preview ?? null;
+  useEffect(() => {
+    if (detail?.dataset_id) setSuite(detail.dataset_id);
+  }, [detail?.id, detail?.dataset_id]);
 
   return (
     <main className="pf-eval">
@@ -3183,8 +3393,10 @@ export function EvalDashboard({
         description={t("eval.body")}
         action={
           <div className="pf-row">
-            {latest ? <Button variant="secondary" size="sm" iconLeft="download" onClick={() => onExport?.(latest.id)}>{t("eval.export")}</Button> : null}
-            <Badge tone={latest ? "success" : "warning"} dot>{latest ? t("eval.runComplete") : t("eval.noRuns")}</Badge>
+            {metricRun ? <Button variant="secondary" size="sm" iconLeft="download" onClick={() => onExport?.(metricRun.id)}>{t("eval.export")}</Button> : null}
+            <Badge tone={metricRun || runs.length ? "success" : "warning"} dot>
+              {metricRun ? t("eval.runComplete") : runs.length ? t(runs.length === 1 ? "eval.runsOne" : "eval.runs", { count: runs.length }) : t("eval.noRuns")}
+            </Badge>
           </div>
         }
       />
@@ -3218,21 +3430,30 @@ export function EvalDashboard({
         </div>
       </div>
 
-      {latest ? (
+      {metricRun ? (
         <>
           <div className="pf-eval__metrics">
             {metrics.map((metric) => (
               <MetricCard key={metric.key} metric={metric} />
             ))}
           </div>
+          <Text size="xs" tone="tertiary">
+            {t("eval.modelLine", {
+              writer: snapshot.writer || t("eval.notLinked"),
+              router: snapshot.router || t("eval.notLinked"),
+              judge: snapshot.judge || t("eval.notLinked"),
+              latency: metricRun.latency_ms,
+              tokens: metricRun.token_usage,
+            })}
+          </Text>
 
           <div className="pf-eval__grid">
             <div className="pf-card pf-eval__panel">
               <div className="pf-eval__panel-head">
                 <Text size="sm" weight="semibold">{t("eval.comparison")}</Text>
-                <Badge tone="neutral">{latest.dataset_id} v{latest.dataset_version}</Badge>
+                <Badge tone="neutral">{metricRun.dataset_id} v{metricRun.dataset_version}</Badge>
               </div>
-              <ExperimentTable runs={runs} activeId={latest.id} onSelect={onSelectRun} />
+              <ExperimentTable runs={series} activeId={metricRun.id} onSelect={onSelectRun} />
             </div>
             <div className="pf-card pf-eval__panel">
               <div className="pf-eval__panel-head">
@@ -3242,99 +3463,144 @@ export function EvalDashboard({
               <TrendChart runs={series} metricKey={primaryMetric} />
             </div>
           </div>
-
-          <div className="pf-eval__grid">
-            <div className="pf-card pf-eval__panel">
-              <div className="pf-eval__panel-head">
-                <Text size="sm" weight="semibold">{t("eval.failures")}</Text>
-                <Badge tone={failed.length ? "danger" : "success"}>{t("eval.failedCount", { count: failed.length })}</Badge>
-              </div>
-              {failed.length === 0 ? (
-                <EmptyState icon="check" title={t("eval.noFailures")} body={t("eval.noFailuresBody")} />
-              ) : (
-                <div className="pf-stack">
-                  {failed.map((item) => (
-                    <button key={item.id} type="button" className="pf-saved-card pf-card" onClick={() => setCaseId(item.id)} style={{ boxShadow: "none" }}>
-                      <div className="pf-row pf-row--between">
-                        <Text size="sm" weight="semibold">{item.case_id}</Text>
-                        <span className="pf-row" style={{ gap: 6 }}>
-                          {typeof item.judge_score === "number" ? (
-                            <Badge tone="neutral">{t("eval.judge", { score: item.judge_score.toFixed(1) })}</Badge>
-                          ) : null}
-                          <Badge tone="danger">{item.failure_class || t("eval.failed")}</Badge>
-                        </span>
-                      </div>
-                      <Text size="xs" tone="secondary">{item.input}</Text>
-                      <Text size="xs" tone="tertiary">{item.judge_reason}</Text>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="pf-card pf-eval__panel">
-              <div className="pf-eval__panel-head">
-                <Text size="sm" weight="semibold">{t("eval.split")}</Text>
-                <Badge tone="neutral">{t("eval.frozen")}</Badge>
-              </div>
-              {datasets.map((item) => (
-                <div className="pf-row pf-row--between" key={item.id}>
-                  <span className="pf-row" style={{ gap: 7 }}>
-                    <Icon name={item.frozen ? "lock" : "alert"} size={13} />
-                    <span className="pf-small">{item.name}</span>
-                  </span>
-                  <span className="pf-row" style={{ gap: 8 }}>
-                    <span className="pf-small pf-muted">{t(item.item_count === 1 ? "eval.casesOne" : "eval.cases", { count: item.item_count })}</span>
-                    <Badge tone={item.frozen ? "success" : "warning"}>{item.frozen ? t("eval.frozen") : t("eval.draft")}</Badge>
-                  </span>
-                </div>
-              ))}
-              <Divider />
-              <Text size="xs" tone="tertiary">
-                {t("eval.splitNote")}
-              </Text>
-            </div>
-          </div>
         </>
-      ) : (
-        <div className="pf-card">
-          <EmptyState icon="route" title={t("eval.empty")} body={t("eval.emptyBody")} />
-        </div>
-      )}
+      ) : null}
 
-      <Drawer open={Boolean(selectedCase)} onClose={() => setCaseId(null)} title={selectedCase ? t("eval.caseTitle", { id: selectedCase.case_id }) : t("eval.case")}>
-        {selectedCase ? (
-          <div className="pf-stack pf-stack--md">
-            <Badge tone={selectedCase.passed ? "success" : "danger"} dot>{selectedCase.passed ? t("eval.passed") : selectedCase.failure_class || t("eval.failed")}</Badge>
-            <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.input")}</Text>
-              <Text size="sm">{selectedCase.input}</Text>
+          <div className="pf-card pf-eval__panel">
+            <div className="pf-eval__panel-head">
+              <Text size="sm" weight="semibold">{t("eval.casesTitle")}</Text>
+              <Badge tone={failed ? "danger" : "success"}>{t("eval.failedCount", { count: failed })}</Badge>
             </div>
-            <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.output")}</Text>
-              <Text size="sm">{selectedCase.output_summary}</Text>
+            <div className="pf-row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <Button variant={suite === "all" ? "primary" : "secondary"} size="sm" onClick={() => setSuite("all")}>{t("eval.suiteAll")}</Button>
+              {datasets.map((item) => {
+                const run = runFor(item.id);
+                const passed = run ? run.cases.filter((row) => row.passed).length : null;
+                const total = run ? run.cases.length : item.item_count;
+                return (
+                  <Button
+                    key={item.id}
+                    variant={suite === item.id ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => {
+                      setSuite(item.id);
+                      setDataset(item.id);
+                    }}
+                  >
+                    {item.name} {passed === null ? total : `${passed}/${total}`}
+                  </Button>
+                );
+              })}
             </div>
-            <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.judgeReason")}</Text>
-              <Text size="sm">{selectedCase.judge_reason}</Text>
+            <div className="pf-row" style={{ gap: 8, flexWrap: "wrap" }}>
+              {(["all", "passed", "failed"] as const).map((filter) => (
+                <Button key={filter} variant={caseFilter === filter ? "primary" : "secondary"} size="sm" onClick={() => setCaseFilter(filter)}>
+                  {t(filter === "all" ? "eval.filterAll" : filter === "passed" ? "eval.filterPassed" : "eval.filterFailed")}
+                </Button>
+              ))}
+              <Input value={caseQuery} onChange={(event) => setCaseQuery(event.target.value)} placeholder={t("eval.find")} aria-label={t("eval.find")} />
             </div>
-            {typeof selectedCase.judge_score === "number" ? (
-              <div className="pf-stack">
-                <Text size="xs" weight="semibold" tone="tertiary">{t("eval.judgeScore")}</Text>
-                <div className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
-                  <Badge tone={selectedCase.judge_score >= 4 ? "success" : selectedCase.judge_score >= 3 ? "warning" : "danger"}>
-                    {selectedCase.judge_score.toFixed(1)} / 5
-                  </Badge>
-                  {(selectedCase.judge_flags ?? []).map((flag) => (
-                    <Badge key={flag} tone="neutral">{flag}</Badge>
-                  ))}
-                </div>
+            {visible.length === 0 ? (
+              <EmptyState
+                icon={caseFilter === "failed" && !needle ? "check" : "search"}
+                title={caseFilter === "failed" && !needle ? t("eval.noFailures") : t("eval.noMatches")}
+                body={needle ? t("eval.find") : caseFilter === "failed" ? t("eval.noFailuresBody") : undefined}
+              />
+            ) : (
+              <div>
+                {visible.map((group) => (
+                  <div key={group.id}>
+                    {suite === "all" ? (
+                      <div className="pf-eval__panel-head">
+                        <Text size="sm" weight="semibold">{group.name}</Text>
+                        <Badge tone={group.run ? "neutral" : "warning"}>
+                          {group.run
+                            ? `${group.run.cases.filter((row) => row.passed).length}/${group.run.cases.length}`
+                            : t("eval.notScored")}
+                        </Badge>
+                      </div>
+                    ) : null}
+                    {!group.run ? <Text size="xs" tone="tertiary">{t("eval.notScoredBody")}</Text> : null}
+                    {group.rows.map((row) => {
+                      const item = row.result;
+                      const preview = row.preview;
+                      const label = item?.case_id ?? preview?.case_id ?? "";
+                      const input = item?.input ?? preview?.input ?? "";
+                      const split = item?.split ?? preview?.split ?? "";
+                      return (
+                        <button key={row.key} type="button" className="pf-eval-case" onClick={() => setCaseId(row.key)}>
+                          <span className="pf-row pf-row--between">
+                            <Text as="span" size="sm" weight="semibold">{label}</Text>
+                            <span className="pf-row" style={{ gap: 6 }}>
+                              <Badge tone="neutral">{group.name}</Badge>
+                              <Badge tone="neutral">{split}</Badge>
+                              {item ? (
+                                <Badge tone={item.passed ? "success" : "danger"}>{item.passed ? t("eval.passed") : item.failure_class || t("eval.failed")}</Badge>
+                              ) : (
+                                <Badge tone="warning">{t("eval.notScored")}</Badge>
+                              )}
+                            </span>
+                          </span>
+                          <Text as="span" size="xs" tone="secondary">{t("eval.input")}: {input}</Text>
+                          <Text as="span" size="xs" tone="tertiary">
+                            {item
+                              ? `${t("eval.output")}: ${item.output_summary || t("eval.notLinked")}${item.latency_ms ? ` · ${item.latency_ms} ms` : ""}`
+                              : t("eval.expectedLine", { value: preview?.expected || t("eval.notLinked") })}
+                          </Text>
+                          {item?.scores && Object.keys(item.scores).length ? (
+                            <span className="pf-row" style={{ gap: 6, flexWrap: "wrap" }}>
+                              {Object.entries(item.scores).slice(0, 4).map(([key, value]) => (
+                                <Badge key={key} tone={scoreTone(key, value)}>{scoreLabel(key, value)}</Badge>
+                              ))}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            ) : null}
-            <div className="pf-stack">
-              <Text size="xs" weight="semibold" tone="tertiary">{t("eval.toolSummary")}</Text>
-              {selectedCase.tool_summary.map((tool) => <Badge key={tool} tone="neutral">{tool}</Badge>)}
+            )}
+          </div>
+
+          <div className="pf-card pf-eval__panel">
+            <div className="pf-eval__panel-head">
+              <Text size="sm" weight="semibold">{t("eval.split")}</Text>
+              <Badge tone="neutral">{t("eval.frozen")}</Badge>
             </div>
-            <Text size="xs" tone="tertiary" className="pf-mono">{t("eval.trace", { id: selectedCase.trace_id || t("eval.notLinked") })}</Text>
+            {datasets.map((item) => (
+              <div className="pf-row pf-row--between" key={item.id}>
+                <span className="pf-row" style={{ gap: 7 }}>
+                  <Icon name={item.frozen ? "lock" : "alert"} size={13} />
+                  <span className="pf-small">{item.name}</span>
+                </span>
+                <span className="pf-row" style={{ gap: 8 }}>
+                  <span className="pf-small pf-muted">{t(item.item_count === 1 ? "eval.casesOne" : "eval.cases", { count: item.item_count })}</span>
+                  <Badge tone={item.frozen ? "success" : "warning"}>{item.frozen ? t("eval.frozen") : t("eval.draft")}</Badge>
+                </span>
+              </div>
+            ))}
+            <Divider />
+            <Text size="xs" tone="tertiary">
+              {t("eval.splitNote")}
+            </Text>
+          </div>
+
+      <Drawer
+        open={Boolean(selectedCase || selectedPreview)}
+        onClose={() => setCaseId(null)}
+        title={selectedCase
+          ? t("eval.caseTitle", { id: selectedCase.case_id })
+          : selectedPreview
+            ? t("eval.caseTitle", { id: selectedPreview.case_id })
+            : t("eval.case")}
+      >
+        {selectedCase ? <CaseTrace item={selectedCase} /> : selectedPreview ? (
+          <div className="pf-stack pf-stack--md">
+            <Badge tone="warning">{t("eval.notScored")}</Badge>
+            <Text size="sm">{selectedPreview.input}</Text>
+            <Text size="sm">{t("eval.expectedLine", { value: selectedPreview.expected || t("eval.notLinked") })}</Text>
+            <Text size="xs" tone="tertiary">{t("eval.notScoredBody")}</Text>
           </div>
         ) : null}
       </Drawer>
@@ -3658,6 +3924,8 @@ export function ShareDialog({
   );
 }
 
+export type SettingsGroup = "general" | "handoff" | "instructions" | "profile" | "keys" | "orchestrator" | "policy" | "freshness" | "system";
+
 export function SettingsView({
   config,
   injections,
@@ -3668,7 +3936,15 @@ export function SettingsView({
   modelKeys,
   serverKeys,
   error = null,
+  admin,
+  canEditPolicy = false,
+  onSavePolicy,
+  onResetPolicy,
+  onSaveGate,
+  onSaveOrchestrator,
+  providers = [],
 }: {
+  providers?: LlmProvider[];
   /** The "Model & API keys" card's data and handlers; the card is left out without it. */
   modelKeys?: Omit<ModelKeysProps, "title" | "body">;
   /** The operator's own key card, for an admin token holder. */
@@ -3676,7 +3952,16 @@ export function SettingsView({
   config: {
     thresholds: Record<string, number | string>;
     freshness_hours: Record<string, number>;
-    writer: { available: boolean; model: string };
+    writer: { available: boolean; model: string; base_url?: string };
+    gate?: "jev" | "plain" | "reason";
+    poe_ready?: boolean;
+    poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
+    models?: { plain?: string; reason?: string };
+    writer_model?: string;
+    orchestrator?: {
+      jev: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
+      fast: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
+    };
     providers: Record<string, string[] | string>;
     locales: string[];
   } | null;
@@ -3687,9 +3972,96 @@ export function SettingsView({
   onSavePreferences?: (preferences: string[]) => void;
   /** Why the last load, save or clear failed. It shows above the form, which stays so that nothing typed is lost. */
   error?: string | null;
+  /** Operator cards. Receives the filter so each card can show or hide with the group. */
+  admin?: (show: (group: SettingsGroup, text: string) => boolean) => ReactNode;
+  /** An operator may edit the thresholds and freshness windows. */
+  canEditPolicy?: boolean;
+  onSavePolicy?: (body: { thresholds: Record<string, number>; freshness_hours: Record<string, number> }) => Promise<void>;
+  onResetPolicy?: () => Promise<void>;
+  /** Saves which model chooses the path. */
+  onSaveGate?: (gate: "jev" | "plain" | "reason") => Promise<void>;
+  /** Saves one orchestrator model's address and key. */
+  onSaveOrchestrator?: (body: {
+    jev?: { model: string; url: string; api_key?: string; clear_key?: boolean };
+    fast?: { model: string; url: string; api_key?: string; clear_key?: boolean };
+    plain_model?: string;
+    reason_model?: string;
+    poe?: { api_key?: string; clear_key?: boolean };
+    plain?: {
+      provider: string;
+      model: string;
+      base_url: string;
+      api_key?: string;
+      clear_key?: boolean;
+      temperature: number;
+      max_tokens: number;
+      reasoning: string;
+    };
+    reason?: {
+      provider: string;
+      model: string;
+      base_url: string;
+      api_key?: string;
+      clear_key?: boolean;
+      temperature: number;
+      max_tokens: number;
+      reasoning: string;
+    };
+  }) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [helpOpen, setHelpOpen] = useState(false);
+  const [draftThresholds, setDraftThresholds] = useState<Record<string, string>>({});
+  const [draftFreshness, setDraftFreshness] = useState<Record<string, string>>({});
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!config) return;
+    setDraftThresholds(Object.fromEntries(Object.entries(config.thresholds).map(([key, value]) => [key, String(value)])));
+    setDraftFreshness(Object.fromEntries(Object.entries(config.freshness_hours).map(([key, value]) => [key, String(value)])));
+  }, [config]);
+  const savePolicy = async () => {
+    if (!onSavePolicy) return;
+    setPolicyError(null);
+    const thresholds = Object.fromEntries(Object.entries(draftThresholds).map(([key, value]) => [key, Number(value)]));
+    const freshness_hours = Object.fromEntries(Object.entries(draftFreshness).map(([key, value]) => [key, Number(value)]));
+    if (Object.values(thresholds).some((value) => Number.isNaN(value)) || Object.values(freshness_hours).some((value) => Number.isNaN(value))) {
+      setPolicyError(t("settings.policyInvalid"));
+      return;
+    }
+    try {
+      await onSavePolicy({ thresholds, freshness_hours });
+    } catch (cause) {
+      setPolicyError(String(cause));
+    }
+  };
+  const [section, setSection] = useState<SettingsGroup>("general");
+  const [settingQuery, setSettingQuery] = useState("");
+  // Read-only until the person focuses it. A password field lower on the page makes the browser
+  // drop a saved username into the first text box, which then hides every card.
+  const [findReady, setFindReady] = useState(false);
+  const show = (group: SettingsGroup, text: string) => {
+    const needle = settingQuery.trim().toLowerCase();
+    if (!needle) return section === group;
+    return text.toLowerCase().includes(needle);
+  };
+  const groupLabel = (group: SettingsGroup) => {
+    if (group === "handoff") return t("settings.group.handoff");
+    if (group === "instructions") return t("settings.group.instructions");
+    if (group === "profile") return t("settings.group.profile");
+    if (group === "keys") return t("settings.group.keys");
+    if (group === "orchestrator") return t("settings.group.orchestrator");
+    if (group === "policy") return t("settings.group.policy");
+    if (group === "freshness") return t("settings.group.freshness");
+    if (group === "system") return t("settings.group.system");
+    return t("settings.group.general");
+  };
+  const groups: SettingsGroup[] = [
+    "general",
+    ...(admin ? (["handoff", "instructions"] as SettingsGroup[]) : []),
+    "profile",
+    ...(modelKeys ? (["keys"] as SettingsGroup[]) : []),
+    ...(config ? (["orchestrator", "policy", "freshness", "system"] as SettingsGroup[]) : []),
+  ];
   const [preferences, setPreferences] = useState<string[]>(profile?.preferences ?? []);
   const [prefInput, setPrefInput] = useState("");
   useEffect(() => {
@@ -3712,6 +4084,48 @@ export function SettingsView({
         action={<Button variant="secondary" size="sm" iconLeft="book" onClick={() => setHelpOpen(true)}>{t("settings.howItWorks")}</Button>}
       />
       {error ? <Banner>{error}</Banner> : null}
+      <div className="pf-settings__browse">
+        <input
+          className="pf-input pf-settings__find"
+          type="search"
+          name="pf-settings-find"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          readOnly={!findReady}
+          value={settingQuery}
+          onFocus={() => setFindReady(true)}
+          onBlur={() => setFindReady(false)}
+          onChange={(event) => {
+            if (event.currentTarget.readOnly) {
+              event.currentTarget.value = settingQuery;
+              return;
+            }
+            setSettingQuery(event.target.value);
+          }}
+          placeholder={t("settings.find")}
+          aria-label={t("settings.find")}
+        />
+        <div className="pf-settings__nav" role="tablist" aria-label={t("settings.title")}>
+          {groups.map((group) => (
+            <button
+              key={group}
+              type="button"
+              role="tab"
+              aria-selected={!settingQuery && section === group}
+              data-active={!settingQuery && section === group}
+              onClick={() => {
+                setSection(group);
+                setSettingQuery("");
+              }}
+            >
+              {groupLabel(group)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {show("general", `${t("settings.developer")} ${t("settings.developerBody")}`) ? (
       <div className="pf-card pf-eval__panel">
         <div className="pf-row pf-row--between">
           <Text size="sm" weight="semibold">{t("settings.developer")}</Text>
@@ -3719,7 +4133,10 @@ export function SettingsView({
         </div>
         <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
       </div>
+      ) : null}
+      {admin ? admin(show) : null}
       {/* The profile does not depend on the server's configuration, so it stays when the configuration cannot be loaded. */}
+      {show("profile", `${t("settings.profile")} ${t("settings.preferences")} ${t("settings.signedIn")} ${t("settings.guest")}`) ? (
       <div className="pf-card pf-eval__panel">
         <div className="pf-row pf-row--between">
           <Text size="sm" weight="semibold">{t("settings.profile")}</Text>
@@ -3812,29 +4229,97 @@ export function SettingsView({
           </Text>
         ) : null}
       </div>
+      ) : null}
       {/* The keys do not depend on the server's configuration either. */}
-      {modelKeys ? <ModelKeysCard {...modelKeys} title={t("keys.title")} body={t("keys.body")} /> : null}
-      {serverKeys ? <ModelKeysCard {...serverKeys} title={t("keys.serverTitle")} body={t("keys.serverBody")} /> : null}
-      {config ? (
+      {show("keys", `${t("settings.group.keys")} ${t("keys.lead")} ${t("keys.order")} ${t("keys.title")} ${t("keys.body")} ${t("keys.serverTitle")} ${t("keys.serverBody")}`) ? (
         <>
           <div className="pf-card pf-eval__panel">
-            <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
-            {Object.entries(config.thresholds).map(([key, value]) => (
-              <div className="pf-row pf-row--between" key={key}>
-                <span className="pf-small pf-muted">{key.replaceAll("_", " ")}</span>
-                <span className="pf-mono pf-small">{String(value)}</span>
-              </div>
-            ))}
+            <Text size="sm">{serverKeys ? t("keys.lead") : t("keys.leadOwn")}</Text>
+            <Text size="xs" tone="tertiary">{t("keys.order")}</Text>
           </div>
+          {modelKeys ? (
+            <ModelKeysCard {...modelKeys} title={t("keys.title")} body={t("keys.body")} fallbackLabel={t("keys.useShared")} />
+          ) : null}
+          {serverKeys ? (
+            <ModelKeysCard {...serverKeys} title={t("keys.serverTitle")} body={t("keys.serverBody")} fallbackLabel={t("keys.useConfig")} />
+          ) : null}
+        </>
+      ) : null}
+      {config ? (
+        <>
+          {show("orchestrator", `${t("settings.orch")} ${t("settings.orchBody")} ${t("settings.orch.poeTitle")} ${t("settings.gate.jev")} ${t("settings.gate.plain")} ${t("settings.gate.reason")}`) ? (
+            <OrchestratorSettings
+              config={config}
+              providers={providers}
+              canEdit={canEditPolicy}
+              onSaveGate={onSaveGate}
+              onSaveSide={onSaveOrchestrator}
+            />
+          ) : null}
+          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")}`) ? (
+          <div className="pf-card pf-eval__panel">
+            <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
+            {canEditPolicy ? (
+              <div className="pf-form-grid">
+                {Object.keys(config.thresholds).map((key) => (
+                  <Field
+                    key={key}
+                    wide
+                    htmlFor={`pf-threshold-${key}`}
+                    label={t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}
+                    hint={t(`settings.thresholdHint.${key}` as "settings.thresholdHint.router_confidence")}
+                  >
+                    <Input id={`pf-threshold-${key}`} value={draftThresholds[key] ?? ""} onChange={(event) => setDraftThresholds((current) => ({ ...current, [key]: event.target.value }))} inputMode="decimal" />
+                  </Field>
+                ))}
+              </div>
+            ) : (
+              Object.entries(config.thresholds).map(([key, value]) => (
+                <div className="pf-row pf-row--between" key={key}>
+                  <span className="pf-small pf-muted">{t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}</span>
+                  <span className="pf-mono pf-small">{String(value)}</span>
+                </div>
+              ))
+            )}
+          </div>
+          ) : null}
+          {show("freshness", `${t("settings.freshness")} ${t("settings.freshnessBody")} ${t("settings.fresh.weather")} ${t("settings.fresh.tickets")} ${t("settings.fresh.hotels")} ${t("settings.fresh.attractions")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.freshness")}</Text>
-            {Object.entries(config.freshness_hours).map(([key, value]) => (
-              <div className="pf-row pf-row--between" key={key}>
-                <span className="pf-small pf-muted">{key}</span>
-                <span className="pf-mono pf-small">{t("settings.hours", { count: value })}</span>
+            <Text size="xs" tone="tertiary">{t("settings.freshnessBody")}</Text>
+            {canEditPolicy ? (
+              <div className="pf-form-grid">
+                {Object.keys(config.freshness_hours).map((key) => (
+                  <Field
+                    key={key}
+                    wide
+                    htmlFor={`pf-fresh-${key}`}
+                    label={t(`settings.fresh.${key}` as "settings.fresh.weather")}
+                    hint={t(`settings.freshHint.${key}` as "settings.freshHint.weather")}
+                  >
+                    <Input id={`pf-fresh-${key}`} value={draftFreshness[key] ?? ""} onChange={(event) => setDraftFreshness((current) => ({ ...current, [key]: event.target.value }))} inputMode="numeric" />
+                  </Field>
+                ))}
               </div>
-            ))}
+            ) : (
+              Object.entries(config.freshness_hours).map(([key, value]) => (
+                <div className="pf-row pf-row--between" key={key}>
+                  <span className="pf-small pf-muted">{t(`settings.fresh.${key}` as "settings.fresh.weather")}</span>
+                  <span className="pf-mono pf-small">{t("settings.hours", { count: value })}</span>
+                </div>
+              ))
+            )}
+            {canEditPolicy ? (
+              <div className="pf-admin-tune__actions">
+                {policyError ? <Text size="xs" tone="tertiary">{policyError}</Text> : null}
+                <Button variant="primary" onClick={() => void savePolicy()}>{t("settings.policySave")}</Button>
+                <Button onClick={() => void onResetPolicy?.()}>{t("settings.policyReset")}</Button>
+              </div>
+            ) : null}
           </div>
+          ) : null}
+          {show("system", `${t("settings.providers")} ${t("settings.injections")} ${t("settings.writer")} ${t("settings.serp.title")} ${t("settings.serp.body")}`) ? (
+          <>
           <div className="pf-card pf-eval__panel">
             {/* With the keys card the writer is its status line; without it (no keys API) the old line stays. */}
             {modelKeys ? null : (
@@ -3857,6 +4342,7 @@ export function SettingsView({
               </div>
             ))}
           </div>
+          <SerpApiRotation canEdit={canEditPolicy} />
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.injections")}</Text>
             <Text size="xs" tone="tertiary">{t("settings.injectionsBody")}</Text>
@@ -3871,6 +4357,8 @@ export function SettingsView({
               <Text size="xs" tone="tertiary">{t("settings.noInjections")}</Text>
             )}
           </div>
+          </>
+          ) : null}
         </>
       ) : (
         <div className="pf-card"><EmptyState title={t("settings.unavailable")} body={t("settings.unavailableBody")} /></div>

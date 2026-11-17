@@ -37,11 +37,21 @@ def _user_content(user: str, images: Sequence[ImageInput] | None) -> Any:
 class AnthropicLLM:
     name = "anthropic"
 
-    def __init__(self, settings: Settings, *, api_key: str, model: str):
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        api_key: str,
+        model: str,
+        fixed_temperature: float | None = None,
+        fixed_max_tokens: int | None = None,
+    ):
         self.settings = settings
         self._api_key = api_key
         self._model = model
         self.available = bool(api_key and model)
+        self._fixed_temperature = fixed_temperature
+        self._fixed_max_tokens = fixed_max_tokens
         #: Set once the model refuses `temperature` (newer Claude models do): later calls leave it out.
         self._no_temperature = False
         self.name = model or "offline"
@@ -59,6 +69,10 @@ class AnthropicLLM:
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
+        if self._fixed_temperature is not None:
+            temperature = self._fixed_temperature
+        if self._fixed_max_tokens is not None:
+            max_tokens = self._fixed_max_tokens
         payload: dict[str, Any] = {
             "model": self._model,
             "system": system + JSON_ONLY_INSTRUCTION if json_mode else system,

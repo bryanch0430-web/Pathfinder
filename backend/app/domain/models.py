@@ -1466,6 +1466,7 @@ class EvalCaseResult(BaseModel):
     # grounding checks (see app.eval_checks).
     plan_checks: dict[str, Any] = Field(default_factory=dict)
     trace_id: str = ""
+    latency_ms: int = 0
 
 
 class EvaluationRun(BaseModel):

@@ -15,7 +15,8 @@ from typing import Any
 from app.config import Settings
 from app.domain.errors import ProviderError, ProviderNoData
 from app.domain.models import FlightCandidate, Money, PriceKind, SourceRef, utcnow
-from app.infrastructure.http import haversine_km, request_json
+from app.infrastructure.http import haversine_km
+from app.infrastructure.serpapi_keys import serpapi_json
 
 AIRPORTS: dict[str, list[str]] = {
     "hong kong": ["HKG"],
@@ -148,21 +149,17 @@ class SerpApiFlightSource:
             "gl": "us",
             "adults": max(party_size, 1),
             "type": "1" if return_date else "2",
-            "api_key": self.settings.serpapi_key,
         }
         if return_date:
             params["return_date"] = return_date.isoformat()
-        data = await request_json(
-            "GET",
-            "https://serpapi.com/search.json",
+        data = await serpapi_json(
+            self.settings,
             source=self.name,
             params=params,
             timeout=max(self.settings.http_timeout_seconds, 25),
             retries=self.settings.http_retries,
             user_agent=self.settings.user_agent,
         )
-        if data.get("error"):
-            raise ProviderError(f"{self.name} returned an error", source=self.name, detail=str(data["error"])[:300])
         itineraries = _itineraries(data)
         if not return_date:
             out = [
@@ -186,9 +183,8 @@ class SerpApiFlightSource:
             if not token:
                 continue
             try:
-                inbound_data = await request_json(
-                    "GET",
-                    "https://serpapi.com/search.json",
+                inbound_data = await serpapi_json(
+                    self.settings,
                     source=self.name,
                     params={**params, "departure_token": token},
                     timeout=max(self.settings.http_timeout_seconds, 25),

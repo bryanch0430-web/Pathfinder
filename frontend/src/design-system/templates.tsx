@@ -15,7 +15,7 @@ const FRAME_PAD = 32;
 
 type Panels = { chat: boolean; map: boolean };
 type Widths = { chat: number; map: number };
-type Sheet = "chat" | "map" | "sketch" | "videos" | "trending" | null;
+type Sheet = "chat" | "map" | "sketch" | "videos" | "trending" | "budget" | "exchange" | null;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -142,6 +142,8 @@ export function PlannerTemplate({
   sketch,
   videos,
   trending,
+  budget,
+  exchange,
 }: {
   header: ReactNode;
   left: ReactNode;
@@ -150,6 +152,8 @@ export function PlannerTemplate({
   sketch?: ReactNode;
   videos?: ReactNode;
   trending?: ReactNode;
+  budget?: ReactNode;
+  exchange?: ReactNode;
 }) {
   const { t } = useI18n();
   const [panels, setPanels] = useState<Panels>(readPanels);
@@ -238,6 +242,8 @@ export function PlannerTemplate({
             chat={left}
             plan={centre}
             map={right}
+            budget={budget ?? null}
+            exchange={exchange ?? null}
             sketch={sketch ?? null}
             videos={videos ?? null}
             trending={trending ?? null}
@@ -263,6 +269,22 @@ export function PlannerTemplate({
           >
             <Icon name="map" size={15} />
             <span>{t("map.label")}</span>
+          </button>
+          <button
+            type="button"
+            className="pf-shell__toggle"
+            aria-pressed={sheet === "budget"}
+            onClick={() => setSheet((current) => (current === "budget" ? null : "budget"))}
+          >
+            <span>{t("budget.tool")}</span>
+          </button>
+          <button
+            type="button"
+            className="pf-shell__toggle"
+            aria-pressed={sheet === "exchange"}
+            onClick={() => setSheet((current) => (current === "exchange" ? null : "exchange"))}
+          >
+            <span>{t("budget.exchange")}</span>
           </button>
           <button
             type="button"
@@ -352,6 +374,20 @@ export function PlannerTemplate({
               buttonRef={mapCloseRef}
             />
             <div className="pf-dock__body">{right}</div>
+          </div>
+        ) : null}
+
+        {!dock ? (
+          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "budget"} aria-label={t("budget.tool")} hidden={sheet !== "budget"}>
+            <DockBar label={t("budget.tool")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+            <div className="pf-dock__body">{budget}</div>
+          </div>
+        ) : null}
+
+        {!dock ? (
+          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "exchange"} aria-label={t("budget.exchange")} hidden={sheet !== "exchange"}>
+            <DockBar label={t("budget.exchange")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+            <div className="pf-dock__body">{exchange}</div>
           </div>
         ) : null}
 

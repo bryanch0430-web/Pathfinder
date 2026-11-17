@@ -234,6 +234,7 @@ class EvalService:
             budget=case.budget or 3000,
             currency=case.currency,
         )
+        started = time.perf_counter()
         decision = RuleRouter().route(message=case.input, context=context, plan_summary={"trip_id": "x"}, history=[])
         passed = decision.intent == case.expected_intent
         # Proposal TC-10: would the System 1 router let this decision stand with no model call?
@@ -248,9 +249,16 @@ class EvalService:
             score=1.0 if passed else 0.0,
             failure_class="" if passed else "wrong_intent",
             input=case.input,
-            output_summary=f"{decision.intent.value} ({decision.confidence:.2f})",
-            judge_reason="Expected " + (case.expected_intent.value if case.expected_intent else "unknown"),
+            output_summary=f"rules router → {decision.intent.value} ({decision.confidence:.2f})",
+            judge_reason=(
+                "Expected "
+                + (case.expected_intent.value if case.expected_intent else "unknown")
+                + ". Rules alone: "
+                + ("yes" if alone else "no")
+                + "."
+            ),
             scores={"routing_accuracy": 1.0 if passed else 0.0, "rules_alone": 1.0 if alone else 0.0},
+            latency_ms=int((time.perf_counter() - started) * 1000),
         )
 
     async def _injection_cases(self, cases: list[EvalCase]) -> list[EvalCaseResult]:
@@ -262,6 +270,7 @@ class EvalService:
         return await score_probes(cases, self.settings)
 
     async def _planning_case(self, case: EvalCase, ledger: RunLedger | None = None) -> EvalCaseResult:
+        case_started = time.perf_counter()
         settings = self.settings.model_copy(
             update={"preplan_budget_seconds": 20, "agent_timeout_seconds": 10, "enable_flights": True}
         )
@@ -381,11 +390,14 @@ class EvalService:
             ),
             judge_score=verdict.score if verdict else None,
             judge_flags=flags,
-            tool_summary=[
-                f"{gap.section}:{gap.kind.value}" for gap in (plan.data_quality.gaps if plan else [])[:6]
-            ],
+            tool_summary=[f"{name} × {count}" for name, count in log.summary()["calls"].items()][:16],
             scores=scores,
-            plan_checks=plan_checks,
+            plan_checks={
+                **plan_checks,
+                "trajectory": log.trajectory(),
+                "gaps": [f"{gap.section}:{gap.kind.value}" for gap in (plan.data_quality.gaps if plan else [])[:8]],
+            },
+            latency_ms=int((time.perf_counter() - case_started) * 1000),
         )
 
     async def _reroute_closure(self, case, plan, context, settings, registry, gateway, plan_path, log):
@@ -494,6 +506,37 @@ class EvalService:
 # ---------------------------------------------------------------------------
 # Sandbox: deterministic providers that implement the same ports as live data
 # ---------------------------------------------------------------------------
+
+
+def suite_preview(dataset_id: str) -> list[dict[str, str]]:
+    """The frozen cases of one suite, without running them."""
+    filename = DATASETS.get(dataset_id)
+    if not filename:
+        raise KeyError(dataset_id)
+    path = FIXTURES / filename
+    if not path.exists():
+        return []
+    if path.suffix == ".jsonl":
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    else:
+        rows = json.loads(path.read_text(encoding="utf-8"))
+    previews: list[dict[str, str]] = []
+    for row in rows:
+        expected = str(row.get("expected_intent") or "")
+        if row.get("attack"):
+            expected = f"{row.get('attack')} · {row.get('channel') or 'user'}"
+        elif row.get("fault"):
+            expected = str(row["fault"])
+        previews.append(
+            {
+                "case_id": str(row.get("id") or ""),
+                "input": str(row.get("input") or ""),
+                "split": str(row.get("split") or "dev"),
+                "expected": expected,
+                "dataset": dataset_id,
+            }
+        )
+    return previews
 
 
 class SandboxRegistry:
@@ -867,4 +910,40 @@ def export_markdown(run: EvaluationRun) -> str:
     passed = sum(1 for case in run.cases if case.passed)
     lines += ["", f"**{passed}/{len(run.cases)} cases passed.** {failures} failures."]
     lines += render_markdown(run.cases)
+    lines += render_case_details(run.cases)
     return "\n".join(lines)
+
+
+def render_case_details(cases: list[EvalCaseResult]) -> list[str]:
+    """One labeled block per case: input, output, scores, and tool results."""
+    if not cases:
+        return []
+    lines = ["", "## Case detail", ""]
+    for case in cases:
+        lines.append(f"### {case.case_id} — {'passed' if case.passed else 'failed'}")
+        lines.append("")
+        lines.append(f"- Input: {case.input}")
+        lines.append(f"- Output: {case.output_summary or '—'}")
+        if case.latency_ms:
+            lines.append(f"- Latency: {case.latency_ms} ms")
+        if case.failure_class:
+            lines.append(f"- Failure: {case.failure_class}")
+        if case.scores:
+            lines.append("- Scores: " + ", ".join(f"{key}={value}" for key, value in case.scores.items()))
+        steps = case.plan_checks.get("trajectory") or []
+        if steps:
+            lines.append("- Tool calls:")
+            for step in steps:
+                returned = "; ".join(step.get("returned") or [])
+                detail = f"  - {step.get('phase')} · {step.get('tool')} · {step.get('status')}"
+                if step.get("error"):
+                    detail += f" · {step['error']}"
+                if returned:
+                    detail += f" · {returned}"
+                lines.append(detail)
+        elif case.tool_summary:
+            lines.append("- Tool calls: " + ", ".join(case.tool_summary))
+        if case.judge_reason:
+            lines.append(f"- Scored: {case.judge_reason}")
+        lines.append("")
+    return lines

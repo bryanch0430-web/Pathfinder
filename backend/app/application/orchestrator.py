@@ -48,6 +48,8 @@ from app.application.memory import MemoryService
 from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
 from app.application.proposals import decision_record, proposal_changes, review_tier
 from app.application.planning import PlanPath
+from app.application.escalation import should_escalate
+from app.application.sentiment import frustration_score
 from app.application.router import (
     MODIFY_VERBS,
     System1Router,
@@ -249,6 +251,8 @@ class TurnService:
         developer: bool = False,
         attachments: Sequence[Attachment] = (),
         review: bool = False,
+        operator: bool = False,
+        operator_name: str = "",
         on_wait: Callable[[], None] | None = None,
         on_start: Callable[[], None] | None = None,
         on_segments: Callable[[int], None] | None = None,
@@ -270,6 +274,8 @@ class TurnService:
                     developer=developer,
                     attachments=attachments,
                     review=review,
+                    operator=operator,
+                    operator_name=operator_name,
                     on_segments=on_segments,
                 )
                 async with aclosing(turn) as events:
@@ -294,6 +300,8 @@ class TurnService:
         developer: bool = False,
         attachments: Sequence[Attachment] = (),
         review: bool = False,
+        operator: bool = False,
+        operator_name: str = "",
         on_segments: Callable[[int], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         session = self.store.get_session(session_id)
@@ -327,9 +335,61 @@ class TurnService:
                 **({"severity": screen.max_severity.value, "blocked": screen.blocked} if screen.flagged else {}),
                 **({"scope": scope_label} if scope_label else {}),
                 **({"attachments": [file.name[:200] for file in attachments]} if attachments else {}),
+                **({"operator": True, "agent_name": operator_name[:80]} if operator else {}),
             },
         )
+        user_message.meta["frustration"] = frustration_score(message)
         self.store.add_message(user_message)
+
+        if not self.store.is_held(session_id):
+            policy = self.store.escalation_policy()
+            reason = should_escalate(message, int(user_message.meta["frustration"]), policy)
+            if reason:
+                self.store.hold_chat(session_id, "")
+                with _early_exit(tracer, developer_token, "ok"):
+                    tracer.metadata["reason"] = "escalate"
+                    tracer.metadata["intent"] = "ask"
+                    tracer.metadata["escalate"] = reason
+                    note = str(policy.get("message") or "").strip() or "I'll pass this chat to a person. They will reply here."
+                    self.store.add_message(
+                        Message(
+                            session_id=session_id,
+                            role="assistant",
+                            content=note,
+                            intent=Intent.ASK,
+                            meta={"escalated": True, "escalate": reason},
+                        )
+                    )
+                    self._keep_decision(session_id, user_message.created_at, tracer)
+                    yield TurnEvent(event="token", data={"text": note})
+                yield TurnEvent(
+                    event="done",
+                    data={"request_id": request_id, "intent": "ask", "session_id": session_id, "held": True},
+                )
+                return
+
+        if self.store.is_held(session_id) and not operator:
+            with _early_exit(tracer, developer_token, "ok"):
+                tracer.metadata["reason"] = "live_agent"
+                tracer.metadata["intent"] = "ask"
+                who = self.store.held_agent(session_id)
+                note = f"{who} has this chat and will reply here." if who else "A person has this chat and will reply here."
+                self.store.add_message(
+                    Message(
+                        session_id=session_id,
+                        role="assistant",
+                        content=note,
+                        intent=Intent.ASK,
+                        meta={"live_agent": bool(who), **({"agent_name": who} if who else {})},
+                    )
+                )
+                self._keep_decision(session_id, user_message.created_at, tracer)
+                yield TurnEvent(event="token", data={"text": note})
+            yield TurnEvent(
+                event="done",
+                data={"request_id": request_id, "intent": "ask", "session_id": session_id, "held": True},
+            )
+            return
 
         if screen.blocked:
             with _early_exit(tracer, developer_token, "blocked"):
@@ -621,7 +681,8 @@ class TurnService:
                 and not screen.flagged
                 and not_about_the_trip(message)
             ):
-                # An insult or a greeting is not a question about the selected stop.
+                # After RouteOrchestrator, and after an open edit question has had
+                # its chance: an insult or a greeting is not about the selected stop.
                 decision = decision.model_copy(
                     update={
                         "intent": Intent.ASK,
@@ -1243,6 +1304,29 @@ class TurnService:
         scope_item_id: str | None = None,
         history: Sequence[Message] | None = None,
     ) -> AsyncIterator[TurnEvent]:
+        if not_about_the_trip(message):
+            # A greeting or a question about the assistant is not a trip question.
+            # Answer here, so the turn does not wait on a full plan rewrite.
+            place = (getattr(context, "destination", None) or "").strip()
+            answer = (
+                f"I'm Pathfinder, the planner for this {place} trip. Ask me about the plan, or tell me what to change."
+                if place
+                else "I'm Pathfinder, the trip planner. Tell me where and when you want to go."
+            )
+            tracer.metadata["related_to_plan"] = False
+            tracer.metadata["answer_source"] = "chat"
+            self.store.add_message(
+                Message(
+                    session_id=session_id,
+                    role="assistant",
+                    content=answer,
+                    intent=Intent.ASK,
+                    meta={"source": "chat", "related_to_plan": False},
+                )
+            )
+            yield TurnEvent(event="token", data={"text": answer})
+            self.store.touch_session(session_id)
+            return
         toolbox = Toolbox(
             path="ask",
             tracer=tracer,

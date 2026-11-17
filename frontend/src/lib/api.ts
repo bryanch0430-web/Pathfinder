@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ClarifyPayload,
   EvalDataset,
+  EvalPreview,
   EvalRun,
   EvalRunSummary,
   ClientProfile,
@@ -29,6 +30,10 @@ export interface SessionState {
   plan: TripPlan | null;
   versions: { trip_id: string; version: number; change_summary: string; created_at: string; item_count: number; destination: string; days: number }[];
   messages: ChatMessage[];
+  /** A person on the desk is answering this chat, so the planner waits. */
+  held?: boolean;
+  /** The signed-in name of that person, empty when the chat is not held. */
+  agent_name?: string;
 }
 
 /**
@@ -115,6 +120,11 @@ export function getSession(sessionId: string, signal?: AbortSignal): Promise<Ses
   return request(`/api/journeys/${sessionId}`, { signal });
 }
 
+/** Whether a person on the desk has taken this chat. Does not reload the plan. */
+export function getHeld(sessionId: string): Promise<{ held: boolean; agent_name?: string }> {
+  return request(`/api/journeys/${encodeURIComponent(sessionId)}/held`);
+}
+
 /** The saved versions of a trip: a light call to find out whether the trip is still there (404 when it is not). */
 export function getVersions(sessionId: string, signal?: AbortSignal): Promise<{ versions: SessionState["versions"] }> {
   return request(`/api/journeys/${sessionId}/revisions`, { signal });
@@ -160,6 +170,70 @@ export function postFeedback(
 
 export async function getConfig(): Promise<Record<string, unknown>> {
   return request("/api/runtime");
+}
+
+export type SerpKeyStatus = "active" | "ready" | "exhausted" | "paused";
+
+export interface SerpKey {
+  id: string;
+  label: string;
+  key_tail: string;
+  status: SerpKeyStatus;
+  position: number;
+}
+
+export function getSerpKeys(): Promise<{ keys: SerpKey[] }> {
+  return request("/api/admin/serpapi-keys", { headers: deskHeader() });
+}
+
+export function addSerpKey(body: { api_key: string; label: string; status: SerpKeyStatus }): Promise<{ keys: SerpKey[] }> {
+  return request("/api/admin/serpapi-keys", { method: "POST", headers: deskHeader(), body: JSON.stringify(body) });
+}
+
+export function setSerpKeyStatus(id: string, status: SerpKeyStatus): Promise<{ keys: SerpKey[] }> {
+  return request(`/api/admin/serpapi-keys/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: deskHeader(),
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function saveRuntime(body: {
+  thresholds?: Record<string, number>;
+  freshness_hours?: Record<string, number>;
+  gate?: "jev" | "plain" | "reason";
+  plain_model?: string;
+  reason_model?: string;
+  writer_model?: string;
+  jev?: { model: string; url: string; api_key?: string; clear_key?: boolean };
+  fast?: { model: string; url: string; api_key?: string; clear_key?: boolean };
+  poe?: { api_key?: string; clear_key?: boolean };
+  plain?: {
+    provider: string;
+    model: string;
+    base_url: string;
+    api_key?: string;
+    clear_key?: boolean;
+    temperature: number;
+    max_tokens: number;
+    reasoning: string;
+  };
+  reason?: {
+    provider: string;
+    model: string;
+    base_url: string;
+    api_key?: string;
+    clear_key?: boolean;
+    temperature: number;
+    max_tokens: number;
+    reasoning: string;
+  };
+}): Promise<Record<string, unknown>> {
+  return request("/api/admin/runtime", { method: "PUT", headers: deskHeader(), body: JSON.stringify(body) });
+}
+
+export function resetRuntime(): Promise<Record<string, unknown>> {
+  return request("/api/admin/runtime", { method: "DELETE", headers: deskHeader() });
 }
 
 /** The unauthenticated status: `local_admin` says whether this caller is in local admin mode. */
@@ -303,6 +377,11 @@ export function authHeader(): Record<string, string> {
 export function adminHeader(): Record<string, string> {
   const token = readStoredValue("admin");
   return token ? { "X-Admin-Token": token } : {};
+}
+
+/** Desk calls also send the signed-in account, so a reply can carry that person's name. */
+function deskHeader(): Record<string, string> {
+  return { ...authHeader(), ...adminHeader() };
 }
 
 /* ------------------------------------------------------------ LLM keys -- */
@@ -535,6 +614,10 @@ export async function getSavedTrips(clientToken: string): Promise<{
 }
 
 // Every /api/eval route needs the admin token (X-Admin-Token).
+export async function getEvalSuiteCases(datasetId: string): Promise<{ cases: EvalPreview[] }> {
+  return request(`/api/eval/suites/${encodeURIComponent(datasetId)}/cases`, { headers: adminHeader() });
+}
+
 export async function getEvalDatasets(): Promise<{ datasets: EvalDataset[] }> {
   return request("/api/eval/suites", { headers: adminHeader() });
 }
@@ -580,6 +663,193 @@ export async function getEvalExport(runId: string): Promise<string> {
 /** Without `adminToken` it sends the stored one when there is one (in local admin mode there may be none). */
 export async function getInjections(adminToken = ""): Promise<{ events: { category: string; severity: string; count: number }[] }> {
   return request("/api/admin/threats", { headers: adminToken ? { "X-Admin-Token": adminToken } : adminHeader() });
+}
+
+export interface TrainingExample {
+  id: string;
+  utterance: string;
+  intent: "plan" | "modify" | "ask" | "unclear";
+  note: string;
+  created_at: string;
+}
+
+export interface TrainingTurn {
+  id: string;
+  session_id: string;
+  input: string;
+  output: string;
+  path: string;
+  why: string;
+  at: string;
+  frustration: number;
+}
+
+export function getTrainingExamples(): Promise<{ examples: TrainingExample[] }> {
+  return request("/api/training/examples");
+}
+
+export function getTrainingTurns(): Promise<{ turns: TrainingTurn[] }> {
+  return request("/api/training/turns");
+}
+
+export function addTrainingExample(utterance: string, intent: TrainingExample["intent"], note: string): Promise<TrainingExample> {
+  return request("/api/training/examples", { method: "POST", body: JSON.stringify({ utterance, intent, note }) });
+}
+
+export function deleteTrainingExample(id: string): Promise<{ ok: boolean }> {
+  return request(`/api/training/examples/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export interface DeskContact {
+  destination: string;
+  origin: string;
+  start: string;
+  end: string;
+  party: number | null;
+  budget: number | null;
+  currency: string;
+  signed_in?: boolean;
+  name?: string;
+  email?: string;
+  preferences?: string[];
+}
+
+export interface DeskStop {
+  id: string;
+  name: string;
+  type: string;
+  start: string;
+  end: string;
+}
+
+export interface DeskPlan {
+  version: number;
+  days: { date: string; title: string; items: DeskStop[] }[];
+}
+
+export interface DeskChat extends DeskContact {
+  session_id: string;
+  updated_at: string;
+  held: boolean;
+  frustration: number;
+  /** session: average of at least three lines. line: only the latest line. none: nothing scored. */
+  frustration_kind?: "session" | "line" | "none";
+  band: "calm" | "uneasy" | "hot";
+  sentiment_score?: number | null;
+  sentiment_label?: string;
+  sentiment_notes?: string[];
+  preview: string;
+  last_role: string;
+}
+
+export interface DeskMessage {
+  id: string;
+  role: string;
+  content: string;
+  at: string;
+  frustration: number;
+  sentiment_label?: string;
+  operator?: boolean;
+  live_agent: boolean;
+}
+
+export function getDesk(): Promise<{ chats: DeskChat[] }> {
+  return request("/api/admin/desk", { headers: deskHeader() });
+}
+
+export function getDeskChat(sessionId: string): Promise<{ session_id: string; held: boolean; note: string; contact: DeskContact; messages: DeskMessage[] }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}`, { headers: deskHeader() });
+}
+
+export function holdDeskChat(sessionId: string): Promise<{ held: boolean }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/hold`, { method: "POST", headers: deskHeader() });
+}
+
+export function releaseDeskChat(sessionId: string): Promise<{ held: boolean }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/release`, { method: "POST", headers: deskHeader() });
+}
+
+export function saveDeskNote(sessionId: string, note: string): Promise<{ note: string }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/note`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ note }),
+  });
+}
+
+export interface EscalationPolicy {
+  enabled: boolean;
+  message: string;
+  frustration_at: number | null;
+  examples: { id: string; utterance: string }[];
+}
+
+export interface PromptRow {
+  name: string;
+  description: string;
+  default: string;
+  override: string;
+}
+
+export function getEscalation(): Promise<EscalationPolicy> {
+  return request("/api/admin/escalation", { headers: deskHeader() });
+}
+
+export function saveEscalation(body: {
+  enabled: boolean;
+  message: string;
+  frustration_at: number | null;
+  examples: string[];
+}): Promise<EscalationPolicy> {
+  return request("/api/admin/escalation", { method: "PUT", headers: deskHeader(), body: JSON.stringify(body) });
+}
+
+export function getPrompts(): Promise<{ prompts: PromptRow[] }> {
+  return request("/api/admin/prompts", { headers: deskHeader() });
+}
+
+export function savePrompt(name: string, body: string): Promise<{ name: string }> {
+  return request(`/api/admin/prompts/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: deskHeader(),
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function resetPrompt(name: string): Promise<{ ok: boolean }> {
+  return request(`/api/admin/prompts/${encodeURIComponent(name)}`, { method: "DELETE", headers: deskHeader() });
+}
+
+export function runDeskWorkflow(sessionId: string, message: string): Promise<{ reply: string; intent: string }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/run`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ message }),
+  });
+}
+
+export function getDeskPlan(sessionId: string): Promise<{ plan: DeskPlan | null }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/plan`, { headers: deskHeader() });
+}
+
+export function saveDeskPlan(
+  sessionId: string,
+  version: number,
+  items: { id: string; name: string; start: string; end: string; remove: boolean }[],
+): Promise<{ plan: DeskPlan | null }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/plan`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ version, items }),
+  });
+}
+
+export function sayOnDesk(sessionId: string, text: string): Promise<{ id: string }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/say`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ text }),
+  });
 }
 
 export interface StreamHandlers {

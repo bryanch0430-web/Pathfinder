@@ -372,6 +372,7 @@ async def _efficiency_case(case: EvalCase, settings: Settings, ledger: RunLedger
             "tool_calls_made": router.tool_calls + full.tool_calls,
             "tool_calls_logged": router.logged + full.logged,
         },
+        latency_ms=int(router.latency_ms),
     )
     ledger.tokens += router.tokens + full.tokens
     return result, router, full

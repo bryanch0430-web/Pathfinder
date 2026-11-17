@@ -632,7 +632,18 @@ export interface EvalCaseResult {
   judge_flags?: string[];
   tool_summary: string[];
   scores?: Record<string, number>;
+    plan_checks?: {
+    constraints?: { text: string; kind: string; met: boolean; evidence: string }[];
+    constraints_met?: number;
+    constraints_total?: number;
+    disruption?: { kind: string; handled: boolean; outcomes?: Record<string, boolean> } | null;
+    grounding?: { grounded?: number; items?: number; score?: number };
+    tool_log?: { calls?: Record<string, number>; errors?: string[] };
+    trajectory?: { phase: string; tool: string; status: string; error?: string; returned?: string[]; returned_count?: number }[];
+    gaps?: string[];
+  };
   trace_id: string;
+  latency_ms?: number;
 }
 
 export interface EvalRun {
@@ -662,6 +673,14 @@ export interface EvalRunSummary {
   created_at: string;
   case_count: number;
   passed: number;
+}
+
+export interface EvalPreview {
+  case_id: string;
+  input: string;
+  split: string;
+  expected: string;
+  dataset: string;
 }
 
 export interface EvalDataset {

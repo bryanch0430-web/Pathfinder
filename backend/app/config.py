@@ -101,6 +101,34 @@ class Settings(BaseSettings):
     decision_provider: str = "typesafe"
     decision_path: str = "/v1/systemone"
     decision_timeout_seconds: float = 8.0
+    #: Which model picks the path when the rules abstain.
+    #: ``jev`` is the decision model. ``plain`` is a fast model with reasoning off.
+    #: ``reason`` is a fast model with reasoning on.
+    router_gate: str = "jev"
+    poe_api_key: str = ""
+    poe_base_url: str = "https://api.poe.com/v1"
+    #: Closest fast non-reasoning model this Poe key can call. GPT-6 Luna is not on the list.
+    gate_plain_provider: str = "poe"
+    gate_plain_model: str = "gemini-3.5-flash-lite"
+    gate_plain_base_url: str = ""
+    gate_plain_api_key: str = ""
+    gate_plain_temperature: float = 0.0
+    gate_plain_max_tokens: int = 1024
+    gate_plain_reasoning: str = "none"
+    #: Closest fast reasoning model this Poe key can call. GPT-6.1 Terra is not on the list.
+    gate_reason_provider: str = "poe"
+    gate_reason_model: str = "gemini-3.8-flash"
+    gate_reason_base_url: str = ""
+    gate_reason_api_key: str = ""
+    gate_reason_temperature: float = 0.2
+    gate_reason_max_tokens: int = 1024
+    gate_reason_reasoning: str = "low"
+    #: Replaces the configuration writer's model name until reset. Empty keeps the environment model.
+    writer_model_override: str = ""
+    #: A fast-reasoning model of its own. Empty fields mean that choice uses the writer.
+    gate_fast_base_url: str = ""
+    gate_fast_api_key: str = ""
+    gate_fast_model: str = ""
 
     # --- web search --------------------------------------------------------
     # DeepSeek Search is the interactive default (sub-second, $0.75 per 1k
@@ -141,6 +169,9 @@ class Settings(BaseSettings):
     #: Empty disables it. Server-side only; never sent to the browser.
     amap_key: str = ""
     serpapi_key: str = ""
+    #: Semicolon-separated ``status|label|key`` rows. Seeded into the rotation table once, when it is empty.
+    #: status is active, ready, exhausted, or paused.
+    serpapi_key_pool: str = ""
     youtube_api_key: str = ""
 
     enable_notes: bool = True
@@ -270,6 +301,14 @@ class Settings(BaseSettings):
     #: Seconds each city after the first adds to that deadline on a multi-city trip (capped at 900 in all).
     segment_deadline_seconds: float = 90.0
 
+    @field_validator("router_gate", mode="before")
+    @classmethod
+    def _router_gate(cls, value: object) -> str:
+        cleaned = str(value or "").strip().lower()
+        if cleaned == "fast":
+            return "reason"
+        return cleaned if cleaned in {"jev", "plain", "reason"} else "jev"
+
     @field_validator("llm_provider", mode="before")
     @classmethod
     def _normalise_provider(cls, value: object) -> str:
@@ -315,6 +354,9 @@ class Settings(BaseSettings):
 
     @property
     def writer_model(self) -> str:
+        override = self.writer_model_override.strip()
+        if override:
+            return override
         if self.writer_is_xai and self.xai_api_key:
             return self.xai_model or self.llm_model
         if self.writer_is_openai_compatible and self.openai_api_key:

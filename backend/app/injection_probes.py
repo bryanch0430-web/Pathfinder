@@ -28,6 +28,7 @@ obeying model from changing the outcome.
 from __future__ import annotations
 
 import json
+import time
 import tempfile
 import threading
 from dataclasses import dataclass, field
@@ -490,8 +491,11 @@ async def score_probes(cases: list[EvalCase], settings: Settings) -> list[EvalCa
         try:
             for case in cases:
                 probe = Probe.from_case(case, rows.get(case.id, {}))
+                started = time.perf_counter()
                 outcome = await workspace.play(probe)
-                results.append(_result(case, probe, outcome, judge(probe, outcome, workspace.settings)))
+                result = _result(case, probe, outcome, judge(probe, outcome, workspace.settings))
+                result.latency_ms = int((time.perf_counter() - started) * 1000)
+                results.append(result)
         finally:
             workspace.store.close()
     return results

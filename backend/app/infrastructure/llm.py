@@ -52,6 +52,9 @@ class OpenAICompatibleLLM:
         api_key: str | None = None,
         model: str | None = None,
         label: str | None = None,
+        fixed_temperature: float | None = None,
+        fixed_max_tokens: int | None = None,
+        extra: dict[str, Any] | None = None,
     ):
         self.settings = settings
         # One resolution point, shared with the container: Settings decides
@@ -59,10 +62,18 @@ class OpenAICompatibleLLM:
         # An explicit argument (a user's own key) takes the place of the setting.
         self._base_url = settings.writer_base_url if base_url is None else base_url
         self._api_key = settings.writer_api_key if api_key is None else api_key
-        self._model = settings.writer_model if model is None else model
+        # None follows the live writer model, so a settings change applies without a new process.
+        self._pinned_model = model
         self._label = label
+        self._fixed_temperature = fixed_temperature
+        self._fixed_max_tokens = fixed_max_tokens
+        self._extra = dict(extra or {})
         self.available = bool(self._base_url and self._api_key)
-        self.name = self._model or "offline"
+
+    @property
+    def name(self) -> str:
+        chosen = self._pinned_model if self._pinned_model is not None else self.settings.writer_model
+        return (chosen or "").strip() or "offline"
 
     async def complete(
         self,
@@ -77,8 +88,12 @@ class OpenAICompatibleLLM:
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
+        if self._fixed_temperature is not None:
+            temperature = self._fixed_temperature
+        if self._fixed_max_tokens is not None:
+            max_tokens = self._fixed_max_tokens
         payload: dict[str, Any] = {
-            "model": self._model,
+            "model": self.name,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": _user_content(user, images)},
@@ -89,6 +104,8 @@ class OpenAICompatibleLLM:
         }
         if json_mode and self.settings.llm_json_mode:
             payload["response_format"] = {"type": "json_object"}
+        if self._extra:
+            payload["extra_body"] = dict(self._extra)
 
         started = time.perf_counter()
         data = await self._post(payload, purpose)
@@ -97,7 +114,7 @@ class OpenAICompatibleLLM:
         usage = data.get("usage") or {}
         return LLMResult(
             text=content,
-            model=str(data.get("model") or self._model),
+            model=str(data.get("model") or self.name),
             prompt_tokens=int(usage.get("prompt_tokens") or 0),
             completion_tokens=int(usage.get("completion_tokens") or 0),
             latency_ms=int((time.perf_counter() - started) * 1000),
@@ -132,6 +149,11 @@ class OpenAICompatibleLLM:
                             continue
                         if "temperature" in payload and "temperature" in body:
                             payload.pop("temperature")
+                            continue
+                        if "extra_body" in payload and (
+                            "extra_body" in body or "reasoning_effort" in body
+                        ):
+                            payload.pop("extra_body", None)
                             continue
                     detail = scrub(response.text, [self._api_key])[:300]
                     message = f"{self._label} returned HTTP {response.status_code}" if self._label else ""

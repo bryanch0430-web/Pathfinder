@@ -18,9 +18,9 @@ export function statusLine(status: LlmStatus, t: Translate, providers: Pick<LlmP
     case "byok":
       return t("keys.status.byok", { provider: providerLabel(status.provider, providers), model: status.model });
     case "server":
-      return t("keys.status.server");
+      return t("keys.status.server", { model: status.model });
     case "env":
-      return t("keys.status.env");
+      return t("keys.status.env", { model: status.model });
     case "local":
       return t("keys.status.local", { model: status.model });
     default:

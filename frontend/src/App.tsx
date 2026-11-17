@@ -8,6 +8,8 @@ import {
   LoadingScreen,
   MAIN_PANEL_ID,
   MapPanel,
+  BudgetPanel,
+  ExchangePanel,
   PlanLanguageBanner,
   PlannerTemplate,
   ShareDialog,
@@ -56,6 +58,8 @@ import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } fr
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
 import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
+import { DeskPage } from "./app/learn";
+import { showsAdmin } from "./lib/access";
 import { Sketchbook } from "./design-system/sketch/Sketchbook";
 
 const HASH_TAB: Record<string, AppTab> = {
@@ -130,6 +134,7 @@ export default function App() {
       />
     );
   const [tab, setTab] = useState<AppTab>(tabFromHash);
+  const [deskOpen, setDeskOpen] = useState(() => window.location.hash.replace("#", "") === "desk");
   const [mapDay, setMapDay] = useState<string>("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [dark, setDark] = useState(() => {
@@ -196,7 +201,9 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   // Local admin mode (the owner's own machine): no sign-in or registration is offered. Log out stays in the account
   // menu while a sign-in from before is stored.
-  const signIn = offersSignIn(useLocalAdmin());
+  const localAdmin = useLocalAdmin();
+  const signIn = offersSignIn(localAdmin);
+  const showDesk = showsAdmin(localAdmin, readStoredValue("admin"));
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);
   const [guidesLoading, setGuidesLoading] = useState(false);
@@ -508,7 +515,15 @@ export default function App() {
   };
 
   useEffect(() => {
-    const onHash = () => setTab(tabFromHash());
+    const onHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "desk") {
+        setDeskOpen(true);
+        return;
+      }
+      setDeskOpen(false);
+      setTab(HASH_TAB[hash] ?? "plan");
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -573,6 +588,20 @@ export default function App() {
     />
   );
 
+  if (deskOpen) {
+    return showDesk ? (
+      <DeskPage onBack={() => { if (window.opener) window.close(); else window.location.hash = "plan"; }} />
+    ) : (
+      <main className="pf-center">
+        <header className="pf-center__bar">
+          <h1 className="pf-heading" data-level="2">{t("desk.title")}</h1>
+          <button type="button" className="pf-center__back" onClick={() => { window.location.hash = "plan"; }}>{t("desk.back")}</button>
+        </header>
+        <p className="pf-center__locked">{t("desk.closed")}</p>
+      </main>
+    );
+  }
+
   return (
     <>
       <input
@@ -605,6 +634,15 @@ export default function App() {
         onNewTrip={() => void createTripTab()}
         theme={dark ? "dark" : "light"}
         onTheme={() => setDark((value) => !value)}
+        onOpenDesk={showDesk ? () => {
+          const opened = window.open(
+            `${window.location.pathname}?desk=1#desk`,
+            "pathfinder-desk",
+            "popup=yes,width=1200,height=840,resizable=yes",
+          );
+          if (opened) opened.focus();
+          else window.location.hash = "desk";
+        } : undefined}
       />
       <div role="tabpanel" id={MAIN_PANEL_ID} aria-labelledby={appTabId(tab)}>
       {tab === "plan" ? (
@@ -650,6 +688,8 @@ export default function App() {
                   onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
                   trace={pf.trace}
                   live={pf.live}
+                  held={pf.held}
+                  agentName={pf.agentName}
                 />
               </div>
             }
@@ -731,6 +771,23 @@ export default function App() {
               )
             }
             trending={trendingRail}
+            budget={
+              pf.plan ? (
+                <BudgetPanel
+                  cost={pf.plan.cost}
+                  onOptimize={() => void pf.send("Optimise my budget and keep the confirmed stops.")}
+                />
+              ) : (
+                <p className="pf-sketch-empty">{t("budget.empty")}</p>
+              )
+            }
+            exchange={
+              pf.plan && fx ? (
+                <ExchangePanel cost={pf.plan.cost} fx={fx} />
+              ) : (
+                <p className="pf-sketch-empty">{t("budget.exchangeEmpty")}</p>
+              )
+            }
             right={
               pf.plan ? (
                 <>
@@ -741,8 +798,6 @@ export default function App() {
                     onActiveDay={setMapDay}
                     selectedItemId={pf.selectedItem?.id ?? null}
                     onSelectItem={selectItem}
-                    onOptimize={() => void pf.send("Optimise my budget and keep the confirmed stops.")}
-                    fx={fx}
                     updatedIds={pf.changedIds}
                     changedStayIds={pf.changedStayIds}
                   />

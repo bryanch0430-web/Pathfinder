@@ -1191,21 +1191,13 @@ export function AgentActivity({
 
 export function BudgetPanel({
   cost,
-  fx,
   onOptimize,
 }: {
   cost: CostBreakdown;
-  fx?: FxSnapshot | null;
   onOptimize?: () => void;
 }) {
   const { t } = useI18n();
-  const [displayCurrency, setDisplayCurrency] = useState("USD");
   const ratio = cost.budget && cost.budget > 0 ? Math.min(100, Math.round((cost.total / cost.budget) * 100)) : 42;
-  const rates = fx?.rates ?? {};
-  const fromRate = rates[cost.currency] ?? 1;
-  const toRate = rates[displayCurrency] ?? 1;
-  const converted = fromRate > 0 ? (cost.total * toRate) / fromRate : cost.total;
-  const conversionCurrencies = ["USD", "HKD", "JPY", "CNY", "EUR", "GBP", "SGD", "TWD", "THB", "KRW"];
   return (
     <div className="pf-budget">
       <div className="pf-budget__row">
@@ -1245,41 +1237,54 @@ export function BudgetPanel({
           </Badge>
         </div>
       ) : null}
-      {fx ? (
-        <div className="pf-fx">
-          <div className="pf-row pf-row--between">
-            <span className="pf-fx__title"><Icon name="globe" size={12} /> {t("budget.fx")}</span>
-            <Badge tone={fx.source === "open.er-api" ? "success" : "neutral"} dot>
-              {fx.source === "open.er-api" ? t("status.ok") : t("budget.reference")}
-            </Badge>
-          </div>
-          <div className="pf-fx__convert">
-            <span className="pf-small pf-muted">
-              {cost.currency} {Math.round(cost.total).toLocaleString()} ≈
-            </span>
-            <Select
-              aria-label={t("budget.displayCurrency")}
-              value={displayCurrency}
-              onChange={(event) => setDisplayCurrency(event.target.value)}
-            >
-              {conversionCurrencies.map((code) => (
-                <option key={code} value={code}>{code}</option>
-              ))}
-            </Select>
-            <strong>
-              {displayCurrency} {Math.round(converted).toLocaleString()}
-            </strong>
-          </div>
-          <span className="pf-fx__note">
-            {t("budget.base", { base: fx.base })} · {fx.as_of} · {fx.note}
-          </span>
-        </div>
-      ) : null}
       {onOptimize ? (
         <Button variant="ink" size="sm" block onClick={onOptimize} iconLeft="sparkles">
           {t("budget.optimise")}
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+/** Turns the trip total into another currency. It does not change the plan. */
+export function ExchangePanel({ cost, fx }: { cost: CostBreakdown; fx: FxSnapshot }) {
+  const { t } = useI18n();
+  const [displayCurrency, setDisplayCurrency] = useState("USD");
+  const rates = fx.rates ?? {};
+  const fromRate = rates[cost.currency] ?? 1;
+  const toRate = rates[displayCurrency] ?? 1;
+  const converted = fromRate > 0 ? (cost.total * toRate) / fromRate : cost.total;
+  const conversionCurrencies = ["USD", "HKD", "JPY", "CNY", "EUR", "GBP", "SGD", "TWD", "THB", "KRW"];
+  return (
+    <div className="pf-exchange">
+      <div className="pf-fx">
+        <div className="pf-row pf-row--between">
+          <span className="pf-fx__title"><Icon name="globe" size={12} /> {t("budget.fx")}</span>
+          <Badge tone={fx.source === "open.er-api" ? "success" : "neutral"} dot>
+            {fx.source === "open.er-api" ? t("status.ok") : t("budget.reference")}
+          </Badge>
+        </div>
+        <div className="pf-fx__convert">
+          <span className="pf-small pf-muted">
+            {cost.currency} {Math.round(cost.total).toLocaleString()} ≈
+          </span>
+          <Select
+            aria-label={t("budget.displayCurrency")}
+            value={displayCurrency}
+            onChange={(event) => setDisplayCurrency(event.target.value)}
+          >
+            {conversionCurrencies.map((code) => (
+              <option key={code} value={code}>{code}</option>
+            ))}
+          </Select>
+          <strong>
+            {displayCurrency} {Math.round(converted).toLocaleString()}
+          </strong>
+        </div>
+        <span className="pf-fx__note">
+          {t("budget.base", { base: fx.base })} · {fx.as_of} · {fx.note}
+        </span>
+      </div>
     </div>
   );
 }

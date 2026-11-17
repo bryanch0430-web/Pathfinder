@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { AppHeader } from "../organisms";
+import { AppHeader, type AppTab } from "../organisms";
 
 const meta: Meta = { title: "Organisms/App header" };
 export default meta;
@@ -8,7 +8,7 @@ type Story = StoryObj;
 
 export const Playground: Story = {
   render: () => {
-    const [tab, setTab] = useState<"plan" | "saved" | "evaluation" | "settings">("plan");
+    const [tab, setTab] = useState<AppTab>("plan");
     const [locale, setLocale] = useState("en");
     return (
       <div className="pf-app">

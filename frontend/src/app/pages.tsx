@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AdminTune } from "./adminTune";
 import {
   EvalDashboard,
   SavedTripsView,
@@ -11,10 +12,13 @@ import {
   adminHeader,
   clearMemory,
   getConfig,
+  resetRuntime,
+  saveRuntime,
   getEvalDatasets,
   getEvalExport,
   getEvalRun,
   getEvalRuns,
+  getEvalSuiteCases,
   getInjections,
   getLlmKeys,
   getLlmProviders,
@@ -39,7 +43,7 @@ import { useI18n, type MessageKey } from "../lib/i18n";
 import { loadLocalAdmin, useLocalAdmin } from "../lib/localAdmin";
 import { readStoredValue } from "../lib/storage";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
-import type { ClientProfile, EvalDataset, EvalRun, EvalRunSummary } from "../design-system/types";
+import type { ClientProfile, EvalDataset, EvalPreview, EvalRun, EvalRunSummary } from "../design-system/types";
 
 export function SavedPage() {
   const { t } = useI18n();
@@ -71,6 +75,9 @@ export function EvaluationPage() {
   const [datasets, setDatasets] = useState<EvalDataset[]>([]);
   const [runs, setRuns] = useState<EvalRunSummary[]>([]);
   const [latest, setLatest] = useState<EvalRun | null>(null);
+  const [opened, setOpened] = useState<Record<string, EvalRun>>({});
+  const [previews, setPreviews] = useState<Record<string, EvalPreview[]>>({});
+  const [detail, setDetail] = useState<EvalRun | null>(null);
   const [running, setRunning] = useState(false);
   // Kept as a message key, so that a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
@@ -91,11 +98,30 @@ export function EvaluationPage() {
       const [datasetData, runData] = await Promise.all([getEvalDatasets(), getEvalRuns()]);
       setDatasets(datasetData.datasets);
       setRuns(runData.runs);
-      const preferred = runData.runs.find((run) => run.dataset_id === "hongkong") ?? runData.runs[0];
-      if (preferred) {
-        const detail = await getEvalRun(preferred.id);
-        setLatest(detail.run);
+      const newest = new Map<string, string>();
+      for (const run of runData.runs) {
+        if (!newest.has(run.dataset_id)) newest.set(run.dataset_id, run.id);
       }
+      const [scored, defined] = await Promise.all([
+        Promise.all(
+          [...newest.entries()].map(async ([datasetId, runId]) => {
+            const loaded = await getEvalRun(runId);
+            return [datasetId, loaded.run] as const;
+          }),
+        ),
+        Promise.all(
+          datasetData.datasets
+            .filter((dataset) => !newest.has(dataset.id))
+            .map(async (dataset) => {
+              const loaded = await getEvalSuiteCases(dataset.id);
+              return [dataset.id, loaded.cases] as const;
+            }),
+        ),
+      ]);
+      const bySuite = Object.fromEntries(scored);
+      setOpened(bySuite);
+      setPreviews(Object.fromEntries(defined));
+      setLatest(scored[0]?.[1] ?? null);
       setError(null);
     } catch (cause) {
       setError(failure(cause, "errors.evalService"));
@@ -114,6 +140,13 @@ export function EvaluationPage() {
     try {
       const data = await runEval(dataset, tag);
       setLatest(data.run);
+      setDetail(data.run);
+      setOpened((current) => ({ ...current, [data.run.dataset_id]: data.run }));
+      setPreviews((current) => {
+        const next = { ...current };
+        delete next[data.run.dataset_id];
+        return next;
+      });
       const runData = await getEvalRuns();
       setRuns(runData.runs);
     } catch (cause) {
@@ -136,8 +169,9 @@ export function EvaluationPage() {
 
   const handleSelectRun = async (runId: string) => {
     try {
-      const detail = await getEvalRun(runId);
-      setLatest(detail.run);
+      const loaded = await getEvalRun(runId);
+      setLatest(loaded.run);
+      setDetail(loaded.run);
     } catch (cause) {
       setError(failure(cause, "errors.evalOpen"));
     }
@@ -168,6 +202,9 @@ export function EvaluationPage() {
       onRun={(dataset, tag) => void handleRun(dataset, tag)}
       onExport={(runId) => void handleExport(runId)}
       onSelectRun={(runId) => void handleSelectRun(runId)}
+      opened={opened}
+      previews={previews}
+      detail={detail}
     />
   );
 }
@@ -296,6 +333,25 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
       onClearMemory={handleClearMemory}
       modelKeys={ownKeys}
       serverKeys={hasAdminToken ? serverKeys : undefined}
+      providers={providers}
+      admin={hasAdminToken ? (show) => <AdminTune show={show} /> : undefined}
+      canEditPolicy={hasAdminToken}
+      onSavePolicy={async (body) => {
+        await saveRuntime(body);
+        setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
+      }}
+      onResetPolicy={async () => {
+        await resetRuntime();
+        setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
+      }}
+      onSaveGate={async (gate) => {
+        await saveRuntime({ gate });
+        setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
+      }}
+      onSaveOrchestrator={async (body) => {
+        await saveRuntime(body);
+        setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
+      }}
     />
   );
 }

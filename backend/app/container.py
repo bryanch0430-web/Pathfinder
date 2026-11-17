@@ -87,11 +87,16 @@ def build_container(settings: Settings | None = None) -> Container:
     settings = settings or get_settings()
     settings.ensure_directories()
     store = SQLiteStore(settings.database_path, share_ttl_days=settings.share_ttl_days)
+    store.apply_runtime(settings)
     box = SecretBox(settings)
+    store.apply_gate_secrets(settings, box)
+    from app.infrastructure.serpapi_keys import install_ring
+
+    install_ring(store, box, settings)
     selector = LLMSelector(settings, store, box)
     # Built after the selector: Grok search is paid by the caller's own xAI key when there is one.
     registry = ProviderRegistry.build(settings, selector)
-    prompts = PromptLibrary(settings)
+    prompts = PromptLibrary(settings, overrides=store.prompt_override)
     # Each request is served by the caller's own key when it has one, else the operator chain.
     llm: LLM = CallerLLM(selector)
     if settings.writer_available:

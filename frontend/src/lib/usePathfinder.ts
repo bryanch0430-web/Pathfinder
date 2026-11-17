@@ -15,6 +15,7 @@ import {
   decideProposal,
   importPlan,
   restorePlan,
+  getHeld,
   getSession,
   getVersions,
   getTranslation,
@@ -146,6 +147,10 @@ export interface PathfinderHook {
   languageNotice: PlanLanguageNotice;
   versions: SessionState["versions"];
   messages: ChatMessage[];
+  /** A person on the desk is answering, so new messages wait for them. */
+  held: boolean;
+  /** That person's account name, empty when nobody has the chat. */
+  agentName: string;
   /** The message typed in the box of the open trip and not sent. Each trip keeps its own while the page stays open. */
   draft: string;
   setDraft: (value: string) => void;
@@ -263,6 +268,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [versions, setVersions] = useState<SessionState["versions"]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [held, setHeld] = useState(false);
+  const [agentName, setAgentName] = useState("");
   // The message typed and not sent, per trip. It is held here and not by the chat panel, which a visit to another page
   // and the loading screen of a reload take away.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -673,10 +680,34 @@ export function usePathfinder(locale: string): PathfinderHook {
         setPlan(data.plan);
         setActiveVersion(data.plan.version);
       }
+      setHeld(Boolean(data.held));
+      setAgentName(data.held ? data.agent_name || "" : "");
     } catch {
       // The optimistic state stays visible; the next action will retry.
     }
   }, []);
+
+  useEffect(() => {
+    if (!held || !sessionId) return;
+    const timer = window.setInterval(() => void refresh(), 4000);
+    return () => window.clearInterval(timer);
+  }, [held, sessionId, refresh]);
+
+  useEffect(() => {
+    if (held || !sessionId) return;
+    const timer = window.setInterval(() => {
+      if (shownRef.current.busy) return;
+      void getHeld(sessionId)
+        .then((data) => {
+          if (!data.held || sessionRef.current !== sessionId) return;
+          setHeld(true);
+          setAgentName(data.agent_name || "");
+          void refresh();
+        })
+        .catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [held, sessionId, refresh]);
 
   const setPlanLocale = useCallback(async (value: PlanLocale) => {
     setPlanLocaleState(value);
@@ -1326,6 +1357,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     languageNotice,
     versions,
     messages,
+    held,
+    agentName,
     draft: drafts[draftKey] ?? "",
     setDraft,
     busy,

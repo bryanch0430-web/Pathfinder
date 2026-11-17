@@ -54,6 +54,15 @@ _PROMPT_SKILLS = {
 }
 
 
+def prompt_entries() -> list[tuple[str, str, str]]:
+    """Each writer prompt: the name the gateway uses, a one-line description, the file body."""
+    rows: list[tuple[str, str, str]] = []
+    for prompt in _PROMPT_SKILLS:
+        skill = skill_for(prompt)
+        rows.append((prompt, skill.description if skill else "", skill.body if skill else ""))
+    return rows
+
+
 def skill_for(prompt: str) -> Skill | None:
     """The skill for a prompt name."""
     name = _PROMPT_SKILLS.get(prompt)

@@ -4,7 +4,7 @@ import { Icon } from "./icons";
 
 export interface Rect { x: number; y: number; w: number; h: number }
 interface Size { w: number; h: number }
-type Id = "chat" | "plan" | "map" | "sketch" | "videos" | "trending";
+type Id = "chat" | "plan" | "map" | "budget" | "exchange" | "sketch" | "videos" | "trending";
 
 const KEY = "pathfinder-canvas";
 const GAP = 12;
@@ -17,6 +17,8 @@ const MIN: Record<Id, Size> = {
   chat: { w: 220, h: 200 },
   plan: { w: 280, h: 200 },
   map: { w: 240, h: 200 },
+  budget: { w: 280, h: 220 },
+  exchange: { w: 280, h: 180 },
   sketch: { w: 320, h: 240 },
   videos: { w: 240, h: 180 },
   trending: { w: 260, h: 200 },
@@ -35,6 +37,8 @@ const DEFAULT_OPEN: Record<Id, boolean> = {
   chat: true,
   plan: true,
   map: true,
+  budget: false,
+  exchange: false,
   sketch: false,
   videos: false,
   trending: false,
@@ -141,6 +145,18 @@ function defaults(board: Size): Record<Id, Rect> {
       y: top + Math.max(0, bodyH - videoH),
       w: videoW,
       h: videoH,
+    },
+    budget: {
+      x: Math.max(EDGE, xMap),
+      y: top + Math.max(0, bodyH - 280),
+      w: Math.max(MIN.budget.w, Math.min(mapW, 360)),
+      h: 280,
+    },
+    exchange: {
+      x: Math.max(EDGE, xMap),
+      y: top + Math.max(0, Math.round(bodyH * 0.18)),
+      w: Math.max(MIN.exchange.w, Math.min(mapW, 360)),
+      h: 220,
     },
     trending: {
       x: EDGE,
@@ -287,13 +303,20 @@ function Window({
   );
 }
 
-const ORDER: Id[] = ["chat", "plan", "map", "sketch", "videos", "trending"];
+const ORDER: Id[] = ["chat", "plan", "map", "budget", "exchange", "sketch", "videos", "trending"];
+const GROUPS: Id[][] = [
+  ["chat", "plan", "map"],
+  ["budget", "exchange"],
+  ["sketch", "videos", "trending"],
+];
 
 /** A bone canvas. Chat, the plan, the map and the sketchbook float on it. */
 export function CanvasBoard({
   chat,
   plan,
   map,
+  budget,
+  exchange,
   sketch,
   videos,
   trending,
@@ -301,6 +324,8 @@ export function CanvasBoard({
   chat: ReactNode;
   plan: ReactNode;
   map: ReactNode;
+  budget: ReactNode;
+  exchange: ReactNode;
   sketch: ReactNode;
   videos: ReactNode;
   trending: ReactNode;
@@ -314,9 +339,17 @@ export function CanvasBoard({
     chat: t("chat.label"),
     plan: t("panels.plan"),
     map: t("map.label"),
+    budget: t("budget.tool"),
+    exchange: t("budget.exchange"),
     sketch: t("panels.sketch"),
     videos: t("videos.title"),
     trending: t("trending.eyebrow"),
+  };
+  const barLabel: Record<Id, string> = {
+    ...labels,
+    map: t("panels.bar.map"),
+    budget: t("panels.bar.budget"),
+    videos: t("panels.bar.watch"),
   };
   const board = useBoardSize(boardRef);
   const [saved, setSaved] = useState<Saved>(readSaved);
@@ -331,7 +364,7 @@ export function CanvasBoard({
       y: Math.min(Math.max(8, point.y), Math.max(8, limit.h - height - 8)),
     };
   };
-  const content: Record<Id, ReactNode> = { chat, plan, map, sketch, videos, trending };
+  const content: Record<Id, ReactNode> = { chat, plan, map, budget, exchange, sketch, videos, trending };
 
   useEffect(() => {
     try {
@@ -390,16 +423,21 @@ export function CanvasBoard({
           }}
         >
           <span className="pf-shell__drag" aria-hidden="true" title="Drag the toolbar" />
-          {ORDER.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className="pf-shell__toggle"
-              aria-pressed={saved.open[id]}
-              onClick={() => toggle(id)}
-            >
-              <span>{labels[id]}</span>
-            </button>
+          {GROUPS.map((group, index) => (
+            <span className="pf-shell__group" key={group[0]} role="group">
+              {index > 0 ? <span className="pf-shell__split" aria-hidden="true" /> : null}
+              {group.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="pf-shell__toggle"
+                  aria-pressed={saved.open[id]}
+                  onClick={() => toggle(id)}
+                >
+                  <span>{barLabel[id]}</span>
+                </button>
+              ))}
+            </span>
           ))}
           <button type="button" className="pf-shell__toggle pf-shell__toggle--quiet" onClick={resetAll}>
             {t("panels.reset")}

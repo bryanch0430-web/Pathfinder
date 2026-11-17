@@ -15,6 +15,8 @@ export type ModelKeysProps = {
   title: string;
   /** One sentence under the title saying whose key this is. */
   body?: string;
+  /** The choice that turns this card's saved keys off, in words that say what is used instead. */
+  fallbackLabel?: string;
   providers: LlmProvider[];
   keys: LlmKey[];
   status: LlmStatus | null;
@@ -44,6 +46,7 @@ function testLine(result: KeyTestResult, t: ReturnType<typeof useI18n>["t"]): st
 export function ModelKeysCard({
   title,
   body,
+  fallbackLabel,
   providers,
   keys,
   status,
@@ -157,7 +160,7 @@ export function ModelKeysCard({
               disabled={busy}
               onChange={() => void onChoose(null)}
             />
-            <span className="pf-small">{t("keys.useDefault")}</span>
+            <span className="pf-small">{fallbackLabel ?? t("keys.useDefault")}</span>
           </label>
         ) : (
           <Text size="xs" tone="tertiary">{t("keys.empty")}</Text>
@@ -226,7 +229,7 @@ export function ModelKeysCard({
               type={showKey ? "text" : "password"}
               value={apiKey}
               placeholder={provider?.key_prefix ? `${provider.key_prefix}…` : undefined}
-              autoComplete="off"
+              autoComplete="new-password"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}

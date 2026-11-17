@@ -19,8 +19,8 @@ test("an unknown provider id falls back to the id itself", () => {
 });
 
 test("the server's key, the environment's key, the local model and no model each have their own words", () => {
-  assert.equal(statusLine({ source: "server", provider: "xai", model: "g", local }, t, providers), "keys.status.server");
-  assert.equal(statusLine({ source: "env", provider: "xai", model: "g", local }, t, providers), "keys.status.env");
+  assert.equal(statusLine({ source: "server", provider: "xai", model: "g", local }, t, providers), 'keys.status.server{"model":"g"}');
+  assert.equal(statusLine({ source: "env", provider: "xai", model: "g", local }, t, providers), 'keys.status.env{"model":"g"}');
   assert.equal(
     statusLine({ source: "local", provider: "", model: "llama3.1", local }, t, providers),
     'keys.status.local{"model":"llama3.1"}',

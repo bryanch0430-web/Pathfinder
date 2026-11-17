@@ -5,6 +5,19 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.9.0 — 2026-11-17
+
+The planner still takes one path per message. This release is which model chooses that path, and seeing every test suite.
+
+- **Three routing gates.** Settings → Orchestrator: Jev, a fast model, or a fast reasoning model. Each cloud arm has its own provider, model, key, temperature, reasoning effort and reply cap. A blank key uses the server Poe key. The choice applies to the next message. A bot that rejects a reasoning-effort field is called again without it. Working defaults on this Poe key: Gemini 3.5 Flash-Lite (temperature 0) and Gemini 3.8 Flash (temperature 0.2).
+- **Jev stays the gate.** On 84 frozen routing items, one run, Jev and Gemini 3.5 Flash-Lite both scored 78/84 and a paired test cannot separate them. Jev answers in about 0.6 s and a confidence of 0.8 keeps 61 of 63. The fast model takes about 5 s and does not abstain. Gemini 3.8 Flash failed 30 of 84 calls on Poe and is not the gate. Repeat with `python scripts/gate_compare.py` from `backend/`.
+- **Settings are grouped.** Search and chips: General, Handoff, Instructions, Profile, Writer, Orchestrator, Policy, Updates, System. The search box does not take a saved password.
+- **SerpAPI keys rotate.** One key in use, keys waiting, and keys kept after they run out. A used-up key is replaced and that search is tried again.
+- **The Desk is its own window.** It shows a signed-in client or a guest, and their preferences. After taking the chat over, the operator can run the workflow, start a plan, or edit stops by hand. A live person's message is shown as that person.
+- **A greeting is answered at once.** A line that is not about the trip does not wait on the writer.
+- **Evaluation lists every suite.** Routing, Injection, Hongkong, Japan, Travelplanner, Efficiency and Edit vs replan. A scored case shows input, output, scores and tool calls. An unscored suite still lists its frozen cases.
+- **The four lookups are called workers** on the page. The live agent is still a person.
+
 ## v1.8.0 — 2026-11-17
 
 A UI/UX visual upgrade. Planning still takes one path per message.

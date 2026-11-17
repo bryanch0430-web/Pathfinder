@@ -20,7 +20,6 @@ export const Playground: Story = {
           onActiveDay={setActive}
           selectedItemId={selected?.id ?? null}
           onSelectItem={setSelected}
-          onOptimize={() => undefined}
         />
       </div>
     );
