@@ -88,7 +88,7 @@ def test_the_outline_the_clarify_prompt_reads_does_not_mention_an_open_stay(
     settings: Settings,
 ) -> None:
     llm, _events, open_choices = _run(
-        settings, "hmm", {"intent": "unclear", "confidence": 0.3}
+        settings, "hmm, day 2", {"intent": "unclear", "confidence": 0.3}
     )
 
     assert open_choices, (

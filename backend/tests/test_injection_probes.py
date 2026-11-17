@@ -237,3 +237,9 @@ def test_tc05_blocklist_does_not_flag_the_benign_router_set(settings: Settings) 
     """Proposal TC-05 / TC-04 (p4): the extended blocklist flags none of the 84 labelled travel messages."""
     flagged = [row["id"] for row in load_rows("routing") if screen_message(row["input"], settings).flagged]
     assert flagged == []
+
+
+def test_a_flagged_message_that_names_nothing_on_the_plan_is_not_answered_as_chat(settings: Settings) -> None:
+    """i09: the not-about-the-trip rule must not send a screen-flagged message to a model that obeys it."""
+    results = asyncio.run(score_probes(_cases(settings, {"i09"}), settings))
+    assert [(r.case_id, r.passed, r.failure_class) for r in results] == [("i09", True, "")]

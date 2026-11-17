@@ -48,6 +48,9 @@ _SHORT_REPLY = re.compile(
 )
 
 
+_VAGUE = re.compile(r"^(h+m+|u+h+m*|um+|er+m?)\b|\b(not sure|i don'?t know|dunno|maybe|perhaps)\b")
+
+
 def not_about_the_trip(message: str) -> bool:
     """Chat that does not name the trip, a stop, or a short reply to an open question.
 
@@ -60,6 +63,10 @@ def not_about_the_trip(message: str) -> bool:
     if re.search(_TRAVEL_ANCHORS, lower) or re.search(PLAN_VERBS, lower) or re.search(MODIFY_VERBS, lower):
         return False
     if _SHORT_REPLY.match(lower):
+        return False
+    if _VAGUE.search(lower) or not re.search(r"[^\W\d_]", lower):
+        # A hedge ("hmm, not sure yet") or bare punctuation ("???") is an unfinished thought about the plan, not
+        # chat: the selected stop is worth asking about.
         return False
     if len(lower.split()) <= 4 and _POINTING.search(lower):
         return False
