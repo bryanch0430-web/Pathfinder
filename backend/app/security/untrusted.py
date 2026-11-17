@@ -17,7 +17,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.domain.models import Severity
-from app.security.guard import INDIRECT_PATTERNS, PATTERNS
+from app.security.guard import INDIRECT_PATTERNS, PATTERNS, _as_a_reader_sees_it, strip_fence_tags
 
 REMOVED = "[removed: instructions found in fetched text]"
 #: high-severity user patterns, minus the bare word "canary" (Canary Wharf is a place) and
@@ -25,15 +25,17 @@ REMOVED = "[removed: instructions found in fetched text]"
 _PATTERNS = [
     (name, re.compile(pattern))
     for name, severity, pattern in PATTERNS
-    if severity == Severity.HIGH and name not in {"canary_probe", "role_override"}
+    if severity == Severity.HIGH and name != "role_override"
 ] + [(name, re.compile(pattern)) for name, pattern in INDIRECT_PATTERNS]
 _MAX_DEPTH = 6
 
 
 def screen_fetched_text(text: str) -> list[str]:
-    if len(text) < 12:
+    if len(text.strip()) < 4:
         return []
-    return sorted({name for name, pattern in _PATTERNS if pattern.search(text)})
+    cleaned = strip_fence_tags(text)
+    readings = [text, cleaned, _as_a_reader_sees_it(cleaned), _as_a_reader_sees_it(cleaned, gap=" ")]
+    return sorted({name for name, pattern in _PATTERNS if any(pattern.search(r) for r in readings)})
 
 
 def neutralise(value: Any, hits: list[str], _depth: int = 0) -> Any:

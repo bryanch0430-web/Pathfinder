@@ -324,7 +324,9 @@ async def _apply_route(
                 != segment.destination.name.casefold()
             ):
                 continue
-            if old.dates == segment.dates:
+            was_last = old_index == len(plan.segments) - 1
+            is_last = index == len(segments) - 1
+            if old.dates == segment.dates and (was_last or not is_last):
                 kept_parts[index] = old_parts[old_index]
             else:
                 carry[index] = old_parts[old_index]
@@ -555,7 +557,18 @@ def _localise_day(message: str, plan: TripPlan, segment_index: int) -> str:
         number = int(found.group(1) or found.group(2))
         return f"day {max(number - first, 1)}"
 
-    return _DAY_NAMED.sub(local, message, count=1)
+    return _DAY_NAMED.sub(local, message)
+
+
+def _localise_parts(route_parts: list[str], plan: TripPlan, segment_index: int) -> list[str]:
+    first = next(i for i, day in enumerate(plan.days) if day.segment_id == plan.segments[segment_index].id)
+    out: list[str] = []
+    for part in route_parts:
+        if part.startswith("day_") and part[4:].isdigit():
+            out.append(f"day_{max(int(part[4:]) - first, 1)}")
+        else:
+            out.append(part)
+    return out
 
 
 def _own_id(item_id: str | None, number: int) -> str | None:
@@ -604,12 +617,13 @@ async def edit_cities(
         segment = plan.segments[index]
         city = city_context(context, segment, last=index == len(plan.segments) - 1, budget=shares[index])
         asked = message if target == "all" else _localise_day(message, plan, index)
+        local_parts = route_parts if target == "all" else _localise_parts(route_parts, plan, index)
         async with gate:
             return await modify.run(
                 plan=parts[index],
                 context=city,
                 message=asked,
-                route_parts=route_parts,
+                route_parts=local_parts,
                 toolbox=toolbox,
                 tracer=tracer,
                 emit=emit,

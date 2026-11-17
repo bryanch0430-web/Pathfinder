@@ -167,4 +167,4 @@ def test_an_explicit_swap_of_the_locked_stay_still_swaps_it_and_the_reply_says_s
     before, after, reply = _run(settings, THREE, body)
 
     assert "locked in and was left as it is" not in reply
-    assert _stay_in(after, "Osaka").name != before.name or "hotel" in reply.lower()
+    assert _stay_in(after, "Osaka").name != before.name

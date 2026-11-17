@@ -8,8 +8,10 @@ skills; they are in docs/search-skill-notes. The folder is read once per process
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+import re
 
 _ROOT = Path(__file__).resolve().parent.parent / "skills"
+_FRONTMATTER = re.compile(r"\A\ufeff?---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -80,14 +82,12 @@ def skill_for_modify() -> Skill | None:
 
 
 def _frontmatter(text: str) -> tuple[dict[str, str], str]:
-    if not text.startswith("---"):
-        return {}, text.strip()
-    parts = text.split("---", 2)
-    if len(parts) < 3:
+    match = _FRONTMATTER.match(text)
+    if match is None:
         return {}, text.strip()
     meta: dict[str, str] = {}
-    for line in parts[1].splitlines():
+    for line in match.group(1).splitlines():
         key, sep, value = line.partition(":")
         if sep:
-            meta[key.strip()] = value.strip()
-    return meta, parts[2].strip()
+            meta[key.strip()] = value.strip().strip("\"'")
+    return meta, match.group(2).strip()

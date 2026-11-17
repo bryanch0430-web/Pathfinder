@@ -2329,7 +2329,7 @@ def _runtime_view(active: Settings, store: Any | None = None) -> dict[str, Any]:
             "hotels": active.hotel_fresh_seconds // 3600,
             "attractions": active.attraction_fresh_seconds // 3600,
         },
-        "gate": active.router_gate if active.router_gate in {"jev", "plain", "reason"} else "jev",
+        "gate": "reason" if active.router_gate == "fast" else (active.router_gate if active.router_gate in {"jev", "plain", "reason"} else "jev"),
         "writer_model": active.writer_model,
         "poe_ready": bool(active.poe_api_key),
         "poe": _key_view(active.poe_api_key, poe_saved),

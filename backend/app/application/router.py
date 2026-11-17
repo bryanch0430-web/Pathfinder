@@ -87,7 +87,22 @@ _HEDGES = (
     r"\b(not sure|maybe|perhaps|i don'?t know|dunno|whatever|surprise me|never ?mind|"
     r"something|somewhere|anything|thinking (of|about)|what if|what about|rather)\b"
 )
-_COMMAND_QUESTION = r"^(please\b|(can|could|would|will) (you|we)\b)"
+_COMMAND_QUESTION = r"^(please\b(?!\s*,)|(can|could|would|will) (you|we)\b(?!\s+(?:tell|explain|let)\b))"
+_CLAUSE_SPLIT = re.compile(r"[,;.:!?–—]|\s-+\s|\b(?:so|therefore|hence|thus|and|but|then|just|instead)\b")
+_VERB_NEGATION = re.compile(
+    r"\b(?:do\s+not|don['’]?t|dont|never|no\s+need\s+to|no\s+reason\s+to|without|not(?:\s+to)?|"
+    r"(?:would\s+|'d\s+)?rather\s+not|prefer\s+not\s+to)\s+(?:(?:want|need|going)\s+to\s+)?$"
+)
+_DONT_FORGET_TO = re.compile(r"\b(?:don['’]?t|do\s+not|never)\s+(?:forget|hesitate|fail)\s+to\b")
+
+
+def _has_unnegated_modify(lower: str, pattern: str) -> bool:
+    for match in re.finditer(pattern, lower):
+        start = max((cut.end() for cut in _CLAUSE_SPLIT.finditer(lower, 0, match.start())), default=0)
+        prefix = _DONT_FORGET_TO.sub(" ", lower[start : match.start()])
+        if not _VERB_NEGATION.search(prefix):
+            return True
+    return False
 _WORD_MODIFY = rf"\b{MODIFY_VERBS}\b"
 _TRAVEL_ANCHORS = (
     r"\b(hotels?|hostels?|ryokan|rooms?|stay|check[- ]?(in|out)|flights?|fly|trains?|stations?|airport|"
@@ -297,9 +312,14 @@ class RuleRouter:
             return display.model_copy(update={"missing_slots": missing})
 
         affected = ["dates"] if replans_new_dates(text, context, plan_summary) else _affected_parts(lower)
-        is_question = bool(re.match(ASK_STARTERS, lower)) or text.endswith("?")
+        command_question = bool(re.match(_COMMAND_QUESTION, lower))
+        is_question = (
+            bool(re.match(ASK_STARTERS, lower))
+            or bool(re.search(r"(?:^|[,;]\s*)(?:just\s+|please\s+)?(?:tell\s+me|let\s+me\s+know)\b", lower))
+            or text.endswith("?")
+        ) and not command_question
         modify_hit = (
-            bool(re.search(MODIFY_VERBS, lower))
+            _has_unnegated_modify(lower, MODIFY_VERBS)
             or _changes_the_dates(lower, context, plan_summary)
             or is_replan_message(text)
             or _MAKE_THE_TRIP.search(lower) is not None
@@ -311,7 +331,7 @@ class RuleRouter:
             intent = Intent.ASK
             confidence = 0.9 if has_plan else 0.82
             reason = "question"
-        elif modify_hit and has_plan and not _looks_like_new_trip(lower):
+        elif modify_hit and (has_plan or not (plan_hit or travel_hit)) and not _looks_like_new_trip(lower):
             intent = Intent.MODIFY
             confidence = 0.86
             reason = "change_current_plan"
@@ -335,6 +355,8 @@ class RuleRouter:
             reason = "missing_" + "_".join(missing[:2])
 
         cuisine = cuisine_slot(message) if intent == Intent.MODIFY else None
+        if intent == Intent.MODIFY and not [part for part in affected if not part.startswith("day_")]:
+            affected = sorted({*affected, "attraction"})
         return RouteDecision(
             intent=intent,
             confidence=confidence,
@@ -429,8 +451,10 @@ class LLMRouter:
             confidence = float(data.get("confidence", 0.0))
         except (TypeError, ValueError):
             confidence = 0.0
-        affected = [str(part) for part in data.get("affected_parts") or [] if isinstance(part, str)]
-        missing = [str(slot) for slot in data.get("missing_slots") or [] if isinstance(slot, str)]
+        valid_parts = {"hotel", "attraction", "weather", "ticket", "budget", "dates", "pace"} | {f"day_{i}" for i in range(1, 31)}
+        valid_slots = {"destination", "origin", "dates", "start_date", "end_date", "days", "party_size", "budget"}
+        affected = [str(part) for part in data.get("affected_parts") or [] if isinstance(part, str) and str(part) in valid_parts]
+        missing = [str(slot) for slot in data.get("missing_slots") or [] if isinstance(slot, str) and str(slot) in valid_slots]
         if not missing:
             missing = context.missing_slots()
         return RouteDecision(
@@ -510,8 +534,15 @@ def _gate(
     """Apply the confidence gate and deterministic safety rules to any router."""
     missing = context.missing_slots()
     intent = decision.intent
-    if plan_summary is None and intent == Intent.MODIFY:
-        intent = Intent.UNCLEAR
+    if plan_summary is None and (intent == Intent.MODIFY or decision.reason_code == "no_plan_to_modify"):
+        return decision.model_copy(
+            update={
+                "intent": Intent.UNCLEAR,
+                "need_clarification": True,
+                "reason_code": "no_plan_to_modify",
+                "missing_slots": missing,
+            }
+        )
     if decision.confidence < settings.router_threshold:
         if not missing and plan_summary is None and intent in {Intent.UNCLEAR, Intent.PLAN}:
             # The context is complete: a short fragment (often a clarify answer)
@@ -570,10 +601,10 @@ def _affected_parts(lower: str) -> list[str]:
     mapping = [
         ("hotel", r"\b(hotel|hostel|stay|accommodation|room|ryokan)\b|" + GRANDER_WORDS),
         ("ticket", r"\b(flight|fly|train|ticket|fare|seat|rail|shinkansen)\b"),
-        ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity|eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe)\b"),
+        ("attraction", r"\b(attraction|sight|museum|temple|shrine|park|visit|stop|activity|day\s+trips?|excursions?|eat|eating|food|meal|dinner|lunch|breakfast|restaurant|cafe)\b"),
         ("weather", r"\b(weather|rain|forecast|typhoon|temperature)\b"),
         ("budget", r"\b(budget|cost|cheaper|expensive|money|price)\b|\bspend\s+(?:less|more|under|over)\b"),
-        ("dates", r"\b(date|dates|day|days|nights|extend|shorten|earlier|later)\b"),
+        ("dates", r"\b(date|dates|days|nights|extend|shorten|earlier|later)\b"),
     ]
     for name, pattern in mapping:
         if re.search(pattern, without_concessive_budget(lower) if name == "budget" else lower):
@@ -605,7 +636,8 @@ def _looks_like_new_trip(lower: str) -> bool:
 #: "make this trip cheaper", "make the trip a bit shorter": a change of the trip that exists, with no change verb. A pace
 #: word ("slower", "lighter") is not here: the edit cannot apply it, and it would answer "I could not tell which stop".
 _MAKE_THE_TRIP = re.compile(
-    r"\bmake\s+(?:this|that|the|my|our)\s+(?:trip|itinerary|plan|stay|holiday|vacation)\s+(?:a\s+(?:bit|little)\s+)?"
+    r"\bmake\s+(?:(?:this|that|the|my|our)\s+(?:trip|itinerary|plan|stay|holiday|vacation)"
+    r"|day\s*\d{1,2}|(?:the\s+)?(?:first|second|third|fourth|fifth|last)\s+day)\s+(?:a\s+(?:bit|little)\s+)?"
     r"(?:cheaper|longer|shorter)\b"
 )
 
@@ -663,7 +695,7 @@ def rules_decide_alone(
     command_question = bool(re.match(_COMMAND_QUESTION, lower))
     plan_hit = bool(re.search(PLAN_VERBS, lower)) or bool(re.search(r"\b\d+\s*-?\s*(day|night)s?\b", lower))
     modify_hit = (
-        bool(re.search(_WORD_MODIFY, lower))
+        _has_unnegated_modify(lower, _WORD_MODIFY)
         or _changes_the_dates(lower, context, plan_summary)
         or is_replan_message(text)
         or _MAKE_THE_TRIP.search(lower) is not None
@@ -827,7 +859,7 @@ class RouteOrchestrator:
                 raise
             except Exception:
                 pass
-        if cloud is None and router.use_model and router.gateway.available:
+        if router.use_model and router.gateway.available:
             try:
                 decision = await router.llm.route(
                     message=message,

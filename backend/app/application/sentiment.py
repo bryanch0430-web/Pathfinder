@@ -40,13 +40,17 @@ _NOT = frozenset({
 })
 _BOOST = frozenset({"very", "really", "extremely", "totally", "absolutely", "so", "好", "非常"})
 _LATIN = re.compile(r"[a-z']+")
-_CJK = re.compile(r"[\u4e00-\u9fff]{1,2}")
+_CJK_WORDS = sorted((_STRONG | _MILD | _KIND | _NOT | _BOOST) - {w for w in (_STRONG | _MILD | _KIND | _NOT | _BOOST) if w.isascii()}, key=len, reverse=True)
+_CJK = re.compile("|".join(re.escape(w) for w in _CJK_WORDS) + r"|[\u4e00-\u9fff]")
+_PUNCT = re.compile(r"[,;.:!?！？，。；：]+")
 
 
 def _tokens(lower: str) -> list[str]:
+    lower = lower.replace("’", "'")
     latin = [(match.start(), match.group(0)) for match in _LATIN.finditer(lower)]
     cjk = [(match.start(), match.group(0)) for match in _CJK.finditer(lower)]
-    return [token for _, token in sorted(latin + cjk)]
+    punct = [(match.start(), ",") for match in _PUNCT.finditer(lower)]
+    return [token for _, token in sorted(latin + cjk + punct)]
 
 
 def _weight(token: str) -> float:
@@ -99,6 +103,8 @@ def line_reading(text: str) -> dict[str, Any]:
         else:
             continue
         window = tokens[max(0, index - 3):index]
+        if "," in window:
+            window = window[len(window) - 1 - window[::-1].index(",") + 1 :]
         if negated_piece or any(item in _NOT for item in window):
             weight = -0.5 * weight
             if "negation" not in notes:

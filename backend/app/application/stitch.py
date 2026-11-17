@@ -280,8 +280,16 @@ def stitch(
         stays += [
             stay.model_copy(
                 update={
-                    "check_in": segment.dates.start,
-                    "check_out": segment.dates.end,
+                    "check_in": (
+                        stay.check_in
+                        if len(part.hotels) > 1 and stay.check_in and segment.dates.start <= stay.check_in < segment.dates.end
+                        else segment.dates.start
+                    ),
+                    "check_out": (
+                        stay.check_out
+                        if len(part.hotels) > 1 and stay.check_out and segment.dates.start < stay.check_out <= segment.dates.end
+                        else segment.dates.end
+                    ),
                     "segment_id": segment.id,
                 }
             )

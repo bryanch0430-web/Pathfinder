@@ -341,7 +341,32 @@ class TurnService:
         user_message.meta["frustration"] = frustration_score(message)
         self.store.add_message(user_message)
 
-        if not self.store.is_held(session_id):
+        if screen.blocked:
+            with _early_exit(tracer, developer_token, "blocked"):
+                tracer.metadata["reason"] = "security_blocklist"
+                tracer.metadata["intent"] = "unclear"
+                self.store.add_message(
+                    Message(session_id=session_id, role="assistant", content=SAFE_REPLY, intent=Intent.UNCLEAR)
+                )
+                self._keep_decision(session_id, user_message.created_at, tracer)
+                yield TurnEvent(
+                    event="route",
+                    data={
+                        "intent": "unclear",
+                        "confidence": 1.0,
+                        "need_clarification": False,
+                        "blocked": True,
+                        "reason_code": "security_blocklist",
+                    },
+                )
+                yield TurnEvent(event="token", data={"text": SAFE_REPLY})
+            yield TurnEvent(
+                event="done",
+                data={"request_id": request_id, "intent": "unclear", "session_id": session_id, "blocked": True},
+            )
+            return
+
+        if not self.store.is_held(session_id) and not operator:
             policy = self.store.escalation_policy()
             reason = should_escalate(message, int(user_message.meta["frustration"]), policy)
             if reason:
@@ -388,31 +413,6 @@ class TurnService:
             yield TurnEvent(
                 event="done",
                 data={"request_id": request_id, "intent": "ask", "session_id": session_id, "held": True},
-            )
-            return
-
-        if screen.blocked:
-            with _early_exit(tracer, developer_token, "blocked"):
-                tracer.metadata["reason"] = "security_blocklist"
-                tracer.metadata["intent"] = "unclear"
-                self.store.add_message(
-                    Message(session_id=session_id, role="assistant", content=SAFE_REPLY, intent=Intent.UNCLEAR)
-                )
-                self._keep_decision(session_id, user_message.created_at, tracer)
-                yield TurnEvent(
-                    event="route",
-                    data={
-                        "intent": "unclear",
-                        "confidence": 1.0,
-                        "need_clarification": False,
-                        "blocked": True,
-                        "reason_code": "security_blocklist",
-                    },
-                )
-                yield TurnEvent(event="token", data={"text": SAFE_REPLY})
-            yield TurnEvent(
-                event="done",
-                data={"request_id": request_id, "intent": "unclear", "session_id": session_id, "blocked": True},
             )
             return
 
@@ -1034,9 +1034,9 @@ class TurnService:
         the form's destination, and the dates and length worked out from it, go back to what the form held before the
         message. A field the traveller saved meanwhile (it no longer holds what this message left) is not touched."""
         current = self.store.get_context(read.session_id)
-        if current is None or read.destination == as_read.destination:
+        if current is None:
             return read
-        for name in ("destination", "start_date", "end_date", "days"):
+        for name in ("destination", "stops", "start_date", "end_date", "days"):
             if getattr(current, name) == getattr(read, name):
                 setattr(current, name, getattr(as_read, name))
         self.store.save_context(current)

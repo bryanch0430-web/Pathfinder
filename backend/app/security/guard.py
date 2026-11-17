@@ -39,9 +39,9 @@ _REPLY_MADE_SOMETHING_ELSE = (
 PATTERNS: list[tuple[str, Severity, str]] = [
     # "my" and "our" make previous|prior|above instructions a traveller's own ("ignore my previous instructions about the
     # hotel"), but not a system, a developer or a prompt: a traveller owns none of them.
-    ("ignore_instructions", Severity.HIGH, r"(?i)\b(?:ignore|disregard|forget)\b.{0,40}(?:(?<!\bmy\s)(?<!\bour\s)\b(?:previous|prior|above)\b.{0,20}\b(?:instruction|rule)s?\b|\b(?:previous|prior|above)\W+prompts?\b|\b(?:system|developer|your)\b.{0,20}\b(?:instruction|prompt|rule)s?\b)"),
+    ("ignore_instructions", Severity.HIGH, r"(?i)\b(?:ignore|disregard|forget|override)\b.{0,40}(?:(?<!\bmy\s)(?<!\bour\s)\b(?:previous|prior|above|earlier)\b.{0,20}\b(?:instruction|rule)s?\b|\b(?:previous|prior|above)\W+prompts?\b|\b(?:system|developer|safety|routing|your)\b.{0,20}\b(?:instruction|prompt|rule|guardrail|polic(?:y|ies))s?\b)|\b(?:ignore|disregard|forget)\s+(?:all\s+(?:of\s+)?)?the\s+(?:above|previous|prior)\b|\b(?:ignore|disregard|forget)\b.{0,20}\b(?:everything|all|anything|what)\s+you\s+(?:were|have\s+been)\s+(?:told|instructed|given|taught)\b|\b(?:new|updated|override)\s+instructions?(?:\s+from\s+the\s+operator)?\s*:|\bsystem\s+override\s*:|(?:^|[.!?]\s*)\boverride\s*:|(?:^|\n)\s*system\s*:\s*(?:you\b|ignore\b|disregard\b|override\b|new\b|from\s+now\s+on\b|reply\b|output\b)|(?:請|请)?(?:忽略|無視|无视|忘記|忘记|不要理會|不要理会|跳過|跳过|覆蓋|覆盖).{0,10}(?:以上|上述|之前|以前|先前|前面|所有|全部|你的|系統|系统).{0,10}(?:所有|全部|的|系統|系统)?(?:指令|指示|提示詞?|提示词?|規則|规则|設定|设定)|\b(?:ignore[rz]?|oublie[rz]?|ne\s+tenez\s+pas\s+compte\s+de)\b.{0,25}\b(?:toutes\s+)?(?:les\s+|vos\s+|ces\s+)?(?:instructions?|r[èe]gles?|consignes?|prompts?)\s+(?:pr[ée]c[ée]dentes?|ant[ée]rieures?|ci-dessus|syst[èe]mes?)\b|\b(?:ignora(?:r|d)?|ignore(?:n)?|olvida(?:r|d)?|olvide(?:n)?|descarta(?:r)?)\b.{0,25}\b(?:todas\s+)?(?:las\s+|tus\s+|sus\s+)?(?:instrucciones|reglas|indicaciones|prompts?)\s+(?:anteriores|previas|del\s+sistema|de\s+arriba)\b"),
     ("tool_smuggling", Severity.HIGH, r"(?i)\b(call|invoke|run|execute)\s+(the\s+)?tool\b|\bcancel_order\b|\bbook_flight\b"),
-    ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(reveal|show|print|repeat|leak|dump|output)\b.{0,30}\b(system prompts?|hidden instructions?|developer messages?|canary" + _NOT_A_CANARY_DESTINATION + r")\b"),
+    ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(reveal|show|print|repeat|leak|dump|output|give|tell)\b.{0,30}\b(system prompts?|hidden instructions?|developer messages?|(?:your|the)\s+(?:system\s+|initial\s+|original\s+|full\s+)?prompts?|your\s+(?:system\s+|hidden\s+|secret\s+|initial\s+)?instructions?|(?:the\s+|your\s+)?api[_\s\-]?keys?|canary" + _NOT_A_CANARY_DESTINATION + r")\b|\bwhat\s+are\s+your\s+(?:[\w\-]+\s+){0,2}?(?:instructions?|prompts?|rules?)\b|(?:顯示|显示|列出|貼出|贴出|輸出|输出|透露|告訴我|告诉我|重複|重复).{0,15}(?:你的|系統|系统|隱藏|隐藏|開發者|开发者).{0,10}(?:系統|系统|隱藏|隐藏)?(?:提示詞?|提示词?|指令|指示|規則|规则)|(?:把|將|将).{0,10}(?:你的|系統|系统).{0,10}(?:提示詞?|提示词?|指令|指示).{0,10}(?:貼出|贴出|輸出|输出|顯示|显示|發出來|发出来)"),
     ("role_override", Severity.HIGH, r"(?i)\byou are now\b|\bact as\b.{0,20}\b(root|admin|developer|dan)\b|\bdeveloper mode\b"),
     ("tool_smuggling", Severity.HIGH, r"(?i)<tool_call>|</?function[_-]?call|\bcall_tool\s*\(|\{\s*\"tool\"\s*:"),
     ("jailbreak", Severity.MEDIUM, r"(?i)\b(jailbreak|do anything now|no restrictions|bypass your (rules|guardrails))\b"),
@@ -49,7 +49,7 @@ PATTERNS: list[tuple[str, Severity, str]] = [
     # Added from the TC-05 dev probes (Proposal p4): paraphrased tool calls,
     # prompt extraction without the words "system prompt", and task hijacks.
     ("tool_smuggling", Severity.HIGH, r"(?i)\b(call|invoke|run|execute|trigger|use)\s+(the\s+|your\s+|my\s+|a\s+)?([\w.\-]+\s+){0,2}(tool|api|function|endpoint)s?\b|\b(call|invoke|run|execute|trigger)\s+[a-z]+\.(?!(?:com|net|org|edu|gov|io|co|jp|uk|hk|cn)\b)[a-z_]+\b|\b(book|cancel|refund|charge|delete|send|transfer)_[a-z_]+\b"),
-    ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(repeat|print|show|output|quote|paste|copy|recite|reveal|dump)\b.{0,30}\b(everything|all|anything|whatever|the text|the words)\b.{0,20}\b(above|before)\s+(this|that|my|the first)\b|\bwhat\b.{0,15}\bwere you (told|instructed|given|programmed)\b|\bquote (it|them|that) (word for word|verbatim)\b|\b(secret|sentinel|hidden)\s+(strings?|tokens?|words?|values?|keys?|phrases?)\b"),
+    ("system_prompt_extraction", Severity.HIGH, r"(?i)\b(repeat|print|show|output|quote|paste|copy|recite|reveal|dump)\b.{0,30}\b(everything|all|anything|whatever|the text|the words)\b.{0,20}\b(above|before)(?:\s+(?:this|that|my|the\s+first|starting\s+with)\b|\s*$|[,.!?;:])|\bwhat\b.{0,15}\bwere you (told|instructed|given|programmed)\b|\bquote (it|them|that) (word for word|verbatim)\b|\b(secret|sentinel|hidden)\s+(strings?|tokens?|words?|values?|keys?|phrases?)\b"),
     ("task_hijack", Severity.HIGH, r"(?i)" + _STOP_PLANNING + _WHOLE_TASK + r"(?:[\s,;:-]*\b(?:instead|and\s+(?:just\s+|only\s+)?(?:write|tell|summari[sz]e|translate|reply|output|chat|say))|\s*[.!?;]\s*.{0,60}?\binstead)\b|" + _STOP_PLANNING + r"(?:\W+\w+){0,5}?\W+(?:and\W+)?(?:(?:just|only)\W+)?" + _OFF_TOPIC_WRITING + r"|\byour (only|new|real) (job|task|role|purpose)\b|\bfrom now on,? every message\b|" + _REPLY_MADE_SOMETHING_ELSE),
 ]
 
@@ -87,8 +87,34 @@ class ScreenResult:
         return bool(self.categories)
 
 
+_SPACED_RUN = re.compile(r"\b(?:[A-Za-z0-9@$][._\- ]+){2,}[A-Za-z0-9@$]\b")
+_ANCHOR_WORDS = re.compile(
+    r"(?i)(ignore|disregard|forget|override|previous|prior|above|earlier|system|developer|safety|instructions?|prompts?|rules?|reveal|show|print|repeat|output)"
+)
+_LEET_I = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s"})
+_LEET_L = str.maketrans({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s"})
+
+
+def _collapse_spaced(text: str) -> str:
+    parts = re.split(r"\s{2,}", text[:FENCE_ANALYSIS_LIMIT])
+    out: list[str] = []
+    for part in parts:
+        collapsed = _SPACED_RUN.sub(lambda m: re.sub(r"[\s._\-]+", "", m.group(0)), part)
+        collapsed = re.sub(r"[A-Za-z]{10,}", lambda m: _ANCHOR_WORDS.sub(r" \1 ", m.group(0)), collapsed)
+        out.append(collapsed)
+    return " ".join(" ".join(out).split())
+
+
+def _deleet(text: str, table: dict[int, str]) -> str:
+    return re.sub(
+        r"[A-Za-z0-9@$]{2,}",
+        lambda m: m.group(0).translate(table) if any(c.isalpha() for c in m.group(0)) and any(c in "013457@$" for c in m.group(0)) else m.group(0),
+        text[:FENCE_ANALYSIS_LIMIT],
+    )
+
+
 def screen_message(message: str, settings: Settings) -> ScreenResult:
-    return _screen([message], settings)
+    return screen_turn(message, settings)
 
 
 def screen_turn(message: str, settings: Settings) -> ScreenResult:
@@ -105,7 +131,21 @@ def screen_turn(message: str, settings: Settings) -> ScreenResult:
     """
     read = strip_fence_tags(message)
     replayed = strip_fence_tags(" ".join(message.split()))
-    readings = [message, read, replayed, _as_a_reader_sees_it(read), _as_a_reader_sees_it(read, gap=" ")]
+    seen = _as_a_reader_sees_it(read)
+    collapsed = _collapse_spaced(read)
+    seen_collapsed = _collapse_spaced(seen)
+    readings = [
+        message,
+        read,
+        replayed,
+        seen,
+        _as_a_reader_sees_it(read, gap=" "),
+        collapsed,
+        seen_collapsed,
+        _deleet(seen, _LEET_I),
+        _deleet(seen, _LEET_L),
+        _deleet(seen_collapsed, _LEET_I),
+    ]
     return _screen(list(dict.fromkeys(readings)), settings)
 
 
@@ -306,10 +346,13 @@ def fence_user_message(message: str) -> str:
 
 
 def canary_leaked(text: str, settings: Settings) -> bool:
-    return bool(settings.canary_token and settings.canary_token in text)
+    if not settings.canary_token or not text:
+        return False
+    token = settings.canary_token.lower()
+    return token in text.lower() or token in _as_a_reader_sees_it(text).lower()
 
 
 def redact_canary(text: str, settings: Settings) -> str:
     if settings.canary_token:
-        return text.replace(settings.canary_token, "[redacted]")
+        return re.sub(re.escape(settings.canary_token), "[redacted]", text, flags=re.IGNORECASE)
     return text

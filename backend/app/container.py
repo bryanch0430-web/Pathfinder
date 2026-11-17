@@ -131,7 +131,7 @@ def build_container(settings: Settings | None = None) -> Container:
         logger.info("writer: not configured; turns run offline")
     tracer_proxy = TracerProxy()
     gateway = LLMGateway(llm, prompts, tracer_proxy, settings)
-    decision_client = JevDecisionClient(settings, prompts) if settings.decision_available else None
+    decision_client = JevDecisionClient(settings, prompts)
     router = System1Router(
         gateway=gateway,
         settings=settings,

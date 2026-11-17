@@ -935,8 +935,10 @@ class SQLiteStore:
 
     def apply_runtime(self, settings: Any) -> None:
         """Copy stored overrides onto ``settings``. The first call remembers the environment values."""
-        text_base = _TEXT_BASELINE.setdefault(id(settings), _text_baseline(settings))
-        base = _RUNTIME_BASELINE.setdefault(id(settings), _runtime_baseline(settings))
+        text_base = getattr(settings, "__pf_text_base", None) or _text_baseline(settings)
+        base = getattr(settings, "__pf_runtime_base", None) or _runtime_baseline(settings)
+        object.__setattr__(settings, "__pf_text_base", text_base)
+        object.__setattr__(settings, "__pf_runtime_base", base)
         raw = self.runtime_overrides()
         settings.router_threshold = _runtime_float(raw, "router_confidence", base["router_threshold"], 0.0, 1.0)
         settings.memory_similarity_cutoff = _runtime_float(raw, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
@@ -951,7 +953,8 @@ class SQLiteStore:
             hours = _runtime_float(raw, key, base[field] / 3600, 1.0, 24 * 365)
             setattr(settings, field, int(hours) * 3600)
         current = str(getattr(settings, "router_gate", "jev") or "jev").strip().lower()
-        gate_base = _GATE_BASELINE.setdefault(id(settings), current if current in _GATE_CHOICES else "jev")
+        gate_base = getattr(settings, "__pf_gate_base", None) or (current if current in _GATE_CHOICES else "jev")
+        object.__setattr__(settings, "__pf_gate_base", gate_base)
         try:
             settings.router_gate = _runtime_choice(raw, "router_gate", gate_base, _GATE_CHOICES)
         except ValueError:
@@ -973,8 +976,7 @@ class SQLiteStore:
         settings.gate_reason_temperature = _runtime_float(raw, "gate_reason_temperature", base["gate_reason_temperature"], 0.0, 2.0)
         settings.gate_plain_max_tokens = int(_runtime_float(raw, "gate_plain_max_tokens", base["gate_plain_max_tokens"], 16, 16384))
         settings.gate_reason_max_tokens = int(_runtime_float(raw, "gate_reason_max_tokens", base["gate_reason_max_tokens"], 16, 16384))
-        if settings.router_gate == "fast":
-            settings.router_gate = "reason"
+
 
     def delete_runtime_keys(self, keys: list[str]) -> None:
         if not keys:

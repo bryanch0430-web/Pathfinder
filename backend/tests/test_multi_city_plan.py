@@ -138,12 +138,16 @@ def test_more_cities_than_the_setting_allows_are_refused(settings: Settings) -> 
 
 
 def test_a_city_that_cannot_be_located_names_itself(settings: Settings) -> None:
+    rig_geocoder = None
+
     class Nowhere:
         name = "nowhere"
 
         async def geocode(self, name, *, country_hint=""):
             from app.domain.errors import ProviderNoData
 
+            if name != "Atlantis" and rig_geocoder is not None:
+                return await rig_geocoder.geocode(name, country_hint=country_hint)
             raise ProviderNoData("none", source="nowhere")
 
     settings = settings.model_copy(
@@ -152,9 +156,11 @@ def test_a_city_that_cannot_be_located_names_itself(settings: Settings) -> None:
     context = route_context("s", [("Kyoto", 1), ("Atlantis", 1)])
 
     async def main():
+        nonlocal rig_geocoder
         ledger = RunLedger()
         try:
             rig = multi_city_rig(settings, ledger)
+            rig_geocoder = rig.plan_path.registry.geocoder
             rig.plan_path.registry.geocoder = Nowhere()
             await rig.plan_path.run(
                 context=context,
@@ -168,7 +174,7 @@ def test_a_city_that_cannot_be_located_names_itself(settings: Settings) -> None:
         finally:
             ledger.close()
 
-    with pytest.raises(PlanInvalidError, match="I could not locate 'Kyoto'"):
+    with pytest.raises(PlanInvalidError, match="I could not locate 'Atlantis'"):
         asyncio.run(main())
 
 

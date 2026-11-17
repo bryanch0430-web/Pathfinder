@@ -38,7 +38,7 @@ from app.domain.models import (
 )
 from app.domain.ports import ImageInput
 from app.security import strip_fence_tags, strip_fence_tags_deep
-from app.security.untrusted import neutralise
+from app.security.untrusted import REMOVED, neutralise, screen_fetched_text
 
 _URL = re.compile(r"(?i)\bhttps?://[^\s<>\"'　-〿＀-￯]+")
 _URL_ANYWHERE = re.compile(r"(?i)https?://|www\.")
@@ -126,7 +126,10 @@ def _key(text: Any) -> str:
 
 def _screened(text: str) -> str:
     """Fetched or uploaded text with instruction-like content replaced, as every tool result is."""
-    return str(neutralise(text, []))
+    if screen_fetched_text(text):
+        return ""
+    cleaned = str(neutralise(text, []))
+    return "" if REMOVED in cleaned else cleaned
 
 
 def _line(value: Any, limit: int) -> str:
@@ -303,7 +306,7 @@ def _apply(
     room = TRIP_LINES_MAX - len(context.preferences)
     held = {_key(line) for line in context.preferences}
     for raw in draft.places if isinstance(draft.places, list) else []:
-        place = _line(raw, _PLACE_MAX)
+        place = _screened(_line(raw, _PLACE_MAX))
         if (
             len(place) < _PLACE_MIN
             or not named(place)

@@ -21,8 +21,9 @@ from app.application.prompt_context import earlier_turns, trip_state
 from app.application.prompts import PromptLibrary
 from app.application.router import affected_parts_for
 from app.config import Settings
+from app.domain.errors import CanaryLeak
 from app.domain.models import Intent, Message, RouteDecision, TripContext
-from app.security import fence_user_message, strip_fence_tags, strip_fence_tags_deep
+from app.security import canary_leaked, fence_user_message, strip_fence_tags, strip_fence_tags_deep
 
 INTENT_CRITERIA: dict[str, str] = {
     "plan": "Create a brand-new itinerary from scratch",
@@ -108,6 +109,8 @@ class JevDecisionClient:
                 ),
             )
             response.raise_for_status()
+            if canary_leaked(response.text, self.settings):
+                raise CanaryLeak("Canary token detected in Jev decision output")
             data = response.json()
 
         answers = data.get("answers") if isinstance(data, dict) else None

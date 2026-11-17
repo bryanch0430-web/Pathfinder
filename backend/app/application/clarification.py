@@ -35,6 +35,9 @@ SLOT_LABELS = {
 
 #: the reply to an unclear message when there is no plan and no stop to ask about
 NO_PLAN_LINE = "I have the trip details. Could you say what you want me to plan or change?"
+NO_PLAN_TO_MODIFY_LINE = (
+    "There is no plan yet to change. Tell me your trip details and I will build one first."
+)
 #: how much of the plan's outline a question about it carries
 PLAN_OUTLINE_CHARS = 1800
 
@@ -71,6 +74,10 @@ class Clarifier:
             if label not in normalised:
                 normalised.append(label)
         missing = normalised
+        if plan is None and decision.reason_code == "no_plan_to_modify":
+            if missing:
+                return f"There is no plan yet to change. {self._fallback(missing)}", missing
+            return NO_PLAN_TO_MODIFY_LINE, []
         if not missing:
             if plan is not None and self.gateway.available and (scope_item_id or _names_something_on(plan, message)):
                 # Nothing is missing, the message is unclear and it names a stop, stay, day, city or leg of the plan:

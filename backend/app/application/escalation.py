@@ -31,20 +31,27 @@ _ASKS_FOR_A_PERSON = re.compile(
 )
 
 
+_NEGATED_ESCALATION = re.compile(
+    r"\b(?:do\s+not|don['’]?t|dont|never|no\s+need\s+to|without)\s+(?:(?:\w+\s+){0,2})?"
+    r"(?:talk|speak|get\s+me|escalate|transfer)\b",
+    re.IGNORECASE,
+)
+
+
 def should_escalate(message: str, frustration: int, policy: dict[str, Any]) -> str | None:
     """Why this turn should be handed over, or None when planning should continue."""
     if not policy.get("enabled", True):
         return None
-    if _ASKS_FOR_A_PERSON.search(message or ""):
+    if _ASKS_FOR_A_PERSON.search(message or "") and not _NEGATED_ESCALATION.search(message or ""):
         return "asked_for_a_person"
-    limit = policy.get("frustration_at")
-    if isinstance(limit, int) and not isinstance(limit, bool) and frustration >= limit:
-        return "frustration"
     for example in policy.get("examples") or []:
-        utterance = example["utterance"] if isinstance(example, dict) else str(example)
+        utterance = str(example.get("utterance") or "") if isinstance(example, dict) else str(example)
         if not utterance.strip():
             continue
         shared = tokens(message) & tokens(utterance)
         if len(shared) >= 2 and similarity(message, utterance) >= _EXAMPLE_BAR:
             return "example"
+    limit = policy.get("frustration_at")
+    if isinstance(limit, (int, float)) and not isinstance(limit, bool) and frustration >= limit:
+        return "frustration"
     return None
