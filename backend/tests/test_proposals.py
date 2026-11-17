@@ -11,7 +11,7 @@ from app.application.proposals import (
     proposal_changes,
     swap_suggestions,
 )
-from tests.plan_samples import make_plan, stop
+from tests.plan_samples import make_plan, make_route_plan, stop
 
 
 def test_the_sentence_is_a_move_of_shibuya_sky_to_day_2() -> None:
@@ -111,3 +111,18 @@ def test_an_edit_that_changed_nothing_records_why() -> None:
     )
     assert record["ok"] is False
     assert any("day 2" in step for step in record["steps"])
+
+
+def test_a_held_edit_changes_the_stay_of_each_city_of_a_multi_city_plan() -> None:
+    old = make_route_plan(["Tokyo", "Kyoto"])
+    new = old.model_copy(deep=True)
+    new.hotels[1].price_per_night = new.hotels[1].price_per_night.model_copy(update={"amount": 900.0})
+
+    changes = proposal_changes(old, new)
+    [change] = [row for row in changes if "hotel" in row["id"]]
+    assert change["segment_id"] == "seg_2" and "Kyoto Inn 2" in change["label"]
+
+    applied = apply_change(old, change)
+    assert [hotel.id for hotel in applied.hotels] == ["hotel_1", "hotel_2"]
+    assert applied.hotels[0].price_per_night == old.hotels[0].price_per_night
+    assert applied.hotels[1].price_per_night.amount == 900.0
