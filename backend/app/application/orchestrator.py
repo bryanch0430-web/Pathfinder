@@ -618,6 +618,7 @@ class TurnService:
                 plan is not None
                 and not context.missing_slots()
                 and (decision.need_clarification or decision.intent == Intent.UNCLEAR)
+                and not screen.flagged
                 and not_about_the_trip(message)
             ):
                 # An insult or a greeting is not a question about the selected stop.

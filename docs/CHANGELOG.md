@@ -24,6 +24,11 @@ Fixes found while tracing the evaluation figures of 16 November. The causes are 
 - **An edit costs fewer tokens.** The edit skill says the same rules in fewer words; the edit still reads the whole plan, the forecast and the tags. (`d153ae3`)
 - **The calendar export works on Windows.** `tzdata` is a requirement; `zoneinfo` has no time zone database of its own there. (`c78ae6c`)
 
+- **An edit keeps the flight's times.** An edit adds the `flight arrival` check again and flags a stop placed before the flight lands. (`37b48fb`)
+- **A held edit on a trip of several cities can change any city's stay**, not only the first. (`62fdbbc`)
+- **A hedge on a plan is asked about again.** "Hmm, not sure yet" or "???" with a stop selected asks about that stop instead of being answered as chat, as before v1.8.0.
+- **A message the injection screen flags is not answered as chat**, and an unclear message that names nothing on the plan gets a fixed line with no model call. Injection containment is 83/84 again.
+
 **Upgrading.** `tzdata` is new in `backend/requirements.txt`. Run `uv pip install -r backend/requirements.txt` in the backend environment once after pulling.
 
 ---

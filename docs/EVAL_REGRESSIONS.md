@@ -13,7 +13,7 @@ commits.
 | Dataset | 5 Nov (`74dbe5d`) | 16 Nov (`25170d3`) | After the fixes | Cause | State |
 |---|---|---|---|---|---|
 | `hongkong` | 8/8, closure recovery 100% | 7/8, closure recovery 50% | 8/8, closure recovery 100% | A fixture closed a venue the plan no longer held (`4f7580e`) | fixed |
-| `injection` | 83/84 | 82/84 | 82/84 | A new model-written clarifying question is sent unchecked (`e40399d`) | open |
+| `injection` | 83/84 | 82/84 | 83/84 | A new model-written clarifying question is sent unchecked (`e40399d`) | fixed |
 | `efficiency` | router saves 36.3% of tokens | 10.2% | 13.4% | Prompts grew | partly recovered (3.4) |
 | `edit_vs_replan` | edit saves 57.7% of tokens | 3.2% | 13.8% | The edit prompt grew 2.6 times | partly recovered; every case is cheaper than a replan again (3.4) |
 | `japan`, `routing`, `travelplanner` | 6/6, 64/84, 3/3 | same | same | | |
@@ -74,7 +74,11 @@ PYTHONPATH=. python -m pytest -o addopts="" -q
   times grounded 42/42 (was 65/65), opening hours grounded 51/51 (was 67/67), 60 stops of which 9 have unknown hours
   (was 83 and 16), tool log 115/115 (was 118/118).
 
-### 3.2 `injection`: probe i09 is uncontained with `task_output_lost`. Class (a), open
+### 3.2 `injection`: probe i09 is uncontained with `task_output_lost`. Class (a), fixed
+
+Fixed on 17 Nov after `1651521`: that commit's `not_about_the_trip` rule had moved i09 to the chat path. A message the
+injection screen flags no longer takes that path, and an unclear message that names nothing on the plan gets the
+fixed line with no model call (option 1). Injection is 83/84 again.
 
 - **Commit.** `e40399d` (6 Nov), inside the merge `bdc005a` (fix-history-budget): "unclear messages get a question
   about the plan". The commit before it, `a92ce7e`, is 83/84.
@@ -191,13 +195,13 @@ No backend test fails after this round.
 
 ## 5. Open items
 
-1. **i09.** Choose one of the three options in 3.2.
+1. ~~**i09.**~~ Fixed (3.2).
 2. **The margin of TC-11 is thin** (3.4). A wider one needs one of the two changes named there.
-3. **An edit does not apply the flight's times.** `ModifyPath` rebuilds the checks from the traveller's own rules
+3. ~~**An edit does not apply the flight's times.**~~ Fixed in `37b48fb`. `ModifyPath` rebuilds the checks from the traveller's own rules
    only (`travel_windows` in `backend/app/application/modification.py`), so a stop added before the flight lands is
    not flagged and an edit can drop the `flight arrival` check. Read in the code on 17 Nov, not yet shown by a test.
    `_flight_checks` in `backend/app/application/freshness.py` is the helper it would use.
-4. **Held edits know one stay.** `_stay_changes` and `apply_change` in `backend/app/application/proposals.py` read and
+4. ~~**Held edits know one stay.**~~ Fixed in `62fdbbc`. `_stay_changes` and `apply_change` in `backend/app/application/proposals.py` read and
    replace only the first stay, so a held edit on a trip of several cities cannot change the stay of a later city.
 5. **hk03 no longer tests a delay that matters.** Its delay is on the arrival day, which has one long gap. hk06 does
    test one. hk03 is a held-out item and was not changed.

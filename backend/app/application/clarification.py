@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Sequence
 
 from app.application.llm_gateway import LLMGateway
@@ -38,6 +39,17 @@ NO_PLAN_LINE = "I have the trip details. Could you say what you want me to plan 
 PLAN_OUTLINE_CHARS = 1800
 
 
+def _names_something_on(plan: TripPlan, message: str) -> bool:
+    """True when the message names a stop, stay, city, leg place, day title or "day N" of the plan."""
+    text = message.casefold()
+    names = [item.name for day in plan.days for item in day.items] + [day.title for day in plan.days]
+    names += [hotel.name for hotel in plan.hotels] + [segment.destination.name for segment in plan.segments]
+    names += [place for leg in plan.legs for place in (leg.from_place, leg.to_place)]
+    if any(len(name.strip()) >= 3 and name.strip().casefold() in text for name in names):
+        return True
+    return any(0 < int(n) <= len(plan.days) for n in re.findall(r"\bday\s*(\d+)\b", text))
+
+
 class Clarifier:
     def __init__(self, gateway: LLMGateway):
         self.gateway = gateway
@@ -60,8 +72,9 @@ class Clarifier:
                 normalised.append(label)
         missing = normalised
         if not missing:
-            if plan is not None and self.gateway.available:
-                # Nothing is missing, but the message is unclear and there is a plan: ask about that plan.
+            if plan is not None and self.gateway.available and (scope_item_id or _names_something_on(plan, message)):
+                # Nothing is missing, the message is unclear and it names a stop, stay, day, city or leg of the plan:
+                # ask about that plan. A message that names nothing on it gets the fixed line, with no model call.
                 question = await self._about_the_plan(message, plan, scope_item_id, decision, history)
                 if question:
                     return question, []
