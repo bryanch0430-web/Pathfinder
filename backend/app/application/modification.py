@@ -17,7 +17,7 @@ from typing import Any, Sequence
 from pydantic import BaseModel, Field
 
 from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_candidate_limit
-from app.application.freshness import outdated_sections
+from app.application.freshness import FLIGHT_CHECKS, _flight_checks, outdated_sections
 from app.application.language import cuisine_slot, language_slot
 from app.application.meals import image_of
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
@@ -1046,6 +1046,8 @@ class ModifyPath:
             blocked=blocked_dates(rule_texts, plan_dates),
             windows=travel_windows(rule_texts, plan_dates),
         )
+        # The chosen flight's times are read against the days as they are now: a stop before it lands is flagged.
+        updated.constraints = [c for c in updated.constraints if c.text not in FLIGHT_CHECKS] + _flight_checks(updated)
         updated.updated_at = utcnow()
         updated.change_summary = draft.description or "Applied a local change."
         updated.data_quality.notes = _merge_notes(updated.data_quality.notes, draft.description)
@@ -3158,7 +3160,8 @@ def _recheck(plan: TripPlan, context: TripContext, blocked, windows) -> list[Con
     )
     texts = {check.text for check in fresh}
     named = [check for check in plan.constraints if check.text.startswith("Include ") and check.text not in texts]
-    return fresh + named
+    flight = _flight_checks(plan)
+    return [check for check in fresh if check.text not in FLIGHT_CHECKS] + flight + named
 
 
 def _free_start(taken: list[tuple[int, int]], start: int, duration: int) -> int | None:
