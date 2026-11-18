@@ -890,16 +890,16 @@ class Planner:
         unknown.append("Local transport, meals and attraction tickets are not costed because no source returned prices.")
         total = round(sum(line.amount for line in lines), 2)
         budget = context.budget
-        remaining = round(budget - total, 2) if budget is not None else None
+        judged = _budget_can_be_judged(hotel, tickets)
         status = "unknown"
-        if budget is not None:
+        if budget is not None and judged:
             status = "within" if total <= budget else "over"
         return CostBreakdown(
             currency=currency,
             lines=lines,
             total=total,
             budget=budget,
-            remaining=remaining,
+            remaining=round(budget - total, 2) if budget is not None and status in {"within", "over"} else None,
             status=status,  # type: ignore[arg-type]
             notes=unknown,
         )
@@ -954,18 +954,37 @@ class Planner:
         unknown.append("Local transport, meals and attraction tickets are not costed because no source returned prices.")
         total = round(sum(line.amount for line in lines), 2)
         budget = context.budget
+        judged = _plan_budget_can_be_judged(plan)
         status = "unknown"
-        if budget is not None:
+        if budget is not None and judged:
             status = "within" if total <= budget else "over"
         return CostBreakdown(
             currency=currency,
             lines=lines,
             total=total,
             budget=budget,
-            remaining=round(budget - total, 2) if budget is not None else None,
+            remaining=round(budget - total, 2) if budget is not None and status in {"within", "over"} else None,
             status=status,  # type: ignore[arg-type]
             notes=unknown,
         )
+
+
+def _fare_missing(ticket: TicketOption | None) -> bool:
+    """A quoted flight or train with no fare. An estimate is a note, not a missing quote."""
+    return ticket is not None and ticket.price is None and not ticket.estimated
+
+
+def _budget_can_be_judged(hotel: HotelStay | None, tickets: list[TicketOption]) -> bool:
+    """False when a stay or a chosen fare the plan relies on was not returned."""
+    if hotel is not None and hotel.price_per_night is None:
+        return False
+    return not _fare_missing(selected_ticket(tickets))
+
+
+def _plan_budget_can_be_judged(plan: TripPlan) -> bool:
+    if any(stay.price_per_night is None for stay in plan.hotels):
+        return False
+    return not any(_fare_missing(ticket) for ticket in plan.chosen_tickets())
 
 
 def apply_audit_blocks(rows: list[dict], blocked: set[str]) -> tuple[list[dict], set[str]]:
@@ -1767,11 +1786,24 @@ def _constraints(
     wish_failures = wish_failures or {}
     checks: list[ConstraintCheck] = []
     if context.budget is not None:
+        if cost.status == "within":
+            budget_status = ConstraintStatus.PASS
+            budget_evidence = (
+                f"Known cost total is {cost.currency} {cost.total:,.2f}; meals and attraction tickets are not costed."
+            )
+        elif cost.status == "unknown":
+            budget_status = ConstraintStatus.UNKNOWN
+            budget_evidence = "The hotel rate or the flight fare is missing, so the budget cannot be judged yet."
+        else:
+            budget_status = ConstraintStatus.FAIL
+            budget_evidence = (
+                f"Known cost total is {cost.currency} {cost.total:,.2f}; meals and attraction tickets are not costed."
+            )
         checks.append(
             ConstraintCheck(
                 text=f"Stay within {context.currency} {context.budget:,.0f}",
-                status=ConstraintStatus.PASS if cost.status == "within" else ConstraintStatus.FAIL,
-                evidence=f"Known cost total is {cost.currency} {cost.total:,.2f}; meals and attraction tickets are not costed.",
+                status=budget_status,
+                evidence=budget_evidence,
             )
         )
     checks.append(

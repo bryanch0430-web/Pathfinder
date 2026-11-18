@@ -15,7 +15,7 @@ const FRAME_PAD = 32;
 
 type Panels = { chat: boolean; map: boolean };
 type Widths = { chat: number; map: number };
-type Sheet = "chat" | "map" | "sketch" | "videos" | "trending" | "budget" | "exchange" | null;
+type Sheet = "chat" | "map" | "sketch" | "videos" | "trending" | "budget" | "exchange" | "profile" | null;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -144,6 +144,7 @@ export function PlannerTemplate({
   trending,
   budget,
   exchange,
+  profile,
 }: {
   header: ReactNode;
   left: ReactNode;
@@ -154,6 +155,7 @@ export function PlannerTemplate({
   trending?: ReactNode;
   budget?: ReactNode;
   exchange?: ReactNode;
+  profile?: ReactNode;
 }) {
   const { t } = useI18n();
   const [panels, setPanels] = useState<Panels>(readPanels);
@@ -244,6 +246,7 @@ export function PlannerTemplate({
             map={right}
             budget={budget ?? null}
             exchange={exchange ?? null}
+            profile={profile ?? null}
             sketch={sketch ?? null}
             videos={videos ?? null}
             trending={trending ?? null}
@@ -269,6 +272,14 @@ export function PlannerTemplate({
           >
             <Icon name="map" size={15} />
             <span>{t("map.label")}</span>
+          </button>
+          <button
+            type="button"
+            className="pf-shell__toggle"
+            aria-pressed={sheet === "profile"}
+            onClick={() => setSheet((current) => (current === "profile" ? null : "profile"))}
+          >
+            <span>{t("settings.group.profile")}</span>
           </button>
           <button
             type="button"
@@ -374,6 +385,13 @@ export function PlannerTemplate({
               buttonRef={mapCloseRef}
             />
             <div className="pf-dock__body">{right}</div>
+          </div>
+        ) : null}
+
+        {!dock ? (
+          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "profile"} aria-label={t("settings.profile")} hidden={sheet !== "profile"}>
+            <DockBar label={t("settings.profile")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+            <div className="pf-dock__body">{profile}</div>
           </div>
         ) : null}
 

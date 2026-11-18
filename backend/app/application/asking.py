@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any
 
 from app.application.llm_gateway import LLMGateway
+from app.application.router import _TRAVEL_ANCHORS, question_comes_first
 from app.application.plan_focus import date_named, focus_day
 from app.application.prompt_context import compact_json, conversation_block, earlier_turns, plan_context, with_conversation
 from app.application.toolbox import Toolbox
@@ -46,6 +47,47 @@ DEEP_SEARCH_WORDS = (
 
 #: What a weather question is told when no place or forecast was found: nothing failed.
 _NO_FORECAST = "No forecast could be found for that place and those dates."
+
+#: A question that is not about this trip. No web search and no model answer.
+OFF_TRIP_LOOKUP = (
+    "I only look things up for this trip. "
+    "Ask about the destination, a place on it, or something you want to see."
+)
+
+
+def about_this_trip(question: str, context: TripContext, plan: TripPlan | None) -> bool:
+    """True when a lookup is about this trip: its places, a wish already stored, or a travel topic.
+
+    "How do I earn revenue?" is not. "What is Gundam?" is, once Gundam is a must-see on the trip.
+    """
+    lower = (question or "").lower()
+    if (
+        re.search(WEATHER_WORDS, lower)
+        or re.search(DISTANCE_WORDS, lower)
+        or re.search(HOURS_WORDS, lower)
+        or re.search(_TRAVEL_ANCHORS, lower)
+        or re.search(r"\b(trip|travel|itinerary|holiday|vacation|destination|sightseeing)\b", lower)
+    ):
+        return True
+    for name in _trip_names(context, plan):
+        token = name.strip().lower()
+        if len(token) >= 3 and token in lower:
+            return True
+    return False
+
+
+def _trip_names(context: TripContext, plan: TripPlan | None) -> list[str]:
+    names = [context.destination or "", context.origin or ""]
+    for line in context.preferences or []:
+        names.append(line)
+        if ":" in line:
+            names.append(line.split(":", 1)[1])
+    if plan is not None:
+        names.append(plan.destination.name)
+        names.extend(item.name for day in plan.days for item in day.items)
+        names.extend(hotel.name for hotel in plan.hotels)
+        names.extend(segment.destination.name for segment in plan.segments)
+    return names
 
 
 def _forecast_unavailable(failure: ProviderError) -> str:
@@ -90,6 +132,11 @@ class AskPath:
             if updates:
                 return str(updates[-1].content), True, "plan"
             return "No itinerary changes have been made yet. This is still the first version.", True, "plan"
+
+        # Off-trip questions never search the web and never get a model answer.
+        # A short follow-up ("really?") stays, because its subject is the previous turn.
+        if not re.search(FOLLOW_UP_WORDS, question.lower()) and not about_this_trip(question, context, plan):
+            return OFF_TRIP_LOOKUP, False, "refused"
 
         # Every answer the writer phrases reads the recent conversation, with or without a plan: a follow-up
         # ("and the weather there?", "really?") names its subject only in an earlier turn.
@@ -178,11 +225,10 @@ class AskPath:
                 fallback.setdefault("weather", weather_rows)
             text = await self._phrase(question, plan, fallback, "plan", conversation, scope_item_id=scope_item_id)
             return text, True, "plan"
-        text = (
-            "There is no plan yet, so I have nothing to answer from. "
-            "Tell me where and when you are going and I will build one first."
-        )
-        return text, related, "none"
+        # No plan yet: the traveller still asked a question. Answer it. Do not
+        # replace the answer with a request for the missing trip details.
+        text = await self._phrase(question, None, {}, "none", conversation)
+        return text, False, "none"
 
     async def _one_tool(
         self,
@@ -267,16 +313,30 @@ class AskPath:
                     pass
                 # The place source had nothing useful: fall through to web search.
 
-        # Open questions the plan cannot answer. DeepSeek Search is sub-second and
+        # Open questions the plan cannot answer, including a question asked before
+        # a plan exists ("what is Gundam?"). DeepSeek Search is sub-second and
         # returns structured, citable results, so it is the default. Grok's Agent
         # Tools search synthesises across sources but takes ~20 s, so it is only
         # used for synthesis questions, and only when the operator enabled it or the
         # caller pays for it with their own xAI key.
-        if plan is not None and getattr(self.registry, "web", None):
-            item = _scoped_item(plan, scope_item_id) or _find_item_strict(plan, question)
+        definitional = bool(re.search(r"\b(?:what(?:'s| is| are)|who(?:'s| is)|do you know)\b", lower))
+        if (
+            about_this_trip(question, context, plan)
+            and getattr(self.registry, "web", None)
+            and (plan is not None or definitional or question_comes_first(question))
+        ):
+            item = (
+                _scoped_item(plan, scope_item_id) or _find_item_strict(plan, question) if plan is not None else None
+            )
             subject = item.name if item is not None else ""
-            if subject or re.search(QUALITY_WORDS, lower) or re.search(DEEP_SEARCH_WORDS, lower):
-                destination = plan.destination.name
+            if (
+                plan is None
+                or subject
+                or definitional
+                or re.search(QUALITY_WORDS, lower)
+                or re.search(DEEP_SEARCH_WORDS, lower)
+            ):
+                destination = plan.destination.name if plan is not None else (context.destination or "")
                 if subject:
                     query = f"{subject} {destination} {_keyword_query(question, '')}".strip()
                 else:
@@ -290,20 +350,34 @@ class AskPath:
                             "web.search", self.registry.web_deep[0].answer, query=query
                         )
                         return "web_answer", answer.as_dict(), answer.source_name
-                    rows = await toolbox.call(
-                        "web.search",
-                        self.registry.web[0].search,
-                        query=query[:128],
-                        count=4,
-                        ori_question=question[:128],
+                    rows, source_name = await self._first_web_rows(
+                        toolbox, query=query[:128], question=question[:128]
                     )
-                    rows = [row.as_dict() for row in rows][:4]
-                    if _cuisine_word(question):
-                        return "web", rows, self.registry.web[0].name
-                    return "web", rows, self.registry.web[0].name
+                    return "web", rows, source_name or "web"
                 except Exception:
                     return "web", [], "web"
         return "none", None, "none"
+
+    async def _first_web_rows(self, toolbox: Toolbox, *, query: str, question: str) -> tuple[list[dict], str]:
+        """The first configured search that returns pages. An auth failure tries the next source."""
+        for source in self.registry.web:
+            if not getattr(source, "available", True):
+                continue
+            try:
+                found = await toolbox.call(
+                    "web.search",
+                    source.search,
+                    query=query,
+                    count=4,
+                    ori_question=question,
+                )
+            except Exception:
+                continue
+            rows = [row.as_dict() if hasattr(row, "as_dict") else row for row in found or []][:4]
+            if rows:
+                return rows, getattr(source, "name", "web")
+        return [], ""
+
     async def _phrase(
         self,
         question: str,
@@ -346,7 +420,11 @@ def ask_prompt(
     conversation block (`conversation_block`), which never holds the question itself.
     """
     if plan is None:
-        block = "none"
+        block = (
+            "none\n"
+            "There is no itinerary yet. Answer the question in two to four sentences. "
+            "Earlier turns may have asked for missing trip details; do not reply with only that request."
+        )
     else:
         focus = focus_day(plan, question, scope_item_id)
         block = plan_context(plan, focus=focus, selected_id=scope_item_id, ids=False)

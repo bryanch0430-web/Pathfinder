@@ -83,8 +83,8 @@ def test_tc06_unfrozen_dataset_is_reported() -> None:
 
 
 @pytest.mark.parametrize("name", FROZEN)
-def test_tc06_trial_report_shows_the_heldout_share_and_freeze(settings, name: str) -> None:
-    """Proposal TC-06 (p4): POST /api/eval/trials reports the held-out share and that the split is frozen."""
+def test_a_run_scores_every_case_and_does_not_report_a_split(settings, name: str) -> None:
+    """A scored run counts cases that produced the expected result. It does not report a dev/held-out split."""
     from fastapi.testclient import TestClient
 
     from app.interface.api import create_app
@@ -92,12 +92,12 @@ def test_tc06_trial_report_shows_the_heldout_share_and_freeze(settings, name: st
     with TestClient(create_app(settings)) as client:
         response = client.post(
             "/api/eval/trials",
-            json={"dataset_id": name, "experiment_tag": "tc06"},
+            json={"dataset_id": name, "experiment_tag": "cases"},
             headers={"X-Admin-Token": settings.admin_token},
         )
     assert response.status_code == 200
-    metrics = {metric["key"]: metric for metric in response.json()["run"]["metrics"]}
-    assert metrics["split_frozen"]["value"] == 100.0
-    # Small sets cannot hit 30% exactly; the held-out count must be within one item of it.
-    items = len(load_rows(name))
-    assert abs(metrics["heldout_share"]["value"] / 100 * items - 0.3 * items) <= 1
+    body = response.json()
+    metrics = {metric["key"]: metric for metric in body["run"]["metrics"]}
+    assert "split_frozen" not in metrics
+    assert "heldout_share" not in metrics
+    assert len(body["run"]["cases"]) == len(load_rows(name))

@@ -34,7 +34,7 @@ from app.infrastructure.providers.places import (
 from app.infrastructure.providers.routes import GoogleRoutesSource, TransportModelRoutes
 from app.infrastructure.providers.timezone import GoogleTimeZone
 from app.infrastructure.providers.weather import OpenMeteoArchiveWeather, OpenMeteoWeather
-from app.infrastructure.providers.websearch import DeepSeekSearchSource, GrokSearchSource
+from app.infrastructure.providers.websearch import DeepSeekSearchSource, GrokSearchSource, SerpApiWebSource
 
 
 @dataclass
@@ -89,7 +89,11 @@ class ProviderRegistry:
         routes = [GoogleRoutesSource(settings)]
         warnings = [HkoWarningsSource(settings)] if settings.enable_hk_disruptions else []
         transit = [MtrLineStatusSource(settings)] if settings.enable_hk_disruptions else []
-        web = [DeepSeekSearchSource(settings)] if settings.web_search_enabled else []
+        web = []
+        if settings.web_search_enabled:
+            web.append(DeepSeekSearchSource(settings))
+            if (settings.serpapi_key or "").strip() or (settings.serpapi_key_pool or "").strip():
+                web.append(SerpApiWebSource(settings))
         # Always present: its `available` says whether the operator or the current caller can pay for it.
         web_deep = [GrokSearchSource(settings, selector)]
         timezone = GoogleTimeZone(settings) if settings.enable_timezone else None

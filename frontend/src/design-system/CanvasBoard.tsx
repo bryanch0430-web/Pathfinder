@@ -4,7 +4,7 @@ import { Icon } from "./icons";
 
 export interface Rect { x: number; y: number; w: number; h: number }
 interface Size { w: number; h: number }
-type Id = "chat" | "plan" | "map" | "budget" | "exchange" | "sketch" | "videos" | "trending";
+type Id = "chat" | "plan" | "map" | "budget" | "exchange" | "sketch" | "videos" | "trending" | "profile";
 
 const KEY = "pathfinder-canvas";
 const GAP = 12;
@@ -22,6 +22,7 @@ const MIN: Record<Id, Size> = {
   sketch: { w: 320, h: 240 },
   videos: { w: 240, h: 180 },
   trending: { w: 260, h: 200 },
+  profile: { w: 320, h: 280 },
 };
 
 interface Saved {
@@ -42,6 +43,7 @@ const DEFAULT_OPEN: Record<Id, boolean> = {
   sketch: false,
   videos: false,
   trending: false,
+  profile: false,
 };
 
 function freshSaved(): Saved {
@@ -163,6 +165,12 @@ function defaults(board: Size): Record<Id, Rect> {
       y: top + Math.max(0, bodyH - trendH),
       w: trendW,
       h: trendH,
+    },
+    profile: {
+      x: Math.max(EDGE, Math.round((board.w - 440) / 2)),
+      y: top + 28,
+      w: Math.min(460, Math.max(MIN.profile.w, 420)),
+      h: Math.min(560, Math.max(MIN.profile.h, Math.round(bodyH * 0.72))),
     },
   };
 }
@@ -303,10 +311,10 @@ function Window({
   );
 }
 
-const ORDER: Id[] = ["chat", "plan", "map", "budget", "exchange", "sketch", "videos", "trending"];
+const ORDER: Id[] = ["chat", "plan", "map", "profile", "budget", "exchange", "sketch", "videos", "trending"];
 const GROUPS: Id[][] = [
   ["chat", "plan", "map"],
-  ["budget", "exchange"],
+  ["profile", "budget", "exchange"],
   ["sketch", "videos", "trending"],
 ];
 
@@ -317,6 +325,7 @@ export function CanvasBoard({
   map,
   budget,
   exchange,
+  profile,
   sketch,
   videos,
   trending,
@@ -326,6 +335,7 @@ export function CanvasBoard({
   map: ReactNode;
   budget: ReactNode;
   exchange: ReactNode;
+  profile: ReactNode;
   sketch: ReactNode;
   videos: ReactNode;
   trending: ReactNode;
@@ -341,6 +351,7 @@ export function CanvasBoard({
     map: t("map.label"),
     budget: t("budget.tool"),
     exchange: t("budget.exchange"),
+    profile: t("settings.profile"),
     sketch: t("panels.sketch"),
     videos: t("videos.title"),
     trending: t("trending.eyebrow"),
@@ -349,6 +360,7 @@ export function CanvasBoard({
     ...labels,
     map: t("panels.bar.map"),
     budget: t("panels.bar.budget"),
+    profile: t("settings.group.profile"),
     videos: t("panels.bar.watch"),
   };
   const board = useBoardSize(boardRef);
@@ -364,7 +376,7 @@ export function CanvasBoard({
       y: Math.min(Math.max(8, point.y), Math.max(8, limit.h - height - 8)),
     };
   };
-  const content: Record<Id, ReactNode> = { chat, plan, map, budget, exchange, sketch, videos, trending };
+  const content: Record<Id, ReactNode> = { chat, plan, map, budget, exchange, profile, sketch, videos, trending };
 
   useEffect(() => {
     try {

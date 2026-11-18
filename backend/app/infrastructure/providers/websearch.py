@@ -23,7 +23,7 @@ from typing import Any, Iterable
 
 from app.application.llm_selection import LLMSelector, SearchKey, current_search_key
 from app.config import Settings
-from app.domain.errors import ProviderError, ProviderNoData
+from app.domain.errors import FailureKind, ProviderError, ProviderNoData
 from app.infrastructure.http import request_json
 from app.infrastructure.llm_providers import PROVIDERS
 from app.security.scrub import scrub
@@ -75,8 +75,9 @@ class DeepSeekSearchSource:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.base = (settings.deepseek_search_base_url or "https://api.deepseek.com").rstrip("/")
-        self.key = settings.deepseek_search_api_key or settings.judge_api_key
-        self.available = bool(self.key)
+        self.keys = _deepseek_keys(settings)
+        self.key = self.keys[0] if self.keys else ""
+        self.available = bool(self.keys)
 
     async def search(
         self,
@@ -86,9 +87,7 @@ class DeepSeekSearchSource:
         ori_question: str | None = None,
         retries: int | None = None,
     ) -> list[WebResult]:
-        if not self.available:
-            from app.domain.errors import ProviderNoData
-
+        if not self.keys:
             raise ProviderNoData("No DeepSeek search key is configured", source=self.name)
         payload: dict[str, Any] = {
             "query": query[:128],
@@ -99,16 +98,39 @@ class DeepSeekSearchSource:
             # The engine takes keywords in `query` and the sentence in
             # `ori_question`; passing both is what the field is for.
             payload["ori_question"] = ori_question[:128]
-        data = await request_json(
-            "POST",
-            f"{self.base}/v1/tools/search",
-            source=self.name,
-            headers={"Authorization": f"Bearer {self.key}"},
-            payload=payload,
-            timeout=20.0,
-            retries=self.settings.http_retries if retries is None else retries,
-        )
-        return list(_deepseek_results(data))
+        last: ProviderError | None = None
+        for index, key in enumerate(self.keys):
+            try:
+                data = await request_json(
+                    "POST",
+                    f"{self.base}/v1/tools/search",
+                    source=self.name,
+                    headers={"Authorization": f"Bearer {key}"},
+                    payload=payload,
+                    timeout=20.0,
+                    retries=self.settings.http_retries if retries is None else retries,
+                    secrets=(key,),
+                )
+            except ProviderError as exc:
+                # A dedicated search key can be rejected while the judge key on the same
+                # account still searches. Try the next key before giving up.
+                last = exc
+                if exc.kind is FailureKind.AUTH and index < len(self.keys) - 1:
+                    continue
+                raise
+            self.key = key
+            return list(_deepseek_results(data))
+        raise last or ProviderNoData("No DeepSeek search key is configured", source=self.name)
+
+
+def _deepseek_keys(settings: Settings) -> list[str]:
+    """The search key first, then the judge key when it is a different credential."""
+    keys: list[str] = []
+    for raw in (settings.deepseek_search_api_key, settings.judge_api_key):
+        key = (raw or "").strip()
+        if key and key not in keys:
+            keys.append(key)
+    return keys
 
 
 def _deepseek_results(data: dict[str, Any]) -> Iterable[WebResult]:
@@ -125,6 +147,63 @@ def _deepseek_results(data: dict[str, Any]) -> Iterable[WebResult]:
             published=str(row.get("date") or ""),
             authority=int(row["authority"]) if row.get("authority") is not None else -1,
             score=float(row["rerank_score"]) if row.get("rerank_score") is not None else 0.0,
+        )
+
+
+class SerpApiWebSource:
+    """Google web results through the SerpAPI key the hotel and flight lookups already use.
+
+    DeepSeek stays first. This source runs only when that call is refused or returns nothing.
+    """
+
+    name = "serpapi-web"
+
+    def __init__(self, settings: Settings):
+        self.settings = settings
+        self.available = bool((settings.serpapi_key or "").strip() or (settings.serpapi_key_pool or "").strip())
+
+    async def search(
+        self,
+        *,
+        query: str,
+        count: int = 5,
+        ori_question: str | None = None,
+        retries: int | None = None,
+    ) -> list[WebResult]:
+        from app.infrastructure.serpapi_keys import serpapi_json
+
+        if not self.available:
+            raise ProviderNoData("SerpApi key is not configured", source=self.name)
+        data = await serpapi_json(
+            self.settings,
+            source=self.name,
+            params={
+                "engine": "google",
+                "q": (ori_question or query)[:200],
+                "num": max(1, min(count, 10)),
+                "hl": "en",
+            },
+            timeout=max(self.settings.http_timeout_seconds, 20),
+            retries=self.settings.http_retries if retries is None else retries,
+            user_agent=self.settings.user_agent,
+        )
+        return list(_serpapi_web_results(data, count))
+
+
+def _serpapi_web_results(data: dict[str, Any], count: int) -> Iterable[WebResult]:
+    for row in (data.get("organic_results") or [])[:count]:
+        if not isinstance(row, dict):
+            continue
+        url = str(row.get("link") or "")
+        if not url:
+            continue
+        snippet = str(row.get("snippet") or "")
+        yield WebResult(
+            title=str(row.get("title") or url),
+            url=url,
+            summary=snippet[:800],
+            snippet=snippet[:300],
+            site_name=str(row.get("source") or ""),
         )
 
 

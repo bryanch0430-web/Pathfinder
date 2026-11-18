@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { SettingsView } from "../organisms";
+import { SettingsView, TravellerProfileCard } from "../organisms";
 import type { LlmKey, LlmProvider, LlmStatus } from "../../lib/api";
 
 const meta: Meta = { title: "Organisms/Settings" };
@@ -29,8 +29,7 @@ export const Playground: Story = {
 /** A save failed: the reason shows above the form, which stays as typed so Save can be pressed again. */
 export const SaveFailed: Story = {
   render: () => (
-    <SettingsView
-      config={config}
+    <TravellerProfileCard
       profile={{ client_token: "guest", preferences: ["slow pace", "vegetarian"], hard_constraints: [], sessions: 3, saved_trips: 1, destinations: ["Kyoto"], updated_at: null }}
       error="Preferences could not be saved."
       onSavePreferences={() => undefined}
@@ -42,8 +41,7 @@ export const SaveFailed: Story = {
 /** 20 preferences is the most: the field is read-only and says so. */
 export const PreferenceLimit: Story = {
   render: () => (
-    <SettingsView
-      config={config}
+    <TravellerProfileCard
       profile={{
         client_token: "guest",
         preferences: Array.from({ length: 20 }, (_, index) => `preference ${index + 1}`),

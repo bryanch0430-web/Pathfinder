@@ -65,6 +65,10 @@ def not_about_the_trip(message: str) -> bool:
     lower = text.lower()
     if re.search(_TRAVEL_ANCHORS, lower) or re.search(PLAN_VERBS, lower) or re.search(MODIFY_VERBS, lower):
         return False
+    # A question about a thing ("what is Gundam?", "you don't know what Gundam is?") is about the
+    # destination. A greeting that happens to end in a question mark is still just a greeting.
+    if looks_like_question(text) and not re.match(r"^(?:hi|hello|hey|yo)\b", lower):
+        return False
     if _SHORT_REPLY.match(lower):
         return False
     if _VAGUE.search(lower) or not re.search(r"[^\W\d_]", lower):
@@ -72,6 +76,27 @@ def not_about_the_trip(message: str) -> bool:
         # chat: the selected stop is worth asking about.
         return False
     if len(lower.split()) <= 4 and _POINTING.search(lower):
+        return False
+    return True
+
+
+def question_comes_first(message: str) -> bool:
+    """A question asked while the trip is still incomplete is answered, not folded into the intake form.
+
+    A command to plan or change the trip ("can you plan a trip", "add Osaka") is not one of these.
+    A greeting that happens to end in a question mark is not one either.
+    """
+    text = (message or "").strip()
+    if not looks_like_question(text):
+        return False
+    lower = text.lower()
+    if re.match(r"^(?:hi|hello|hey|yo)\b", lower):
+        return False
+    if re.match(_COMMAND_QUESTION, lower):
+        return False
+    if re.search(MODIFY_VERBS, lower):
+        return False
+    if re.search(PLAN_VERBS, lower) and re.search(r"\b(trip|itinerary|holiday|vacation)\b", lower):
         return False
     return True
 
@@ -349,7 +374,11 @@ class RuleRouter:
             confidence = 0.7
             reason = "no_plan_to_modify"
 
+        # A question is still a question when the form is incomplete. Missing details
+        # stay missing; they do not turn the answer into another intake question.
         need_clarification = bool(missing) or intent == Intent.UNCLEAR
+        if intent == Intent.ASK:
+            need_clarification = False
         if intent == Intent.PLAN and missing:
             need_clarification = True
             reason = "missing_" + "_".join(missing[:2])
@@ -590,6 +619,49 @@ def without_concessive_budget(lower: str) -> str:
     return _CONCESSIVE_BUDGET.sub(" ", lower)
 
 
+#: "keep the budget the same" protects the budget. It is not a request to re-search hotels and flights.
+_KEEP_BUDGET = re.compile(
+    r"\b(?:keep|leave|hold)\b(?:\s+\w+){0,5}?\bbudget\b"
+    r"|\bbudget\b(?:\s+\w+){0,4}?\s+(?:the\s+)?same\b"
+    r"|\b(?:same|unchanged)\s+budget\b"
+    r"|\b(?:do not|don't|dont)\s+change\b(?:\s+\w+){0,4}?\bbudget\b",
+    re.IGNORECASE,
+)
+_LESS_WALKING = re.compile(
+    r"\b(?:less|fewer|shorter)\s+walk(?:ing)?\b|\bwalk(?:ing)?\s+less\b|\breduce\s+walk(?:ing)?\b",
+    re.IGNORECASE,
+)
+_DIET_WORD = re.compile(r"\b(?:vegetarian|vegan|halal|kosher)\b", re.IGNORECASE)
+
+
+def keeps_the_budget(message: str) -> bool:
+    """True when the sentence says the budget must stay as it is."""
+    return _KEEP_BUDGET.search(message.lower()) is not None
+
+
+def wants_less_walking(message: str) -> bool:
+    """True when the sentence asks for a shorter walk, not a cheaper trip."""
+    return _LESS_WALKING.search(message.lower()) is not None
+
+
+def mixed_edit(message: str) -> bool:
+    """True when one sentence states more than one obligation.
+
+    A day, a clock and a count are one change. A diet, a shorter walk and a
+    protected budget are separate obligations, and the rules do not decide
+    that sentence alone.
+    """
+    lower = message.lower()
+    kinds = 0
+    if _DIET_WORD.search(lower):
+        kinds += 1
+    if wants_less_walking(lower):
+        kinds += 1
+    if keeps_the_budget(lower):
+        kinds += 1
+    return kinds >= 2
+
+
 #: the hotel's class, not the pace: "make it more grand" (also "grrand"), "grander", "something more luxurious", "a luxury
 #: hotel", "upscale". "Grand" alone is a name ("The Kyoto Grand", "Grand Hyatt"), so it counts only after "more" or "so".
 #: The edit (modification.py) reads the same words.
@@ -607,6 +679,8 @@ def _affected_parts(lower: str) -> list[str]:
         ("dates", r"\b(date|dates|days|nights|extend|shorten|earlier|later)\b"),
     ]
     for name, pattern in mapping:
+        if name == "budget" and keeps_the_budget(lower):
+            continue
         if re.search(pattern, without_concessive_budget(lower) if name == "budget" else lower):
             parts.append(name)
     day_matches = re.findall(r"\bday\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", lower)
@@ -708,6 +782,8 @@ def rules_decide_alone(
             and (bool(re.search(_TRAVEL_ANCHORS, lower)) or _names_a_known_place(lower, context, plan_summary))
         )
     if decision.intent == Intent.MODIFY:
+        if mixed_edit(lower):
+            return False
         return (
             plan_summary is not None
             and modify_hit
@@ -824,6 +900,18 @@ class RouteOrchestrator:
         ruled = router.rules.route(message=message, context=context, plan_summary=plan_summary, history=history)
         if ruled.rationale == LANGUAGE_RULES:
             return ruled
+        # Intake is still open and the traveller asked something else ("what is Gundam?").
+        # Answer that question. Do not spend a gate call restating the missing fields.
+        if plan_summary is None and context.missing_slots() and question_comes_first(message):
+            return RouteDecision(
+                intent=Intent.ASK,
+                confidence=0.9,
+                need_clarification=False,
+                reason_code="question_before_intake",
+                missing_slots=context.missing_slots(),
+                related_to_plan=False,
+                rationale="a question is answered before the remaining details are collected",
+            )
         if router.use_model and rules_first_applies(
             message, ruled, context=context, plan_summary=plan_summary, settings=router.settings
         ):

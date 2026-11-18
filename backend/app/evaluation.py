@@ -222,6 +222,33 @@ class EvalService:
         self.store.save_eval_run(run)
         return run
 
+    async def rescore(self, dataset_id: str, case_ids: set[str]) -> list[EvalCaseResult]:
+        """Score only the named cases of one list, with the settings in force now."""
+        cases = [case for case in self.load_cases(dataset_id) if case.id in case_ids]
+        if not cases:
+            return []
+        if dataset_id == "routing":
+            return [self._routing_case(case) for case in cases]
+        if dataset_id == "injection":
+            return await self._injection_cases(cases)
+        if dataset_id in COST_DATASETS:
+            from app.eval_efficiency import run_cost_suite
+
+            ledger = RunLedger()
+            try:
+                report = await run_cost_suite(dataset_id, cases, self.settings, ledger)
+            finally:
+                ledger.close()
+            return report.results
+        ledger = RunLedger()
+        results: list[EvalCaseResult] = []
+        try:
+            for case in cases:
+                results.append(await self._planning_case(case, ledger=ledger))
+        finally:
+            ledger.close()
+        return results
+
     # -- case evaluators --------------------------------------------------
 
     def _routing_case(self, case: EvalCase) -> EvalCaseResult:
@@ -461,7 +488,7 @@ class EvalService:
                     value=pct(sum(result.passed for result in results), len(results)),
                 )
             )
-            from app.routing_report import routing_breakdown  # Proposal TC-04 / TC-06
+            from app.routing_report import routing_breakdown
 
             metrics.extend(routing_breakdown(results))
         elif dataset == "injection":
@@ -472,19 +499,15 @@ class EvalService:
                     value=pct(sum(result.passed for result in results), len(results)),
                 )
             )
-            from app.injection_probes import injection_breakdown  # Proposal TC-05 / TC-06
+            from app.injection_probes import injection_breakdown
 
             metrics.extend(injection_breakdown(results))
         else:
             metrics.extend(planning_metrics(results))
-            from app.dataset_splits import FIXTURE_FILES, split_metrics  # Proposal TC-06
-
             if dataset == "japan":
                 from app.eval_replay import replay_metrics  # Proposal TC-02
 
                 metrics.extend(replay_metrics(results))
-            if dataset in FIXTURE_FILES:
-                metrics.extend(split_metrics(dataset))
             if self.judge.available:
                 metrics.append(judge_metric(self.judge_check))
             if latencies:

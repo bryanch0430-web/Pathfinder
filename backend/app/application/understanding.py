@@ -426,6 +426,14 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         preference = f"must-see: {named.group(1).strip()}"
         if preference not in context.preferences:
             context.preferences.append(preference)
+    # "see Gundam" / "visit the Gundam Base": an attraction, not a city and not a departure point.
+    for match in re.finditer(r"\b(?:see|visit)\s+(?:the\s+)?([A-Z][\w'’-]{2,}(?:\s+[A-Z][\w'’-]*){0,3})", text):
+        sight = match.group(1).strip()
+        if _known_place(sight):
+            continue
+        preference = f"must-see: {sight}"
+        if preference not in context.preferences:
+            context.preferences.append(preference)
 
     for constraint in _hard_constraints(text):
         if constraint not in context.hard_constraints:
@@ -1449,8 +1457,18 @@ def _apply_model_patch(context: TripContext, data: dict, allowed: set[str] | Non
         if key not in allowed:
             continue
         value = text_value(key)
-        if value:
-            setattr(context, key, value)
+        if not value:
+            continue
+        if key == "origin":
+            known = _known_place(value)
+            if known:
+                context.origin = known
+            continue
+        if key == "destination" and any(
+            value.lower() in pref.lower() for pref in context.preferences if pref.startswith("must-see:")
+        ):
+            continue
+        setattr(context, key, value)
     if "stops" in allowed and not context.stops:
         _apply_stops(context, data.get("stops"))
     if "one_way" in allowed and data.get("one_way") is True:
@@ -1522,5 +1540,5 @@ def _normalise_dates(context: TripContext) -> None:
         context.end_date = context.start_date + timedelta(days=max(context.days - 1, 0))
     if context.start_date and context.end_date:
         context.days = max((context.end_date - context.start_date).days + 1, 1)
-    elif context.start_date and not context.days:
-        context.days = 1
+    # A start day on its own is not a one-day trip. Nights are still missing, so the
+    # clarify step can ask how long the stay is.

@@ -34,6 +34,10 @@ export interface SessionState {
   held?: boolean;
   /** The signed-in name of that person, empty when the chat is not held. */
   agent_name?: string;
+  /** A turn is writing this plan, so direct edit must wait. */
+  planner_busy?: boolean;
+  /** What that turn last said it was doing. */
+  planner_note?: string;
 }
 
 /**
@@ -86,7 +90,7 @@ export function createSession(clientToken: string, signal?: AbortSignal): Promis
 /** Write the direct-edit grid onto the latest plan. `day` is 1-based; `planVersion` is the version the grid showed. */
 export function applyLayout(
   sessionId: string,
-  items: { id: string; day: number; start: string; end: string }[],
+  items: { id: string; day: number; start: string; end: string; name?: string }[],
   planVersion?: number,
 ): Promise<{ plan: TripPlan }> {
   return request(`/api/journeys/${sessionId}/layout`, {
@@ -121,7 +125,7 @@ export function getSession(sessionId: string, signal?: AbortSignal): Promise<Ses
 }
 
 /** Whether a person on the desk has taken this chat. Does not reload the plan. */
-export function getHeld(sessionId: string): Promise<{ held: boolean; agent_name?: string }> {
+export function getHeld(sessionId: string): Promise<{ held: boolean; agent_name?: string; planner_busy?: boolean; planner_note?: string }> {
   return request(`/api/journeys/${encodeURIComponent(sessionId)}/held`);
 }
 
@@ -660,44 +664,94 @@ export async function getEvalExport(runId: string): Promise<string> {
   return response.text();
 }
 
+export interface ReviewCase {
+  source: "evaluation" | "session";
+  session_state: "" | "live" | "completed";
+  run_id: string;
+  dataset: string;
+  case_id: string;
+  kind: "misclassified" | "failed" | "unchanged" | "not_useful" | "added";
+  failure_class: string;
+  input: string;
+  output_summary: string;
+  judge_reason: string;
+  check_status?: "" | "pass" | "fail" | "chat";
+  check_summary?: string;
+}
+
+export interface SkillSuggestion {
+  id: string;
+  status: "draft" | "accepted" | "dismissed" | "restored";
+  skill: string;
+  summary: string;
+  rationale: string;
+  body: string;
+  case_ids: string[];
+  created_at: string;
+  decided_at: string | null;
+  kind?: "skill" | "setting";
+  setting_value?: string;
+}
+
+export function getReviewCases(): Promise<{ cases: ReviewCase[]; suggestions: SkillSuggestion[] }> {
+  return request("/api/admin/cases", { headers: adminHeader() });
+}
+
+export function scanReviewCases(): Promise<{ suggestions: SkillSuggestion[] }> {
+  return request("/api/admin/cases/scan", { method: "POST", headers: adminHeader() });
+}
+
+export function checkReviewCases(): Promise<{ passed: number; exam: number; cases: ReviewCase[] }> {
+  return request("/api/admin/cases/check", { method: "POST", headers: adminHeader() });
+}
+
+export function acceptSuggestion(id: string, body: string): Promise<{ suggestion: SkillSuggestion }> {
+  return request(`/api/admin/cases/suggestions/${encodeURIComponent(id)}/accept`, {
+    method: "POST",
+    headers: adminHeader(),
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function dismissSuggestion(id: string): Promise<{ suggestion: SkillSuggestion }> {
+  return request(`/api/admin/cases/suggestions/${encodeURIComponent(id)}/dismiss`, {
+    method: "POST",
+    headers: adminHeader(),
+  });
+}
+
+export function restoreSuggestion(id: string): Promise<{ ok: boolean }> {
+  return request(`/api/admin/cases/suggestions/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+    headers: adminHeader(),
+  });
+}
+
+export interface CaptureTurn {
+  id: string;
+  session_id: string;
+  session_state: "" | "live" | "completed";
+  input: string;
+  reply: string;
+}
+
+export function getCaptureTurns(): Promise<{ turns: CaptureTurn[] }> {
+  return request("/api/admin/cases/turns", { headers: adminHeader() });
+}
+
+export function addOperatorCase(body: {
+  message: string;
+  expected: string;
+  note: string;
+  session_id: string;
+  session_state: string;
+}): Promise<{ cases: ReviewCase[] }> {
+  return request("/api/admin/cases", { method: "POST", headers: adminHeader(), body: JSON.stringify(body) });
+}
+
 /** Without `adminToken` it sends the stored one when there is one (in local admin mode there may be none). */
 export async function getInjections(adminToken = ""): Promise<{ events: { category: string; severity: string; count: number }[] }> {
   return request("/api/admin/threats", { headers: adminToken ? { "X-Admin-Token": adminToken } : adminHeader() });
-}
-
-export interface TrainingExample {
-  id: string;
-  utterance: string;
-  intent: "plan" | "modify" | "ask" | "unclear";
-  note: string;
-  created_at: string;
-}
-
-export interface TrainingTurn {
-  id: string;
-  session_id: string;
-  input: string;
-  output: string;
-  path: string;
-  why: string;
-  at: string;
-  frustration: number;
-}
-
-export function getTrainingExamples(): Promise<{ examples: TrainingExample[] }> {
-  return request("/api/training/examples");
-}
-
-export function getTrainingTurns(): Promise<{ turns: TrainingTurn[] }> {
-  return request("/api/training/turns");
-}
-
-export function addTrainingExample(utterance: string, intent: TrainingExample["intent"], note: string): Promise<TrainingExample> {
-  return request("/api/training/examples", { method: "POST", body: JSON.stringify({ utterance, intent, note }) });
-}
-
-export function deleteTrainingExample(id: string): Promise<{ ok: boolean }> {
-  return request(`/api/training/examples/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export interface DeskContact {
@@ -720,6 +774,7 @@ export interface DeskStop {
   type: string;
   start: string;
   end: string;
+  address?: string;
 }
 
 export interface DeskPlan {
@@ -730,7 +785,12 @@ export interface DeskPlan {
 export interface DeskChat extends DeskContact {
   session_id: string;
   updated_at: string;
+  /** live: the page is open, or the trip changed within 24 hours. completed: neither. */
+  state: "live" | "completed";
+  on_page: boolean;
   held: boolean;
+  /** Set once a person has picked the chat up. Empty while it is only waiting in the queue. */
+  agent_name?: string;
   frustration: number;
   /** session: average of at least three lines. line: only the latest line. none: nothing scored. */
   frustration_kind?: "session" | "line" | "none";
@@ -820,6 +880,27 @@ export function resetPrompt(name: string): Promise<{ ok: boolean }> {
   return request(`/api/admin/prompts/${encodeURIComponent(name)}`, { method: "DELETE", headers: deskHeader() });
 }
 
+export function saveDeskBrief(
+  sessionId: string,
+  body: {
+    destination: string;
+    origin: string;
+    start_date: string;
+    end_date: string;
+    party_size: number;
+    budget: number;
+    currency: string;
+    preferences: string[];
+    build: boolean;
+  },
+): Promise<{ built: boolean; plan: DeskPlan | null }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/brief`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify(body),
+  });
+}
+
 export function runDeskWorkflow(sessionId: string, message: string): Promise<{ reply: string; intent: string }> {
   return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/run`, {
     method: "POST",
@@ -830,6 +911,46 @@ export function runDeskWorkflow(sessionId: string, message: string): Promise<{ r
 
 export function getDeskPlan(sessionId: string): Promise<{ plan: DeskPlan | null }> {
   return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/plan`, { headers: deskHeader() });
+}
+
+export function getDeskRevisions(sessionId: string): Promise<{ versions: { version: number; change_summary?: string }[] }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/revisions`, { headers: deskHeader() });
+}
+
+export function undoDeskPlan(sessionId: string, version: number): Promise<{ plan: TripPlan }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/undo`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ version }),
+  });
+}
+
+export function getDeskItinerary(sessionId: string): Promise<{ plan: TripPlan | null; planner_busy?: boolean; planner_note?: string }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/itinerary`, { headers: deskHeader() });
+}
+
+export function applyDeskLayout(
+  sessionId: string,
+  items: { id: string; day: number; start: string; end: string; name?: string }[],
+  planVersion?: number,
+): Promise<{ plan: TripPlan }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/layout`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ items, plan_version: planVersion }),
+  });
+}
+
+export function editDeskPlan(
+  sessionId: string,
+  instruction: string,
+  itemId = "",
+): Promise<{ reply: string; plan: DeskPlan | null }> {
+  return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/edit`, {
+    method: "POST",
+    headers: deskHeader(),
+    body: JSON.stringify({ instruction, item_id: itemId }),
+  });
 }
 
 export function saveDeskPlan(

@@ -12,6 +12,7 @@ from app.application.router import (
     gate_mode,
     looks_like_question,
     not_about_the_trip,
+    question_comes_first,
 )
 from app.config import Settings
 from app.domain.models import Intent, RouteDecision, TripContext
@@ -189,10 +190,47 @@ def test_an_arm_key_and_provider_replace_the_shared_poe_key(settings: Settings) 
     assert plain._fixed_max_tokens == 256
 
 
+def test_a_question_during_intake_is_answered_before_the_missing_details(settings: Settings) -> None:
+    class Jev:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def route(self, **kwargs):
+            self.calls += 1
+            return RouteDecision(intent=Intent.PLAN, confidence=0.99, need_clarification=True, reason_code="jev_plan")
+
+    jev = Jev()
+    router = System1Router(
+        gateway=LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
+        settings=settings,
+        decision_client=jev,
+        use_model=True,
+    )
+    incomplete = TripContext(session_id="s", destination="Kyoto", start_date=date(2026, 11, 30), budget=8300)
+
+    async def decide(message: str):
+        return await router.route(message=message, context=incomplete, plan_summary=None, history=[])
+
+    for message in ("what is gundam from japan", "you don't know what is gundam??"):
+        assert question_comes_first(message) is True
+        decision = asyncio.run(decide(message))
+        assert decision.intent == Intent.ASK
+        assert decision.need_clarification is False
+        assert decision.reason_code == "question_before_intake"
+    assert jev.calls == 0
+
+    planned = asyncio.run(decide("Plan my trip"))
+    assert planned.intent == Intent.PLAN
+    assert planned.need_clarification is True
+    assert jev.calls == 1
+
+
 def test_an_insult_is_not_about_the_trip_and_a_short_reply_is() -> None:
     assert not_about_the_trip("....fuck you") is True
     assert not_about_the_trip("hello") is True
     assert not_about_the_trip("hello? are you hal jordon") is True
     assert not_about_the_trip("the other one") is False
     assert not_about_the_trip("what is the weather on day 2?") is False
+    assert not_about_the_trip("what is gundam from japan") is False
+    assert not_about_the_trip("you don't know what is gundam??") is False
     assert not_about_the_trip("what is this") is False

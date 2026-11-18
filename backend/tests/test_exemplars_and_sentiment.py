@@ -1,15 +1,15 @@
-"""How people actually talk to the planner, and what a saved example should do."""
+"""How people actually talk to the planner."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from app.application.exemplars import best_exemplar, exemplar_decision, similarity
+from app.application.exemplars import similarity
 from app.application.llm_gateway import LLMGateway
 from app.application.prompts import PromptLibrary
 from app.application.router import RULES_FIRST, System1Router, not_about_the_trip
 from app.application.sentiment import frustration_band, frustration_score, line_reading, session_frustration
 from app.config import Settings
-from app.domain.models import Intent, Message, TripContext
+from app.domain.models import Intent, TripContext
 from app.infrastructure.llm import NullLLM
 from app.infrastructure.observability import NoopTracer
 from app.infrastructure.store import SQLiteStore
@@ -24,25 +24,18 @@ def test_a_planned_trip_a_question_and_a_change_are_different_kinds_of_line() ->
     assert not_about_the_trip("the other one") is False
 
 
-def test_a_saved_example_of_an_insult_names_ask_and_a_weak_overlap_does_not() -> None:
-    examples = [("fuck you", "ask"), ("Plan a 3-day trip to Kyoto", "plan")]
-    taught = exemplar_decision("....fuck you", examples)
-    assert taught is not None
-    assert taught.intent == Intent.ASK
-    assert taught.reason_code == "exemplar"
-    assert exemplar_decision("add a museum on day 2", examples) is None
+def test_two_unrelated_lines_barely_overlap() -> None:
     assert similarity("hello there", "plan a trip") < 0.5
-    assert best_exemplar("you", [("fuck you", "ask")]) is None
 
 
 def test_how_people_talk_and_a_taught_line_wins_before_the_regex(settings: Settings) -> None:
-    """A trip, a question and a change are rules. Chat abstains. A saved insult is ask."""
+    """A trip, a question and a change are rules. Chat abstains. An insult asks for a clarification."""
     router = System1Router(
         gateway=LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
         settings=settings,
         use_model=True,
     )
-    started = datetime.now(timezone.utc).date()
+    started = datetime.now().date()
     context = TripContext(
         session_id="s",
         destination="Kyoto",
@@ -78,25 +71,8 @@ def test_how_people_talk_and_a_taught_line_wins_before_the_regex(settings: Setti
     assert bare.need_clarification is True
 
 
-def test_a_training_record_keeps_the_line_and_the_reply(tmp_path) -> None:
+def test_a_held_chat_keeps_its_note(tmp_path) -> None:
     store = SQLiteStore(tmp_path / "learn.db")
-    start = datetime.now(timezone.utc)
-    store.add_message(Message(session_id="s", role="user", content="....fuck you", created_at=start))
-    store.add_message(
-        Message(
-            session_id="s",
-            role="assistant",
-            content="I can chat. I will not change the trip.",
-            intent=Intent.ASK,
-            created_at=start + timedelta(seconds=1),
-            meta={"decision": {"why": ["The message is not about the trip, so it was answered in chat."], "generations": []}},
-        )
-    )
-    record = store.recent_route_records()[0]
-    assert record["input"] == "....fuck you"
-    assert record["output"].startswith("I can chat")
-    assert record["path"] == "ask"
-    assert "not about the trip" in record["why"]
     store.hold_chat("s")
     assert store.is_held("s") is True
     store.set_desk_note("s", "Call them back about the hotel.")

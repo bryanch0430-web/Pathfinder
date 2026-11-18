@@ -1,19 +1,16 @@
 """Router scorecard breakdown for the trial report.
 
-Proposal TC-04 (p4, l.132-133, 149-150): about 80 utterances labelled new trip,
-modify, quick question or unclear score the System 1 router alone. The run's
-headline `routing_accuracy` is computed by EvalService; this adds accuracy per
-frozen split (dev / held-out, Proposal TC-06) and per labelled intent, so the
-Evaluation page shows where the router misses.
+About 80 utterances labelled new trip, modify, quick question or unclear score
+the router. The run's headline `routing_accuracy` is every case. This adds the
+same count per labelled intent, so the Evaluation page shows where the router misses.
 """
 
 from __future__ import annotations
 
-from app.dataset_splits import load_rows, split_metrics
+from app.dataset_splits import load_rows
 from app.domain.models import EvalCaseResult, EvalMetric
 
 INTENT_LABELS = {"plan": "new trip", "modify": "modify", "ask": "quick question", "unclear": "unclear"}
-SPLIT_LABELS = {"dev": "dev", "heldout": "held-out"}
 
 
 def _pct(passed: int, total: int) -> float:
@@ -26,16 +23,6 @@ def expected_intents() -> dict[str, str]:
 
 def routing_breakdown(results: list[EvalCaseResult]) -> list[EvalMetric]:
     metrics: list[EvalMetric] = []
-    for split, label in SPLIT_LABELS.items():
-        subset = [result for result in results if result.split == split]
-        if subset:
-            metrics.append(
-                EvalMetric(
-                    key=f"routing_accuracy_{split}",
-                    label=f"Routing accuracy ({label})",
-                    value=_pct(sum(result.passed for result in subset), len(subset)),
-                )
-            )
     expected = expected_intents()
     for intent, label in INTENT_LABELS.items():
         subset = [result for result in results if expected.get(result.case_id) == intent]
@@ -65,5 +52,4 @@ def routing_breakdown(results: list[EvalCaseResult]) -> list[EvalMetric]:
                 value=_pct(sum(result.passed for result in alone), len(alone)),
             )
         )
-    metrics.extend(split_metrics("routing"))
     return metrics

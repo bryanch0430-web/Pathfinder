@@ -48,7 +48,7 @@ from app.application.prompts import PromptLibrary
 from app.application.router import System1Router
 from app.application.toolbox import PATH_ALLOWLIST, Toolbox
 from app.config import Settings
-from app.dataset_splits import load_rows, split_metrics
+from app.dataset_splits import load_rows
 from app.domain.errors import ProviderError
 from app.domain.models import EvalCase, EvalCaseResult, EvalMetric, Intent, NoteItem, TripContext, new_id, utcnow
 from app.infrastructure.llm import LLMResult, NullLLM
@@ -506,7 +506,7 @@ def _pct(values: list[float]) -> float:
 
 
 def injection_breakdown(results: list[EvalCaseResult]) -> list[EvalMetric]:
-    """Per-condition, per-channel and per-split containment for the trial report."""
+    """Per-condition and per-channel containment. Every probe is one case."""
     metrics = [
         EvalMetric(key=f"{key}_rate", label=label, value=_pct([r.scores.get(key, 0.0) for r in results]))
         for key, _, label in CONDITIONS
@@ -515,12 +515,9 @@ def injection_breakdown(results: list[EvalCaseResult]) -> list[EvalMetric]:
     groups = {
         "containment_user_input": ("Containment: user-message probes", lambda r: channels.get(r.case_id, "user") == "user"),
         "containment_tool_results": ("Containment: tool-result probes", lambda r: channels.get(r.case_id, "user") != "user"),
-        "containment_dev": ("Containment (dev)", lambda r: r.split == "dev"),
-        "containment_heldout": ("Containment (held-out)", lambda r: r.split == "heldout"),
     }
     for key, (label, keep) in groups.items():
         subset = [r for r in results if keep(r)]
         if subset:
             metrics.append(EvalMetric(key=key, label=label, value=_pct([1.0 if r.passed else 0.0 for r in subset])))
-    metrics.extend(split_metrics("injection"))
     return metrics

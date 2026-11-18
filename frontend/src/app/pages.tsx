@@ -4,6 +4,7 @@ import {
   EvalDashboard,
   SavedTripsView,
   SettingsView,
+  TravellerProfileCard,
   Banner,
   EmptyState,
   LoadingScreen,
@@ -266,44 +267,17 @@ function useModelKeys(scope: KeyScope, providers: LlmProvider[], enabled = true)
   };
 }
 
-export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
+export function TravellerProfileTool({ signedIn = false }: { signedIn?: boolean }) {
   const { t } = useI18n();
-  const [providers, setProviders] = useState<LlmProvider[]>([]);
-  const ownKeys = useModelKeys(undefined, providers);
-  const localAdmin = useLocalAdmin();
-  // The server card is for the operator: it shows only where an admin token is stored in this browser, or in
-  // local admin mode on the owner's own machine.
-  const hasAdminToken = showsAdmin(localAdmin, readStoredValue("admin"));
-  const serverKeys = useModelKeys("server", providers, hasAdminToken);
-  useEffect(() => {
-    getLlmProviders()
-      .then((data) => setProviders(data.providers))
-      .catch(() => setProviders([]));
-  }, []);
-  const [config, setConfig] = useState<Parameters<typeof SettingsView>[0]["config"]>(null);
-  const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
-  // Kept as a message key, so that a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
   const clientToken = ensureClientToken();
 
   useEffect(() => {
-    getConfig()
-      .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
-      .catch((cause) => setError(failureOf(cause, "errors.config")));
-    // No built-in admin token: the admin request is only sent when one is stored, or in local admin mode.
-    const adminToken = readStoredValue("admin") || "";
-    if (showsAdmin(localAdmin, adminToken)) {
-      getInjections(adminToken)
-        .then((data) => setInjections(data.events))
-        .catch(() => setInjections([]));
-    } else {
-      setInjections([]);
-    }
     getProfile(clientToken)
       .then(setProfile)
       .catch(() => setProfile(null));
-  }, [clientToken, localAdmin]);
+  }, [clientToken]);
 
   const handleSavePreferences = (preferences: string[]) => {
     setError(null);
@@ -321,16 +295,57 @@ export function SettingsPage({ signedIn = false }: { signedIn?: boolean }) {
       .catch((cause) => setError(failureOf(cause, "errors.memory")));
   };
 
-  // A failure shows above the form instead of replacing it, so what was typed stays and Save can be pressed again.
   return (
-    <SettingsView
-      config={config}
-      injections={injections}
+    <TravellerProfileCard
       profile={profile}
       signedIn={signedIn}
       error={error === null ? null : describeFailure(error, t)}
       onSavePreferences={handleSavePreferences}
       onClearMemory={handleClearMemory}
+    />
+  );
+}
+
+export function SettingsPage() {
+  const { t } = useI18n();
+  const [providers, setProviders] = useState<LlmProvider[]>([]);
+  const ownKeys = useModelKeys(undefined, providers);
+  const localAdmin = useLocalAdmin();
+  // The server card is for the operator: it shows only where an admin token is stored in this browser, or in
+  // local admin mode on the owner's own machine.
+  const hasAdminToken = showsAdmin(localAdmin, readStoredValue("admin"));
+  const serverKeys = useModelKeys("server", providers, hasAdminToken);
+  useEffect(() => {
+    getLlmProviders()
+      .then((data) => setProviders(data.providers))
+      .catch(() => setProviders([]));
+  }, []);
+  const [config, setConfig] = useState<Parameters<typeof SettingsView>[0]["config"]>(null);
+  const [injections, setInjections] = useState<{ category: string; severity: string; count: number }[]>([]);
+  // Kept as a message key, so that a language switch translates it too.
+  const [error, setError] = useState<Failure | null>(null);
+
+  useEffect(() => {
+    getConfig()
+      .then((data) => setConfig(data as unknown as Parameters<typeof SettingsView>[0]["config"]))
+      .catch((cause) => setError(failureOf(cause, "errors.config")));
+    // No built-in admin token: the admin request is only sent when one is stored, or in local admin mode.
+    const adminToken = readStoredValue("admin") || "";
+    if (showsAdmin(localAdmin, adminToken)) {
+      getInjections(adminToken)
+        .then((data) => setInjections(data.events))
+        .catch(() => setInjections([]));
+    } else {
+      setInjections([]);
+    }
+  }, [localAdmin]);
+
+  // A failure shows above the form instead of replacing it, so what was typed stays and Save can be pressed again.
+  return (
+    <SettingsView
+      config={config}
+      injections={injections}
+      error={error === null ? null : describeFailure(error, t)}
       modelKeys={ownKeys}
       serverKeys={hasAdminToken ? serverKeys : undefined}
       providers={providers}

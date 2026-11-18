@@ -38,6 +38,22 @@ from app.domain.models import (
 
 logger = logging.getLogger(__name__)
 
+
+def _suggestion_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "status": row["status"],
+        "skill": row["skill"],
+        "summary": row["summary"],
+        "rationale": row["rationale"],
+        "body": row["body"],
+        "case_ids": json.loads(row["case_ids"] or "[]"),
+        "created_at": row["created_at"],
+        "decided_at": row["decided_at"],
+        "kind": row["kind"] if "kind" in row.keys() else "skill",
+        "setting_value": row["setting_value"] if "setting_value" in row.keys() else "",
+    }
+
 #: Days a share link stays public unless the store is given another lifetime.
 DEFAULT_SHARE_TTL_DAYS = 30
 
@@ -273,27 +289,6 @@ def _runtime_float(raw: dict[str, str], key: str, default: float, low: float, hi
     return value
 
 
-def _as_utc(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed
-
-
-def _first_why(raw: str | None) -> str:
-    if not raw:
-        return ""
-    try:
-        meta = json.loads(raw)
-    except json.JSONDecodeError:
-        return ""
-    decision = meta.get("decision") if isinstance(meta, dict) else None
-    lines = decision.get("why") if isinstance(decision, dict) else None
-    if isinstance(lines, list) and lines:
-        return str(lines[0])[:400]
-    return ""
-
-
 def _dump(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
@@ -494,7 +489,7 @@ def _migration_7_desk_notes(conn: sqlite3.Connection, ctx: MigrationContext) -> 
 
 
 def _migration_6_exemplars_and_desk(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
-    """Training examples (a line and the path it should take) and which chats a person is holding."""
+    """Which chats a person is holding. The route_examples table is unused; the step stays because it already shipped."""
     conn.execute(
         "CREATE TABLE IF NOT EXISTS route_examples ("
         "id TEXT PRIMARY KEY, utterance TEXT NOT NULL, intent TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', "
@@ -538,6 +533,48 @@ def _migration_11_gate_secrets(conn: sqlite3.Connection, ctx: MigrationContext) 
     )
 
 
+def _migration_13_desk_presence(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """The last time the traveller's page asked about this session. A closed page stops updating it."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS desk_presence ("
+        "session_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL)"
+    )
+
+
+def _migration_14_prompt_suggestions(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Draft skill changes an admin has not accepted. Accepting one writes a prompt override."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS prompt_suggestions ("
+        "id TEXT PRIMARY KEY, status TEXT NOT NULL, skill TEXT NOT NULL, summary TEXT NOT NULL, "
+        "rationale TEXT NOT NULL, body TEXT NOT NULL, case_ids TEXT NOT NULL, created_at TEXT NOT NULL, "
+        "decided_at TEXT)"
+    )
+
+
+def _migration_15_operator_cases(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """Cases an operator adds by hand, and whether a suggestion replaces a skill or a number."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS operator_cases ("
+        "id TEXT PRIMARY KEY, session_id TEXT NOT NULL DEFAULT '', session_state TEXT NOT NULL DEFAULT '', "
+        "input TEXT NOT NULL, expected TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)"
+    )
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(prompt_suggestions)")}
+    if "kind" not in columns:
+        conn.execute("ALTER TABLE prompt_suggestions ADD COLUMN kind TEXT NOT NULL DEFAULT 'skill'")
+    if "setting_value" not in columns:
+        conn.execute("ALTER TABLE prompt_suggestions ADD COLUMN setting_value TEXT NOT NULL DEFAULT ''")
+
+
+def _migration_16_case_checks(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """The latest re-check of a failed case: whether it passes with the skills and numbers in force now."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS case_checks ("
+        "case_id TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, "
+        "output_summary TEXT NOT NULL DEFAULT '', judge_reason TEXT NOT NULL DEFAULT '', "
+        "checked_at TEXT NOT NULL, PRIMARY KEY (case_id, source))"
+    )
+
+
 def _migration_12_serpapi_keys(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
     """SerpAPI keys kept for rotation. The key itself is encrypted; the row stores only its tail and status."""
     conn.execute(
@@ -569,6 +606,10 @@ MIGRATIONS: list[MigrationStep] = [
     _migration_10_runtime_policy,
     _migration_11_gate_secrets,
     _migration_12_serpapi_keys,
+    _migration_13_desk_presence,
+    _migration_14_prompt_suggestions,
+    _migration_15_operator_cases,
+    _migration_16_case_checks,
 ]
 
 
@@ -732,6 +773,20 @@ class SQLiteStore:
         with self._lock, self._connect() as conn:
             conn.execute("UPDATE journeys SET updated_at=? WHERE id=?", (_now(), session_id))
 
+    def mark_seen(self, session_id: str) -> None:
+        """The traveller's page is open. This does not count as a change to the trip."""
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO desk_presence (session_id, seen_at) VALUES (?,?) "
+                "ON CONFLICT(session_id) DO UPDATE SET seen_at=excluded.seen_at",
+                (session_id, _now()),
+            )
+
+    def seen_map(self) -> dict[str, str]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT session_id, seen_at FROM desk_presence").fetchall()
+        return {str(row["session_id"]): str(row["seen_at"]) for row in rows}
+
     def save_context(self, context: TripContext) -> None:
         """Store a trip's form, cut to the form's limits first (in place, so the caller holds what is stored):
         every writer ends here, and the understanding step appends to the lists without a check of its own."""
@@ -786,80 +841,6 @@ class SQLiteStore:
         with self._lock, self._connect() as conn:
             conn.execute("UPDATE turns SET meta=? WHERE id=?", (_dump(meta), message_id))
 
-    def list_exemplars(self) -> list[dict[str, str]]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT id, utterance, intent, note, created_at FROM route_examples ORDER BY created_at DESC").fetchall()
-        return [dict(row) for row in rows]
-
-    def exemplar_pairs(self) -> list[tuple[str, str]]:
-        return [(row["utterance"], row["intent"]) for row in self.list_exemplars()]
-
-    def add_exemplar(self, utterance: str, intent: str, note: str = "") -> dict[str, str]:
-        from app.domain.models import new_id
-
-        row = {
-            "id": new_id("ex"),
-            "utterance": utterance.strip()[:600],
-            "intent": intent,
-            "note": note.strip()[:400],
-            "created_at": _now(),
-        }
-        with self._lock, self._connect() as conn:
-            conn.execute(
-                "INSERT INTO route_examples (id, utterance, intent, note, created_at) VALUES (?,?,?,?,?)",
-                (row["id"], row["utterance"], row["intent"], row["note"], row["created_at"]),
-            )
-        return row
-
-    def delete_exemplar(self, example_id: str) -> None:
-        with self._lock, self._connect() as conn:
-            conn.execute("DELETE FROM route_examples WHERE id=?", (example_id,))
-
-    def recent_user_turns(self, limit: int = 40) -> list[dict[str, str]]:
-        """The latest traveller lines, newest first, for the training record."""
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT id, session_id, content, created_at FROM turns WHERE role='user' ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(row) for row in rows]
-
-    def recent_route_records(self, limit: int = 30) -> list[dict[str, str]]:
-        """Each recent traveller line beside the reply that followed it.
-
-        The reply is the next assistant turn in that chat. Timestamps are
-        compared as datetimes so a ``+00:00`` suffix cannot hide the pair.
-        """
-        records: list[dict[str, str]] = []
-        with self._connect() as conn:
-            for turn in self.recent_user_turns(limit):
-                asked = _as_utc(turn["created_at"])
-                rows = conn.execute(
-                    "SELECT content, intent, meta, created_at FROM turns "
-                    "WHERE session_id=? AND role='assistant' ORDER BY created_at ASC",
-                    (turn["session_id"],),
-                ).fetchall()
-                output, path, why = "", "", ""
-                for row in rows:
-                    if _as_utc(row["created_at"]) < asked:
-                        continue
-                    output = (row["content"] or "")[:500]
-                    path = row["intent"] or ""
-                    why = _first_why(row["meta"])
-                    break
-                records.append(
-                    {
-                        "id": turn["id"],
-                        "session_id": turn["session_id"],
-                        "input": turn["content"],
-                        "at": turn["created_at"],
-                        "output": output,
-                        "path": path,
-                        "why": why,
-                    }
-                )
-        return records
-
     def is_held(self, session_id: str) -> bool:
         with self._connect() as conn:
             row = conn.execute("SELECT session_id FROM desk_holds WHERE session_id=?", (session_id,)).fetchone()
@@ -877,6 +858,76 @@ class SQLiteStore:
         with self._connect() as conn:
             rows = conn.execute("SELECT key, value FROM runtime_policy").fetchall()
         return {row["key"]: row["value"] for row in rows}
+
+    def clear_runtime_key(self, key: str) -> None:
+        """Drop one stored number so the environment value is used again."""
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM runtime_policy WHERE key=?", (key,))
+
+    def save_case_check(self, *, case_id: str, source: str, status: str, output_summary: str, judge_reason: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO case_checks (case_id, source, status, output_summary, judge_reason, checked_at) "
+                "VALUES (?,?,?,?,?,?) "
+                "ON CONFLICT(case_id, source) DO UPDATE SET status=excluded.status, "
+                "output_summary=excluded.output_summary, judge_reason=excluded.judge_reason, checked_at=excluded.checked_at",
+                (case_id, source, status, output_summary[:400], judge_reason[:400], _now()),
+            )
+
+    def case_checks(self) -> dict[tuple[str, str], dict[str, str]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM case_checks").fetchall()
+        return {
+            (row["case_id"], row["source"]): {
+                "status": row["status"],
+                "output_summary": row["output_summary"],
+                "judge_reason": row["judge_reason"],
+                "checked_at": row["checked_at"],
+            }
+            for row in rows
+        }
+
+    def add_operator_case(self, *, session_id: str, session_state: str, message: str, expected: str, note: str) -> dict[str, str]:
+        from app.domain.models import new_id
+
+        row = {
+            "id": new_id("case"),
+            "session_id": session_id,
+            "session_state": session_state,
+            "input": message.strip()[:500],
+            "expected": expected.strip()[:400],
+            "note": note.strip()[:400],
+            "created_at": _now(),
+        }
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO operator_cases (id, session_id, session_state, input, expected, note, created_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (row["id"], row["session_id"], row["session_state"], row["input"], row["expected"], row["note"], row["created_at"]),
+            )
+        return row
+
+    def list_operator_cases(self, limit: int = 24) -> list[dict[str, str]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM operator_cases ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def recent_capture_turns(self, limit: int = 30) -> list[dict[str, str]]:
+        """Recent traveller lines from live and finished chats, for an operator to mark as a failure."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT t.id, t.session_id, t.content, t.created_at, j.updated_at, "
+                "(SELECT seen_at FROM desk_presence WHERE session_id=t.session_id) AS seen_at, "
+                "(SELECT a.content FROM turns a WHERE a.session_id=t.session_id AND a.role='assistant' "
+                "AND a.created_at>=t.created_at ORDER BY a.created_at LIMIT 1) AS reply "
+                "FROM turns t JOIN journeys j ON j.id=t.session_id "
+                "WHERE t.role='user' ORDER BY t.created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def save_runtime(self, values: dict[str, str]) -> None:
         with self._lock, self._connect() as conn:
@@ -1151,6 +1202,109 @@ class SQLiteStore:
     def clear_prompt_override(self, name: str) -> None:
         with self._lock, self._connect() as conn:
             conn.execute("DELETE FROM prompt_overrides WHERE name=?", (name,))
+
+    def add_prompt_suggestion(
+        self,
+        *,
+        skill: str,
+        summary: str,
+        rationale: str,
+        body: str,
+        case_ids: list[str],
+        kind: str = "skill",
+        setting_value: str = "",
+    ) -> dict[str, Any]:
+        from app.domain.models import new_id
+
+        row = {
+            "id": new_id("suggest"),
+            "status": "draft",
+            "skill": skill,
+            "summary": summary,
+            "rationale": rationale,
+            "body": body,
+            "case_ids": case_ids,
+            "created_at": _now(),
+            "decided_at": None,
+            "kind": kind,
+            "setting_value": setting_value,
+        }
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO prompt_suggestions "
+                "(id, status, skill, summary, rationale, body, case_ids, created_at, decided_at, kind, setting_value) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    row["id"],
+                    row["status"],
+                    row["skill"],
+                    row["summary"],
+                    row["rationale"],
+                    row["body"],
+                    json.dumps(case_ids),
+                    row["created_at"],
+                    None,
+                    kind,
+                    setting_value,
+                ),
+            )
+        return row
+
+    def list_prompt_suggestions(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM prompt_suggestions WHERE status!='dismissed' ORDER BY created_at DESC LIMIT 20"
+            ).fetchall()
+        return [_suggestion_row(row) for row in rows]
+
+    def get_prompt_suggestion(self, suggestion_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM prompt_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+        return _suggestion_row(row) if row else None
+
+    def decide_prompt_suggestion(self, suggestion_id: str, status: str, body: str | None = None) -> dict[str, Any] | None:
+        with self._lock, self._connect() as conn:
+            row = conn.execute("SELECT * FROM prompt_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+            if row is None:
+                return None
+            kept = body if body is not None else str(row["body"])
+            conn.execute(
+                "UPDATE prompt_suggestions SET status=?, body=?, decided_at=? WHERE id=?",
+                (status, kept, _now(), suggestion_id),
+            )
+            saved = conn.execute("SELECT * FROM prompt_suggestions WHERE id=?", (suggestion_id,)).fetchone()
+        return _suggestion_row(saved)
+
+    def session_review_rows(self, limit: int = 40) -> dict[str, list[dict[str, Any]]]:
+        """Recent unchanged edits, and trips a traveller marked not useful, from live and finished chats."""
+        with self._connect() as conn:
+            edits = conn.execute(
+                "SELECT t.id, t.session_id, t.content, t.meta, t.created_at, j.updated_at, "
+                "(SELECT seen_at FROM desk_presence WHERE session_id=t.session_id) AS seen_at, "
+                "(SELECT u.content FROM turns u WHERE u.session_id=t.session_id AND u.role='user' "
+                "AND u.created_at<=t.created_at ORDER BY u.created_at DESC LIMIT 1) AS request "
+                "FROM turns t JOIN journeys j ON j.id=t.session_id "
+                "WHERE t.role='assistant' AND t.intent='modify' "
+                "ORDER BY t.created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            ratings = conn.execute(
+                "SELECT r.id, r.reason_code, r.stars, r.created_at, s.session_id, j.updated_at, "
+                "(SELECT seen_at FROM desk_presence WHERE session_id=s.session_id) AS seen_at, "
+                "(SELECT u.content FROM turns u WHERE u.session_id=s.session_id AND u.role='user' "
+                "ORDER BY u.created_at DESC LIMIT 1) AS request "
+                "FROM ratings r "
+                "JOIN (SELECT trip_id, MAX(created_at) AS created_at FROM itineraries GROUP BY trip_id) latest "
+                "ON latest.trip_id=r.trip_id "
+                "JOIN itineraries s ON s.trip_id=latest.trip_id AND s.created_at=latest.created_at "
+                "JOIN journeys j ON j.id=s.session_id "
+                "WHERE r.useful=0 ORDER BY r.created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return {
+            "edits": [dict(row) for row in edits],
+            "ratings": [dict(row) for row in ratings],
+        }
 
     def escalation_policy(self) -> dict[str, Any]:
         with self._connect() as conn:

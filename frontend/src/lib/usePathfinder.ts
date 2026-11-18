@@ -155,6 +155,10 @@ export interface PathfinderHook {
   draft: string;
   setDraft: (value: string) => void;
   busy: boolean;
+  /** A turn is writing the plan, including one started in another window. */
+  plannerBusy: boolean;
+  /** The sentence that turn last reported. */
+  plannerNote: string;
   agents: Record<string, AgentState>;
   progress: number;
   progressMessage: string;
@@ -192,7 +196,7 @@ export interface PathfinderHook {
   /** Accepts or rejects one change that a held edit offered. */
   decideChange: (messageId: string, changeId: string, accept: boolean) => Promise<void>;
   /** Writes the direct-edit grid onto the plan. Rejects with the server's reason, after showing it. */
-  applyLayout: (items: { id: string; day: number; start: string; end: string }[]) => Promise<void>;
+  applyLayout: (items: { id: string; day: number; start: string; end: string; name?: string }[]) => Promise<void>;
   /** Swaps in another option the plan offers (a stop's alternative, a hotel, a flight); no model call. Rejects with the server's reason. */
   choose: (kind: ChoiceKind, targetId: string | null, optionId: string, lock?: boolean) => Promise<void>;
   /** Choose this option for a stay or leg and lock it in (a lock alone, when it is already the chosen one, makes no new version). */
@@ -279,6 +283,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     [draftKey],
   );
   const [busy, setBusy] = useState(false);
+  const [plannerBusy, setPlannerBusy] = useState(false);
+  const [plannerNote, setPlannerNote] = useState("");
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState("");
@@ -682,6 +688,8 @@ export function usePathfinder(locale: string): PathfinderHook {
       }
       setHeld(Boolean(data.held));
       setAgentName(data.held ? data.agent_name || "" : "");
+      setPlannerBusy(Boolean(data.planner_busy));
+      setPlannerNote(data.planner_note || "");
     } catch {
       // The optimistic state stays visible; the next action will retry.
     }
@@ -694,12 +702,27 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [held, sessionId, refresh]);
 
   useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== "pathfinder.plan-sync" || !event.newValue) return;
+      const [id, version] = event.newValue.split(":");
+      if (!id || id !== sessionRef.current) return;
+      if (version && String(shownRef.current.plan?.version ?? "") === version) return;
+      void refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refresh]);
+
+  useEffect(() => {
     if (held || !sessionId) return;
     const timer = window.setInterval(() => {
       if (shownRef.current.busy) return;
       void getHeld(sessionId)
         .then((data) => {
-          if (!data.held || sessionRef.current !== sessionId) return;
+          if (sessionRef.current !== sessionId) return;
+          setPlannerBusy(Boolean(data.planner_busy));
+          setPlannerNote(data.planner_note || "");
+          if (!data.held) return;
           setHeld(true);
           setAgentName(data.agent_name || "");
           void refresh();
@@ -827,13 +850,9 @@ export function usePathfinder(locale: string): PathfinderHook {
       const id = sessionRef.current;
       const { plan, selectedItem } = shownRef.current;
       if (!id) return;
-      // A message sent while one is running stops that POST first. The server drops its lock when the
-      // connection closes, and this call starts without waiting for the old repair to finish.
-      if (shownRef.current.busy || abortRef.current) {
-        turnGen.current += 1;
-        abortRef.current?.abort();
-        abortRef.current = null;
-      }
+      // A turn already running keeps the composer. Sending again used to cancel it, so a
+      // second message could arrive before the clarify card and leave the trip half-read.
+      if (shownRef.current.busy || abortRef.current) return;
       const generation = ++turnGen.current;
       shownRef.current.busy = true;
       setBusy(true);
@@ -1131,7 +1150,7 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   // The version on screen: a choice names it, and the server refuses one made on an older version.
   const shownVersion = plan?.version;
-  const saveLayout = useCallback(async (items: { id: string; day: number; start: string; end: string }[]) => {
+  const saveLayout = useCallback(async (items: { id: string; day: number; start: string; end: string; name?: string }[]) => {
     const id = sessionRef.current;
     if (!id) return;
     try {
@@ -1362,6 +1381,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     draft: drafts[draftKey] ?? "",
     setDraft,
     busy,
+    plannerBusy,
+    plannerNote,
     agents,
     progress,
     progressMessage,

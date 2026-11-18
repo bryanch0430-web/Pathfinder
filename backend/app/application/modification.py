@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Sequence
 
@@ -33,6 +33,7 @@ from app.application.planner import (
     _reservations,
 )
 from app.application.prompt_context import conversation_block, plan_context, trip_slots, with_conversation
+from app.application.profile_rules import RELAXED_STOPS
 from app.application.router import (
     GRANDER_WORDS,
     MODIFY_VERBS,
@@ -40,7 +41,9 @@ from app.application.router import (
     asks_for_new_dates,
     asks_for_trip_dates,
     is_replan_message,
+    keeps_the_budget,
     looks_like_question,
+    wants_less_walking,
     without_concessive_budget,
 )
 from app.application.toolbox import Toolbox
@@ -69,6 +72,7 @@ from app.domain.models import (
     PriceKind,
     SourceRef,
     TicketOption,
+    TravellerProfile,
     TripContext,
     TripPlan,
     WeatherDay,
@@ -151,6 +155,18 @@ PART_AGENTS: dict[str, set[AgentName]] = {
 }
 
 
+class EditOperation(BaseModel):
+    """One typed change. A day index, a clock time and a count are different fields."""
+
+    op: str = ""
+    day: int | None = None
+    count: int | None = None
+    time: str | None = None
+    meal: str | None = None
+    diet: str | None = None
+    pace: str | None = None
+
+
 class ChangeDraft(BaseModel):
     description: str = ""
     affected_parts: list[str] = Field(default_factory=list)
@@ -159,6 +175,11 @@ class ChangeDraft(BaseModel):
     new_values: dict[str, Any] = Field(default_factory=dict)
     is_question: bool = False
     confidence: float = 0.0
+    #: Days that may change. Empty means the reader decides from the sentence.
+    scope_days: list[int] = Field(default_factory=list)
+    #: True when the budget must stay as it is. That is not a request to reprice the trip.
+    keep_budget: bool = False
+    operations: list[EditOperation] = Field(default_factory=list)
     #: a fact the change needs that neither the plan nor the conversation gives ("where the traveller lives")
     missing_info: str | None = None
     #: the one short question that asks for it
@@ -357,7 +378,16 @@ class ModifyPath:
             draft.new_values = {
                 key: value for key, value in draft.new_values.items() if key not in {"places_per_day", "min_hours", "earliest"}
             }
-        shape = interpret_plan(message, draft.new_values)
+        shape = interpret_plan(message, _shape_hint(draft))
+        if _is_plan_question(message) and shape.requested:
+            # A question is answered from the plan. It does not write.
+            unchanged = plan.model_copy(deep=True)
+            unchanged.change_summary = answer_plan_question(
+                plan,
+                shape,
+                budget_question=shape.keep_budget or bool(re.search(r"\bbudget\b", message.lower())),
+            )
+            return unchanged, []
         date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
         if date_requested and not form_is_a_trip:
             raise PlanInvalidError(
@@ -471,6 +501,9 @@ class ModifyPath:
             r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
         ):
             affected = [part for part in affected if part != "budget"]
+        if shape.keep_budget:
+            # Protecting the budget is not a request to reprice the hotel and the flights.
+            affected = [part for part in affected if part != "budget"]
         # Weather, hotel and flights rerun for "dates" only when the trip's dates actually move (Proposal DB-09).
         agent_names: set[AgentName] = set()
         for part in affected:
@@ -480,11 +513,17 @@ class ModifyPath:
         if not agent_names and not form_changes:
             agent_names = {AgentName.ATTRACTION}
         # "even if it is over budget" grants leave to spend; it does not ask for a cheaper trip (router.py).
+        # "reduce walking" is a pace, and "keep the budget the same" is an invariant.
         unconceded = without_concessive_budget(message.lower())
-        budget_mode = "budget" in affected or bool(
-            re.search(
-                r"\b(cheap|cheaper|optimis|optimiz|reduce|lower|afford|over budget|make it work)\b",
-                unconceded,
+        if wants_less_walking(unconceded):
+            unconceded = re.sub(r"\breduce\s+walk(?:ing)?\b", " ", unconceded)
+        budget_mode = not shape.keep_budget and (
+            "budget" in affected
+            or bool(
+                re.search(
+                    r"\b(cheap|cheaper|optimis|optimiz|reduce|lower|afford|over budget|make it work)\b",
+                    unconceded,
+                )
             )
         )
         agent_names = lock_scope(
@@ -833,7 +872,14 @@ class ModifyPath:
                     day.weather = WeatherDay.model_validate(row)
 
         move_offers: list[dict] = []
-        if skill_op == "move":
+        shifted = _shift_part(updated, message, skill_place, referred)
+        if shifted is not None:
+            moved, sentence = shifted
+            if moved:
+                draft.description = sentence
+            else:
+                updated.data_quality.gaps.append(_gap("attractions", sentence))
+        elif skill_op == "move":
             day_number = _move_day(message, draft.target_day)
             moved, sentence = _move_named(updated, skill_place, day_number)
             if moved:
@@ -1854,7 +1900,11 @@ _CHANGE_WORDS = re.compile(
 
 @dataclass
 class PlanAdjust:
-    """A pace change. Numbers outside 1–4 places a day are refused."""
+    """A change of pace, meals, diet or start time, limited to the days in ``days``.
+
+    An empty ``days`` means every day. A count outside 1–4 is dropped on its own;
+    a start time in the same sentence still runs.
+    """
 
     requested: bool = False
     places_per_day: int | None = None
@@ -1862,6 +1912,12 @@ class PlanAdjust:
     earliest: str | None = None
     min_hours: float | None = None
     reason: str = ""
+    days: list[int] = field(default_factory=list)
+    count_note: str = ""
+    diet: str | None = None
+    diet_meal: str | None = None
+    pace: str | None = None
+    keep_budget: bool = False
 
 
 _COUNT_WORDS = {
@@ -1872,6 +1928,65 @@ _COUNT_WORDS = {
 _PLACE_WORD = r"(?:place|stop|sight|attraction|visit)"
 _MEAL_WORD = r"(?:meal|lunch|dinner|breakfast|dining|restaurant|eat)"
 _MAX_PLACES_A_DAY = 4
+_EACH_DAY = re.compile(r"\b(?:each day|every day|per day|a day)\b", re.IGNORECASE)
+_DAY_INDEX = re.compile(r"\bday\s*(\d{1,2})\b", re.IGNORECASE)
+_BOUND_NUMBER = re.compile(
+    r"\bday\s*\d{1,2}\b"
+    r"|\b(?:after|from|past|at)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b"
+    r"|\b(?:after|from|past|at)\s+\d{3,4}\b",
+    re.IGNORECASE,
+)
+_DIET_WORD = re.compile(r"\b(vegetarian|vegan|halal|kosher)\b", re.IGNORECASE)
+_MEAL_SLOT = re.compile(r"\b(breakfast|lunch|dinner)\b", re.IGNORECASE)
+_ONLY_WORD = re.compile(r"\b(?:only|just)\b", re.IGNORECASE)
+
+
+def _shape_hint(draft: ChangeDraft) -> dict:
+    """The writer's numbers, plus the typed operations and the scope it named."""
+    hinted = dict(draft.new_values)
+    if draft.operations:
+        hinted["operations"] = [op.model_dump() for op in draft.operations]
+    if draft.scope_days:
+        hinted["scope_days"] = list(draft.scope_days)
+    if draft.keep_budget:
+        hinted["keep_budget"] = True
+    return hinted
+
+
+def _is_plan_question(message: str) -> bool:
+    """A question about the plan, including one typed without a question mark."""
+    text = _LEADING_FILLER.sub("", message.strip())
+    return "?" in message or _QUESTION_OPENER.match(text) is not None
+
+
+def answer_plan_question(plan: TripPlan, shape: PlanAdjust, *, budget_question: bool) -> str:
+    """What the change would do. The plan is not written."""
+    sentences: list[str] = []
+    if shape.places_per_day is not None:
+        if shape.days:
+            label = "Day " + " and ".join(str(day) for day in shape.days)
+            sentences.append(
+                f"{label} would have at most {shape.places_per_day} "
+                + ("place" if shape.places_per_day == 1 else "places")
+                + ". The other days would stay as they are."
+            )
+        else:
+            sentences.append(f"Each day would have at most {shape.places_per_day} places.")
+    if shape.earliest:
+        where = "Day " + " and ".join(str(day) for day in shape.days) if shape.days else "The days"
+        sentences.append(f"{where} would start at {shape.earliest}.")
+    if shape.diet and shape.diet_meal:
+        sentences.append(f"{shape.diet_meal.capitalize()} would be {shape.diet}. Other meals would stay.")
+    if shape.pace == "less_walking":
+        sentences.append("The days would be paced for less walking.")
+    if budget_question:
+        if not _has_prices(plan):
+            sentences.append("The hotel rate or the flight fare is missing, so the budget cannot be judged yet.")
+        elif shape.keep_budget:
+            sentences.append("The budget would stay as it is.")
+    if shape.count_note:
+        sentences.append(shape.count_note)
+    return " ".join(sentences) or "Nothing in that question would change the plan."
 
 
 def plan_shape(message: str) -> bool:
@@ -1879,11 +1994,94 @@ def plan_shape(message: str) -> bool:
     return interpret_plan(message).requested
 
 
-def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
-    """Read a pace or meal rule from any wording, then refuse the extremes.
+def _bound_spans(lower: str) -> list[tuple[int, int]]:
+    """Spans of a day index or a clock. A number inside one is not a count."""
+    return [match.span() for match in _BOUND_NUMBER.finditer(lower)]
 
-    The model may also pass places_per_day and meals in new_values. Those are
-    clamped the same way. Hotel, flights and named stops are not touched here.
+
+def _inside(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start >= left and end <= right for left, right in spans)
+
+
+def _read_count(lower: str) -> tuple[int | None, str]:
+    """The count closest to a place word, and its raw token.
+
+    A day index and a clock are not counts. The first place word's nearest
+    unbound count wins, so "day 2 ... one attraction" is 1.
+    """
+    spans = _bound_spans(lower)
+    token = re.compile(r"\b(\d+|zero|none|no|one|single|two|three|four|five|six)\b", re.IGNORECASE)
+    for place in re.finditer(rf"\b{_PLACE_WORD}s?\b", lower):
+        origin = max(0, place.start() - 40)
+        window = lower[origin:place.start()]
+        found: tuple[int, str] | None = None
+        for match in token.finditer(window):
+            start = origin + match.start(1)
+            end = origin + match.end(1)
+            if _inside(start, end, spans):
+                continue
+            raw = match.group(1)
+            number = int(raw) if raw.isdigit() else _COUNT_WORDS.get(raw)
+            if number is None:
+                continue
+            found = (number, raw)
+        if found is not None:
+            return found
+    return None, ""
+
+
+def _named_days(lower: str) -> list[int]:
+    days: list[int] = []
+    for raw in _DAY_INDEX.findall(lower):
+        number = int(raw)
+        if number not in days:
+            days.append(number)
+    return days
+
+
+def _count_refusal(shown: str, *, blocked: bool) -> str:
+    ending = "so the plan was not changed" if blocked else "so that count was not applied"
+    return f"I can keep 1 to {_MAX_PLACES_A_DAY} places a day. {shown} is outside that, {ending}."
+
+
+def _apply_operation(found: PlanAdjust, op: dict, *, each_day: bool, lock_days: bool) -> str:
+    """Fill one gap from a typed operation. Returns a raw count token when that count is illegal."""
+    kind = str(op.get("op") or "")
+    day = op.get("day")
+    if isinstance(day, int) and day >= 1 and not each_day and not lock_days and day not in found.days:
+        found.days.append(day)
+    if kind == "set_count" and found.places_per_day is None:
+        number = op.get("count")
+        if isinstance(number, int) and 1 <= number <= _MAX_PLACES_A_DAY:
+            found.places_per_day = number
+            found.requested = True
+        elif isinstance(number, int):
+            return str(number)
+    elif kind == "set_start" and not found.earliest:
+        clock = op.get("time")
+        if isinstance(clock, str) and re.fullmatch(r"\d{2}:\d{2}", clock):
+            found.earliest = clock
+            found.requested = True
+    elif kind == "set_diet" and not found.diet:
+        diet = str(op.get("diet") or "").strip().lower()
+        if diet:
+            found.diet = diet
+            meal = str(op.get("meal") or "").strip().lower()
+            if meal in {"breakfast", "lunch", "dinner"}:
+                found.diet_meal = meal
+            found.requested = True
+    elif kind == "set_pace" and not found.pace and op.get("pace") in {"less_walking", "relaxed"}:
+        found.pace = "less_walking"
+        found.requested = True
+    return ""
+
+
+def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
+    """Read a pace, a meal, a diet or a start time. A day, a clock and a count stay separate.
+
+    The model may pass the same fields in ``new_values`` and in ``operations``.
+    A number the sentence already binds is kept. Hotel, flights and named stops
+    are not touched here.
     """
     lower = message.lower()
     found = PlanAdjust()
@@ -1892,21 +2090,15 @@ def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
             requested=True,
             reason="That would remove the trip itself. I can thin a day, not erase it, so nothing was changed.",
         )
-    count = re.search(
-        rf"\b(\d+|zero|none|no|one|single|two|three|four|five|six)\b.{{0,30}}\b{_PLACE_WORD}s?\b",
-        lower,
-    )
-    about_days = bool(re.search(r"\b(each day|every day|per day|a day)\b", lower))
-    if count and (about_days or re.search(r"\b(only|just)\b", lower)):
-        raw = count.group(1)
-        number = int(raw) if raw.isdigit() else _COUNT_WORDS.get(raw)
+    each_day = _EACH_DAY.search(lower) is not None
+    if not each_day:
+        found.days = _named_days(lower)
+    number, raw = _read_count(lower)
+    invalid = ""
+    if number is not None and (each_day or found.days or _ONLY_WORD.search(lower)):
         found.requested = True
-        if number is None or number < 1 or number > _MAX_PLACES_A_DAY:
-            shown = raw if number is None else str(number)
-            found.reason = (
-                f"I can keep 1 to {_MAX_PLACES_A_DAY} places a day. "
-                f"{shown} is outside that, so the plan was not changed."
-            )
+        if number < 1 or number > _MAX_PLACES_A_DAY:
+            invalid = raw
         else:
             found.places_per_day = number
     if re.search(rf"\b{_MEAL_WORD}", lower):
@@ -1914,19 +2106,21 @@ def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
         if drop:
             found.requested = True
             found.meals = "drop"
-    hinted = hinted or {}
-    if isinstance(hinted.get("places_per_day"), int):
-        number = hinted["places_per_day"]
+    diet = _DIET_WORD.search(lower)
+    if diet:
         found.requested = True
-        if number < 1 or number > _MAX_PLACES_A_DAY:
-            found.places_per_day = None
-            found.reason = (
-                f"I can keep 1 to {_MAX_PLACES_A_DAY} places a day. "
-                f"{number} is outside that, so the plan was not changed."
-            )
-        elif not found.reason:
-            found.places_per_day = number
-    if hinted.get("meals") in {"drop", "keep"} and not found.reason:
+        found.diet = diet.group(1).lower()
+        slot = _MEAL_SLOT.search(lower)
+        if slot:
+            found.diet_meal = slot.group(1).lower()
+    if wants_less_walking(lower):
+        found.requested = True
+        found.pace = "less_walking"
+    if keeps_the_budget(lower):
+        found.requested = True
+        found.keep_budget = True
+    hinted = hinted or {}
+    if hinted.get("meals") in {"drop", "keep"}:
         found.requested = True
         found.meals = str(hinted["meals"])
     _read_schedule(lower, found)
@@ -1938,9 +2132,32 @@ def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
             found.min_hours = None
         else:
             found.min_hours = hours
-    if isinstance(hinted.get("earliest"), str) and re.fullmatch(r"\d{2}:\d{2}", hinted["earliest"]) and not found.reason:
+    if (
+        isinstance(hinted.get("earliest"), str)
+        and re.fullmatch(r"\d{2}:\d{2}", hinted["earliest"])
+        and not found.reason
+        and not found.earliest
+    ):
         found.requested = True
         found.earliest = hinted["earliest"]
+    if isinstance(hinted.get("places_per_day"), int) and found.places_per_day is None and not invalid:
+        hinted_count = hinted["places_per_day"]
+        found.requested = True
+        if hinted_count < 1 or hinted_count > _MAX_PLACES_A_DAY:
+            invalid = str(hinted_count)
+        else:
+            found.places_per_day = hinted_count
+    if not found.days and not each_day and isinstance(hinted.get("scope_days"), list):
+        found.days = [day for day in hinted["scope_days"] if isinstance(day, int) and day >= 1]
+    if hinted.get("keep_budget") is True:
+        found.keep_budget = True
+        found.requested = True
+    lock_days = bool(found.days)
+    for op in hinted.get("operations") or []:
+        if isinstance(op, dict):
+            refused = _apply_operation(found, op, each_day=each_day, lock_days=lock_days)
+            if refused and not invalid and found.places_per_day is None:
+                invalid = refused
     if found.earliest and found.min_hours and not found.reason:
         start = _clock_minutes(found.earliest)
         if start + int(found.min_hours * 60) > _DAY_END:
@@ -1950,15 +2167,102 @@ def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
             )
             found.earliest = None
             found.min_hours = None
+    others = bool(found.earliest or found.min_hours or found.diet or found.pace or found.meals or found.keep_budget)
+    if invalid and not found.reason:
+        if others:
+            found.count_note = _count_refusal(invalid, blocked=False)
+            found.places_per_day = None
+            found.requested = True
+        else:
+            found.reason = _count_refusal(invalid, blocked=True)
+            found.places_per_day = None
+            found.requested = True
+    if found.pace == "less_walking" and found.places_per_day is None and not invalid and not found.reason:
+        found.places_per_day = RELAXED_STOPS
+    if found.reason:
+        found.places_per_day = None
+        found.earliest = None
+        found.min_hours = None
     return found
 
 
+def _scoped(plan: TripPlan, shape: PlanAdjust):
+    chosen = set(shape.days)
+    for index, day in enumerate(plan.days, start=1):
+        if chosen and index not in chosen:
+            continue
+        yield index, day
+
+
+def _day_signature(day: DayPlan) -> tuple:
+    return tuple(
+        (item.id, item.type, item.name, item.start, item.end, item.cuisine, item.meal_slot)
+        for item in day.items
+    )
+
+
+def _money_signature(money: Money | None) -> tuple | None:
+    if money is None:
+        return None
+    return (money.amount, money.currency)
+
+
+def _protected_changed(plan: TripPlan, saved: TripPlan, shape: PlanAdjust) -> bool:
+    """True when a day outside the scope, the budget, the hotel or a flight moved."""
+    chosen = set(shape.days)
+    for index, (day, old) in enumerate(zip(plan.days, saved.days), start=1):
+        if chosen and index not in chosen and _day_signature(day) != _day_signature(old):
+            return True
+    if _money_signature(plan.budget) != _money_signature(saved.budget):
+        return True
+    hotels = [(stay.id, _money_signature(stay.price_per_night)) for stay in plan.hotels]
+    old_hotels = [(stay.id, _money_signature(stay.price_per_night)) for stay in saved.hotels]
+    if hotels != old_hotels:
+        return True
+    tickets = [(ticket.id, _money_signature(ticket.price), ticket.selected) for ticket in plan.tickets]
+    old_tickets = [(ticket.id, _money_signature(ticket.price), ticket.selected) for ticket in saved.tickets]
+    return tickets != old_tickets
+
+
+def _restore(plan: TripPlan, saved: TripPlan) -> None:
+    plan.days = saved.days
+    plan.hotels = saved.hotels
+    plan.tickets = saved.tickets
+    plan.budget = saved.budget
+    plan.profile = saved.profile
+    plan.cost = saved.cost
+
+
+def _is_meal_slot(item: PlanItem, slot: str) -> bool:
+    if item.meal_slot == slot:
+        return True
+    if item.meal_slot and item.meal_slot != slot:
+        return False
+    return slot in f"{item.name} {item.notes}".lower()
+
+
+def _apply_diet(plan: TripPlan, shape: PlanAdjust) -> list[str]:
+    if not shape.diet or not shape.diet_meal:
+        return []
+    changed: list[str] = []
+    for index, day in _scoped(plan, shape):
+        for item in day.items:
+            if item.type is not ItemType.MEAL or not _is_meal_slot(item, shape.diet_meal):
+                continue
+            item.cuisine = shape.diet
+            if shape.diet not in item.tags:
+                item.tags = [*item.tags, shape.diet]
+            changed.append(f"Day {index} {item.name}")
+    return changed
+
+
 def apply_plan_shape(plan: TripPlan, shape: PlanAdjust) -> str:
-    """Apply a pace rule that already passed the bounds check."""
+    """Apply a pace rule that already passed the bounds check, and only on the days in scope."""
+    saved = plan.model_copy(deep=True)
     kept: list[str] = []
     dropped_places: list[str] = []
     dropped_meals: list[str] = []
-    for index, day in enumerate(plan.days, start=1):
+    for index, day in _scoped(plan, shape):
         if shape.meals == "drop":
             # A confirmed or locked row stays, whatever the pace (Proposal DB-09).
             meals = [item for item in day.items if item.type == ItemType.MEAL and not (item.locked or item.confirmed)]
@@ -1979,14 +2283,32 @@ def apply_plan_shape(plan: TripPlan, shape: PlanAdjust) -> str:
                 sights = [item for item in sights if item.id in keep_ids]
             if sights:
                 kept.append(f"Day {index}: " + ", ".join(item.name for item in sights))
+    changed_meals = _apply_diet(plan, shape)
+    if shape.pace == "less_walking":
+        if plan.profile is None:
+            plan.profile = TravellerProfile(pace="relaxed")
+        else:
+            plan.profile = plan.profile.model_copy(update={"pace": "relaxed"})
+    if _protected_changed(plan, saved, shape):
+        _restore(plan, saved)
+        return "That would have changed a day or a cost you asked to leave as it is, so nothing was saved."
     parts: list[str] = []
     if shape.places_per_day is not None:
-        parts.append(
-            f"Each day now has at most {shape.places_per_day} "
-            + ("place" if shape.places_per_day == 1 else "places")
-            + (f" ({'; '.join(kept)})" if kept else "")
-            + "."
-        )
+        if shape.days:
+            label = "Day " + " and ".join(str(day) for day in shape.days)
+            parts.append(
+                f"{label} now has at most {shape.places_per_day} "
+                + ("place" if shape.places_per_day == 1 else "places")
+                + (f" ({'; '.join(kept)})" if kept else "")
+                + ". The other days are unchanged."
+            )
+        else:
+            parts.append(
+                f"Each day now has at most {shape.places_per_day} "
+                + ("place" if shape.places_per_day == 1 else "places")
+                + (f" ({'; '.join(kept)})" if kept else "")
+                + "."
+            )
         if dropped_places:
             parts.append("Removed " + ", ".join(dropped_places) + ".")
     if shape.meals == "drop":
@@ -1995,8 +2317,17 @@ def apply_plan_shape(plan: TripPlan, shape: PlanAdjust) -> str:
             if dropped_meals
             else "No meals were on the plan."
         )
+    if changed_meals:
+        parts.append(f"{shape.diet_meal.capitalize()} is now {shape.diet}: " + ", ".join(changed_meals) + ".")
+    elif shape.diet and shape.diet_meal:
+        parts.append(f"No {shape.diet_meal} was on the plan to make {shape.diet}.")
+    if shape.pace == "less_walking":
+        parts.append("The days are paced for less walking.")
     if shape.earliest or shape.min_hours:
         moved, dropped = _retime(plan, shape)
+        if _protected_changed(plan, saved, shape):
+            _restore(plan, saved)
+            return "That would have changed a day or a cost you asked to leave as it is, so nothing was saved."
         if moved:
             parts.append("Visits now start at " + ", ".join(moved) + ".")
         if dropped:
@@ -2007,6 +2338,10 @@ def apply_plan_shape(plan: TripPlan, shape: PlanAdjust) -> str:
             )
         if not moved and not dropped:
             parts.append("No visit needed a new time.")
+    if shape.count_note:
+        parts.append(shape.count_note)
+    if shape.keep_budget:
+        parts.append("The budget stays as it is.")
     if not parts:
         parts.append("The plan already matched that pace.")
     parts.append("Hotel and flights are unchanged.")
@@ -2080,6 +2415,8 @@ def _retime(plan: TripPlan, shape: PlanAdjust) -> tuple[list[str], list[str]]:
     moved: list[str] = []
     dropped: list[str] = []
     for index, day in enumerate(plan.days, start=1):
+        if shape.days and index not in shape.days:
+            continue
         cursor = earliest if earliest is not None else None
         remove: set[str] = set()
         for item in list(day.items):
@@ -3082,6 +3419,94 @@ def _add_attractions(
 
 
 _TO_DAY = re.compile(r"\b(?:to|onto|on)\s+day\s*(\d+)\b", re.IGNORECASE)
+_PART_SHIFT = re.compile(
+    r"\b(?:from\s+)?(?:the\s+)?(morning|afternoon|evening)\b.{0,40}\b(?:to|into)\s+(?:the\s+)?(morning|afternoon|evening)\b"
+    r"|\b(?:move|shift|put)\b.{0,80}\b(?:to|into)\s+(?:the\s+)?(morning|afternoon|evening)\b",
+    re.IGNORECASE,
+)
+_PART_BOUNDS = {"morning": (8 * 60, 12 * 60), "afternoon": (12 * 60, 17 * 60), "evening": (17 * 60, 21 * 60 + 30)}
+
+
+def _part_of(minutes: int) -> str:
+    if minutes < 12 * 60:
+        return "morning"
+    if minutes < 17 * 60:
+        return "afternoon"
+    return "evening"
+
+
+def _shift_place(message: str) -> str:
+    match = re.search(r"\b(?:move|shift|put)\s+(.+?)\s+(?:from|to|into)\b", message, re.IGNORECASE)
+    if match is None:
+        return ""
+    name = match.group(1).strip(" .")
+    if re.fullmatch(r"(?:the\s+)?(?:morning|afternoon|evening)", name, re.IGNORECASE):
+        return ""
+    return name
+
+
+def _shift_part(
+    plan: TripPlan, message: str, place: str, item_id: str | None
+) -> tuple[bool, str] | None:
+    """Move one stop from morning to afternoon, or the reverse, on the same day."""
+    if re.search(r"\bday\s*\d+", message, re.IGNORECASE):
+        return None
+    match = _PART_SHIFT.search(message)
+    if match is None:
+        return None
+    target = (match.group(2) or match.group(3) or "").lower()
+    if target not in _PART_BOUNDS:
+        return None
+    name = (place or "").strip() or _shift_place(message)
+    found = None
+    for day, item in _items_in_order(plan):
+        if item.type is ItemType.TRANSIT:
+            continue
+        if name and _matches_name(item.name, name):
+            found = (day, item)
+            break
+    if found is None and item_id:
+        for day, item in _items_in_order(plan):
+            if item.id == item_id:
+                found = (day, item)
+                break
+    if found is None:
+        shown = name or "that stop"
+        return False, f"I could not find {shown} on the plan, so nothing was moved."
+    day, item = found
+    if item.locked or item.confirmed:
+        return False, f"{item.name} is locked, so it stayed at {item.start}."
+    try:
+        current = _clock_minutes(item.start)
+        duration = max(30, _clock_minutes(item.end) - current)
+    except (ValueError, AttributeError):
+        current, duration = 9 * 60, 60
+    if _part_of(current) == target:
+        return False, f"{item.name} is already in the {target}, at {item.start}, so the itinerary stayed as it was."
+    window_start, window_end = _PART_BOUNDS[target]
+    fit = min(duration, window_end - window_start)
+    taken = []
+    for other in day.items:
+        if other is item or not other.start or not other.end:
+            continue
+        try:
+            taken.append((_clock_minutes(other.start), _clock_minutes(other.end)))
+        except (ValueError, AttributeError):
+            continue
+    start = None
+    cursor = window_start
+    while cursor + fit <= window_end:
+        if all(cursor + fit <= begin or cursor >= end for begin, end in taken):
+            start = cursor
+            break
+        cursor += 15
+    if start is None:
+        return False, f"The {target} on that day has no free time, so {item.name} stayed at {item.start}."
+    item.start = _hhmm(start)
+    item.end = _hhmm(start + fit)
+    item.transfer = None
+    day.items.sort(key=lambda entry: entry.start)
+    return True, f"Moved {item.name} to the {target}, {item.start}–{item.end}."
 
 
 def _move_day(message: str, told: int | None) -> int | None:

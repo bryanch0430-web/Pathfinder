@@ -376,7 +376,7 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
     for index, day in enumerate(plan.days, start=1):
         for item in day.items:
             home[item.id] = (index, item)
-    wanted: dict[str, tuple[int, str, str]] = {}
+    wanted: dict[str, tuple[int, str, str, str]] = {}
     for move in moves:
         item_id = str(move.get("id") or "")
         found = home.get(item_id)
@@ -385,11 +385,12 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         day_number, item = found
         start, end = str(move.get("start") or ""), str(move.get("end") or "")
         target = int(move.get("day") or 0)
+        new_name = str(move.get("name") or "").strip()
         if _CLOCK.match(start) is None or _CLOCK.match(end) is None or start >= end:
             raise ValueError(f"{item.name} needs a start time that is before its end time.")
         if not 1 <= target <= len(plan.days):
             raise ValueError("That day is not in this trip.")
-        if target == day_number and start == item.start and end == item.end:
+        if target == day_number and start == item.start and end == item.end and (not new_name or new_name == item.name):
             continue
         kind = getattr(item.type, "value", str(item.type))
         if kind in _DERIVED_ROWS:
@@ -400,7 +401,7 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         city = next((s.destination.name for s in plan.segments if s.id == here), "")
         if here and there and here != there and city:
             raise ValueError(f"{item.name} is in {city}; it can only move to a day in {city}")
-        wanted[item_id] = (target, start, end)
+        wanted[item_id] = (target, start, end, new_name if new_name and new_name != item.name else "")
     if not wanted:
         return plan
     updated = plan.model_copy(deep=True)
@@ -414,12 +415,14 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
                 stay.append(item)
         day.items = stay
     for item in taken:
-        target, start, end = wanted[item.id]
+        target, start, end, new_name = wanted[item.id]
+        if new_name:
+            item.name = new_name
         item.start, item.end, item.transfer = start, end, None
         updated.days[target - 1].items.append(item)
     for day in updated.days:
         day.items.sort(key=lambda item: item.start)
-    touched = {home[item_id][0] - 1 for item_id in wanted} | {target - 1 for target, _, _ in wanted.values()}
+    touched = {home[item_id][0] - 1 for item_id in wanted} | {target - 1 for target, _, _, _ in wanted.values()}
     for index in sorted(touched):
         day = updated.days[index]
         for previous, current in zip(day.items, day.items[1:]):

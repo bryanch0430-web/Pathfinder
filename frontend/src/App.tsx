@@ -57,7 +57,8 @@ import { planLocaleFor } from "./lib/planLocale";
 import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
-import { EvaluationPage, SavedPage, SettingsPage } from "./app/pages";
+import { EvaluationPage, SavedPage, SettingsPage, TravellerProfileTool } from "./app/pages";
+import { CasesPage } from "./app/cases";
 import { DeskPage } from "./app/learn";
 import { showsAdmin } from "./lib/access";
 import { Sketchbook } from "./design-system/sketch/Sketchbook";
@@ -66,6 +67,7 @@ const HASH_TAB: Record<string, AppTab> = {
   plan: "plan",
   saved: "saved",
   evaluation: "evaluation",
+  cases: "cases",
   settings: "settings",
 };
 
@@ -529,8 +531,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (pf.plan && !mapDay) setMapDay(pf.plan.days[0]?.date ?? "");
-  }, [pf.plan, mapDay]);
+    if (!showDesk && tab === "cases") setTab("plan");
+  }, [showDesk, tab]);
 
   useEffect(() => {
     setMapDay(pf.plan?.days[0]?.date ?? "");
@@ -634,6 +636,7 @@ export default function App() {
         onNewTrip={() => void createTripTab()}
         theme={dark ? "dark" : "light"}
         onTheme={() => setDark((value) => !value)}
+        admin={showDesk}
         onOpenDesk={showDesk ? () => {
           const opened = window.open(
             `${window.location.pathname}?desk=1#desk`,
@@ -739,7 +742,18 @@ export default function App() {
                   onReopenChoice={pf.reopenChoice}
                   onMarkBooked={pf.markBooked}
                   onLoadHotelRooms={pf.hotelRooms}
-                  onApplyLayout={pf.applyLayout}
+                  onApplyLayout={pf.held ? undefined : pf.applyLayout}
+                  held={pf.held}
+                  agentName={pf.agentName}
+                  paused={pf.busy || pf.plannerBusy}
+                  pausedNote={pf.busy ? pf.progressMessage : pf.plannerNote}
+                  onCommitStop={pf.held ? undefined : async (change) => {
+                    if (change.lookup) {
+                      await pf.send(`Replace ${change.previousName} with ${change.name}. Put it on day ${change.day} from ${change.start} to ${change.end}.`);
+                      return;
+                    }
+                    await pf.applyLayout([{ id: change.id, day: change.day, start: change.start, end: change.end, name: change.name }]);
+                  }}
                   onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
                 />
               ) : (
@@ -788,6 +802,7 @@ export default function App() {
                 <p className="pf-sketch-empty">{t("budget.exchangeEmpty")}</p>
               )
             }
+            profile={<TravellerProfileTool key={identityEpoch} signedIn={Boolean(authUser)} />}
             right={
               pf.plan ? (
                 <>
@@ -811,7 +826,8 @@ export default function App() {
       ) : null}
       {tab === "saved" ? <SavedPage key={identityEpoch} /> : null}
       {tab === "evaluation" ? <EvaluationPage /> : null}
-      {tab === "settings" ? <SettingsPage key={identityEpoch} signedIn={Boolean(authUser)} /> : null}
+      {tab === "cases" && showDesk ? <CasesPage /> : null}
+      {tab === "settings" ? <SettingsPage key={identityEpoch} /> : null}
       </div>
 
       {signIn ? <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} /> : null}

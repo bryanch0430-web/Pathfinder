@@ -56,8 +56,9 @@ def test_the_cost_of_two_cities_is_each_stay_for_its_nights_and_every_chosen_far
     cost = planner.cost_for_plan(TripContext(session_id="s2", currency="HKD", budget=50000), plan)
 
     assert [line.label.split(" × ")[0] for line in cost.lines] == ["Hotel · Hotel Granvia", "Hotel · Osaka Inn"]
-    assert cost.total == 4800 and cost.status == "within"
+    assert cost.total == 4800 and cost.status == "unknown"
     assert any("Kyoto to Osaka is an estimate" in note for note in cost.notes)
+    assert any("Fare was not returned" in note for note in cost.notes)
 
 
 def test_the_cost_of_one_city_is_priced_as_it_always_was(settings: Settings) -> None:

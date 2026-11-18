@@ -178,6 +178,7 @@ class TurnService:
         self._session_locks: dict[str, asyncio.Lock] = {}
         self._session_turns: dict[str, int] = {}
         self._session_loops: dict[str, asyncio.AbstractEventLoop] = {}
+        self._session_activity: dict[str, str] = {}
         self.freshness = freshness or FreshnessService(
             registry=plan_path.registry, planner=plan_path.planner, settings=settings, store=store
         )
@@ -206,6 +207,10 @@ class TurnService:
         """True while a turn on the session runs or waits for the session's lock."""
         return session_id in self._session_turns
 
+    def session_activity(self, session_id: str) -> str:
+        """What the running turn last said it was doing, or empty when the session is idle."""
+        return self._session_activity.get(session_id, "")
+
     @asynccontextmanager
     async def _lock_for(self, session_id: str, on_wait: Callable[[], None] | None = None) -> AsyncIterator[None]:
         """Hold the session's lock; drop it again when no other turn is waiting for it.
@@ -221,6 +226,7 @@ class TurnService:
             if on_wait is not None and self._session_turns[session_id] > 1:
                 on_wait()
             async with lock:
+                self._session_activity[session_id] = "Understanding your message."
                 yield
         finally:
             self._session_turns[session_id] -= 1
@@ -228,6 +234,7 @@ class TurnService:
                 del self._session_turns[session_id]
                 del self._session_locks[session_id]
                 del self._session_loops[session_id]
+                self._session_activity.pop(session_id, None)
 
     @contextmanager
     def _removed_if_deleted(self, session_id: str) -> Iterator[None]:
@@ -280,6 +287,10 @@ class TurnService:
                 )
                 async with aclosing(turn) as events:
                     async for event in events:
+                        if event.event == "progress":
+                            note = str((event.data or {}).get("message") or "").strip()
+                            if note:
+                                self._session_activity[session_id] = note
                         yield event
 
     def _keep_decision(self, session_id: str, after: datetime, tracer: Any) -> None:
@@ -1115,6 +1126,73 @@ class TurnService:
         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
         self.store.touch_session(session_id)
 
+    async def build_from_form(self, session_id: str) -> None:
+        """Plan from the trip form already stored. The desk fills that form; this does not read a chat instruction."""
+        async with self._lock_for(session_id, None):
+            context = self.store.get_context(session_id)
+            if context is None or context.missing_slots():
+                from app.domain.errors import PlanInvalidError
+
+                raise PlanInvalidError("The trip form is still missing a required detail.")
+            request_id = new_id("req")
+            tracer = start_trace(self.settings, request_id)
+            try:
+                async for _event in self._plan(
+                    context=context, session_id=session_id, tracer=tracer, request_id=request_id
+                ):
+                    pass
+                tracer.finish(status="ok")
+            except Exception:
+                tracer.finish(status="error")
+                raise
+
+    async def edit_from_desk(
+        self,
+        session_id: str,
+        message: str,
+        *,
+        agent_name: str,
+        scope_item_id: str | None = None,
+    ) -> str:
+        """Apply one change with the edit-itinerary skill. The desk already chose an edit, so this does not re-route the words."""
+        from app.domain.errors import PlanInvalidError
+
+        async with self._lock_for(session_id, None):
+            plan = self.store.get_plan(session_id)
+            context = self.store.get_context(session_id)
+            if plan is None or context is None:
+                raise PlanInvalidError("There is no itinerary to modify yet.")
+            decision = RouteDecision(
+                intent=Intent.MODIFY,
+                confidence=1.0,
+                reason_code="desk_edit",
+                rationale="A person on the desk asked the edit skill to change this plan.",
+            )
+            request_id = new_id("req")
+            tracer = start_trace(self.settings, request_id)
+            prose = ""
+            try:
+                async for event in self._modify(
+                    plan=plan,
+                    context=context,
+                    message=message,
+                    decision=decision,
+                    session_id=session_id,
+                    tracer=tracer,
+                    request_id=request_id,
+                    scope_item_id=scope_item_id,
+                    history=self.store.list_messages(session_id, limit=8),
+                    review=False,
+                    reply_meta={"live_agent": True, "agent_name": agent_name, "desk_edit": True},
+                ):
+                    if event.event == "token":
+                        prose = str((event.data or {}).get("text") or prose)
+                tracer.finish(status="ok")
+            except Exception:
+                tracer.finish(status="error")
+                raise
+            return prose
+
     async def _modify(
         self,
         *,
@@ -1129,6 +1207,7 @@ class TurnService:
         history: Sequence[Message] = (),
         answering: EditQuestion | None = None,
         review: bool = False,
+        reply_meta: dict[str, Any] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
@@ -1174,7 +1253,7 @@ class TurnService:
         if asked is not None:
             # The edit needs a fact first: one question, with the clarify card, and nothing in the plan changes.
             tracer.metadata["reason"] = "edit_needs_fact"
-            for event in self._ask_for_fact(asked, session_id=session_id):
+            for event in self._ask_for_fact(asked, session_id=session_id, reply_meta=reply_meta):
                 yield event
             self.store.touch_session(session_id)
             return
@@ -1239,7 +1318,7 @@ class TurnService:
                 role="assistant",
                 content=prose,
                 intent=Intent.MODIFY,
-                meta={"proposal": held, "log": record, "diff": []},
+                meta={"proposal": held, "log": record, "diff": [], **(reply_meta or {})},
             )
             self.store.add_message(reply)
             yield TurnEvent(event="token", data={"text": prose})
@@ -1277,7 +1356,7 @@ class TurnService:
             role="assistant",
             content=prose,
             intent=Intent.MODIFY,
-            meta={"diff": diff, **({"log": record} if record is not None else {})},
+            meta={"diff": diff, **({"log": record} if record is not None else {}), **(reply_meta or {})},
         )
         self.store.add_message(reply)
         yield TurnEvent(event="token", data={"text": prose})
@@ -1345,7 +1424,7 @@ class TurnService:
         )
         tracer.metadata["related_to_plan"] = related
         tracer.metadata["answer_source"] = source or "none"
-        if plan is not None and not related and "does not contain" not in answer:
+        if plan is not None and not related and source != "refused" and "does not contain" not in answer:
             answer += "\n\nI can add this to the itinerary if you want."
         self.store.add_message(
             Message(
@@ -1402,7 +1481,9 @@ class TurnService:
         )
         yield TurnEvent(event="token", data={"text": question})
 
-    def _ask_for_fact(self, asked: EditQuestion, *, session_id: str) -> Iterator[TurnEvent]:
+    def _ask_for_fact(
+        self, asked: EditQuestion, *, session_id: str, reply_meta: dict[str, Any] | None = None
+    ) -> Iterator[TurnEvent]:
         """An edit's question for a missing fact, asked as the clarify step asks: a stored turn and a clarify card. The
         stored turn keeps the edit it belongs to, so the answer on the next turn completes that edit."""
         self.store.add_message(
@@ -1411,7 +1492,7 @@ class TurnService:
                 role="assistant",
                 content=asked.question,
                 intent=Intent.UNCLEAR,
-                meta={"edit_question": True, "fact": asked.fact, "request": asked.request[:600]},
+                meta={"edit_question": True, "fact": asked.fact, "request": asked.request[:600], **(reply_meta or {})},
             )
         )
         yield TurnEvent(
@@ -1610,18 +1691,25 @@ def _pending_clarify(history: Sequence[Message]) -> list[str]:
 
 
 def _fill_origin_answer(context: TripContext, slots: list[str], message: str) -> bool:
-    """A short place name answers an open origin question and does not name a new trip."""
+    """A short city name answers an open origin question and does not name a new trip.
+
+    A correction ("no, I mean Gundam") is not a departure city. Only a city the
+    assistant already knows is stored, so an attraction name cannot become the origin.
+    """
+    from app.application.understanding import _known_place
+
     if "origin" not in slots or context.origin.strip() or not context.destination.strip():
         return False
     text = message.strip()
     if not text or len(text) > 40 or looks_like_question(text):
         return False
-    if re.search(r"\b(plan|itinerary|days?|nights?|budget)\b", text, re.IGNORECASE):
+    if re.search(r"\b(plan|itinerary|days?|nights?|budget|mean|no+|not|actually)\b", text, re.IGNORECASE):
         return False
     name = re.sub(r"^(?:from|i(?:'m| am) from)\s+", "", text, flags=re.IGNORECASE).strip(" .")
-    if not name:
+    known = _known_place(name) if name else None
+    if not known:
         return False
-    context.origin = name[:120]
+    context.origin = known
     return True
 
 
@@ -1755,6 +1843,7 @@ def _why_lines(tracer: Any) -> list[str]:
         "scoped_item_action": "A stop was selected, so only that stop could change.",
         "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
         "not_about_the_trip": "The message is not about the trip, so it was answered in chat and nothing was edited.",
+        "question_before_intake": "The traveller asked a question while some trip details are still missing, so the question was answered and the trip was not planned.",
         "security_blocklist": "The message was blocked before any planning.",
         "identity": "This was a question about the assistant, so no trip was planned.",
         "edit_needs_fact": "The change needs a fact the plan does not have, so it was asked for and nothing was edited.",

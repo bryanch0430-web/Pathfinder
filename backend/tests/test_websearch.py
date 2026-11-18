@@ -4,13 +4,32 @@ from __future__ import annotations
 
 import re
 
+import asyncio
+
 from app.application.asking import (
     DEEP_SEARCH_WORDS,
+    OFF_TRIP_LOOKUP,
     QUALITY_WORDS,
+    AskPath,
     _find_item_strict,
     _keyword_query,
+    about_this_trip,
 )
-from app.infrastructure.providers.websearch import _deepseek_results, _grok_answer
+from app.application.llm_gateway import LLMGateway
+from app.application.prompts import PromptLibrary
+from app.application.toolbox import Toolbox
+from app.config import Settings
+from app.domain.errors import FailureKind, ProviderError
+from app.domain.models import TripContext
+from app.infrastructure.llm import NullLLM
+from app.infrastructure.observability import NoopTracer
+from app.infrastructure.providers.websearch import (
+    DeepSeekSearchSource,
+    WebResult,
+    _deepseek_results,
+    _grok_answer,
+    _serpapi_web_results,
+)
 
 
 def test_deepseek_results_map_the_documented_fields() -> None:
@@ -69,6 +88,68 @@ def test_grok_answer_collects_text_and_dedupes_sources() -> None:
     assert answer.text.startswith("Ocean Park is worth")
     assert answer.sources == ["https://a.example/x", "https://b.example/y"]
     assert answer.source_name == "grok-web-search"
+
+
+def test_an_invalid_search_key_falls_through_to_the_judge_key(monkeypatch) -> None:
+    used: list[str] = []
+
+    async def fake(method, url, **kwargs):
+        used.append(kwargs["headers"]["Authorization"][-4:])
+        if used[-1] == "bad1":
+            raise ProviderError("refused", kind=FailureKind.AUTH, source="deepseek-search")
+        return {"results": [{"title": "Gundam", "url": "https://example.com/gundam", "summary": "robots"}]}
+
+    monkeypatch.setattr("app.infrastructure.providers.websearch.request_json", fake)
+    settings = Settings(deepseek_search_api_key="sk-search-bad1", judge_api_key="sk-judge-good")
+
+    rows = asyncio.run(DeepSeekSearchSource(settings).search(query="gundam", count=1, retries=0))
+
+    assert used == ["bad1", "good"]
+    assert rows[0].title == "Gundam"
+
+
+def test_serpapi_web_results_keep_the_link_and_snippet() -> None:
+    rows = list(
+        _serpapi_web_results(
+            {"organic_results": [{"title": "Gundam", "link": "https://example.com/g", "snippet": "Giant robots.", "source": "Example"}]},
+            4,
+        )
+    )
+    assert rows == [WebResult(title="Gundam", url="https://example.com/g", summary="Giant robots.", snippet="Giant robots.", site_name="Example")]
+
+
+def test_a_question_unrelated_to_the_trip_is_not_looked_up(settings: Settings) -> None:
+    kyoto = TripContext(session_id="s", destination="Kyoto", preferences=["must-see: Gundam"])
+    assert about_this_trip("what is gundam from japan", kyoto, None) is True
+    assert about_this_trip("what is the weather on day 2?", kyoto, None) is True
+    assert about_this_trip("how to earn revenue", kyoto, None) is False
+
+    class Web:
+        name = "fake-web"
+        calls = 0
+
+        async def search(self, **kwargs):
+            self.calls += 1
+            return []
+
+    web = Web()
+    path = AskPath(
+        gateway=LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
+        registry=type("R", (), {"web": [web], "web_deep": [], "weather": [], "routes": [], "places": []})(),
+        settings=settings,
+    )
+    text, _related, source = asyncio.run(
+        path.answer(
+            question="how to earn revenue",
+            plan=None,
+            context=kyoto,
+            toolbox=Toolbox(path="ask", tracer=NoopTracer(), store=None, request_id="r"),
+            emit=None,
+        )
+    )
+    assert text == OFF_TRIP_LOOKUP
+    assert source == "refused"
+    assert web.calls == 0
 
 
 def test_keyword_query_strips_framing_and_keeps_the_city() -> None:

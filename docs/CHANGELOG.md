@@ -5,6 +5,23 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.10.0 — 2026-11-18 21:20
+
+An edit can name one day, and a missing price no longer counts as a budget pass. An admin can review the misses.
+
+- **A named day is the only day that changes.** "Only change day 2 to one attraction" leaves the other days as they are. "Day 2 starts after 14:00, only one attraction" sets that day's start and that day's count. A clock is read as a time. A question about that shape is answered, and the plan stays as it was.
+- **Less walking, a meal, and the same budget can sit in one sentence.** An elderly pace shortens the days. "Change lunch to vegetarian" changes lunch. "Keep the budget the same" leaves the prices alone and does not ask about a fare that was never returned.
+- **A missing hotel rate or flight fare leaves the budget unknown.** The check says the budget cannot be judged yet. A total of 0 is not a pass.
+- **A question asked while the form is still open is answered.** "What is Gundam?" gets an answer. The missing dates stay missing. A greeting stays a greeting. "See Gundam" is kept as something to see. A start day on its own does not become a one-day trip.
+- **A stop can move within its day.** "From morning to afternoon" stays on that day.
+- **What happened.** The control under a reply is What happened. Why this decision stays in developer mode and says how the reply was chosen.
+- **The plan sheet shows the work.** Drag a stop to another time, then Apply. Click a stop to edit it. While a plan or an edit is running, the sheet says so. Undo returns the previous version.
+- **The Desk keeps live and finished chats apart.** A session stays live while its page is open, or for 24 hours after the last change. Queue and Handling, Auto-Answering, and Session history are separate. The operator can fill the trip form and build the plan, open Plan studio on the traveller's plan, ask the planner to edit it, or change one stop's name and times. Release as draft hands editing back. The traveller sees who is editing.
+- **Error analysis is an admin page.** It lists cases Evaluation missed, and live or finished chats marked not useful or left unchanged. An operator can add a case, or take a line from a chat. Ask the writer suggests a replacement for a skill the model already reads, or a number for the confidence gate or a gate temperature. Use this skill applies it. The built-in file stays on disk. Restore the built-in skill puts that text back. Dismiss removes a draft, and a restored leftover. Check these cases scores the listed exam cases again and marks Now passes or Still failed. A chat is routed again and is not marked passed.
+- **Evaluation counts every case.** A run reports how many cases produced the expected result. The page no longer splits the list into dev and held-out.
+- **The Training tab is gone.** Handoff examples in Settings remain. A saved line has to share real words with the message before it is used as a hint. The router is no longer sent down a path because one past line was close.
+- **Web search has a second list.** DeepSeek is still tried first, and a refused search key is followed by the judge key. When that returns nothing, Google results are read through the SerpAPI key already used for hotels and flights.
+
 ## v1.9.0 — 2026-11-17
 
 The planner still takes one path per message. This release is which model chooses that path, and seeing every test suite.

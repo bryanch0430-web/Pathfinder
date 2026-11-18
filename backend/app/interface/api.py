@@ -11,7 +11,7 @@ import json
 import logging
 import re
 from contextlib import aclosing, asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, AsyncIterator, Literal
 
@@ -200,12 +200,6 @@ class AttachmentIn(BaseModel):
     data: str = Field(min_length=1)
 
 
-class ExemplarIn(BaseModel):
-    utterance: str = Field(min_length=1, max_length=600)
-    intent: Literal["plan", "modify", "ask", "unclear"]
-    note: str = Field(default="", max_length=400)
-
-
 class DeskSay(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
@@ -218,6 +212,20 @@ class DeskRunIn(BaseModel):
     """A last-resort instruction. It runs the same path a traveller message would, while the chat is held."""
 
     message: str = Field(min_length=1, max_length=6000)
+
+
+class DeskBriefIn(BaseModel):
+    """The trip form a person on the desk fills in. ``build`` then runs planning from these fields alone."""
+
+    destination: str = Field(min_length=1, max_length=80)
+    origin: str = Field(min_length=1, max_length=80)
+    start_date: date
+    end_date: date
+    party_size: int = Field(ge=1, le=20)
+    budget: float = Field(ge=0)
+    currency: str = Field(default="HKD", min_length=3, max_length=8)
+    preferences: list[str] = Field(default_factory=list, max_length=20)
+    build: bool = False
 
 
 class DeskStopIn(BaseModel):
@@ -233,6 +241,13 @@ class DeskPlanIn(BaseModel):
     items: list[DeskStopIn] = Field(default_factory=list, max_length=80)
 
 
+class DeskEditIn(BaseModel):
+    """One change for the edit-itinerary skill. ``item_id`` is the stop "this" refers to."""
+
+    instruction: str = Field(min_length=1, max_length=2000)
+    item_id: str = Field(default="", max_length=80)
+
+
 class EscalationIn(BaseModel):
     enabled: bool = True
     message: str = Field(default="", max_length=2000)
@@ -242,6 +257,22 @@ class EscalationIn(BaseModel):
 
 class PromptIn(BaseModel):
     body: str = Field(default="", max_length=20000)
+
+
+class OperatorCaseIn(BaseModel):
+    """A failure an operator records. `session_id` ties it to a live or finished chat."""
+
+    message: str = Field(min_length=1, max_length=500)
+    expected: str = Field(default="", max_length=400)
+    note: str = Field(default="", max_length=400)
+    session_id: str = Field(default="", max_length=80)
+    session_state: str = Field(default="", max_length=20)
+
+
+class SuggestionIn(BaseModel):
+    """The skill text or number an admin accepts. Empty keeps the writer's draft."""
+
+    body: str = Field(default="", max_length=12000)
 
 
 class OrchestratorIn(BaseModel):
@@ -353,6 +384,7 @@ class LayoutMove(BaseModel):
     day: int = Field(ge=1, le=60)
     start: str = Field(min_length=4, max_length=5)
     end: str = Field(min_length=4, max_length=5)
+    name: str = Field(default="", max_length=200)
 
 
 class LayoutRequest(BaseModel):
@@ -820,7 +852,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         context = TripContext(
             session_id=session.id,
             language=settings.default_locale,
-            party_size=2,
+            party_size=None,
             currency=settings.default_currency,
         )
         c.store.save_context(context)
@@ -833,6 +865,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def get_session(session_id: str, request: Request) -> dict[str, Any]:
         c = container(request)
         session = require_session(c, request, session_id)
+        c.store.mark_seen(session_id)
         plan = c.store.get_plan(session_id)
         if plan is not None:
             # Proposal DB-13: a reopened plan has its outdated sections re-fetched.
@@ -851,6 +884,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ],
             "held": c.store.is_held(session_id),
             "agent_name": c.store.held_agent(session_id),
+            "planner_busy": c.turn_service.session_busy(session_id),
+            "planner_note": c.turn_service.session_activity(session_id),
         }
 
     @app.get("/api/journeys/{session_id}/held")
@@ -858,7 +893,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Whether a person on the desk has this chat, and that person's account name."""
         c = container(request)
         require_session(c, request, session_id)
-        return {"held": c.store.is_held(session_id), "agent_name": c.store.held_agent(session_id)}
+        c.store.mark_seen(session_id)
+        return {
+            "held": c.store.is_held(session_id),
+            "agent_name": c.store.held_agent(session_id),
+            "planner_busy": c.turn_service.session_busy(session_id),
+            "planner_note": c.turn_service.session_activity(session_id),
+        }
 
     @app.patch("/api/journeys/{session_id}/state")
     async def patch_context(session_id: str, payload: ContextPatch, request: Request) -> dict[str, Any]:
@@ -910,6 +951,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         c = container(request)
         require_session(c, request, session_id)
+        if c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="An operator is editing this plan. You can edit it after they release the draft.")
+        if c.turn_service.session_busy(session_id):
+            raise HTTPException(status_code=409, detail=c.turn_service.session_activity(session_id) or "Pathfinder is changing this plan.")
         await charge_edit(request)
         current = c.store.get_plan(session_id)
         chosen = c.store.get_plan(session_id, payload.version)
@@ -933,6 +978,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         c = container(request)
         require_session(c, request, session_id)
+        if c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="An operator is editing this plan. You can edit it after they release the draft.")
+        if c.turn_service.session_busy(session_id):
+            raise HTTPException(status_code=409, detail=c.turn_service.session_activity(session_id) or "Pathfinder is changing this plan.")
         await charge_edit(request)
         plan = c.store.get_plan(session_id)
         if plan is None:
@@ -1197,6 +1246,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Swap in the option the traveller picked, with no model call, and save it as the next plan version."""
         c = container(request)
         require_session(c, request, session_id)
+        if c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="An operator is editing this plan. You can edit it after they release the draft.")
+        if c.turn_service.session_busy(session_id):
+            raise HTTPException(status_code=409, detail=c.turn_service.session_activity(session_id) or "Pathfinder is changing this plan.")
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
@@ -1573,7 +1626,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 TripContext(
                     session_id=session_id,
                     language=payload.locale,
-                    party_size=2,
+                    party_size=None,
                     currency=settings.default_currency,
                 )
             )
@@ -1763,39 +1816,25 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             ],
         }
 
-    @app.get("/api/training/examples")
-    async def training_examples(request: Request) -> dict[str, Any]:
-        return {"examples": container(request).store.list_exemplars()}
-
-    @app.post("/api/training/examples")
-    async def add_training_example(payload: ExemplarIn, request: Request) -> dict[str, str]:
-        return container(request).store.add_exemplar(payload.utterance, payload.intent, payload.note)
-
-    @app.delete("/api/training/examples/{example_id}")
-    async def remove_training_example(example_id: str, request: Request) -> dict[str, bool]:
-        container(request).store.delete_exemplar(example_id)
-        return {"ok": True}
-
-    @app.get("/api/training/turns")
-    async def training_turns(request: Request) -> dict[str, Any]:
-        rows = []
-        for turn in container(request).store.recent_route_records(30):
-            rows.append({**turn, "frustration": frustration_score(turn["input"])})
-        return {"turns": rows}
-
     @app.get("/api/admin/desk", dependencies=[Depends(require_admin)])
     async def desk(request: Request) -> dict[str, Any]:
         store = container(request).store
+        seen = store.seen_map()
+        now = datetime.now(timezone.utc)
         cards = []
-        for session in store.recent_sessions(30):
+        for session in store.recent_sessions(80):
             messages = store.list_messages(session["id"], limit=20)
             mood = _desk_mood(messages)
             last = messages[-1] if messages else None
+            state, on_page = _desk_liveness(session["updated_at"], seen.get(session["id"]), now)
             cards.append(
                 {
                     "session_id": session["id"],
                     "updated_at": session["updated_at"],
+                    "state": state,
+                    "on_page": on_page,
                     "held": store.is_held(session["id"]),
+                    "agent_name": store.held_agent(session["id"]),
                     "frustration": mood["frustration"],
                     "frustration_kind": mood["frustration_kind"],
                     "band": frustration_band(mood["frustration"]),
@@ -1898,6 +1937,50 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             raise HTTPException(status_code=502, detail=error)
         return {"reply": "".join(reply), "intent": intent}
 
+    @app.post("/api/admin/desk/{session_id}/brief", dependencies=[Depends(require_admin)])
+    async def desk_brief(session_id: str, payload: DeskBriefIn, request: Request) -> dict[str, Any]:
+        """Save the trip form. When ``build`` is set, plan from those fields and nothing the traveller typed."""
+        from app.domain.errors import PlanInvalidError
+
+        c = container(request)
+        if c.store.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Unknown session")
+        if not c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="Take this chat over first.")
+        if payload.end_date < payload.start_date:
+            raise HTTPException(status_code=422, detail="The end date is before the start date.")
+        context = c.store.get_context(session_id) or TripContext(session_id=session_id)
+        context.destination = payload.destination.strip()
+        context.origin = payload.origin.strip()
+        context.start_date = payload.start_date
+        context.end_date = payload.end_date
+        context.days = (payload.end_date - payload.start_date).days + 1
+        context.party_size = payload.party_size
+        context.budget = payload.budget
+        context.currency = payload.currency.strip().upper() or "HKD"
+        context.preferences = [item.strip() for item in payload.preferences if item.strip()][:20]
+        c.store.save_context(context)
+        if not payload.build:
+            return {"built": False, "plan": _desk_plan_view(c.store.get_plan(session_id))}
+        try:
+            await c.turn_service.build_from_form(session_id)
+        except PlanInvalidError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("desk plan failed")
+            raise HTTPException(status_code=502, detail="The plan could not be built.") from exc
+        place = context.destination.strip() or "this"
+        c.store.add_message(
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content=f"I've put a plan together for your {place} trip. It's on the plan now.",
+                intent=Intent.PLAN,
+                meta={"live_agent": True, "agent_name": operator_name(request), "desk_plan": True},
+            )
+        )
+        return {"built": True, "plan": _desk_plan_view(c.store.get_plan(session_id))}
+
     @app.get("/api/admin/desk/{session_id}/plan", dependencies=[Depends(require_admin)])
     async def desk_plan(session_id: str, request: Request) -> dict[str, Any]:
         plan = container(request).store.get_plan(session_id)
@@ -1911,6 +1994,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         c = container(request)
         if not c.store.is_held(session_id):
             raise HTTPException(status_code=409, detail="Take this chat over first.")
+        if c.turn_service.session_busy(session_id):
+            raise HTTPException(status_code=409, detail=c.turn_service.session_activity(session_id) or "Pathfinder is changing this plan.")
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="This trip has no plan.")
@@ -1931,12 +2016,151 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             Message(
                 session_id=session_id,
                 role="assistant",
-                content="I updated the plan.",
+                content="I've updated the plan by hand. Have a look â€” it's on the plan now.",
                 intent=Intent.MODIFY,
-                meta={"live_agent": True, "agent_name": name},
+                meta={"live_agent": True, "agent_name": name, "desk_plan": True},
             )
         )
         return {"plan": _desk_plan_view(updated)}
+
+    @app.post("/api/admin/desk/{session_id}/edit", dependencies=[Depends(require_admin)])
+    async def desk_edit(session_id: str, payload: DeskEditIn, request: Request) -> dict[str, Any]:
+        """Ask the edit-itinerary skill to change the plan. A selected stop is what "this" means."""
+        from app.domain.errors import PlanInvalidError
+
+        c = container(request)
+        if c.store.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Unknown session")
+        if not c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="Take this chat over first.")
+        if c.store.get_plan(session_id) is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        try:
+            reply = await c.turn_service.edit_from_desk(
+                session_id,
+                payload.instruction.strip(),
+                agent_name=operator_name(request),
+                scope_item_id=payload.item_id.strip() or None,
+            )
+        except PlanInvalidError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("desk edit failed")
+            raise HTTPException(status_code=502, detail="The edit could not be applied.") from exc
+        return {"reply": reply, "plan": _desk_plan_view(c.store.get_plan(session_id))}
+
+    @app.get("/api/admin/desk/{session_id}/itinerary", dependencies=[Depends(require_admin)])
+    async def desk_itinerary(session_id: str, request: Request) -> dict[str, Any]:
+        """The plan the writer saved, the same object the traveller's page shows."""
+        c = container(request)
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            return {
+                "plan": None,
+                "planner_busy": c.turn_service.session_busy(session_id),
+                "planner_note": c.turn_service.session_activity(session_id),
+            }
+        return {
+            "plan": tidy_data_gaps(plan, drop_edit_gaps=True).model_dump(mode="json"),
+            "planner_busy": c.turn_service.session_busy(session_id),
+            "planner_note": c.turn_service.session_activity(session_id),
+        }
+
+    @app.get("/api/admin/desk/{session_id}/revisions", dependencies=[Depends(require_admin)])
+    async def desk_revisions(session_id: str, request: Request) -> dict[str, Any]:
+        return {"versions": container(request).store.list_versions(session_id)}
+
+    @app.post("/api/admin/desk/{session_id}/undo", dependencies=[Depends(require_admin)])
+    async def desk_undo(session_id: str, payload: RestoreRequest, request: Request) -> dict[str, Any]:
+        """Copy an earlier version forward, so the latest plan is that one again."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        if not c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="Take this chat over first.")
+        if c.turn_service.session_busy(session_id):
+            raise HTTPException(status_code=409, detail=c.turn_service.session_activity(session_id) or "Pathfinder is changing this plan.")
+        current = c.store.get_plan(session_id)
+        chosen = c.store.get_plan(session_id, payload.version)
+        if current is None or chosen is None:
+            raise HTTPException(status_code=404, detail="That version is not on this trip.")
+        if chosen.version == current.version:
+            shown = tidy_data_gaps(current, drop_edit_gaps=True)
+            return {"plan": shown.model_dump(mode="json")}
+        restored = chosen.model_copy(deep=True)
+        restored.version = current.version + 1
+        restored.change_summary = f"Undid to version {chosen.version}"
+        restored.updated_at = datetime.now(timezone.utc)
+        try:
+            c.store.save_plan(restored, restored.change_summary)
+        except PlanConflict as exc:
+            raise HTTPException(status_code=409, detail="The plan changed meanwhile; reload it and try again.") from exc
+        c.store.add_message(
+            Message(
+                session_id=session_id,
+                role="assistant",
+                content="I've put the previous plan back.",
+                intent=Intent.MODIFY,
+                meta={"live_agent": True, "agent_name": operator_name(request), "desk_plan": True},
+            )
+        )
+        shown = tidy_data_gaps(c.store.get_plan(session_id) or restored, drop_edit_gaps=True)
+        return {"plan": shown.model_dump(mode="json")}
+
+    @app.post("/api/admin/desk/{session_id}/layout", dependencies=[Depends(require_admin)])
+    async def desk_layout(session_id: str, payload: LayoutRequest, request: Request) -> dict[str, Any]:
+        """Write the same direct-edit grid the writer uses onto this plan."""
+        from app.application.proposals import apply_layout
+
+        c = container(request)
+        if not c.store.is_held(session_id):
+            raise HTTPException(status_code=409, detail="Take this chat over first.")
+        if c.turn_service.session_busy(session_id):
+            raise HTTPException(status_code=409, detail=c.turn_service.session_activity(session_id) or "Pathfinder is changing this plan.")
+        plan = c.store.get_plan(session_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="This trip has no plan.")
+        if payload.plan_version is not None and payload.plan_version != plan.version:
+            raise HTTPException(
+                status_code=409,
+                detail="This edit was made on an earlier version of the plan; open the latest version and edit again.",
+            )
+        try:
+            updated = apply_layout(plan, [item.model_dump() for item in payload.items])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc) or "That edit does not fit this plan.") from None
+        if updated is not plan:
+            context = c.store.get_context(session_id)
+            toolbox = Toolbox(path="modify", tracer=NoopTracer(), store=c.store, request_id=new_id("layout"))
+            await refresh_transfers(
+                plan,
+                updated,
+                toolbox=toolbox,
+                source=getattr(c.registry, "transfers", None),
+                buffer=PACE_BUFFER_MINUTES.get(_pace(context) if context is not None else "balanced", 5),
+            )
+            said = await sync_session_transfers(
+                updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
+            )
+            if said:
+                updated.change_summary = " ".join([updated.change_summary, *said]).strip()
+            try:
+                c.store.save_plan(updated, updated.change_summary)
+            except PlanConflict as exc:
+                raise HTTPException(
+                    status_code=409, detail="The plan changed meanwhile; reload it and edit again."
+                ) from exc
+            c.store.add_message(
+                Message(
+                    session_id=session_id,
+                    role="assistant",
+                    content="I've updated the plan. Have a look â€” it's the same plan.",
+                    intent=Intent.MODIFY,
+                    meta={"live_agent": True, "agent_name": operator_name(request), "desk_plan": True},
+                )
+            )
+        shown = tidy_data_gaps(c.store.get_plan(session_id) or updated, drop_edit_gaps=True)
+        return {"plan": shown.model_dump(mode="json")}
 
     def _prompt_allowed(name: str) -> bool:
         if name in _PROMPT_NAMES:
@@ -2033,6 +2257,123 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             examples=payload.examples,
         )
 
+    @app.get("/api/admin/cases", dependencies=[Depends(require_admin)])
+    async def review_cases(request: Request) -> dict[str, Any]:
+        from app.application.case_review import failed_cases
+
+        c = container(request)
+        return {"cases": failed_cases(c.store), "suggestions": c.store.list_prompt_suggestions()}
+
+    @app.get("/api/admin/cases/turns", dependencies=[Depends(require_admin)])
+    async def review_turns(request: Request) -> dict[str, Any]:
+        from app.application.case_review import _chat_state
+
+        store = container(request).store
+        turns = []
+        for row in store.recent_capture_turns(30):
+            turns.append(
+                {
+                    "id": row.get("id") or "",
+                    "session_id": row.get("session_id") or "",
+                    "session_state": _chat_state(row.get("updated_at"), row.get("seen_at")),
+                    "input": (row.get("content") or "")[:500],
+                    "reply": (row.get("reply") or "")[:400],
+                }
+            )
+        return {"turns": turns}
+
+    @app.post("/api/admin/cases", dependencies=[Depends(require_admin)])
+    async def review_add(payload: OperatorCaseIn, request: Request) -> dict[str, Any]:
+        from app.application.case_review import failed_cases
+
+        state = payload.session_state if payload.session_state in {"live", "completed"} else ""
+        container(request).store.add_operator_case(
+            session_id=payload.session_id.strip(),
+            session_state=state,
+            message=payload.message,
+            expected=payload.expected,
+            note=payload.note,
+        )
+        return {"cases": failed_cases(container(request).store)}
+
+    @app.post("/api/admin/cases/scan", dependencies=[Depends(require_admin), limit_ai])
+    async def review_scan(request: Request) -> dict[str, Any]:
+        from app.application.case_review import suggest_skill_changes
+        from app.domain.errors import ProviderError
+
+        c = container(request)
+        try:
+            suggestions = await suggest_skill_changes(c.gateway, c.store)
+        except ProviderError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"suggestions": suggestions}
+
+    @app.post("/api/admin/cases/check", dependencies=[Depends(require_admin)])
+    async def review_check(request: Request) -> dict[str, Any]:
+        from app.application.case_review import check_listed
+
+        c = container(request)
+        return await check_listed(c.evaluation, c.store)
+
+    @app.post("/api/admin/cases/suggestions/{suggestion_id}/accept", dependencies=[Depends(require_admin)])
+    async def review_accept(suggestion_id: str, payload: SuggestionIn, request: Request) -> dict[str, Any]:
+        c = container(request)
+        current = c.store.get_prompt_suggestion(suggestion_id)
+        if current is None or current["status"] != "draft":
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        if current.get("kind") == "setting":
+            from app.application.case_review import SETTING_RANGES
+
+            key = current["skill"]
+            if key not in SETTING_RANGES:
+                raise HTTPException(status_code=404, detail="Unknown setting")
+            raw = payload.body.strip() or current.get("setting_value") or ""
+            try:
+                number = float(raw)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="A number is required")
+            low, high = SETTING_RANGES[key]
+            if not low <= number <= high:
+                raise HTTPException(status_code=400, detail="That number is outside the allowed range")
+            value = f"{number:g}"
+            try:
+                c.store.check_runtime(c.settings, {key: value})
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            c.store.save_runtime({key: value})
+            c.store.apply_runtime(c.settings)
+            saved = c.store.decide_prompt_suggestion(suggestion_id, "accepted", value)
+            return {"suggestion": saved}
+        if not _prompt_allowed(current["skill"]):
+            raise HTTPException(status_code=404, detail="Unknown prompt")
+        body = payload.body.strip() or current["body"]
+        c.store.set_prompt_override(current["skill"], body)
+        saved = c.store.decide_prompt_suggestion(suggestion_id, "accepted", body)
+        return {"suggestion": saved}
+
+    @app.post("/api/admin/cases/suggestions/{suggestion_id}/dismiss", dependencies=[Depends(require_admin)])
+    async def review_dismiss(suggestion_id: str, request: Request) -> dict[str, Any]:
+        c = container(request)
+        current = c.store.get_prompt_suggestion(suggestion_id)
+        if current is None or current["status"] not in {"draft", "restored"}:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        saved = c.store.decide_prompt_suggestion(suggestion_id, "dismissed")
+        return {"suggestion": saved}
+
+    @app.post("/api/admin/cases/suggestions/{suggestion_id}/restore", dependencies=[Depends(require_admin)])
+    async def review_restore(suggestion_id: str, request: Request) -> dict[str, Any]:
+        c = container(request)
+        current = c.store.get_prompt_suggestion(suggestion_id)
+        if current is None:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        if current.get("kind") == "setting":
+            c.store.clear_runtime_key(current["skill"])
+            c.store.apply_runtime(c.settings)
+        else:
+            c.store.clear_prompt_override(current["skill"])
+        c.store.decide_prompt_suggestion(suggestion_id, "restored")
+        return {"ok": True}
+
     @app.get("/api/admin/prompts", dependencies=[Depends(require_admin)])
     async def prompts_get(request: Request) -> dict[str, Any]:
         store = container(request).store
@@ -2127,6 +2468,25 @@ def _desk_mood(messages: list[Any]) -> dict[str, Any]:
     }
 
 
+def _parse_stamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _desk_liveness(updated_at: str, seen_at: str | None, now: datetime) -> tuple[str, bool]:
+    from app.application.desk_sessions import session_state
+
+    updated = _parse_stamp(updated_at) or now
+    return session_state(updated, _parse_stamp(seen_at), now)
+
+
 def _desk_contact(store: Any, session_id: str) -> dict[str, Any]:
     """The trip facts a contact desk shows beside a chat, and who opened the session."""
     context = store.get_context(session_id)
@@ -2184,7 +2544,14 @@ def _desk_plan_view(plan: Any) -> dict[str, Any] | None:
                 "date": day.date.isoformat(),
                 "title": day.title,
                 "items": [
-                    {"id": item.id, "name": item.name, "type": item.type.value, "start": item.start, "end": item.end}
+                    {
+                        "id": item.id,
+                        "name": item.name,
+                        "type": item.type.value,
+                        "start": item.start,
+                        "end": item.end,
+                        "address": item.address,
+                    }
                     for item in day.items
                 ],
             }

@@ -45,6 +45,83 @@ def test_a_short_origin_answer_does_not_replace_the_destination(settings: Settin
     assert updated.destination == "Osaka"
 
 
+def test_one_date_and_an_unsaid_party_stay_missing() -> None:
+    from app.application.understanding import _normalise_dates
+
+    context = TripContext(session_id="s", destination="Kyoto", start_date=date(2026, 11, 30))
+    _normalise_dates(context)
+    assert context.days is None
+    assert context.missing_slots() == ["origin", "dates", "party_size", "budget"]
+
+
+def test_seeing_gundam_is_a_wish_not_a_city(settings: Settings) -> None:
+    context = TripContext(session_id="s")
+    updated = asyncio.run(
+        understand(
+            "hi, i want to plan a trip that can see Gundam",
+            context,
+            LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
+        )
+    )
+    assert "must-see: Gundam" in updated.preferences
+    assert updated.destination != "Gundam"
+    assert updated.origin == ""
+
+
+def test_a_question_with_no_plan_is_answered_from_a_lookup(settings: Settings) -> None:
+    from types import SimpleNamespace
+
+    from app.application.asking import AskPath
+    from app.application.toolbox import Toolbox
+    from app.infrastructure.providers.websearch import WebResult
+
+    class Web:
+        name = "fake-web"
+
+        async def search(self, *, query: str, count: int = 4, ori_question: str | None = None):
+            return [
+                WebResult(
+                    title="Gundam",
+                    url="https://example.com/gundam",
+                    summary="Gundam is a Japanese media franchise of giant robot stories.",
+                )
+            ]
+
+    path = AskPath(
+        gateway=LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
+        registry=SimpleNamespace(web=[Web()], web_deep=[], weather=[], routes=[], places=[]),
+        settings=settings,
+    )
+    context = TripContext(
+        session_id="s",
+        destination="Kyoto",
+        start_date=date(2026, 11, 30),
+        budget=8300,
+        preferences=["must-see: Gundam"],
+    )
+
+    async def ask() -> str:
+        text, _related, _source = await path.answer(
+            question="what is gundam from japan",
+            plan=None,
+            context=context,
+            toolbox=Toolbox(path="ask", tracer=NoopTracer(), store=None, request_id="r"),
+            emit=None,
+        )
+        return text
+
+    text = asyncio.run(ask())
+    assert "giant robot" in text
+    assert "nothing to answer from" not in text
+    assert "Where will you" not in text
+
+
+def test_a_correction_is_not_a_departure_city() -> None:
+    context = TripContext(session_id="s", destination="Gunda", party_size=None)
+    assert _fill_origin_answer(context, ["origin", "dates"], "nonono, i mean, Gundam") is False
+    assert context.origin == ""
+
+
 def test_a_new_trip_sentence_is_not_an_origin_answer() -> None:
     context = TripContext(session_id="s", destination="Osaka", party_size=2)
     assert _fill_origin_answer(context, ["origin"], "Plan a 3-day trip to Hong Kong") is False

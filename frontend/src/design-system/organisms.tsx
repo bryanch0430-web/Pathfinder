@@ -5,7 +5,8 @@ import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/t
 import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, Input, Select, Text } from "./atoms";
 import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from "./elements";
 import { timelineAt } from "../lib/mapTimeline";
-import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove } from "./directEdit";
+import { ClashNote, clashesOf, clashIds, type LayoutMove, type StopCommit } from "./directEdit";
+import { PlanStudio } from "./planStudio";
 import { Icon, type IconName } from "./icons";
 import { ModelKeysCard, type ModelKeysProps } from "./ModelKeys";
 import { OrchestratorSettings } from "./OrchestratorSettings";
@@ -113,16 +114,17 @@ const FRESHNESS_SECTION: Record<"weather" | "tickets" | "hotels", MessageKey> = 
 
 /* --------------------------------------------------------------- header -- */
 
-export type AppTab = "plan" | "saved" | "evaluation" | "settings";
+export type AppTab = "plan" | "saved" | "evaluation" | "cases" | "settings";
 
 /** The page under the header's tabs is their tabpanel, labelled by the selected tab. */
 export const MAIN_PANEL_ID = "pf-main-panel";
 export const appTabId = (tab: AppTab) => `pf-tab-${tab}`;
 
-const TABS: { id: AppTab; label: MessageKey; icon: "compass" | "book" | "route" | "shield" }[] = [
+const TABS: { id: AppTab; label: MessageKey; icon: "compass" | "book" | "route" | "shield" | "sparkles" }[] = [
   { id: "plan", label: "tab.plan", icon: "compass" },
   { id: "saved", label: "tab.saved", icon: "book" },
   { id: "evaluation", label: "tab.evaluation", icon: "route" },
+  { id: "cases", label: "tab.cases", icon: "sparkles" },
   { id: "settings", label: "tab.settings", icon: "shield" },
 ];
 
@@ -146,6 +148,7 @@ export function AppHeader({
   theme,
   onTheme,
   onOpenDesk,
+  admin = false,
 }: {
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
@@ -171,6 +174,8 @@ export function AppHeader({
   onTheme?: () => void;
   /** Leaves the planner for the contact desk. Omitted for a traveller. */
   onOpenDesk?: () => void;
+  /** Evaluation stays visible. Cases is only for an admin. */
+  admin?: boolean;
 }) {
   const { t } = useI18n();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -219,7 +224,7 @@ export function AppHeader({
           </span>
         </a>
         <div className="pf-tabs" role="tablist" aria-label={t("header.sections")} onKeyDown={onTablistKeyDown}>
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => tab.id !== "cases" || admin).map((tab) => (
             <button
               key={tab.id}
               id={appTabId(tab.id)}
@@ -811,9 +816,10 @@ export function ChatPanel({
           : fileError.reason === "total"
             ? t("chat.attach.errorTotal", { mb: megabytes(ATTACHMENTS_TOTAL_MAX_BYTES) })
             : t("chat.attach.errorRead");
+  const composerLocked = disabled || busy;
   const submit = async () => {
     const typed = draft.trim();
-    if ((!typed && !files.length) || disabled || reading) return;
+    if ((!typed && !files.length) || composerLocked || reading) return;
     if (!files.length) {
       setDraft("");
       onSend(typed);
@@ -965,6 +971,12 @@ export function ChatPanel({
             submitting={busy}
           />
         ) : null}
+        {busy ? (
+          <div className="pf-thinking" role="status">
+            <span className="pf-thinking__dots" aria-hidden="true"><i /><i /><i /></span>
+            <Text size="sm">{progressMessage || t("chat.working")}</Text>
+          </div>
+        ) : null}
         {busy && (running > 0 || progress > 0) ? (
           <AgentActivity agents={agents} progress={progress} message={progressMessage || t("chat.progressFallback")} />
         ) : null}
@@ -973,7 +985,7 @@ export function ChatPanel({
         className="pf-chat__composer"
         data-dragging={dragging}
         onDragOver={(event) => {
-          if (disabled || !Array.from(event.dataTransfer.types).includes("Files")) return;
+          if (composerLocked || !Array.from(event.dataTransfer.types).includes("Files")) return;
           event.preventDefault();
           setDragging(true);
         }}
@@ -996,7 +1008,7 @@ export function ChatPanel({
         ) : null}
         <div className="pf-quick">
           {QUICK_PROMPTS.map((prompt) => (
-            <button key={prompt} type="button" className="pf-chip" disabled={disabled} onClick={() => onSend(prompt)}>
+            <button key={prompt} type="button" className="pf-chip" disabled={composerLocked} onClick={() => onSend(prompt)}>
               {prompt}
             </button>
           ))}
@@ -1042,15 +1054,15 @@ export function ChatPanel({
           <IconButton
             icon="paperclip"
             label={t("chat.attach")}
-            disabled={disabled || reading}
+            disabled={composerLocked || reading}
             onClick={() => fileInputRef.current?.click()}
           />
           <textarea
             ref={composerRef}
             value={draft}
             rows={2}
-            disabled={disabled}
-            placeholder={disabled ? t("chat.offline") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
+            disabled={composerLocked}
+            placeholder={disabled ? t("chat.offline") : busy ? t("chat.working") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
             aria-label={t("chat.message")}
             onChange={(event) => setDraft(event.target.value)}
             onPaste={(event) => {
@@ -1073,16 +1085,16 @@ export function ChatPanel({
             }}
           />
           <Button
-            variant={busy && !draft.trim() && !files.length ? "danger" : "primary"}
+            variant={busy ? "danger" : "primary"}
             data-round="true"
-            aria-label={busy && !draft.trim() && !files.length ? t("chat.stop") : t("chat.send")}
+            aria-label={busy ? t("chat.stop") : t("chat.send")}
             disabled={disabled || reading || (!busy && !draft.trim() && !files.length)}
             onClick={() => {
-              if (busy && !draft.trim() && !files.length) onStop?.();
+              if (busy) onStop?.();
               else void submit();
             }}
           >
-            <Icon name={busy && !draft.trim() && !files.length ? "stop" : "send"} size={16} />
+            <Icon name={busy ? "stop" : "send"} size={16} />
           </Button>
         </div>
         <div className="pf-row pf-row--between pf-small pf-muted">
@@ -1855,6 +1867,11 @@ export function TripWorkspace({
   onLoadHotelRooms,
   onAnswerQuestion,
   onApplyLayout,
+  held = false,
+  agentName = "",
+  paused = false,
+  pausedNote = "",
+  onCommitStop,
 }: {
   plan: TripPlan;
   /** Takes the traveller to the chat box to answer the question the plan's assessment asks. */
@@ -1871,6 +1888,13 @@ export function TripWorkspace({
   onLoadHotelRooms?: (hotelId: string) => Promise<RoomType[]>;
   /** Write the direct-edit grid onto the latest plan. */
   onApplyLayout?: (items: LayoutMove[]) => Promise<void>;
+  /** While an operator holds the chat, the traveller cannot edit this plan. */
+  held?: boolean;
+  agentName?: string;
+  /** Pathfinder is writing this plan, so direct edit waits. */
+  paused?: boolean;
+  pausedNote?: string;
+  onCommitStop?: (change: StopCommit) => Promise<void>;
   /** The disclaimer and translation notice shown at the top of a non-English plan view. */
   languageNotice?: ReactNode;
   versions: { version: number; change_summary: string; created_at: string }[];
@@ -2145,17 +2169,19 @@ export function TripWorkspace({
           </div>
         ) : null}
         {sheet ? (
-          <DirectSheet
+          <PlanStudio
             plan={plan}
-            activeDay={activeDay}
-            canApply={viewingLatest && Boolean(onApplyLayout)}
+            title={routeLabel(plan)}
+            onBack={() => setSheet(false)}
+            backLabel={t("sheet.detail")}
+            note={t("desk.samePlan")}
+            locked={held || !viewingLatest || !onApplyLayout}
+            lockNote={held ? t("sheet.operatorEditing", { name: agentName.trim() || t("chat.liveAgent") }) : ""}
+            paused={paused}
+            pausedNote={pausedNote}
+            canApply={viewingLatest && Boolean(onApplyLayout) && !held && !paused}
             saving={savingSheet}
-            onFocusDay={(date) => {
-              if (date === activeRef.current) return;
-              activeRef.current = date;
-              setActiveDay(date);
-              onFocusDay?.(date);
-            }}
+            onCommitStop={onCommitStop}
             onApply={async (items) => {
               if (!onApplyLayout) return;
               setSavingSheet(true);
@@ -3526,14 +3552,12 @@ export function EvalDashboard({
                       const preview = row.preview;
                       const label = item?.case_id ?? preview?.case_id ?? "";
                       const input = item?.input ?? preview?.input ?? "";
-                      const split = item?.split ?? preview?.split ?? "";
                       return (
                         <button key={row.key} type="button" className="pf-eval-case" onClick={() => setCaseId(row.key)}>
                           <span className="pf-row pf-row--between">
                             <Text as="span" size="sm" weight="semibold">{label}</Text>
                             <span className="pf-row" style={{ gap: 6 }}>
                               <Badge tone="neutral">{group.name}</Badge>
-                              <Badge tone="neutral">{split}</Badge>
                               {item ? (
                                 <Badge tone={item.passed ? "success" : "danger"}>{item.passed ? t("eval.passed") : item.failure_class || t("eval.failed")}</Badge>
                               ) : (
@@ -3561,29 +3585,6 @@ export function EvalDashboard({
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="pf-card pf-eval__panel">
-            <div className="pf-eval__panel-head">
-              <Text size="sm" weight="semibold">{t("eval.split")}</Text>
-              <Badge tone="neutral">{t("eval.frozen")}</Badge>
-            </div>
-            {datasets.map((item) => (
-              <div className="pf-row pf-row--between" key={item.id}>
-                <span className="pf-row" style={{ gap: 7 }}>
-                  <Icon name={item.frozen ? "lock" : "alert"} size={13} />
-                  <span className="pf-small">{item.name}</span>
-                </span>
-                <span className="pf-row" style={{ gap: 8 }}>
-                  <span className="pf-small pf-muted">{t(item.item_count === 1 ? "eval.casesOne" : "eval.cases", { count: item.item_count })}</span>
-                  <Badge tone={item.frozen ? "success" : "warning"}>{item.frozen ? t("eval.frozen") : t("eval.draft")}</Badge>
-                </span>
-              </div>
-            ))}
-            <Divider />
-            <Text size="xs" tone="tertiary">
-              {t("eval.splitNote")}
-            </Text>
           </div>
 
       <Drawer
@@ -3924,15 +3925,137 @@ export function ShareDialog({
   );
 }
 
-export type SettingsGroup = "general" | "handoff" | "instructions" | "profile" | "keys" | "orchestrator" | "policy" | "freshness" | "system";
+export type SettingsGroup = "general" | "handoff" | "instructions" | "keys" | "orchestrator" | "policy" | "freshness" | "system";
 
-export function SettingsView({
-  config,
-  injections,
+/** The signed-in or guest profile: remembered preferences, trip counts, and a way to clear them. */
+export function TravellerProfileCard({
   profile,
   signedIn = false,
   onClearMemory,
   onSavePreferences,
+  error = null,
+}: {
+  profile?: ClientProfile | null;
+  signedIn?: boolean;
+  onClearMemory?: () => void;
+  onSavePreferences?: (preferences: string[]) => void;
+  error?: string | null;
+}) {
+  const { t } = useI18n();
+  const [preferences, setPreferences] = useState<string[]>(profile?.preferences ?? []);
+  const [prefInput, setPrefInput] = useState("");
+  useEffect(() => {
+    setPreferences(profile?.preferences ?? []);
+  }, [profile]);
+
+  const addPreference = () => {
+    setPreferences((current) => addTags(current, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH));
+    setPrefInput("");
+  };
+  const removePreference = (value: string) => {
+    setPreferences((current) => current.filter((entry) => entry !== value));
+  };
+
+  return (
+    <div className="pf-card pf-eval__panel">
+      {error ? <Banner>{error}</Banner> : null}
+      <div className="pf-row pf-row--between">
+        <Text size="sm" weight="semibold">{t("settings.profile")}</Text>
+        <Badge tone={signedIn ? "success" : "neutral"} dot>{signedIn ? t("settings.account") : t("settings.anonymous")}</Badge>
+      </div>
+      <Text size="xs" tone="tertiary">
+        {signedIn ? t("settings.signedIn") : t("settings.guest")}
+      </Text>
+      <div className="pf-form-grid">
+        <Field
+          label={t("settings.preferences")}
+          hint={t("settings.preferencesLimit", { max: MAX_PREFERENCES, length: MAX_PREFERENCE_LENGTH })}
+          wide
+          htmlFor="pf-profile-preferences"
+        >
+          <div className="pf-preference-tags">
+            {preferences.map((preference) => (
+              <span className="pf-preference-tag" key={preference}>
+                {preference}
+                <button
+                  type="button"
+                  aria-label={t("common.remove", { value: preference })}
+                  onClick={() => removePreference(preference)}
+                >
+                  <Icon name="close" size={11} />
+                </button>
+              </span>
+            ))}
+            <input
+              id="pf-profile-preferences"
+              className="pf-preference-tags__input"
+              value={prefInput}
+              aria-label={t("settings.addPreference")}
+              readOnly={preferences.length >= MAX_PREFERENCES}
+              placeholder={
+                preferences.length >= MAX_PREFERENCES
+                  ? t("settings.preferencesFull")
+                  : preferences.length
+                    ? t("settings.addAnother")
+                    : t("settings.preferencesExample")
+              }
+              onChange={(event) => setPrefInput(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
+                  event.preventDefault();
+                  addPreference();
+                }
+                if (event.key === "Backspace" && !prefInput && preferences.length) {
+                  setPreferences((current) => current.slice(0, -1));
+                }
+              }}
+            />
+          </div>
+        </Field>
+      </div>
+      <div className="pf-row pf-row--between">
+        <Text size="xs" tone="tertiary">
+          {profile
+            ? t("settings.profileCounts", {
+                chats: profile.sessions,
+                trips: profile.saved_trips,
+                destinations: profile.destinations.length,
+              })
+            : t("settings.loadingProfile")}
+        </Text>
+        <div className="pf-row" style={{ gap: 6 }}>
+          {onSavePreferences ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const next = addTags(preferences, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH);
+                addPreference();
+                onSavePreferences(next);
+              }}
+            >
+              {t("settings.savePreferences")}
+            </Button>
+          ) : null}
+          {onClearMemory ? (
+            <Button size="sm" variant="ghost" onClick={onClearMemory}>
+              {t("settings.clearMemory")}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {profile?.destinations.length ? (
+        <Text size="xs" tone="tertiary">
+          {t("settings.recent", { destinations: profile.destinations.join(" · ") })}
+        </Text>
+      ) : null}
+    </div>
+  );
+}
+
+export function SettingsView({
+  config,
+  injections,
   modelKeys,
   serverKeys,
   error = null,
@@ -3966,11 +4089,7 @@ export function SettingsView({
     locales: string[];
   } | null;
   injections?: { category: string; severity: string; count: number }[];
-  profile?: ClientProfile | null;
-  signedIn?: boolean;
-  onClearMemory?: () => void;
-  onSavePreferences?: (preferences: string[]) => void;
-  /** Why the last load, save or clear failed. It shows above the form, which stays so that nothing typed is lost. */
+  /** Why the last load or save failed. It shows above the form, which stays so that nothing typed is lost. */
   error?: string | null;
   /** Operator cards. Receives the filter so each card can show or hide with the group. */
   admin?: (show: (group: SettingsGroup, text: string) => boolean) => ReactNode;
@@ -4047,7 +4166,6 @@ export function SettingsView({
   const groupLabel = (group: SettingsGroup) => {
     if (group === "handoff") return t("settings.group.handoff");
     if (group === "instructions") return t("settings.group.instructions");
-    if (group === "profile") return t("settings.group.profile");
     if (group === "keys") return t("settings.group.keys");
     if (group === "orchestrator") return t("settings.group.orchestrator");
     if (group === "policy") return t("settings.group.policy");
@@ -4058,23 +4176,9 @@ export function SettingsView({
   const groups: SettingsGroup[] = [
     "general",
     ...(admin ? (["handoff", "instructions"] as SettingsGroup[]) : []),
-    "profile",
     ...(modelKeys ? (["keys"] as SettingsGroup[]) : []),
     ...(config ? (["orchestrator", "policy", "freshness", "system"] as SettingsGroup[]) : []),
   ];
-  const [preferences, setPreferences] = useState<string[]>(profile?.preferences ?? []);
-  const [prefInput, setPrefInput] = useState("");
-  useEffect(() => {
-    setPreferences(profile?.preferences ?? []);
-  }, [profile]);
-
-  const addPreference = () => {
-    setPreferences((current) => addTags(current, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH));
-    setPrefInput("");
-  };
-  const removePreference = (value: string) => {
-    setPreferences((current) => current.filter((entry) => entry !== value));
-  };
   return (
     <main className="pf-settings">
       <PageHeader
@@ -4135,101 +4239,6 @@ export function SettingsView({
       </div>
       ) : null}
       {admin ? admin(show) : null}
-      {/* The profile does not depend on the server's configuration, so it stays when the configuration cannot be loaded. */}
-      {show("profile", `${t("settings.profile")} ${t("settings.preferences")} ${t("settings.signedIn")} ${t("settings.guest")}`) ? (
-      <div className="pf-card pf-eval__panel">
-        <div className="pf-row pf-row--between">
-          <Text size="sm" weight="semibold">{t("settings.profile")}</Text>
-          <Badge tone={signedIn ? "success" : "neutral"} dot>{signedIn ? t("settings.account") : t("settings.anonymous")}</Badge>
-        </div>
-        <Text size="xs" tone="tertiary">
-          {signedIn ? t("settings.signedIn") : t("settings.guest")}
-        </Text>
-        <div className="pf-form-grid">
-          <Field
-            label={t("settings.preferences")}
-            hint={t("settings.preferencesLimit", { max: MAX_PREFERENCES, length: MAX_PREFERENCE_LENGTH })}
-            wide
-            htmlFor="pf-profile-preferences"
-          >
-            <div className="pf-preference-tags">
-              {preferences.map((preference) => (
-                <span className="pf-preference-tag" key={preference}>
-                  {preference}
-                  <button
-                    type="button"
-                    aria-label={t("common.remove", { value: preference })}
-                    onClick={() => removePreference(preference)}
-                  >
-                    <Icon name="close" size={11} />
-                  </button>
-                </span>
-              ))}
-              <input
-                id="pf-profile-preferences"
-                className="pf-preference-tags__input"
-                value={prefInput}
-                aria-label={t("settings.addPreference")}
-                readOnly={preferences.length >= MAX_PREFERENCES}
-                placeholder={
-                  preferences.length >= MAX_PREFERENCES
-                    ? t("settings.preferencesFull")
-                    : preferences.length
-                      ? t("settings.addAnother")
-                      : t("settings.preferencesExample")
-                }
-                onChange={(event) => setPrefInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
-                    event.preventDefault();
-                    addPreference();
-                  }
-                  if (event.key === "Backspace" && !prefInput && preferences.length) {
-                    setPreferences((current) => current.slice(0, -1));
-                  }
-                }}
-              />
-            </div>
-          </Field>
-        </div>
-        <div className="pf-row pf-row--between">
-          <Text size="xs" tone="tertiary">
-            {profile
-              ? t("settings.profileCounts", {
-                  chats: profile.sessions,
-                  trips: profile.saved_trips,
-                  destinations: profile.destinations.length,
-                })
-              : t("settings.loadingProfile")}
-          </Text>
-          <div className="pf-row" style={{ gap: 6 }}>
-            {onSavePreferences ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const next = addTags(preferences, prefInput, MAX_PREFERENCES, MAX_PREFERENCE_LENGTH);
-                  addPreference();
-                  onSavePreferences(next);
-                }}
-              >
-                {t("settings.savePreferences")}
-              </Button>
-            ) : null}
-            {onClearMemory ? (
-              <Button size="sm" variant="ghost" onClick={onClearMemory}>
-                {t("settings.clearMemory")}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        {profile?.destinations.length ? (
-          <Text size="xs" tone="tertiary">
-            {t("settings.recent", { destinations: profile.destinations.join(" · ") })}
-          </Text>
-        ) : null}
-      </div>
-      ) : null}
       {/* The keys do not depend on the server's configuration either. */}
       {show("keys", `${t("settings.group.keys")} ${t("keys.lead")} ${t("keys.order")} ${t("keys.title")} ${t("keys.body")} ${t("keys.serverTitle")} ${t("keys.serverBody")}`) ? (
         <>

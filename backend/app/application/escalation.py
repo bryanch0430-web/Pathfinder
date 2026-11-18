@@ -8,8 +8,8 @@ Three signals, in order, and only while the policy is on:
 
 1. The traveller asked for a person. A short product rule, so it works before
    anyone has saved an example.
-2. A saved example is close. The same overlap test as a training example, and
-   a higher bar, so one short line does not catch every nearby sentence.
+2. A saved handoff example is close. The lines have to share two content
+   words, so one short line does not catch every nearby sentence.
 3. A frustration threshold the admin set. Left unset, heat alone never escalates.
 """
 

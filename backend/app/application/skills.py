@@ -52,6 +52,7 @@ _PROMPT_SKILLS = {
     "research": "judge-stay",
     "audit": "audit-candidates",
     "repair": "repair-plan",
+    "review": "review-failures",
     "translate": "translate-plan",
 }
 

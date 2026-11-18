@@ -9,6 +9,7 @@ from app.application.modification import (
     _move_named,
     _replace_target,
     _search_extra,
+    _shift_part,
     _skill_operation,
     _stated_move,
 )
@@ -59,6 +60,26 @@ def test_put_it_on_day_3_moves_the_stop_the_model_named() -> None:
     assert _hotel_query("Tokyo", "Park Hyatt") == "Park Hyatt in Tokyo"
     assert _hotel_name_matches("Park Hyatt Tokyo", "Park Hyatt")
     assert not _hotel_name_matches("The Tokyo Grand", "Park Hyatt")
+
+
+def test_moving_a_stop_from_morning_to_afternoon_keeps_the_day() -> None:
+    plan = make_plan(days=1, with_tickets=False)
+    park = plan.days[0].items[0]
+    park.name = "Shinjuku Chūō Park"
+    park.address = "Shinjuku, Tokyo"
+    park.start = "09:00"
+    park.end = "10:00"
+    message = "move shinjuku chuo park from morning to afternoon"
+
+    shifted = _shift_part(plan, message, "Shinjuku Chūō Park", None)
+
+    assert shifted is not None and shifted[0]
+    assert "afternoon" in shifted[1]
+    assert park.start >= "12:00"
+    assert park.start < "17:00"
+    assert park in plan.days[0].items
+    # A day move is left to the day path.
+    assert _shift_part(plan, "move shinjuku chuo park to day 2", "Shinjuku Chūō Park", None) is None
 
 
 def test_from_day_1_to_day_3_uses_day_3_when_the_model_says_day_1() -> None:

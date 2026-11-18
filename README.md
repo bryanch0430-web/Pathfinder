@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.10.0 | 2026-11-18 21:20 | A named day stays that day, a missing fare is not a pass, and Error analysis reviews the misses |
 | v1.9.0 | 2026-11-17 22:56 | Three routing gates, a Desk window, and every evaluation suite on one page |
 | v1.8.0 | 2026-11-17 02:55 | UI/UX visual upgrade: a studio canvas, sketchbook, and one Export menu |
 | v1.7.0 | 2026-11-15 14:35 | Trips of several cities; every stay, leg and transfer is a lockable choice slot; pictures, links and ranks |
@@ -37,6 +38,28 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.10.0 — 18 November 2026, 21:20 HKT
+
+An edit can name one day, and a missing price no longer counts as a budget pass. An admin can review the misses.
+
+**A named day is the only day that changes.** "Only change day 2 to one attraction" leaves the other days as they are. "Day 2 starts after 14:00, only one attraction" sets that day's start and that day's count. A clock is read as a time. A question about that shape is answered, and the plan stays as it was.
+
+**Less walking, a meal, and the same budget can sit in one sentence.** An elderly pace shortens the days. "Change lunch to vegetarian" changes lunch. "Keep the budget the same" leaves the prices alone and does not ask about a fare that was never returned.
+
+**A missing hotel rate or flight fare leaves the budget unknown.** The check says the budget cannot be judged yet. A total of 0 is not a pass.
+
+**A question asked while the form is still open is answered.** "What is Gundam?" gets an answer. The missing dates stay missing. A greeting stays a greeting. "See Gundam" is kept as something to see. A start day on its own does not become a one-day trip. "From morning to afternoon" moves a stop inside its day.
+
+**What happened, and a sheet that shows the work.** The control under a reply is What happened. Why this decision stays in developer mode. On the plan sheet, drag a stop to another time and Apply, or click a stop to edit it. While a plan or an edit is running, the sheet says so. Undo returns the previous version.
+
+**The Desk keeps live and finished chats apart.** A session stays live while its page is open, or for 24 hours after the last change. Queue and Handling, Auto-Answering, and Session history are separate. The operator can fill the trip form and build the plan, open Plan studio on the traveller's plan, ask the planner to edit it, or change one stop's name and times. Release as draft hands editing back. The traveller sees who is editing.
+
+**Error analysis is an admin page.** It lists cases Evaluation missed, and live or finished chats marked not useful or left unchanged. An operator can add a case, or take a line from a chat. Ask the writer suggests a replacement for a skill the model already reads, or a number for the confidence gate or a gate temperature. Use this skill applies it. The built-in file stays on disk. Restore the built-in skill puts that text back. Dismiss removes a draft, and a restored leftover. Check these cases scores the listed exam cases again and marks Now passes or Still failed. A chat is routed again and is not marked passed.
+
+**Evaluation counts every case.** A run reports how many cases produced the expected result. The page no longer splits the list into dev and held-out. The Training tab is gone. Handoff examples in Settings remain, and a saved line has to share real words with the message before it is used as a hint. The router is no longer sent down a path because one past line was close.
+
+**Web search has a second list.** DeepSeek is still tried first, and a refused search key is followed by the judge key. When that returns nothing, Google results are read through the SerpAPI key already used for hotels and flights.
 
 ### v1.9.0 — 17 November 2026, 22:56 HKT
 
