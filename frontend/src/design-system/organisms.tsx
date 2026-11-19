@@ -8,8 +8,10 @@ import { timelineAt } from "../lib/mapTimeline";
 import { ClashNote, clashesOf, clashIds, type LayoutMove, type StopCommit } from "./directEdit";
 import { PlanStudio } from "./planStudio";
 import { Icon, type IconName } from "./icons";
-import { ModelKeysCard, type ModelKeysProps } from "./ModelKeys";
+import { type ModelKeysProps } from "./ModelKeys";
 import { OrchestratorSettings } from "./OrchestratorSettings";
+import { ReviewerSettings, type ReviewerBody, type ReviewerConfig } from "./ReviewerSettings";
+import { WriterSettings } from "./WriterSettings";
 import { SerpApiRotation } from "./SerpApiRotation";
 import {
   AgentActivity,
@@ -3925,7 +3927,7 @@ export function ShareDialog({
   );
 }
 
-export type SettingsGroup = "general" | "handoff" | "instructions" | "keys" | "orchestrator" | "policy" | "freshness" | "system";
+export type SettingsGroup = "general" | "handoff" | "instructions" | "keys" | "reviewer" | "orchestrator" | "policy" | "freshness" | "system";
 
 /** The signed-in or guest profile: remembered preferences, trip counts, and a way to clear them. */
 export function TravellerProfileCard({
@@ -4075,12 +4077,13 @@ export function SettingsView({
   config: {
     thresholds: Record<string, number | string>;
     freshness_hours: Record<string, number>;
-    writer: { available: boolean; model: string; base_url?: string };
+    writer: { available: boolean; model: string; base_url?: string; temperature?: number; max_tokens?: number; reasoning?: string };
     gate?: "jev" | "plain" | "reason";
     poe_ready?: boolean;
     poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
     models?: { plain?: string; reason?: string };
     writer_model?: string;
+    reviewer?: ReviewerConfig;
     orchestrator?: {
       jev: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
       fast: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
@@ -4126,6 +4129,8 @@ export function SettingsView({
       max_tokens: number;
       reasoning: string;
     };
+    reviewer?: ReviewerBody;
+    writer_call?: { temperature: number; max_tokens: number; reasoning: string };
   }) => Promise<void>;
 }) {
   const { t } = useI18n();
@@ -4167,18 +4172,24 @@ export function SettingsView({
     if (group === "handoff") return t("settings.group.handoff");
     if (group === "instructions") return t("settings.group.instructions");
     if (group === "keys") return t("settings.group.keys");
+    if (group === "reviewer") return t("settings.group.reviewer");
     if (group === "orchestrator") return t("settings.group.orchestrator");
     if (group === "policy") return t("settings.group.policy");
     if (group === "freshness") return t("settings.group.freshness");
     if (group === "system") return t("settings.group.system");
     return t("settings.group.general");
   };
-  const groups: SettingsGroup[] = [
-    "general",
-    ...(admin ? (["handoff", "instructions"] as SettingsGroup[]) : []),
-    ...(modelKeys ? (["keys"] as SettingsGroup[]) : []),
-    ...(config ? (["orchestrator", "policy", "freshness", "system"] as SettingsGroup[]) : []),
-  ];
+  const clusters = (
+    [
+      ["general", ...(admin ? (["handoff", "instructions"] as const) : [])],
+      [
+        ...(config ? (["orchestrator"] as const) : []),
+        ...(modelKeys ? (["keys"] as const) : []),
+        ...(config ? (["reviewer"] as const) : []),
+      ],
+      ...(config ? [["policy", "freshness", "system"] as const] : []),
+    ] as SettingsGroup[][]
+  ).filter((cluster) => cluster.length > 0);
   return (
     <main className="pf-settings">
       <PageHeader
@@ -4212,20 +4223,27 @@ export function SettingsView({
           aria-label={t("settings.find")}
         />
         <div className="pf-settings__nav" role="tablist" aria-label={t("settings.title")}>
-          {groups.map((group) => (
-            <button
-              key={group}
-              type="button"
-              role="tab"
-              aria-selected={!settingQuery && section === group}
-              data-active={!settingQuery && section === group}
-              onClick={() => {
-                setSection(group);
-                setSettingQuery("");
-              }}
-            >
-              {groupLabel(group)}
-            </button>
+          {clusters.map((cluster, index) => (
+            <Fragment key={cluster[0]}>
+              {index > 0 ? <span className="pf-settings__split" aria-hidden="true" /> : null}
+              <div className="pf-settings__cluster">
+                {cluster.map((group) => (
+                  <button
+                    key={group}
+                    type="button"
+                    role="tab"
+                    aria-selected={!settingQuery && section === group}
+                    data-active={!settingQuery && section === group}
+                    onClick={() => {
+                      setSection(group);
+                      setSettingQuery("");
+                    }}
+                  >
+                    {groupLabel(group)}
+                  </button>
+                ))}
+              </div>
+            </Fragment>
           ))}
         </div>
       </div>
@@ -4240,19 +4258,28 @@ export function SettingsView({
       ) : null}
       {admin ? admin(show) : null}
       {/* The keys do not depend on the server's configuration either. */}
-      {show("keys", `${t("settings.group.keys")} ${t("keys.lead")} ${t("keys.order")} ${t("keys.title")} ${t("keys.body")} ${t("keys.serverTitle")} ${t("keys.serverBody")}`) ? (
-        <>
-          <div className="pf-card pf-eval__panel">
-            <Text size="sm">{serverKeys ? t("keys.lead") : t("keys.leadOwn")}</Text>
-            <Text size="xs" tone="tertiary">{t("keys.order")}</Text>
-          </div>
-          {modelKeys ? (
-            <ModelKeysCard {...modelKeys} title={t("keys.title")} body={t("keys.body")} fallbackLabel={t("keys.useShared")} />
-          ) : null}
-          {serverKeys ? (
-            <ModelKeysCard {...serverKeys} title={t("keys.serverTitle")} body={t("keys.serverBody")} fallbackLabel={t("keys.useConfig")} />
-          ) : null}
-        </>
+      {show("keys", `${t("settings.group.keys")} ${t("settings.writer.callBody")} ${t("settings.orch.clearKey")} ${t("settings.orch.temperature")}`) && modelKeys ? (
+        <WriterSettings
+          providerId={modelKeys.keys.find((key) => key.active)?.provider || "poe"}
+          model={modelKeys.keys.find((key) => key.active)?.model || config?.writer?.model || ""}
+          baseUrl={modelKeys.keys.find((key) => key.active)?.base_url || ""}
+          temperature={config?.writer?.temperature ?? 0.2}
+          maxTokens={config?.writer?.max_tokens ?? 4096}
+          reasoning={config?.writer?.reasoning || "none"}
+          activeKey={modelKeys.keys.find((key) => key.active) ?? null}
+          usage={modelKeys.status}
+          providers={providers}
+          canEdit
+          onSaveCall={async (body) => { await onSaveOrchestrator?.({ writer_call: body }); }}
+          onSaveKey={async (body) => {
+            const saved = await modelKeys.onSave(body);
+            return saved !== null;
+          }}
+          onUseEnvironment={async () => {
+            await modelKeys.onChoose(null);
+            if (serverKeys) await serverKeys.onChoose(null);
+          }}
+        />
       ) : null}
       {config ? (
         <>
@@ -4265,12 +4292,32 @@ export function SettingsView({
               onSaveSide={onSaveOrchestrator}
             />
           ) : null}
+          {show("reviewer", `${t("settings.group.reviewer")} ${t("settings.reviewer.body")} ${t("settings.reviewer.rounds")} ${t("settings.reviewer.modelHint")}`) ? (
+            <ReviewerSettings
+              reviewer={config.reviewer ?? {
+                provider: "poe",
+                model: "",
+                base_url: "",
+                temperature: 0,
+                max_tokens: 4096,
+                reasoning: "none",
+                rounds: Number(config.thresholds.rule_passes ?? 3),
+                key_set: false,
+                key_saved: false,
+                key_tail: "",
+                key_source: "none",
+              }}
+              providers={providers}
+              canEdit={canEditPolicy}
+              onSave={async (body) => { await onSaveOrchestrator?.({ reviewer: body }); }}
+            />
+          ) : null}
           {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {canEditPolicy ? (
               <div className="pf-form-grid">
-                {Object.keys(config.thresholds).map((key) => (
+                {Object.keys(config.thresholds).filter((key) => key !== "rule_passes").map((key) => (
                   <Field
                     key={key}
                     wide
@@ -4283,7 +4330,7 @@ export function SettingsView({
                 ))}
               </div>
             ) : (
-              Object.entries(config.thresholds).map(([key, value]) => (
+              Object.entries(config.thresholds).filter(([key]) => key !== "rule_passes").map(([key, value]) => (
                 <div className="pf-row pf-row--between" key={key}>
                   <span className="pf-small pf-muted">{t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}</span>
                   <span className="pf-mono pf-small">{String(value)}</span>

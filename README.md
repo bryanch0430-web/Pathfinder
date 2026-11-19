@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.12.0 | 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting |
 | v1.11.0 | 2026-11-19 16:23 | A map hit is confirmed before it is stored, and 简 translates the plan the same way 繁 does |
 | v1.10.0 | 2026-11-18 21:20 | A named day stays that day, a missing fare is not a pass, and Error analysis reviews the misses |
 | v1.9.0 | 2026-11-17 22:56 | Three routing gates, a Desk window, and every evaluation suite on one page |
@@ -39,6 +40,20 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.12.0 — 19 November 2026, 22:45 HKT
+
+A chat is handed to a person in three ways. The desk shows which chats are waiting, and a drafted plan is checked for visit length and for rows that do not hold together.
+
+**Escalate to live agent.** Settings → Handoff. "I want to talk to a live agent" and "please find someone to help" escalate at once, as do "human agent", "real person", "customer service", and 转人工 / 轉人工 / 人工客服 / 真人客服. "Please don't talk to a live agent" does not. Extra phrases can be added on that card. There is no score. The traveller sees the sentence on the card, and the planner does not answer that turn.
+
+**Sentiment is a keyword table, or Jev.** Each anger word has its own score. A sharp word starts at 80 and a mild word at 40. The line escalates when a matching score reaches the cutoff, which starts at 60. Use Jev instead of keyword search, at the top of Handoff, sends that table with the line and uses the score Jev returns. If Jev cannot be asked, the keyword scores are used. Jev also catches anger that never uses a listed word, and it does not treat "I am not angry" as angry. Asking for a person still uses the phrase list.
+
+**Stuck edits are a count.** An edit that leaves the itinerary unchanged, while the traveller keeps using the same words, is counted. After the number on the card, which starts at 3, the chat escalates. There is no word list on that card.
+
+**The desk queue can be accepted.** A queued card shows the session id, the time since the session started, and Accept. Accept takes the chat and moves it to Handling. The Ready control at the top only says the operator is available. Hot and Stuck sit on the card as HOT, STUCK, or HOT．STUCK. Filters for those tags work on Queue, Handling, and Session history.
+
+**A drafted plan is checked twice more.** A theme park, a hike, or a named park is given a longer stay than the pace alone would give, unless the traveller stated a length. After the draft, each row is checked for a name that was never found, a repeated sight, a day with no meal, a price the source did not give, and a stop that sits in another city. A meal that overruns its slot is shortened, and an unsourced live price is cleared. The rest is noted. Settings → Reviewer can ask one model to adjust times and wording only, and can be left blank so only the rules run.
 
 ### v1.11.0 — 19 November 2026, 16:23 HKT
 

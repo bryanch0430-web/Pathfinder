@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
     llm_temperature: float = 0.2
     llm_max_tokens: int = 4096
+    #: Sent with the writer. Empty or "none" leaves reasoning off. The environment key is used when no key is saved.
+    writer_reasoning: str = "none"
     llm_timeout_seconds: float = 90.0
     llm_json_mode: bool = True
 
@@ -205,6 +207,18 @@ class Settings(BaseSettings):
     #: The deterministic refine loop after compose: rounds of check -> fix (no model call), and the day
     #: load past which a day is trimmed or noted (visit hours; km on foot between stops).
     refine_max_rounds: int = Field(3, ge=0, le=10)
+    #: The reviewer model. Empty means the review stays on the rules and does not call a model.
+    #: A name here is asked once about what the rules could not fix, with these settings, not the writer's.
+    reviewer_provider: str = "poe"
+    #: DeepSeek V4 Pro through the Poe key. Clear the name to leave the review on the rules.
+    reviewer_model: str = "deepseek-v4-pro"
+    reviewer_base_url: str = ""
+    reviewer_api_key: str = ""
+    reviewer_temperature: float = 0.0
+    reviewer_max_tokens: int = 4096
+    reviewer_reasoning: str = "none"
+    #: A key saved for the handoff score. Empty uses the Jev gate key.
+    handoff_api_key: str = ""
     #: Stay research (plan path): when the traveller asks something of the stay or its room, the
     #: candidates' rooms are fetched and one writer call ranks the candidates against the wish.
     enable_stay_research: bool = True

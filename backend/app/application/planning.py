@@ -20,6 +20,7 @@ from app.application.auditor import audit_results
 from app.application.hk_disruptions import apply_hong_kong_disruptions
 from app.application.planner import Planner
 from app.application.assessment import assess_and_improve
+from app.application.plan_review import apply_reviewer, catalog_from_results, review_plan, reviewer_llm
 from app.application.refine import refine_and_refresh
 from app.application.research import pick_researched, research_stays
 from app.application.toolbox import Toolbox
@@ -271,6 +272,28 @@ class PlanPath:
                 errors_left=sum(1 for issue in refine_issues if issue.severity == "error"),
             ):
                 pass
+        # One pass over every row of the drafted plan. Rules fix a long meal and a price the
+        # source did not give. The rest is noted. Zero rule passes turns the review off.
+        # A plan that is still illegal is repaired afterwards, up to max_repairs.
+        if self.settings.refine_max_rounds > 0:
+            try:
+                plan, review_findings = review_plan(plan, context, catalog_from_results(agent_results))
+                reviewer = reviewer_llm(self.settings)
+                if reviewer is not None and any(not finding.fixed for finding in review_findings):
+                    revised = await apply_reviewer(plan, review_findings, self.settings, reviewer)
+                    if revised is not None:
+                        plan, review_findings = review_plan(revised, context, catalog_from_results(agent_results))
+                if tracer is not None:
+                    with tracer.span(
+                        "plan.review",
+                        findings=len(review_findings),
+                        fixed=sum(1 for finding in review_findings if finding.fixed),
+                    ):
+                        pass
+            except CanaryLeak:
+                raise
+            except Exception as exc:
+                logger.warning("plan review failed open: %s", type(exc).__name__)
         # Assessment and feedback: confidence from the plan's own checks; what further research can
         # settle is researched and applied, and what is still open becomes a question.
         if self.settings.enable_plan_assessment and assess:

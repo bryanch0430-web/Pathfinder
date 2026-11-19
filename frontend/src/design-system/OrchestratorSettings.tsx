@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { testLlmKey, type LlmProvider } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import { keyPrefixMismatch } from "../lib/modelKeys";
+import { keyPrefixMismatch, providerLabel } from "../lib/modelKeys";
 import { Button, Divider, Input, Select, Text } from "./atoms";
 import { Field } from "./molecules";
 
@@ -344,7 +344,11 @@ function GateArmForm({
       await onSave(next);
       setApiKey("");
       setShowKey(false);
-      setNote(t("settings.orch.saved"));
+      setNote(t("settings.savedUses", {
+        name: title,
+        provider: provider?.label || providerLabel(providerId, catalogue),
+        model: model.trim(),
+      }));
     } catch (cause) {
       setNote(cause instanceof Error ? cause.message : String(cause));
     } finally {

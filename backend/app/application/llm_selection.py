@@ -188,6 +188,9 @@ class LLMSelector:
         if self._env is not None:
             # The model name is read live: an operator can change it without restarting.
             llm = self._env.llm
+            reasoning = str(getattr(self._settings, "writer_reasoning", "") or "none").strip().lower()
+            if hasattr(llm, "_extra"):
+                llm._extra = {"reasoning_effort": reasoning} if reasoning in {"low", "medium", "high"} else {}
             return Selection(llm, "env", self._settings.llm_provider, str(getattr(llm, "name", "")))
         if self._local is not None and self._probe.reachable():
             return self._local

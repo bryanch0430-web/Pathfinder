@@ -106,3 +106,84 @@ def test_a_line_is_scored_on_a_signed_scale_and_silence_is_not_calm() -> None:
     assert "repeat" in loud["notes"]
     assert session_frustration([-0.4, -0.2]) is None
     assert session_frustration([-0.4, -0.2, -0.6]) == 40
+
+
+def test_keyword_handoff_uses_negative_words_and_extra_examples() -> None:
+    from app.application.escalation import agent_reason, is_stuck, should_escalate
+    from app.application.sentiment import frustration_from_jev
+
+    policy = {"enabled": True, "match_mode": "keywords", "examples": [{"utterance": "ocean park"}]}
+    assert should_escalate("this plan is useless", 0, policy) == "negative_word"
+    assert should_escalate("please add ocean park tomorrow", 0, policy) == "keyword"
+    assert should_escalate("plan three days in Kyoto", 0, policy) is None
+    listed = {**policy, "words": ["delay"]}
+    assert should_escalate("there is a delay", 0, listed) == "negative_word"
+    assert should_escalate("this plan is useless", 0, listed) is None
+    assert frustration_from_jev(0) == 100
+    assert frustration_from_jev(4) == 0
+    assert frustration_from_jev(2) == 50
+
+    class Line:
+        def __init__(self, role: str, content: str) -> None:
+            self.role = role
+            self.content = content
+
+    messages = []
+    for _ in range(3):
+        messages.append(Line("user", "move the museum to the morning"))
+        messages.append(Line("assistant", "Nothing in the plan matched that request, so it is unchanged."))
+    assert is_stuck(messages, 3) is True
+    assert is_stuck(messages[:2], 3) is False
+    stayed = []
+    for _ in range(3):
+        stayed.append(Line("user", "remove fundam ok?"))
+        stayed.append(Line("assistant", "No unlocked stop matched that removal, so the itinerary stayed as it was."))
+    assert is_stuck(stayed, 3) is True
+    done = [
+        Line("user", "remove fundam ok?"),
+        Line("assistant", "Replaced Benjamin Franklin House. Everything else is unchanged."),
+    ] * 3
+    assert is_stuck(done, 3) is False
+    assert agent_reason(60, False) == "hot"
+    assert agent_reason(15, True) == "stuck"
+    assert agent_reason(15, False) is None
+
+
+def test_each_monitor_uses_its_own_lists() -> None:
+    from app.application.escalation import hand_reason, is_stuck, line_is_hot
+
+    class Line:
+        def __init__(self, role: str, content: str) -> None:
+            self.role = role
+            self.content = content
+
+    hand = {"enabled": True, "engine": "keywords", "words": ["refund"], "examples": ["talk to a manager"], "score": None}
+    sentiment = {"enabled": True, "engine": "keywords", "words": ["furious"], "examples": ["this ruined my day"], "score": 60}
+    assert hand_reason("I want a refund", 0, hand) == "negative_word"
+    assert hand_reason("I want to talk to a live agent", 0, {**hand, "words": [], "examples": []}) == "asked_for_a_person"
+    assert hand_reason("please find someone to help", 0, {**hand, "words": [], "examples": []}) == "asked_for_a_person"
+    assert hand_reason("please don't talk to a live agent", 0, hand) is None
+    assert hand_reason("I am furious", 0, hand) is None
+    assert line_is_hot("I am furious", 0, sentiment) is True
+    assert line_is_hot("I want a refund", 0, sentiment) is False
+    mild = {"enabled": True, "engine": "keywords", "words": [{"text": "slow", "score": 40}], "examples": [], "score": 60}
+    sharp = {"enabled": True, "engine": "keywords", "words": [{"text": "slow", "score": 80}], "examples": [], "score": 60}
+    assert hand_reason("this is slow", 0, mild) == "negative_word"
+    assert line_is_hot("this is slow", 0, mild) is False
+    assert line_is_hot("this is slow", 0, sharp) is True
+    stuck_lines = []
+    for _ in range(3):
+        stuck_lines.append(Line("user", "remove fundam ok?"))
+        stuck_lines.append(Line("assistant", "No stop matched that removal, so nothing moved."))
+    assert is_stuck(stuck_lines, 3, phrases=["nothing moved"], examples=[], engine="phrases") is True
+    assert is_stuck(stuck_lines, 3, phrases=["priced wrong"], examples=[], engine="phrases") is False
+
+
+def test_jev_sentiment_sends_the_word_list_and_the_extra_examples() -> None:
+    from app.infrastructure.decision import sentiment_payload
+
+    payload = sentiment_payload("this is useless", ["useless", "delay"], ["ocean park"])
+    assert payload["state"]["negative_words"] == [{"text": "useless", "score": 60}, {"text": "delay", "score": 60}]
+    assert payload["state"]["extra_examples"] == [{"text": "ocean park", "score": 60}]
+    assert "score" in payload["questions"]["sentiment"]["instructions"]
+    assert payload["questions"]["sentiment"]["criteria"][0].startswith("Hostile")

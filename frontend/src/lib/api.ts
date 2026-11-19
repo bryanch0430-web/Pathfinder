@@ -232,6 +232,22 @@ export function saveRuntime(body: {
     max_tokens: number;
     reasoning: string;
   };
+  reviewer?: {
+    provider: string;
+    model: string;
+    base_url: string;
+    api_key?: string;
+    clear_key?: boolean;
+    temperature: number;
+    max_tokens: number;
+    reasoning: string;
+    rounds: number;
+  };
+  writer_call?: {
+    temperature: number;
+    max_tokens: number;
+    reasoning: string;
+  };
 }): Promise<Record<string, unknown>> {
   return request("/api/admin/runtime", { method: "PUT", headers: deskHeader(), body: JSON.stringify(body) });
 }
@@ -785,6 +801,7 @@ export interface DeskPlan {
 
 export interface DeskChat extends DeskContact {
   session_id: string;
+  created_at?: string;
   updated_at: string;
   /** live: the page is open, or the trip changed within 24 hours. completed: neither. */
   state: "live" | "completed";
@@ -792,6 +809,7 @@ export interface DeskChat extends DeskContact {
   held: boolean;
   /** Set once a person has picked the chat up. Empty while it is only waiting in the queue. */
   agent_name?: string;
+  stuck?: boolean;
   frustration: number;
   /** session: average of at least three lines. line: only the latest line. none: nothing scored. */
   frustration_kind?: "session" | "line" | "none";
@@ -838,11 +856,36 @@ export function saveDeskNote(sessionId: string, note: string): Promise<{ note: s
   });
 }
 
+export interface ScoredRow {
+  text: string;
+  score: number;
+}
+
+export interface MonitorPart {
+  enabled: boolean;
+  engine: string;
+  words: ScoredRow[];
+  examples: ScoredRow[];
+  score: number | null;
+  message: string;
+  after: number;
+}
+
 export interface EscalationPolicy {
   enabled: boolean;
   message: string;
   frustration_at: number | null;
+  match_mode?: "examples" | "keywords";
+  use_jev?: boolean;
+  stuck_on?: boolean;
+  stuck_after?: number;
+  words?: string[];
+  key_source?: "saved" | "gate" | "none";
+  key_set?: boolean;
+  key_saved?: boolean;
+  key_tail?: string;
   examples: { id: string; utterance: string }[];
+  parts?: { hand: MonitorPart; sentiment: MonitorPart; stuck: MonitorPart };
 }
 
 export interface PromptRow {
@@ -862,6 +905,14 @@ export function saveEscalation(body: {
   message: string;
   frustration_at: number | null;
   examples: string[];
+  match_mode: "examples" | "keywords";
+  use_jev: boolean;
+  stuck_on: boolean;
+  stuck_after: number;
+  words: string[];
+  api_key?: string;
+  clear_key?: boolean;
+  monitors?: { hand: MonitorPart; sentiment: MonitorPart; stuck: MonitorPart };
 }): Promise<EscalationPolicy> {
   return request("/api/admin/escalation", { method: "PUT", headers: deskHeader(), body: JSON.stringify(body) });
 }

@@ -23,8 +23,13 @@ _STRONG = frozenset({
     "hate", "useless", "stupid", "idiot", "fuck", "fucking", "shit", "damn", "worst",
     "angry", "ridiculous", "scam", "bullshit", "terrible", "awful", "horrible",
     "rubbish", "garbage", "trash", "crap", "wtf",
-    "垃圾", "廢物", "废物", "激氣", "激气",
+    "sad", "cry", "crying", "depressed", "hopeless", "suicide", "suicidal",
+    "垃圾", "廢物", "废物", "激氣", "激气", "難過", "伤心", "傷心",
 })
+_DISTRESS = re.compile(
+    r"\b(?:kill myself|killing myself|want to die|wanna die|end my life|suicid\w*)\b|想死|自殺|自杀",
+    re.IGNORECASE,
+)
 _MILD = frozenset({
     "slow", "wrong", "broken", "confused", "annoying", "bad", "upset", "unfair",
     "waiting", "annoyed", "frustrated", "problem", "waste", "sucks", "suck", "hell",
@@ -74,6 +79,8 @@ def line_reading(text: str) -> dict[str, Any]:
     raw = (text or "").strip()
     if len(raw) < _MIN_CHARS:
         return {"score": None, "label": "not_measured", "notes": ["unmeasured"]}
+    if _DISTRESS.search(raw):
+        return {"score": -1.0, "label": "negative", "notes": ["negative"]}
     tokens = _tokens(raw.lower())
     if not tokens:
         return {"score": None, "label": "not_measured", "notes": ["unmeasured"]}
@@ -145,6 +152,46 @@ def frustration_score(text: str) -> int:
     if score is None:
         return 0
     return round(max(0.0, -float(score)) * 100)
+
+
+def negative_words() -> frozenset[str]:
+    """The words the keyword handoff treats as negative, including the short list above."""
+    return _STRONG | _MILD
+
+
+def strong_words() -> list[str]:
+    """The sharper negative words. A sentiment list starts here, so a mild word is not hot until it is added."""
+    return sorted(_STRONG)
+
+
+def is_distress(text: str) -> bool:
+    """A line in which the traveller says they want to die."""
+    return _DISTRESS.search(text or "") is not None
+
+
+def keyword_hit(text: str, extras: list[str] | None = None, words: list[str] | None = None) -> str | None:
+    """A listed word, or an extra example used as a keyword. None when neither is in the line.
+
+    ``words`` replaces the built-in negative list when it is not empty.
+    """
+    folded = (text or "").casefold()
+    if not folded.strip():
+        return None
+    listed = [word for word in (words or []) if str(word).strip()] or list(negative_words())
+    for word in listed:
+        if str(word).strip().casefold() in folded:
+            return "negative_word"
+    for extra in extras or []:
+        needle = str(extra).strip().casefold()
+        if len(needle) >= 3 and needle in folded:
+            return "keyword"
+    return None
+
+
+def frustration_from_jev(score: float) -> int:
+    """Map a Jev sentiment Score of 0 (hostile) to 4 (enthusiastic) onto the desk's 0 to 100 scale."""
+    clamped = max(0.0, min(4.0, float(score)))
+    return int(round((4.0 - clamped) / 4.0 * 100))
 
 
 def frustration_band(score: int) -> str:

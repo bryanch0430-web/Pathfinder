@@ -180,11 +180,39 @@ function findStop(plan: TripPlan, id: string) {
   return null;
 }
 
+function clockText(since: string | undefined, now: number): string {
+  const start = since ? Date.parse(since) : Number.NaN;
+  const seconds = Number.isNaN(start) ? 0 : Math.max(0, Math.floor((now - start) / 1000));
+  const hh = String(Math.floor(seconds / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function chatHot(chat: DeskChat): boolean {
+  return chat.band === "hot" || (typeof chat.sentiment_score === "number" && chat.sentiment_score <= -0.6);
+}
+
+function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <p className="pf-desk__clock" data-role="clock">
+      <span>{sessionId}</span>
+      <span>{clockText(since, now)}</span>
+    </p>
+  );
+}
+
 /** A contact desk, separate from the planner: a queue, the conversation, and the trip beside it. */
 export function DeskPage({ onBack }: { onBack: () => void }) {
   const { t } = useI18n();
   const [chats, setChats] = useState<DeskChat[]>([]);
   const [query, setQuery] = useState("");
+  const [tag, setTag] = useState<"all" | "hot" | "stuck" | "both">("all");
   const [pane, setPane] = useState<"queue" | "history">("queue");
   const [navOpen, setNavOpen] = useState(() => {
     try {
@@ -310,11 +338,21 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
 
   const current = chats.find((chat) => chat.session_id === active);
   const needle = query.trim().toLowerCase();
-  const matches = (chat: DeskChat) =>
-    !needle
-    || chat.session_id.toLowerCase().includes(needle)
-    || (chat.destination || "").toLowerCase().includes(needle)
-    || (chat.preview || "").toLowerCase().includes(needle);
+  const tagText = (hot: boolean, stuck: boolean) =>
+    [hot ? t("desk.band.hot") : "", stuck ? t("desk.stuck") : ""].filter(Boolean).join("．").toUpperCase();
+  const matches = (chat: DeskChat) => {
+    const hot = chatHot(chat);
+    const tagged = tag === "all"
+      || (tag === "hot" && hot)
+      || (tag === "stuck" && Boolean(chat.stuck))
+      || (tag === "both" && hot && Boolean(chat.stuck));
+    return tagged && (
+      !needle
+      || chat.session_id.toLowerCase().includes(needle)
+      || (chat.destination || "").toLowerCase().includes(needle)
+      || (chat.preview || "").toLowerCase().includes(needle)
+    );
+  };
   const queued = chats.filter((chat) => chat.held && !(chat.agent_name || "").trim() && matches(chat));
   const handling = chats.filter((chat) => chat.held && Boolean((chat.agent_name || "").trim()) && matches(chat));
   const answering = chats.filter((chat) => !chat.held && chat.state !== "completed" && matches(chat));
@@ -478,6 +516,15 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
     void run(active).then(() => { loadChat(active); loadList(); });
   };
 
+  const accept = (sessionId: string) => {
+    setPresence(true);
+    void holdDeskChat(sessionId).then(() => {
+      setActive(sessionId);
+      loadChat(sessionId);
+      loadList();
+    });
+  };
+
   const toggleNav = () => {
     setNavOpen((open) => {
       const next = !open;
@@ -526,19 +573,42 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
     dragRef.current = null;
   };
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const tile = (chat: DeskChat, waitingTile: boolean) => (
-    <button
+    <div
       key={chat.session_id}
-      type="button"
+      role="button"
+      tabIndex={0}
       className="pf-ops__tile"
       data-waiting={waitingTile || undefined}
+      data-stuck={chat.stuck || undefined}
       data-active={chat.session_id === active || undefined}
       onClick={() => setActive(chat.session_id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setActive(chat.session_id);
+        }
+      }}
     >
-      <strong>{chat.destination || t("desk.untitled")}</strong>
-      <span>{chat.on_page ? t("desk.onPage") : chat.session_id.slice(0, 12)}</span>
-      <span>{chat.preview || t("desk.empty")}</span>
-    </button>
+      <strong className="pf-ops__sid">{chat.session_id}</strong>
+      <span className="pf-ops__time">{clockText(chat.created_at || chat.updated_at, now)}</span>
+      <span className="pf-ops__marks">
+        {tagText(chatHot(chat), Boolean(chat.stuck)) ? (
+          <span className="pf-ops__mark" data-mark={chat.stuck ? "stuck" : "hot"}>{tagText(chatHot(chat), Boolean(chat.stuck))}</span>
+        ) : null}
+        {waitingTile ? (
+          <button type="button" className="pf-ops__accept" onClick={(event) => { event.stopPropagation(); accept(chat.session_id); }}>
+            {t("desk.accept")}
+          </button>
+        ) : null}
+      </span>
+    </div>
   );
 
   const lane = (title: string, items: DeskChat[], waitingTile: boolean) => (
@@ -598,6 +668,21 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
               placeholder={t("desk.search")}
               aria-label={t("desk.search")}
             />
+            <div className="pf-ops__tags" role="radiogroup" aria-label={t("desk.filter")}>
+              {(["all", "hot", "stuck", "both"] as const).map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className="pf-ops__tag"
+                  role="radio"
+                  aria-checked={tag === choice}
+                  data-on={tag === choice || undefined}
+                  onClick={() => setTag(choice)}
+                >
+                  {choice === "all" ? t("desk.filterAll") : tagText(choice === "hot" || choice === "both", choice === "stuck" || choice === "both")}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="pf-ops__board">
             <h1>{pane === "queue" ? t("desk.navQueue") : t("desk.navHistory")}</h1>
@@ -646,6 +731,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
                 <Button variant={held ? "secondary" : "primary"} disabled={!held && !ready} onClick={take}>{held ? t("desk.release") : t("desk.hold")}</Button>
               </div>
               <div className="pf-desk__messages" ref={threadRef}>
+                <ChatClock sessionId={current.session_id} since={current.created_at || current.updated_at} />
                 {messages.length === 0 ? <Text tone="tertiary">{t("desk.empty")}</Text> : null}
                 {messages.map((message) => (
                   <p key={message.id} data-role={message.role} data-live={message.live_agent || undefined}>

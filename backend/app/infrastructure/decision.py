@@ -142,6 +142,105 @@ class JevDecisionClient:
         )
 
 
+SENTIMENT_LEVELS = [
+    "Hostile. Attacks the product or a person. Insults, or tells others to leave.",
+    "Negative. Names a problem or disappointment, without attacking anyone.",
+    "Neutral. A question, a fact, or no evaluation.",
+    "Positive. Says something worked, in ordinary language.",
+    "Enthusiastic. Tells other people to use it.",
+]
+
+
+def _jev_endpoint(settings: Settings) -> str:
+    base = settings.decision_api_url.rstrip("/")
+    path = (settings.decision_path or "").strip()
+    if path and not base.endswith(path):
+        return base + "/" + path.lstrip("/")
+    return base
+
+
+def _scored(value: list[Any] | None, limit: int) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in value or []:
+        if isinstance(item, dict):
+            text = str(item.get("text") or item.get("utterance") or "").strip()
+            score = item.get("score", 60)
+        else:
+            text = str(item).strip()
+            score = 60
+        if not text:
+            continue
+        try:
+            number = max(0, min(100, int(score)))
+        except (TypeError, ValueError):
+            number = 60
+        rows.append({"text": text, "score": number})
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def sentiment_payload(text: str, words: list[Any] | None = None, examples: list[Any] | None = None) -> dict[str, Any]:
+    """The Jev Score request. Each keyword and example is sent with the score the operator gave it."""
+    return {
+        "state": {
+            "mention_text": text.strip()[:2000],
+            "negative_words": _scored(words, 80),
+            "extra_examples": _scored(examples, 40),
+        },
+        "questions": {
+            "sentiment": {
+                "type": "score",
+                "instructions": (
+                    "How favourably this message speaks about the trip planner. "
+                    "Each negative_word and extra_example has a score from 0 to 100. "
+                    "A higher score is less favourable. Use that score when the message contains the text."
+                ),
+                "criteria": SENTIMENT_LEVELS,
+            }
+        },
+    }
+
+
+async def jev_sentiment(
+    settings: Settings,
+    text: str,
+    *,
+    words: list[str] | None = None,
+    examples: list[str] | None = None,
+) -> int | None:
+    """Frustration 0 to 100 from a Jev Score, or None when Jev cannot be asked.
+
+    Level 0 is hostile and becomes 100. Level 4 is enthusiastic and becomes 0.
+    The saved handoff key is used when there is one. Otherwise the Jev gate key is used.
+    """
+    from app.application.sentiment import frustration_from_jev
+
+    key = (getattr(settings, "handoff_api_key", "") or settings.decision_api_key or "").strip()
+    if not key or not settings.decision_api_url.strip() or not (text or "").strip():
+        return None
+    payload = {"model": settings.decision_model, **sentiment_payload(text, words, examples)}
+    headers = {
+        "Authorization": f"{settings.decision_auth_prefix} {key}".strip(),
+        "Content-Type": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=settings.decision_timeout_seconds) as client:
+            response = await client.post(_jev_endpoint(settings), headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    answers = data.get("answers") if isinstance(data, dict) else None
+    sentiment = answers.get("sentiment") if isinstance(answers, dict) else None
+    if not isinstance(sentiment, dict):
+        return None
+    try:
+        return frustration_from_jev(float(sentiment.get("score")))
+    except (TypeError, ValueError):
+        return None
+
+
 def _confidence(intent_answer: Any, intent: str) -> float | None:
     """Calibrated probability of the chosen intent, on the gate's 0..1 scale.
 

@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 from app.application.choices import _as_alternative, stay_dates_match, swap_option
 from app.application.opening_hours import windows_on
+from app.application.visit_length import STATED, visit_minutes
 from app.application.planner import (
     DAY_LAST_END,
     PACE_BUFFER_MINUTES,
@@ -49,6 +50,7 @@ IssueSeverity = Literal["error", "warn"]
 CLOSED = "closed"
 OUTSIDE_HOURS = "outside_hours"
 TRAVEL_GAP = "travel_gap"
+VISIT_LENGTH = "visit_length"
 INEFFICIENT_ORDER = "inefficient_order"
 MEAL_WINDOW = "meal_window"
 DAY_HOURS = "day_hours"
@@ -57,7 +59,7 @@ BUDGET_OVER = "budget_over"
 PREFERENCE = "preference"
 
 #: Issue codes the loop has a deterministic fix for; the others only become notes.
-FIXABLE = {CLOSED, OUTSIDE_HOURS, TRAVEL_GAP, INEFFICIENT_ORDER, MEAL_WINDOW, DAY_HOURS, DAY_WALKING, PREFERENCE}
+FIXABLE = {CLOSED, OUTSIDE_HOURS, TRAVEL_GAP, VISIT_LENGTH, INEFFICIENT_ORDER, MEAL_WINDOW, DAY_HOURS, DAY_WALKING, PREFERENCE}
 
 #: When each meal may start, minutes after midnight. The planner's own times (breakfast 08:00,
 #: lunch 12:30 to 14:00, dinner 19:00 to 21:00, the cafe stop SNACK_EARLIEST to SNACK_LATEST) sit inside.
@@ -146,6 +148,7 @@ def evaluate_plan(
     for index, day in enumerate(plan.days):
         ordered = _ordered(day)
         issues.extend(_hours_issues(index, day, ordered))
+        issues.extend(_visit_issues(index, ordered))
         issues.extend(_gap_issues(index, ordered))
         issues.extend(_meal_issues(index, day, ordered))
         issues.extend(_load_issues(index, day, ordered, ctx.limits))
@@ -164,6 +167,29 @@ def evaluate_plan(
     budget = _budget_issue(plan)
     if budget is not None:
         issues.append(budget)
+    return issues
+
+
+def _span(item: PlanItem) -> int:
+    return max(0, _minutes(item.end) - _minutes(item.start))
+
+
+def _visit_issues(index: int, ordered: list[PlanItem]) -> list[PlanIssue]:
+    """A stop the shared table says is the wrong length. A stated length is left alone."""
+    issues: list[PlanIssue] = []
+    for item in ordered:
+        if item.type is not ItemType.ATTRACTION or STATED in item.tags:
+            continue
+        current = _span(item)
+        needed = visit_minutes(item.name, item.source_types, current)
+        if needed == current:
+            continue
+        issues.append(
+            PlanIssue(
+                VISIT_LENGTH, index, (item.id,), "error",
+                f"{item.name} is scheduled for {current} min; the visit length for this kind of place is {needed} min.",
+            )
+        )
     return issues
 
 
@@ -436,6 +462,27 @@ def _fix_day(plan: TripPlan, day: DayPlan, issues: list[PlanIssue], ctx: _Contex
         swapped.add(item.id)
     if swapped:
         _settle_transfers(day, swapped)
+        return True
+
+    lengthened: list[str] = []
+    for issue in issues:
+        if issue.code != VISIT_LENGTH or not issue.item_ids:
+            continue
+        item = by_id.get(issue.item_ids[0])
+        if item is None or _protected(item, ctx):
+            continue
+        start = _minutes(item.start)
+        needed = visit_minutes(item.name, item.source_types, _span(item))
+        item.end = _hhmm(start + needed)
+        lengthened.append(f"{item.name} now runs {needed} min")
+    if lengthened:
+        times = _retime(ordered, day.date, ctx, compress=False)
+        if times is not None:
+            _set_times(ordered, times)
+            day.items = ordered
+        changes.append(
+            f"On {_day_name(day.date)} the visit length was applied: {', '.join(lengthened)}."
+        )
         return True
 
     for issue in issues:

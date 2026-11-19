@@ -48,8 +48,9 @@ from app.application.memory import MemoryService
 from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
 from app.application.proposals import decision_record, proposal_changes, review_tier
 from app.application.planning import PlanPath
-from app.application.escalation import should_escalate
+from app.application.escalation import agent_reason, is_stuck, line_is_hot, should_escalate
 from app.application.sentiment import frustration_score
+from app.infrastructure.decision import jev_sentiment
 from app.application.router import (
     MODIFY_VERBS,
     System1Router,
@@ -380,14 +381,45 @@ class TurnService:
 
         if not self.store.is_held(session_id) and not operator:
             policy = self.store.escalation_policy()
-            reason = should_escalate(message, int(user_message.meta["frustration"]), policy)
+            parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
+            hand = parts.get("hand") if isinstance(parts.get("hand"), dict) else {}
+            sentiment = parts.get("sentiment") if isinstance(parts.get("sentiment"), dict) else {}
+            stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
+            heat = int(user_message.meta["frustration"])
+            jev_scored = False
+            if sentiment.get("enabled") and sentiment.get("engine") == "jev":
+                scored = await jev_sentiment(
+                    self.settings,
+                    message,
+                    words=list(sentiment.get("words") or []),
+                    examples=list(sentiment.get("examples") or []),
+                )
+                if scored is not None:
+                    user_message.meta["sentiment_heat"] = scored
+                    user_message.meta["sentiment"] = "jev"
+                    self.store.set_message_meta(user_message.id, user_message.meta)
+                    jev_scored = True
+            reason = should_escalate(message, heat, policy)
+            if not reason:
+                hot = line_is_hot(
+                    message,
+                    int(user_message.meta.get("sentiment_heat") or 0),
+                    sentiment,
+                    jev_scored=jev_scored,
+                ) if sentiment else False
+                stuck = bool(stuck_part.get("enabled")) and is_stuck(
+                    self.store.list_messages(session_id, limit=40),
+                    int(stuck_part.get("after") or 3),
+                )
+                reason = agent_reason(100 if hot else 0, stuck)
+            note_message = str((hand.get("message") if hand else "") or policy.get("message") or "").strip()
             if reason:
                 self.store.hold_chat(session_id, "")
                 with _early_exit(tracer, developer_token, "ok"):
                     tracer.metadata["reason"] = "escalate"
                     tracer.metadata["intent"] = "ask"
                     tracer.metadata["escalate"] = reason
-                    note = str(policy.get("message") or "").strip() or "I'll pass this chat to a person. They will reply here."
+                    note = note_message or "I'll pass this chat to a person. They will reply here."
                     self.store.add_message(
                         Message(
                             session_id=session_id,

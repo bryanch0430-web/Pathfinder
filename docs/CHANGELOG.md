@@ -5,6 +5,16 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.12.0 — 2026-11-19 22:45
+
+A chat is handed to a person in three ways, and the desk shows which chats are waiting.
+
+- **Escalate to live agent.** "I want to talk to a live agent" and "please find someone to help" escalate at once, as do the other built-in requests for a person. Extra phrases can be added. There is no score. The planner does not answer that turn.
+- **Sentiment is a keyword table, or Jev.** Each word has its own score. A match escalates when that score reaches the cutoff, which starts at 60. Use Jev instead of keyword search sends the table with the line and uses the score Jev returns. If Jev cannot be asked, the keyword scores are used. Asking for a person still uses the phrase list.
+- **Stuck edits are a count.** Edits that leave the itinerary unchanged, while the traveller keeps using the same words, are counted. After the number on the card, which starts at 3, the chat escalates.
+- **The desk queue can be accepted.** A queued card shows the session id, the running time, and Accept. Hot and Stuck read HOT, STUCK, or HOT．STUCK. The Ready control only says the operator is available.
+- **A drafted plan is checked twice more.** Long visits get a longer stay than the pace alone would give, unless a length was stated. After the draft, each row is checked, a meal that overruns its slot is shortened, and an unsourced live price is cleared. Settings → Reviewer can ask one model to adjust times and wording only.
+
 ## v1.11.0 — 2026-11-19 16:23
 
 A place the assistant does not already know is checked before it is stored, and Simplified Chinese now translates the plan as well as the page.

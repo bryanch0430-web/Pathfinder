@@ -28,6 +28,7 @@ from app.application.meals import (
     source_facts,
 )
 from app.application.opening_hours import DAY_MINUTES, lines_for, windows_on
+from app.application.visit_length import visit_minutes
 from app.application.profile_rules import (
     CHILDREN_STOPS_END_BY,
     PACE_ATTRACTION_CAP,  # noqa: F401  (re-exported)
@@ -1575,7 +1576,13 @@ def _schedule(
         row = queue.pop(0)
         # Never before the day's usual start (a breakfast stop ends earlier than that).
         earliest = max(start_at, arrival(state["row"], state["end"], row, start_at, sight=True))
-        slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell), latest=stops_end_by)
+        minutes = visit_minutes(
+            str(row.get("name") or ""),
+            list(row.get("source_types") or []),
+            dwell,
+            stated=row.get("stated_minutes"),
+        )
+        slot = fit(row, earliest, minutes, min(MIN_DWELL_MINUTES, minutes), latest=stops_end_by)
         if slot and slot[0] - earliest > OPENING_WAIT_LIMIT and queue and id(row) not in deferred:
             deferred.add(id(row))
             queue.append(row)
@@ -1587,7 +1594,13 @@ def _schedule(
                 lunch_due = False
                 place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
                 earliest = max(start_at, arrival(state["row"], state["end"], row, start_at, sight=True))
-                slot = fit(row, earliest, dwell, min(MIN_DWELL_MINUTES, dwell), latest=stops_end_by)
+                minutes = visit_minutes(
+                    str(row.get("name") or ""),
+                    list(row.get("source_types") or []),
+                    dwell,
+                    stated=row.get("stated_minutes"),
+                )
+                slot = fit(row, earliest, minutes, min(MIN_DWELL_MINUTES, minutes), latest=stops_end_by)
         if slot and dinner is not None:
             to_dinner = leg(row, dinner)
             if slot[1] + ((to_dinner.duration_minutes or 0) + buffer if to_dinner else 0) > DINNER_LATEST:

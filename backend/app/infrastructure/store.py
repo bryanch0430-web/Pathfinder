@@ -202,6 +202,11 @@ def _runtime_baseline(settings: Any) -> dict[str, float]:
         "memory_similarity": float(settings.memory_similarity_cutoff),
         "preplan_budget_seconds": float(settings.preplan_budget_seconds),
         "max_repairs": float(settings.max_repairs),
+        "refine_max_rounds": float(getattr(settings, "refine_max_rounds", 3)),
+        "reviewer_temperature": float(getattr(settings, "reviewer_temperature", 0.0)),
+        "reviewer_max_tokens": float(getattr(settings, "reviewer_max_tokens", 4096)),
+        "writer_temperature": float(getattr(settings, "llm_temperature", 0.2)),
+        "writer_max_tokens": float(getattr(settings, "llm_max_tokens", 4096)),
         "conversation_turns": float(getattr(settings, "conversation_turns", 10)),
         "weather_fresh_seconds": float(settings.weather_fresh_seconds),
         "ticket_fresh_seconds": float(settings.ticket_fresh_seconds),
@@ -233,6 +238,13 @@ def _text_baseline(settings: Any) -> dict[str, str]:
         "gate_reason_reasoning": str(getattr(settings, "gate_reason_reasoning", "") or "low"),
         "gate_reason_api_key": str(getattr(settings, "gate_reason_api_key", "") or ""),
         "poe_api_key": str(getattr(settings, "poe_api_key", "") or ""),
+        "reviewer_model": str(getattr(settings, "reviewer_model", "") or ""),
+        "reviewer_provider": str(getattr(settings, "reviewer_provider", "") or "poe"),
+        "reviewer_base_url": str(getattr(settings, "reviewer_base_url", "") or ""),
+        "reviewer_reasoning": str(getattr(settings, "reviewer_reasoning", "") or "none"),
+        "reviewer_api_key": str(getattr(settings, "reviewer_api_key", "") or ""),
+        "handoff_api_key": str(getattr(settings, "handoff_api_key", "") or ""),
+        "writer_reasoning": str(getattr(settings, "writer_reasoning", "") or "none"),
     }
 
 
@@ -648,6 +660,249 @@ class PlanConflict(RuntimeError):
     """A plan version is already stored: another turn on the same trip saved it first."""
 
 
+def _ensure_returns(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS desk_returns (session_id TEXT PRIMARY KEY, released_at TEXT NOT NULL)"
+    )
+
+
+def _ensure_escalation_columns(conn: sqlite3.Connection) -> None:
+    present = {row[1] for row in conn.execute("PRAGMA table_info(escalation_policy)")}
+    adds = {
+        "match_mode": "ALTER TABLE escalation_policy ADD COLUMN match_mode TEXT NOT NULL DEFAULT 'examples'",
+        "use_jev": "ALTER TABLE escalation_policy ADD COLUMN use_jev INTEGER NOT NULL DEFAULT 0",
+        "stuck_on": "ALTER TABLE escalation_policy ADD COLUMN stuck_on INTEGER NOT NULL DEFAULT 0",
+        "stuck_after": "ALTER TABLE escalation_policy ADD COLUMN stuck_after INTEGER NOT NULL DEFAULT 3",
+        "words": "ALTER TABLE escalation_policy ADD COLUMN words TEXT NOT NULL DEFAULT ''",
+        "parts": "ALTER TABLE escalation_policy ADD COLUMN parts TEXT NOT NULL DEFAULT ''",
+    }
+    for name, sql in adds.items():
+        if name not in present:
+            conn.execute(sql)
+
+
+def _clean_rows(value: Any, limit: int, length: int) -> list[dict[str, Any]]:
+    """One text and its own score. A bare string keeps a score of 60."""
+    kept: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in value or []:
+        if isinstance(raw, dict):
+            text = raw.get("text") or raw.get("utterance") or raw.get("word") or ""
+            score = raw.get("score", 60)
+        else:
+            text = raw
+            score = 60
+        line = str(text or "").strip()[:length]
+        key = line.casefold()
+        if not line or key in seen:
+            continue
+        if isinstance(score, bool) or not isinstance(score, (int, float)):
+            number = 60
+        else:
+            number = max(0, min(100, int(score)))
+        seen.add(key)
+        kept.append({"text": line, "score": number})
+        if len(kept) >= limit:
+            break
+    return kept
+
+
+def _clean_part(raw: Any, *, engine_default: str) -> dict[str, Any]:
+    body = raw if isinstance(raw, dict) else {}
+    engine = str(body.get("engine") or engine_default)
+    if engine in {"examples", "phrases"}:
+        engine = "keywords"
+    if engine not in {"keywords", "jev"}:
+        engine = "keywords" if engine_default not in {"keywords", "jev"} else engine_default
+    score = body.get("score")
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        score = None
+    else:
+        score = max(0, min(100, int(score)))
+    try:
+        after = int(body.get("after") or 3)
+    except (TypeError, ValueError):
+        after = 3
+    return {
+        "enabled": bool(body.get("enabled", True)),
+        "engine": engine,
+        "words": _clean_rows(body.get("words"), 80, 80),
+        "examples": _clean_rows(body.get("examples"), 40, 600),
+        "score": score,
+        "message": str(body.get("message") or "").strip()[:2000],
+        "after": min(8, max(2, after)),
+    }
+
+
+def _default_parts(
+    *,
+    enabled: bool,
+    message: str,
+    frustration_at: int | None,
+    match_mode: str,
+    use_jev: bool,
+    stuck_on: bool,
+    stuck_after: int,
+    words: list[str],
+    examples: list[str],
+) -> dict[str, Any]:
+    from app.application.escalation import FAIL_PHRASES, LIVE_AGENT_PHRASES
+    from app.application.sentiment import strong_words
+
+    return {
+        "hand": _clean_part(
+            {
+                "enabled": enabled,
+                "engine": "keywords",
+                "words": [{"text": phrase, "score": 60} for phrase in LIVE_AGENT_PHRASES],
+                "examples": examples,
+                "score": frustration_at,
+                "message": message,
+            },
+            engine_default="examples",
+        ),
+        "sentiment": _clean_part(
+            {
+                "enabled": True,
+                "engine": "jev" if use_jev else "keywords",
+                "words": [{"text": word, "score": 80} for word in sorted(strong_words())],
+                "examples": [],
+                "score": 60,
+            },
+            engine_default="keywords",
+        ),
+        "stuck": _clean_part(
+            {
+                "enabled": stuck_on,
+                "engine": "keywords",
+                "words": [{"text": phrase, "score": 80} for phrase in FAIL_PHRASES],
+                "examples": [],
+                "after": stuck_after,
+            },
+            engine_default="phrases",
+        ),
+    }
+
+
+def _separate_hand_phrases(parts: dict[str, Any]) -> dict[str, Any]:
+    """The escalate list used to be a copy of the anger words. Put the live-agent phrases there instead."""
+    from app.application.escalation import LIVE_AGENT_PHRASES
+    from app.application.sentiment import negative_words
+
+    lexicon = {word.casefold() for word in negative_words()}
+    texts = [str(row.get("text") or "").casefold() for row in parts["hand"].get("words") or [] if str(row.get("text") or "").strip()]
+    if len(texts) >= 8 and sum(text in lexicon for text in texts) / len(texts) > 0.8:
+        parts["hand"]["words"] = [{"text": phrase, "score": 60} for phrase in LIVE_AGENT_PHRASES]
+    return parts
+
+
+def _parts_from_row(
+    row: sqlite3.Row | None,
+    *,
+    enabled: bool,
+    message: str,
+    frustration_at: int | None,
+    match_mode: str,
+    use_jev: bool,
+    stuck_on: bool,
+    stuck_after: int,
+    words: list[str],
+    examples: list[str],
+) -> dict[str, Any]:
+    raw = ""
+    if row is not None and "parts" in row.keys():
+        raw = str(row["parts"] or "")
+    if raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            parts = {
+                "hand": _clean_part(parsed.get("hand"), engine_default="examples"),
+                "sentiment": _clean_part(parsed.get("sentiment"), engine_default="keywords"),
+                "stuck": _clean_part(parsed.get("stuck"), engine_default="phrases"),
+            }
+            return _separate_hand_phrases(parts)
+    return _default_parts(
+        enabled=enabled,
+        message=message,
+        frustration_at=frustration_at,
+        match_mode=match_mode,
+        use_jev=use_jev,
+        stuck_on=stuck_on,
+        stuck_after=stuck_after,
+        words=words,
+        examples=examples,
+    )
+
+
+def _policy_row(row: sqlite3.Row | None, examples: list[sqlite3.Row]) -> dict[str, Any]:
+    base = {
+        "enabled": True,
+        "message": "I'll pass this chat to a person. They will reply here.",
+        "frustration_at": None,
+        "match_mode": "examples",
+        "use_jev": False,
+        "stuck_on": False,
+        "stuck_after": 3,
+        "words": [],
+        "examples": [{"id": item["id"], "utterance": item["utterance"]} for item in examples],
+    }
+    if row is not None:
+        keys = row.keys()
+        base.update(
+            {
+                "enabled": bool(row["enabled"]),
+                "message": row["message"],
+                "frustration_at": row["frustration_at"],
+                "match_mode": row["match_mode"] if "match_mode" in keys and row["match_mode"] in {"examples", "keywords"} else "examples",
+                "use_jev": bool(row["use_jev"]) if "use_jev" in keys else False,
+                "stuck_on": bool(row["stuck_on"]) if "stuck_on" in keys else False,
+                "stuck_after": int(row["stuck_after"]) if "stuck_after" in keys and row["stuck_after"] else 3,
+            }
+        )
+        stored = [line.strip() for line in str(row["words"] if "words" in keys else "").splitlines() if line.strip()]
+        if stored:
+            base["words"] = stored[:80]
+        else:
+            from app.application.sentiment import negative_words
+
+            base["words"] = sorted(negative_words())
+    else:
+        from app.application.sentiment import negative_words
+
+        base["words"] = sorted(negative_words())
+    parts = _parts_from_row(
+        row,
+        enabled=bool(base["enabled"]),
+        message=str(base["message"]),
+        frustration_at=base["frustration_at"],
+        match_mode=str(base["match_mode"]),
+        use_jev=bool(base["use_jev"]),
+        stuck_on=bool(base["stuck_on"]),
+        stuck_after=int(base["stuck_after"]),
+        words=list(base["words"]),
+        examples=[str(item["utterance"]) for item in base["examples"]],
+    )
+    hand = parts["hand"]
+    base.update(
+        {
+            "parts": parts,
+            "enabled": hand["enabled"],
+            "message": hand["message"] or base["message"],
+            "frustration_at": hand["score"],
+            "match_mode": "keywords" if hand["engine"] == "keywords" else "examples",
+            "use_jev": hand["engine"] == "jev" or parts["sentiment"]["engine"] == "jev" or parts["stuck"]["engine"] == "jev",
+            "stuck_on": parts["stuck"]["enabled"],
+            "stuck_after": parts["stuck"]["after"],
+            "words": [row["text"] for row in hand["words"]],
+            "examples": [{"id": "", "utterance": row["text"]} for row in hand["examples"]],
+        }
+    )
+    return base
+
+
 class SQLiteStore:
     def __init__(self, path: Path, share_ttl_days: int = DEFAULT_SHARE_TTL_DAYS):
         self.path = Path(path)
@@ -849,11 +1104,20 @@ class SQLiteStore:
 
     def hold_chat(self, session_id: str, agent_name: str = "") -> None:
         with self._lock, self._connect() as conn:
+            _ensure_returns(conn)
             conn.execute(
                 "INSERT INTO desk_holds (session_id, agent_name, updated_at) VALUES (?,?,?) "
                 "ON CONFLICT(session_id) DO UPDATE SET agent_name=excluded.agent_name, updated_at=excluded.updated_at",
                 (session_id, agent_name.strip()[:80], _now()),
             )
+            conn.execute("DELETE FROM desk_returns WHERE session_id=?", (session_id,))
+
+    def returned_chat(self, session_id: str) -> bool:
+        """True after an operator sent the chat back, until someone holds it again."""
+        with self._connect() as conn:
+            _ensure_returns(conn)
+            row = conn.execute("SELECT session_id FROM desk_returns WHERE session_id=?", (session_id,)).fetchone()
+        return row is not None
 
     def runtime_overrides(self) -> dict[str, str]:
         with self._connect() as conn:
@@ -951,6 +1215,7 @@ class SQLiteStore:
         _runtime_float(values, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
         _runtime_float(values, "preplan_budget_seconds", base["preplan_budget_seconds"], 1.0, 600.0)
         _runtime_float(values, "max_repairs", base["max_repairs"], 0.0, 6.0)
+        _runtime_float(values, "rule_passes", base["refine_max_rounds"], 0.0, 10.0)
         _runtime_float(values, "conversation_turns", base["conversation_turns"], 1.0, 10.0)
         for key, field in (
             ("weather", "weather_fresh_seconds"),
@@ -985,6 +1250,20 @@ class SQLiteStore:
         _runtime_float(values, "gate_reason_temperature", 0.2, 0.0, 2.0)
         _runtime_float(values, "gate_plain_max_tokens", 1024, 16, 16384)
         _runtime_float(values, "gate_reason_max_tokens", 1024, 16, 16384)
+        if "reviewer_model" in values:
+            _runtime_token(values, "reviewer_model", "", 120)
+        if "reviewer_base_url" in values:
+            _runtime_url(values, "reviewer_base_url", "")
+        if "reviewer_provider" in values:
+            _runtime_choice(values, "reviewer_provider", "poe", _GATE_PROVIDERS)
+        if "reviewer_reasoning" in values:
+            _runtime_choice(values, "reviewer_reasoning", "none", _REASONING)
+        _runtime_float(values, "reviewer_temperature", 0.0, 0.0, 2.0)
+        _runtime_float(values, "reviewer_max_tokens", 4096, 16, 16384)
+        _runtime_float(values, "writer_temperature", 0.2, 0.0, 2.0)
+        _runtime_float(values, "writer_max_tokens", 4096, 16, 16384)
+        if "writer_reasoning" in values:
+            _runtime_choice(values, "writer_reasoning", "none", _REASONING)
 
     def apply_runtime(self, settings: Any) -> None:
         """Copy stored overrides onto ``settings``. The first call remembers the environment values."""
@@ -997,6 +1276,7 @@ class SQLiteStore:
         settings.memory_similarity_cutoff = _runtime_float(raw, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
         settings.preplan_budget_seconds = _runtime_float(raw, "preplan_budget_seconds", base["preplan_budget_seconds"], 1.0, 600.0)
         settings.max_repairs = int(_runtime_float(raw, "max_repairs", float(base["max_repairs"]), 0.0, 6.0))
+        settings.refine_max_rounds = int(_runtime_float(raw, "rule_passes", float(base["refine_max_rounds"]), 0.0, 10.0))
         settings.conversation_turns = int(_runtime_float(raw, "conversation_turns", float(base["conversation_turns"]), 1.0, 10.0))
         for key, field in (
             ("weather", "weather_fresh_seconds"),
@@ -1030,6 +1310,15 @@ class SQLiteStore:
         settings.gate_reason_temperature = _runtime_float(raw, "gate_reason_temperature", base["gate_reason_temperature"], 0.0, 2.0)
         settings.gate_plain_max_tokens = int(_runtime_float(raw, "gate_plain_max_tokens", base["gate_plain_max_tokens"], 16, 16384))
         settings.gate_reason_max_tokens = int(_runtime_float(raw, "gate_reason_max_tokens", base["gate_reason_max_tokens"], 16, 16384))
+        settings.reviewer_model = _or_default(raw, "reviewer_model", text_base["reviewer_model"], 120, url=False)
+        settings.reviewer_provider = _or_choice(raw, "reviewer_provider", text_base["reviewer_provider"] or "poe", _GATE_PROVIDERS)
+        settings.reviewer_base_url = _or_default(raw, "reviewer_base_url", text_base["reviewer_base_url"], 300, url=True)
+        settings.reviewer_reasoning = _or_choice(raw, "reviewer_reasoning", text_base["reviewer_reasoning"] or "none", _REASONING)
+        settings.reviewer_temperature = _runtime_float(raw, "reviewer_temperature", base["reviewer_temperature"], 0.0, 2.0)
+        settings.reviewer_max_tokens = int(_runtime_float(raw, "reviewer_max_tokens", base["reviewer_max_tokens"], 16, 16384))
+        settings.llm_temperature = _runtime_float(raw, "writer_temperature", base["writer_temperature"], 0.0, 2.0)
+        settings.llm_max_tokens = int(_runtime_float(raw, "writer_max_tokens", base["writer_max_tokens"], 16, 16384))
+        settings.writer_reasoning = _or_choice(raw, "writer_reasoning", text_base["writer_reasoning"] or "none", _REASONING)
 
 
     def delete_runtime_keys(self, keys: list[str]) -> None:
@@ -1071,6 +1360,8 @@ class SQLiteStore:
             ("poe", "poe_api_key"),
             ("plain", "gate_plain_api_key"),
             ("reason", "gate_reason_api_key"),
+            ("reviewer", "reviewer_api_key"),
+            ("handoff", "handoff_api_key"),
         ):
             blob = self.gate_secret(name)
             if not blob:
@@ -1311,27 +1602,27 @@ class SQLiteStore:
 
     def escalation_policy(self) -> dict[str, Any]:
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT enabled, message, frustration_at FROM escalation_policy WHERE id=1"
-            ).fetchone()
+            _ensure_escalation_columns(conn)
+            row = conn.execute("SELECT * FROM escalation_policy WHERE id=1").fetchone()
             examples = conn.execute(
                 "SELECT id, utterance FROM escalation_examples ORDER BY created_at"
             ).fetchall()
-        if row is None:
-            return {
-                "enabled": True,
-                "message": "I'll pass this chat to a person. They will reply here.",
-                "frustration_at": None,
-                "examples": [],
-            }
-        return {
-            "enabled": bool(row["enabled"]),
-            "message": row["message"],
-            "frustration_at": row["frustration_at"],
-            "examples": [{"id": item["id"], "utterance": item["utterance"]} for item in examples],
-        }
+        return _policy_row(row, examples)
 
-    def save_escalation_policy(self, *, enabled: bool, message: str, frustration_at: int | None, examples: list[str]) -> dict[str, Any]:
+    def save_escalation_policy(
+        self,
+        *,
+        enabled: bool,
+        message: str,
+        frustration_at: int | None,
+        examples: list[str],
+        match_mode: str = "examples",
+        use_jev: bool = False,
+        stuck_on: bool = False,
+        stuck_after: int = 3,
+        words: list[str] | None = None,
+        parts: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         from app.domain.models import new_id
 
         text = message.strip()[:2000] or "I'll pass this chat to a person. They will reply here."
@@ -1345,12 +1636,59 @@ class SQLiteStore:
                 lines.append(utterance)
             if len(lines) >= 40:
                 break
+        mode = match_mode if match_mode in {"examples", "keywords"} else "examples"
+        tries = min(8, max(2, int(stuck_after or 3)))
+        kept_words: list[str] = []
+        seen_words: set[str] = set()
+        for raw_word in words or []:
+            word = raw_word.strip()[:40]
+            key = word.casefold()
+            if word and key not in seen_words:
+                seen_words.add(key)
+                kept_words.append(word)
+            if len(kept_words) >= 80:
+                break
+        if parts is None:
+            stored_parts = _default_parts(
+                enabled=enabled,
+                message=text,
+                frustration_at=frustration_at,
+                match_mode=mode,
+                use_jev=use_jev,
+                stuck_on=stuck_on,
+                stuck_after=tries,
+                words=kept_words,
+                examples=lines,
+            )
+        else:
+            stored_parts = {
+                "hand": _clean_part(parts.get("hand"), engine_default="examples"),
+                "sentiment": _clean_part(parts.get("sentiment"), engine_default="keywords"),
+                "stuck": _clean_part(parts.get("stuck"), engine_default="phrases"),
+            }
+            hand = stored_parts["hand"]
+            enabled = hand["enabled"]
+            text = hand["message"] or text
+            frustration_at = hand["score"]
+            mode = "keywords" if hand["engine"] == "keywords" else "examples"
+            use_jev = hand["engine"] == "jev" or stored_parts["sentiment"]["engine"] == "jev" or stored_parts["stuck"]["engine"] == "jev"
+            stuck_on = stored_parts["stuck"]["enabled"]
+            tries = stored_parts["stuck"]["after"]
+            kept_words = [row["text"] for row in hand["words"]]
+            lines = [row["text"] for row in hand["examples"]]
         with self._lock, self._connect() as conn:
+            _ensure_escalation_columns(conn)
             conn.execute(
-                "INSERT INTO escalation_policy (id, enabled, message, frustration_at, updated_at) VALUES (1,?,?,?,?) "
+                "INSERT INTO escalation_policy (id, enabled, message, frustration_at, match_mode, use_jev, stuck_on, stuck_after, words, parts, updated_at) "
+                "VALUES (1,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled, message=excluded.message, "
-                "frustration_at=excluded.frustration_at, updated_at=excluded.updated_at",
-                (1 if enabled else 0, text, frustration_at, _now()),
+                "frustration_at=excluded.frustration_at, match_mode=excluded.match_mode, use_jev=excluded.use_jev, "
+                "stuck_on=excluded.stuck_on, stuck_after=excluded.stuck_after, words=excluded.words, parts=excluded.parts, "
+                "updated_at=excluded.updated_at",
+                (
+                    1 if enabled else 0, text, frustration_at, mode, 1 if use_jev else 0, 1 if stuck_on else 0, tries,
+                    "\n".join(kept_words), json.dumps(stored_parts), _now(),
+                ),
             )
             conn.execute("DELETE FROM escalation_examples")
             for utterance in lines:
@@ -1367,7 +1705,13 @@ class SQLiteStore:
 
     def release_chat(self, session_id: str) -> None:
         with self._lock, self._connect() as conn:
+            _ensure_returns(conn)
             conn.execute("DELETE FROM desk_holds WHERE session_id=?", (session_id,))
+            conn.execute(
+                "INSERT INTO desk_returns (session_id, released_at) VALUES (?,?) "
+                "ON CONFLICT(session_id) DO UPDATE SET released_at=excluded.released_at",
+                (session_id, _now()),
+            )
 
     def desk_note(self, session_id: str) -> str:
         with self._connect() as conn:
@@ -1385,7 +1729,7 @@ class SQLiteStore:
     def recent_sessions(self, limit: int = 40) -> list[dict[str, str]]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT id, updated_at FROM journeys ORDER BY updated_at DESC LIMIT ?",
+                "SELECT id, created_at, updated_at FROM journeys ORDER BY updated_at DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         return [dict(row) for row in rows]

@@ -47,6 +47,7 @@ from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import restore_message_decisions, user_facing_error
 from app.application.prompts import LANGUAGE_RULE, PERSONA_RULE
+from app.application.escalation import agent_reason, is_stuck, line_is_hot
 from app.application.sentiment import frustration_band, frustration_score, line_reading, session_frustration
 from app.application.skills import prompt_entries, prompt_file
 from app.application.preferences import derive_preferences
@@ -248,11 +249,42 @@ class DeskEditIn(BaseModel):
     item_id: str = Field(default="", max_length=80)
 
 
+class RowIn(BaseModel):
+    text: str = ""
+    score: int = Field(default=60, ge=0, le=100)
+
+
+class MonitorIn(BaseModel):
+    """One of the three monitors. Its keywords, examples, and engine are not shared."""
+
+    enabled: bool = True
+    engine: str = "keywords"
+    words: list[RowIn] = Field(default_factory=list, max_length=80)
+    examples: list[RowIn] = Field(default_factory=list, max_length=40)
+    score: int | None = Field(default=None, ge=0, le=100)
+    message: str = Field(default="", max_length=2000)
+    after: int = Field(default=3, ge=2, le=8)
+
+
+class MonitorsIn(BaseModel):
+    hand: MonitorIn
+    sentiment: MonitorIn
+    stuck: MonitorIn
+
+
 class EscalationIn(BaseModel):
     enabled: bool = True
     message: str = Field(default="", max_length=2000)
     frustration_at: int | None = Field(default=None, ge=0, le=100)
     examples: list[str] = Field(default_factory=list, max_length=40)
+    match_mode: Literal["examples", "keywords"] = "examples"
+    use_jev: bool = False
+    stuck_on: bool = False
+    stuck_after: int = Field(default=3, ge=2, le=8)
+    words: list[str] = Field(default_factory=list, max_length=80)
+    api_key: str = ""
+    clear_key: bool = False
+    monitors: MonitorsIn | None = None
 
 
 class PromptIn(BaseModel):
@@ -304,6 +336,20 @@ class GateArmIn(BaseModel):
     reasoning: str = ""
 
 
+class WriterCallIn(BaseModel):
+    """Call settings for the writer. The key stays on the key card; this is temperature, length, and reasoning."""
+
+    temperature: float | None = None
+    max_tokens: int | None = None
+    reasoning: str = ""
+
+
+class ReviewerIn(GateArmIn):
+    """The reviewer: the same fields as a gate arm, plus how many rule checks run."""
+
+    rounds: int | None = None
+
+
 class RuntimeIn(BaseModel):
     thresholds: dict[str, float] | None = None
     freshness_hours: dict[str, int] | None = None
@@ -318,6 +364,8 @@ class RuntimeIn(BaseModel):
     poe: PoeKeyIn | None = None
     plain: GateArmIn | None = None
     reason: GateArmIn | None = None
+    reviewer: ReviewerIn | None = None
+    writer_call: WriterCallIn | None = None
 
 
 _PROMPT_NAMES = {"persona", "language"}
@@ -550,6 +598,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "label": settings.llm_provider,
                 "vendor": settings.writer_vendor,
                 "source": writer.source,
+                "temperature": settings.llm_temperature,
+                "max_tokens": settings.llm_max_tokens,
+                "reasoning": settings.writer_reasoning,
             },
             "providers": c.registry.describe(),
             # Browser map keys are public by design (restrict them by referrer in
@@ -1822,23 +1873,48 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         seen = store.seen_map()
         now = datetime.now(timezone.utc)
         cards = []
+        policy = store.escalation_policy()
         for session in store.recent_sessions(80):
-            messages = store.list_messages(session["id"], limit=20)
+            messages = store.list_messages(session["id"], limit=40)
             mood = _desk_mood(messages)
             last = messages[-1] if messages else None
             state, on_page = _desk_liveness(session["updated_at"], seen.get(session["id"]), now)
+            parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
+            sentiment = parts.get("sentiment") if isinstance(parts.get("sentiment"), dict) else {}
+            stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
+            last_user = next((item for item in reversed(messages) if getattr(item, "role", "") == "user"), None)
+            user_meta = getattr(last_user, "meta", None) if last_user is not None else {}
+            user_meta = user_meta if isinstance(user_meta, dict) else {}
+            jev_scored = sentiment.get("engine") == "jev" and (
+                user_meta.get("sentiment") == "jev" or "sentiment_heat" in user_meta
+            )
+            hot = line_is_hot(
+                getattr(last_user, "content", "") if last_user else "",
+                int(user_meta.get("sentiment_heat") or 0),
+                sentiment if jev_scored else {**sentiment, "engine": "keywords"},
+                jev_scored=jev_scored,
+            )
+            stuck = bool(stuck_part.get("enabled")) and is_stuck(
+                messages,
+                int(stuck_part.get("after") or 3),
+            )
+            flagged = agent_reason(100 if hot else 0, stuck)
+            if flagged and not store.is_held(session["id"]) and not store.returned_chat(session["id"]):
+                store.hold_chat(session["id"], "")
             cards.append(
                 {
                     "session_id": session["id"],
+                    "created_at": session.get("created_at") or session["updated_at"],
                     "updated_at": session["updated_at"],
                     "state": state,
                     "on_page": on_page,
                     "held": store.is_held(session["id"]),
                     "agent_name": store.held_agent(session["id"]),
+                    "stuck": stuck,
                     "frustration": mood["frustration"],
                     "frustration_kind": mood["frustration_kind"],
-                    "band": frustration_band(mood["frustration"]),
-                    "sentiment_score": mood["sentiment_score"],
+                    "band": "hot" if hot else "calm",
+                    "sentiment_score": -1.0 if hot else 0.0,
                     "sentiment_label": mood["sentiment_label"],
                     "sentiment_notes": mood["sentiment_notes"],
                     "preview": (last.content if last else "")[:160],
@@ -2184,6 +2260,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             )
             if "conversation_turns" in payload.thresholds:
                 values["conversation_turns"] = str(payload.thresholds["conversation_turns"])
+            if "rule_passes" in payload.thresholds:
+                values["rule_passes"] = str(payload.thresholds["rule_passes"])
         if payload.freshness_hours is not None:
             missing = [key for key in ("weather", "tickets", "hotels", "attractions") if key not in payload.freshness_hours]
             if missing:
@@ -2216,6 +2294,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 secrets_save["poe"] = payload.poe.api_key.strip()
         _take_arm(payload.plain, "plain", values, drop, secrets_save, secrets_clear)
         _take_arm(payload.reason, "reason", values, drop, secrets_save, secrets_clear)
+        _take_reviewer(payload.reviewer, values, drop, secrets_save, secrets_clear)
+        _take_writer_call(payload.writer_call, values)
         if not values and not drop and not secrets_save and not secrets_clear:
             raise HTTPException(status_code=400, detail="Nothing to save")
         store = container(request).store
@@ -2248,16 +2328,34 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     @app.get("/api/admin/escalation", dependencies=[Depends(require_admin)])
     async def escalation_get(request: Request) -> dict[str, Any]:
-        return container(request).store.escalation_policy()
+        c = container(request)
+        return _escalation_view(c.store.escalation_policy(), settings, c.store.gate_secret_saved("handoff"))
 
     @app.put("/api/admin/escalation", dependencies=[Depends(require_admin)])
     async def escalation_put(payload: EscalationIn, request: Request) -> dict[str, Any]:
-        return container(request).store.save_escalation_policy(
+        c = container(request)
+        if payload.clear_key:
+            c.store.clear_gate_secret("handoff")
+        elif payload.api_key.strip():
+            try:
+                _check_secret(payload.api_key.strip())
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            c.store.save_gate_secret("handoff", c.box.encrypt(payload.api_key.strip()))
+        c.store.apply_gate_secrets(settings, c.box)
+        saved = c.store.save_escalation_policy(
             enabled=payload.enabled,
             message=payload.message,
             frustration_at=payload.frustration_at,
             examples=payload.examples,
+            match_mode=payload.match_mode,
+            use_jev=payload.use_jev,
+            stuck_on=payload.stuck_on,
+            stuck_after=payload.stuck_after,
+            words=payload.words,
+            parts=payload.monitors.model_dump() if payload.monitors else None,
         )
+        return _escalation_view(saved, settings, c.store.gate_secret_saved("handoff"))
 
     @app.get("/api/admin/cases", dependencies=[Depends(require_admin)])
     async def review_cases(request: Request) -> dict[str, Any]:
@@ -2591,6 +2689,42 @@ def _apply_desk_edits(plan: Any, edits: list[DeskStopIn]) -> Any:
     return updated
 
 
+def _take_writer_call(call: WriterCallIn | None, values: dict[str, str]) -> None:
+    if call is None:
+        return
+    if call.temperature is not None:
+        values["writer_temperature"] = str(call.temperature)
+    if call.max_tokens is not None:
+        values["writer_max_tokens"] = str(int(call.max_tokens))
+    if call.reasoning.strip():
+        values["writer_reasoning"] = call.reasoning.strip().lower()
+
+
+def _take_reviewer(
+    arm: ReviewerIn | None,
+    values: dict[str, str],
+    drop: list[str],
+    secrets_save: dict[str, str],
+    secrets_clear: list[str],
+) -> None:
+    if arm is None:
+        return
+    _take_token(arm.provider.lower(), "reviewer_provider", values, drop)
+    _take_token(arm.model, "reviewer_model", values, drop)
+    _take_token(arm.base_url, "reviewer_base_url", values, drop)
+    _take_token(arm.reasoning.lower(), "reviewer_reasoning", values, drop)
+    if arm.temperature is not None:
+        values["reviewer_temperature"] = str(arm.temperature)
+    if arm.max_tokens is not None:
+        values["reviewer_max_tokens"] = str(int(arm.max_tokens))
+    if arm.rounds is not None:
+        values["rule_passes"] = str(int(arm.rounds))
+    if arm.clear_key:
+        secrets_clear.append("reviewer")
+    elif arm.api_key.strip():
+        secrets_save["reviewer"] = arm.api_key.strip()
+
+
 def _take_arm(
     arm: GateArmIn | None,
     name: str,
@@ -2674,6 +2808,48 @@ def _arm_view(active: Settings, name: str, saved: bool) -> dict[str, Any]:
     }
 
 
+def _reviewer_view(active: Settings, saved: bool) -> dict[str, Any]:
+    """The reviewer as the form shows it. The key itself stays on the server."""
+    provider = str(getattr(active, "reviewer_provider", "") or "poe")
+    own = str(getattr(active, "reviewer_api_key", "") or "")
+    if own:
+        shown = _key_view(own, saved)
+        source = "arm"
+    elif provider == "poe" and active.poe_api_key:
+        shown = _key_view(active.poe_api_key, False)
+        source = "poe"
+    else:
+        shown = _key_view("", False)
+        source = "none"
+    return {
+        "provider": provider,
+        "model": str(getattr(active, "reviewer_model", "") or ""),
+        "base_url": str(getattr(active, "reviewer_base_url", "") or ""),
+        "temperature": float(getattr(active, "reviewer_temperature", 0.0)),
+        "max_tokens": int(getattr(active, "reviewer_max_tokens", 4096) or 4096),
+        "reasoning": str(getattr(active, "reviewer_reasoning", "") or "none"),
+        "rounds": int(getattr(active, "refine_max_rounds", 3)),
+        "key_source": source,
+        **shown,
+    }
+
+
+def _escalation_view(policy: dict[str, Any], active: Settings, saved: bool) -> dict[str, Any]:
+    """The handoff form. A saved key is this form's. With none, Jev uses the gate key."""
+    own = str(getattr(active, "handoff_api_key", "") or "")
+    gate = str(active.decision_api_key or "")
+    if own:
+        shown = _key_view(own, saved)
+        source = "saved"
+    elif gate:
+        shown = _key_view(gate, False)
+        source = "gate"
+    else:
+        shown = _key_view("", False)
+        source = "none"
+    return {**policy, "key_source": source, **shown}
+
+
 def _key_view(secret: str, saved: bool) -> dict[str, Any]:
     return {
         "key_set": bool(secret),
@@ -2692,8 +2868,10 @@ def _runtime_view(active: Settings, store: Any | None = None) -> dict[str, Any]:
             "memory_similarity": active.memory_similarity_cutoff,
             "preplan_budget_seconds": active.preplan_budget_seconds,
             "max_repairs": active.max_repairs,
+            "rule_passes": active.refine_max_rounds,
             "conversation_turns": active.conversation_turns,
         },
+        "reviewer": _reviewer_view(active, bool(store and store.gate_secret_saved("reviewer"))),
         "freshness_hours": {
             "weather": active.weather_fresh_seconds // 3600,
             "tickets": active.ticket_fresh_seconds // 3600,
