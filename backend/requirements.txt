@@ -7,6 +7,6 @@ cryptography>=43,<47
 pytest>=8
 pytest-asyncio>=0.24
 anyio>=4
-pypdf>=5,<7
+pypdf>=7.1.0,<8
 # zoneinfo has no time zone database of its own on Windows; the calendar export needs one.
 tzdata>=2024.1
