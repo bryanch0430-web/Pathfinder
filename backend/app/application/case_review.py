@@ -81,6 +81,24 @@ def failed_cases(store: Any, *, limit: int = 24) -> list[dict[str, str]]:
     return _attach_checks(store, rows[:limit])
 
 
+def _earlier(store: Any, session_id: str, request: str) -> str:
+    """Up to 10 messages before the failing line, the same window the router and the writer can read."""
+    from app.application.prompt_context import MAX_CONVERSATION_TURNS
+
+    if not session_id or not request.strip():
+        return ""
+    messages = store.list_messages(session_id, limit=40)
+    cut = None
+    for index in range(len(messages) - 1, -1, -1):
+        if messages[index].role == "user" and messages[index].content.strip() == request.strip():
+            cut = index
+            break
+    if cut is None:
+        return ""
+    chosen = messages[:cut][-MAX_CONVERSATION_TURNS:]
+    return "\n".join(f"{message.role}: {' '.join(message.content.split())[:200]}" for message in chosen)
+
+
 def _attach_checks(store: Any, rows: list[dict[str, str]]) -> list[dict[str, str]]:
     checks = store.case_checks()
     for row in rows:
@@ -124,17 +142,25 @@ async def check_listed(evaluation: Any, store: Any) -> dict[str, Any]:
                 judge_reason=result.judge_reason,
             )
             continue
+        from app.domain.models import Message
+
+        history = []
+        for line in (row.get("earlier") or "").splitlines():
+            role, _, content = line.partition(": ")
+            if role in {"user", "assistant"} and content:
+                history.append(Message(session_id="check", role=role, content=content))
         decision = RuleRouter().route(
             message=row["input"],
             context=TripContext(session_id="check"),
             plan_summary={"trip_id": "x"} if row["source"] == "session" else None,
-            history=[],
+            history=history,
         )
+        heard = f", with {len(history)} earlier messages" if history else ""
         store.save_case_check(
             case_id=row["case_id"],
             source=row["source"],
             status="chat",
-            output_summary=f"rules router → {decision.intent.value} ({decision.confidence:.2f})",
+            output_summary=f"rules router → {decision.intent.value} ({decision.confidence:.2f}){heard}",
             judge_reason="This chat is not an exam case, so it is not marked passed.",
         )
     return {"passed": passed, "exam": exam, "cases": failed_cases(store, limit=24)}
@@ -161,6 +187,7 @@ def _evaluation_failures(store: Any, *, limit: int) -> list[dict[str, str]]:
                     "kind": "misclassified" if case.failure_class == "wrong_intent" else "failed",
                     "failure_class": case.failure_class,
                     "input": (case.input or "")[:500],
+                    "earlier": "",
                     "output_summary": (case.output_summary or "")[:400],
                     "judge_reason": (case.judge_reason or "")[:400],
                 }
@@ -183,6 +210,7 @@ def _operator_cases(store: Any, *, limit: int) -> list[dict[str, str]]:
                 "kind": "added",
                 "failure_class": "operator",
                 "input": (case.get("input") or "")[:500],
+                "earlier": _earlier(store, case.get("session_id") or "", case.get("input") or ""),
                 "output_summary": (case.get("note") or "")[:400],
                 "judge_reason": (case.get("expected") or "")[:400],
             }
@@ -212,6 +240,7 @@ def _session_failures(store: Any, *, limit: int) -> list[dict[str, str]]:
                 "kind": "unchanged",
                 "failure_class": "plan_unchanged",
                 "input": (edit.get("request") or "")[:500],
+                "earlier": _earlier(store, edit.get("session_id") or "", edit.get("request") or ""),
                 "output_summary": (edit.get("content") or "")[:400],
                 "judge_reason": "The change left the plan as it was.",
             }
@@ -237,6 +266,7 @@ def _session_failures(store: Any, *, limit: int) -> list[dict[str, str]]:
                 "kind": "not_useful",
                 "failure_class": "not_useful",
                 "input": (rating.get("request") or "")[:500],
+                "earlier": _earlier(store, rating.get("session_id") or "", rating.get("request") or ""),
                 "output_summary": note[:400],
                 "judge_reason": note[:400],
             }

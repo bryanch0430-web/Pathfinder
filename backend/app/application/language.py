@@ -5,7 +5,7 @@ before the UI selection, the understanding step or any model is consulted, so
 "Make it in Traditional Chinese" with a stop selected never becomes a stop edit
 and never calls a planner, a tool or the writer.
 
-Two separate enum slots come out of a message: ``language`` (en, zh-Hant,
+Two separate enum slots come out of a message: ``language`` (en, zh-Hant, zh-Hans,
 other) here, and ``cuisine`` in the modify path. A language word followed by a
 food word ("a Chinese restaurant", "traditional Chinese food") is a cuisine,
 never a language; ``strip_language_phrases`` removes language phrases before
@@ -18,9 +18,9 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-SUPPORTED_LOCALES: tuple[str, ...] = ("en", "zh-Hant")
+SUPPORTED_LOCALES: tuple[str, ...] = ("en", "zh-Hant", "zh-Hans")
 
-LanguageCode = Literal["en", "zh-Hant", "other"]
+LanguageCode = Literal["en", "zh-Hant", "zh-Hans", "other"]
 
 _FOOD_AFTER = (
     r"(?:\s+style)?\s+(?:restaurants?|food|foods|cuisine|places?|meals?|dinners?|lunch(?:es)?|"
@@ -32,7 +32,7 @@ _FOOD_AFTER = (
 # chinese" wins over "chinese".
 _ENGLISH_NAMES: list[tuple[str, LanguageCode, str]] = [
     (r"(?:traditional|hong kong|hk|cantonese)\s+chinese", "zh-Hant", "Traditional Chinese"),
-    (r"simplified\s+chinese", "other", "Simplified Chinese"),
+    (r"simplified\s+chinese", "zh-Hans", "Simplified Chinese"),
     (r"mandarin", "other", "Mandarin"),
     (r"chinese", "zh-Hant", "Traditional Chinese"),
     (r"cantonese", "zh-Hant", "Traditional Chinese"),
@@ -56,7 +56,7 @@ _ENGLISH_NAMES: list[tuple[str, LanguageCode, str]] = [
 ]
 
 _CHINESE_NAMES: list[tuple[str, LanguageCode, str]] = [
-    (r"(?:简体|簡體|简体|簡体)(?:中文|字)?|简中|簡中|普通話|普通话", "other", "Simplified Chinese"),
+    (r"(?:简体|簡體|简体|簡体)(?:中文|字)?|简中|簡中|普通話|普通话", "zh-Hans", "Simplified Chinese"),
     (r"(?:繁體|繁体|正體|正体)(?:中文|字)?|繁中|廣東話|广东话|粵語|粤语|中文|華語", "zh-Hant", "Traditional Chinese"),
     (r"英文|英語|英语", "en", "English"),
     (r"日文|日語|日语", "other", "Japanese"),
@@ -231,6 +231,7 @@ DISCLAIMER = {
         "prices against it."
     ),
     "zh-Hant": "此繁體中文版本由 AI 模型翻譯，可能有錯誤。英文版本為原文，請以英文版本核對日期、時間及價格等重要資料。",
+    "zh-Hans": "此简体中文版本由 AI 模型翻译，可能有错误。英文版本为原文，请以英文版本核对日期、时间及价格等重要资料。",
 }
 
 CHINESE_INPUT_REPLY = {
@@ -243,6 +244,9 @@ def set_language_reply(locale: str, *, changed: bool) -> str:
     if locale == "zh-Hant":
         lead = "已將行程改為以繁體中文顯示。" if changed else "行程已經以繁體中文顯示。"
         return lead + DISCLAIMER["zh-Hant"] + "行程內容沒有改動。"
+    if locale == "zh-Hans":
+        lead = "已将行程改为以简体中文显示。" if changed else "行程已经以简体中文显示。"
+        return lead + DISCLAIMER["zh-Hans"] + "行程内容没有改动。"
     lead = "The plan is now shown in English." if changed else "The plan is already shown in English."
     return lead + " Nothing in the plan changed."
 
@@ -250,11 +254,13 @@ def set_language_reply(locale: str, *, changed: bool) -> str:
 def unsupported_reply(name: str, locale: str) -> str:
     if locale == "zh-Hant":
         return (
-            f"暫時未能以{_ZH_NAMES.get(name, name)}顯示行程。支援的語言：英文（English）及繁體中文。"
+            f"暫時未能以{_ZH_NAMES.get(name, name)}顯示行程。支援的語言：英文（English）、繁體中文及簡體中文。"
         )
+    if locale == "zh-Hans":
+        return f"暂时未能以{name}显示行程。支持的语言：英文（English）、繁体中文及简体中文。"
     return (
-        f"I can't show the plan in {name} yet. Supported languages: English and Traditional Chinese "
-        "(繁體中文)."
+        f"I can't show the plan in {name} yet. Supported languages: English, Traditional Chinese "
+        "(繁體中文), and Simplified Chinese (简体中文)."
     )
 
 

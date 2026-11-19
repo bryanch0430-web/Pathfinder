@@ -666,22 +666,52 @@ export function TripContextForm({
         ) : null}
       </div>
       <div className="pf-row pf-row--between">
-        {onSave ? (
+        <div className="pf-row">
           <Button
             variant="ghost"
             size="sm"
-            loading={saving}
-            onClick={() => {
-              addPendingPreference();
-              onSave();
-            }}
             type="button"
+            onClick={() => {
+              setRows([{ city: "", nights: "" }]);
+              setPreferenceTags([]);
+              setPrefInput("");
+              setConstraintText("");
+              onChange({
+                destination: "",
+                origin: "",
+                start_date: null,
+                end_date: null,
+                days: null,
+                party_size: null,
+                budget: null,
+                hotel_style: "",
+                pace: "balanced",
+                profile: { pace: "balanced", with_children: false, purpose: "leisure", step_free: false },
+                preferences: [],
+                hard_constraints: [],
+                stops: [],
+                one_way: false,
+              });
+              onSave?.();
+            }}
           >
-            {t("form.save")}
+            {t("form.clear")}
           </Button>
-        ) : (
-          <span />
-        )}
+          {onSave ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={saving}
+              onClick={() => {
+                addPendingPreference();
+                onSave();
+              }}
+              type="button"
+            >
+              {t("form.save")}
+            </Button>
+          ) : null}
+        </div>
         <Button type="submit" variant="primary" loading={submitting} iconRight="arrowRight">
           {t("form.generate")}
         </Button>
@@ -720,6 +750,7 @@ export function ClarifyCard({
             payload.labels[payload.slots.indexOf(slot)] ??
             slot.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
           const options = payload.options[slot] ?? [];
+          const suggested = payload.suggestions?.find((item) => item.slot === slot)?.name ?? "";
           const isDate = slot.includes("date");
           return (
             <Field key={slot} label={label} wide={slot === "destination"}>
@@ -728,9 +759,20 @@ export function ClarifyCard({
                 value={values[slot] ?? ""}
                 onChange={(event) => onChange(slot, event.target.value)}
                 placeholder={slot === "budget" ? "400000" : undefined}
+                title={suggested || undefined}
               />
-              {options.length ? (
+              {suggested || options.length ? (
                 <span className="pf-clarify__options">
+                  {suggested ? (
+                    <button
+                      type="button"
+                      className="pf-chip"
+                      data-active={(values[slot] ?? "").trim() === suggested}
+                      onClick={() => onChange(slot, suggested)}
+                    >
+                      {t("clarify.usePlace")}
+                    </button>
+                  ) : null}
                   {options.map((option) => (
                     <button
                       key={option}

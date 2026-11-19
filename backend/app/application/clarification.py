@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Sequence
+from typing import Any, Sequence
 
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import conversation_block, plan_outline, trip_state, with_conversation
@@ -54,8 +54,9 @@ def _names_something_on(plan: TripPlan, message: str) -> bool:
 
 
 class Clarifier:
-    def __init__(self, gateway: LLMGateway):
+    def __init__(self, gateway: LLMGateway, settings: Any | None = None):
         self.gateway = gateway
+        self.settings = settings
 
     async def ask(
         self,
@@ -67,6 +68,16 @@ class Clarifier:
         plan: TripPlan | None = None,
         scope_item_id: str | None = None,
     ) -> tuple[str, list[str]]:
+        if decision.reason_code in {"unknown_place", "unchecked_place", "suggest_place"}:
+            slot = "origin" if "origin" in decision.missing_slots else "destination"
+            if decision.rationale.strip():
+                return decision.rationale.strip(), [slot]
+            name = "that"
+            if decision.reason_code == "unchecked_place":
+                return f"I couldn't check {name} just now. Tell me the city again.", [slot]
+            if slot == "origin":
+                return f"I can't find a place called {name}. Which city are you leaving from?", ["origin"]
+            return f"I can't find a place called {name}. Which city should the trip go to?", ["destination"]
         missing = context.missing_slots() or decision.missing_slots
         normalised: list[str] = []
         for slot in missing:
@@ -91,7 +102,7 @@ class Clarifier:
                 f"Known context: {trip_state(context)}\n"
                 f"Missing slots: {strip_fence_tags_deep(missing)}\n"
                 f"Router reason: {strip_fence_tags(decision.reason_code)}\n\n"
-                + with_conversation(conversation_block(history, message))
+                + with_conversation(conversation_block(history, message, settings=self.settings))
                 + fence_user_message(message)
             )
             try:
@@ -132,7 +143,7 @@ class Clarifier:
             f"Current plan:\n{outline}\n"
             f"Selected on the page: {strip_fence_tags(selected) or 'nothing'}\n"
             f"Router reason: {strip_fence_tags(decision.reason_code)}\n\n"
-            + with_conversation(conversation_block(history, message))
+            + with_conversation(conversation_block(history, message, settings=self.settings))
             + fence_user_message(message)
         )
         try:

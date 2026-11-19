@@ -147,7 +147,7 @@ def build_container(settings: Settings | None = None) -> Container:
     plan_path = PlanPath(planner=planner, registry=registry, settings=settings)
     modify_path = ModifyPath(planner=planner, plan_path=plan_path, settings=settings, gateway=gateway)
     ask_path = AskPath(gateway=gateway, registry=registry, settings=settings)
-    clarifier = Clarifier(gateway)
+    clarifier = Clarifier(gateway, settings)
     turn_service = TurnService(
         store=store,
         memory=memory,

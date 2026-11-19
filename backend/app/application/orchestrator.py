@@ -62,7 +62,8 @@ from app.application.router import (
     same_destination,
 )
 from app.application.toolbox import Toolbox
-from app.application.understanding import understand
+from app.application.prompt_context import conversation_turns_of
+from app.application.understanding import PlaceGrounding, ground_new_places, place_reply, understand
 from app.application.validation import is_edit_outcome
 from app.config import Settings
 from app.domain.errors import (
@@ -489,7 +490,7 @@ class TurnService:
 
             # The stored turns, this one last, read once: the router and every step that acts on the turn see the
             # recent conversation from them (the steps through `conversation_block`, without this message).
-            history = self.store.list_messages(session_id, limit=10)
+            history = self.store.list_messages(session_id, limit=conversation_turns_of(self.settings) + 1)
             # A short reply to an open clarification fills that slot. "Hong Kong" after
             # "where are you travelling from?" is the origin, not a new destination.
             clarify_slots = _pending_clarify(history)
@@ -515,9 +516,17 @@ class TurnService:
                 if intake is not None:
                     yield TurnEvent(event="intake", data=intake.event())
                     understood = without_links(message) or message
+            place_check = PlaceGrounding()
+            confirmed_places: set[str] = set()
+            locked_places: dict[str, str] = {}
+            for pending_place in _pending_places(history):
+                if _confirms_pending(message, pending_place):
+                    setattr(context, pending_place["slot"], pending_place["name"])
+                    confirmed_places.add(pending_place["name"].casefold())
+                    locked_places[pending_place["slot"]] = pending_place["name"]
             with tracer.span("understand"):
                 try:
-                    context = await understand(understood, context, self.gateway, history=history)
+                    context = await understand(understood, context, self.gateway, history=history, settings=self.settings)
                     route_overflow = context.route_overflow
                 except CanaryLeak:
                     raise
@@ -534,6 +543,13 @@ class TurnService:
                     # is kept.
                     for name in ("destination", "origin", "start_date", "end_date", "days"):
                         setattr(context, name, getattr(as_read, name))
+                for slot, name in locked_places.items():
+                    # The traveller accepted this gazetteer hit. Understanding must not replace it with another city
+                    # that happens to appear in the address, such as London inside a Westminster street address.
+                    setattr(context, slot, name)
+                place_check = await ground_new_places(
+                    as_read, context, self.plan_path.registry.geocoder, confirmed_places
+                )
                 context = self._save_changes(as_read, context)
                 if context.preferences:
                     # The owner as it is now: signing in may have moved the trip while the message was understood.
@@ -703,6 +719,21 @@ class TurnService:
                         "missing_slots": [],
                     }
                 )
+            failed_place = place_check.first()
+            if failed_place is not None:
+                # A name the gazetteer does not know, could not check, or matched a different place, is not planned.
+                status, slot, _name = failed_place
+                found = place_check.suggestion_for(slot) if status == "suggest_place" else ""
+                decision = RouteDecision(
+                    intent=Intent.UNCLEAR,
+                    confidence=0.95,
+                    need_clarification=True,
+                    reason_code=status,
+                    rationale=place_reply(place_check),
+                    missing_slots=[slot],
+                    related_to_plan=plan is not None,
+                    slots={"place_slot": slot, "place_name": found} if found else {},
+                )
             intent = decision.intent
             if plan is not None and intent != Intent.PLAN:
                 context = self._put_back_the_place(as_read, context)
@@ -727,6 +758,7 @@ class TurnService:
                     history=history,
                     plan=plan,
                     scope_item_id=scope_item_id,
+                    suggestions=place_check.suggestions,
                 ):
                     yield event
                 self.store.touch_session(session_id)
@@ -1181,7 +1213,7 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     scope_item_id=scope_item_id,
-                    history=self.store.list_messages(session_id, limit=8),
+                    history=self.store.list_messages(session_id, limit=conversation_turns_of(self.settings) + 1),
                     review=False,
                     reply_meta={"live_agent": True, "agent_name": agent_name, "desk_edit": True},
                 ):
@@ -1419,7 +1451,7 @@ class TurnService:
             context=context,
             toolbox=toolbox,
             emit=None,
-            history=list(history) if history is not None else self.store.list_messages(session_id, limit=8),
+            history=list(history) if history is not None else self.store.list_messages(session_id, limit=conversation_turns_of(self.settings) + 1),
             scope_item_id=scope_item_id,
         )
         tracer.metadata["related_to_plan"] = related
@@ -1451,18 +1483,24 @@ class TurnService:
         history: Sequence[Message] = (),
         plan=None,
         scope_item_id: str | None = None,
+        suggestions: list[tuple[str, str, str]] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         # With a plan, an unclear message is asked about that plan and the stop selected on it.
         question, slots = await self.clarifier.ask(
             message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
         )
+        meta: dict[str, Any] = {"clarify": True, "slots": slots}
+        if suggestions:
+            meta["place_suggestions"] = [
+                {"slot": slot, "asked": asked, "name": found} for slot, asked, found in suggestions
+            ]
         self.store.add_message(
             Message(
                 session_id=session_id,
                 role="assistant",
                 content=question,
                 intent=Intent.UNCLEAR,
-                meta={"clarify": True, "slots": slots},
+                meta=meta,
             )
         )
         yield TurnEvent(
@@ -1477,6 +1515,16 @@ class TurnService:
                 # same unclear request.
                 "choices": [] if plan is not None and not slots else _clarify_choices(context, slots),
                 "reason_code": decision.reason_code,
+                **(
+                    {
+                        "suggestions": [
+                            {"slot": slot, "asked": asked, "name": found}
+                            for slot, asked, found in suggestions
+                        ]
+                    }
+                    if suggestions
+                    else {}
+                ),
             },
         )
         yield TurnEvent(event="token", data={"text": question})
@@ -1674,6 +1722,58 @@ async def _drain(
         except asyncio.TimeoutError:
             continue
         yield TurnEvent(event=event_name, data=data)
+
+
+_AFFIRMS = re.compile(
+    r"^\s*(?:yes|yeah|yep|yup|ok|okay|sure|correct|that one|that(?:'s| is) the one)\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _stated_slots(message: str) -> dict[str, str]:
+    """Slot values in a clarify reply such as ``destination: Kyoto``."""
+    text = (message or "").strip()
+    if "—" in text:
+        text = text.split("—", 1)[1]
+    found: dict[str, str] = {}
+    for part in text.split(";"):
+        if ":" not in part:
+            continue
+        slot, value = part.split(":", 1)
+        key = slot.strip().lower().replace(" ", "_")
+        if key:
+            found[key] = value.strip().strip(".")
+    return found
+
+
+def _confirms_pending(message: str, pending: dict[str, str]) -> bool:
+    """A yes, or a reply that repeats the suggested place for that slot."""
+    if _AFFIRMS.match(message or ""):
+        return True
+    stated = _stated_slots(message).get(pending.get("slot", ""), "")
+    name = pending.get("name", "").strip()
+    return bool(stated and name) and stated.casefold() == name.casefold()
+
+
+def _pending_places(history: Sequence[Message]) -> list[dict[str, str]]:
+    """The places the previous turn asked the traveller to confirm."""
+    rows = list(history)
+    if rows and rows[-1].role == "user":
+        rows = rows[:-1]
+    if not rows or rows[-1].role != "assistant":
+        return []
+    raw = (rows[-1].meta or {}).get("place_suggestions")
+    if not isinstance(raw, list):
+        return []
+    found: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        slot = str(item.get("slot") or "")
+        name = str(item.get("name") or "").strip()
+        if slot in {"destination", "origin"} and name:
+            found.append({"slot": slot, "name": name})
+    return found
 
 
 def _pending_clarify(history: Sequence[Message]) -> list[str]:

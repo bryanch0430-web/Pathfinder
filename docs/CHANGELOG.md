@@ -5,6 +5,17 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.11.0 — 2026-11-19 16:23
+
+A place the assistant does not already know is checked before it is stored, and Simplified Chinese now translates the plan as well as the page.
+
+- **A new city is checked on the map.** A city the assistant already knows is kept with no lookup. Any other new destination, departure city or extra stop is looked up. A hit is offered for confirmation and is not stored yet. No hit puts the previous city back and asks which city to use. A lookup that fails does not store the name.
+- **The found place can be accepted from the question.** The box is filled with the address the map returned. Use this place fills it again. Continue, or yes in the chat, accepts it and asks for the next missing detail.
+- **简 and 繁 both translate the plan.** English stays the original. 繁 uses Traditional Chinese and Hong Kong wording. 简 uses Simplified Chinese and Mainland wording. Dates, times and prices are copied from the English and checked. A place shows a Chinese name only when a trusted source supplied one in that script. "用中文" still means Traditional Chinese.
+- **Earlier messages are a setting.** Settings → Policy → Earlier messages runs from 1 to 10 and starts at 10. The writer, the edit, the clarify step, understand, and Jev when the rules step aside, read that many earlier turns. The rule router still decides from the current message.
+- **Error analysis reads the lines before the miss.** A failed case carries up to ten earlier messages. Instructions names the skill file being edited. Saving stores an override; the file on disk stays as it is.
+- **Clear details blanks the form.** It clears the cities, dates, party, budget, pace and wishes. A plan already on the sheet stays until it is planned again.
+
 ## v1.10.0 — 2026-11-18 21:20
 
 An edit can name one day, and a missing price no longer counts as a budget pass. An admin can review the misses.

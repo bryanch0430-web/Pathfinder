@@ -57,6 +57,14 @@ _PROMPT_SKILLS = {
 }
 
 
+def prompt_file(prompt: str) -> str:
+    """The built-in skill file a prompt name stands for, or "" when the text is not a file."""
+    folder = _PROMPT_SKILLS.get(prompt)
+    if not folder:
+        return ""
+    return f"backend/app/skills/{folder}/SKILL.md"
+
+
 def prompt_entries() -> list[tuple[str, str, str]]:
     """Each writer prompt: the name the gateway uses, a one-line description, the file body."""
     rows: list[tuple[str, str, str]] = []

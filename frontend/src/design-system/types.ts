@@ -502,7 +502,7 @@ export interface TripContext {
 }
 
 /** Plan display languages. */
-export type PlanLocale = "en" | "zh-Hant";
+export type PlanLocale = "en" | "zh-Hant" | "zh-Hans";
 
 /** GET /api/journeys/{id}/translation: display text for one plan version. */
 export interface PlanTranslation {
@@ -576,6 +576,8 @@ export interface ClarifyPayload {
   options: Record<string, string[]>;
   /** concrete follow-ups when the question is about intent, not missing data */
   choices?: { label: string; message: string }[];
+  /** A gazetteer hit the traveller can accept into a slot. */
+  suggestions?: { slot: string; asked?: string; name: string }[];
   reason_code: string;
 }
 

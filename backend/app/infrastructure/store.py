@@ -202,6 +202,7 @@ def _runtime_baseline(settings: Any) -> dict[str, float]:
         "memory_similarity": float(settings.memory_similarity_cutoff),
         "preplan_budget_seconds": float(settings.preplan_budget_seconds),
         "max_repairs": float(settings.max_repairs),
+        "conversation_turns": float(getattr(settings, "conversation_turns", 10)),
         "weather_fresh_seconds": float(settings.weather_fresh_seconds),
         "ticket_fresh_seconds": float(settings.ticket_fresh_seconds),
         "hotel_fresh_seconds": float(settings.hotel_fresh_seconds),
@@ -950,6 +951,7 @@ class SQLiteStore:
         _runtime_float(values, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
         _runtime_float(values, "preplan_budget_seconds", base["preplan_budget_seconds"], 1.0, 600.0)
         _runtime_float(values, "max_repairs", base["max_repairs"], 0.0, 6.0)
+        _runtime_float(values, "conversation_turns", base["conversation_turns"], 1.0, 10.0)
         for key, field in (
             ("weather", "weather_fresh_seconds"),
             ("tickets", "ticket_fresh_seconds"),
@@ -995,6 +997,7 @@ class SQLiteStore:
         settings.memory_similarity_cutoff = _runtime_float(raw, "memory_similarity", base["memory_similarity"], 0.0, 1.0)
         settings.preplan_budget_seconds = _runtime_float(raw, "preplan_budget_seconds", base["preplan_budget_seconds"], 1.0, 600.0)
         settings.max_repairs = int(_runtime_float(raw, "max_repairs", float(base["max_repairs"]), 0.0, 6.0))
+        settings.conversation_turns = int(_runtime_float(raw, "conversation_turns", float(base["conversation_turns"]), 1.0, 10.0))
         for key, field in (
             ("weather", "weather_fresh_seconds"),
             ("tickets", "ticket_fresh_seconds"),

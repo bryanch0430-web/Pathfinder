@@ -336,6 +336,9 @@ export function CasesPage() {
                 {item.dataset && item.dataset !== "session" ? <Badge>{item.dataset}</Badge> : null}
               </div>
               <Text size="sm">{item.input || item.case_id}</Text>
+              {item.earlier ? (
+                <Text size="xs" tone="secondary">{t("cases.earlier")}: {item.earlier}</Text>
+              ) : null}
               {item.check_summary ? <Text size="xs">{item.check_summary}</Text> : null}
               {item.output_summary ? <Text size="xs" tone="secondary">{item.output_summary}</Text> : null}
             </article>

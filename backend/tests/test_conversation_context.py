@@ -359,3 +359,27 @@ def test_an_answer_about_changes_carries_recent_changes_without_the_conversation
     assert "recent_changes" in prompt and "Swapped the museum" in prompt
     assert "Earlier conversation" not in prompt
     assert prompt.count("Swapped the museum") == 1
+
+
+def test_the_conversation_window_is_a_setting_and_stops_at_ten(tmp_path) -> None:
+    from app.application.prompt_context import conversation_block, conversation_turns_of
+    from app.infrastructure.store import SQLiteStore
+
+    wide = Settings(_env_file=None, conversation_turns=10)
+    narrow = Settings(_env_file=None, conversation_turns=4)
+    assert conversation_turns_of(wide) == 10
+    assert conversation_turns_of(Settings(_env_file=None, conversation_turns=40)) == 10
+    history = [_msg("user" if index % 2 == 0 else "assistant", f"marker-{index:02d} about Kyoto") for index in range(12)]
+    history.append(_msg("user", "and that?"))
+    kept = conversation_block(history, "and that?", settings=wide)
+    short = conversation_block(history, "and that?", settings=narrow)
+    assert "marker-02" in kept and "marker-11" in kept
+    assert "marker-01" not in kept
+    assert "marker-02" not in short and "marker-11" in short
+    store = SQLiteStore(tmp_path / "window.db")
+    try:
+        store.check_runtime(wide, {"conversation_turns": "11"})
+    except ValueError as exc:
+        assert "conversation_turns" in str(exc)
+    else:
+        raise AssertionError("11 earlier messages were accepted")

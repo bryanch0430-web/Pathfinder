@@ -12,11 +12,15 @@ from typing import Any
 from app.domain.korean_names import english_place_name
 
 #: The display locales a plan item can carry a trusted name for.
-NAME_LOCALES = ("en", "zh-Hant")
+NAME_LOCALES = ("en", "zh-Hant", "zh-Hans")
 
 #: OSM keys for a Traditional Chinese name, best first: Hong Kong wording, then the
 #: generic Traditional tag, then Taiwan. ``name:zh`` counts only when it is Traditional.
 OSM_ZH_HANT_KEYS = ("name:zh-HK", "name:zh-Hant", "name:zh-Hant-HK", "name:zh-TW", "name:zh-Hant-TW", "name:zh")
+
+#: OSM keys for a Simplified Chinese name. ``name:zh`` counts only when it is not Traditional,
+#: so a Traditional ``name:zh`` stays on zh-Hant and is not copied here.
+OSM_ZH_HANS_KEYS = ("name:zh-Hans", "name:zh-CN", "name:zh")
 
 # Common characters that exist only in Simplified Chinese. One of them in a name means
 # the name is not Traditional; it is a heuristic, not a converter.
@@ -57,6 +61,14 @@ def osm_names(namedetails: dict[str, Any] | None) -> dict[str, str]:
         if value and is_traditional(value):
             names["zh-Hant"] = value
             break
+    for key in OSM_ZH_HANS_KEYS:
+        value = _clean(details.get(key))
+        if not value or not _HAN.search(value):
+            continue
+        if key == "name:zh" and is_traditional(value):
+            continue
+        names["zh-Hans"] = value
+        break
     return names
 
 
@@ -71,15 +83,18 @@ def trusted_names(raw: Any) -> dict[str, str]:
     chinese = _clean(raw.get("zh-Hant"))
     if chinese and is_traditional(chinese):
         names["zh-Hant"] = chinese
+    simplified = _clean(raw.get("zh-Hans"))
+    if simplified and _HAN.search(simplified):
+        names["zh-Hans"] = simplified
     return names
 
 
 def display_name(name: str, names: dict[str, str] | None, locale: str) -> str:
-    """The shared display rule: en -> names.en or name; zh-Hant -> 「中文 (original)」 when
-    a trusted Chinese name exists, else the original name."""
+    """The shared display rule: en -> names.en or name; zh-Hant or zh-Hans -> 「中文 (original)」 when
+    a trusted name exists for that script, else the original name."""
     names = names or {}
-    if locale == "zh-Hant":
-        chinese = names.get("zh-Hant", "")
+    if locale in {"zh-Hant", "zh-Hans"}:
+        chinese = names.get(locale, "")
         if chinese and chinese != name:
             return f"{chinese} ({name})"
         return chinese or name

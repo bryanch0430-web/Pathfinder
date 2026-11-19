@@ -49,6 +49,8 @@ def test_failed_cases_include_evaluation_and_chats(tmp_path) -> None:
         )
     )
     session = store.create_session("guest")
+    store.add_message(Message(session_id=session.id, role="user", content="I want to see the Gundam statue"))
+    store.add_message(Message(session_id=session.id, role="assistant", content="Which day should it go on?"))
     store.add_message(Message(session_id=session.id, role="user", content="remove all attractions on day 2"))
     store.add_message(
         Message(
@@ -81,6 +83,9 @@ def test_failed_cases_include_evaluation_and_chats(tmp_path) -> None:
 
     assert ("evaluation", "misclassified") in kinds
     assert ("session", "unchanged") in kinds
+    unchanged = next(row for row in cases if row["kind"] == "unchanged")
+    assert "I want to see the Gundam statue" in unchanged["earlier"]
+    assert "remove all attractions on day 2" not in unchanged["earlier"]
     assert ("session", "not_useful") in kinds
     assert all(row["case_id"] != "ok" for row in cases)
     assert any(row["session_state"] == "live" for row in cases if row["source"] == "session")

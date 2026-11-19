@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.11.0 | 2026-11-19 16:23 | A map hit is confirmed before it is stored, and 简 translates the plan the same way 繁 does |
 | v1.10.0 | 2026-11-18 21:20 | A named day stays that day, a missing fare is not a pass, and Error analysis reviews the misses |
 | v1.9.0 | 2026-11-17 22:56 | Three routing gates, a Desk window, and every evaluation suite on one page |
 | v1.8.0 | 2026-11-17 02:55 | UI/UX visual upgrade: a studio canvas, sketchbook, and one Export menu |
@@ -38,6 +39,22 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.11.0 — 19 November 2026, 16:23 HKT
+
+A place the assistant does not already know is checked before it is stored, and Simplified Chinese now translates the plan as well as the page.
+
+**A new city is checked on the map.** A city the assistant already knows, such as Kyoto or Hong Kong, is kept with no lookup. Any other new destination, departure city or extra stop is looked up. A hit is not stored yet. The reply names what was found ("I found … for Heaven. Is that the one?") and, when the name differs, "The closest place I can find …". No hit puts the previous city back and asks which city to use. A lookup that fails does not store the name.
+
+**The found place can be accepted from the question.** The destination or departure box is filled with the address the map returned. Use this place fills it again. Continue accepts it and asks for the next missing detail. Yes in the chat does the same. Kyoto, Tokyo and Hong Kong on that card still replace the suggestion.
+
+**简 and 繁 both translate the plan.** English stays the original. 繁 uses Traditional Chinese and Hong Kong wording (的士, 港鐵, 巴士). 简 uses Simplified Chinese and Mainland wording (出租车, 地铁, 公共汽车). Dates, times and prices are copied from the English and checked. A place shows a Chinese name only when a trusted source supplied one in that script. "用中文" still means Traditional Chinese. "简体中文", or the 简 switch, asks for Simplified Chinese.
+
+**Earlier messages are a setting.** Settings → Policy → Earlier messages runs from 1 to 10 and starts at 10. The writer, the edit, the clarify step, understand, and Jev when the rules step aside, read that many earlier turns. The rule router still decides from the current message. A web-search query is still built from the current sentence.
+
+**Error analysis reads the lines before the miss.** A failed case carries up to ten earlier messages, shown under the input, and Check these cases passes them along when it routes the case again. Instructions names the file being edited, such as `backend/app/skills/route-message/SKILL.md`. Saving still stores an override. The file on disk stays as it is. The review note says what counts as a failed case.
+
+**Clear details blanks the form.** It clears the cities, dates, party, budget, pace and wishes on the trip form. A plan already on the sheet stays until it is planned again.
 
 ### v1.10.0 — 18 November 2026, 21:20 HKT
 
@@ -884,13 +901,18 @@ See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
   weekday or an airport name ("flying from Leeds via Dubai", "London we want 4 days" and
   "London Heathrow" are Leeds and London). The departure city is never the destination ("flights
   from Kyoto on day 5" on a trip to Kyoto names none), and a trip word in another part of the
-  sentence does not make a "from" phrase one. Any other city is read by the writer model when one is
-  configured, else asked for.
+  sentence does not make a "from" phrase one. A destination, departure city or extra stop the assistant
+  does not already know is looked up on the map and stored only after the traveller confirms the hit.
+  No hit, or a lookup that fails, puts the previous city back and asks again.
 - **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
   not live providers; live behaviour is captured separately in traces and screenshots.
-- **Chinese covers the interface, not the plan text.** The EN/简/繁 switcher translates
-  every label, button and message in the console. Prompts, quick-prompt chips, plan
-  narrative and traces stay English-first, because the planner reads that text.
+- **简 and 繁 translate the plan as well as the interface.** The EN/简/繁 switcher translates
+  every label, button and message in the console. 繁 also shows the plan in Traditional Chinese
+  with Hong Kong wording, and 简 shows it in Simplified Chinese with Mainland wording. English
+  stays the original: dates, times and prices are copied from it and checked. A place shows a
+  Chinese name only when a trusted source supplied one in that script. Prompts, quick-prompt
+  chips and traces stay English-first, because the planner reads that text. "用中文" still means
+  Traditional Chinese.
 - **Admin endpoints use one shared token.** They require an `X-Admin-Token` header equal to
   `ADMIN_TOKEN`. Outside `ENVIRONMENT=development` or `test` the backend refuses to start
   with the default or placeholder token (see section 2.2); set a real one before exposing

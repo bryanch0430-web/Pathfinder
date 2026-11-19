@@ -10,26 +10,26 @@
 import type { Locale } from "./i18n";
 import type { PlanLocale, PlanTranslation, TripPlan } from "../design-system/types";
 
-/** The plan locale a UI language implies: 繁 shows the plan in Traditional Chinese; EN and 简 keep it English. */
+/** The plan locale a UI language implies: 繁 and 简 both translate the plan; EN keeps it English. */
 export function planLocaleFor(locale: Locale): PlanLocale {
-  return locale === "zh-Hant" ? "zh-Hant" : "en";
+  return locale === "zh-Hant" || locale === "zh-Hans" ? locale : "en";
 }
 
 export function isPlanLocale(value: unknown): value is PlanLocale {
-  return value === "en" || value === "zh-Hant";
+  return value === "en" || value === "zh-Hant" || value === "zh-Hans";
 }
 
 /**
  * The name to show for a stop, hotel or restaurant.
  * en → the trusted English name, else the original;
- * zh-Hant → the trusted Chinese name followed by the original, else the original.
+ * zh-Hant or zh-Hans → the trusted name for that script followed by the original, else the original.
  * Mirrors `display_name` in backend/app/domain/place_names.py exactly.
  */
 export function displayName(entity: { name: string; names?: Record<string, string> }, locale: PlanLocale): string {
   const names = entity.names ?? {};
   const { name } = entity;
-  if (locale === "zh-Hant") {
-    const chinese = names["zh-Hant"] ?? "";
+  if (locale === "zh-Hant" || locale === "zh-Hans") {
+    const chinese = names[locale] ?? "";
     if (chinese && chinese !== name) return `${chinese} (${name})`;
     return chinese || name;
   }

@@ -1226,7 +1226,7 @@ class ModifyPath:
                 f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id, notes=False)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
                 + (MULTI_CITY_RULES if len(plan.segments) > 1 else "")
-                + with_conversation(conversation_block(history, message))
+                + with_conversation(conversation_block(history, message, settings=self.settings))
                 + fence_user_message(message)
             )
             try:

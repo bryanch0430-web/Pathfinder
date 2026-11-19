@@ -187,6 +187,8 @@ class Settings(BaseSettings):
 
     # --- planning policy ---------------------------------------------------
     router_threshold: float = 0.8
+    #: Earlier messages the router and the writer may read. One message is one line. The maximum is 10.
+    conversation_turns: int = 10
     # Let the deterministic rules decide unambiguous messages without a Jev or
     # writer call (Proposal TC-10). Unsure or flagged messages still use the model.
     router_rules_first: bool = True

@@ -673,6 +673,7 @@ export interface ReviewCase {
   kind: "misclassified" | "failed" | "unchanged" | "not_useful" | "added";
   failure_class: string;
   input: string;
+  earlier?: string;
   output_summary: string;
   judge_reason: string;
   check_status?: "" | "pass" | "fail" | "chat";
@@ -849,6 +850,7 @@ export interface PromptRow {
   description: string;
   default: string;
   override: string;
+  file?: string;
 }
 
 export function getEscalation(): Promise<EscalationPolicy> {

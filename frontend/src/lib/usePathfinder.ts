@@ -48,6 +48,55 @@ import { useI18n, type MessageKey } from "./i18n";
 import { providerLabel, reasonKey } from "./modelKeys";
 import { isPlanLocale, localizePlan, planLanguageNotice, type PlanLanguageNotice } from "./planLocale";
 import { profileOf } from "./profile";
+
+const CLARIFY_OPTIONS: Record<string, string[]> = {
+  destination: ["Kyoto", "Tokyo", "Hong Kong"],
+  origin: ["Hong Kong", "Singapore", "London"],
+  party_size: ["1", "2", "3", "4"],
+};
+
+function suggestionsOf(raw: unknown): NonNullable<ClarifyPayload["suggestions"]> {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as { slot?: unknown; asked?: unknown; name?: unknown };
+    const slot = typeof row.slot === "string" ? row.slot : "";
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    if (!slot || !name) return [];
+    return [{ slot, name, ...(typeof row.asked === "string" ? { asked: row.asked } : {}) }];
+  });
+}
+
+function valuesForSuggestions(payload: ClarifyPayload): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const item of payload.suggestions ?? []) {
+    if (payload.slots.includes(item.slot)) values[item.slot] = item.name;
+  }
+  return values;
+}
+
+/** The clarify card for a stored question that is still the latest message. */
+function clarifyFromHistory(message: ChatMessage | undefined): ClarifyPayload | null {
+  if (!message || message.role === "user") return null;
+  const meta = message.meta;
+  if (!meta || meta.clarify !== true) return null;
+  const slots = Array.isArray(meta.slots) ? meta.slots.filter((slot): slot is string => typeof slot === "string") : [];
+  if (!slots.length) return null;
+  const suggestions = suggestionsOf(meta.place_suggestions);
+  const options: Record<string, string[]> = {};
+  for (const slot of slots) {
+    if (CLARIFY_OPTIONS[slot]) options[slot] = CLARIFY_OPTIONS[slot];
+  }
+  return {
+    question: message.content,
+    slots,
+    labels: slots.map((slot) => slot.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())),
+    options,
+    suggestions,
+    choices: [],
+    reason_code: suggestions.length ? "suggest_place" : "clarify",
+  };
+}
 import { forgetSignIn, forgetTrip, readStoredValue, rememberedTrip, rememberTrip, writeStoredValue } from "./storage";
 import { writeTrips } from "./tripsStore";
 
@@ -346,8 +395,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     (value: unknown) => {
       if (!isPlanLocale(value)) return;
       setPlanLocaleState(value);
-      if (value === "zh-Hant") setUiLocale("zh-Hant");
-      else if (uiLocaleRef.current === "zh-Hant") setUiLocale("en");
+      if (value === "zh-Hant" || value === "zh-Hans") setUiLocale(value);
+      else if (uiLocaleRef.current === "zh-Hant" || uiLocaleRef.current === "zh-Hans") setUiLocale("en");
     },
     [setUiLocale],
   );
@@ -360,7 +409,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     async (
       id: string,
       context: TripContext,
-      wanted: PlanLocale | null = uiLocaleRef.current === "zh-Hant" ? "zh-Hant" : null,
+      wanted: PlanLocale | null = uiLocaleRef.current === "zh-Hant" || uiLocaleRef.current === "zh-Hans" ? uiLocaleRef.current : null,
     ): Promise<TripContext> => {
       if (!wanted || context.plan_locale === wanted) return context;
       try {
@@ -430,6 +479,9 @@ export function usePathfinder(locale: string): PathfinderHook {
     setChangedLegIds(NO_IDS);
     setVersions(trip.versions);
     setMessages(trip.messages);
+    const card = clarifyFromHistory(trip.messages.at(-1));
+    setClarify(card);
+    setClarifyValues(card ? valuesForSuggestions(card) : {});
     rememberTrip(id);
     sessionRef.current = id;
     chosenWhileOpening.current = null;
@@ -1013,7 +1065,11 @@ export function usePathfinder(locale: string): PathfinderHook {
                 setChangedLegIds(changedIdsOf(diff, ["transport"], "leg_id"));
                 setProgress(100);
               }
-              if (event === "clarify") setClarify(data as unknown as ClarifyPayload);
+              if (event === "clarify") {
+                const payload = data as unknown as ClarifyPayload;
+                setClarify(payload);
+                setClarifyValues(valuesForSuggestions(payload));
+              }
               if (event === "think" || event === "tool") {
                 const title = event === "think"
                   ? `${String(data.purpose ?? "model")} · ${String(data.latency_ms ?? "")} ms`
@@ -1109,9 +1165,16 @@ export function usePathfinder(locale: string): PathfinderHook {
       // question. Leave the card in place and let the traveller pick or type.
       return;
     }
+    const suggestions = clarify?.suggestions ?? [];
+    const accepting =
+      suggestions.length > 0 &&
+      entries.every(([slot, value]) => {
+        const suggested = suggestions.find((item) => item.slot === slot)?.name ?? "";
+        return suggested !== "" && value.trim() === suggested.trim();
+      });
     const sentence = entries.map(([slot, value]) => `${slot.replaceAll("_", " ")}: ${value}`).join("; ");
-    await send(`Here are the missing details — ${sentence}.`);
-  }, [clarifyValues, send]);
+    await send(accepting ? "That's the one." : `Here are the missing details — ${sentence}.`);
+  }, [clarify, clarifyValues, send]);
 
   const selectVersion = useCallback(async (version: number) => {
     const id = sessionRef.current;

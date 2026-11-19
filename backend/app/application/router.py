@@ -461,7 +461,7 @@ class LLMRouter:
             raise RuntimeError("writer unavailable")
         data = await self.gateway.json(
             "router",
-            user=router_prompt(message, context, plan_summary, history),
+            user=router_prompt(message, context, plan_summary, history, self.settings),
             purpose="router",
         )
         intent = str(data.get("intent", "unclear")).lower()
@@ -503,6 +503,7 @@ def router_prompt(
     context: TripContext,
     plan_summary: dict[str, Any] | None,
     history: Sequence[Message],
+    settings: Any | None = None,
 ) -> str:
     """What the model router reads: trip slots, a day-by-day outline of the plan
     (names and times, no ids or statuses), earlier turns, and the fenced message.
@@ -513,7 +514,7 @@ def router_prompt(
         f"Today: {date.today().isoformat()}\n"
         f"Trip: {trip_slots(context)}\n"
         f"Current plan: {plan_outline(plan_summary, times=False)}\n"
-        f"Earlier turns:\n{recent_turns(history, message)}\n\n"
+        f"Earlier turns:\n{recent_turns(history, message, settings=settings)}\n\n"
         + fence_user_message(message)
     )
 

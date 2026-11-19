@@ -258,10 +258,10 @@ def test_translation_names_come_only_from_source_data(monkeypatch: pytest.Monkey
     found = asyncio.run(
         NominatimPlacesSource(settings).search(destination="Seoul", geo=None, category="attraction", limit=5)
     )
-    assert found[0].names == {"en": "Gyeongbokgung Palace", "zh-Hant": "景福宮"}
+    assert found[0].names == {"en": "Gyeongbokgung Palace", "zh-Hant": "景福宮", "zh-Hans": "景福宫"}
     assert found[1].names == {"zh-Hant": "南山塔"}  # name:zh counts when it is Traditional
     assert osm_names({"name:zh-HK": "維多利亞港", "name:zh-TW": "維多利亞港灣"}) == {"zh-Hant": "維多利亞港"}
-    assert osm_names({"name:zh": "维多利亚港"}) == {}
+    assert osm_names({"name:zh": "维多利亚港"}) == {"zh-Hans": "维多利亚港"}
 
     # The merge keeps the first source's names and fills gaps from the others.
     merged = _merge_places(

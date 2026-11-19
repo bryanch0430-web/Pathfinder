@@ -48,7 +48,7 @@ from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import restore_message_decisions, user_facing_error
 from app.application.prompts import LANGUAGE_RULE, PERSONA_RULE
 from app.application.sentiment import frustration_band, frustration_score, line_reading, session_frustration
-from app.application.skills import prompt_entries
+from app.application.skills import prompt_entries, prompt_file
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
 from app.application.soft_guides import CORPUS_VERSION
@@ -186,7 +186,7 @@ class ContextPatch(BaseModel):
     preferences: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
     hard_constraints: list[FormLine] | None = Field(default=None, max_length=TRIP_LINES_MAX)
     language: FormText | None = None
-    plan_locale: Literal["en", "zh-Hant"] | None = None
+    plan_locale: Literal["en", "zh-Hant", "zh-Hans"] | None = None
     #: The cities in travel order ([] for one city); more than a trip holds is refused.
     stops: list[TripStop] | None = Field(default=None, max_length=TRIP_STOPS_MAX)
     one_way: bool | None = None
@@ -2182,6 +2182,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                     "max_repairs": str(payload.thresholds["max_repairs"]),
                 }
             )
+            if "conversation_turns" in payload.thresholds:
+                values["conversation_turns"] = str(payload.thresholds["conversation_turns"])
         if payload.freshness_hours is not None:
             missing = [key for key in ("weather", "tickets", "hotels", "attractions") if key not in payload.freshness_hours]
             if missing:
@@ -2398,6 +2400,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                     "description": description,
                     "default": body,
                     "override": store.prompt_override(name) or "",
+                    "file": prompt_file(name),
                 }
             )
         return {"prompts": rows}
@@ -2689,6 +2692,7 @@ def _runtime_view(active: Settings, store: Any | None = None) -> dict[str, Any]:
             "memory_similarity": active.memory_similarity_cutoff,
             "preplan_budget_seconds": active.preplan_budget_seconds,
             "max_repairs": active.max_repairs,
+            "conversation_turns": active.conversation_turns,
         },
         "freshness_hours": {
             "weather": active.weather_fresh_seconds // 3600,

@@ -115,7 +115,7 @@ function tabFromHash(): AppTab {
 export default function App() {
   const { locale, setLocale, t } = useI18n();
   const pf = usePathfinder(locale);
-  // EN/简/繁 translate the interface; 繁 also shows the plan in Traditional Chinese.
+  // EN keeps the plan in English. 简 and 繁 translate the interface and the plan.
   const changeLocale = (value: string) => {
     setLocale(value);
     const planLocale = planLocaleFor(value as Locale);
@@ -126,11 +126,10 @@ export default function App() {
     pf.planLocale !== "en" && pf.translation?.status === "translated"
       ? pf.translation.disclaimer?.trim() || t("planLang.disclaimer")
       : "";
-  // 繁 shows it on the translated plan. 简 keeps the English plan and still shows the same notice.
   const languageBanner =
-    pf.planLocale === "en" && locale !== "zh-Hans" ? null : (
+    pf.planLocale === "en" ? null : (
       <PlanLanguageBanner
-        disclaimer={pf.planLocale === "en" ? t("planLang.disclaimer") : pf.translation?.disclaimer}
+        disclaimer={pf.translation?.disclaimer || t("planLang.disclaimer")}
         notice={pf.languageNotice}
         reason={pf.translation?.reason}
       />

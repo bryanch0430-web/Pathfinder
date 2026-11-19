@@ -121,10 +121,22 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
           <Field label={t("settings.prompts")} htmlFor="pf-prompt-name">
             <Select id="pf-prompt-name" value={selected} onChange={(event) => choose(event.target.value)}>
               {prompts.map((row) => (
-                <option key={row.name} value={row.name}>{row.name}</option>
+                <option key={row.name} value={row.name}>
+                  {row.file ? `${row.name} — ${row.file.replace(/^backend\/app\/skills\//, "")}` : row.name}
+                </option>
               ))}
             </Select>
           </Field>
+          <Field label={t("settings.promptDocument")} hint={current?.file ? t("settings.promptFile") : t("settings.promptMemory")} wide>
+            <input
+              className="pf-input pf-mono"
+              readOnly
+              aria-label={t("settings.promptDocument")}
+              value={current?.file || ""}
+              placeholder={t("settings.promptMemory")}
+            />
+          </Field>
+          {selected === "review" ? <Text size="xs" tone="secondary">{t("settings.reviewFailed")}</Text> : null}
           <Field label={t("settings.promptsReset")} hint={current?.description} wide htmlFor="pf-prompt-body">
             <Textarea id="pf-prompt-body" rows={8} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={current?.default ?? ""} />
           </Field>

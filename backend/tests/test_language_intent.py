@@ -143,8 +143,8 @@ def _assert_untouched(result: dict[str, Any]) -> None:
         ("English please", Intent.SET_LANGUAGE, "en"),
         ("Translate to Japanese", Intent.UNSUPPORTED, "other"),
         ("in French", Intent.UNSUPPORTED, "other"),
-        ("Show it in Simplified Chinese", Intent.UNSUPPORTED, "other"),
-        ("简体中文", Intent.UNSUPPORTED, "other"),
+        ("Show it in Simplified Chinese", Intent.SET_LANGUAGE, "zh-Hans"),
+        ("简体中文", Intent.SET_LANGUAGE, "zh-Hans"),
     ],
 )
 def test_lang_router_table_language_rows(message: str, intent: Intent, language: str) -> None:

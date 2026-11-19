@@ -951,7 +951,7 @@ class TripContext(BaseModel):
     hard_constraints: list[str] = Field(default_factory=list)
     language: str = "en"
     #: the plan's display language; the English plan stays the source of truth
-    plan_locale: Literal["en", "zh-Hant"] = "en"
+    plan_locale: Literal["en", "zh-Hant", "zh-Hans"] = "en"
     #: The traveller chose to plan with this budget although it is below the per-night floor (or zero): the
     #: check before planning does not ask again. Another budget clears it.
     budget_confirmed: bool = False

@@ -11,14 +11,15 @@ from __future__ import annotations
 import re
 import calendar
 from bisect import bisect_left
+from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Sequence
+from typing import Any, Sequence
 
 from app.application.budget_check import asked_about
 from app.application.llm_gateway import LLMGateway
 from app.application.prompt_context import conversation_block, trip_state, with_conversation
 from app.application.route_plan import asks_for_best_order
-from app.domain.errors import CanaryLeak
+from app.domain.errors import CanaryLeak, ProviderNoData
 from app.domain.models import (
     TRIP_FIELD_MAX_LENGTH,
     TRIP_STOPS_MAX,
@@ -133,6 +134,7 @@ async def understand(
     *,
     today: date | None = None,
     history: Sequence[Message] = (),
+    settings: Any | None = None,
 ) -> TripContext:
     today = today or date.today()
     updated = context.model_copy(deep=True)
@@ -155,7 +157,7 @@ async def understand(
     if gateway.available and missing:
         # What this step extracts is stored with the trip and in the profile: it reads the traveller's own earlier
         # turns and only the last assistant turn (the question the message may answer), never earlier answers.
-        conversation = conversation_block(history, message, last_assistant_only=True)
+        conversation = conversation_block(history, message, last_assistant_only=True, settings=settings)
         prompt = (
             f"Current date: {today.isoformat()}\n"
             f"Existing context: {trip_state(updated)}\n"
@@ -810,6 +812,176 @@ def _known_place(candidate: str) -> str | None:
     return None
 
 
+def _place_name(label: str) -> str:
+    """The place itself, before the region and country a gazetteer appends."""
+    return " ".join(label.split(",")[0].split())
+
+
+def _same_place(asked: str, found: str) -> bool:
+    """True when the gazetteer named the same place, not a longer name that merely contains those letters.
+
+    "Nagoya" matches "Nagoya, Japan". "Mars" does not match "Marseille".
+    """
+    left = " ".join(asked.casefold().split())
+    primary = _place_name(found).casefold()
+    full = " ".join(found.casefold().split())
+    return bool(left) and (left == primary or left == full)
+
+
+@dataclass(frozen=True)
+class PlaceCheck:
+    """One gazetteer result. ``accept`` stores ``name``. ``suggest`` keeps a different place to confirm."""
+
+    status: str
+    name: str
+    suggestion: str = ""
+
+
+@dataclass(frozen=True)
+class PlaceGrounding:
+    """Cities the gazetteer refused, cities it could not check, and cities it confirmed. Each pair is the slot and the name."""
+
+    rejected: list[tuple[str, str]] = field(default_factory=list)
+    unchecked: list[tuple[str, str]] = field(default_factory=list)
+    accepted: list[tuple[str, str]] = field(default_factory=list)
+    #: slot, the words the traveller used, and the different place the map found
+    suggestions: list[tuple[str, str, str]] = field(default_factory=list)
+
+    def first(self) -> tuple[str, str, str] | None:
+        """Destination before departure. A close match is asked about before a miss or a timeout."""
+        for slot in ("destination", "origin"):
+            for item_slot, asked, _found in self.suggestions:
+                if item_slot == slot:
+                    return "suggest_place", slot, asked
+            for status, rows in (("unknown_place", self.rejected), ("unchecked_place", self.unchecked)):
+                for item_slot, name in rows:
+                    if item_slot == slot:
+                        return status, slot, name
+        return None
+
+    def suggestion_for(self, slot: str) -> str:
+        for item_slot, _asked, found in self.suggestions:
+            if item_slot == slot:
+                return found
+        return ""
+
+
+def place_reply(result: PlaceGrounding) -> str:
+    """The question for a failed city, plus every other city this turn was checked."""
+    head = result.first()
+    if head is None:
+        return ""
+    bits = []
+    for _slot, asked, found in result.suggestions:
+        if _same_place(asked, found):
+            bits.append(f"I found {found} for {asked}.")
+        else:
+            bits.append(f"The closest place I can find for {asked} is {found}.")
+    bits += [f"I can't find a place called {name}." for _, name in result.rejected]
+    bits += [f"I couldn't check {name} just now." for _, name in result.unchecked]
+    for slot, name in result.accepted:
+        role = "where the trip goes" if slot == "destination" else "where you leave from"
+        bits.append(f"{name} is a place, so that stays as {role}.")
+    status, slot, _name = head
+    if status == "suggest_place":
+        bits.append("Are these the ones?" if len(result.suggestions) > 1 else "Is that the one?")
+    elif status == "unchecked_place" and len(result.rejected) == 0 and len(result.unchecked) == 1 and not result.accepted and not result.suggestions:
+        bits.append("Tell me the city again.")
+    elif slot == "origin":
+        bits.append("Which city are you leaving from?")
+    else:
+        bits.append("Which city should the trip go to?")
+    return " ".join(bits)
+
+
+async def confirm_place(name: str, geocoder: Any | None) -> PlaceCheck:
+    """Whether ``name`` is a place. A known city is an accept. Any other name must be echoed by the geocoder.
+
+    Nothing back, or a different name, is a reject. A geocoder that is missing or down is unchecked:
+    the name is not stored, and the traveller is asked again.
+    """
+    known = _known_place(name)
+    if known:
+        return PlaceCheck("accept", known)
+    cleaned = name.strip()
+    if geocoder is None or not getattr(geocoder, "available", True):
+        return PlaceCheck("unchecked", cleaned)
+    try:
+        found = await geocoder.geocode(cleaned)
+    except ProviderNoData:
+        return PlaceCheck("reject", cleaned)
+    except Exception:
+        return PlaceCheck("unchecked", cleaned)
+    label = str(getattr(found, "name", "") or "").strip() if found is not None else ""
+    if not label:
+        return PlaceCheck("reject", cleaned)
+    # A search hit is not stored until the traveller confirms it, exact name or not.
+    return PlaceCheck("suggest", cleaned, suggestion=label)
+
+
+async def ground_new_places(
+    before: TripContext,
+    context: TripContext,
+    geocoder: Any | None,
+    confirmed: set[str] | None = None,
+) -> PlaceGrounding:
+    """Replace a newly stated city with the gazetteer's name, or put the previous city back.
+
+    A city already on the trip is not looked up again.
+    """
+    rejected: list[tuple[str, str]] = []
+    unchecked: list[tuple[str, str]] = []
+    accepted: list[tuple[str, str]] = []
+    suggestions: list[tuple[str, str, str]] = []
+    confirmed_names = {item.casefold() for item in (confirmed or set())}
+
+    def note(slot: str, status: str, name: str) -> None:
+        rows = rejected if status == "reject" else unchecked
+        if (slot, name) not in rows and name.casefold() not in {item.casefold() for _, item in rows}:
+            rows.append((slot, name))
+
+    async def settle(slot: str) -> None:
+        current = str(getattr(context, slot) or "")
+        previous = str(getattr(before, slot) or "")
+        if current.strip().casefold() in confirmed_names:
+            return
+        if not current.strip() or current.strip().casefold() == previous.strip().casefold():
+            known = _known_place(current)
+            if known:
+                setattr(context, slot, known)
+            return
+        check = await confirm_place(current, geocoder)
+        if check.status == "accept":
+            setattr(context, slot, check.name)
+            accepted.append((slot, check.name))
+            return
+        setattr(context, slot, previous)
+        if check.status == "suggest":
+            suggestions.append((slot, current.strip(), check.suggestion))
+            return
+        note(slot, check.status, current.strip())
+
+    await settle("destination")
+    await settle("origin")
+    kept: list[TripStop] = []
+    for stop in context.stops:
+        if any(stop.city.casefold() == old.city.casefold() for old in before.stops):
+            kept.append(stop)
+            continue
+        check = await confirm_place(stop.city, geocoder)
+        if check.status == "accept":
+            kept.append(stop.model_copy(update={"city": check.name}))
+        elif check.status == "suggest":
+            suggestions.append(("destination", stop.city.strip(), check.suggestion))
+        else:
+            note("destination", check.status, stop.city.strip())
+    if len(kept) != len(context.stops):
+        context.stops = kept
+        if any(name.casefold() == context.destination.casefold() for _, name in rejected + unchecked):
+            context.destination = kept[0].city if kept else before.destination
+    return PlaceGrounding(rejected, unchecked, accepted, suggestions)
+
+
 def _known_prefix(lowered: list[str]) -> str | None:
     """The longest city the assistant knows that the words begin with: "New York" for "new york jfk"."""
     for size in range(len(lowered), 0, -1):
@@ -1066,6 +1238,19 @@ def _find_origin(text: str, stored: str = "", destination: str = "", named: str 
         if evidence == "replace":
             return name
         if (evidence == "fill any" or (evidence == "fill" and known)) and not stored.strip():
+            return name
+        # "go to Heaven, from Hell": the from-name comes after the destination and is not a day trip.
+        # It is a departure candidate even when it is not on the hint list. The gazetteer accepts or rejects it.
+        destination_at = text.lower().find(f"to {named.lower()}") if named else -1
+        if (
+            evidence is None
+            and not stored.strip()
+            and not text.strip().endswith("?")
+            and not re.search(r"\b(?:day|half-day|side)\s+trips?\b", text, re.IGNORECASE)
+            and destination_at >= 0
+            and destination_at < match.start()
+            and name.lower() != named.lower()
+        ):
             return name
     return None
 

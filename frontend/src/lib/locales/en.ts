@@ -254,6 +254,7 @@ export const EN = {
   "cases.setting": "Sets {name} to {value}",
   "cases.add": "Add a failed case",
   "cases.message": "What the traveller said",
+  "cases.earlier": "Earlier messages",
   "cases.should": "What should have happened",
   "cases.fromChat": "Or take a line from a live or finished chat",
   "cases.added": "Added by an operator",
@@ -516,6 +517,10 @@ export const EN = {
   "settings.escalationSave": "Save handoff",
   "settings.prompts": "Instructions",
   "settings.promptsBody": "Each instruction can be replaced. An empty box keeps the built-in text. The security line stays after whatever you write.",
+  "settings.promptDocument": "Document",
+  "settings.promptFile": "Saving replaces the text the model reads. This file stays unchanged.",
+  "settings.promptMemory": "This instruction is stored in the app. It is not a skill file.",
+  "settings.reviewFailed": "Failed cases are chosen before this prompt runs: an evaluation miss, a chat edit that left the plan unchanged, a plan marked not useful, or a case an operator added. This prompt reads that list. It does not decide who is on it.",
   "settings.promptsSave": "Save instruction",
   "settings.promptsReset": "Use the built-in text",
   "settings.developer": "Developer",
@@ -633,10 +638,12 @@ export const EN = {
   "settings.threshold.memory_similarity": "Memory similarity",
   "settings.threshold.preplan_budget_seconds": "Search budget",
   "settings.threshold.max_repairs": "Repairs",
+  "settings.threshold.conversation_turns": "Earlier messages",
   "settings.thresholdHint.router_confidence": "Below this, from 0 to 1, the router asks again instead of acting.",
   "settings.thresholdHint.memory_similarity": "How close a past trip must be, from 0 to 1, before it is recalled.",
   "settings.thresholdHint.preplan_budget_seconds": "Seconds the search may run before the plan is written.",
   "settings.thresholdHint.max_repairs": "How many times a bad model answer may be repaired. 0 to 6.",
+  "settings.thresholdHint.conversation_turns": "How many earlier messages the router and the writer read. 1 to 10. A user line and a reply each count as one.",
   "settings.fresh.weather": "Weather forecast",
   "settings.fresh.tickets": "Flight fares",
   "settings.fresh.hotels": "Hotel prices",
@@ -780,11 +787,13 @@ export const EN = {
   "form.constraintsHint": "Must include, avoid, accessibility",
   "form.linesLimit": "Limit reached: at most {max} lines are kept. Remove one to add another.",
   "form.save": "Save details",
+  "form.clear": "Clear details",
   "form.generate": "Generate itinerary",
 
   "clarify.slots": "The plan will not start until these are known.",
   "clarify.choices": "Pick one, or type your own request below.",
   "clarify.free": "Type what you want to plan or change.",
+  "clarify.usePlace": "Use this place",
 
   "common.continue": "Continue",
 
@@ -1087,7 +1096,7 @@ export const EN = {
   "help.paths": "One message takes one path. A typed System 1 decision chooses plan, modify or ask; an unclear request is clarified instead of guessed.",
   "help.agents": "A new plan runs four workers in parallel: attractions, hotels, weather and tickets. The planner may select and order verified candidates, never invent one. Every item keeps a source and a freshness status.",
   "help.edits": "An edit reruns only the workers that own the change, preserves locked and confirmed stops, and increments the version. A quick question answers from the current plan first, then at most one allowlisted tool.",
-  "help.languages": "English is the primary language and the plan's original. 简 translates the interface only. 繁 also shows the plan in Traditional Chinese, translated by an AI model and checked against the English; dates, times and prices always come from the English plan. A place shows a Chinese name only when a trusted source has one, followed by the original.",
+  "help.languages": "English is the primary language and the plan's original. 简 and 繁 both translate the interface and the plan. 简 uses Simplified Chinese with Mainland wording. 繁 uses Traditional Chinese with Hong Kong wording. The translation is checked against the English; dates, times and prices always come from the English plan. A place shows a Chinese name only when a trusted source has one for that script, followed by the original.",
 };
 
 export type MessageKey = keyof typeof EN;

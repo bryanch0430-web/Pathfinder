@@ -1,4 +1,4 @@
-"""Display translation of a plan (en -> zh-Hant, Hong Kong conventions) with a fact check.
+"""Display translation of a plan (en -> zh-Hant or zh-Hans) with a fact check.
 
 The English plan stays the single source of truth: this module only produces overlay
 text for the display fields (summary, day titles and notes, stop notes, data-gap
@@ -28,7 +28,7 @@ from app.domain.models import TripPlan
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_LOCALES = ("en", "zh-Hant")
+SUPPORTED_LOCALES = ("en", "zh-Hant", "zh-Hans")
 
 DISCLAIMERS = {
     "en": (
@@ -37,6 +37,7 @@ DISCLAIMERS = {
         "prices against it."
     ),
     "zh-Hant": "此繁體中文版本由 AI 模型翻譯，可能有錯誤。英文版本為原文，請以英文版本核對日期、時間及價格等重要資料。",
+    "zh-Hans": "此简体中文版本由 AI 模型翻译，可能有错误。英文版本为原文，请以英文版本核对日期、时间及价格等重要资料。",
 }
 
 #: Fixed Hong Kong wording for recurring plan terms; sent with every request.
@@ -68,13 +69,47 @@ GLOSSARY: dict[str, str] = {
     "itinerary": "行程",
 }
 
+#: Mainland wording for the same terms. Sent only when the display locale is zh-Hans.
+GLOSSARY_HANS: dict[str, str] = {
+    "HKD": "HKD (keep the code; never 港元/港币/元)",
+    "unavailable": "暂时未能提供",
+    "outdated": "资料过时",
+    "stale": "资料过时",
+    "refreshed": "已更新",
+    "hours unknown": "开放时间不详",
+    "opening hours": "开放时间",
+    "check-in": "办理入住",
+    "check-out": "退房",
+    "hotel": "酒店",
+    "taxi": "出租车",
+    "bus": "公共汽车",
+    "minibus": "小巴",
+    "MTR": "港铁",
+    "metro": "地铁",
+    "walk": "步行",
+    "breakfast": "早餐",
+    "lunch": "午餐",
+    "dinner": "晚餐",
+    "booking": "预订",
+    "reservation": "预约",
+    "source": "资料来源",
+    "data gap": "资料缺漏",
+    "typhoon": "台风",
+    "itinerary": "行程",
+}
+
 #: Glossary terms the fact check enforces: an English field using the term must carry
 #: one of these renderings in its translation.
 REQUIRED_TERMS: dict[str, tuple[str, ...]] = {
-    "unavailable": ("暫時未能提供", "未能提供"),
-    "outdated": ("過時",),
-    "stale": ("過時",),
+    "unavailable": ("暫時未能提供", "暂时未能提供", "未能提供"),
+    "outdated": ("過時", "过时"),
+    "stale": ("過時", "过时"),
 }
+
+
+def glossary_for(locale: str) -> dict[str, str]:
+    """Hong Kong wording for Traditional Chinese, Mainland wording for Simplified Chinese."""
+    return GLOSSARY_HANS if locale == "zh-Hans" else GLOSSARY
 
 CHUNK = 40
 
@@ -297,7 +332,7 @@ class TranslationService:
             # Segment ids carry the stop ids, so a dropped, added or reordered stop shows.
             request = [{"id": pending[digest][0], "text": pending[digest][2]} for digest in chunk]
             try:
-                rows = await self.translator.translate(request, locale=locale, glossary=GLOSSARY)
+                rows = await self.translator.translate(request, locale=locale, glossary=glossary_for(locale))
             except Exception as exc:  # a provider failure is a fallback, never a broken plan
                 logger.warning("translation failed: %s", exc)
                 return self._response(locale, plan, "fallback", f"The translator failed ({type(exc).__name__}).")

@@ -142,7 +142,7 @@ class AskPath:
         # ("and the weather there?", "really?") names its subject only in an earlier turn.
         facts = _plan_facts(question, plan, history, scope_item_id) if plan else {}
         # A question about changes already carries the earlier turns as `recent_changes`, with their diffs.
-        conversation = "" if "recent_changes" in facts else conversation_block(history or [], question)
+        conversation = "" if "recent_changes" in facts else conversation_block(history or [], question, settings=self.settings)
         related = _relates_to_plan(question, plan, facts, scope_item_id)
         if not related:
             # The itinerary rows a bare "what" attached are not an answer to a

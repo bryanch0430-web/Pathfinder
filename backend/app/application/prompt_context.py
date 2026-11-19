@@ -411,10 +411,26 @@ def _turn_line(row: Message, chars: int) -> str:
     return f"{row.role}: {strip_fence_tags(' '.join(row.content.split()))[:chars]}"
 
 
+#: The most earlier messages a setting may keep. One message is one line, from the traveller or from Pathfinder.
+MAX_CONVERSATION_TURNS = 10
+
+
+def conversation_turns_of(settings: Any | None) -> int:
+    """How many earlier messages this deployment reads. Out-of-range values stay inside 1 to 10."""
+    raw = CONVERSATION_TURNS if settings is None else getattr(settings, "conversation_turns", CONVERSATION_TURNS)
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        number = CONVERSATION_TURNS
+    return max(1, min(MAX_CONVERSATION_TURNS, number))
+
+
 def recent_turns(
-    history: Sequence[Message], current: str, *, limit: int = 4, chars: int = 200
+    history: Sequence[Message], current: str, *, limit: int = 4, chars: int = 200, settings: Any | None = None
 ) -> str:
     """Earlier turns only: the current message is sent once, inside its fence."""
+    if settings is not None:
+        limit = conversation_turns_of(settings)
     rows = earlier_turns(history, current)
     lines = [_turn_line(row, chars) for row in rows[-limit:]]
     return "\n".join(lines) or "(none)"
@@ -438,6 +454,7 @@ def conversation_block(
     chars: int = CONVERSATION_TURN_CHARS,
     cap: int = CONVERSATION_CHARS,
     last_assistant_only: bool = False,
+    settings: Any | None = None,
 ) -> str:
     """The recent conversation for a step that acts on the turn, or ``""`` when there is none.
 
@@ -446,7 +463,12 @@ def conversation_block(
     they are untrusted. The newest turns are kept: older ones are dropped until the block fits in ``cap``.
     ``last_assistant_only`` keeps the traveller's turns and only the latest assistant turn (the question the
     message may answer): a step whose output is stored takes nothing from earlier answers.
+    A ``settings`` value replaces the count and raises the character cap with it, so the tenth line is not
+    cut off by the shorter default.
     """
+    if settings is not None:
+        limit = conversation_turns_of(settings)
+        cap = limit * chars
     rows = earlier_turns(history, current)
     if last_assistant_only:
         answers = [index for index, row in enumerate(rows) if row.role == "assistant"]
