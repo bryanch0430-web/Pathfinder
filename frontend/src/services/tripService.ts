@@ -42,7 +42,7 @@ export interface TripModelResponse {
 }
 
 export type BudgetCategory = 'travel' | 'stay' | 'food' | 'activities' | 'other';
-export type BudgetCurrency = 'INR' | 'JPY' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD';
+export type BudgetCurrency = 'INR' | 'JPY' | 'USD' | 'EUR' | 'GBP' | 'HKD' | 'AUD' | 'CAD';
 
 export interface BudgetItemInput {
   label: string;

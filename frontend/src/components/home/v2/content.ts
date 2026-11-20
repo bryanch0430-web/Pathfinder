@@ -181,12 +181,12 @@ export const MARQUEE = [
   { src: blossomFuji, label: 'Fujiyoshida' },
 ];
 
-/** Generated Pathfinder artwork and app mockups, matched to the four planning steps. */
+/** Pathfinder artwork with a live screenshot of each planning step. */
 export const STEP_IMAGES = [
-  '/home/how-it-works/destination.webp',
-  '/home/how-it-works/build-together.webp',
-  '/home/how-it-works/trip-studio.webp',
-  '/home/how-it-works/take-with-you.webp',
+  '/home/how-it-works/destination.png',
+  '/home/how-it-works/build-together.png',
+  '/home/how-it-works/trip-studio.png',
+  '/home/how-it-works/take-with-you.png',
 ];
 
 export const STEPS = [

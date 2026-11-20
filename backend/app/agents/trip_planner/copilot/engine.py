@@ -29,7 +29,7 @@ PACE_HOURS = {"relaxed": 6.0, "balanced": 8.0, "packed": 11.0}
 MODES = ("walk", "transit", "taxi", "drive")
 # Used only when a place has no verified coordinates; shown as provisional.
 HOP_MINUTES = {"walk": 30, "transit": 35, "taxi": 25, "drive": 30}
-CURRENCIES = {"INR", "JPY", "USD", "EUR", "GBP", "AUD", "CAD"}
+CURRENCIES = {"INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"}
 COMFORT = ("budget", "mid_range", "comfortable")
 PREF_LISTS = {"must": ("hard", "must"), "avoid": ("hard", "avoid"),
               "like": ("soft", "likes"), "dislike": ("soft", "dislikes")}

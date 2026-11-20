@@ -130,7 +130,7 @@ class SendMessageRequest(BaseModel):
 class BuildWithAgentStart(BaseModel):
     action: Literal["START_BUILD_WITH_AGENT"]
     budget_amount: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
-    currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "AUD", "CAD"]] = None
+    currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]] = None
     travel_mode: Optional[Literal["walk", "transit", "taxi", "drive"]] = None
     vibe: List[str] = Field(default_factory=list, max_length=5)
 
@@ -155,7 +155,7 @@ class PlanningPreferences(BaseModel):
     travel_mode: Literal["transit", "walk", "taxi", "drive"] = "transit"
     guide: Optional[str] = Field(default=None, pattern=r"^[a-z0-9-]{1,32}$")
     # The traveler's own currency, for "≈" conversions next to trip amounts (enrichment's exchange rates).
-    home_currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "AUD", "CAD"]] = None
+    home_currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]] = None
 
     @field_validator("interests", "avoid")
     @classmethod
@@ -174,7 +174,7 @@ class OnboardingFormSubmission(BaseModel):
     planning_preferences: PlanningPreferences = Field(default_factory=PlanningPreferences)
     # Kept in the budget ledger (target + trip currency), not in the brief.
     budget_amount: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
-    currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "AUD", "CAD"]] = None
+    currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]] = None
 
     @field_validator("origin", "destination")
     @classmethod

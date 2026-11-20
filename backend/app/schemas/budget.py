@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 BudgetCategory = Literal["travel", "stay", "food", "activities", "other"]
-BudgetCurrency = Literal["INR", "JPY", "USD", "EUR", "GBP", "AUD", "CAD"]
+BudgetCurrency = Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]
 
 
 class BudgetSettingsUpdate(BaseModel):

@@ -45,7 +45,7 @@ export function parseMinutes(text?: string | null): number | null {
   return total > 0 ? Math.round(total) : null;
 }
 export function parseMoney(text?: string | null): { symbol: string; amount: number } | null {
-  const match = text?.match(/(₹|\$|€|£|INR|USD|EUR|GBP|JPY)\s?([\d,]+(?:\.\d+)?)/i);
+  const match = text?.match(/(₹|HK\$|\$|€|£|INR|USD|EUR|GBP|HKD|JPY)\s?([\d,]+(?:\.\d+)?)/i);
   return match ? { symbol: match[1], amount: Number(match[2].replace(/,/g, '')) } : null;
 }
 export function formatMinutes(minutes: number | null): string {

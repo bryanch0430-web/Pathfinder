@@ -125,7 +125,7 @@ The JSON object MUST contain exactly these fields:
   "origin": string | null,
   "user_name": string | null,
   "budget_amount": number | null,
-  "budget_currency": "INR" | "JPY" | "USD" | "EUR" | "GBP" | "AUD" | "CAD" | null
+  "budget_currency": "INR" | "JPY" | "USD" | "EUR" | "GBP" | "HKD" | "AUD" | "CAD" | null
 }
 
 Do not return markdown.
@@ -535,7 +535,8 @@ BUDGET
 
 Extract the total trip budget when the user states or changes one:
 "my budget is 60,000 rupees" -> 60000, "INR"; "keep it under $2k" -> 2000, "USD";
-"1.5 lakh" -> 150000, "INR"; "budget 80k yen" -> 80000, "JPY".
+"1.5 lakh" -> 150000, "INR"; "budget 80k yen" -> 80000, "JPY";
+"HK$20,000" or "20000 Hong Kong dollars" -> 20000, "HKD".
 Return the currency only when the message makes it clear (a symbol, code or
 name); otherwise null. A price question ("is 5000 yen enough?") is not a budget.
 No budget communicated: "budget_amount": null, "budget_currency": null.

@@ -12,7 +12,7 @@ const categories: { value: BudgetCategory; label: string }[] = [
   { value: 'food', label: 'Food' }, { value: 'activities', label: 'Activities' },
   { value: 'other', label: 'Other' },
 ];
-const currencies: BudgetCurrency[] = ['INR', 'JPY', 'USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+const currencies: BudgetCurrency[] = ['INR', 'JPY', 'USD', 'EUR', 'GBP', 'HKD', 'AUD', 'CAD'];
 
 function money(amount: string | number, currency: BudgetCurrency): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount));

@@ -4,7 +4,7 @@ import { GUIDES, DEFAULT_GUIDE } from '../guide/guides';
 type Pace = 'relaxed' | 'balanced' | 'packed';
 type Comfort = 'budget' | 'mid_range' | 'comfortable';
 type TravelMode = 'transit' | 'walk' | 'taxi' | 'drive';
-const CURRENCIES = ['INR', 'JPY', 'USD', 'EUR', 'GBP', 'AUD', 'CAD'] as const;
+const CURRENCIES = ['INR', 'JPY', 'USD', 'EUR', 'GBP', 'HKD', 'AUD', 'CAD'] as const;
 
 export interface OnboardingValues {
   origin: string;
