@@ -1,26 +1,17 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
-import { RootBoundary } from "./app/RootBoundary";
-import { I18nProvider } from "./lib/i18n";
-import { migrateLegacyStorage } from "./lib/storage";
-import "./design-system/tokens.css";
-import "./design-system/base.css";
-import "./design-system/design-system.css";
-import "./app/app.css";
-import "./design-system/finish.css";
-import "./design-system/canvas.css";
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.tsx'
+import { AuthProvider } from './context/AuthContext.tsx'
+import { ThemeProvider } from './context/ThemeContext.tsx'
+import './index.css'
 
-// Carry `pathfinder30.*` values over to `pathfinder.*` before the first render,
-// so a browser that predates the rename keeps its trips and session.
-migrateLegacyStorage();
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <I18nProvider>
-      <RootBoundary>
+    <ThemeProvider>
+      <AuthProvider>
         <App />
-      </RootBoundary>
-    </I18nProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </React.StrictMode>,
-);
+)
+

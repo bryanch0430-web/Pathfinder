@@ -18,8 +18,6 @@ data/
 
 # python
 .venv*/
-# accidental npm lock from running npm in the repo root (frontend/package-lock.json stays)
-/package-lock.json
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -32,9 +30,7 @@ htmlcov/
 *.egg-info/
 
 # local tooling
-/pathfinder.bat
 .tmp/
-.refs/
 .cache/
 *.log
 
@@ -42,7 +38,6 @@ htmlcov/
 node_modules/
 frontend/dist/
 frontend/storybook-static/
-frontend/.storybook-static/
 .npm-cache/
 *.tsbuildinfo
 frontend/coverage/
@@ -54,21 +49,6 @@ Thumbs.db
 .idea/
 .vscode/
 
-# test/pip scratch (created when TMPDIR is not writable)
-pytest-of-*/
-pip-build-tracker-*/
-pip-install-*/
-pip-metadata-*/
-pip-unpack-*/
-
-# local uvicorn logs
-backend/uvicorn.*.log
-
-# local runtime output and private task notes (never published)
+# local runtime
+.runtime/
 var/
-docs/tasks/
-
-# local Claude Code state (agent worktrees, preview launch config, personal settings)
-.claude/worktrees/
-.claude/launch.json
-.claude/settings.local.json

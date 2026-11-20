@@ -1,0 +1,37 @@
+/* GuideCharacter (components/guide): a round portrait that moves by transforms only. */
+.tv-guide {
+  position: relative; display: inline-block; flex: none;
+  width: var(--guide-size); height: var(--guide-size);
+}
+.tv-guide__body {
+  display: block; width: 100%; height: 100%; overflow: hidden; border-radius: 50%;
+  border: 1px solid var(--tv-line-strong); background: var(--tv-surface-sunk);
+  will-change: transform;
+}
+.tv-guide__img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; user-select: none; }
+
+.tv-guide__badge {
+  position: absolute; right: -4px; bottom: -3px; display: grid; place-items: center;
+  width: max(16px, calc(var(--guide-size) * .36)); aspect-ratio: 1; border-radius: 50%;
+  border: 1px solid var(--tv-line-strong); background: var(--tv-surface); color: var(--tv-ink);
+  font: 700 max(10px, calc(var(--guide-size) * .22))/1 var(--tv-sans, system-ui);
+}
+.tv-guide.is-confused .tv-guide__badge { color: var(--tv-red-fg); }
+.tv-guide.is-celebrating .tv-guide__badge { color: var(--tv-yellow-fg); }
+
+.tv-guide.is-interactive { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tv-guide.is-interactive:focus-visible { outline: 2px solid var(--tv-blue-fg); outline-offset: 3px; border-radius: 50%; }
+.tv-guide.is-interactive .tv-guide__body { transition: box-shadow 200ms ease, border-color 200ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .tv-guide.is-interactive:hover .tv-guide__body { border-color: var(--tv-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tv-ink) 10%, transparent); }
+}
+.tv-guide.is-interactive:active .tv-guide__body { scale: .94; }
+
+/* A speech bubble that belongs to a guide: pass `.tv-say` next to a `.tv-guide`. */
+.tv-say {
+  position: absolute; z-index: 3; max-width: 15rem; padding: .55rem .8rem; border: 1px solid var(--tv-ink); border-radius: 12px;
+  background: var(--tv-surface, #fff); color: var(--tv-ink); font: 500 .8rem/1.4 var(--tv-sans, system-ui); pointer-events: none;
+  box-shadow: 0 2px 0 var(--tv-ink); animation: tv-say-in 220ms cubic-bezier(.23, 1, .32, 1) both;
+}
+@keyframes tv-say-in { from { opacity: 0; transform: translateY(5px) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .tv-say { animation: none; } .tv-guide.is-interactive:active .tv-guide__body { scale: 1; } }

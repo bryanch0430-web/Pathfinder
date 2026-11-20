@@ -1,0 +1,14 @@
+.tv-companion { position: fixed; left: clamp(.8rem, 2vw, 1.5rem); bottom: clamp(.8rem, 2vw, 1.5rem); z-index: 45; display: flex; align-items: flex-end; gap: .5rem; }
+.tv-companion .tv-guide__body { background: var(--tv-surface, #fff); box-shadow: 0 6px 18px rgba(0, 0, 0, .1); }
+.tv-companion__say { left: 0; bottom: calc(100% + .6rem); width: max-content; }
+.tv-companion__swap {
+  align-self: center; min-height: 28px; padding: 0 .65rem; border: 1px solid var(--tv-line-strong); border-radius: 999px;
+  background: var(--tv-surface, #fff); color: var(--tv-muted); font: 500 .66rem/1 var(--tv-mono, monospace); letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; opacity: 0; transform: translateX(-4px); transition: opacity 180ms ease, transform 200ms cubic-bezier(.23, 1, .32, 1);
+}
+.tv-companion:hover .tv-companion__swap, .tv-companion:focus-within .tv-companion__swap { opacity: 1; transform: none; }
+.tv-companion__swap:hover { color: var(--tv-ink); border-color: var(--tv-ink); }
+.tv-companion__swap:active { transform: scale(.96); }
+.tv-companion__swap:focus-visible { outline: 2px solid var(--tv-blue-fg); outline-offset: 2px; }
+@media (hover: none) { .tv-companion__swap { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .tv-companion__swap { display: none; } }

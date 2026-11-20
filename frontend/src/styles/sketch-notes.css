@@ -1,0 +1,18 @@
+/* The traveler's drawings over sketch pages (components/sketch/annotate). Tokens from pathfinder-v2. */
+
+/* The overlay shares the page's box: both fill the stage with the same viewBox and "meet" scaling. */
+.tv-sketch__stage { position: relative; }
+.tv-sketch-notes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.tv-sketch-editor { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; background: var(--tv-canvas); }
+.tv-sketch-editor__bar { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: .6rem; min-height: 56px;
+  padding: .5rem 1rem; border-bottom: 1px solid var(--tv-line); background: var(--tv-surface); }
+.tv-sketch-editor__bar > div { display: grid; gap: .1rem; }
+.tv-sketch-editor__bar strong { font: 400 1.15rem/1.1 var(--tv-serif); }
+.tv-sketch-editor__error { margin: 0; color: var(--tv-red-fg); font-size: .78rem; }
+.tv-sketch-editor__canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--tv-canvas-warm); }
+.tv-sketch-editor__page { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; }
+.tv-sketch-editor__page .tv-sketch__page { width: 100%; height: 100%; animation: none; }
+.tv-sketch-editor__excalidraw { position: absolute; inset: 0; }
+/* Let the page show through Excalidraw's canvas. */
+.tv-sketch-editor__excalidraw .excalidraw, .tv-sketch-editor__excalidraw .excalidraw .layer-ui__wrapper { background: transparent; }

@@ -1,0 +1,9 @@
+/* Day covers in the studio's day rail (components/studio/dayCovers.ts). Tokens from pathfinder-v2. */
+.tv-studio__days button.has-cover { grid-template-columns: 44px minmax(0, 1fr); column-gap: .65rem; align-items: center; }
+.tv-studio__days button.has-cover > :not(.tv-daycover) { grid-column: 2; }
+.tv-daycover { position: relative; grid-column: 1; grid-row: 1 / span 3; width: 44px; height: 44px; overflow: hidden; border-radius: 8px;
+  background: var(--tv-canvas-warm); }
+.tv-daycover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .4s ease; }
+.tv-daycover img.is-loaded { opacity: 1; }
+.tv-studio__days-credit { margin: .5rem .7rem .2rem; color: var(--tv-faint); font: .58rem/1.4 var(--tv-mono); }
+@media (prefers-reduced-motion: reduce) { .tv-daycover img { transition: none; } }

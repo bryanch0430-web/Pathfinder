@@ -1,0 +1,20 @@
+{
+  "name": "pathfinder-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pathfinder - Agentic 3D Travel Planning Application",
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --port 8000"
+  },
+  "keywords": [
+    "pathfinder",
+    "react-three-fiber",
+    "fastapi",
+    "3d-travel",
+    "agentic-ai"
+  ],
+  "author": "",
+  "license": "MIT"
+}

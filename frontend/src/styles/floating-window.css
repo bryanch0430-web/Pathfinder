@@ -1,0 +1,64 @@
+/* FloatingWindow: movable, resizable, closable panels (Trip Studio). Tokens come from .tv2. */
+.tv-fw {
+  --fw-ease: cubic-bezier(.23, 1, .32, 1);
+  position: absolute; top: 0; left: 0; z-index: 2;
+  display: flex; flex-direction: column; min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--tv-line-strong); border-radius: var(--tv-r-lg, 14px);
+  background: var(--tv-surface); color: var(--tv-ink);
+  box-shadow: 0 18px 48px -18px rgba(28, 27, 25, .28), 0 2px 8px rgba(28, 27, 25, .06);
+  animation: tv-fw-in .18s var(--fw-ease) both;
+  transform-origin: top center;
+}
+@keyframes tv-fw-in { from { opacity: 0; scale: .97; } }
+
+.tv-fw__bar {
+  display: flex; flex: none; align-items: center; gap: .5rem;
+  height: 44px; padding: 0 .4rem 0 .35rem;
+  border-bottom: 1px solid var(--tv-line);
+  cursor: grab; user-select: none; touch-action: none;
+}
+.tv-fw.is-moving { box-shadow: 0 26px 60px -18px rgba(28, 27, 25, .36), 0 2px 8px rgba(28, 27, 25, .08); }
+.tv-fw.is-moving .tv-fw__bar { cursor: grabbing; }
+.tv-fw.is-moving, .tv-fw.is-sizing { animation: none; }
+.tv-fw.is-moving .tv-fw__body, .tv-fw.is-sizing .tv-fw__body { pointer-events: none; }
+.tv-fw__bar h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; font: 600 .78rem/1 var(--tv-sans); letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Six-dot grip: the keyboard handle for moving and resizing. */
+.tv-fw__grip, .tv-fw__close {
+  display: grid; flex: none; place-items: center; width: 30px; height: 30px;
+  border-radius: var(--tv-r-sm, 8px); color: var(--tv-muted);
+  transition: background-color .15s ease, color .15s ease, transform .12s var(--fw-ease);
+}
+.tv-fw__grip { cursor: inherit; }
+.tv-fw__grip i { width: 8px; height: 12px; background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 0 / 4px 4px; }
+.tv-fw__grip:active, .tv-fw__close:active { transform: scale(.94); }
+@media (hover: hover) and (pointer: fine) {
+  .tv-fw__grip:hover, .tv-fw__close:hover { background: var(--tv-canvas-warm); color: var(--tv-ink); }
+}
+.tv-fw button:focus-visible { outline: 2px solid var(--tv-blue-fg); outline-offset: 2px; }
+
+.tv-fw__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+
+/* Corner grip for resizing. */
+.tv-fw__size { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; }
+.tv-fw__size::after { content: ''; position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-right: 1.5px solid var(--tv-line-strong); border-bottom: 1.5px solid var(--tv-line-strong); border-bottom-right-radius: 2px; transition: border-color .15s ease; }
+.tv-fw:hover .tv-fw__size::after, .tv-fw.is-sizing .tv-fw__size::after { border-color: var(--tv-muted); }
+
+/* Narrow screens: a bottom sheet, one at a time. */
+.tv-fw.is-sheet {
+  position: fixed; inset: auto 0 0; z-index: 30;
+  max-height: min(72dvh, 640px); height: auto; width: auto; translate: none;
+  border-width: 1px 0 0; border-radius: 16px 16px 0 0;
+  box-shadow: 0 -18px 48px -12px rgba(28, 27, 25, .3);
+  animation-name: tv-fw-sheet; animation-duration: .24s;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tv-fw.is-sheet .tv-fw__bar { height: 52px; padding: 0 .5rem 0 1rem; cursor: default; }
+.tv-fw.is-sheet .tv-fw__bar::before { content: ''; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--tv-line-strong); }
+@keyframes tv-fw-sheet { from { translate: 0 100%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-fw, .tv-fw.is-sheet { animation: tv-fw-fade .15s ease both; }
+}
+@keyframes tv-fw-fade { from { opacity: 0; } }

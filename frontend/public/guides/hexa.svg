@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" fill="none" role="img">
+<line x1="17.75" y1="54.56" x2="44.69" y2="54.56" stroke="#111111" stroke-opacity="0.26" stroke-width="1.35" stroke-dasharray="2.6 3.4" stroke-linecap="round"/>
+<line x1="44.69" y1="54.56" x2="66.69" y2="76.56" stroke="#111111" stroke-opacity="0.26" stroke-width="1.35" stroke-dasharray="2.6 3.4" stroke-linecap="round"/>
+<line x1="44.69" y1="54.56" x2="60.25" y2="23.44" stroke="#111111" stroke-opacity="0.26" stroke-width="1.35" stroke-dasharray="2.6 3.4" stroke-linecap="round"/>
+<line x1="33.31" y1="23.44" x2="55.31" y2="45.44" stroke="#111111" stroke-width="2.6"/>
+<line x1="17.75" y1="54.56" x2="33.31" y2="23.44" stroke="#111111" stroke-width="2.6"/>
+<line x1="17.75" y1="54.56" x2="39.75" y2="76.56" stroke="#111111" stroke-width="2.6"/>
+<line x1="39.75" y1="76.56" x2="55.31" y2="45.44" stroke="#111111" stroke-width="2.6"/>
+<line x1="39.75" y1="76.56" x2="66.69" y2="76.56" stroke="#111111" stroke-width="2.6"/>
+<line x1="33.31" y1="23.44" x2="60.25" y2="23.44" stroke="#111111" stroke-width="2.6"/>
+<line x1="55.31" y1="45.44" x2="82.25" y2="45.44" stroke="#111111" stroke-width="2.6"/>
+<line x1="66.69" y1="76.56" x2="82.25" y2="45.44" stroke="#111111" stroke-width="2.6"/>
+<line x1="60.25" y1="23.44" x2="82.25" y2="45.44" stroke="#111111" stroke-width="2.6"/>
+</svg>

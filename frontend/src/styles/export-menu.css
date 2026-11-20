@@ -1,0 +1,42 @@
+/* ExportMenu: a toolbar button that opens a panel of one-click downloads. Tokens from pathfinder-v2. */
+/* The z-index sits on the wrapper: the studio's entrance animation leaves a transform on each toolbar item,
+   which makes the item its own stacking context. ponytail: 1000 clears the studio's FloatingWindows, which
+   count up from 2 per click; isolate the board (isolation: isolate) if windows ever need to rise past it. */
+.tv-export { position: relative; z-index: 1000; flex: none; }
+.tv-export__trigger { display: inline-flex; align-items: center; gap: .4rem; min-height: 34px; padding: .35rem .8rem; border: 1px solid var(--tv-line-strong);
+  border-radius: var(--tv-r-sm, 8px); background: var(--tv-surface); color: var(--tv-ink); font: 500 .76rem var(--tv-sans); cursor: pointer;
+  transition: background-color .15s ease, transform .12s var(--tv-ease, ease); }
+.tv-export__trigger svg { width: 15px; height: 15px; }
+.tv-export__trigger[aria-expanded='true'] { background: var(--tv-ink); color: var(--tv-canvas); }
+.tv-export__trigger:active { transform: scale(.97); }
+.tv-export__trigger:focus-visible, .tv-export__panel :is(button, a):focus-visible { outline: 2px solid var(--tv-ink); outline-offset: 2px; }
+
+.tv-export__panel { position: absolute; z-index: 1; top: calc(100% + 6px); right: 0; display: grid; gap: 2px; width: min(300px, calc(100vw - 32px));
+  padding: 6px; border: 1px solid var(--tv-line-strong); border-radius: var(--tv-r-md, 10px); background: var(--tv-surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .12); transform-origin: top right; animation: tv-export-in .16s var(--tv-ease, ease-out); }
+.tv-export__panel > button { display: grid; gap: .1rem; width: 100%; padding: .55rem .65rem; border: 0; border-radius: var(--tv-r-sm, 6px);
+  background: none; color: var(--tv-ink); text-align: left; cursor: pointer; }
+.tv-export__panel > button strong { font-size: .8rem; font-weight: 600; }
+.tv-export__panel > button small { color: var(--tv-muted); font-size: .7rem; line-height: 1.35; }
+.tv-export__panel > button:disabled { cursor: not-allowed; opacity: .55; }
+@media (hover: hover) and (pointer: fine) { .tv-export__panel > button:not(:disabled):hover { background: var(--tv-canvas-warm); } }
+
+.tv-export__days { margin-top: 4px; padding: .55rem .65rem .2rem; border-top: 1px solid var(--tv-line); }
+.tv-export__days span { color: var(--tv-muted); font: .62rem var(--tv-mono); letter-spacing: .06em; text-transform: uppercase; }
+.tv-export__days ul { display: grid; gap: .15rem; margin: .4rem 0 0; padding: 0; list-style: none; }
+.tv-export__days a { display: block; overflow: hidden; padding: .3rem 0; color: var(--tv-ink); font-size: .78rem; text-decoration: underline;
+  text-decoration-color: var(--tv-line-strong); text-underline-offset: 3px; text-overflow: ellipsis; white-space: nowrap; }
+.tv-export__days a:hover { text-decoration-color: currentColor; }
+.tv-export__status { min-height: 1em; margin: 0; padding: .2rem .65rem .35rem; color: var(--tv-ink-soft); font-size: .7rem; line-height: 1.4; }
+.tv-export__status:empty { display: none; }
+.tv-export__status a { margin-left: .35rem; color: var(--tv-ink); text-decoration: underline; text-underline-offset: 2px; }
+/* A file the browser wouldn't save on its own: the link is the action, so it looks like one. */
+.tv-export__status a.is-waiting { display: flex; align-items: center; justify-content: center; min-height: 34px; margin: .4rem 0 0; border-radius: var(--tv-r-sm, 6px);
+  background: var(--tv-ink); color: var(--tv-canvas); font-weight: 600; text-decoration: none; }
+.tv-export__date { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: 0 .65rem .45rem; color: var(--tv-ink-soft); font-size: .72rem; }
+.tv-export__date input { min-height: 30px; padding: 0 .45rem; border: 1px solid var(--tv-line-strong); border-radius: var(--tv-r-sm, 6px); background: var(--tv-surface);
+  color: var(--tv-ink); font: .72rem var(--tv-sans); color-scheme: light dark; }
+.tv-export__date input:focus-visible { outline: 2px solid var(--tv-ink); outline-offset: 2px; }
+
+@keyframes tv-export-in { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .tv-export__panel { animation: none; } .tv-export__trigger { transition: none; } }

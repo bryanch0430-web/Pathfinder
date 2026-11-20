@@ -1,0 +1,616 @@
+/*
+ * ============================================================================
+ * Pathfinder v2 — Premium Utilitarian Minimalism
+ * ============================================================================
+ *
+ * A warm-monochrome, document-style design system for the marketing surface.
+ * Everything is scoped under `.tv2` so the legacy `.sharp-ui` surfaces
+ * (/create, /explore, auth, profile) keep their neo-brutalist language until
+ * they are migrated.
+ *
+ * Type:   Instrument Serif (editorial display) · Geist (UI) · Geist Mono (meta)
+ * Colour: warm bone canvas, charcoal ink, 1px hairlines, washed pastel spots
+ * Depth:  hairlines and whitespace — never heavy shadow
+ */
+
+.tv2 {
+  /* ---- Type ------------------------------------------------------------ */
+  --tv-serif: 'Instrument Serif', 'Newsreader', 'Lyon Text', Georgia, serif;
+  --tv-sans: 'Geist', 'SF Pro Display', 'Switzer', 'Helvetica Neue', system-ui, sans-serif;
+  --tv-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ---- Canvas & surface ------------------------------------------------ */
+  --tv-canvas: #fbfbfa;
+  --tv-canvas-warm: #f7f6f3;
+  --tv-surface: #ffffff;
+  --tv-surface-sunk: #f9f9f8;
+
+  /* ---- Ink -------------------------------------------------------------- */
+  --tv-ink: #111111;
+  --tv-ink-soft: #2f3437;
+  /* WCAG AA for small text (4.5:1) on every canvas and tint: muted 5.1–5.8:1, faint 4.5–4.9:1. */
+  --tv-muted: #666562;
+  --tv-faint: #72716e;
+
+  /* ---- Structure -------------------------------------------------------- */
+  --tv-line: #eaeaea;
+  --tv-line-soft: rgba(0, 0, 0, 0.06);
+  --tv-line-strong: #dcdcda;
+
+  /* ---- Washed pastel spots (semantic only, never decorative) ------------ */
+  --tv-red-bg: #fdebec;
+  --tv-red-fg: #9f2f2d;
+  --tv-blue-bg: #e1f3fe;
+  --tv-blue-fg: #1f6c9f;
+  --tv-green-bg: #edf3ec;
+  --tv-green-fg: #346538;
+  --tv-yellow-bg: #fbf3db;
+  --tv-yellow-fg: #956400;
+
+  /* ---- Radius ----------------------------------------------------------- */
+  --tv-r-sm: 4px;
+  --tv-r-md: 8px;
+  --tv-r-lg: 12px;
+
+  /* ---- Rhythm ----------------------------------------------------------- */
+  --tv-gutter: clamp(1.25rem, 4vw, 3rem);
+  --tv-section: clamp(5rem, 11vw, 9rem);
+  --tv-max: 1240px;
+
+  --tv-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  background-color: var(--tv-canvas);
+  color: var(--tv-ink);
+  font-family: var(--tv-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.tv2.tv2--paper {
+  --tv-canvas: #ffffff;
+}
+
+.tv2.tv2--bone {
+  --tv-canvas: #f7f6f3;
+}
+
+/* Dark inversion — used by the full-bleed photographic hero variants. */
+.tv2 .tv-invert {
+  --tv-ink: #f4f3f1;
+  --tv-ink-soft: #e6e4e0;
+  --tv-muted: rgba(244, 243, 241, 0.62);
+  --tv-faint: rgba(244, 243, 241, 0.42);
+  --tv-line: rgba(255, 255, 255, 0.16);
+  --tv-line-soft: rgba(255, 255, 255, 0.1);
+  --tv-line-strong: rgba(255, 255, 255, 0.24);
+  --tv-surface: rgba(255, 255, 255, 0.06);
+  color: var(--tv-ink);
+}
+
+/* ==========================================================================
+ * Base elements
+ * ========================================================================== */
+
+.tv2 *,
+.tv2 *::before,
+.tv2 *::after {
+  box-sizing: border-box;
+}
+
+.tv2 ::selection {
+  background: var(--tv-ink);
+  color: var(--tv-canvas);
+}
+
+/*
+ * Element resets use `:where()` so they contribute zero specificity. Written
+ * plainly (`.tv2 button`) they would score 0,1,1 and silently beat every
+ * single-class component rule below — `.tv-btn--primary` would lose its fill.
+ */
+.tv2 :where(h1, h2, h3, h4) {
+  margin: 0;
+  font-weight: 400;
+}
+
+.tv2 :where(p) {
+  margin: 0;
+}
+
+.tv2 :where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tv2 :where(button) {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+/* ==========================================================================
+ * Layout
+ * ========================================================================== */
+
+.tv-container {
+  width: 100%;
+  max-width: var(--tv-max);
+  margin-inline: auto;
+  padding-inline: var(--tv-gutter);
+}
+
+.tv-container--wide {
+  max-width: 1500px;
+}
+
+.tv-container--narrow {
+  max-width: 860px;
+}
+
+.tv-section {
+  padding-block: var(--tv-section);
+}
+
+.tv-rule {
+  height: 1px;
+  background: var(--tv-line);
+  border: 0;
+  margin: 0;
+}
+
+/* ==========================================================================
+ * Typography
+ * ========================================================================== */
+
+.tv-display {
+  font-family: var(--tv-serif);
+  font-weight: 400;
+  letter-spacing: -0.028em;
+  line-height: 0.98;
+  color: var(--tv-ink);
+}
+
+.tv-display em {
+  font-style: italic;
+}
+
+.tv-d1 {
+  font-size: clamp(2.9rem, 6.2vw, 5.6rem);
+}
+
+.tv-d2 {
+  font-size: clamp(2.3rem, 4.6vw, 3.9rem);
+}
+
+.tv-d3 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.04;
+}
+
+/* Small uppercase mono label — the system's connective tissue. */
+.tv-label {
+  font-family: var(--tv-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tv-muted);
+}
+
+.tv-meta {
+  font-family: var(--tv-mono);
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  color: var(--tv-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-body {
+  font-family: var(--tv-sans);
+  font-size: 1rem;
+  line-height: 1.62;
+  color: var(--tv-ink-soft);
+}
+
+.tv-lead {
+  font-family: var(--tv-sans);
+  font-size: clamp(1.02rem, 1.35vw, 1.18rem);
+  line-height: 1.6;
+  color: var(--tv-muted);
+  max-width: 54ch;
+  font-weight: 300;
+}
+
+.tv-eyebrow {
+  font-family: var(--tv-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--tv-faint);
+}
+
+/* ==========================================================================
+ * Buttons
+ * ========================================================================== */
+
+.tv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 46px;
+  padding: 0 1.4rem;
+  border-radius: var(--tv-r-sm);
+  font-family: var(--tv-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  transition:
+    background-color 0.22s var(--tv-ease),
+    color 0.22s var(--tv-ease),
+    border-color 0.22s var(--tv-ease),
+    transform 0.12s var(--tv-ease);
+}
+
+.tv-btn:active:not(:disabled) {
+  transform: scale(0.982);
+}
+
+.tv-btn--primary {
+  background: var(--tv-ink);
+  color: var(--tv-canvas);
+  border: 1px solid var(--tv-ink);
+}
+
+.tv-btn--primary:hover:not(:disabled) {
+  background: #333333;
+  border-color: #333333;
+}
+
+.tv-invert .tv-btn--primary {
+  background: #f4f3f1;
+  color: #111111;
+  border-color: #f4f3f1;
+}
+
+.tv-invert .tv-btn--primary:hover:not(:disabled) {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+.tv-btn--ghost {
+  background: transparent;
+  color: var(--tv-ink);
+  border: 1px solid var(--tv-line-strong);
+}
+
+.tv-btn--ghost:hover:not(:disabled) {
+  border-color: var(--tv-ink);
+  background: var(--tv-surface-sunk);
+}
+
+.tv-invert .tv-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.tv-btn--bare {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tv-ink);
+  font-size: 0.9rem;
+}
+
+.tv-btn--sm {
+  min-height: 38px;
+  padding: 0 1rem;
+  font-size: 0.82rem;
+}
+
+/* Text link with a hairline that draws in on hover. */
+.tv-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--tv-ink);
+  padding-bottom: 2px;
+}
+
+.tv-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.32s var(--tv-ease);
+}
+
+.tv-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* ==========================================================================
+ * Surfaces
+ * ========================================================================== */
+
+.tv-card {
+  background: var(--tv-surface);
+  border: 1px solid var(--tv-line);
+  border-radius: var(--tv-r-lg);
+  padding: clamp(1.4rem, 2.4vw, 2.25rem);
+  transition:
+    border-color 0.25s var(--tv-ease),
+    box-shadow 0.25s var(--tv-ease);
+}
+
+.tv-card--hover:hover {
+  border-color: var(--tv-line-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.tv-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Tag / status pill — the one place pill radius is allowed. */
+.tv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  padding: 0.28rem 0.7rem;
+  font-family: var(--tv-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: var(--tv-surface-sunk);
+  color: var(--tv-muted);
+  border: 1px solid var(--tv-line);
+}
+
+.tv-tag--blue { background: var(--tv-blue-bg); color: var(--tv-blue-fg); border-color: transparent; }
+.tv-tag--green { background: var(--tv-green-bg); color: var(--tv-green-fg); border-color: transparent; }
+.tv-tag--yellow { background: var(--tv-yellow-bg); color: var(--tv-yellow-fg); border-color: transparent; }
+.tv-tag--red { background: var(--tv-red-bg); color: var(--tv-red-fg); border-color: transparent; }
+
+.tv-invert .tv-tag {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(244, 243, 241, 0.8);
+}
+
+/* Physical keycap */
+.tv-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--tv-line);
+  border-bottom-width: 2px;
+  border-radius: var(--tv-r-sm);
+  background: var(--tv-canvas-warm);
+  font-family: var(--tv-mono);
+  font-size: 0.68rem;
+  color: var(--tv-muted);
+}
+
+/* ==========================================================================
+ * Imagery — desaturated, warm, blended into the monochrome canvas
+ * ========================================================================== */
+
+.tv-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.72) contrast(1.02);
+}
+
+.tv-img--mono {
+  filter: grayscale(1) contrast(1.05);
+}
+
+.tv-img--soft {
+  filter: saturate(0.6) brightness(1.02);
+}
+
+/*
+ * Parallax-safe variant. The drift tween moves the image by up to ±14% of its
+ * own height, so it is oversized and offset to keep an edge from swinging into
+ * frame. Requires a `position: relative; overflow: hidden` parent.
+ */
+.tv-img--drift {
+  position: absolute;
+  top: -15%;
+  left: 0;
+  width: 100%;
+  height: 130%;
+  object-fit: cover;
+  will-change: transform;
+}
+
+.tv-figure {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--tv-r-lg);
+  background: var(--tv-surface-sunk);
+}
+
+/* Warm grain wash that ties photography to the bone canvas. */
+.tv-figure::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(247, 246, 243, 0.06), rgba(17, 17, 17, 0.06));
+  mix-blend-mode: multiply;
+}
+
+/* Inline image punctuation sitting between words at type height. */
+.tv-inline-img {
+  display: inline-block;
+  vertical-align: baseline;
+  height: 0.78em;
+  width: 1.5em;
+  margin: 0 0.12em;
+  border-radius: 999px;
+  object-fit: cover;
+  transform: translateY(0.04em);
+  filter: saturate(0.7);
+}
+
+/* ==========================================================================
+ * Ambient depth — soft warm light spots, never a visible gradient
+ * ========================================================================== */
+
+.tv-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tv-ambient::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: 55%;
+  width: 70vw;
+  height: 70vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(149, 100, 0, 0.05), transparent 62%);
+}
+
+.tv-ambient::after {
+  content: '';
+  position: absolute;
+  bottom: -40%;
+  left: -20%;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(31, 108, 159, 0.045), transparent 62%);
+}
+
+/* Hairline blueprint grid — structure without weight. */
+.tv-graph {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--tv-line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--tv-line-soft) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 78%);
+}
+
+/* ==========================================================================
+ * Faux-OS window chrome (for agent mockups)
+ * ========================================================================== */
+
+.tv-window {
+  border: 1px solid var(--tv-line);
+  border-radius: var(--tv-r-lg);
+  background: var(--tv-surface);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.035);
+}
+
+.tv-window__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 38px;
+  padding-inline: 0.85rem;
+  border-bottom: 1px solid var(--tv-line);
+  background: var(--tv-canvas-warm);
+}
+
+.tv-window__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.tv-window__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dcdcda;
+}
+
+/* ==========================================================================
+ * Utilities
+ * ========================================================================== */
+
+.tv-stack { display: flex; flex-direction: column; }
+.tv-row { display: flex; align-items: center; }
+.tv-grid { display: grid; }
+
+/*
+ * Visibility helpers deliberately set no `display` at desktop: forcing one
+ * (e.g. `initial`) would collapse `<td>`/`<th>` out of table layout.
+ */
+.tv-only-mobile { display: none; }
+
+@media (max-width: 860px) {
+  .tv-hide-mobile { display: none !important; }
+  .tv-only-mobile { display: revert; }
+}
+
+/* Every multi-column grid inside .tv2 collapses to one column on phones. */
+@media (max-width: 767px) {
+  .tv2 .tv-collapse {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.tv2 img,
+.tv2 svg,
+.tv2 video {
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv2 *,
+  .tv2 *::before,
+  .tv2 *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Fill the viewport so the app shell background never shows through. */
+.tv2 { min-height: 100dvh; }
+
+/* ---- Scrollbars ------------------------------------------------------------
+ * Thin, token-tinted thumb on a transparent track, in both themes. The standard
+ * properties cover Chromium and Firefox; ::-webkit-scrollbar covers Safari.
+ * :where() keeps specificity at zero so `scrollbar-width: none` strips still win.
+ * The document root sits outside .tv2 (and always light), so it gets literal values.
+ */
+html { scrollbar-width: thin; scrollbar-color: rgba(28, 27, 25, .24) transparent; }
+:where(.tv2, .tv2 *) { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tv-ink) 22%, transparent) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: rgba(28, 27, 25, .24) padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(28, 27, 25, .42); }
+:where(.tv2) ::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--tv-ink) 22%, transparent); }
+:where(.tv2) ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--tv-ink) 40%, transparent); }

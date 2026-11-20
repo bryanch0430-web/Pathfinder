@@ -1,0 +1,150 @@
+/* Trip Studio: full-screen layer over the kept-alive chat. The budget overlay (z 59/60) stacks above it. */
+.tv-studio {
+  --studio-pad: clamp(.75rem, 2vw, 1.25rem);
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; flex-direction: column;
+  background: var(--tv-canvas); color: var(--tv-ink);
+}
+
+/* ---- Top bar ------------------------------------------------------------ */
+.tv-studio__bar { display: flex; flex: none; align-items: center; gap: .75rem; min-height: 60px; padding: .5rem var(--studio-pad); border-bottom: 1px solid var(--tv-line); background: var(--tv-surface); }
+.tv-studio__title { display: grid; gap: .15rem; min-width: 0; }
+.tv-studio__back { gap: .4rem; }
+.tv-studio__title h1 { overflow: hidden; margin: 0; font: 400 1.35rem/1.1 var(--tv-serif); letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
+.tv-studio__title .tv-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-studio__guide { flex: none; width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+.tv-studio__live { display: inline-flex; align-items: center; gap: .45rem; overflow: hidden; max-width: 34ch; color: var(--tv-ink-soft); font: .66rem var(--tv-mono); text-overflow: ellipsis; white-space: nowrap; }
+.tv-studio__live i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--tv-green-fg); animation: tv-studio-pulse 1.2s ease-in-out infinite; }
+@keyframes tv-studio-pulse { 50% { opacity: .3; } }
+
+/* ---- Stage: toolbar over a board the windows float on -------------------- */
+.tv-studio__stage { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; background: var(--tv-canvas-warm); }
+.tv-studio__toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: .75rem; min-height: 52px; padding: .5rem var(--studio-pad); border-bottom: 1px solid var(--tv-line); background: var(--tv-surface); }
+
+/* Both groups share one segmented-control shape; tabs pick one, window toggles are independent. */
+.tv-studio__tabs, .tv-studio__windows { display: inline-flex; flex: none; gap: 2px; padding: 3px; border: 1px solid var(--tv-line); border-radius: var(--tv-r-sm, 8px); background: var(--tv-canvas-warm); }
+.tv-studio__tabs [role='tab'], .tv-studio__windows button {
+  display: inline-flex; align-items: center; gap: .4rem; height: 30px; padding: 0 .8rem;
+  border-radius: calc(var(--tv-r-sm, 8px) - 3px); color: var(--tv-muted); font: 500 .76rem var(--tv-sans); white-space: nowrap;
+  transition: background-color .15s ease, color .15s ease, transform .12s var(--tv-ease);
+}
+.tv-studio__tabs [role='tab'][aria-selected='true'] { background: var(--tv-ink); color: var(--tv-canvas); }
+.tv-studio__windows button[aria-pressed='true'] { background: var(--tv-surface); color: var(--tv-ink); box-shadow: 0 0 0 1px var(--tv-line-strong); }
+.tv-studio__windows .tv-studio__reset { color: var(--tv-muted); font-family: var(--tv-mono); font-size: .66rem; }
+.tv-studio__tabs [role='tab']:active, .tv-studio__windows button:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) {
+  .tv-studio__tabs [role='tab'][aria-selected='false']:hover, .tv-studio__windows button[aria-pressed='false']:hover, .tv-studio__reset:hover { color: var(--tv-ink); }
+}
+
+.tv-studio__board { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+/* The canvas is its own stacking context, so map and 3D panels can never climb over the windows.
+   Docked windows push its edges in (--inset-*), so nothing important hides under them. */
+.tv-studio__canvas { position: absolute; inset: 0 var(--inset-right, 0) 0 var(--inset-left, 0); z-index: 0; isolation: isolate; display: flex; overflow: auto; }
+.tv-studio__canvas > * { flex: 1; min-width: 0; }
+.tv-studio__canvas > .tv-playback { position: absolute; z-index: 2; right: 12px; bottom: 12px; left: 12px; flex: none; width: auto; }
+
+.tv-playback {
+  display: flex; align-items: center; gap: .6rem; max-width: 100%;
+  padding: .45rem .55rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-md, 10px);
+  background: color-mix(in srgb, var(--tv-surface) 92%, transparent); backdrop-filter: blur(8px);
+}
+.tv-playback__play { flex: none; height: 30px; padding: 0 .75rem; border-radius: 999px; background: var(--tv-ink); color: var(--tv-canvas); font: 500 .74rem var(--tv-sans); }
+.tv-playback__ghost { flex: none; height: 30px; padding: 0 .65rem; border: 1px solid var(--tv-line); border-radius: 999px; background: transparent; color: var(--tv-ink-soft); font: .72rem var(--tv-sans); }
+.tv-playback__ghost[aria-pressed='true'] { border-color: var(--tv-ink); color: var(--tv-ink); }
+.tv-playback__key { display: inline-flex; flex: none; align-items: center; gap: .3rem; color: var(--tv-muted); font: .66rem var(--tv-sans); }
+.tv-playback__key i { width: 14px; height: 3px; border-radius: 2px; background: var(--tv-ink); }
+.tv-playback__key i.is-ahead { background: repeating-linear-gradient(90deg, var(--tv-ink) 0 3px, transparent 3px 6px); }
+.tv-playback__now { display: grid; flex: none; min-width: 0; max-width: 16rem; }
+.tv-playback__now strong { overflow: hidden; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.tv-playback ol { display: flex; gap: .35rem; min-width: 0; margin: 0; padding: 0; overflow-x: auto; list-style: none; }
+.tv-playback li button { height: 28px; padding: 0 .6rem; border: 1px solid var(--tv-line); border-radius: 999px; color: var(--tv-ink-soft); font: .72rem var(--tv-sans); white-space: nowrap; }
+.tv-playback li button[aria-current='true'] { border-color: var(--tv-ink); color: var(--tv-ink); background: var(--tv-canvas); }
+.tv-calendar { display: inline-flex; align-items: center; gap: .4rem; }
+.tv-calendar__date { display: inline-flex; align-items: center; gap: .35rem; color: var(--tv-muted); font: .68rem var(--tv-mono); }
+.tv-calendar__date input { height: 28px; padding: 0 .4rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-sm, 8px); background: var(--tv-canvas); color: var(--tv-ink); font: .74rem var(--tv-sans); }
+
+/* ---- Window contents ---------------------------------------------------- */
+.tv-studio__days ol { display: grid; gap: 2px; margin: 0; padding: .5rem; list-style: none; }
+.tv-studio__days button { display: grid; gap: .2rem; width: 100%; padding: .6rem .7rem; border: 1px solid transparent; border-radius: var(--tv-r-sm, 8px); text-align: left; color: var(--tv-ink-soft); transition: background-color .15s ease, border-color .15s ease; }
+.tv-studio__days button strong { overflow: hidden; color: var(--tv-ink); font-size: .84rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.tv-studio__days button small { color: var(--tv-muted); font-size: .7rem; }
+.tv-studio__days button[aria-current='page'] { border-color: var(--tv-line-strong); background: var(--tv-canvas-warm); }
+@media (hover: hover) and (pointer: fine) { .tv-studio__days button:hover { background: var(--tv-canvas-warm); } }
+
+.tv-studio__info { display: grid; align-content: start; gap: .75rem; padding: .75rem; }
+.tv-studio__card { display: grid; gap: .5rem; padding: 1rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-md, 10px); background: var(--tv-canvas); }
+.tv-studio__card > strong { font: 400 1.5rem/1.1 var(--tv-serif); }
+.tv-studio__card > .tv-btn { justify-self: start; margin-top: .25rem; }
+.tv-studio__card p { margin: 0; color: var(--tv-ink-soft); font-size: .78rem; line-height: 1.5; }
+.tv-studio__card dl { display: grid; grid-template-columns: 1fr auto; gap: .35rem .75rem; margin: 0; font-size: .74rem; }
+.tv-studio__card dt { color: var(--tv-muted); }
+.tv-studio__card dd { margin: 0; font-family: var(--tv-mono); font-size: .7rem; font-variant-numeric: tabular-nums; }
+
+/* The chat window's own bar already names the guide; the drawer's header would repeat it. */
+.tv-studio__chat .tv-fw__body { display: flex; overflow: hidden; }
+.tv-studio__chat .tv-fw__body > * { flex: 1; min-width: 0; }
+.tv-studio__chat .tv-chat__bar { display: none; }
+
+/* ---- Plan tab ----------------------------------------------------------- */
+.tv-plan { width: 100%; max-width: 46rem; margin: 0 auto; padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem); }
+.tv-plan--overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 1rem; align-content: start; max-width: 72rem; }
+.tv-plan__daycard { display: grid; align-content: start; gap: .5rem; min-height: 8rem; padding: 1.1rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-md, 10px); background: var(--tv-surface); text-align: left; transition: border-color .2s var(--tv-ease), transform .2s var(--tv-ease); }
+.tv-plan__daycard strong { font: 400 1.35rem/1.1 var(--tv-serif); }
+.tv-plan__daycard > span:last-child { color: var(--tv-ink-soft); font-size: .78rem; line-height: 1.5; }
+.tv-plan__daycard:active { transform: scale(.98); }
+@media (hover: hover) and (pointer: fine) { .tv-plan__daycard:hover { border-color: var(--tv-ink); transform: translateY(-2px); } }
+.tv-plan__head { margin-bottom: 1.5rem; }
+.tv-plan__head h2 { margin: .4rem 0 .3rem; font: 400 clamp(1.8rem, 3.5vw, 2.6rem)/1.05 var(--tv-serif); }
+.tv-plan__head p { margin: 0; color: var(--tv-muted); font-size: .85rem; }
+.tv-plan__slot + .tv-plan__slot { margin-top: 1.5rem; }
+.tv-plan__slot h3 { margin: 0 0 .6rem; color: var(--tv-muted); font: .66rem var(--tv-mono); letter-spacing: .08em; text-transform: uppercase; }
+.tv-plan__slot ul { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.tv-plan__slot--options h3::after { content: ' · alternatives'; }
+.tv-plan__item { display: grid; gap: .25rem; padding: .85rem 1rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-md, 10px); background: var(--tv-surface); }
+.tv-plan__item.has-time { grid-template-columns: 6.75rem 1fr; column-gap: .75rem; align-items: start; }
+.tv-plan__time { color: var(--tv-ink-soft); font: .72rem var(--tv-mono); padding-top: .15rem; }
+.tv-plan__item strong { display: block; font-size: .92rem; font-weight: 600; }
+.tv-plan__meta { color: var(--tv-muted); font-size: .72rem; }
+.tv-plan__tip { margin: .3rem 0 0; color: var(--tv-ink-soft); font-size: .8rem; font-style: italic; line-height: 1.5; }
+.tv-plan__tip a { color: var(--tv-ink); font-style: normal; font-size: .7rem; text-decoration: underline; text-underline-offset: 2px; }
+.tv-plan__empty { margin: auto; padding: 2rem; color: var(--tv-muted); font-size: .88rem; text-align: center; }
+
+/* Chat card: the doorway into the studio */
+.tv-trip-card { display: grid; gap: .8rem; width: 100%; padding: 1rem; border: 1px solid var(--tv-line-strong); border-radius: var(--tv-r-lg); background: var(--tv-surface); }
+.tv-trip-card__head { display: flex; gap: .75rem; align-items: flex-start; }
+.tv-trip-card__guide { flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.tv-trip-card__head h3 { margin: .25rem 0 .15rem; font: 400 1.4rem/1.1 var(--tv-serif); }
+.tv-trip-card__head p { margin: 0; color: var(--tv-muted); font-size: .78rem; }
+.tv-trip-card__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; }
+.tv-trip-card__actions > span { color: var(--tv-ink-soft); font-size: .78rem; }
+
+.tv-studio button:focus-visible, .tv-trip-card button:focus-visible { outline: 2px solid var(--tv-blue-fg); outline-offset: 2px; }
+
+/* ---- Tablet and phone --------------------------------------------------- */
+@media (max-width: 1023px) { .tv-studio__live { display: none; } }
+@media (max-width: 900px) { .tv-studio__reset { display: none; } }
+@media (max-width: 767px) {
+  /* One row: icon-only back, the title and dates each on one ellipsised line, then the actions. */
+  .tv-studio__bar { gap: .5rem; min-height: 56px; }
+  .tv-studio__back { flex: none; }
+  .tv-studio__back-label { display: none; }
+  .tv-studio__title { flex: 1; }
+  .tv-studio__title h1 { font-size: 1.1rem; }
+  .tv-studio__title .tv-meta { font-size: .62rem; }
+  .tv-studio__bar .tv-app__bar-spacer { display: none; }
+  .tv-studio__toolbar { gap: .5rem; overflow-x: auto; scrollbar-width: none; }
+  .tv-studio__tabs [role='tab'], .tv-studio__windows button { padding: 0 .65rem; }
+}
+/* Very narrow: the panel toggles keep their icons and accessible names but drop the visible label. */
+@media (max-width: 420px) {
+  .tv-studio__windows button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv-studio__live i { animation: none; }
+  .tv-plan__daycard, .tv-studio__days button { transition: none; }
+  .tv-plan__daycard:hover, .tv-plan__daycard:active { transform: none; }
+}
+
+/* While the studio is open the chat stays mounted (scroll, drafts and streams survive) but
+   is hidden from sight, focus and assistive tech. The budget overlay stays reachable. */
+.tv-create.is-studio > aside:not(.tv-budget), .tv-create.is-studio > .tv-chat { visibility: hidden; }

@@ -1,0 +1,201 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@import "./styles/home.css";
+
+/* v2 marketing redesign — scoped under .tv2, see pathfinder-v2.css */
+@import "./styles/pathfinder-v2.css";
+@import "./styles/pathfinder-v2-components.css";
+@import "./styles/pathfinder-v2-app.css";
+@import "./styles/pathfinder-v2-planner.css";
+@import "./styles/spatial-workspace.css";
+
+@layer base {
+  :root {
+    --font-grand-hero: 'Jockey One', system-ui, sans-serif;
+    --font-display: 'Lato', system-ui, sans-serif;
+    --font-ui: 'Lato', system-ui, sans-serif;
+    --font-body: 'Lato', system-ui, sans-serif;
+
+    --color-white: #ffffff;
+    --color-gray: #d9d9d9;
+    --color-black: #1f1e1e;
+    --color-muted: #737373;
+
+    --bg-primary: #ffffff;
+    --bg-surface: #f9f9f9;
+    --text-primary: #1f1e1e;
+    --text-secondary: rgba(31, 30, 30, 0.7);
+    --border-primary: #d9d9d9;
+
+    /* Application Visual Redesign Theme Tokens (Light) */
+    --app-bg: #ffffff;
+    --app-text: #1f1e1e;
+    --app-border: #1f1e1e;
+    --app-grid: #d9d9d9;
+    --app-surface: #ffffff;
+    --app-shadow: #1f1e1e;
+  }
+
+  .dark {
+    --bg-primary: #1f1e1e;
+    --bg-surface: #151515;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --border-primary: #333333;
+
+    /* Application Visual Redesign Theme Tokens (Dark) */
+    --app-bg: #1f1e1e;
+    --app-text: #ffffff;
+    --app-border: #d9d9d9;
+    --app-grid: #d9d9d9;
+    --app-surface: #151515;
+    --app-shadow: #000000;
+  }
+
+  /*
+   * Sharp Edges Constraint (border-radius = 0).
+   *
+   * Scoped to `.sharp-ui` rather than applied globally: the v2 home redesign
+   * (`.tv2`) uses a soft-radius minimal system and cannot live under an
+   * `!important` zero-radius reset. Legacy surfaces opt in via `.sharp-ui`.
+   */
+  .sharp-ui,
+  .sharp-ui *,
+  .sharp-ui *::before,
+  .sharp-ui *::after,
+  .sharp-ui button,
+  .sharp-ui input,
+  .sharp-ui select,
+  .sharp-ui textarea,
+  .sharp-ui dialog,
+  .sharp-ui [role="dialog"],
+  .sharp-ui [role="button"],
+  .sharp-ui [role="menu"],
+  .sharp-ui [role="tab"] {
+    border-radius: 0 !important;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-body);
+    letter-spacing: -0.01em;
+  }
+
+  button, input, select, textarea, nav, [role="tab"] {
+    font-family: var(--font-body);
+  }
+
+  /* Default Button Hover Animation across the Entire Application */
+  button,
+  [role="button"],
+  .btn,
+  .button {
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+  }
+
+  /* Legacy tactile lift — scoped so the v2 redesign controls its own feedback. */
+  .sharp-ui button:hover:not(:disabled),
+  .sharp-ui [role="button"]:hover:not(:disabled),
+  .sharp-ui .btn:hover:not(:disabled),
+  .sharp-ui .button:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .sharp-ui button:active:not(:disabled),
+  .sharp-ui [role="button"]:active:not(:disabled),
+  .sharp-ui .btn:active:not(:disabled),
+  .sharp-ui .button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+/* Only the Grand Hero Heading retains Jockey One */
+.home-display,
+.font-grand-hero {
+  font-family: var(--font-grand-hero) !important;
+}
+
+/* All other sections, headings, UI controls, forms, and pages use Lato */
+.font-display,
+.font-ui,
+.font-body {
+  font-family: var(--font-body) !important;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(31, 30, 30, 0.08);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(31, 30, 30, 0.35);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(31, 30, 30, 0.55);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Hard-edged physical depth and tactile control utilities (Zero Gradients, Zero Blur) */
+.shadow-tactile-sm {
+  box-shadow: 2px 2px 0px #1F1E1E;
+}
+.dark .shadow-tactile-sm {
+  box-shadow: 2px 2px 0px #000000;
+}
+
+.shadow-tactile {
+  box-shadow: 3px 3px 0px #1F1E1E;
+}
+.dark .shadow-tactile {
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.shadow-tactile-lg {
+  box-shadow: 4px 4px 0px #1F1E1E;
+}
+.dark .shadow-tactile-lg {
+  box-shadow: 4px 4px 0px #000000;
+}
+
+/* Tactile physical button interaction */
+.btn-tactile {
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease !important;
+}
+.btn-tactile:hover:not(:disabled) {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px #1F1E1E !important;
+}
+.dark .btn-tactile:hover:not(:disabled) {
+  box-shadow: 4px 4px 0px #000000 !important;
+}
+.btn-tactile:active:not(:disabled) {
+  transform: translate(0, 0) !important;
+  box-shadow: 1px 1px 0px #1F1E1E !important;
+}
+.dark .btn-tactile:active:not(:disabled) {
+  box-shadow: 1px 1px 0px #000000 !important;
+}
+

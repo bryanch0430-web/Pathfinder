@@ -1,0 +1,44 @@
+/* TripConditions: weather, holidays and money in the studio's info rail. Tokens from pathfinder-v2. */
+.tv-cond { display: grid; gap: 1.25rem; min-width: 0; color: var(--tv-ink); }
+.tv-cond__block { display: grid; gap: .55rem; min-width: 0; }
+.tv-cond h3 { margin: 0; color: var(--tv-muted); font: .66rem var(--tv-mono); letter-spacing: .08em; text-transform: uppercase; }
+
+.tv-cond__days { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.tv-cond__day { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: 'glyph when figures' 'glyph label label';
+  align-items: center; column-gap: .6rem; row-gap: .15rem; width: 100%; padding: .55rem .6rem; border: 1px solid transparent;
+  border-radius: var(--tv-r-md, 8px); background: none; color: inherit; font: inherit; text-align: left; }
+button.tv-cond__day { cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+button.tv-cond__day[aria-pressed='true'] { border-color: var(--tv-line-strong); background: var(--tv-canvas-warm); }
+button.tv-cond__day:focus-visible { outline: 2px solid var(--tv-ink); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { button.tv-cond__day:hover { background: var(--tv-canvas-warm); } }
+.tv-cond__glyph { grid-area: glyph; align-self: start; width: 22px; height: 22px; margin-top: .1rem; color: var(--tv-ink-soft); }
+.tv-cond__day[data-tone='warn'] .tv-cond__glyph { color: var(--tv-yellow-fg); }
+.tv-cond__day[data-tone='good'] .tv-cond__glyph { color: var(--tv-green-fg); }
+.tv-cond__when, .tv-cond__figures { display: grid; min-width: 0; }
+.tv-cond__when { grid-area: when; }
+.tv-cond__figures { grid-area: figures; justify-items: end; font-variant-numeric: tabular-nums; }
+.tv-cond__when strong, .tv-cond__figures strong { font-size: .82rem; font-weight: 600; }
+.tv-cond__when small, .tv-cond__figures small { color: var(--tv-muted); font-size: .7rem; white-space: nowrap; }
+.tv-cond__label { grid-area: label; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; color: var(--tv-faint); font: .6rem var(--tv-mono); letter-spacing: .04em; }
+.tv-cond__label em { padding: .1rem .4rem; border-radius: 999px; background: var(--tv-canvas-warm); color: var(--tv-ink-soft); font-style: normal; }
+.tv-cond__day[data-tone='warn'] .tv-cond__label em { background: var(--tv-yellow-bg); color: var(--tv-yellow-fg); }
+.tv-cond__day[data-tone='good'] .tv-cond__label em { background: var(--tv-green-bg); color: var(--tv-green-fg); }
+
+.tv-cond__notes { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.tv-cond__notes li { padding: .55rem .7rem; border-left: 2px solid var(--tv-line-strong); border-radius: 0 var(--tv-r-sm, 4px) var(--tv-r-sm, 4px) 0;
+  background: var(--tv-canvas-warm); color: var(--tv-ink-soft); font-size: .76rem; line-height: 1.5; }
+.tv-cond__notes li[data-tone='warn'] { border-left-color: var(--tv-yellow-fg); }
+.tv-cond__notes li[data-tone='good'] { border-left-color: var(--tv-green-fg); }
+.tv-cond__notes li[data-tone='info'] { border-left-color: var(--tv-blue-fg); }
+.tv-cond__notes b { display: block; margin-bottom: .1rem; color: var(--tv-ink); font: 600 .66rem var(--tv-mono); letter-spacing: .04em; text-transform: uppercase; }
+
+.tv-cond__rates { display: grid; gap: .3rem; margin: 0; }
+.tv-cond__rates div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: .3rem; border-bottom: 1px solid var(--tv-line); }
+.tv-cond__rates dt, .tv-cond__rates dd { margin: 0; font: .76rem var(--tv-mono); font-variant-numeric: tabular-nums; }
+.tv-cond__rates dd { color: var(--tv-ink-soft); }
+.tv-cond__fine { margin: 0; color: var(--tv-muted); font-size: .68rem; line-height: 1.45; }
+
+.tv-cond__credits { margin: 0; padding-top: .75rem; border-top: 1px solid var(--tv-line); color: var(--tv-faint); font: .58rem/1.6 var(--tv-mono); }
+.tv-cond__credits a { color: var(--tv-muted); text-decoration: underline; text-underline-offset: 2px; }
+.tv-cond__credits a:hover { color: var(--tv-ink); }
+@media (prefers-reduced-motion: reduce) { button.tv-cond__day { transition: none; } }

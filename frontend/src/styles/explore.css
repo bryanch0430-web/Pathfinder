@@ -1,0 +1,495 @@
+/* ==========================================================================
+   Pathfinder — Explore Page Styling (Persistent Margins & Side Border Framing)
+   ========================================================================== */
+
+.explore-page {
+  --explore-display: clamp(4.5rem, 15vw, 17.5rem);
+  --explore-title-lg: clamp(2rem, 4vw, 4.25rem);
+  --explore-title-md: clamp(1.5rem, 2.5vw, 2.5rem);
+  --explore-body: clamp(0.95rem, 1.35vw, 1.35rem);
+
+  background-color: var(--color-white, #ffffff);
+  color: var(--color-black, #1f1e1e);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Outer frame wrapper for persistent left/right margins and side borders */
+.explore-frame {
+  width: min(100%, var(--home-max, 116.875rem));
+  margin-inline: auto;
+  padding-inline: var(--home-gutter, clamp(1.25rem, 2.67vw, 3.125rem));
+  border-left: 1px solid rgba(31, 30, 30, 0.08);
+  border-right: 1px solid rgba(31, 30, 30, 0.08);
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   HORIZONTAL SCROLL SHOWCASE
+   ========================================================================== */
+
+.explore-horizontal-section {
+  padding-block: clamp(3.5rem, 7vw, 6rem);
+  background-color: var(--color-black, #1f1e1e);
+  color: var(--color-white, #ffffff);
+  overflow: hidden;
+}
+
+.explore-horizontal-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: clamp(1.75rem, 3.5vw, 3rem);
+}
+
+.explore-horizontal-title {
+  font-family: var(--font-display, "Jockey One", sans-serif);
+  font-size: var(--explore-title-lg);
+  line-height: 0.88;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--color-white, #ffffff);
+}
+
+.explore-horizontal-hint {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.explore-horizontal-track {
+  display: flex;
+  gap: clamp(1rem, 2vw, 2rem);
+  overflow-x: auto;
+  padding-bottom: 1.25rem;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.explore-horizontal-track::-webkit-scrollbar {
+  height: 4px;
+}
+
+.explore-horizontal-track::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.explore-horizontal-card {
+  flex: 0 0 clamp(18rem, 32vw, 26rem);
+  height: clamp(24rem, 38vw, 32rem);
+  position: relative;
+  overflow: hidden;
+  scroll-snap-align: start;
+  cursor: pointer;
+  background-color: #2b2929;
+}
+
+.explore-horizontal-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.explore-horizontal-card:hover .explore-horizontal-card__img {
+  transform: scale(1.06);
+}
+
+.explore-horizontal-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(31, 30, 30, 0) 35%,
+    rgba(31, 30, 30, 0.9) 100%
+  );
+}
+
+.explore-horizontal-card__content {
+  position: absolute;
+  inset: 0;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: #ffffff;
+}
+
+.explore-horizontal-card__tag {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.4rem;
+}
+
+.explore-horizontal-card__name {
+  font-family: var(--font-display, "Jockey One", sans-serif);
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  margin: 0;
+  margin-bottom: 0.5rem;
+}
+
+.explore-horizontal-card__desc {
+  font-family: var(--font-body, sans-serif);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+/* ==========================================================================
+   CATEGORY FILTER TABS
+   ========================================================================== */
+
+.explore-filter {
+  padding-block: clamp(2rem, 3.5vw, 3rem);
+  border-bottom: 1px solid rgba(31, 30, 30, 0.12);
+  background-color: var(--color-white, #ffffff);
+  position: relative;
+  z-index: 10;
+}
+
+.explore-filter__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.explore-filter__tabs {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2.5vw, 2.5rem);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.explore-filter__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.explore-filter__btn {
+  background: transparent;
+  border: none;
+  font-family: var(--font-ui, sans-serif);
+  font-size: clamp(0.9rem, 1.1vw, 1.15rem);
+  font-weight: 500;
+  color: rgba(31, 30, 30, 0.55);
+  cursor: pointer;
+  padding-block: 0.5rem;
+  white-space: nowrap;
+  position: relative;
+  transition: color 0.25s ease;
+}
+
+.explore-filter__btn:hover {
+  color: var(--color-black, #1f1e1e);
+}
+
+.explore-filter__btn--active {
+  color: var(--color-black, #1f1e1e);
+  font-weight: 700;
+}
+
+.explore-filter__btn--active::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--color-black, #1f1e1e);
+}
+
+.explore-filter__count {
+  font-family: var(--font-ui, sans-serif);
+  font-size: clamp(0.85rem, 1vw, 1rem);
+  font-weight: 600;
+  color: rgba(31, 30, 30, 0.45);
+}
+
+/* ==========================================================================
+   EDITORIAL GALLERY GRID
+   ========================================================================== */
+
+.explore-grid-section {
+  padding-block: clamp(2.5rem, 5vw, 5rem);
+  background-color: var(--color-white, #ffffff);
+}
+
+.explore-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: clamp(1rem, 2vw, 2rem);
+}
+
+.explore-card {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-gray, #d9d9d9);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 0;
+}
+
+.explore-card--span-8 {
+  grid-column: span 8;
+  min-height: clamp(26rem, 42vw, 38rem);
+}
+
+.explore-card--span-4 {
+  grid-column: span 4;
+  min-height: clamp(26rem, 42vw, 38rem);
+}
+
+.explore-card--span-6 {
+  grid-column: span 6;
+  min-height: clamp(22rem, 34vw, 32rem);
+}
+
+.explore-card--span-12 {
+  grid-column: span 12;
+  min-height: clamp(28rem, 46vw, 40rem);
+}
+
+.explore-card__image-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.explore-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.explore-card:hover .explore-card__image {
+  transform: scale(1.05);
+}
+
+.explore-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(31, 30, 30, 0) 30%,
+    rgba(31, 30, 30, 0.85) 100%
+  );
+  transition: opacity 0.3s ease;
+}
+
+.explore-card__content {
+  position: relative;
+  z-index: 5;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  color: var(--color-white, #ffffff);
+}
+
+.explore-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-ui, sans-serif);
+  font-size: clamp(0.75rem, 0.9vw, 0.95rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  opacity: 0.85;
+}
+
+.explore-card__title {
+  font-family: var(--font-display, "Jockey One", sans-serif);
+  font-size: var(--explore-title-md);
+  line-height: 0.95;
+  text-transform: uppercase;
+  margin: 0;
+  margin-bottom: 0.75rem;
+  color: var(--color-white, #ffffff);
+}
+
+.explore-card__description {
+  font-family: var(--font-body, sans-serif);
+  font-size: clamp(0.9rem, 1.1vw, 1.1rem);
+  line-height: 1.45;
+  max-width: 45ch;
+  margin-bottom: 1.25rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.explore-card__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1.4rem;
+  background-color: var(--color-white, #ffffff);
+  color: var(--color-black, #1f1e1e);
+  border-radius: 9999px;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid var(--color-white, #ffffff);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.explore-card:hover .explore-card__action {
+  background-color: var(--color-black, #1f1e1e);
+  color: var(--color-white, #ffffff);
+  border-color: var(--color-black, #1f1e1e);
+}
+
+/* ==========================================================================
+   FEATURED SPOTLIGHT SPREAD
+   ========================================================================== */
+
+.explore-spotlight {
+  padding-block: clamp(4rem, 8vw, 7rem);
+  background-color: var(--color-black, #1f1e1e);
+  color: var(--color-white, #ffffff);
+  position: relative;
+  overflow: hidden;
+}
+
+.explore-spotlight__grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: clamp(2rem, 4vw, 4rem);
+  align-items: center;
+}
+
+.explore-spotlight__media {
+  grid-column: span 7;
+  position: relative;
+  height: clamp(22rem, 38vw, 34rem);
+  overflow: hidden;
+}
+
+.explore-spotlight__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.explore-spotlight__info {
+  grid-column: span 5;
+}
+
+.explore-spotlight__tag {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-white, #ffffff);
+  opacity: 0.7;
+  margin-bottom: 1rem;
+}
+
+.explore-spotlight__title {
+  font-family: var(--font-display, "Jockey One", sans-serif);
+  font-size: var(--explore-title-lg);
+  line-height: 0.88;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  color: var(--color-white, #ffffff);
+}
+
+.explore-spotlight__text {
+  font-family: var(--font-body, sans-serif);
+  font-size: var(--explore-body);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 2.25rem;
+}
+
+.explore-spotlight__stats {
+  display: flex;
+  gap: 2.5rem;
+  margin-bottom: 2.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 1.5rem;
+}
+
+.explore-spotlight__stat-val {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.explore-spotlight__stat-lbl {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.explore-spotlight__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.85rem;
+  background-color: var(--color-white, #ffffff);
+  color: var(--color-black, #1f1e1e);
+  border-radius: 9999px;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--color-white, #ffffff);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.explore-spotlight__cta:hover {
+  background-color: transparent;
+  color: var(--color-white, #ffffff);
+}
+
+/* ==========================================================================
+   RESPONSIVE ADAPTATIONS
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .explore-card--span-8,
+  .explore-card--span-4,
+  .explore-card--span-6,
+  .explore-card--span-12 {
+    grid-column: span 12;
+    min-height: 22rem;
+  }
+
+  .explore-spotlight__media,
+  .explore-spotlight__info {
+    grid-column: span 12;
+  }
+
+  .explore-spotlight__media {
+    height: 20rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .explore-card {
+    min-height: 18rem;
+  }
+
+  .explore-spotlight__stats {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}

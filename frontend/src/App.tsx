@@ -1,1079 +1,211 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppHeader,
-  AuthDialog,
-  Banner,
-  ChatPanel,
-  GuideNotes,
-  LoadingScreen,
-  MAIN_PANEL_ID,
-  MapPanel,
-  BudgetPanel,
-  ExchangePanel,
-  PlanLanguageBanner,
-  PlannerTemplate,
-  ShareDialog,
-  StatusSummary,
-  Text,
-  TrendingRail,
-  TripPanel,
-  TripWorkspace,
-  VideoNotes,
-  appTabId,
-  isHotelScope,
-  onTablistKeyDown,
-  useModalBehaviour,
-  type AppTab,
-  type AuthUser,
-  type FxSnapshot,
-  type GuideChunk,
-  type TrendingPlace,
-  type TrendingTrace,
-} from "./design-system";
-import { Icon } from "./design-system/icons";
-import {
-  ApiError,
-  claimSession,
-  getFx,
-  getGuides,
-  getPlanCalendar,
-  getTrending,
-  getVersions,
-  login,
-  me,
-  register,
-  revokeShare,
-  shareSession,
-  suggestPlaces,
-} from "./lib/api";
-import { downloadPlanCalendar, downloadPlanFile } from "./lib/export";
-import { downloadPlanSketch } from "./lib/sketchFile";
-import { describeFailure, failureOf, type Failure } from "./lib/failure";
-import { downloadPlanSlides } from "./lib/slides";
-import { offersSignIn } from "./lib/access";
-import { useI18n, type Locale } from "./lib/i18n";
-import { loadLocalAdmin, useLocalAdmin } from "./lib/localAdmin";
-import { planLocaleFor } from "./lib/planLocale";
-import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } from "./lib/storage";
-import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
-import { usePathfinder } from "./lib/usePathfinder";
-import { EvaluationPage, SavedPage, SettingsPage, TravellerProfileTool } from "./app/pages";
-import { CasesPage } from "./app/cases";
-import { DeskPage } from "./app/learn";
-import { showsAdmin } from "./lib/access";
-import { Sketchbook } from "./design-system/sketch/Sketchbook";
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { Companion } from './components/guide/Companion';
+import { RouteCurtain, type RouteCurtainHandle } from './components/common/RouteCurtain';
+import { HomeV2 } from './components/home/v2/HomeV2';
+import { FooterV2 } from './components/home/v2/FooterV2';
+import { useAuth } from './context/AuthContext';
 
-const ADMIN_TABS = new Set<AppTab>(["evaluation", "cases", "settings"]);
-const HASH_TAB: Record<string, AppTab> = {
-  plan: "plan",
-  saved: "saved",
-  evaluation: "evaluation",
-  cases: "cases",
-  settings: "settings",
+// Home is the landing page and ships in the main bundle. Every other page loads on demand,
+// so `/` doesn't pay for the planner, the studio or the chat's markdown renderer.
+// `transitionTo` calls the same loaders as the curtain rises, so the chunk is usually in before the swap.
+const LOADERS = {
+  explore: () => import('./pages/Explore').then((m) => ({ default: m.Explore })),
+  create: () => import('./pages/CreateTrip').then((m) => ({ default: m.CreateTrip })),
+  login: () => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })),
+  signup: () => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })),
+  'reset-password': () => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
+  profile: () => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+  trips: () => import('./pages/TripLibrary').then((m) => ({ default: m.TripLibrary })),
+  guide: () => import('./pages/GuidePage').then((m) => ({ default: m.GuidePage })),
+  credits: () => import('./pages/Credits').then((m) => ({ default: m.CreditsPage })),
+};
+const Explore = React.lazy(LOADERS.explore);
+const CreateTrip = React.lazy(LOADERS.create);
+const LoginPage = React.lazy(LOADERS.login);
+const SignupPage = React.lazy(LOADERS.signup);
+const ResetPasswordPage = React.lazy(LOADERS['reset-password']);
+const ProfilePage = React.lazy(LOADERS.profile);
+const TripLibrary = React.lazy(LOADERS.trips);
+const GuidePage = React.lazy(LOADERS.guide);
+const CreditsPage = React.lazy(LOADERS.credits);
+
+type ViewState = 'home' | keyof typeof LOADERS;
+
+const VIEW_LABELS: Record<ViewState, string> = {
+  home: 'Home',
+  explore: 'Explore',
+  create: 'Planner',
+  login: 'Sign in',
+  signup: 'Create account',
+  'reset-password': 'Reset password',
+  profile: 'Account',
+  trips: 'Your trips',
+  guide: 'Guide',
+  credits: 'Credits',
 };
 
-/** The share dialog: the link for one trip, from creation until it is turned off. */
-interface ShareState {
-  open: boolean;
-  sessionId: string | null;
-  url: string | null;
-  expiresAt: string | null;
-  loading: boolean;
-  copied: boolean;
-  revoked: boolean;
-  revoking: boolean;
-  /** Kept as a message key, so that a language switch translates it too. */
-  error: Failure | null;
-}
-
-const CLOSED_SHARE: ShareState = {
-  open: false,
-  sessionId: null,
-  url: null,
-  expiresAt: null,
-  loading: false,
-  copied: false,
-  revoked: false,
-  revoking: false,
-  error: null,
+const getViewFromPath = (): ViewState => {
+  if (typeof window === 'undefined') return 'home';
+  const path = window.location.pathname.toLowerCase();
+  if (path === '/explore') return 'explore';
+  if (path === '/create') return 'create';
+  if (path === '/login') return 'login';
+  if (path === '/signup') return 'signup';
+  if (path === '/reset-password') return 'reset-password';
+  if (path === '/profile') return 'profile';
+  if (path === '/trips') return 'trips';
+  if (path.startsWith('/trips/')) return 'create'; // Trip Studio lives inside the planner
+  if (path === '/guide') return 'guide';
+  if (path === '/credits') return 'credits';
+  return 'home';
 };
 
-/**
- * The label a new tab is stored with. It is saved in `pathfinder.trips`, so it
- * stays in English there and is translated only when shown.
- */
-const UNTITLED_TRIP = "Untitled trip";
+export const App: React.FC = () => {
+  const [view, setView] = useState<ViewState>(getViewFromPath);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const { user, loading: authLoading } = useAuth();
+  const curtain = useRef<RouteCurtainHandle>(null);
 
-/** The plan area under the trip tabs is their tabpanel, labelled by the selected tab. */
-const TRIP_PANEL_ID = "pf-trip-panel";
-const tripTabId = (id: string) => `pf-trip-tab-${id}`;
-
-function tabFromHash(): AppTab {
-  const hash = window.location.hash.replace("#", "");
-  return HASH_TAB[hash] ?? "plan";
-}
-
-export default function App() {
-  const { locale, setLocale, t } = useI18n();
-  const pf = usePathfinder(locale);
-  // EN keeps the plan in English. 简 and 繁 translate the interface and the plan.
-  const changeLocale = (value: string) => {
-    setLocale(value);
-    const planLocale = planLocaleFor(value as Locale);
-    if (planLocale !== pf.planLocale) void pf.setPlanLocale(planLocale);
-  };
-  // Exports carry the disclaimer whenever they carry translated text.
-  const planDisclaimer =
-    pf.planLocale !== "en" && pf.translation?.status === "translated"
-      ? pf.translation.disclaimer?.trim() || t("planLang.disclaimer")
-      : "";
-  const languageBanner =
-    pf.planLocale === "en" ? null : (
-      <PlanLanguageBanner
-        disclaimer={pf.translation?.disclaimer || t("planLang.disclaimer")}
-        notice={pf.languageNotice}
-        reason={pf.translation?.reason}
-      />
-    );
-  const [tab, setTab] = useState<AppTab>(tabFromHash);
-  const [deskOpen, setDeskOpen] = useState(() => window.location.hash.replace("#", "") === "desk");
-  const [deskFocus, setDeskFocus] = useState(false);
-  const [mapDay, setMapDay] = useState<string>("");
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [dark, setDark] = useState(() => {
-    try {
-      return localStorage.getItem("pathfinder-theme") === "dark";
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    document.documentElement.classList.toggle("is-dark", dark);
-    try {
-      localStorage.setItem("pathfinder-theme", dark ? "dark" : "light");
-    } catch {
-      /* the theme still applies for this visit */
-    }
-  }, [dark]);
-  // Counts the requests to put the cursor in the chat box (the plan's question is answered there).
-  const [composerFocus, setComposerFocus] = useState(0);
-  const [trending, setTrending] = useState<TrendingPlace[]>([]);
-  const [trendingTrace, setTrendingTrace] = useState<TrendingTrace | null>(null);
-  const [trendingLoading, setTrendingLoading] = useState(true);
-  const [trendingError, setTrendingError] = useState<Failure | null>(null);
-  const [trendingInput, setTrendingInput] = useState("");
-  const [trendingQuery, setTrendingQuery] = useState("");
-  const [fx, setFx] = useState<FxSnapshot | null>(null);
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  // Counts the changes of who the page acts as (sign-in, sign-out, a sign-in that ended). What the page shows for an
-  // identity is keyed by it, so the next person on a shared computer never reads the last one's lists.
-  const [identityEpoch, setIdentityEpoch] = useState(0);
-  // The account menu shows the sign-in the browser holds now: it is asked for when the page opens and whenever the
-  // sign-in changes, in this window or in another.
-  const authTicket = useRef(0);
-  const syncAuthUser = useCallback(() => {
-    const ticket = ++authTicket.current;
-    if (!readStoredValue("auth")) {
-      setAuthUser(null);
-      return;
-    }
-    void me()
-      .then((data) => {
-        if (ticket === authTicket.current) setAuthUser(data.user);
-      })
-      .catch((cause) => {
-        // Only the server saying the sign-in is no longer valid signs the traveller out; an
-        // outage or a slow answer keeps the stored sign-in for the next try.
-        if (ticket !== authTicket.current || !(cause instanceof ApiError && cause.status === 401)) return;
-        // A `user:` profile token is refused without its bearer, so fall back to the guest token.
-        forgetSignIn();
-      });
-  }, []);
-  useEffect(
-    () =>
-      subscribeIdentity((change) => {
-        syncAuthUser();
-        setIdentityEpoch((count) => count + 1);
-        // Signed out in another window: the trip this window shows may be the account's, which it can no longer open, and
-        // every action on it would fail. The window starts again the way a log-out here does. A sign-in that ended here
-        // keeps its banner, and the window that signed out reloads by itself.
-        if (change === "elsewhere" && !readStoredValue("auth")) void pf.reload();
-      }),
-    [syncAuthUser, pf.reload],
-  );
-  const [authOpen, setAuthOpen] = useState(false);
-  // Local admin mode (the owner's own machine): no sign-in or registration is offered. Log out stays in the account
-  // menu while a sign-in from before is stored.
-  const localAdmin = useLocalAdmin();
-  const signIn = offersSignIn(localAdmin);
-  const storedAdmin = Boolean(readStoredValue("admin"));
-  const [adminSettled, setAdminSettled] = useState(storedAdmin);
-  useEffect(() => {
-    if (readStoredValue("admin")) {
-      setAdminSettled(true);
-      return;
-    }
-    void loadLocalAdmin().finally(() => setAdminSettled(true));
-  }, []);
-  const showDesk = showsAdmin(localAdmin, readStoredValue("admin"));
-  const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
-  const [guides, setGuides] = useState<GuideChunk[]>([]);
-  const [guidesLoading, setGuidesLoading] = useState(false);
-  // The tabs live in the browser store, shared with every other window of this browser.
-  const [trips, setTrips] = useState<Trip[]>(readTrips);
-  useEffect(() => subscribeTrips(setTrips), []);
-
-  // The rail follows the destination being typed in the trip form, but asks again only once the typing has stopped.
-  const typedDestination = pf.context.destination || "";
-  const [trendingDestination, setTrendingDestination] = useState(typedDestination);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setTrendingDestination(typedDestination), 500);
-    return () => window.clearTimeout(timer);
-  }, [typedDestination]);
-
-  // Only the latest ask is shown, so an answer meant for the identity that has gone cannot come back.
-  const trendingTicket = useRef(0);
-  const loadTrending = useCallback(async () => {
-    const ticket = ++trendingTicket.current;
-    setTrendingLoading(true);
-    setTrendingError(null);
-    try {
-      const data = await getTrending(trendingQuery, {
-        clientToken: readStoredValue("client") || "",
-        destination: trendingDestination,
-      });
-      if (ticket !== trendingTicket.current) return;
-      setTrending(data.items ?? []);
-      setTrendingTrace(data.trace ?? null);
-    } catch (cause) {
-      if (ticket !== trendingTicket.current) return;
-      setTrending([]);
-      setTrendingError(failureOf(cause, "errors.trending"));
-    } finally {
-      if (ticket === trendingTicket.current) setTrendingLoading(false);
-    }
-  }, [trendingQuery, trendingDestination, identityEpoch]);
-
-  // The list was ranked for the identity that has gone: it is dropped, and the effect below asks again.
-  useEffect(() => {
-    setTrending([]);
-    setTrendingTrace(null);
-  }, [identityEpoch]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setTrendingQuery(trendingInput), 300);
-    return () => window.clearTimeout(timer);
-  }, [trendingInput]);
-
-  useEffect(() => {
-    void loadTrending();
-  }, [loadTrending]);
-
-  useEffect(() => {
-    void getFx("HKD")
-      .then(setFx)
-      .catch(() => setFx(null));
+  // Every route change runs through the shared curtain transition.
+  const transitionTo = useCallback((next: ViewState) => {
+    const swap = () => {
+      setView(next);
+      // The outgoing page's pins and triggers are gone; re-measure the new one.
+      requestAnimationFrame(() => ScrollTrigger.refresh());
+    };
+    if (next !== 'home') void LOADERS[next]();
+    if (!curtain.current) return swap();
+    curtain.current.play(VIEW_LABELS[next], swap);
   }, []);
 
-  useEffect(() => {
-    if (!pf.plan) {
-      setGuides([]);
-      return;
+  const navigateTo = (newView: ViewState) => {
+    if (newView === view) return;
+    const targetPath = newView === 'home' ? '/' : `/${newView}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
     }
-    const destination = pf.plan.destination.name;
-    // Only the latest ask is shown: the notes of the trip that was open before arrive late and are not this one's.
-    let cancelled = false;
-    setGuidesLoading(true);
-    void getGuides(destination, pf.context.preferences.join(" "))
-      .then((data) => {
-        if (!cancelled) setGuides(data.items);
-      })
-      .catch(() => {
-        if (!cancelled) setGuides([]);
-      })
-      .finally(() => {
-        if (!cancelled) setGuidesLoading(false);
-      });
-    return () => {
-      cancelled = true;
+    transitionTo(newView);
+  };
+
+  useEffect(() => {
+    // Chat <-> studio history steps stay inside the planner: no page curtain for them.
+    const handlePopState = () => {
+      const next = getViewFromPath();
+      if (next !== viewRef.current) transitionTo(next);
     };
-  }, [pf.plan?.destination.name, pf.context.preferences]);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [transitionTo]);
 
   useEffect(() => {
-    syncAuthUser();
-  }, [syncAuthUser]);
-
-  // The open trip whose tab this window has seen: if the tab then goes missing, another window may have scrapped the trip.
-  const seenTab = useRef<string | null>(null);
-
-  // The destination of the plan this window shows. It is the label of the open trip's tab.
-  const planName = pf.plan?.destination.name;
-  const planNameRef = useRef(planName);
-  planNameRef.current = planName;
-
-  // The label follows the plan this window shows, and only a change of that plan here writes it. It is never a
-  // reaction to the list changing: another window may show an older plan of the same trip, and two windows that
-  // each put back their own name would rewrite each other's label for ever.
-  useEffect(() => {
-    const activeId = pf.sessionId;
-    if (!activeId || !planName) return;
-    writeTrips((current) =>
-      current.map((trip) => (trip.id === activeId && trip.label !== planName ? { ...trip, label: planName } : trip)),
-    );
-  }, [pf.sessionId, planName]);
-
-  // The open trip always has its tab. This runs again whenever the list changes, so a tab that another window's
-  // write or a cleared store took away comes back. A tab that is there is left as it is.
-  useEffect(() => {
-    const activeId = pf.sessionId;
-    if (!activeId) return;
-    if (trips.some((trip) => trip.id === activeId)) {
-      seenTab.current = activeId;
-      return;
+    if (view === 'profile' && !authLoading && !user) {
+      window.history.replaceState({}, '', '/login');
+      transitionTo('login');
     }
-    const putBack = () =>
-      writeTrips((current) =>
-        current.some((trip) => trip.id === activeId)
-          ? current
-          : [...current, { id: activeId, label: planNameRef.current || UNTITLED_TRIP }],
-      );
-    if (seenTab.current !== activeId) {
-      putBack();
-      return;
-    }
-    // The tab was there and is gone. A trip that another window scrapped is left for the next tab instead of
-    // coming back as a tab; when the trip is still there, only the list lost it, and the tab is put back.
-    let cancelled = false;
-    getVersions(activeId).then(
-      () => false,
-      (cause) => cause instanceof ApiError && cause.status === 404,
-    ).then((gone) => {
-      if (cancelled) return;
-      if (gone) void scrapActiveTrip(false);
-      else putBack();
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pf.sessionId, trips]);
-
-  // The button that scrapped a trip is gone with it, and focus would fall to the page: it goes to the tab of the trip that
-  // takes over once that is shown.
-  const focusTabOfNextTrip = useRef(false);
-  useEffect(() => {
-    if (!focusTabOfNextTrip.current || !pf.sessionId) return;
-    focusTabOfNextTrip.current = false;
-    document.getElementById(tripTabId(pf.sessionId))?.focus();
-  }, [pf.sessionId]);
-
-  const scrapActiveTrip = async (ask = true) => {
-    const id = pf.sessionId;
-    if (!id || (ask && !window.confirm(t("plan.scrapConfirm")))) return;
-    // The trip is deleted first: when the server refuses, it keeps its tab and the page says so, and Retry scraps it again.
-    const outcome = await pf.scrapTrip(() => scrapActiveTrip(false));
-    if (outcome === "kept") return;
-    focusTabOfNextTrip.current = outcome === "gone";
-    const remaining = writeTrips((current) => current.filter((trip) => trip.id !== id));
-    // Already on another trip, which stays. Otherwise the next tab that still opens takes over, and a tab
-    // for a trip that is gone is dropped on the way.
-    if (outcome === "left") return;
-    for (const trip of remaining) {
-      // A tab that needs a sign-in stays in the bar but is not one to land on: the next tab is tried, and a new trip
-      // is made when none opens. Only a server that cannot be reached, or a newer ask of the traveller, ends it here.
-      const opened = await openTrip(trip.id);
-      if (opened !== "missing" && opened !== "needs-sign-in") return;
-    }
-    await createTripTab();
-  };
-
-  const openTrip = async (id: string) => {
-    // Only a trip the server has no record of for a signed-in traveller is dropped from the tabs. One
-    // that could not be reached, or that may belong to an account, stays for the next try.
-    const outcome = await pf.openSession(id);
-    if (outcome === "missing") writeTrips((current) => current.filter((trip) => trip.id !== id));
-    return outcome;
-  };
-
-  const createTripTab = async () => {
-    const id = await pf.newPlan();
-    // None was made: the page has said so, and the trip that was open stays.
-    if (!id) return null;
-    writeTrips((current) => (current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }]));
-    return id;
-  };
-
-  const planFileInput = useRef<HTMLInputElement>(null);
-  const openImportedPlan = async (file: File) => {
-    const id = await pf.importPlanFile(await file.text());
-    if (!id) return;
-    changeTab("plan");
-    writeTrips((current) => (current.some((trip) => trip.id === id) ? current : [...current, { id, label: UNTITLED_TRIP }]));
-  };
-
-  const handleAuth = async (
-    mode: "login" | "register",
-    email: string,
-    password: string,
-    displayName: string,
-  ) => {
-    const guestToken = readStoredValue("client") || "";
-    const payload = {
-      email,
-      password,
-      display_name: displayName,
-      client_token: guestToken,
-      session_id: pf.sessionId,
-    };
-    const result = mode === "login" ? await login(payload) : await register(payload);
-    // Only a sign-in the server accepted marks this browser as one that may hold an account's trips; a refused
-    // attempt leaves it a browser where a trip the server does not know is simply gone.
-    if (!readStoredValue("guest")) writeStoredValue("guest", guestToken);
-    writeStoredValue("auth", result.token);
-    writeStoredValue("client", result.profile_token);
-    setAuthUser(result.user);
-    setIdentityEpoch((count) => count + 1);
-    setAuthOpen(false);
-    if (pf.sessionId) {
-      try {
-        await claimSession(pf.sessionId, guestToken);
-      } catch {
-        // A new session will be created on the next plan if this one is gone.
-      }
-    }
-    await pf.reload();
-  };
-
-  const handleExportSketch = async () => {
-    if (!pf.plan) return;
-    try {
-      await downloadPlanSketch(pf.plan);
-    } catch {
-      window.alert(t("errors.sketch"));
-    }
-  };
-
-  const handleExportSlides = async () => {
-    if (!pf.plan) return;
-    try {
-      await downloadPlanSlides(pf.plan, planDisclaimer);
-    } catch (cause) {
-      window.alert(t("errors.slides"));
-    }
-  };
-
-  const handleExportCalendar = async () => {
-    const plan = pf.plan;
-    if (!plan) return;
-    try {
-      downloadPlanCalendar(plan, await getPlanCalendar(plan.session_id));
-    } catch {
-      window.alert(t("errors.calendar"));
-    }
-  };
-
-  const handleShare = async () => {
-    const sessionId = pf.sessionId;
-    if (!sessionId) return;
-    setShare({ ...CLOSED_SHARE, open: true, sessionId, loading: true });
-    // Only apply a result to the dialog that asked for it.
-    const update = (patch: Partial<ShareState>) =>
-      setShare((current) => (current.sessionId === sessionId ? { ...current, ...patch } : current));
-    try {
-      const result = await shareSession(sessionId);
-      const url = `${window.location.origin}${result.url}`;
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(url);
-        copied = true;
-      } catch {
-        // The link stays in a selectable field for a manual copy.
-      }
-      update({ loading: false, url, expiresAt: result.expires_at ?? null, copied });
-    } catch (cause) {
-      update({ loading: false, error: failureOf(cause, "errors.share") });
-    }
-  };
-
-  const copyShareLink = async () => {
-    if (!share.url) return;
-    try {
-      await navigator.clipboard.writeText(share.url);
-      setShare((current) => ({ ...current, copied: true, error: null }));
-    } catch {
-      setShare((current) => ({ ...current, error: "errors.copy" }));
-    }
-  };
-
-  const turnOffShareLink = async () => {
-    const sessionId = share.sessionId;
-    if (!sessionId) return;
-    setShare((current) => ({ ...current, revoking: true, error: null }));
-    try {
-      await revokeShare(sessionId);
-      setShare((current) => ({ ...current, revoking: false, revoked: true, url: null, expiresAt: null, copied: false }));
-    } catch (cause) {
-      setShare((current) => ({
-        ...current,
-        revoking: false,
-        error: failureOf(cause, "errors.revoke"),
-      }));
-    }
-  };
-
-  const handleLogout = () => {
-    // Under both prefixes, so the legacy-key migration cannot sign the user back in.
-    forgetSignIn();
-    void pf.reload();
-  };
-
-  useEffect(() => {
-    const onHash = () => {
-      const hash = window.location.hash.replace("#", "");
-      if (hash === "desk") {
-        setDeskOpen(true);
-        return;
-      }
-      setDeskOpen(false);
-      setTab(HASH_TAB[hash] ?? "plan");
-    };
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-
-  useEffect(() => {
-    if (!deskFocus) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDeskFocus(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [deskFocus]);
-
-  useEffect(() => {
-    if (!adminSettled || showDesk) return;
-    const hash = window.location.hash.replace("#", "");
-    if (hash === "desk" || ADMIN_TABS.has(tab)) {
-      setDeskOpen(false);
-      setTab("plan");
-      window.location.hash = "plan";
-    }
-  }, [adminSettled, showDesk, tab]);
-
-  useEffect(() => {
-    setMapDay(pf.plan?.days[0]?.date ?? "");
-  }, [pf.plan?.trip_id]);
-
-  useEffect(() => {
-    if (!pf.plan || !pf.selectedItem) return;
-    const id = pf.selectedItem.id;
-    const exists =
-      pf.plan.days.some((day) => day.items.some((item) => item.id === id)) ||
-      pf.plan.hotels.some((hotel) => hotel.id === id);
-    if (!exists) pf.selectItem(null);
-  }, [pf.plan, pf.selectedItem]);
-
-  const changeTab = (next: AppTab) => {
-    setDeskFocus(false);
-    setTab(next);
-    window.location.hash = next;
-  };
-
-  const openDeskWindow = () => {
-    const opened = window.open(
-      `${window.location.pathname}?desk=1#desk`,
-      "pathfinder-desk",
-      "popup=yes,width=1200,height=840,resizable=yes",
-    );
-    if (opened) {
-      opened.focus();
-      setDeskFocus(false);
-    }
-  };
-
-  const selectItem = (item: typeof pf.selectedItem) => {
-    pf.selectItem(item);
-    if (item && pf.plan) {
-      const day = pf.plan.days.find((entry) => entry.items.some((candidate) => candidate.id === item.id));
-      if (day) setMapDay(day.date);
-    }
-  };
-
-  const scope = useMemo(() => {
-    if (!pf.selectedItem || !pf.plan) return null;
-    if (isHotelScope(pf.selectedItem.id, pf.plan.hotels)) {
-      return `${t("map.hotel")} · ${pf.selectedItem.name}`;
-    }
-    const day = pf.plan.days.find((entry) => entry.items.some((item) => item.id === pf.selectedItem?.id));
-    const index = day ? pf.plan.days.indexOf(day) + 1 : 0;
-    return `${day ? t("day.number", { n: index }) : t("plan.stop")} · ${pf.selectedItem.name}`;
-  }, [pf.plan, pf.selectedItem, t]);
-
-  const trendingRail = (
-    <TrendingRail
-      items={trending}
-      trace={trendingTrace}
-      loading={trendingLoading}
-      error={trendingError === null ? null : describeFailure(trendingError, t)}
-      onRefresh={() => void loadTrending()}
-      query={trendingInput}
-      onQueryChange={setTrendingInput}
-      onTry={(prompt) => {
-        void (async () => {
-          changeTab("plan");
-          if (!(await createTripTab())) return;
-          const origin = pf.context.origin?.trim();
-          void pf.send(origin ? `${prompt} Start from ${origin}.` : prompt);
-        })();
-      }}
-    />
-  );
-
-  if (deskOpen) {
-    if (!adminSettled && !showDesk) return <LoadingScreen label={t("common.loading")} />;
-    return showDesk ? (
-      <DeskPage onBack={() => { if (window.opener) window.close(); else window.location.hash = "plan"; }} />
-    ) : (
-      <main className="pf-center">
-        <header className="pf-center__bar">
-          <h1 className="pf-heading" data-level="2">{t("desk.title")}</h1>
-          <button type="button" className="pf-center__back" onClick={() => { window.location.hash = "plan"; }}>{t("desk.back")}</button>
-        </header>
-        <p className="pf-center__locked">{t("desk.closed")}</p>
-      </main>
-    );
-  }
-
-  const visibleTab: AppTab = showDesk || !ADMIN_TABS.has(tab) ? tab : "plan";
+  }, [view, authLoading, user, transitionTo]);
 
   return (
-    <>
-      <input
-        ref={planFileInput}
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file) void openImportedPlan(file);
-        }}
-      />
-      <AppHeader
-        activeTab={visibleTab}
-        onTabChange={changeTab}
-        locale={locale}
-        onLocaleChange={changeLocale}
-        onHelp={() => setHelpOpen(true)}
-        user={authUser}
-        onAuth={() => setAuthOpen(true)}
-        onLogout={handleLogout}
-        signIn={signIn}
-        onExportFile={pf.plan ? () => downloadPlanFile(pf.plan!) : undefined}
-        onExportCalendar={pf.plan ? () => void handleExportCalendar() : undefined}
-        onExportSketch={pf.plan ? handleExportSketch : undefined}
-        onImport={() => planFileInput.current?.click()}
-        onExportSlides={pf.plan ? () => void handleExportSlides() : undefined}
-        onShare={pf.plan ? () => void handleShare() : undefined}
-        onNewTrip={() => void createTripTab()}
-        theme={dark ? "dark" : "light"}
-        onTheme={() => setDark((value) => !value)}
-        admin={showDesk}
-        deskActive={deskFocus}
-        onOpenDesk={showDesk ? () => setDeskFocus((open) => !open) : undefined}
-      />
-      <div role="tabpanel" id={MAIN_PANEL_ID} aria-labelledby={appTabId(visibleTab)}>
-      <div
-        className="pf-stage__plan"
-        data-hidden={visibleTab === "plan" ? undefined : "true"}
-        aria-hidden={visibleTab === "plan" ? undefined : true}
-        ref={(node) => {
-          if (node) node.inert = visibleTab !== "plan";
-        }}
-      >
-        {!pf.ready ? (
-          <LoadingScreen label={t("common.loading")} />
-        ) : (
-          <PlannerTemplate
-            header={null}
-            left={
-              <div className="pf-left-stack">
-                <TripPanel
-                  context={pf.context}
-                  plan={pf.plan}
-                  onChange={pf.setContext}
-                  onSave={() => void pf.saveContext()}
-                  onGenerate={() => void pf.generate()}
-                  onSuggestDestination={async (query) => (await suggestPlaces(query)).items}
-                  submitting={pf.busy}
-                />
-                <ChatPanel
-                  messages={pf.messages}
-                  busy={pf.busy}
-                  agents={pf.agents}
-                  progress={pf.progress}
-                  progressMessage={pf.progressMessage}
-                  clarify={pf.clarify}
-                  clarifyValues={pf.clarifyValues}
-                  onClarifyChange={pf.setClarifyValue}
-                  onClarifySubmit={(message) => void pf.submitClarify(message)}
-                  onSend={(message, attachments) => void pf.send(message, attachments)}
-                  onStop={pf.abort}
-                  intake={pf.intake}
-                  focusSignal={composerFocus}
-                  scope={scope}
-                  onClearScope={() => pf.selectItem(null)}
-                  error={pf.sessionId ? pf.error : null}
-                  disabled={!pf.sessionId}
-                  tripId={pf.sessionId}
-                  draft={pf.draft}
-                  onDraftChange={pf.setDraft}
-                  onRetry={() => void pf.retry()}
-                  onClear={() => void pf.clearChat()}
-                  onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
-                  trace={pf.trace}
-                  live={pf.live}
-                  held={pf.held}
-                  agentName={pf.agentName}
-                />
-              </div>
-            }
-            centre={
-              <div className="pf-plan-shell">
-                <PlanTabs
-                  trips={trips}
-                  activeId={pf.sessionId}
-                  onSelect={(id) => void openTrip(id)}
-                  onNew={() => void createTripTab()}
-                  onScrap={() => void scrapActiveTrip()}
-                />
-                <div
-                  className="pf-plan-panel"
-                  role="tabpanel"
-                  id={TRIP_PANEL_ID}
-                  aria-labelledby={pf.sessionId ? tripTabId(pf.sessionId) : undefined}
-                  aria-busy={pf.opening}
-                >
-                {pf.plan ? (
-                <TripWorkspace
-                  key={pf.sessionId}
-                  plan={pf.plan}
-                  languageNotice={languageBanner}
-                  versions={pf.versions}
-                  activeVersion={pf.activeVersion}
-                  onVersionChange={(version) => void pf.selectVersion(version)}
-                  onRestoreVersion={(version) => void pf.restoreVersion(version)}
-                  selectedItemId={pf.selectedItem?.id ?? null}
-                  onSelectItem={selectItem}
-                  onUseful={(stars) => {
-                    pf.setStars(stars);
-                    void pf.feedback(true, stars);
-                  }}
-                  onNotUseful={() => void pf.feedback(false)}
-                  feedbackStars={pf.feedbackStars}
-                  feedbackVerdict={pf.feedbackVerdict}
-                  feedbackAdded={pf.feedbackAdded}
-                  trace={pf.trace}
-                  onRefresh={() => void pf.send("Refresh the data that is stale or unavailable.")}
-                  onFocusDay={setMapDay}
-                  updatedIds={pf.changedIds}
-                  changedStayIds={pf.changedStayIds}
-                  changedLegIds={pf.changedLegIds}
-                  onChooseOption={pf.choose}
-                  onLockChoice={pf.lockChoice}
-                  onReopenChoice={pf.reopenChoice}
-                  onMarkBooked={pf.markBooked}
-                  onLoadHotelRooms={pf.hotelRooms}
-                  onApplyLayout={pf.held ? undefined : pf.applyLayout}
-                  held={pf.held}
-                  agentName={pf.agentName}
-                  paused={pf.busy || pf.plannerBusy}
-                  pausedNote={pf.busy ? pf.progressMessage : pf.plannerNote}
-                  onCommitStop={pf.held ? undefined : async (change) => {
-                    if (change.lookup) {
-                      await pf.send(`Replace ${change.previousName} with ${change.name}. Put it on day ${change.day} from ${change.start} to ${change.end}.`);
-                      return;
-                    }
-                    await pf.applyLayout([{ id: change.id, day: change.day, start: change.start, end: change.end, name: change.name }]);
-                  }}
-                  onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
-                />
-              ) : (
-                <WelcomePanel
-                  key={pf.sessionId}
-                  onExample={(message) => void pf.send(message)}
-                  notice={pf.notice}
-                  backendError={pf.sessionId ? null : pf.error}
-                  disabled={!pf.sessionId}
-                  onRetry={() => void pf.reload()}
-                />
-                )}
-                </div>
-              </div>
-            }
-            sketch={<Sketchbook plan={pf.plan} />}
-            videos={
-              pf.plan ? (
-                <div className="pf-watch">
-                  {pf.plan.video_notes?.length ? (
-                    <VideoNotes notes={pf.plan.video_notes} />
-                  ) : (
-                    <p className="pf-watch__empty">{t("videos.body")}</p>
-                  )}
-                  <GuideNotes items={guides} loading={guidesLoading} />
-                </div>
-              ) : (
-                <p className="pf-sketch-empty">{t("videos.body")}</p>
-              )
-            }
-            trending={trendingRail}
-            budget={
-              pf.plan ? (
-                <BudgetPanel
-                  cost={pf.plan.cost}
-                  onOptimize={() => void pf.send("Optimise my budget and keep the confirmed stops.")}
-                />
-              ) : (
-                <p className="pf-sketch-empty">{t("budget.empty")}</p>
-              )
-            }
-            exchange={
-              pf.plan && fx ? (
-                <ExchangePanel cost={pf.plan.cost} fx={fx} />
-              ) : (
-                <p className="pf-sketch-empty">{t("budget.exchangeEmpty")}</p>
-              )
-            }
-            profile={<TravellerProfileTool key={identityEpoch} signedIn={Boolean(authUser)} />}
-            right={
-              pf.plan ? (
-                <>
-                  <MapPanel
-                    key={pf.sessionId}
-                    plan={pf.plan}
-                    activeDay={mapDay || pf.plan.days[0]?.date}
-                    onActiveDay={setMapDay}
-                    selectedItemId={pf.selectedItem?.id ?? null}
-                    onSelectItem={selectItem}
-                    updatedIds={pf.changedIds}
-                    changedStayIds={pf.changedStayIds}
-                  />
-                </>
-              ) : (
-                <p className="pf-sketch-empty">{t("map.empty")}</p>
-              )
-            }
+    <div className="min-h-screen antialiased">
+      <RouteCurtain ref={curtain} />
+      <React.Suspense fallback={null}>
+        {view === 'home' && (
+          <HomeV2
+            onStartPlanning={() => navigateTo('create')}
+            onNavigateExplore={() => navigateTo('explore')}
+            onNavigateLogin={() => navigateTo('login')}
+            onNavigateSignup={() => navigateTo('signup')}
+            onNavigateProfile={() => navigateTo('profile')}
           />
         )}
-      </div>
-      {visibleTab === "saved" ? <SavedPage key={identityEpoch} /> : null}
-      {visibleTab === "evaluation" ? <EvaluationPage /> : null}
-      {visibleTab === "cases" ? <CasesPage /> : null}
-      {visibleTab === "settings" ? <SettingsPage key={identityEpoch} /> : null}
-      </div>
-      {deskFocus && showDesk ? (
-        <div className="pf-desk-focus">
-          <DeskPage onBack={() => setDeskFocus(false)} onPopOut={openDeskWindow} />
+        {view === 'explore' && (
+          <Explore
+            onStartPlanning={() => navigateTo('create')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateTrips={() => navigateTo('trips')}
+          />
+        )}
+        {view === 'login' && (
+          <LoginPage
+            onNavigateSignup={() => navigateTo('signup')}
+            onNavigateHome={() => navigateTo('home')}
+            onSuccess={() => navigateTo('profile')}
+          />
+        )}
+        {view === 'signup' && (
+          <SignupPage
+            onNavigateLogin={() => navigateTo('login')}
+            onNavigateHome={() => navigateTo('home')}
+            onSuccess={() => navigateTo('profile')}
+          />
+        )}
+        {view === 'reset-password' && (
+          <ResetPasswordPage
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateLogin={() => navigateTo('login')}
+            onSuccess={() => navigateTo('profile')}
+          />
+        )}
+        {view === 'profile' && !authLoading && user && (
+          <ProfilePage
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateExplore={() => navigateTo('explore')}
+            onStartPlanning={() => navigateTo('create')}
+            onNavigateTrips={() => navigateTo('trips')}
+          />
+        )}
+        {view === 'trips' && (
+          <TripLibrary
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateExplore={() => navigateTo('explore')}
+            onNavigateProfile={() => navigateTo('profile')}
+            onStartPlanning={() => navigateTo('create')}
+            onOpenTrip={(tripId) => {
+              localStorage.setItem('tripverse-active-session-id', `session-${tripId}`);
+              navigateTo('create');
+            }}
+          />
+        )}
+        {view === 'guide' && (
+          <GuidePage
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateExplore={() => navigateTo('explore')}
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateTrips={() => navigateTo('trips')}
+            onStartPlanning={() => navigateTo('create')}
+          />
+        )}
+        {view === 'credits' && (
+          <CreditsPage
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateExplore={() => navigateTo('explore')}
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateTrips={() => navigateTo('trips')}
+            onStartPlanning={() => navigateTo('create')}
+          />
+        )}
+        {view === 'create' && (
+          <CreateTrip
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateExplore={() => navigateTo('explore')}
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateLogin={() => navigateTo('login')}
+            onNavigateSignup={() => navigateTo('signup')}
+          />
+        )}
+      </React.Suspense>
+      {/* One footer for every page. Home renders its own (it scrolls to its sections); the planner
+          is a full-height workspace with nowhere for a footer to go. */}
+      {view !== 'home' && view !== 'create' && (
+        <div className="tv2 tv-footer-shell">
+          <FooterV2 onStartPlanning={() => navigateTo('create')} onNavigateExplore={() => navigateTo('explore')} />
         </div>
-      ) : null}
-
-      {signIn ? <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} /> : null}
-      <ShareDialog
-        open={share.open}
-        onClose={() => setShare(CLOSED_SHARE)}
-        url={share.url}
-        expiresAt={share.expiresAt}
-        loading={share.loading}
-        copied={share.copied}
-        revoked={share.revoked}
-        revoking={share.revoking}
-        error={share.error === null ? null : describeFailure(share.error, t)}
-        onCopy={() => void copyShareLink()}
-        onRevoke={() => void turnOffShareLink()}
-      />
-      {helpOpen ? <HelpDrawer onClose={() => setHelpOpen(false)} /> : null}
-    </>
-  );
-}
-
-function PlanTabs({
-  trips,
-  activeId,
-  onSelect,
-  onNew,
-  onScrap,
-}: {
-  trips: { id: string; label: string }[];
-  activeId: string | null;
-  onSelect: (id: string) => void;
-  onNew: () => void;
-  onScrap: () => void;
-}) {
-  const { t } = useI18n();
-  const scroller = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const node = scroller.current?.querySelector<HTMLElement>("[data-active='true']");
-    node?.scrollIntoView({ inline: "nearest", block: "nearest" });
-  }, [activeId, trips.length]);
-  // One tab stop for the list: the selected tab, or the first when none is selected.
-  const stop = trips.some((trip) => trip.id === activeId) ? activeId : trips[0]?.id;
-  return (
-    <div className="pf-plan-tabs">
-      <div className="pf-plan-tabs__scroll" role="tablist" aria-label={t("plan.openTrips")} ref={scroller} onKeyDown={onTablistKeyDown}>
-        {trips.map((trip, index) => (
-          <button
-            key={trip.id}
-            id={tripTabId(trip.id)}
-            type="button"
-            role="tab"
-            aria-selected={trip.id === activeId}
-            aria-controls={trip.id === activeId ? TRIP_PANEL_ID : undefined}
-            tabIndex={trip.id === stop ? 0 : -1}
-            className="pf-plan-tab"
-            data-active={trip.id === activeId}
-            onClick={() => onSelect(trip.id)}
-            title={trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}
-          >
-            <span className="pf-plan-tab__index">{index + 1}</span>
-            <span className="pf-plan-tab__label">{trip.label === UNTITLED_TRIP ? t("plan.untitled") : trip.label}</span>
-          </button>
-        ))}
-      </div>
-      <button type="button" className="pf-plan-tab pf-plan-tab--add" onClick={onNew} aria-label={t("plan.createAnother")}>
-        <Icon name="plus" size={12} />
-        {t("header.newTrip")}
-      </button>
-      {activeId ? (
-        <button type="button" className="pf-plan-tab pf-plan-tab--scrap" onClick={onScrap} aria-label={t("plan.scrap")}>
-          <Icon name="trash" size={11} />
-        </button>
-      ) : null}
+      )}
+      <Companion view={view} />
     </div>
   );
-}
+};
 
-function WelcomePanel({
-  onExample,
-  notice,
-  backendError,
-  disabled,
-  onRetry,
-}: {
-  onExample: (message: string) => void;
-  notice: string | null;
-  /** Shown here only while no trip is open; with a trip open the chat shows its errors. */
-  backendError: string | null;
-  /** No trip is open to send an example to. */
-  disabled: boolean;
-  onRetry: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <section className="pf-card pf-welcome">
-      {notice ? <Banner tone="info">{notice}</Banner> : null}
-      {backendError ? (
-        <Banner>
-          {backendError}
-          <button type="button" className="pf-button" data-variant="ghost" data-size="sm" onClick={onRetry}>
-            {t("common.retry")}
-          </button>
-        </Banner>
-      ) : null}
-      <div className="pf-welcome__mark">
-        <Icon name="compass" size={30} />
-      </div>
-      <h1 className="pf-heading" data-level="2">
-        {t("welcome.title")}
-      </h1>
-      <Text size="md" tone="secondary" className="pf-welcome__body">
-        {t("welcome.body")}
-      </Text>
-      <div className="pf-welcome__examples">
-        {/* Sent to the planner as the traveller's request, so they stay in English. */}
-        {[
-          "Plan a 3-day trip to Hong Kong from Singapore for 2 people in March, budget 9,000 HKD.",
-          "Plan a 4-day Kyoto trip from Hong Kong for 2 in April, budget 400,000 JPY. I want Fushimi Inari and a slow pace.",
-          "Plan a 2-day Taipei trip from Hong Kong for 1 person next month, budget 12,000 TWD.",
-        ].map((example) => (
-          <button key={example} type="button" className="pf-example" disabled={disabled} onClick={() => onExample(example)}>
-            <Icon name="sparkles" size={14} />
-            <span>{example}</span>
-            <Icon name="arrowRight" size={14} />
-          </button>
-        ))}
-      </div>
-      <div className="pf-welcome__steps">
-        {(
-          [
-            ["route", "welcome.step1", "welcome.step1Body"],
-            ["users", "welcome.step2", "welcome.step2Body"],
-            ["shield", "welcome.step3", "welcome.step3Body"],
-            ["memory", "welcome.step4", "welcome.step4Body"],
-          ] as const
-        ).map(([icon, title, body]) => (
-          <div className="pf-welcome__step" key={title}>
-            <Icon name={icon} size={16} />
-            <div className="pf-stack" style={{ gap: 1 }}>
-              <Text size="sm" weight="semibold">{t(title)}</Text>
-              <Text size="xs" tone="tertiary">{t(body)}</Text>
-            </div>
-          </div>
-        ))}
-      </div>
-      <HowItWorks />
-    </section>
-  );
-}
-
-function HowItWorks() {
-  const { t } = useI18n();
-  return (
-    <section className="pf-card pf-how">
-      <Text size="xs" tone="tertiary" weight="semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        {t("workspace.howAiWorked")}
-      </Text>
-      <div className="pf-stack pf-stack--md">
-        {(
-          [
-            ["compass", "how.system1", "how.system1Body"],
-            ["users", "welcome.step2", "how.agentsBody"],
-            ["route", "how.grounding", "how.groundingBody"],
-            ["shield", "how.validation", "how.validationBody"],
-          ] as const
-        ).map(([icon, title, body]) => (
-          <div className="pf-row" key={title} style={{ alignItems: "flex-start" }}>
-            <span className="pf-how__icon"><Icon name={icon} size={15} /></span>
-            <div className="pf-stack" style={{ gap: 2 }}>
-              <Text size="sm" weight="semibold">{t(title)}</Text>
-              <Text size="xs" tone="tertiary">{t(body)}</Text>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="pf-how__footer">
-        <StatusSummary plan={{ constraints: [], data_quality: { gaps: [] } }} />
-        <Text size="xs" tone="tertiary">{t("how.noPlan")}</Text>
-      </div>
-    </section>
-  );
-}
-
-function HelpDrawer({ onClose }: { onClose: () => void }) {
-  const { t } = useI18n();
-  const modalRef = useModalBehaviour<HTMLElement>(true, onClose);
-  return (
-    <div className="pf-dialog-overlay" role="presentation" onMouseDown={onClose}>
-      <aside ref={modalRef} className="pf-drawer" role="dialog" aria-modal="true" aria-label={t("help.label")} tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="pf-row pf-row--between">
-          <h2 className="pf-heading" data-level="4">{t("help.title")}</h2>
-          <button type="button" className="pf-icon-btn" aria-label={t("help.close")} onClick={onClose}>
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-        <Text size="sm">{t("help.paths")}</Text>
-        <Text size="sm">{t("help.agents")}</Text>
-        <Text size="sm">{t("help.edits")}</Text>
-        <Text size="sm" tone="tertiary">{t("help.languages")}</Text>
-      </aside>
-    </div>
-  );
-}
+export default App;
