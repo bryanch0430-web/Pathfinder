@@ -110,7 +110,7 @@ class LLMGateway:
                 latency_ms=result.latency_ms,
                 output_preview=text,
                 reasoning=reasoning,
-                user_preview=user[:240],
+                user_preview=user[:8000],
                 llm_source=llm_source,
             )
             span.attrs.update({"purpose": purpose, "model": result.model, "llm_source": llm_source})

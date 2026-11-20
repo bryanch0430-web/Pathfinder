@@ -19,7 +19,7 @@ from app.application.language import cuisine_slot, is_refresh_request, language_
 from app.application.llm_gateway import LLMGateway
 from app.infrastructure.anthropic_llm import AnthropicLLM
 from app.infrastructure.llm import OpenAICompatibleLLM
-from app.infrastructure.llm_providers import PROVIDERS
+from app.infrastructure.llm_providers import PROVIDERS, server_deepseek_key
 from app.application.prompt_context import plan_outline, recent_turns, trip_slots
 from app.config import Settings
 from app.domain.errors import CanaryLeak
@@ -832,7 +832,7 @@ def gate_mode(settings: Settings) -> str:
 def gate_cloud_llm(settings: Settings, mode: str) -> OpenAICompatibleLLM | AnthropicLLM | None:
     """The plain or reasoning arm. Jev does not come through here.
 
-    An arm key wins. With none saved, a Poe provider uses the server Poe key.
+    An arm key wins. With none saved, Poe uses the server Poe key and DeepSeek uses the server DeepSeek key.
     """
     plain = mode == "plain"
     provider = str(getattr(settings, "gate_plain_provider" if plain else "gate_reason_provider", "") or "poe").strip().lower()
@@ -843,6 +843,8 @@ def gate_cloud_llm(settings: Settings, mode: str) -> OpenAICompatibleLLM | Anthr
     key = str(getattr(settings, "gate_plain_api_key" if plain else "gate_reason_api_key", "") or "").strip()
     if not key and provider == "poe":
         key = str(getattr(settings, "poe_api_key", "") or "").strip()
+    if not key and provider == "deepseek":
+        key = server_deepseek_key(settings)
     if spec is None or not key or not model:
         return None
     temperature = float(getattr(settings, "gate_plain_temperature" if plain else "gate_reason_temperature", 0.0 if plain else 0.2))

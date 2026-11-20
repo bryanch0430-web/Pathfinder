@@ -24,7 +24,7 @@ export type ReviewerConfig = {
   key_set: boolean;
   key_saved: boolean;
   key_tail: string;
-  key_source: "arm" | "poe" | "none";
+  key_source: "arm" | "poe" | "deepseek" | "none";
 };
 
 export type ReviewerBody = {
@@ -130,6 +130,7 @@ export function ReviewerSettings({
     const who = used();
     if (reviewer.key_source === "arm" && reviewer.key_tail) return t("settings.reviewer.keySaved", { tail: reviewer.key_tail, ...who });
     if (reviewer.key_source === "poe" && reviewer.key_tail) return t("settings.reviewer.keyPoe", { tail: reviewer.key_tail, ...who });
+    if (reviewer.key_source === "deepseek" && reviewer.key_tail) return t("settings.reviewer.keyDeepseek", { tail: reviewer.key_tail, ...who });
     if (reviewer.key_set) return `${t("settings.orch.keyEnv")} ${who.provider} · ${who.model}.`;
     return t("settings.orch.keyNone");
   };

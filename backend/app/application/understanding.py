@@ -667,6 +667,15 @@ def _valid_place(candidate: str) -> bool:
         return False
     if value in MONTHS or value in _NOT_A_PLACE:
         return False
+    # "change to something else" is a request for another option, not a city. A map really does
+    # contain a place named Something Else, and that must not become the trip.
+    if re.fullmatch(
+        r"(?:something(?:\s+else)?(?:\s+ok(?:ay)?)?|somewhere(?:\s+else)?|anywhere(?:\s+else)?|"
+        r"another(?:\s+(?:one|place|option))?|(?:a\s+)?different(?:\s+(?:one|place|option|meal))?|"
+        r"(?:this|that)(?:\s+one)?|else|ok(?:ay)?)",
+        value,
+    ):
+        return False
     # Relative time expressions are never places: "in three months" used to be
     # parsed as the destination "Three Months".
     if re.search(

@@ -288,6 +288,8 @@ def test_requested_alternative_takes_the_last_marker() -> None:
     assert _requested_alternative_text("change to anoter cheaper place") is None
     assert _requested_alternative_text("change to another cheaper place") is None
     assert _requested_alternative_text("change it to disneyland") == "disneyland"
+    assert _requested_alternative_text("change to something else ok? i don't want to eat this") is None
+    assert _requested_alternative_text("i don't want to eat this") is None
 
 
 def test_requested_alternative_finds_an_existing_stop(settings: Settings) -> None:
@@ -455,3 +457,19 @@ def test_date_shift_with_failed_weather_leaves_no_old_forecast(settings: Setting
     assert all(day.weather is None or day.weather.date == day.date for day in updated.days)
     assert all(day.weather is None or day.weather.date in updated.dates.dates for day in updated.days)
     assert (FailureKind.TIMEOUT, "weather") in [(gap.kind, gap.section) for gap in updated.data_quality.gaps]
+
+
+def test_an_unnamed_meal_swap_uses_the_listed_option_and_leaves_every_other_stop() -> None:
+    from plan_samples import make_plan
+
+    plan = make_plan(days=2, alternatives=1, with_tickets=False)
+    before = [(item.id, item.name) for day in plan.days for item in day.items]
+    day2 = plan.days[1]
+    meal = next(item for item in day2.items if item.type.value == "meal" and item.meal_slot == "lunch")
+    other = meal.alternatives[0].name
+    replaced = _replace_target(plan, [], [], (day2, meal), "change to something else ok? i don't want to eat this", distance_aware=False)
+    assert replaced is True
+    assert next(item for item in day2.items if item.id == meal.id).name == other
+    changed = [(item.id, item.name) for day in plan.days for item in day.items]
+    assert [row for row in changed if row not in before] == [(meal.id, other)]
+    assert all(item.name != "eat this" for day in plan.days for item in day.items)

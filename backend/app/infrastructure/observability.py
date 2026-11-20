@@ -101,7 +101,7 @@ class TraceRecorder:
                 "latency_ms": latency_ms,
                 "output_preview": output_preview[:4000],
                 "reasoning": reasoning[:4000],
-                "user_preview": user_preview[:240],
+                "user_preview": user_preview[:8000],
                 "at": datetime.now(timezone.utc).isoformat(),
             }
         )

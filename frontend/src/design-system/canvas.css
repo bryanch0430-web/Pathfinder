@@ -217,6 +217,29 @@
   overflow: auto;
 }
 
+/* The docked page lets the plan grow and the document scroll. A canvas window
+   is a fixed frame, so the day list scrolls inside it and the day buttons stay put. */
+.pf-shell[data-dock="true"] .pf-win__body > .pf-plan-shell,
+.pf-shell[data-dock="true"] .pf-win__body .pf-plan-panel,
+.pf-shell[data-dock="true"] .pf-win__body .pf-plan-panel > .pf-workspace,
+.pf-shell[data-dock="true"] .pf-win__body .pf-plan-panel > .pf-welcome {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pf-shell[data-dock="true"] .pf-win__body .pf-workspace__body {
+  flex: 1 1 auto;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  overflow: auto;
+}
+
 .pf-win__body .pf-map {
   display: flex;
   flex: 1 0 auto;
@@ -256,9 +279,13 @@
   flex: 1;
   place-items: center;
   padding: 32px;
+  margin: 0;
   color: var(--pf-ink-secondary);
-  font-family: "Caveat", "Yomogi", cursive;
-  font-size: 1.6rem;
+  font-family: var(--p30-type-family-sans);
+  font-size: var(--p30-type-size-body-md);
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.5;
   text-align: center;
 }
 

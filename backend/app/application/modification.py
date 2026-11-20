@@ -1297,29 +1297,37 @@ def _norm(text: str) -> str:
 
 
 def _requested_alternative_text(message: str) -> str | None:
-    """The place the traveller asked for, taken from the last "to/into/with/for".
+    """The place the traveller asked for, taken from the last "to/into/with/for" that names one.
 
     "i want to change oceanpark ... to disneyland" must yield "disneyland", not
-    everything after the first "to".
+    everything after the first "to". "i don't want to eat this" names no place:
+    that "to" is part of "want to eat", not "change to <restaurant>".
     """
     cleaned = message.strip().rstrip(" .?!")
     lowered = cleaned.lower()
-    best: tuple[int, int] | None = None
+    markers: list[tuple[int, int]] = []
     for marker in (" to ", " into ", " with ", " for "):
-        index = lowered.rfind(marker)
-        if index != -1 and (best is None or index > best[0]):
-            best = (index, len(marker))
-    if best is None:
-        return None
-    phrase = cleaned[best[0] + best[1] :].strip(" .,?!")
-    if not phrase or _is_a_wish(phrase):
-        return None
-    # "something quieter", "anything else" are preferences, not place names, and "closer to the hotel" is a distance.
-    if phrase.lower().startswith(
-        ("some", "any", "else", "other", "another", "different", "cheap", "better", "nice", "quiet", "the hotel")
-    ):
-        return None
-    return phrase
+        start = 0
+        while (index := lowered.find(marker, start)) != -1:
+            markers.append((index, len(marker)))
+            start = index + 1
+    for index, length in sorted(markers, reverse=True):
+        phrase = cleaned[index + length :].strip(" .,?!")
+        phrase = re.split(r"[.?!]", phrase, maxsplit=1)[0].strip(" .,?!")
+        if not phrase or _is_a_wish(phrase):
+            continue
+        folded = phrase.lower()
+        if folded.startswith(
+            ("some", "any", "else", "other", "another", "different", "cheap", "better", "nice", "quiet", "the hotel")
+        ):
+            continue
+        # "want to eat this", "going to see it": the words after "to" are a verb, not a place.
+        if re.match(r"(?:eat|have|go|see|do|be|get|make|try|find|visit|change|swap|replace|know)\b", folded):
+            continue
+        if re.fullmatch(r"(?:eat|have|see|do|try)\s+(?:this|that|it)|this|that|it", folded):
+            continue
+        return phrase
+    return None
 
 
 _WISH_FILLER = frozenset(
@@ -1571,6 +1579,15 @@ def _replace_target(
     day, item = target
     if item.locked or item.confirmed:
         return False
+    named_place = bool(prefer_name and not _is_a_wish(prefer_name))
+    if not named_place:
+        from app.application.choices import swap_option
+
+        used = {other.name for _, other in _items_in_order(plan)}
+        option = next((alt for alt in item.alternatives if alt.name and alt.name not in used), None)
+        if option is not None:
+            swap_option(plan, day, day.items.index(item), option)
+            return True
     used = {other.name for _, other in _items_in_order(plan)}
     pool = _candidate_pool(item, places, meals, used)
     if prefer_name and not _is_a_wish(prefer_name):
@@ -2865,19 +2882,9 @@ def keep_only(original: TripPlan, updated: TripPlan, item_id: str) -> None:
                 if item.id != item_id:
                     continue
                 same = changed_item.name == item.name
-                day.items[index] = item.model_copy(
-                    update={
-                        "name": changed_item.name,
-                        "geo": changed_item.geo,
-                        "address": changed_item.address,
-                        "notes": changed_item.notes,
-                        "source_refs": changed_item.source_refs,
-                        "tags": changed_item.tags,
-                        "data_status": changed_item.data_status,
-                        "fetched_at": changed_item.fetched_at,
-                        "opening_hours": changed_item.opening_hours,
-                        "hours_status": changed_item.hours_status,
-                    }
+                # The whole chosen row, and nothing else: times stay, every other day stays.
+                day.items[index] = changed_item.model_copy(
+                    update={"id": item.id, "start": item.start, "end": item.end, "type": item.type, "meal_slot": item.meal_slot}
                 )
                 if same and fresh_gaps:
                     updated.data_quality.gaps.append(fresh_gaps[-1])

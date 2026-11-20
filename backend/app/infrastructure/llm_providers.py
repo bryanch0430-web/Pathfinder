@@ -67,7 +67,23 @@ PROVIDERS: dict[str, ProviderSpec] = {
         "gemini", "Google Gemini", "openai", "https://generativelanguage.googleapis.com/v1beta/openai",
         "gemini-2.5-flash", "AIza", False,
     ),
+    "deepseek": ProviderSpec(
+        "deepseek", "DeepSeek", "openai", "https://api.deepseek.com/v1",
+        "deepseek-chat", "sk-", False,
+    ),
 }
+
+
+def server_deepseek_key(settings: Settings) -> str:
+    """The DeepSeek key already on the server, when an arm has none of its own.
+
+    The writer key counts when the writer is DeepSeek. Otherwise the judge key, which is a DeepSeek key.
+    """
+    if str(getattr(settings, "llm_provider", "") or "").strip().lower() == "deepseek":
+        key = str(getattr(settings, "llm_api_key", "") or "").strip()
+        if key:
+            return key
+    return str(getattr(settings, "judge_api_key", "") or "").strip()
 
 
 def build_llm(

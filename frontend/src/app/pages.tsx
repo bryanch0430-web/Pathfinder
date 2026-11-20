@@ -43,6 +43,7 @@ import { describeFailure, failureOf, type Failure } from "../lib/failure";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { loadLocalAdmin, useLocalAdmin } from "../lib/localAdmin";
 import { readStoredValue } from "../lib/storage";
+import { setRedaction } from "../lib/maskPii";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
 import type { ClientProfile, EvalDataset, EvalPreview, EvalRun, EvalRunSummary } from "../design-system/types";
 
@@ -358,6 +359,23 @@ export function SettingsPage() {
       onResetPolicy={async () => {
         await resetRuntime();
         setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
+      }}
+      onSaveRedaction={async (body) => {
+        await saveRuntime({
+          redaction: {
+            hkid: body.hkid,
+            hk_phone: body.hk_phone,
+            email: body.email,
+            card: body.card,
+            hkid_pattern: body.patterns.hkid,
+            hk_phone_pattern: body.patterns.hk_phone,
+            email_pattern: body.patterns.email,
+            card_pattern: body.patterns.card,
+          },
+        });
+        const next = (await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"];
+        setRedaction(next?.redaction);
+        setConfig(next);
       }}
       onSaveGate={async (gate) => {
         await saveRuntime({ gate });

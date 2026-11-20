@@ -55,7 +55,7 @@ def test_scrub_replaces_long_secrets_only() -> None:
 
 
 def test_catalogue_lists_each_provider() -> None:
-    assert set(PROVIDERS) == {"anthropic", "openai", "openai-compatible", "poe", "xai", "gemini"}
+    assert set(PROVIDERS) == {"anthropic", "openai", "openai-compatible", "poe", "xai", "gemini", "deepseek"}
     assert {k for k, v in PROVIDERS.items() if v.supports_search} == {"xai"}
     assert PROVIDERS["anthropic"].default_model == "claude-sonnet-5-5"
     assert PROVIDERS["xai"].default_model == "grok-4.20-0309-non-reasoning"
@@ -67,7 +67,7 @@ def test_catalogue_lists_each_provider() -> None:
     assert [k for k, v in PROVIDERS.items() if v.needs_base_url] == ["openai-compatible"]
     assert {k: v.key_prefix for k, v in PROVIDERS.items()} == {
         "anthropic": "sk-ant-", "openai": "sk-", "openai-compatible": "", "xai": "xai-",
-        "gemini": "AIza", "poe": "",
+        "gemini": "AIza", "poe": "", "deepseek": "sk-",
     }
 
 

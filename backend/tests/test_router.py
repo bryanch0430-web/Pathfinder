@@ -190,6 +190,22 @@ def test_an_arm_key_and_provider_replace_the_shared_poe_key(settings: Settings) 
     assert plain._fixed_max_tokens == 256
 
 
+def test_a_deepseek_arm_uses_the_server_deepseek_key(settings: Settings) -> None:
+    settings.llm_provider = "deepseek"
+    settings.llm_api_key = "sk-deepseek-server-key"
+    settings.poe_api_key = "sk-poe-shared-key"
+    settings.gate_plain_provider = "deepseek"
+    settings.gate_plain_api_key = ""
+    settings.gate_plain_model = "deepseek-chat"
+    plain = gate_cloud_llm(settings, "plain")
+    assert plain is not None
+    assert plain._api_key == "sk-deepseek-server-key"
+    assert plain._base_url == "https://api.deepseek.com/v1"
+    settings.gate_plain_api_key = "sk-deepseek-own-key"
+    own = gate_cloud_llm(settings, "plain")
+    assert own is not None and own._api_key == "sk-deepseek-own-key"
+
+
 def test_a_question_during_intake_is_answered_before_the_missing_details(settings: Settings) -> None:
     class Jev:
         def __init__(self) -> None:

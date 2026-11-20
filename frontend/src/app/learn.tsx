@@ -5,6 +5,7 @@ import { PlanStudio } from "../design-system/planStudio";
 import type { TripPlan } from "../design-system/types";
 import { Icon } from "../design-system/icons";
 import { useI18n } from "../lib/i18n";
+import { maskTyped } from "../lib/maskPii";
 import {
   getDesk,
   getDeskChat,
@@ -170,6 +171,12 @@ function publishPlan(sessionId: string, version: number) {
   } catch {
     // The open trip still reloads on its own timer.
   }
+  // A storage event does not fire in the window that wrote it. The traveller's plan is in this window.
+  window.dispatchEvent(new CustomEvent("pf-plan-sync", { detail: { sessionId, version } }));
+}
+
+function publishHold(sessionId: string, held: boolean, agentName = "") {
+  window.dispatchEvent(new CustomEvent("pf-desk-hold", { detail: { sessionId, held, agentName } }));
 }
 
 function findStop(plan: TripPlan, id: string) {
@@ -208,7 +215,7 @@ function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) 
 }
 
 /** A contact desk, separate from the planner: a queue, the conversation, and the trip beside it. */
-export function DeskPage({ onBack }: { onBack: () => void }) {
+export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: () => void }) {
   const { t } = useI18n();
   const [chats, setChats] = useState<DeskChat[]>([]);
   const [query, setQuery] = useState("");
@@ -226,9 +233,9 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
   const dragRef = useRef<{ kind: "move" | "size"; x: number; y: number; place: { x: number; y: number; w: number; h: number } } | null>(null);
   const [ready, setReady] = useState(() => {
     try {
-      return localStorage.getItem("pathfinder.desk-ready") !== "away";
+      return localStorage.getItem("pathfinder.desk-ready") === "ready";
     } catch {
-      return true;
+      return false;
     }
   });
   const [active, setActive] = useState<string | null>(null);
@@ -295,7 +302,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
       setStops(data.plan?.days.flatMap((day) => day.items.map((item) => ({ ...item }))) ?? []);
     }).catch((cause) => setError(String(cause)));
   };
-  const loadTrip = (id: string) => {
+  const loadTrip = (id: string, announce = false) => {
     void getDeskItinerary(id).then((data) => {
       setPlannerBusy(Boolean(data.planner_busy));
       setPlannerNote(data.planner_note || "");
@@ -304,13 +311,29 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
         if (current && current.version === data.plan.version) return current;
         return data.plan;
       });
-    }).catch(() => undefined);
+      if (announce && !data.plan) {
+        setError(t("desk.studioEmpty"));
+        setStudioOpen(false);
+      }
+    }).catch((cause) => {
+      if (!announce) return;
+      setError(cause instanceof Error ? cause.message : String(cause));
+      setStudioOpen(false);
+    });
   };
   useEffect(() => {
-    if (!studioOpen || !active) return;
+    if (!active || !held) return;
     loadTrip(active);
+  }, [active, held]);
+  useEffect(() => {
+    if (!studioOpen || !active) return;
+    window.dispatchEvent(new CustomEvent("pf-desk-studio", { detail: { open: true } }));
+    loadTrip(active, true);
     const timer = window.setInterval(() => loadTrip(active), 4000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      window.dispatchEvent(new CustomEvent("pf-desk-studio", { detail: { open: false } }));
+    };
   }, [studioOpen, active]);
   useEffect(() => {
     if (!studioOpen || !active || !tripPlan || undoSeed.current === active) return;
@@ -388,7 +411,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
     return t("desk.note.plain");
   };
 
-  const submitBrief = (build: boolean) => {
+  const submitBrief = () => {
     if (!active || !held || running) return;
     const party = Number(brief.party);
     const budget = Number(brief.budget);
@@ -399,7 +422,6 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
     setRunning(true);
     setError(null);
     setNotice(null);
-    if (build) setTurnNote(t("sheet.plannerPlan"));
     void saveDeskBrief(active, {
       destination: brief.destination.trim(),
       origin: brief.origin.trim(),
@@ -409,10 +431,9 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
       budget,
       currency: brief.currency || "HKD",
       preferences: brief.preferences.split(",").map((item) => item.trim()).filter(Boolean),
-      build,
     })
       .then((data) => {
-        setNotice(build ? t("desk.runDone") : t("desk.saved"));
+        setNotice(t("desk.saved"));
         if (data.plan) {
           setPlan(data.plan);
           setStops(data.plan.days.flatMap((day) => day.items.map((item) => ({ ...item }))));
@@ -421,7 +442,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
         loadList();
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
-      .finally(() => { setRunning(false); setTurnNote(""); });
+      .finally(() => setRunning(false));
   };
   const saveStops = () => {
     if (!active || !plan || running) return;
@@ -493,7 +514,10 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
           }
           finish(next);
         })
-        .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
+        .catch((cause) => {
+          setError(cause instanceof Error ? cause.message : String(cause));
+          throw cause;
+        })
         .finally(() => { setRunning(false); setTurnNote(""); });
     }
     const writeTime = changedTime || changedName
@@ -505,7 +529,10 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
         const fresh = await getDeskItinerary(active);
         if (fresh.plan) finish(fresh.plan);
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .catch((cause) => {
+        setError(cause instanceof Error ? cause.message : String(cause));
+        throw cause;
+      })
       .finally(() => setRunning(false));
   };
 
@@ -513,13 +540,18 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
     if (!active) return;
     if (!held && !ready) return;
     const run = held ? releaseDeskChat : holdDeskChat;
-    void run(active).then(() => { loadChat(active); loadList(); });
+    void run(active).then((data) => {
+      publishHold(active, !held, data.agent_name || "");
+      loadChat(active);
+      loadList();
+    });
   };
 
   const accept = (sessionId: string) => {
     setPresence(true);
-    void holdDeskChat(sessionId).then(() => {
+    void holdDeskChat(sessionId).then((data) => {
       setActive(sessionId);
+      publishHold(sessionId, true, data.agent_name || "");
       loadChat(sessionId);
       loadList();
     });
@@ -634,6 +666,9 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
             {ready ? t("desk.ready") : t("desk.away")}
           </button>
           <button type="button" className="pf-ops__back" onClick={onBack}>{t("desk.back")}</button>
+          {onPopOut ? (
+            <button type="button" className="pf-ops__back" onClick={onPopOut}>{t("desk.popOut")}</button>
+          ) : null}
         </div>
       </header>
       <div className="pf-ops__frame">
@@ -739,7 +774,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
                       {message.operator || message.live_agent ? t("desk.person") : message.role === "user" ? t("desk.traveller") : t("desk.planner")}
                       {message.role === "user" && message.sentiment_label && message.sentiment_label !== "not_measured" && message.frustration >= 25 ? ` · ${message.frustration}` : ""}
                     </span>
-                    {message.content}
+                    {message.role === "user" ? maskTyped(message.content) : message.content}
                   </p>
                 ))}
               </div>
@@ -831,11 +866,11 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
           ) : (
             <Text size="sm" tone="tertiary">{t("desk.pick")}</Text>
           )}
+          {current && notice ? <Text size="xs">{notice}</Text> : null}
           {current && held ? (
             <div className="pf-desk__tools">
               <Text size="sm" weight="semibold">{t("desk.brief")}</Text>
               <Text size="xs" tone="tertiary">{t("desk.briefHint")}</Text>
-              {notice ? <Text size="xs">{notice}</Text> : null}
               <label className="pf-desk__field"><span>{t("desk.trip")}</span><input value={brief.destination} disabled={running} onChange={(event) => setBrief({ ...brief, destination: event.target.value })} /></label>
               <label className="pf-desk__field"><span>{t("desk.from")}</span><input value={brief.origin} disabled={running} onChange={(event) => setBrief({ ...brief, origin: event.target.value })} /></label>
               <label className="pf-desk__field"><span>{t("desk.dates")}</span><input type="date" value={brief.start} disabled={running} onChange={(event) => setBrief({ ...brief, start: event.target.value })} /></label>
@@ -845,10 +880,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
               <label className="pf-desk__field"><span>{t("form.currency")}</span><input value={brief.currency} disabled={running} onChange={(event) => setBrief({ ...brief, currency: event.target.value })} /></label>
               <label className="pf-desk__field"><span>{t("desk.preferences")}</span><input value={brief.preferences} disabled={running} onChange={(event) => setBrief({ ...brief, preferences: event.target.value })} placeholder={t("settings.preferencesExample")} /></label>
               <div className="pf-row" style={{ gap: 6 }}>
-                <Button size="sm" disabled={running} onClick={() => submitBrief(false)}>{t("desk.saveDetails")}</Button>
-                <Button size="sm" variant="primary" disabled={running} onClick={() => submitBrief(true)}>
-                  {running ? t("desk.building") : t("desk.build")}
-                </Button>
+                <Button size="sm" disabled={running} onClick={() => submitBrief()}>{t("desk.saveDetails")}</Button>
               </div>
               <Button size="sm" variant="primary" disabled={!plan || !stops.length} onClick={() => setStudioOpen(true)}>
                 {t("desk.openStudio")}
@@ -889,6 +921,7 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
           onBack={() => setStudioOpen(false)}
           backLabel={t("desk.studioBack")}
           note={t("desk.samePlan")}
+          layer="desk"
           locked={!held}
           lockNote={held ? "" : t("desk.takeToEdit")}
           paused={Boolean(turnNote) || plannerBusy}
@@ -902,7 +935,15 @@ export function DeskPage({ onBack }: { onBack: () => void }) {
               if (!active) return;
               void releaseDeskChat(active)
                 .then(() => sayOnDesk(active, "This plan is a draft you can edit now."))
-                .then(() => { setHeld(false); loadChat(active); loadList(); });
+                .then(() => {
+                  setHeld(false);
+                  setStudioOpen(false);
+                  setNotice(t("desk.released"));
+                  publishHold(active, false);
+                  loadChat(active);
+                  loadList();
+                })
+                .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
             }}>{t("desk.releaseDraft")}</Button>
           )}
           onUndo={() => {

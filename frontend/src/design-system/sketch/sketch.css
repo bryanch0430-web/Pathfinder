@@ -1,6 +1,6 @@
 /* Sketchbook pages (components/sketch). Colours come from the app tokens, so dark mode follows. */
 .tv-sketch {
-  --sk-hand: 'Caveat', 'Yomogi', 'Segoe Print', cursive;
+  --sk-hand: var(--p30-type-family-sans);
   --sk-paper: #fbf8f1;
   --sk-dot: rgba(60, 50, 30, .14);
   --sk-ink: #22201c;
@@ -58,7 +58,7 @@ html.is-dark .tv-sketch__grain { opacity: .5; }
 .tv-sketch__say {
   position: relative; margin: 0; min-width: 0; padding: .4rem .7rem; border: 1px solid var(--tv-line-strong);
   border-radius: 12px 12px 12px 3px; background: var(--tv-surface); color: var(--tv-ink);
-  font: 600 1.1rem/1.2 var(--sk-hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 400 var(--p30-type-size-body-sm)/1.4 var(--p30-type-family-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   opacity: 0; transform: translateY(4px) scale(.96); transform-origin: 0 100%;
   transition: opacity .2s ease, transform .25s cubic-bezier(.2, .8, .2, 1);
 }

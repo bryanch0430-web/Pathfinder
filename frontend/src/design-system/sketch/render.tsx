@@ -54,11 +54,16 @@ function arrowHead(points: Point[], id: string) {
   return gen.linearPath([wing(0.45), [x2, y2], wing(-0.45)], { seed: seedOf(`${id}-head`), roughness: 0.8, stroke: INK });
 }
 
-const HAND = "Caveat, Yomogi, cursive";
+const SERIF = "var(--p30-type-family-serif)";
+const SANS = "var(--p30-type-family-sans)";
+
+function face(size: number, bold?: boolean) {
+  return bold || size >= 40 ? SERIF : SANS;
+}
 
 function Text({ el }: { el: Extract<SketchElement, { kind: 'text' }> }) {
   return (
-    <text x={el.x} y={el.y} fontSize={el.size} textAnchor={el.anchor ?? 'start'} fontWeight={el.bold ? 700 : 400} fontFamily={HAND} style={{ fill: TONE[el.tone] }}>
+    <text x={el.x} y={el.y} fontSize={el.size} textAnchor={el.anchor ?? 'start'} fontWeight={el.bold ? 700 : 400} fontFamily={face(el.size, el.bold)} style={{ fill: TONE[el.tone] }}>
       {el.lines.map((line, index) => <tspan key={index} x={el.x} dy={index ? el.size * 1.08 : 0}>{line}</tspan>)}
     </text>
   );
@@ -111,20 +116,20 @@ function Element({ el }: { el: SketchElement }) {
           <Rough tone="muted" width={1.4} drawable={gen.rectangle(el.x, el.y, el.w, el.h, {
             seed, roughness: 0.8, stroke: INK, fill: FILL, fillStyle: 'solid',
           })} />
-          <text x={el.x + 12} y={el.y + 26} fontSize={16} fontWeight={700} fontFamily={HAND} style={{ fill: TONE.ink }}>
+          <text x={el.x + 12} y={el.y + 26} fontSize={16} fontWeight={700} fontFamily={SANS} style={{ fill: TONE.ink }}>
             {el.title.split('\n').map((line, index) => <tspan key={index} x={el.x + 12} dy={index ? 18 : 0}>{line}</tspan>)}
           </text>
-          <text x={el.x + 12} y={el.y + 26 + el.title.split('\n').length * 18 + 8} fontSize={15} fontFamily={HAND} style={{ fill: TONE.ink }}>
+          <text x={el.x + 12} y={el.y + 26 + el.title.split('\n').length * 18 + 8} fontSize={15} fontFamily={SANS} style={{ fill: TONE.ink }}>
             {el.lines.map((line, index) => <tspan key={index} x={el.x + 12} dy={index ? 17 : 0}>{line}</tspan>)}
           </text>
-          {el.tag && <text x={el.x + el.w - 6} y={el.y + el.h + 20} fontSize={17} textAnchor="end" fontFamily={HAND} style={{ fill: TONE.accent }}>via {el.tag}</text>}
+          {el.tag && <text x={el.x + el.w - 6} y={el.y + el.h + 20} fontSize={17} textAnchor="end" fontFamily={SANS} style={{ fill: TONE.accent }}>via {el.tag}</text>}
         </g>
       );
     case 'stamp':
       return (
         <g transform={`rotate(${el.rotate} ${el.x + el.w / 2} ${el.y + 20})`}>
           <Rough tone={el.tone} width={2.2} drawable={gen.rectangle(el.x, el.y, el.w, 40, { seed, roughness: 1.6, stroke: INK })} />
-          <text x={el.x + el.w / 2} y={el.y + 28} fontSize={22} fontWeight={700} textAnchor="middle" fontFamily={HAND} style={{ fill: TONE[el.tone] }}>{el.text}</text>
+          <text x={el.x + el.w / 2} y={el.y + 28} fontSize={22} fontWeight={700} textAnchor="middle" fontFamily={SANS} style={{ fill: TONE[el.tone] }}>{el.text}</text>
         </g>
       );
   }

@@ -66,6 +66,8 @@ class AnthropicLLM:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         images: Sequence[ImageInput] | None = None,
+        timeout: float | None = None,
+        retries: int | None = None,
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
@@ -82,7 +84,7 @@ class AnthropicLLM:
         if not self._no_temperature:
             payload["temperature"] = temperature
         started = time.perf_counter()
-        data = await self._post(payload, purpose)
+        data = await self._post(payload, purpose, timeout=timeout, retries=retries)
         text, reasoning = self._blocks(data)
         usage = data.get("usage") or {}
         return LLMResult(
@@ -94,14 +96,23 @@ class AnthropicLLM:
             reasoning=reasoning,
         )
 
-    async def _post(self, payload: dict[str, Any], purpose: str) -> dict[str, Any]:
+    async def _post(
+        self,
+        payload: dict[str, Any],
+        purpose: str,
+        *,
+        timeout: float | None = None,
+        retries: int | None = None,
+    ) -> dict[str, Any]:
         url = f"{ANTHROPIC_BASE_URL}/messages"
         headers = {
             "x-api-key": self._api_key,
             "anthropic-version": ANTHROPIC_VERSION,
             "content-type": "application/json",
         }
-        timeout = self.settings.llm_timeout_seconds
+        timeout = self.settings.llm_timeout_seconds if timeout is None else timeout
+        # `retries` is how many extra tries the caller allows; the writer keeps two.
+        retry_limit = 2 if retries is None else max(0, retries)
         attempts = 0
         while True:
             attempts += 1
@@ -123,12 +134,12 @@ class AnthropicLLM:
                 data = response.json()
                 return data if isinstance(data, dict) else {"data": data}
             except ProviderError as exc:
-                if exc.kind in {FailureKind.RATE_LIMIT, FailureKind.NETWORK, FailureKind.SERVER_ERROR} and attempts <= 2:
+                if exc.kind in {FailureKind.RATE_LIMIT, FailureKind.NETWORK, FailureKind.SERVER_ERROR} and attempts <= retry_limit:
                     await asyncio.sleep(0.6 * attempts)
                     continue
                 raise
             except Exception as exc:
-                if attempts <= 2:
+                if attempts <= retry_limit:
                     await asyncio.sleep(0.6 * attempts)
                     continue
                 raise ProviderError(

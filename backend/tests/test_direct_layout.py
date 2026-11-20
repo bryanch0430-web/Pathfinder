@@ -3,14 +3,16 @@ transfers around a moved stop worked out again."""
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 from fastapi.testclient import TestClient
-from plan_samples import make_plan, make_two_city_plan
+from plan_samples import START, make_plan, make_two_city_plan
 from pydantic import ValidationError
 
 from app.application.proposals import apply_layout
 from app.config import Settings
-from app.domain.models import DayPlan, GeoPoint, ItemType, TripContext, TripPlan
+from app.domain.models import DayPlan, GeoPoint, ItemType, TicketOption, TransportLeg, TripContext, TripPlan
 from app.interface.api import create_app
 
 GUEST = {"X-Client-Token": "test"}
@@ -205,3 +207,42 @@ def test_a_layout_with_no_plan_version_still_works(stored: Stored) -> None:
     lunch = stored.plan.days[0].items[1]
 
     assert stored.post([_move(lunch.id, 1, "12:00", "13:00")]).status_code == 200
+
+
+def _with_flights(plan: TripPlan) -> TripPlan:
+    arrive = datetime(START.year, START.month, START.day, 20, 35)
+    home = datetime(START.year, START.month, START.day + 1, 22, 0)
+    taxi_in = datetime(START.year, START.month, START.day, 21, 20)
+    taxi_out = datetime(START.year, START.month, START.day + 1, 19, 29)
+    return plan.model_copy(update={
+        "legs": [
+            TransportLeg(id="leg_out", from_place="Singapore", to_place="Hong Kong", depart_date=START, kind="outbound"),
+            TransportLeg(id="to_stay_seg_1", from_place="HKG airport", to_place="Hotel", depart_date=START, kind="to_stay"),
+            TransportLeg(id="from_stay_seg_1", from_place="Hotel", to_place="HKG airport", depart_date=START, kind="from_stay"),
+        ],
+        "tickets": [
+            TicketOption(id="flight", mode="flight", leg_id="leg_out", name="Scoot", depart_at=datetime(START.year, START.month, START.day, 16, 0), arrive_at=arrive, return_depart_at=home, return_arrive_at=datetime(START.year, START.month, START.day + 1, 2, 15), selected=True),
+            TicketOption(id="taxi_in", mode="taxi", leg_id="to_stay_seg_1", name="Taxi in", depart_at=taxi_in, arrive_at=datetime(START.year, START.month, START.day, 21, 55), selected=True),
+            TicketOption(id="taxi_out", mode="taxi", leg_id="from_stay_seg_1", name="Taxi out", depart_at=taxi_out, arrive_at=datetime(START.year, START.month, START.day + 1, 20, 0), selected=True),
+        ],
+    })
+
+
+def test_a_stop_before_the_flight_opens_the_day_stays_put() -> None:
+    plan = _with_flights(make_plan(days=2, with_tickets=False))
+    lunch = plan.days[0].items[1]
+
+    with pytest.raises(ValueError, match="cannot start before"):
+        apply_layout(plan, [_move(lunch.id, 1, "10:00", "11:00")])
+
+    assert any(item.id == lunch.id and item.start == "13:00" for item in plan.days[0].items)
+
+
+def test_a_stop_after_the_flight_closes_the_day_stays_put() -> None:
+    plan = _with_flights(make_plan(days=2, with_tickets=False))
+    dinner = plan.days[1].items[2]
+
+    with pytest.raises(ValueError, match="cannot end after 19:29"):
+        apply_layout(plan, [_move(dinner.id, 2, "18:30", "19:45")])
+
+    assert any(item.id == dinner.id and item.start == "19:00" for item in plan.days[1].items)

@@ -28,7 +28,7 @@ from app.domain.models import (
     TripContext,
     TripPlan,
 )
-from app.security import replayable, strip_fence_tags, strip_fence_tags_deep
+from app.security import mask_pii, replayable, strip_fence_tags, strip_fence_tags_deep
 
 
 #: Marks the check before planning keeps on the trip; no prompt reads them.
@@ -397,18 +397,16 @@ def earlier_turns(history: Sequence[Message], current: str) -> list[Message]:
     """The earlier turns a prompt may repeat: the turn is stored before it is answered, and the current message
     is sent once, inside its fence, so a last row that is that message is left out."""
     rows = replayable(history)
-    if (
-        rows
-        and rows[-1].role == "user"
-        and rows[-1].content.strip() == (current or "").strip()
-    ):
+    stored = (current or "").strip()
+    shown = mask_pii(stored, marks=True)
+    if rows and rows[-1].role == "user" and rows[-1].content.strip() in {stored, shown}:
         rows = rows[:-1]
     return rows
 
 
 def _turn_line(row: Message, chars: int) -> str:
     """One earlier turn on one line, with no fence tag left in it, clipped to ``chars``."""
-    return f"{row.role}: {strip_fence_tags(' '.join(row.content.split()))[:chars]}"
+    return f"{row.role}: {mask_pii(strip_fence_tags(' '.join(row.content.split())))[:chars]}"
 
 
 #: The most earlier messages a setting may keep. One message is one line, from the traveller or from Pathfinder.

@@ -41,6 +41,7 @@ export function PlanStudio({
   onUndo,
   onApply,
   onCommitStop,
+  layer = "traveller",
 }: {
   plan: TripPlan;
   title: string;
@@ -59,14 +60,18 @@ export function PlanStudio({
   onUndo?: () => void;
   onApply?: (items: LayoutMove[]) => Promise<void>;
   onCommitStop?: (change: StopCommit) => Promise<void>;
+  /** The desk studio sits above the desk. The traveller's stays with the plan. */
+  layer?: "desk" | "traveller";
 }) {
   const { t } = useI18n();
   const [day, setDay] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState({ previousName: "", name: "", start: "", end: "", day: 0 });
+  const [formNote, setFormNote] = useState("");
   const picked = selectedId ? locate(plan, selectedId) : null;
   useEffect(() => {
     if (!selectedId) return;
+    setFormNote("");
     const found = locate(plan, selectedId);
     if (!found) {
       setSelectedId(null);
@@ -116,7 +121,8 @@ export function PlanStudio({
     if (!onCommitStop || !picked || frozen) return;
     const name = form.name.trim();
     if (!/^\d{2}:\d{2}$/.test(form.start) || !/^\d{2}:\d{2}$/.test(form.end) || form.end <= form.start || !name) return;
-    void onCommitStop({
+    setFormNote("");
+    void Promise.resolve(onCommitStop({
       id: picked.item.id,
       previousName: form.previousName,
       name,
@@ -124,11 +130,13 @@ export function PlanStudio({
       end: form.end,
       day: form.day + 1,
       lookup,
+    })).catch((cause: unknown) => {
+      setFormNote(cause instanceof Error && cause.message ? cause.message : "");
     });
   };
   return createPortal(
     <section
-      className="pf-win pf-ops__studio"
+      className={layer === "desk" ? "pf-win pf-ops__studio pf-ops__studio--desk" : "pf-win pf-ops__studio"}
       role="dialog"
       aria-label={title}
       style={{ left: place.x, top: place.y, width: place.w, height: place.h }}
@@ -219,6 +227,7 @@ export function PlanStudio({
               ) : (
                 <Button size="sm" variant="primary" disabled={saving || !timeChanged || !onCommitStop} onClick={() => save(false)}>{t("desk.saveTime")}</Button>
               )}
+              {formNote ? <Text size="xs" tone="tertiary">{formNote}</Text> : null}
             </section>
           ) : (
             <Text size="sm" tone="tertiary">{locked ? lockNote : t("desk.pickStop")}</Text>

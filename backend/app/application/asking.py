@@ -135,7 +135,16 @@ class AskPath:
 
         # Off-trip questions never search the web and never get a model answer.
         # A short follow-up ("really?") stays, because its subject is the previous turn.
-        if not re.search(FOLLOW_UP_WORDS, question.lower()) and not about_this_trip(question, context, plan):
+        # A selected stop makes "what is this" about that stop, even though the words do not name it.
+        selected = _scoped_item(plan, scope_item_id) is not None or (
+            plan is not None and bool(scope_item_id) and plan.find_hotel(scope_item_id) is not None
+        )
+        deictic = bool(re.search(r"\b(this|that|it|here)\b", question.lower()))
+        if (
+            not (selected and deictic)
+            and not re.search(FOLLOW_UP_WORDS, question.lower())
+            and not about_this_trip(question, context, plan)
+        ):
             return OFF_TRIP_LOOKUP, False, "refused"
 
         # Every answer the writer phrases reads the recent conversation, with or without a plan: a follow-up
@@ -429,9 +438,13 @@ def ask_prompt(
         focus = focus_day(plan, question, scope_item_id)
         block = plan_context(plan, focus=focus, selected_id=scope_item_id, ids=False)
         facts = {key: value for key, value in facts.items() if key != "itinerary"}
+    pointer = ""
+    if scope_item_id:
+        pointer = "The traveller selected a stop before this question. This, that, it, and here mean that stop.\n"
     return (
         f"Plan: {block}\n"
         f"Facts (source: {source}): {compact_json(facts)[:12000]}\n\n"
+        + pointer
         + with_conversation(conversation)
         + fence_user_message(question)
     )
@@ -551,6 +564,8 @@ def _plan_facts(
     if scoped_hotel is not None:
         facts["hotel"] = scoped_hotel.model_dump(mode="json")
         facts["scope"] = {"kind": "hotel", "name": scoped_hotel.name}
+        if re.search(r"\b(this|that|it|here)\b", lower):
+            facts["about_selected"] = True
 
     item = _find_item(plan, question, scope_item_id)
     if item and (
@@ -561,6 +576,8 @@ def _plan_facts(
         )
     ):
         facts["item"] = item.model_dump(mode="json", exclude=_ITEM_SCHEDULE_FIELDS)
+        if re.search(r"\b(this|that|it|here)\b", lower):
+            facts["about_selected"] = True
 
     plan_words = re.search(
         r"\b(plan|itinerary|trip|day|days|museum|museums|attraction|attractions|"
@@ -1026,6 +1043,19 @@ def _fallback_answer(facts: dict, source: str) -> str:
         ]
         if changes:
             return changes[-1]["content"]
+    if facts.get("about_selected") and "item" in facts:
+        item = facts["item"]
+        name = str(item.get("name") or "That stop")
+        start, end = str(item.get("start") or ""), str(item.get("end") or "")
+        when = f"{start}–{end}" if start and end else ""
+        notes = str(item.get("notes") or "").strip()
+        lead = f"{name} is the stop you selected" + (f", {when}" if when else "") + "."
+        return f"{lead} {notes}".strip()
+    if facts.get("about_selected") and "hotel" in facts:
+        hotel = facts["hotel"]
+        name = str(hotel.get("name") or "That stay")
+        area = str(hotel.get("area") or "").strip()
+        return f"{name} is the stay you selected" + (f", in {area}" if area else "") + "."
     if "itinerary" in facts:
         lines = []
         for day in facts["itinerary"][:8]:

@@ -38,6 +38,17 @@ def test_heat_escalates_only_when_a_threshold_is_set() -> None:
     assert should_escalate("Can I talk to a person?", 0, _policy(enabled=False)) is None
 
 
+def test_a_meal_change_stays_with_the_planner_when_the_wording_is_unhappy() -> None:
+    from app.application.escalation import keeps_the_planner, queue_reason
+
+    line = "change to something else ok? i don't want to eat this"
+    assert keeps_the_planner(line)
+    assert queue_reason(line, hot=True, stuck=False) is None
+    assert queue_reason("fuck you", hot=True, stuck=False) == "hot"
+    assert not keeps_the_planner("change the meal and talk to a person")
+    assert should_escalate("change the meal and talk to a person", 0, _policy()) == "asked_for_a_person"
+
+
 def test_an_admin_threshold_replaces_the_environment_and_a_reset_restores_it(settings: Settings, tmp_path) -> None:
     store = SQLiteStore(tmp_path / "policy.db")
     start = settings.router_threshold

@@ -30,7 +30,7 @@ export type GateArm = {
   key_set: boolean;
   key_saved: boolean;
   key_tail: string;
-  key_source: "arm" | "poe" | "none";
+  key_source: "arm" | "poe" | "deepseek" | "none";
 };
 
 export type GateArmBody = {
@@ -304,6 +304,7 @@ function GateArmForm({
   const status = () => {
     if (arm.key_source === "arm" && arm.key_tail) return t("settings.orch.keySaved", { tail: arm.key_tail });
     if (arm.key_source === "poe" && arm.key_tail) return t("settings.orch.keyPoe", { tail: arm.key_tail });
+    if (arm.key_source === "deepseek" && arm.key_tail) return t("settings.orch.keyDeepseek", { tail: arm.key_tail });
     if (arm.key_set) return t("settings.orch.keyEnv");
     return t("settings.orch.keyNone");
   };

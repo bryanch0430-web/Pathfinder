@@ -40,6 +40,18 @@ def test_a_cue_with_no_place_after_it_names_none(sentence: str) -> None:
 @pytest.mark.parametrize(
     "sentence",
     [
+        "change to something else ok? i don't want to eat this",
+        "change the meal to something else",
+        "swap this for something else",
+    ],
+)
+def test_a_change_of_option_is_not_a_new_city(sentence: str) -> None:
+    assert _find_place(sentence, CUES) is None
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
         "i want 6 days in total",
         "only 2 days in total",
         "i only have 2 days in total",

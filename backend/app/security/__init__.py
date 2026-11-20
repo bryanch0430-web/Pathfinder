@@ -12,12 +12,14 @@ from app.security.guard import (
     strip_fence_tags,
     strip_fence_tags_deep,
 )
+from app.security.pii import mask_pii
 
 __all__ = [
     "SAFE_REPLY",
     "ScreenResult",
     "canary_leaked",
     "fence_user_message",
+    "mask_pii",
     "redact_canary",
     "replayable",
     "screen_message",

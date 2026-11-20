@@ -52,7 +52,7 @@ import { describeFailure, failureOf, type Failure } from "./lib/failure";
 import { downloadPlanSlides } from "./lib/slides";
 import { offersSignIn } from "./lib/access";
 import { useI18n, type Locale } from "./lib/i18n";
-import { useLocalAdmin } from "./lib/localAdmin";
+import { loadLocalAdmin, useLocalAdmin } from "./lib/localAdmin";
 import { planLocaleFor } from "./lib/planLocale";
 import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
@@ -63,6 +63,7 @@ import { DeskPage } from "./app/learn";
 import { showsAdmin } from "./lib/access";
 import { Sketchbook } from "./design-system/sketch/Sketchbook";
 
+const ADMIN_TABS = new Set<AppTab>(["evaluation", "cases", "settings"]);
 const HASH_TAB: Record<string, AppTab> = {
   plan: "plan",
   saved: "saved",
@@ -136,6 +137,7 @@ export default function App() {
     );
   const [tab, setTab] = useState<AppTab>(tabFromHash);
   const [deskOpen, setDeskOpen] = useState(() => window.location.hash.replace("#", "") === "desk");
+  const [deskFocus, setDeskFocus] = useState(false);
   const [mapDay, setMapDay] = useState<string>("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [dark, setDark] = useState(() => {
@@ -204,6 +206,15 @@ export default function App() {
   // menu while a sign-in from before is stored.
   const localAdmin = useLocalAdmin();
   const signIn = offersSignIn(localAdmin);
+  const storedAdmin = Boolean(readStoredValue("admin"));
+  const [adminSettled, setAdminSettled] = useState(storedAdmin);
+  useEffect(() => {
+    if (readStoredValue("admin")) {
+      setAdminSettled(true);
+      return;
+    }
+    void loadLocalAdmin().finally(() => setAdminSettled(true));
+  }, []);
   const showDesk = showsAdmin(localAdmin, readStoredValue("admin"));
   const [share, setShare] = useState<ShareState>(CLOSED_SHARE);
   const [guides, setGuides] = useState<GuideChunk[]>([]);
@@ -530,8 +541,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!showDesk && tab === "cases") setTab("plan");
-  }, [showDesk, tab]);
+    if (!deskFocus) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDeskFocus(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [deskFocus]);
+
+  useEffect(() => {
+    if (!adminSettled || showDesk) return;
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "desk" || ADMIN_TABS.has(tab)) {
+      setDeskOpen(false);
+      setTab("plan");
+      window.location.hash = "plan";
+    }
+  }, [adminSettled, showDesk, tab]);
 
   useEffect(() => {
     setMapDay(pf.plan?.days[0]?.date ?? "");
@@ -547,8 +573,21 @@ export default function App() {
   }, [pf.plan, pf.selectedItem]);
 
   const changeTab = (next: AppTab) => {
+    setDeskFocus(false);
     setTab(next);
     window.location.hash = next;
+  };
+
+  const openDeskWindow = () => {
+    const opened = window.open(
+      `${window.location.pathname}?desk=1#desk`,
+      "pathfinder-desk",
+      "popup=yes,width=1200,height=840,resizable=yes",
+    );
+    if (opened) {
+      opened.focus();
+      setDeskFocus(false);
+    }
   };
 
   const selectItem = (item: typeof pf.selectedItem) => {
@@ -590,6 +629,7 @@ export default function App() {
   );
 
   if (deskOpen) {
+    if (!adminSettled && !showDesk) return <LoadingScreen label={t("common.loading")} />;
     return showDesk ? (
       <DeskPage onBack={() => { if (window.opener) window.close(); else window.location.hash = "plan"; }} />
     ) : (
@@ -602,6 +642,8 @@ export default function App() {
       </main>
     );
   }
+
+  const visibleTab: AppTab = showDesk || !ADMIN_TABS.has(tab) ? tab : "plan";
 
   return (
     <>
@@ -617,7 +659,7 @@ export default function App() {
         }}
       />
       <AppHeader
-        activeTab={tab}
+        activeTab={visibleTab}
         onTabChange={changeTab}
         locale={locale}
         onLocaleChange={changeLocale}
@@ -636,19 +678,19 @@ export default function App() {
         theme={dark ? "dark" : "light"}
         onTheme={() => setDark((value) => !value)}
         admin={showDesk}
-        onOpenDesk={showDesk ? () => {
-          const opened = window.open(
-            `${window.location.pathname}?desk=1#desk`,
-            "pathfinder-desk",
-            "popup=yes,width=1200,height=840,resizable=yes",
-          );
-          if (opened) opened.focus();
-          else window.location.hash = "desk";
-        } : undefined}
+        deskActive={deskFocus}
+        onOpenDesk={showDesk ? () => setDeskFocus((open) => !open) : undefined}
       />
-      <div role="tabpanel" id={MAIN_PANEL_ID} aria-labelledby={appTabId(tab)}>
-      {tab === "plan" ? (
-        !pf.ready ? (
+      <div role="tabpanel" id={MAIN_PANEL_ID} aria-labelledby={appTabId(visibleTab)}>
+      <div
+        className="pf-stage__plan"
+        data-hidden={visibleTab === "plan" ? undefined : "true"}
+        aria-hidden={visibleTab === "plan" ? undefined : true}
+        ref={(node) => {
+          if (node) node.inert = visibleTab !== "plan";
+        }}
+      >
+        {!pf.ready ? (
           <LoadingScreen label={t("common.loading")} />
         ) : (
           <PlannerTemplate
@@ -821,13 +863,18 @@ export default function App() {
               )
             }
           />
-        )
-      ) : null}
-      {tab === "saved" ? <SavedPage key={identityEpoch} /> : null}
-      {tab === "evaluation" ? <EvaluationPage /> : null}
-      {tab === "cases" && showDesk ? <CasesPage /> : null}
-      {tab === "settings" ? <SettingsPage key={identityEpoch} /> : null}
+        )}
       </div>
+      {visibleTab === "saved" ? <SavedPage key={identityEpoch} /> : null}
+      {visibleTab === "evaluation" ? <EvaluationPage /> : null}
+      {visibleTab === "cases" ? <CasesPage /> : null}
+      {visibleTab === "settings" ? <SettingsPage key={identityEpoch} /> : null}
+      </div>
+      {deskFocus && showDesk ? (
+        <div className="pf-desk-focus">
+          <DeskPage onBack={() => setDeskFocus(false)} onPopOut={openDeskWindow} />
+        </div>
+      ) : null}
 
       {signIn ? <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} onSubmit={handleAuth} /> : null}
       <ShareDialog

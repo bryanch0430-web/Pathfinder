@@ -152,6 +152,63 @@ def test_a_question_unrelated_to_the_trip_is_not_looked_up(settings: Settings) -
     assert web.calls == 0
 
 
+def test_what_is_this_uses_the_selected_stop(settings: Settings) -> None:
+    from app.domain.models import TripContext, TripPlan
+
+    plan = TripPlan.model_validate(
+        {
+            "trip_id": "t",
+            "session_id": "s",
+            "version": 1,
+            "destination": {"name": "Hong Kong", "country_code": "HK", "timezone": "Asia/Hong_Kong"},
+            "dates": {"start": "2027-03-02", "end": "2027-03-02"},
+            "days": [
+                {
+                    "date": "2027-03-02",
+                    "title": "Day two",
+                    "items": [
+                        {
+                            "id": "m1",
+                            "type": "attraction",
+                            "name": "Mendel's",
+                            "start": "11:00",
+                            "end": "12:00",
+                            "notes": "A small shop in Sham Shui Po.",
+                            "geo": {"lat": 22.3, "lng": 114.1},
+                            "source_refs": [{"title": "Mendel's", "url": "https://example.com/m", "source": "google-places"}],
+                        }
+                    ],
+                }
+            ],
+            "budget": {"amount": 9000, "currency": "HKD"},
+        }
+    )
+    path = AskPath(
+        gateway=LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
+        registry=type("R", (), {"web": [], "web_deep": [], "weather": [], "routes": [], "places": []})(),
+        settings=settings,
+    )
+    context = TripContext(session_id="s", destination="Hong Kong")
+    toolbox = Toolbox(path="ask", tracer=NoopTracer(), store=None, request_id="r")
+    bare, _, bare_source = asyncio.run(
+        path.answer(question="what is this", plan=plan, context=context, toolbox=toolbox, emit=None)
+    )
+    assert bare == OFF_TRIP_LOOKUP and bare_source == "refused"
+    text, related, source = asyncio.run(
+        path.answer(
+            question="what is this",
+            plan=plan,
+            context=context,
+            toolbox=toolbox,
+            emit=None,
+            scope_item_id="m1",
+        )
+    )
+    assert source != "refused" and related is True
+    assert "Mendel's" in text and "Sham Shui Po" in text
+
+
+
 def test_keyword_query_strips_framing_and_keeps_the_city() -> None:
     assert _keyword_query("what's the nightlife like in Hong Kong?", "Hong Kong") == "nightlife hong kong"
     assert _keyword_query("is the food scene good?", "Kyoto").lower() == "food scene kyoto"

@@ -107,6 +107,16 @@ class Settings(BaseSettings):
     #: ``jev`` is the decision model. ``plain`` is a fast model with reasoning off.
     #: ``reason`` is a fast model with reasoning on.
     router_gate: str = "jev"
+    #: Which personal details are masked before a model sees a message. All on until an operator turns one off.
+    redact_hkid: bool = True
+    redact_hk_phone: bool = True
+    redact_email: bool = True
+    redact_card: bool = True
+    #: Empty keeps the built-in pattern. A saved pattern replaces it.
+    redact_hkid_pattern: str = ""
+    redact_hk_phone_pattern: str = ""
+    redact_email_pattern: str = ""
+    redact_card_pattern: str = ""
     poe_api_key: str = ""
     poe_base_url: str = "https://api.poe.com/v1"
     #: Closest fast non-reasoning model this Poe key can call. GPT-6 Luna is not on the list.
@@ -217,6 +227,9 @@ class Settings(BaseSettings):
     reviewer_temperature: float = 0.0
     reviewer_max_tokens: int = 4096
     reviewer_reasoning: str = "none"
+    #: One try. A review that does not answer in this long is dropped and the drafted plan is kept.
+    #: It stays far inside the turn deadline, so a slow review cannot stop the trip.
+    reviewer_timeout_seconds: float = 20.0
     #: A key saved for the handoff score. Empty uses the Jev gate key.
     handoff_api_key: str = ""
     #: Stay research (plan path): when the traveller asks something of the stay or its room, the

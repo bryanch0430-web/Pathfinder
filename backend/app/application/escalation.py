@@ -198,6 +198,37 @@ def hand_reason(message: str, frustration: int, hand: dict[str, Any]) -> str | N
     return "negative_word"
 
 
+_EDIT = re.compile(
+    r"\b(?:change|swap|replace|switch)\b.{0,48}\b(?:something else|another|different|instead|this|it|that)\b"
+    r"|\bsomething else\b"
+    r"|\b(?:don'?t|do not) want to (?:eat|have|go|see|do)\b"
+    r"|\b(?:don'?t|do not) want (?:this|that|it)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def keeps_the_planner(message: str) -> bool:
+    """A request to change the plan stays with the planner, even when the wording is unhappy.
+
+    Asking for a person, or a line of distress, is not one of these.
+    """
+    text = message or ""
+    if _ASKS_FOR_A_PERSON.search(text) and not _NEGATED_ESCALATION.search(text):
+        return False
+    from app.application.sentiment import is_distress
+
+    if is_distress(text):
+        return False
+    return _EDIT.search(text) is not None
+
+
+def queue_reason(message: str, *, hot: bool, stuck: bool) -> str | None:
+    """Why a hot or stuck line should wait for a person. A plan change is not that reason."""
+    if keeps_the_planner(message):
+        hot = False
+    return agent_reason(100 if hot else 0, stuck)
+
+
 def agent_reason(frustration: int, stuck: bool) -> str | None:
     """Why a hot or stuck chat should wait in the queue. None when the planner keeps it.
 

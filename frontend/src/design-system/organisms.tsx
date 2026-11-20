@@ -2,9 +2,11 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, typ
 import { TripMap } from "./maps/TripMap";
 import { kmBetween, MODE, modeForDistance, SEGMENT_COLOR, type TravelMode } from "./maps/geo";
 import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/time";
-import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, Input, Select, Text } from "./atoms";
+import { Avatar, Badge, Button, Dialog, Divider, Drawer, Heading, IconButton, Input, Select, Switch, Text } from "./atoms";
 import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from "./elements";
 import { timelineAt } from "../lib/mapTimeline";
+import { maskTyped, setRedaction, DEFAULT_PATTERNS, type RedactionFlags } from "../lib/maskPii";
+import { previewRedaction } from "../lib/api";
 import { ClashNote, clashesOf, clashIds, type LayoutMove, type StopCommit } from "./directEdit";
 import { PlanStudio } from "./planStudio";
 import { Icon, type IconName } from "./icons";
@@ -122,12 +124,12 @@ export type AppTab = "plan" | "saved" | "evaluation" | "cases" | "settings";
 export const MAIN_PANEL_ID = "pf-main-panel";
 export const appTabId = (tab: AppTab) => `pf-tab-${tab}`;
 
-const TABS: { id: AppTab; label: MessageKey; icon: "compass" | "book" | "route" | "shield" | "sparkles" }[] = [
+const TABS: { id: AppTab; label: MessageKey; icon: "compass" | "book" | "route" | "shield" | "sparkles"; admin?: boolean }[] = [
   { id: "plan", label: "tab.plan", icon: "compass" },
   { id: "saved", label: "tab.saved", icon: "book" },
-  { id: "evaluation", label: "tab.evaluation", icon: "route" },
-  { id: "cases", label: "tab.cases", icon: "sparkles" },
-  { id: "settings", label: "tab.settings", icon: "shield" },
+  { id: "evaluation", label: "tab.evaluation", icon: "route", admin: true },
+  { id: "cases", label: "tab.cases", icon: "sparkles", admin: true },
+  { id: "settings", label: "tab.settings", icon: "shield", admin: true },
 ];
 
 export function AppHeader({
@@ -150,6 +152,7 @@ export function AppHeader({
   theme,
   onTheme,
   onOpenDesk,
+  deskActive = false,
   admin = false,
 }: {
   activeTab: AppTab;
@@ -176,7 +179,9 @@ export function AppHeader({
   onTheme?: () => void;
   /** Leaves the planner for the contact desk. Omitted for a traveller. */
   onOpenDesk?: () => void;
-  /** Evaluation stays visible. Cases is only for an admin. */
+  /** The desk is open over this page. */
+  deskActive?: boolean;
+  /** Evaluation, error analysis, settings, and the desk are admin areas. */
   admin?: boolean;
 }) {
   const { t } = useI18n();
@@ -226,7 +231,7 @@ export function AppHeader({
           </span>
         </a>
         <div className="pf-tabs" role="tablist" aria-label={t("header.sections")} onKeyDown={onTablistKeyDown}>
-          {TABS.filter((tab) => tab.id !== "cases" || admin).map((tab) => (
+          {TABS.filter((tab) => !tab.admin).map((tab) => (
             <button
               key={tab.id}
               id={appTabId(tab.id)}
@@ -243,12 +248,33 @@ export function AppHeader({
             </button>
           ))}
         </div>
+        {admin ? (
+          <div className="pf-tabs pf-tabs__admin" role="tablist" aria-label={t("header.adminOnly")} onKeyDown={onTablistKeyDown}>
+            <span className="pf-tabs__admin-label">{t("header.adminOnly")}</span>
+            {TABS.filter((tab) => tab.admin).map((tab) => (
+              <button
+                key={tab.id}
+                id={appTabId(tab.id)}
+                type="button"
+                role="tab"
+                className="pf-tab"
+                data-active={activeTab === tab.id}
+                aria-selected={activeTab === tab.id}
+                aria-controls={activeTab === tab.id ? MAIN_PANEL_ID : undefined}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                onClick={() => onTabChange(tab.id)}
+              >
+                {t(tab.label)}
+              </button>
+            ))}
+            {onOpenDesk ? (
+              <button type="button" role="tab" className="pf-tab" data-active={deskActive} onClick={onOpenDesk}>
+                {t("tab.desk")}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div className="pf-header__actions">
-          {onOpenDesk ? (
-            <Button size="sm" variant="ghost" iconLeft="users" onClick={onOpenDesk}>
-              {t("tab.desk")}
-            </Button>
-          ) : null}
           {onTheme ? (
             <IconButton icon="sun" label={t("header.theme")} aria-pressed={theme === "dark"} onClick={onTheme} />
           ) : null}
@@ -593,7 +619,12 @@ function WhyThisDecision({ decision }: { decision: DecisionRecord | null }) {
               {call.purpose || t("chat.thinking")}
               {typeof call.latency_ms === "number" && call.latency_ms > 0 ? ` · ${call.latency_ms} ms` : ""}
             </p>
-            {call.user_preview ? <p className="pf-decision__muted">{call.user_preview}</p> : null}
+            {call.user_preview ? (
+              <>
+                <p className="pf-decision__call">{t("chat.sentToModel")}</p>
+                <pre className="pf-decision__prompt">{call.user_preview}</pre>
+              </>
+            ) : null}
             {call.reasoning?.trim() ? (
               <p>{call.reasoning}</p>
             ) : why.length ? null : (
@@ -932,7 +963,7 @@ export function ChatPanel({
                   ) : null
                 }
               >
-                {message.content}
+                {message.role === "user" && !fromOperator ? maskTyped(message.content) : message.content}
               </ChatBubble>
               {message.role !== "user" && !fromAgent ? (
                 <WhyThisDecision
@@ -1842,6 +1873,17 @@ function LegSlot({
   );
 }
 
+/** The box that actually scrolls this node: the plan list inside a window, or the window itself. */
+function scrollPort(node: HTMLElement | null): HTMLElement | null {
+  let current: HTMLElement | null = node;
+  while (current && current !== document.documentElement) {
+    const y = getComputedStyle(current).overflowY;
+    if ((y === "auto" || y === "scroll") && current.scrollHeight > current.clientHeight + 4) return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+
 export function TripWorkspace({
   plan,
   versions,
@@ -1923,6 +1965,14 @@ export function TripWorkspace({
   const { t } = useI18n();
   const [activeDay, setActiveDay] = useState(plan.days[0]?.date ?? "");
   const [sheet, setSheet] = useState(false);
+  // The desk studio is the editor while it is open. This one would cover the same screen.
+  useEffect(() => {
+    const onDeskStudio = (event: Event) => {
+      if ((event as CustomEvent<{ open?: boolean }>).detail?.open) setSheet(false);
+    };
+    window.addEventListener("pf-desk-studio", onDeskStudio);
+    return () => window.removeEventListener("pf-desk-studio", onDeskStudio);
+  }, []);
   const [hideBudget, setHideBudget] = useState(false);
   const [savingSheet, setSavingSheet] = useState(false);
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -1952,12 +2002,14 @@ export function TripWorkspace({
       node.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    const scroller = node.closest(".pf-workspace__body") as HTMLElement | null;
-    if (scroller) {
-      const top =
-        node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
-      scroller.scrollTo({ top, behavior: "smooth" });
+    const scroller = scrollPort(node);
+    if (!scroller) {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     }
+    const top =
+      node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
+    scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   };
 
   const jump = (date: string) => {
@@ -1977,7 +2029,7 @@ export function TripWorkspace({
   };
 
   useEffect(() => {
-    const scroller = bodyRef.current;
+    const scroller = scrollPort(bodyRef.current);
     if (!scroller || sheet) return;
     const onScroll = () => {
       const top = scroller.getBoundingClientRect().top;
@@ -3927,7 +3979,7 @@ export function ShareDialog({
   );
 }
 
-export type SettingsGroup = "general" | "handoff" | "instructions" | "keys" | "reviewer" | "orchestrator" | "policy" | "freshness" | "system";
+export type SettingsGroup = "general" | "handoff" | "instructions" | "keys" | "reviewer" | "orchestrator" | "policy" | "redaction" | "freshness" | "system";
 
 /** The signed-in or guest profile: remembered preferences, trip counts, and a way to clear them. */
 export function TravellerProfileCard({
@@ -4055,6 +4107,124 @@ export function TravellerProfileCard({
   );
 }
 
+const REDACTION_SAMPLE =
+  "Plan 4 days in Kyoto from Hong Kong for 2 people, leaving 5 December, budget 8000 HKD. My HKID is Y335 776(5). Call me on 9123 4567 or chan@example.com. The card is 4111 1111 1111 1111.";
+
+function RedactionSettings({
+  saved,
+  canEdit,
+  onSave,
+}: {
+  saved: RedactionFlags;
+  canEdit: boolean;
+  onSave?: (body: RedactionFlags) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [flags, setFlags] = useState<RedactionFlags>(saved);
+  const [sample, setSample] = useState(REDACTION_SAMPLE);
+  const [person, setPerson] = useState("");
+  const [machine, setMachine] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setFlags(saved), [saved]);
+  const rows: { key: keyof RedactionFlags["patterns"]; title: string; hint: string }[] = [
+    { key: "hkid", title: t("settings.redaction.hkid"), hint: t("settings.redaction.hkidHint") },
+    { key: "hk_phone", title: t("settings.redaction.phone"), hint: t("settings.redaction.phoneHint") },
+    { key: "email", title: t("settings.redaction.email"), hint: t("settings.redaction.emailHint") },
+    { key: "card", title: t("settings.redaction.card"), hint: t("settings.redaction.cardHint") },
+  ];
+  const patterns = flags.patterns ?? DEFAULT_PATTERNS;
+  return (
+    <div className="pf-card pf-eval__panel">
+      <Text size="sm" weight="semibold">{t("settings.redaction.title")}</Text>
+      <Text size="xs" tone="tertiary">{t("settings.redaction.body")}</Text>
+      {rows.map((row) => (
+        <div className="pf-redact__row" key={row.key}>
+          <div className="pf-redact__copy">
+            <Text size="sm" weight="semibold">{row.title}</Text>
+            <Text size="xs" tone="tertiary">{row.hint}</Text>
+            <label className="pf-small pf-muted" htmlFor={`pf-redact-${row.key}`}>{t("settings.redaction.pattern")}</label>
+            <textarea
+              id={`pf-redact-${row.key}`}
+              className="pf-input pf-redact__pattern"
+              value={patterns[row.key]}
+              disabled={!canEdit}
+              rows={2}
+              spellCheck={false}
+              onChange={(event) => setFlags((current) => ({
+                ...current,
+                patterns: { ...(current.patterns ?? DEFAULT_PATTERNS), [row.key]: event.target.value },
+              }))}
+            />
+          </div>
+          <Switch
+            label={flags[row.key] ? t("settings.redaction.on") : t("settings.redaction.off")}
+            checked={flags[row.key]}
+            disabled={!canEdit}
+            onChange={(checked) => setFlags((current) => ({ ...current, [row.key]: checked }))}
+          />
+        </div>
+      ))}
+      {canEdit ? (
+        <div className="pf-admin-tune__actions">
+          <Button variant="primary" onClick={() => {
+            setError("");
+            void onSave?.(flags)?.catch((cause: unknown) => setError(cause instanceof Error ? cause.message : t("settings.redaction.patternInvalid")));
+          }}>{t("settings.redaction.save")}</Button>
+        </div>
+      ) : null}
+      <Divider />
+      <Text size="sm" weight="semibold">{t("settings.redaction.previewTitle")}</Text>
+      <Text size="xs" tone="tertiary">{t("settings.redaction.previewBody")}</Text>
+      <textarea
+        className="pf-input pf-redact__sample"
+        value={sample}
+        onChange={(event) => setSample(event.target.value)}
+        rows={3}
+        aria-label={t("settings.redaction.previewTitle")}
+      />
+      <div className="pf-admin-tune__actions">
+        <Button
+          onClick={() => {
+            setBusy(true);
+            setError("");
+            void previewRedaction({
+              text: sample,
+              hkid: flags.hkid,
+              hk_phone: flags.hk_phone,
+              email: flags.email,
+              card: flags.card,
+              hkid_pattern: patterns.hkid,
+              hk_phone_pattern: patterns.hk_phone,
+              email_pattern: patterns.email,
+              card_pattern: patterns.card,
+            })
+              .then((result) => {
+                setPerson(result.person);
+                setMachine(result.machine);
+              })
+              .catch(() => setError(t("settings.redaction.previewFailed")))
+              .finally(() => setBusy(false));
+          }}
+          disabled={busy}
+        >
+          {t("settings.redaction.preview")}
+        </Button>
+      </div>
+      {error ? <Text size="xs" tone="tertiary">{error}</Text> : null}
+      {person ? (
+        <div className="pf-redact__out">
+          <Text size="xs" weight="semibold">{t("settings.redaction.person")}</Text>
+          <pre className="pf-decision__prompt">{person}</pre>
+          <Text size="xs" weight="semibold">{t("settings.redaction.machine")}</Text>
+          <pre className="pf-decision__prompt">{machine}</pre>
+          <Text size="xs" tone="tertiary">{t("settings.redaction.previewNote")}</Text>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function SettingsView({
   config,
   injections,
@@ -4066,6 +4236,7 @@ export function SettingsView({
   onSavePolicy,
   onResetPolicy,
   onSaveGate,
+  onSaveRedaction,
   onSaveOrchestrator,
   providers = [],
 }: {
@@ -4090,6 +4261,7 @@ export function SettingsView({
     };
     providers: Record<string, string[] | string>;
     locales: string[];
+    redaction?: RedactionFlags;
   } | null;
   injections?: { category: string; severity: string; count: number }[];
   /** Why the last load or save failed. It shows above the form, which stays so that nothing typed is lost. */
@@ -4102,6 +4274,7 @@ export function SettingsView({
   onResetPolicy?: () => Promise<void>;
   /** Saves which model chooses the path. */
   onSaveGate?: (gate: "jev" | "plain" | "reason") => Promise<void>;
+  onSaveRedaction?: (body: RedactionFlags) => Promise<void>;
   /** Saves one orchestrator model's address and key. */
   onSaveOrchestrator?: (body: {
     jev?: { model: string; url: string; api_key?: string; clear_key?: boolean };
@@ -4175,6 +4348,7 @@ export function SettingsView({
     if (group === "reviewer") return t("settings.group.reviewer");
     if (group === "orchestrator") return t("settings.group.orchestrator");
     if (group === "policy") return t("settings.group.policy");
+    if (group === "redaction") return t("settings.group.redaction");
     if (group === "freshness") return t("settings.group.freshness");
     if (group === "system") return t("settings.group.system");
     return t("settings.group.general");
@@ -4187,7 +4361,7 @@ export function SettingsView({
         ...(modelKeys ? (["keys"] as const) : []),
         ...(config ? (["reviewer"] as const) : []),
       ],
-      ...(config ? [["policy", "freshness", "system"] as const] : []),
+      ...(config ? [["policy", "redaction", "freshness", "system"] as const] : []),
     ] as SettingsGroup[][]
   ).filter((cluster) => cluster.length > 0);
   return (
@@ -4312,7 +4486,7 @@ export function SettingsView({
               onSave={async (body) => { await onSaveOrchestrator?.({ reviewer: body }); }}
             />
           ) : null}
-          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")}`) ? (
+          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {canEditPolicy ? (
@@ -4338,6 +4512,16 @@ export function SettingsView({
               ))
             )}
           </div>
+          ) : null}
+          {show("redaction", `${t("settings.redaction.title")} ${t("settings.redaction.body")} ${t("settings.redaction.previewTitle")}`) ? (
+            <RedactionSettings
+              saved={config.redaction ?? { hkid: true, hk_phone: true, email: true, card: true, patterns: { ...DEFAULT_PATTERNS } }}
+              canEdit={canEditPolicy}
+              onSave={async (body) => {
+                await onSaveRedaction?.(body);
+                setRedaction(body);
+              }}
+            />
           ) : null}
           {show("freshness", `${t("settings.freshness")} ${t("settings.freshnessBody")} ${t("settings.fresh.weather")} ${t("settings.fresh.tickets")} ${t("settings.fresh.hotels")} ${t("settings.fresh.attractions")}`) ? (
           <div className="pf-card pf-eval__panel">

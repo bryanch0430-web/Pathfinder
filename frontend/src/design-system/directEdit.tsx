@@ -48,6 +48,46 @@ function clock(minutes: number): string {
   return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
 }
 
+const ARRIVAL_BUFFER = 60;
+
+function timeOf(value: string | null | undefined): { day: string; minute: number } | null {
+  if (!value || value.length < 16) return null;
+  const [hour, minute] = value.slice(11, 16).split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return { day: value.slice(0, 10), minute: hour * 60 + minute };
+}
+
+/** Why a stop cannot sit on this day: the flight has not landed, or it has already left. */
+function outsideFlight(plan: TripPlan, day: string, start: number, end: number, name: string): string {
+  const tickets = plan.tickets ?? [];
+  for (const leg of plan.legs ?? []) {
+    if (leg.kind !== "to_stay" && leg.kind !== "from_stay") continue;
+    const options = tickets.filter((ticket) => ticket.leg_id === leg.id);
+    const option = options.find((ticket) => ticket.selected) ?? options[0];
+    const depart = timeOf(option?.depart_at);
+    const arrive = timeOf(option?.arrive_at) ?? depart;
+    if (!depart || !arrive) continue;
+    const on = leg.kind === "from_stay" ? arrive.day : depart.day;
+    if (on !== day) continue;
+    if (leg.kind === "to_stay" && (start < arrive.minute + ARRIVAL_BUFFER || (start < arrive.minute && end > depart.minute))) {
+      return `${name} cannot start before ${clock(arrive.minute + ARRIVAL_BUFFER)}. You reach your stay at ${clock(arrive.minute)} after the flight, so this stop stays where it was.`;
+    }
+    if (leg.kind === "from_stay" && end > depart.minute) {
+      return `${name} cannot end after ${clock(depart.minute)}. You leave for the airport then, so this stop stays where it was.`;
+    }
+  }
+  const flight = tickets.find((ticket) => ticket.mode === "flight" && ticket.selected);
+  const lands = timeOf(flight?.arrive_at);
+  const leaves = timeOf(flight?.return_depart_at);
+  if (lands && lands.day === day && start < lands.minute) {
+    return `${name} cannot start before ${clock(lands.minute)}. The flight lands then, so this stop stays where it was.`;
+  }
+  if (leaves && leaves.day === day && end > leaves.minute) {
+    return `${name} cannot end after ${clock(leaves.minute)}. The flight leaves then, so this stop stays where it was.`;
+  }
+  return "";
+}
+
 function snap(minutes: number): number {
   return Math.max(0, Math.min(23 * 60 + 45, Math.round(minutes / 15) * 15));
 }
@@ -185,6 +225,7 @@ export function DirectSheet({
   const ghostRef = useRef<HTMLDivElement>(null);
   const ghostAt = useRef<{ id: string; day: number; start: number } | null>(null);
   const [tip, setTip] = useState<{ name: string; when: string; address: string; x: number; y: number } | null>(null);
+  const [refused, setRefused] = useState("");
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const headRef = useRef<HTMLDivElement | null>(null);
   const px = onlyDay ? 1.45 : PX;
@@ -252,6 +293,7 @@ export function DirectSheet({
   };
   const retimed = (id: string, start: number, end: number, day = -1) => {
     remember();
+    setRefused("");
     setDraft((rows) =>
       rows.map((row) => {
         if (row.id !== id || row.fixed) return row;
@@ -301,6 +343,12 @@ export function DirectSheet({
     const start = seen && seen.id === id && seen.day === day
       ? seen.start
       : snap(range.start + (event.clientY - rect.top) / px);
+    const dayDate = plan.days[day]?.date ?? "";
+    const reason = outsideFlight(plan, dayDate, start, start + Math.max(15, row.end - row.start), row.name);
+    if (reason) {
+      setRefused(reason);
+      return;
+    }
     retimed(id, start, start + (row.end - row.start), day);
   };
 
@@ -309,7 +357,13 @@ export function DirectSheet({
     const items = draft
       .filter((item) => !item.fixed)
       .map((item) => ({ id: item.id, day: item.day + 1, start: clock(item.start), end: clock(item.end) }));
-    void onApply(items);
+    setRefused("");
+    void Promise.resolve(onApply(items)).catch((cause: unknown) => {
+      setDraft(readDraft(plan));
+      history.current = [];
+      setSteps(0);
+      setRefused(cause instanceof Error && cause.message ? cause.message : "");
+    });
   };
 
   return (
@@ -324,6 +378,11 @@ export function DirectSheet({
         </span>
       </div>
       <ClashNote clashes={clashes} />
+      {refused ? (
+        <div className="pf-banner" data-tone="warning" role="alert">
+          <span>{refused}</span>
+        </div>
+      ) : null}
       <div ref={ghostRef} className="pf-sheet__ghost" hidden />
       {locked && lockNote ? <p className="pf-sheet__lock">{lockNote}</p> : null}
       {tip ? (

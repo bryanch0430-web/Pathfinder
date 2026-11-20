@@ -248,8 +248,23 @@ export function saveRuntime(body: {
     max_tokens: number;
     reasoning: string;
   };
+  redaction?: { hkid: boolean; hk_phone: boolean; email: boolean; card: boolean; hkid_pattern?: string; hk_phone_pattern?: string; email_pattern?: string; card_pattern?: string; patterns?: { hkid: string; hk_phone: string; email: string; card: string } };
 }): Promise<Record<string, unknown>> {
   return request("/api/admin/runtime", { method: "PUT", headers: deskHeader(), body: JSON.stringify(body) });
+}
+
+export function previewRedaction(body: {
+  text: string;
+  hkid: boolean;
+  hk_phone: boolean;
+  email: boolean;
+  card: boolean;
+  hkid_pattern?: string;
+  hk_phone_pattern?: string;
+  email_pattern?: string;
+  card_pattern?: string;
+}): Promise<{ person: string; machine: string }> {
+  return request("/api/admin/redaction/preview", { method: "POST", headers: deskHeader(), body: JSON.stringify(body) });
 }
 
 export function resetRuntime(): Promise<Record<string, unknown>> {
@@ -840,11 +855,11 @@ export function getDeskChat(sessionId: string): Promise<{ session_id: string; he
   return request(`/api/admin/desk/${encodeURIComponent(sessionId)}`, { headers: deskHeader() });
 }
 
-export function holdDeskChat(sessionId: string): Promise<{ held: boolean }> {
+export function holdDeskChat(sessionId: string): Promise<{ held: boolean; agent_name?: string }> {
   return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/hold`, { method: "POST", headers: deskHeader() });
 }
 
-export function releaseDeskChat(sessionId: string): Promise<{ held: boolean }> {
+export function releaseDeskChat(sessionId: string): Promise<{ held: boolean; agent_name?: string }> {
   return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/release`, { method: "POST", headers: deskHeader() });
 }
 
@@ -944,7 +959,6 @@ export function saveDeskBrief(
     budget: number;
     currency: string;
     preferences: string[];
-    build: boolean;
   },
 ): Promise<{ built: boolean; plan: DeskPlan | null }> {
   return request(`/api/admin/desk/${encodeURIComponent(sessionId)}/brief`, {

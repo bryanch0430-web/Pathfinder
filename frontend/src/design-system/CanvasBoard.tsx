@@ -12,7 +12,7 @@ const EDGE = 16;
 const COL_GAP = 16;
 const BOTTOM = 16;
 /** Bump when the default arrangement changes, so a saved layout from an older default is replaced once. */
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 const MIN: Record<Id, Size> = {
   chat: { w: 220, h: 200 },
   plan: { w: 280, h: 200 },
@@ -83,48 +83,83 @@ function bandTop(boardH: number): number {
   return Math.round(Math.min(88, Math.max(72, boardH * 0.085)));
 }
 
+const CORE_ORDER = ["chat", "map", "plan"] as const;
+type CoreId = (typeof CORE_ORDER)[number];
+
+function isCore(id: Id): id is CoreId {
+  return id === "chat" || id === "map" || id === "plan";
+}
+
+function bodyBox(board: Size) {
+  const top = bandTop(board.h);
+  return { top, h: Math.max(MIN.plan.h, board.h - top - BOTTOM) };
+}
+
+/** A side column on the full three-up board. The map, when it is open, takes whatever is left. */
+function sideWidth(fullInner: number, id: "chat" | "plan"): number {
+  const share = id === "chat" ? 0.18 : 0.26;
+  const cap = id === "chat" ? 340 : 480;
+  const floor = MIN[id].w;
+  const width = Math.round(fullInner * share);
+  if (fullInner < floor) return Math.max(0, width);
+  return Math.min(cap, Math.max(floor, width));
+}
+
 /**
- * The resting arrangement: chat, plan and the map share one top and one bottom.
- * Chat is the narrow column, the plan the wide middle, the map the right column.
+ * Chat, the map and the plan, left to right, sharing one top and one bottom.
+ * The map is the wide column. Closing one of these three gives its space to the
+ * ones still open. Other windows are not part of this row.
+ */
+function placeCore(board: Size, openIds: readonly CoreId[]): Partial<Record<CoreId, Rect>> {
+  const { top, h } = bodyBox(board);
+  const visible = CORE_ORDER.filter((id) => openIds.includes(id));
+  if (!visible.length) return {};
+  const inner = Math.max(0, board.w - EDGE * 2 - COL_GAP * (visible.length - 1));
+  const fullInner = Math.max(0, board.w - EDGE * 2 - COL_GAP * 2);
+  const widths = new Map<CoreId, number>();
+  if (visible.length === 1) {
+    widths.set(visible[0], inner);
+  } else {
+    const main: CoreId = visible.includes("map") ? "map" : "plan";
+    const sides = visible.filter((id): id is "chat" | "plan" => id !== main);
+    for (const id of sides) widths.set(id, sideWidth(fullInner, id));
+    let mainW = inner - [...widths.values()].reduce((sum, width) => sum + width, 0);
+    const tooTight = mainW < MIN[main].w || [...widths.values()].some((width) => width < 0);
+    if (tooTight) {
+      const weight: Record<CoreId, number> = { chat: 18, map: 56, plan: 26 };
+      const sum = visible.reduce((total, id) => total + weight[id], 0);
+      let used = 0;
+      visible.forEach((id, index) => {
+        const width = index === visible.length - 1 ? inner - used : Math.max(0, Math.round((inner * weight[id]) / sum));
+        widths.set(id, width);
+        used += width;
+      });
+    } else {
+      widths.set(main, mainW);
+    }
+  }
+  const placed: Partial<Record<CoreId, Rect>> = {};
+  let x = EDGE;
+  for (const id of visible) {
+    const w = widths.get(id) ?? inner;
+    placed[id] = { x, y: top, w, h };
+    x += w + COL_GAP;
+  }
+  return placed;
+}
+
+/**
+ * The resting arrangement: chat, the map and the plan share one top and one bottom.
+ * Chat is the narrow column, the map the wide middle, the plan the right column.
  * Shares are of the board, so a wider or taller screen keeps the same picture.
  */
 function defaults(board: Size): Record<Id, Rect> {
-  const top = bandTop(board.h);
-  const bodyH = Math.max(MIN.plan.h, board.h - top - BOTTOM);
-  const inner = Math.max(0, board.w - EDGE * 2 - COL_GAP * 2);
-  const chatFloor = MIN.chat.w;
-  const mapFloor = MIN.map.w;
-  const planFloor = MIN.plan.w;
-  let chatW = Math.round(inner * 0.18);
-  let mapW = Math.round(inner * 0.26);
-  let planW = inner - chatW - mapW;
-  const floors = chatFloor + mapFloor + planFloor;
-  if (inner >= floors && (chatW < chatFloor || mapW < mapFloor || planW < planFloor)) {
-    chatW = Math.max(chatW, chatFloor);
-    mapW = Math.max(mapW, mapFloor);
-    planW = inner - chatW - mapW;
-    if (planW < planFloor) {
-      const deficit = planFloor - planW;
-      const takeChat = Math.min(Math.max(0, chatW - chatFloor), deficit);
-      chatW -= takeChat;
-      mapW -= Math.min(Math.max(0, mapW - mapFloor), deficit - takeChat);
-      planW = inner - chatW - mapW;
-    }
-  } else if (inner > 0 && inner < floors) {
-    const scale = inner / floors;
-    chatW = Math.round(chatFloor * scale);
-    mapW = Math.round(mapFloor * scale);
-    planW = Math.max(0, inner - chatW - mapW);
-  }
-  if (inner >= floors && (chatW > 340 || mapW > 480)) {
-    chatW = Math.min(chatW, 340);
-    mapW = Math.min(mapW, 480);
-    planW = inner - chatW - mapW;
-  }
-
-  const xChat = EDGE;
-  const xPlan = EDGE + chatW + COL_GAP;
-  const xMap = xPlan + planW + COL_GAP;
+  const core = placeCore(board, CORE_ORDER);
+  const top = bodyBox(board).top;
+  const bodyH = bodyBox(board).h;
+  const chatW = core.chat?.w ?? MIN.chat.w;
+  const mapW = core.map?.w ?? MIN.map.w;
+  const xMap = core.map?.x ?? EDGE;
   const sketchW = Math.min(880, Math.max(MIN.sketch.w, Math.round(board.w * 0.56)));
   const sketchH = Math.min(bodyH, Math.max(MIN.sketch.h, Math.round(bodyH * 0.86)));
   const videoW = Math.min(Math.max(mapW, MIN.videos.w), Math.max(MIN.videos.w, Math.round(board.w * 0.28)));
@@ -133,9 +168,9 @@ function defaults(board: Size): Record<Id, Rect> {
   const trendH = Math.min(bodyH, Math.max(MIN.trending.h, Math.round(bodyH * 0.7)));
 
   return {
-    chat: { x: xChat, y: top, w: chatW, h: bodyH },
-    plan: { x: xPlan, y: top, w: planW, h: bodyH },
-    map: { x: xMap, y: top, w: mapW, h: bodyH },
+    chat: core.chat ?? { x: EDGE, y: top, w: chatW, h: bodyH },
+    plan: core.plan ?? { x: EDGE, y: top, w: MIN.plan.w, h: bodyH },
+    map: core.map ?? { x: xMap, y: top, w: mapW, h: bodyH },
     sketch: {
       x: Math.max(EDGE, Math.round((board.w - sketchW) / 2)),
       y: top,
@@ -182,7 +217,11 @@ function useBoardSize(ref: RefObject<HTMLElement | null>): Size | null {
     if (!el) return;
     const measure = () => {
       const box = el.getBoundingClientRect();
-      setSize({ w: Math.round(box.width), h: Math.round(box.height) });
+      const w = Math.round(box.width);
+      const h = Math.round(box.height);
+      // A hidden plan page reports no size. Keep the last real one so the windows stay put.
+      if (w < 8 || h < 8) return;
+      setSize({ w, h });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -193,6 +232,21 @@ function useBoardSize(ref: RefObject<HTMLElement | null>): Size | null {
 }
 
 let topZ = 2;
+
+/** Canvas windows stay under the direct-edit dialog (z-index 1200) and the page header. */
+function raiseWindow(el: HTMLElement) {
+  const windows = [...document.querySelectorAll<HTMLElement>(".pf-canvas .pf-win")];
+  if (topZ >= 80) {
+    windows
+      .sort((a, b) => Number(a.style.zIndex || 0) - Number(b.style.zIndex || 0))
+      .forEach((node, index) => {
+        node.style.zIndex = String(index + 1);
+      });
+    topZ = windows.length;
+  }
+  topZ += 1;
+  el.style.zIndex = String(topZ);
+}
 
 function Window({
   title,
@@ -217,7 +271,7 @@ function Window({
   const drag = useRef<{ kind: "move" | "size"; x: number; y: number; start: Rect; last: Rect } | null>(null);
   const shown = clampRect(rect, board, min);
   useEffect(() => {
-    if (el.current) el.current.style.zIndex = String(++topZ);
+    if (el.current) raiseWindow(el.current);
   }, []);
   const paint = (next: Rect) => {
     const style = el.current?.style;
@@ -278,7 +332,7 @@ function Window({
       className="pf-win"
       aria-label={title}
       style={{ translate: `${shown.x}px ${shown.y}px`, width: shown.w, height: shown.h }}
-      onPointerDownCapture={() => { if (el.current) el.current.style.zIndex = String(++topZ); }}
+      onPointerDownCapture={() => { if (el.current) raiseWindow(el.current); }}
     >
       <header
         className="pf-win__bar"
@@ -313,7 +367,7 @@ function Window({
 
 const ORDER: Id[] = ["chat", "plan", "map", "profile", "budget", "exchange", "sketch", "videos", "trending"];
 const GROUPS: Id[][] = [
-  ["chat", "plan", "map"],
+  ["chat", "map", "plan"],
   ["profile", "budget", "exchange"],
   ["sketch", "videos", "trending"],
 ];
@@ -392,10 +446,19 @@ export function CanvasBoard({
     return clampRect(saved.rects[id] ?? base[id], board, MIN[id]);
   };
 
-  const toggle = (id: Id) => setSaved((current) => ({ ...current, open: { ...current.open, [id]: !current.open[id] } }));
-  const close = (id: Id) => setSaved((current) => ({ ...current, open: { ...current.open, [id]: false } }));
+  const settle = (current: Saved, open: Record<Id, boolean>): Saved => {
+    if (!board) return { ...current, open };
+    const changedCore = CORE_ORDER.some((id) => open[id] !== current.open[id]);
+    if (!changedCore) return { ...current, open };
+    return { ...current, open, rects: { ...current.rects, ...placeCore(board, CORE_ORDER.filter((id) => open[id])) } };
+  };
+  const toggle = (id: Id) => setSaved((current) => settle(current, { ...current.open, [id]: !current.open[id] }));
+  const close = (id: Id) => setSaved((current) => settle(current, { ...current.open, [id]: false }));
   const move = (id: Id, rect: Rect) => setSaved((current) => ({ ...current, rects: { ...current.rects, [id]: rect } }));
   const resetOne = (id: Id) => setSaved((current) => {
+    if (board && isCore(id)) {
+      return { ...current, rects: { ...current.rects, ...placeCore(board, CORE_ORDER.filter((item) => current.open[item])) } };
+    }
     const next = { ...current.rects };
     delete next[id];
     return { ...current, rects: next };

@@ -20,7 +20,7 @@ from app.application.auditor import audit_results
 from app.application.hk_disruptions import apply_hong_kong_disruptions
 from app.application.planner import Planner
 from app.application.assessment import assess_and_improve
-from app.application.plan_review import apply_reviewer, catalog_from_results, review_plan, reviewer_llm
+from app.application.plan_review import _review_line, apply_reviewer, catalog_from_results, review_plan, reviewer_llm
 from app.application.refine import refine_and_refresh
 from app.application.research import pick_researched, research_stays
 from app.application.toolbox import Toolbox
@@ -278,11 +278,19 @@ class PlanPath:
         if self.settings.refine_max_rounds > 0:
             try:
                 plan, review_findings = review_plan(plan, context, catalog_from_results(agent_results))
+                fixed = [finding.message for finding in review_findings if finding.fixed]
+                open_notes = [finding.message for finding in review_findings if not finding.fixed]
+                if fixed:
+                    _review_line(tracer, "The rules fixed: " + "; ".join(fixed[:4]) + ".")
                 reviewer = reviewer_llm(self.settings)
-                if reviewer is not None and any(not finding.fixed for finding in review_findings):
-                    revised = await apply_reviewer(plan, review_findings, self.settings, reviewer)
+                if reviewer is not None and open_notes:
+                    revised = await apply_reviewer(plan, review_findings, self.settings, reviewer, tracer)
                     if revised is not None:
                         plan, review_findings = review_plan(revised, context, catalog_from_results(agent_results))
+                elif open_notes:
+                    _review_line(tracer, "No reviewer model is set. Left as notes: " + "; ".join(open_notes[:4]) + ".")
+                else:
+                    _review_line(tracer, "The rules left nothing for the reviewer.")
                 if tracer is not None:
                     with tracer.span(
                         "plan.review",

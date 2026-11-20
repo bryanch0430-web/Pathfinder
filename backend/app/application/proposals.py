@@ -369,7 +369,8 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
     """Move stops to the day and times the traveller set in the grid. Unlisted rows stay put.
 
     A ``ValueError`` with a sentence the page can show refuses a layout that would break the plan: a locked or confirmed
-    stop that moves, a travel, ticket or hotel row that moves, a stop on a day of another city, two items that overlap.
+    stop that moves, a travel, ticket or hotel row that moves, a stop on a day of another city, two items that overlap,
+    a stop before the flight opens the day or after it closes the day.
     Transfers between stops are worked out again by the caller.
     """
     home: dict[str, tuple[int, Any]] = {}
@@ -401,6 +402,11 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         city = next((s.destination.name for s in plan.segments if s.id == here), "")
         if here and there and here != there and city:
             raise ValueError(f"{item.name} is in {city}; it can only move to a day in {city}")
+        from app.application.airport_transfers import outside_transfer
+
+        blocked = outside_transfer(plan, target - 1, start, end, item.name)
+        if blocked:
+            raise ValueError(blocked)
         wanted[item_id] = (target, start, end, new_name if new_name and new_name != item.name else "")
     if not wanted:
         return plan

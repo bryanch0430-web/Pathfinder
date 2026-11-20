@@ -1069,6 +1069,22 @@
   .pf-desk { grid-template-columns: 1fr; }
 }
 
+.pf-desk-focus {
+  position: fixed;
+  top: var(--p30-frame-header);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1300;
+  display: flex;
+  background: var(--pf-bg);
+}
+
+.pf-desk-focus .pf-ops {
+  width: 100%;
+  height: 100%;
+}
+
 .pf-ops {
   display: flex;
   flex-direction: column;
@@ -1407,8 +1423,13 @@
 
 .pf-ops__studio.pf-win {
   position: fixed;
-  z-index: 30;
+  z-index: 1200;
   background: var(--pf-bg);
+}
+
+/* The desk covers the page. Its studio has to sit above that cover and below the header. */
+.pf-ops__studio--desk.pf-win {
+  z-index: 1350;
 }
 
 .pf-ops__studio .pf-win__bar h2 {
@@ -2039,8 +2060,44 @@
   .pf-center__thread { min-height: 420px; }
 }
 
+.pf-redact__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.pf-redact__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pf-redact__pattern {
+  width: 100%;
+  min-height: 48px;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+}
+
+.pf-redact__sample {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.pf-redact__out {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .pf-decision {
-  width: min(100%, 36rem);
+  width: 100%;
   margin-top: 6px;
   color: var(--pf-ink-secondary);
   font-size: 12px;
@@ -2075,12 +2132,18 @@
   color: var(--pf-ink-tertiary);
 }
 
-.pf-decision pre {
+.pf-decision pre,
+.pf-decision__prompt {
   margin: 0;
-  white-space: pre-wrap;
-  max-height: 280px;
+  max-height: 360px;
   overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--pf-bg);
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .pf-edit {
@@ -2915,9 +2978,11 @@
   margin: 0;
   padding: 8px 12px 0;
   color: var(--pf-ink-secondary);
-  font-family: "Caveat", "Yomogi", cursive;
-  font-size: 1.45rem;
-  line-height: 1.25;
+  font-family: var(--p30-type-family-sans);
+  font-size: var(--p30-type-size-body-md);
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.5;
   text-align: center;
 }
 
@@ -3302,11 +3367,25 @@
   background: var(--pf-bg);
 }
 
+/* Another tab hides the planner without unmounting it, so a run in progress stays. */
+.pf-stage__plan[data-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
+  position: fixed;
+  top: var(--p30-frame-header);
+  left: 0;
+  right: 0;
+  height: calc(100vh - var(--p30-frame-header));
+  overflow: hidden;
+  z-index: 0;
+}
+
 .pf-header {
   position: sticky;
   top: 0;
   z-index: var(--p30-layer-header);
   height: var(--p30-frame-header);
+  overflow: visible;
   border-bottom: 1px solid var(--pf-line);
   background: color-mix(in srgb, var(--pf-bg) 88%, transparent);
   backdrop-filter: blur(12px);
@@ -3382,6 +3461,26 @@
   background: var(--p30-tone-neutral-gray900);
   color: var(--p30-tone-neutral-white);
   box-shadow: var(--p30-depth-xs);
+}
+
+.pf-tabs__admin {
+  position: relative;
+  margin-left: 8px;
+  border: 1px solid var(--pf-ink-tertiary);
+  background: transparent;
+  box-shadow: none;
+}
+
+.pf-tabs__admin-label {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  padding: 0 5px;
+  background: var(--pf-bg);
+  color: var(--pf-ink-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .pf-header__actions {

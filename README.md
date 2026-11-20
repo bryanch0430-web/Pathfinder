@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.13.0 | 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked |
 | v1.12.0 | 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting |
 | v1.11.0 | 2026-11-19 16:23 | A map hit is confirmed before it is stored, and 简 translates the plan the same way 繁 does |
 | v1.10.0 | 2026-11-18 21:20 | A named day stays that day, a missing fare is not a pass, and Error analysis reviews the misses |
@@ -40,6 +41,28 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.13.0 — 20 November 2026, 15:40 HKT
+
+A change that names no new place stays on the selected stop. A stop cannot be dragged outside the flight. Personal details are masked before a model sees them.
+
+**A meal change that names no restaurant stays on that meal.** "Change to something else" and "I don't want to eat this" are not looked up as a city or a restaurant, and they do not hand the chat to a person. The selected meal is replaced by the next option already listed on that card. The other stops, and the other days, stay as they are. Asking for a person, or a line that is abuse or distress, still goes to the desk.
+
+**Direct edit keeps the flight window.** A stop cannot start before the traveller can be at the stay, and it cannot end after they must leave for the airport. The drag is refused, and a save that would drop the stop is refused, so the stop stays where it was.
+
+**The map is the main window.** Chat, Map and Plan sit in that order, with the map widest. Closing one of those three lets the others fill the row. Profile, Budget, Exchange, Sketch, Watch and Trending stay where they are. A layout saved before this release is replaced once.
+
+**The desk saves details and edits the open plan.** Build the plan is gone. Saving the form only saves the details. Open plan studio opens above the desk. Release as draft closes that studio, says the traveller can edit, and unlocks Direct edit on the traveller's page at once. Day 1, 2 and 3 scroll the plan to that day. The desk can open in its own window. Admin pages are labelled Admin only, and a traveller who opens one is returned to the plan.
+
+**The page uses the Pathfinder type.** Sketch titles and empty Watch, Exchange and map text use the same serif and sans as the rest of the page. The saved sketch file still uses the handwritten font so the words stay in their boxes.
+
+**Personal details are masked.** Settings → Redaction. A Hong Kong identity number, a Hong Kong phone number, an email address and a payment card are masked before a message is sent to a model, and in the earlier turns that model reads. An overseas number, and a card that fails its check digit, stay as written. The preview is not stored. The person line uses a label such as [HKID]. The machine line uses a stable token.
+
+**"What is this" is about the selected stop.** With a stop or a stay selected, this, that, it and here mean that selection.
+
+**A plan that overlaps itself can be opened.** Two stops left on the same time, or the same place written twice, are separated when the plan is saved or read back. A locked stop stays. A stop that cannot fit is left out, and the day says so.
+
+**A slow review keeps the drafted plan.** The reviewer is asked once. If it does not answer within the review timeout, which starts at 20 seconds, the draft is kept. Settings → Policy can set the review timeout, the turn timeout and the model timeout. Why this decision, in developer mode, records what the review asked and shows the message sent to the model. A DeepSeek gate or reviewer with no key of its own uses the server DeepSeek key.
 
 ### v1.12.0 — 19 November 2026, 22:45 HKT
 

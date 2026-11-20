@@ -43,6 +43,7 @@ from app.application.legs import leg_options_for_plan, legs_for_plan
 from app.application.limits import turn_deadline_for
 from app.application.toolbox import Toolbox
 from app.infrastructure.observability import NoopTracer
+from app.infrastructure.llm_providers import server_deepseek_key
 from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import restore_message_decisions, user_facing_error
@@ -216,7 +217,7 @@ class DeskRunIn(BaseModel):
 
 
 class DeskBriefIn(BaseModel):
-    """The trip form a person on the desk fills in. ``build`` then runs planning from these fields alone."""
+    """The trip form a person on the desk fills in. Saving it does not start a plan."""
 
     destination: str = Field(min_length=1, max_length=80)
     origin: str = Field(min_length=1, max_length=80)
@@ -226,7 +227,6 @@ class DeskBriefIn(BaseModel):
     budget: float = Field(ge=0)
     currency: str = Field(default="HKD", min_length=3, max_length=8)
     preferences: list[str] = Field(default_factory=list, max_length=20)
-    build: bool = False
 
 
 class DeskStopIn(BaseModel):
@@ -350,6 +350,21 @@ class ReviewerIn(GateArmIn):
     rounds: int | None = None
 
 
+class RedactionIn(BaseModel):
+    hkid: bool = True
+    hk_phone: bool = True
+    email: bool = True
+    card: bool = True
+    hkid_pattern: str = Field(default="", max_length=300)
+    hk_phone_pattern: str = Field(default="", max_length=300)
+    email_pattern: str = Field(default="", max_length=300)
+    card_pattern: str = Field(default="", max_length=300)
+
+
+class RedactionPreviewIn(RedactionIn):
+    text: str = Field(default="", max_length=2000)
+
+
 class RuntimeIn(BaseModel):
     thresholds: dict[str, float] | None = None
     freshness_hours: dict[str, int] | None = None
@@ -366,6 +381,7 @@ class RuntimeIn(BaseModel):
     reason: GateArmIn | None = None
     reviewer: ReviewerIn | None = None
     writer_call: WriterCallIn | None = None
+    redaction: RedactionIn | None = None
 
 
 _PROMPT_NAMES = {"persona", "language"}
@@ -1060,6 +1076,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             said = await sync_session_transfers(
                 updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
             )
+            from app.application.airport_transfers import dropped_hand_edit
+
+            lost = dropped_hand_edit(plan, updated)
+            if lost:
+                raise HTTPException(status_code=422, detail=lost)
             if said:
                 updated.change_summary = " ".join([updated.change_summary, *said]).strip()
             try:
@@ -2015,9 +2036,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     @app.post("/api/admin/desk/{session_id}/brief", dependencies=[Depends(require_admin)])
     async def desk_brief(session_id: str, payload: DeskBriefIn, request: Request) -> dict[str, Any]:
-        """Save the trip form. When ``build`` is set, plan from those fields and nothing the traveller typed."""
-        from app.domain.errors import PlanInvalidError
-
+        """Save the trip form. The desk does not start a plan from these fields."""
         c = container(request)
         if c.store.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Unknown session")
@@ -2036,26 +2055,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         context.currency = payload.currency.strip().upper() or "HKD"
         context.preferences = [item.strip() for item in payload.preferences if item.strip()][:20]
         c.store.save_context(context)
-        if not payload.build:
-            return {"built": False, "plan": _desk_plan_view(c.store.get_plan(session_id))}
-        try:
-            await c.turn_service.build_from_form(session_id)
-        except PlanInvalidError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        except Exception as exc:
-            logger.exception("desk plan failed")
-            raise HTTPException(status_code=502, detail="The plan could not be built.") from exc
-        place = context.destination.strip() or "this"
-        c.store.add_message(
-            Message(
-                session_id=session_id,
-                role="assistant",
-                content=f"I've put a plan together for your {place} trip. It's on the plan now.",
-                intent=Intent.PLAN,
-                meta={"live_agent": True, "agent_name": operator_name(request), "desk_plan": True},
-            )
-        )
-        return {"built": True, "plan": _desk_plan_view(c.store.get_plan(session_id))}
+        return {"built": False, "plan": _desk_plan_view(c.store.get_plan(session_id))}
 
     @app.get("/api/admin/desk/{session_id}/plan", dependencies=[Depends(require_admin)])
     async def desk_plan(session_id: str, request: Request) -> dict[str, Any]:
@@ -2218,6 +2218,11 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             said = await sync_session_transfers(
                 updated, registry=c.registry, store=c.store, session_id=session_id, before=plan
             )
+            from app.application.airport_transfers import dropped_hand_edit
+
+            lost = dropped_hand_edit(plan, updated)
+            if lost:
+                raise HTTPException(status_code=422, detail=lost)
             if said:
                 updated.change_summary = " ".join([updated.change_summary, *said]).strip()
             try:
@@ -2262,6 +2267,9 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 values["conversation_turns"] = str(payload.thresholds["conversation_turns"])
             if "rule_passes" in payload.thresholds:
                 values["rule_passes"] = str(payload.thresholds["rule_passes"])
+            for key in ("reviewer_timeout_seconds", "turn_deadline_seconds", "llm_timeout_seconds"):
+                if key in payload.thresholds:
+                    values[key] = str(payload.thresholds[key])
         if payload.freshness_hours is not None:
             missing = [key for key in ("weather", "tickets", "hotels", "attractions") if key not in payload.freshness_hours]
             if missing:
@@ -2296,6 +2304,28 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         _take_arm(payload.reason, "reason", values, drop, secrets_save, secrets_clear)
         _take_reviewer(payload.reviewer, values, drop, secrets_save, secrets_clear)
         _take_writer_call(payload.writer_call, values)
+        if payload.redaction is not None:
+            from app.security.pii import check_pattern
+
+            chosen = payload.redaction
+            try:
+                patterns = {
+                    "redact_hkid_pattern": check_pattern(chosen.hkid_pattern),
+                    "redact_hk_phone_pattern": check_pattern(chosen.hk_phone_pattern),
+                    "redact_email_pattern": check_pattern(chosen.email_pattern),
+                    "redact_card_pattern": check_pattern(chosen.card_pattern),
+                }
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            values.update(
+                {
+                    "redact_hkid": "1" if chosen.hkid else "0",
+                    "redact_hk_phone": "1" if chosen.hk_phone else "0",
+                    "redact_email": "1" if chosen.email else "0",
+                    "redact_card": "1" if chosen.card else "0",
+                    **patterns,
+                }
+            )
         if not values and not drop and not secrets_save and not secrets_clear:
             raise HTTPException(status_code=400, detail="Nothing to save")
         store = container(request).store
@@ -2317,6 +2347,25 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         store.apply_runtime(settings)
         store.apply_gate_secrets(settings, box)
         return _runtime_view(settings, store)
+
+    @app.post("/api/admin/redaction/preview", dependencies=[Depends(require_admin)])
+    async def redaction_preview(payload: RedactionPreviewIn) -> dict[str, str]:
+        from app.security.pii import Redaction, check_pattern, preview_redaction
+
+        try:
+            chosen = Redaction(
+                hkid=payload.hkid,
+                hk_phone=payload.hk_phone,
+                email=payload.email,
+                card=payload.card,
+                hkid_pattern=check_pattern(payload.hkid_pattern),
+                hk_phone_pattern=check_pattern(payload.hk_phone_pattern),
+                email_pattern=check_pattern(payload.email_pattern),
+                card_pattern=check_pattern(payload.card_pattern),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return preview_redaction(payload.text, chosen)
 
     @app.delete("/api/admin/runtime", dependencies=[Depends(require_admin)])
     async def runtime_delete(request: Request) -> dict[str, Any]:
@@ -2793,6 +2842,9 @@ def _arm_view(active: Settings, name: str, saved: bool) -> dict[str, Any]:
     elif provider == "poe" and active.poe_api_key:
         shown = _key_view(active.poe_api_key, False)
         source = "poe"
+    elif provider == "deepseek" and server_deepseek_key(active):
+        shown = _key_view(server_deepseek_key(active), False)
+        source = "deepseek"
     else:
         shown = _key_view("", False)
         source = "none"
@@ -2818,6 +2870,9 @@ def _reviewer_view(active: Settings, saved: bool) -> dict[str, Any]:
     elif provider == "poe" and active.poe_api_key:
         shown = _key_view(active.poe_api_key, False)
         source = "poe"
+    elif provider == "deepseek" and server_deepseek_key(active):
+        shown = _key_view(server_deepseek_key(active), False)
+        source = "deepseek"
     else:
         shown = _key_view("", False)
         source = "none"
@@ -2858,6 +2913,27 @@ def _key_view(secret: str, saved: bool) -> dict[str, Any]:
     }
 
 
+def _redaction_view(active: Settings) -> dict[str, Any]:
+    from app.security.pii import DEFAULT_PATTERNS
+
+    def shown(field: str, name: str) -> str:
+        saved = str(getattr(active, field, "") or "").strip()
+        return saved or DEFAULT_PATTERNS[name]
+
+    return {
+        "hkid": bool(getattr(active, "redact_hkid", True)),
+        "hk_phone": bool(getattr(active, "redact_hk_phone", True)),
+        "email": bool(getattr(active, "redact_email", True)),
+        "card": bool(getattr(active, "redact_card", True)),
+        "patterns": {
+            "hkid": shown("redact_hkid_pattern", "hkid"),
+            "hk_phone": shown("redact_hk_phone_pattern", "hk_phone"),
+            "email": shown("redact_email_pattern", "email"),
+            "card": shown("redact_card_pattern", "card"),
+        },
+    }
+
+
 def _runtime_view(active: Settings, store: Any | None = None) -> dict[str, Any]:
     jev_saved = bool(store and store.gate_secret_saved("jev"))
     fast_saved = bool(store and store.gate_secret_saved("fast"))
@@ -2870,7 +2946,11 @@ def _runtime_view(active: Settings, store: Any | None = None) -> dict[str, Any]:
             "max_repairs": active.max_repairs,
             "rule_passes": active.refine_max_rounds,
             "conversation_turns": active.conversation_turns,
+            "reviewer_timeout_seconds": active.reviewer_timeout_seconds,
+            "turn_deadline_seconds": active.turn_deadline_seconds,
+            "llm_timeout_seconds": active.llm_timeout_seconds,
         },
+        "redaction": _redaction_view(active),
         "reviewer": _reviewer_view(active, bool(store and store.gate_secret_saved("reviewer"))),
         "freshness_hours": {
             "weather": active.weather_fresh_seconds // 3600,

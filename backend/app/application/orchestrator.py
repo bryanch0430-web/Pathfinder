@@ -48,7 +48,7 @@ from app.application.memory import MemoryService
 from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
 from app.application.proposals import decision_record, proposal_changes, review_tier
 from app.application.planning import PlanPath
-from app.application.escalation import agent_reason, is_stuck, line_is_hot, should_escalate
+from app.application.escalation import is_stuck, keeps_the_planner, line_is_hot, queue_reason, should_escalate
 from app.application.sentiment import frustration_score
 from app.infrastructure.decision import jev_sentiment
 from app.application.router import (
@@ -90,6 +90,7 @@ from app.domain.models import (
 from app.infrastructure.observability import bind_developer_view, bind_live_emit, reset_developer_view, reset_live_emit, start_trace
 from app.infrastructure.store import PlanConflict, SQLiteStore
 from app.security import SAFE_REPLY, screen_turn
+from app.security.pii import mask_pii
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +341,7 @@ class TurnService:
         user_message = Message(
             session_id=session_id,
             role="user",
-            content=message,
+            content=message if operator else mask_pii(message, marks=True),
             meta={
                 "locale": locale,
                 "flagged": screen.flagged,
@@ -411,7 +412,7 @@ class TurnService:
                     self.store.list_messages(session_id, limit=40),
                     int(stuck_part.get("after") or 3),
                 )
-                reason = agent_reason(100 if hot else 0, stuck)
+                reason = queue_reason(message, hot=hot, stuck=stuck)
             note_message = str((hand.get("message") if hand else "") or policy.get("message") or "").strip()
             if reason:
                 self.store.hold_chat(session_id, "")
@@ -752,8 +753,9 @@ class TurnService:
                     }
                 )
             failed_place = place_check.first()
-            if failed_place is not None:
+            if failed_place is not None and not (plan is not None and keeps_the_planner(message)):
                 # A name the gazetteer does not know, could not check, or matched a different place, is not planned.
+                # A request to change the current plan ("something else", "I don't want to eat this") is not a new city.
                 status, slot, _name = failed_place
                 found = place_check.suggestion_for(slot) if status == "suggest_place" else ""
                 decision = RouteDecision(
@@ -765,6 +767,22 @@ class TurnService:
                     missing_slots=[slot],
                     related_to_plan=plan is not None,
                     slots={"place_slot": slot, "place_name": found} if found else {},
+                )
+            if (
+                plan is not None
+                and keeps_the_planner(message)
+                and decision.intent in {Intent.UNCLEAR, Intent.ASK}
+            ):
+                about_food = bool(re.search(r"\b(eat|meal|lunch|dinner|breakfast|food|restaurant)\b", message, re.IGNORECASE))
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.MODIFY,
+                        "confidence": max(decision.confidence, 0.9),
+                        "need_clarification": False,
+                        "reason_code": "meal_swap" if about_food else "item_swap",
+                        "missing_slots": [],
+                        "affected_parts": ["meal"] if about_food else (decision.affected_parts or ["attraction"]),
+                    }
                 )
             intent = decision.intent
             if plan is not None and intent != Intent.PLAN:
@@ -956,7 +974,7 @@ class TurnService:
                                     {
                                         "reasoning": generation.get("reasoning") or "",
                                         "output_preview": (generation.get("output_preview") or "")[:4000],
-                                        "user_preview": (generation.get("user_preview") or "")[:240],
+                                        "user_preview": (generation.get("user_preview") or "")[:8000],
                                     }
                                     if developer
                                     else {}
@@ -1189,26 +1207,6 @@ class TurnService:
         )
         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
         self.store.touch_session(session_id)
-
-    async def build_from_form(self, session_id: str) -> None:
-        """Plan from the trip form already stored. The desk fills that form; this does not read a chat instruction."""
-        async with self._lock_for(session_id, None):
-            context = self.store.get_context(session_id)
-            if context is None or context.missing_slots():
-                from app.domain.errors import PlanInvalidError
-
-                raise PlanInvalidError("The trip form is still missing a required detail.")
-            request_id = new_id("req")
-            tracer = start_trace(self.settings, request_id)
-            try:
-                async for _event in self._plan(
-                    context=context, session_id=session_id, tracer=tracer, request_id=request_id
-                ):
-                    pass
-                tracer.finish(status="ok")
-            except Exception:
-                tracer.finish(status="error")
-                raise
 
     async def edit_from_desk(
         self,
@@ -1957,7 +1955,7 @@ def _decision_payload(tracer: Any) -> dict[str, Any]:
                 "latency_ms": int(generation.get("latency_ms") or 0),
                 "reasoning": str(generation.get("reasoning") or ""),
                 "output_preview": str(generation.get("output_preview") or "")[:4000],
-                "user_preview": str(generation.get("user_preview") or "")[:240],
+                "user_preview": str(generation.get("user_preview") or "")[:8000],
             }
         )
     return {"why": _why_lines(tracer), "generations": generations}
@@ -1997,6 +1995,10 @@ def _why_lines(tracer: Any) -> list[str]:
             lines.append(
                 f"The reply was written as chat, not from a stop on the plan, using {source}. Nothing was edited."
             )
+    for line in (getattr(tracer, "metadata", {}) or {}).get("review_lines") or []:
+        text = str(line).strip()
+        if text and text not in lines:
+            lines.append(text)
     for search in getattr(tracer, "searches", []) or []:
         results = search.get("results") or []
         kept = [row.get("title") or row.get("url") for row in results if row.get("kept") is True and (row.get("title") or row.get("url"))]
@@ -2011,7 +2013,7 @@ def _why_lines(tracer: Any) -> list[str]:
         text = str(line).strip()
         if text and text not in lines:
             lines.append(text)
-    return lines[:12]
+    return lines[:20]
 
 
 def _route_data(decision: RouteDecision, settings: Settings) -> dict[str, Any]:

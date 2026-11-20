@@ -7,12 +7,16 @@ Everything else is written as a plan note. A plan that is still structurally ill
 
 ``refine_max_rounds`` is the operator's cap for the rule pass. The caller skips this review when
 that cap is 0. A reviewer model, when one is named, is asked once about the faults the rules
-could not fix. It is not the writer.
+could not fix. It is not the writer. A review that does not answer in time is dropped, and the
+drafted plan is kept.
 """
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
+import time
 from dataclasses import dataclass
 
 from typing import Any
@@ -25,6 +29,46 @@ from app.infrastructure.http import haversine_km
 REVIEW_PREFIX = "Plan review: "
 REVIEW_CHANGE = "Plan review change: "
 MAX_NOTES = 6
+
+logger = logging.getLogger(__name__)
+
+
+def _review_line(tracer: Any, line: str) -> None:
+    meta = getattr(tracer, "metadata", None)
+    if isinstance(meta, dict):
+        meta.setdefault("review_lines", []).append(line)
+
+
+def _review_call(tracer: Any, *, model: str, latency_ms: int, asked: list[str], reasoning: str, output: str) -> None:
+    record = getattr(tracer, "record_generation", None)
+    if not callable(record):
+        return
+    brief = "The reviewer may change times and wording. It may not add, drop, or rename a place."
+    faults = "\n".join(f"- {line}" for line in asked) or "- none"
+    record(
+        purpose="Reviewer",
+        model=model,
+        prompt_tokens=0,
+        completion_tokens=0,
+        latency_ms=latency_ms,
+        reasoning=reasoning,
+        output_preview=output,
+        user_preview=f"{brief}\n\nThe rules could not fix:\n{faults}",
+    )
+
+
+def _time_changes(before: TripPlan, after: TripPlan) -> str:
+    earlier = {item.id: item for day in before.days for item in day.items}
+    lines: list[str] = []
+    for day in after.days:
+        for item in day.items:
+            old = earlier.get(item.id)
+            if old is None or (old.start == item.start and old.end == item.end and old.name == item.name):
+                continue
+            lines.append(f"{old.name}: {old.start}–{old.end} became {item.start}–{item.end}.")
+    if not lines:
+        return "The reviewer returned a plan. No stop time changed, so the draft was kept as it was."
+    return "The reviewer changed:\n" + "\n".join(lines[:12])
 
 #: How long the planner itself gives each meal. A longer stop is shortened back to this
 #: unless the traveller stated the length.
@@ -388,7 +432,7 @@ def _hhmm(minutes: int) -> str:
 def reviewer_llm(settings: Any):
     """The reviewer's own model, or None when the review stays on the rules.
 
-    An arm key wins. With none saved, a Poe provider uses the server Poe key.
+    An arm key wins. With none saved, Poe uses the server Poe key and DeepSeek uses the server DeepSeek key.
     Reasoning is sent only when the operator turned it on.
     """
     model = str(getattr(settings, "reviewer_model", "") or "").strip()
@@ -396,12 +440,14 @@ def reviewer_llm(settings: Any):
         return None
     from app.infrastructure.anthropic_llm import AnthropicLLM
     from app.infrastructure.llm import OpenAICompatibleLLM
-    from app.infrastructure.llm_providers import PROVIDERS
+    from app.infrastructure.llm_providers import PROVIDERS, server_deepseek_key
     provider = str(getattr(settings, "reviewer_provider", "") or "poe").strip().lower()
     spec = PROVIDERS.get(provider)
     key = str(getattr(settings, "reviewer_api_key", "") or "").strip()
     if not key and provider == "poe":
         key = str(getattr(settings, "poe_api_key", "") or "").strip()
+    if not key and provider == "deepseek":
+        key = server_deepseek_key(settings)
     if spec is None or not key:
         return None
     temperature = float(getattr(settings, "reviewer_temperature", 0.0))
@@ -409,12 +455,14 @@ def reviewer_llm(settings: Any):
     reasoning = str(getattr(settings, "reviewer_reasoning", "") or "none").strip().lower()
     if reasoning not in {"none", "low", "medium", "high"}:
         reasoning = "none"
+    # A long think does not return a rewrite of the whole plan before the turn is stopped.
+    # Only a short effort is sent. Medium and high are left off this call.
     base_url = str(getattr(settings, "reviewer_base_url", "") or "")
     if spec.wire == "anthropic":
         return AnthropicLLM(
             settings, api_key=key, model=model, fixed_temperature=temperature, fixed_max_tokens=max_tokens
         )
-    extra = {"reasoning_effort": reasoning} if reasoning in {"low", "medium", "high"} else {}
+    extra = {"reasoning_effort": "low"} if reasoning == "low" else {}
     return OpenAICompatibleLLM(
         settings,
         base_url=spec.endpoint(base_url),
@@ -435,11 +483,18 @@ _REVIEW_SYSTEM = (
 )
 
 
-async def apply_reviewer(plan: TripPlan, findings: list[ReviewFinding], settings: Any, llm: Any) -> TripPlan | None:
+async def apply_reviewer(
+    plan: TripPlan,
+    findings: list[ReviewFinding],
+    settings: Any,
+    llm: Any,
+    tracer: Any = None,
+) -> TripPlan | None:
     """One call to the reviewer model about the faults the rules could not fix.
 
     None when the model is absent, the answer is unusable, or it would add or remove a fact.
-    The plan passed in is not changed.
+    The plan passed in is not changed. What was asked, and what became of the answer, is written
+    onto ``tracer`` for the decision under the reply.
     """
     from app.application.llm_gateway import _extract_json
     from app.application.validation import _refusal, _restore_facts, validate_plan
@@ -447,29 +502,54 @@ async def apply_reviewer(plan: TripPlan, findings: list[ReviewFinding], settings
     open_findings = [finding for finding in findings if not finding.fixed]
     if llm is None or not open_findings:
         return None
+    budget = float(getattr(settings, "reviewer_timeout_seconds", 20.0) or 20.0)
+    asked = [finding.message for finding in open_findings]
+    model = str(getattr(llm, "name", "") or "")
+    started = time.perf_counter()
     user = (
         "The rules could not fix these:\n"
-        + "\n".join(f"- {finding.message}" for finding in open_findings)
+        + "\n".join(f"- {line}" for line in asked)
         + "\n\nPlan JSON:\n"
         + plan.model_dump_json()
     )
     try:
-        result = await llm.complete(
-            system=_REVIEW_SYSTEM,
-            user=user,
-            purpose="plan.review",
-            json_mode=True,
-            temperature=float(getattr(settings, "reviewer_temperature", 0.0)),
-            max_tokens=int(getattr(settings, "reviewer_max_tokens", 4096) or 4096),
+        result = await asyncio.wait_for(
+            llm.complete(
+                system=_REVIEW_SYSTEM,
+                user=user,
+                purpose="plan.review",
+                json_mode=True,
+                temperature=float(getattr(settings, "reviewer_temperature", 0.0)),
+                max_tokens=int(getattr(settings, "reviewer_max_tokens", 4096) or 4096),
+                timeout=budget,
+                retries=0,
+            ),
+            timeout=budget,
         )
-    except Exception:
+    except TimeoutError:
+        logger.warning("plan review timed out after %.0fs; the drafted plan is kept", budget)
+        _review_call(
+            tracer, model=model, latency_ms=int(budget * 1000), asked=asked, reasoning="",
+            output=f"No answer within {budget:g} seconds. The drafted plan was kept.",
+        )
         return None
+    except Exception:
+        _review_call(
+            tracer, model=model, latency_ms=int((time.perf_counter() - started) * 1000), asked=asked,
+            reasoning="", output="The review failed. The drafted plan was kept.",
+        )
+        return None
+    latency_ms = int(getattr(result, "latency_ms", 0) or (time.perf_counter() - started) * 1000)
+    model = str(getattr(result, "model", "") or model)
+    reasoning = str(getattr(result, "reasoning", "") or "")
     data = _extract_json(getattr(result, "text", "") or "")
     if data is None:
+        _review_call(tracer, model=model, latency_ms=latency_ms, asked=asked, reasoning=reasoning, output="The answer was not a plan. The drafted plan was kept.")
         return None
     try:
         candidate = TripPlan.model_validate(data)
     except Exception:
+        _review_call(tracer, model=model, latency_ms=latency_ms, asked=asked, reasoning=reasoning, output="The answer was not a plan. The drafted plan was kept.")
         return None
     candidate.trip_id = plan.trip_id
     candidate.session_id = plan.session_id
@@ -477,8 +557,20 @@ async def apply_reviewer(plan: TripPlan, findings: list[ReviewFinding], settings
     candidate.created_at = plan.created_at
     candidate.updated_at = plan.updated_at
     if _refusal(plan, candidate):
+        _review_call(
+            tracer, model=model, latency_ms=latency_ms, asked=asked, reasoning=reasoning,
+            output="The answer would add, drop, or rename a place, so it was not used. The drafted plan was kept.",
+        )
         return None
     _restore_facts(plan, candidate)
     if validate_plan(candidate, settings):
+        _review_call(
+            tracer, model=model, latency_ms=latency_ms, asked=asked, reasoning=reasoning,
+            output="The answer failed the plan checks, so it was not used. The drafted plan was kept.",
+        )
         return None
+    _review_call(
+        tracer, model=model, latency_ms=latency_ms, asked=asked, reasoning=reasoning,
+        output=_time_changes(plan, candidate),
+    )
     return candidate

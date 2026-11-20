@@ -5,6 +5,20 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.13.0 — 2026-11-20 15:40
+
+A change that names no new place stays on the selected stop. A stop cannot sit outside the flight. Personal details are masked before a model sees them.
+
+- **A meal change that names no restaurant stays on that meal.** "Change to something else" and "I don't want to eat this" are not looked up as a city or a restaurant, and they do not hand the chat to a person. The selected meal is replaced by the next option already listed on that card. The other stops, and the other days, stay as they are. Asking for a person, or a line that is abuse or distress, still goes to the desk.
+- **Direct edit keeps the flight window.** A stop cannot start before the traveller can be at the stay, and it cannot end after they must leave for the airport. The drag is refused. A save that would drop the stop is refused, so the stop stays where it was.
+- **The map is the main window.** Chat, Map and Plan sit in that order, with the map widest. Closing one of those three lets the others fill the row. The other widgets stay where they are. A layout saved before this release is replaced once.
+- **The desk saves details and edits the open plan.** Build the plan is gone. Saving the form only saves the details. Open plan studio opens above the desk. Release as draft closes that studio and unlocks Direct edit on the traveller's page at once. Day 1, 2 and 3 scroll the plan to that day. The desk can open in its own window. A traveller who opens an admin page is returned to the plan.
+- **The page uses the Pathfinder type.** Sketch titles and empty widgets use the same serif and sans as the rest of the page. The saved sketch file still uses the handwritten font so the words stay in their boxes.
+- **Personal details are masked.** Settings → Redaction. A Hong Kong identity number, a Hong Kong phone number, an email address and a payment card are masked before a message is sent to a model, and in the earlier turns that model reads. An overseas number, and a card that fails its check digit, stay as written. The preview is not stored.
+- **"What is this" is about the selected stop.** With a stop or a stay selected, this, that, it and here mean that selection.
+- **A plan that overlaps itself can be opened.** Two stops left on the same time, or the same place written twice, are separated when the plan is saved or read back. A locked stop stays. A stop that cannot fit is left out, and the day says so.
+- **A slow review keeps the drafted plan.** If the reviewer does not answer within the review timeout, which starts at 20 seconds, the draft is kept. Settings → Policy can set the review timeout, the turn timeout and the model timeout. Why this decision, in developer mode, records what the review asked and shows the message sent to the model. A DeepSeek gate or reviewer with no key of its own uses the server DeepSeek key.
+
 ## v1.12.0 — 2026-11-19 22:45
 
 A chat is handed to a person in three ways, and the desk shows which chats are waiting.

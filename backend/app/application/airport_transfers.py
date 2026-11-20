@@ -337,6 +337,77 @@ async def _options_for(
 # -- the day ------------------------------------------------------------------------------------------------------------
 
 
+def outside_transfer(plan: TripPlan, day_index: int, start: str, end: str, name: str) -> str | None:
+    """Why a hand-moved stop would be deleted: it is before the flight opens the day, or after the flight closes it.
+
+    The same rule as placing the airport transfer. Returning a sentence refuses the move and leaves the stop where it was.
+    """
+    if not 0 <= day_index < len(plan.days):
+        return None
+    day = plan.days[day_index]
+    start_m, end_m = _minutes(start), _minutes(end)
+    for leg in plan.transfer_legs():
+        option = selected_ticket(plan.options_for(leg.id), leg.id)
+        if option is None or option.depart_at is None:
+            continue
+        span_start, span_end = _span(option)
+        if leg.kind == TO_STAY:
+            if day.date != option.depart_at.date():
+                continue
+            cutoff = span_end + ARRIVAL_BUFFER_MINUTES
+            if start_m < cutoff or (start_m < span_end and end_m > span_start):
+                return (
+                    f"{name} cannot start before {_clock(min(cutoff, 23 * 60 + 59))}. "
+                    f"You reach your stay at {_clock(span_end)} after the flight, so this stop stays where it was."
+                )
+        elif leg.kind == FROM_STAY:
+            day_date = option.arrive_at.date() if option.arrive_at else option.depart_at.date()
+            if day.date != day_date:
+                continue
+            if end_m > span_start:
+                return (
+                    f"{name} cannot end after {_clock(span_start)}. "
+                    f"You leave for the airport then, so this stop stays where it was."
+                )
+    flight = next((ticket for ticket in plan.tickets if ticket.mode == "flight" and ticket.selected), None)
+    if flight is not None and flight.arrive_at is not None and day.date == flight.arrive_at.date():
+        lands = flight.arrive_at.hour * 60 + flight.arrive_at.minute
+        if start_m < lands:
+            return (
+                f"{name} cannot start before {_clock(lands)}. "
+                "The flight lands then, so this stop stays where it was."
+            )
+    if flight is not None and flight.return_depart_at is not None and day.date == flight.return_depart_at.date():
+        leaves = flight.return_depart_at.hour * 60 + flight.return_depart_at.minute
+        if end_m > leaves:
+            return (
+                f"{name} cannot end after {_clock(leaves)}. "
+                "The flight leaves then, so this stop stays where it was."
+            )
+    return None
+
+
+def dropped_hand_edit(before: TripPlan, after: TripPlan) -> str | None:
+    """A stop the airport transfer removed after a hand edit. The save must be refused so the stop does not vanish."""
+    prior = set(before.data_quality.notes)
+    fresh = [note for note in after.data_quality.notes if note not in prior and "was left out of" in note]
+    if fresh:
+        return f"{fresh[0]} This stop stays where it was."
+
+    def kept(plan: TripPlan) -> set[str]:
+        return {
+            item.id
+            for day in plan.days
+            for item in day.items
+            if not item.id.startswith(TRANSIT_PREFIX)
+            and getattr(item.type, "value", str(item.type)) not in ("transit", "ticket", "hotel")
+        }
+
+    if kept(before) - kept(after):
+        return "That stop would fall outside the flight, so it stays where it was."
+    return None
+
+
 def _drop_old_items(plan: TripPlan) -> None:
     prefixes = (f"{TRANSIT_PREFIX}{TO_STAY}_", f"{TRANSIT_PREFIX}{FROM_STAY}_")
     for index, day in enumerate(plan.days):

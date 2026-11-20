@@ -34,4 +34,4 @@ The SSE output is a sequence of `event:`/`data:` frames; see `docs/API.md`.
 ---
 
 **Version note.** Tracks the repository release described in [CHANGELOG](../docs/CHANGELOG.md);
-current release **v1.2.0 (2026-11-01 23:57 HKT)**.
+current release **v1.13.0 (2026-11-20 15:40 HKT)**.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { changedIdsOf, NO_IDS, STAY_KINDS } from "./planChanges";
+import { maskTyped, setRedaction } from "./maskPii";
 import {
   ApiError,
   chooseOption,
@@ -16,6 +17,7 @@ import {
   importPlan,
   restorePlan,
   getHeld,
+  getConfig,
   getSession,
   getVersions,
   getTranslation,
@@ -342,6 +344,11 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [clarifyValues, setClarifyValues] = useState<Record<string, string>>({});
   const [trace, setTrace] = useState<RunTrace | null>(null);
   const [live, setLive] = useState<{ id: string; title: string; body: string }[]>([]);
+  useEffect(() => {
+    getConfig()
+      .then((data) => setRedaction((data as { redaction?: Parameters<typeof setRedaction>[0] }).redaction))
+      .catch(() => undefined);
+  }, []);
   const [route, setRoute] = useState<RoutePayload | null>(null);
   // Kept as a message key where the page wrote the message, so a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
@@ -761,8 +768,27 @@ export function usePathfinder(locale: string): PathfinderHook {
       if (version && String(shownRef.current.plan?.version ?? "") === version) return;
       void refresh();
     };
+    const onPlan = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId?: string; version?: number }>).detail;
+      if (!detail?.sessionId || detail.sessionId !== sessionRef.current) return;
+      if (detail.version != null && shownRef.current.plan?.version === detail.version) return;
+      void refresh();
+    };
+    const onHold = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId?: string; held?: boolean; agentName?: string }>).detail;
+      if (!detail?.sessionId || detail.sessionId !== sessionRef.current) return;
+      setHeld(Boolean(detail.held));
+      setAgentName(detail.held ? detail.agentName || "" : "");
+      void refresh();
+    };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("pf-plan-sync", onPlan);
+    window.addEventListener("pf-desk-hold", onHold);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pf-plan-sync", onPlan);
+      window.removeEventListener("pf-desk-hold", onHold);
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -940,7 +966,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       const optimistic: ChatMessage = {
         id: `local-${Date.now()}`,
         role: "user",
-        content: message,
+        content: maskTyped(message),
         created_at: new Date().toISOString(),
         // Show which stop the message was about and what was sent with it, so the transcript keeps the context.
         meta:

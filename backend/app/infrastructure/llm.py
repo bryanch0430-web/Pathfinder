@@ -85,6 +85,8 @@ class OpenAICompatibleLLM:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         images: Sequence[ImageInput] | None = None,
+        timeout: float | None = None,
+        retries: int | None = None,
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
@@ -108,7 +110,7 @@ class OpenAICompatibleLLM:
             payload["extra_body"] = dict(self._extra)
 
         started = time.perf_counter()
-        data = await self._post(payload, purpose)
+        data = await self._post(payload, purpose, timeout=timeout, retries=retries)
         message = self._message(data)
         content = self._content(message)
         usage = data.get("usage") or {}
@@ -121,16 +123,25 @@ class OpenAICompatibleLLM:
             reasoning=self._reasoning(message),
         )
 
-    async def _post(self, payload: dict[str, Any], purpose: str) -> dict[str, Any]:
+    async def _post(
+        self,
+        payload: dict[str, Any],
+        purpose: str,
+        *,
+        timeout: float | None = None,
+        retries: int | None = None,
+    ) -> dict[str, Any]:
         url = f"{self._base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        timeout = self.settings.llm_timeout_seconds
+        timeout = self.settings.llm_timeout_seconds if timeout is None else timeout
         # Counts only rate-limit, server-error and network retries. A field retry (a 400 naming a field we then
         # drop or rename) happens at most once per field and never uses up these retries.
-        retries = 0
+        # `retries` is how many extra tries the caller allows; the writer keeps two.
+        retry_limit = 2 if retries is None else max(0, retries)
+        done = 0
         while True:
             try:
                 async with httpx.AsyncClient(timeout=timeout, transport=current_transport()) as client:
@@ -161,19 +172,19 @@ class OpenAICompatibleLLM:
                 data = response.json()
                 return data if isinstance(data, dict) else {"data": data}
             except ProviderError as exc:
-                if exc.kind in {FailureKind.RATE_LIMIT, FailureKind.NETWORK, FailureKind.SERVER_ERROR} and retries < 2:
+                if exc.kind in {FailureKind.RATE_LIMIT, FailureKind.NETWORK, FailureKind.SERVER_ERROR} and done < retry_limit:
                     import asyncio
 
-                    retries += 1
-                    await asyncio.sleep(0.6 * retries)
+                    done += 1
+                    await asyncio.sleep(0.6 * done)
                     continue
                 raise
             except Exception as exc:
-                if retries < 2:
+                if done < retry_limit:
                     import asyncio
 
-                    retries += 1
-                    await asyncio.sleep(0.6 * retries)
+                    done += 1
+                    await asyncio.sleep(0.6 * done)
                     continue
                 raise ProviderError(
                     f"writer model failed for {purpose}: {exc.__class__.__name__}",

@@ -20,7 +20,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from pydantic import ValidationError
+
 from app.domain.credentials import StoredCredential
+from app.domain.schedule import separate_overlaps
 from app.domain.models import (
     DatasetMeta,
     EvalCaseResult,
@@ -191,7 +194,7 @@ _GATE_BASELINE: dict[int, str] = {}
 _TEXT_BASELINE: dict[int, dict[str, str]] = {}
 _GATE_CHOICES = frozenset({"jev", "plain", "reason", "fast"})
 # Keep these next to the provider catalogue in llm_providers.PROVIDERS.
-_GATE_PROVIDERS = frozenset({"anthropic", "openai", "openai-compatible", "poe", "xai", "gemini"})
+_GATE_PROVIDERS = frozenset({"anthropic", "openai", "openai-compatible", "poe", "xai", "gemini", "deepseek"})
 _REASONING = frozenset({"none", "low", "medium", "high"})
 _HTTP_URL = re.compile(r"https?://\S+$")
 
@@ -208,6 +211,9 @@ def _runtime_baseline(settings: Any) -> dict[str, float]:
         "writer_temperature": float(getattr(settings, "llm_temperature", 0.2)),
         "writer_max_tokens": float(getattr(settings, "llm_max_tokens", 4096)),
         "conversation_turns": float(getattr(settings, "conversation_turns", 10)),
+        "reviewer_timeout_seconds": float(getattr(settings, "reviewer_timeout_seconds", 20)),
+        "turn_deadline_seconds": float(getattr(settings, "turn_deadline_seconds", 180)),
+        "llm_timeout_seconds": float(getattr(settings, "llm_timeout_seconds", 90)),
         "weather_fresh_seconds": float(settings.weather_fresh_seconds),
         "ticket_fresh_seconds": float(settings.ticket_fresh_seconds),
         "hotel_fresh_seconds": float(settings.hotel_fresh_seconds),
@@ -300,6 +306,19 @@ def _runtime_float(raw: dict[str, str], key: str, default: float, low: float, hi
     if value < low or value > high:
         raise ValueError(f"{key} must be between {low:g} and {high:g}")
     return value
+
+
+def _runtime_flag(raw: dict[str, str], key: str) -> bool:
+    """A stored 0, false, no, or off turns the pattern off. A missing key stays on."""
+    if key not in raw:
+        return True
+    return str(raw[key]).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _runtime_text(raw: dict[str, str], key: str, limit: int = 300) -> str:
+    if key not in raw:
+        return ""
+    return str(raw[key])[:limit]
 
 
 def _dump(value: Any) -> str:
@@ -1217,6 +1236,9 @@ class SQLiteStore:
         _runtime_float(values, "max_repairs", base["max_repairs"], 0.0, 6.0)
         _runtime_float(values, "rule_passes", base["refine_max_rounds"], 0.0, 10.0)
         _runtime_float(values, "conversation_turns", base["conversation_turns"], 1.0, 10.0)
+        _runtime_float(values, "reviewer_timeout_seconds", base["reviewer_timeout_seconds"], 5.0, 120.0)
+        _runtime_float(values, "turn_deadline_seconds", base["turn_deadline_seconds"], 30.0, 900.0)
+        _runtime_float(values, "llm_timeout_seconds", base["llm_timeout_seconds"], 5.0, 180.0)
         for key, field in (
             ("weather", "weather_fresh_seconds"),
             ("tickets", "ticket_fresh_seconds"),
@@ -1278,6 +1300,9 @@ class SQLiteStore:
         settings.max_repairs = int(_runtime_float(raw, "max_repairs", float(base["max_repairs"]), 0.0, 6.0))
         settings.refine_max_rounds = int(_runtime_float(raw, "rule_passes", float(base["refine_max_rounds"]), 0.0, 10.0))
         settings.conversation_turns = int(_runtime_float(raw, "conversation_turns", float(base["conversation_turns"]), 1.0, 10.0))
+        settings.reviewer_timeout_seconds = _runtime_float(raw, "reviewer_timeout_seconds", base["reviewer_timeout_seconds"], 5.0, 120.0)
+        settings.turn_deadline_seconds = _runtime_float(raw, "turn_deadline_seconds", base["turn_deadline_seconds"], 30.0, 900.0)
+        settings.llm_timeout_seconds = _runtime_float(raw, "llm_timeout_seconds", base["llm_timeout_seconds"], 5.0, 180.0)
         for key, field in (
             ("weather", "weather_fresh_seconds"),
             ("tickets", "ticket_fresh_seconds"),
@@ -1319,6 +1344,14 @@ class SQLiteStore:
         settings.llm_temperature = _runtime_float(raw, "writer_temperature", base["writer_temperature"], 0.0, 2.0)
         settings.llm_max_tokens = int(_runtime_float(raw, "writer_max_tokens", base["writer_max_tokens"], 16, 16384))
         settings.writer_reasoning = _or_choice(raw, "writer_reasoning", text_base["writer_reasoning"] or "none", _REASONING)
+        settings.redact_hkid = _runtime_flag(raw, "redact_hkid")
+        settings.redact_hk_phone = _runtime_flag(raw, "redact_hk_phone")
+        settings.redact_email = _runtime_flag(raw, "redact_email")
+        settings.redact_card = _runtime_flag(raw, "redact_card")
+        settings.redact_hkid_pattern = _runtime_text(raw, "redact_hkid_pattern")
+        settings.redact_hk_phone_pattern = _runtime_text(raw, "redact_hk_phone_pattern")
+        settings.redact_email_pattern = _runtime_text(raw, "redact_email_pattern")
+        settings.redact_card_pattern = _runtime_text(raw, "redact_card_pattern")
 
 
     def delete_runtime_keys(self, keys: list[str]) -> None:
@@ -1872,12 +1905,19 @@ class SQLiteStore:
     # -- plans ------------------------------------------------------------
 
     def save_plan(self, plan: TripPlan, change_summary: str | None, *, replace: bool = False) -> None:
-        plan.refresh_derived()  # an edit may have changed what a link or a rank is built from
         """Store one plan version. A version that is already stored is refused (`PlanConflict`),
         not overwritten: another turn saved it first. `replace=True` rewrites the same version in
         place, for an edit that changed nothing but its own notes. The version keeps its row and
         its creation time, so rewriting an older version never makes it the latest. No summary
-        (`None`) leaves a rewritten version's summary as it is, and is the plan's own on a new row."""
+        (`None`) leaves a rewritten version's summary as it is, and is the plan's own on a new row.
+
+        A merge that left two stops on one time, or wrote the same place twice, is separated
+        first, so the row can be read back.
+        """
+        payload = json.loads(plan.model_dump_json())
+        if separate_overlaps(payload):
+            plan = TripPlan.model_validate(payload)
+        plan.refresh_derived()  # an edit may have changed what a link or a rank is built from
         try:
             with self._lock, self._connect() as conn:
                 if replace:
@@ -1910,16 +1950,37 @@ class SQLiteStore:
             if version is None:
                 # The highest version of the newest trip: the number decides, never a timestamp.
                 row = conn.execute(
-                    f"SELECT data FROM itineraries WHERE session_id=? AND trip_id={_NEWEST_TRIP} "
+                    f"SELECT trip_id, version, data FROM itineraries WHERE session_id=? AND trip_id={_NEWEST_TRIP} "
                     "ORDER BY version DESC LIMIT 1",
                     (session_id, session_id),
                 ).fetchone()
             else:
                 row = conn.execute(
-                    f"SELECT data FROM itineraries WHERE session_id=? AND version=? AND trip_id={_NEWEST_TRIP}",
+                    f"SELECT trip_id, version, data FROM itineraries WHERE session_id=? AND version=? AND trip_id={_NEWEST_TRIP}",
                     (session_id, version, session_id),
                 ).fetchone()
-        return TripPlan.model_validate_json(row["data"]) if row else None
+        if row is None:
+            return None
+        return self._readable_plan(row["data"], session_id, row["trip_id"], int(row["version"]))
+
+    def _readable_plan(self, raw: str, session_id: str, trip_id: str | None, version: int | None) -> TripPlan:
+        """Read a stored plan. An overlap or a duplicate row is separated and written back."""
+        try:
+            return TripPlan.model_validate_json(raw)
+        except ValidationError as exc:
+            if "overlap" not in str(exc):
+                raise
+        payload = json.loads(raw)
+        notes = separate_overlaps(payload)
+        plan = TripPlan.model_validate(payload)
+        if notes and trip_id is not None and version is not None:
+            logger.warning("repaired the stored plan for %s version %s", session_id, version)
+            with self._lock, self._connect() as conn:
+                conn.execute(
+                    "UPDATE itineraries SET data=? WHERE session_id=? AND trip_id=? AND version=?",
+                    (plan.model_dump_json(), session_id, trip_id, version),
+                )
+        return plan
 
     def list_versions(self, session_id: str) -> list[dict[str, Any]]:
         """The versions of the session's newest trip, newest first: the ones ``get_plan`` finds by number."""
@@ -1931,7 +1992,7 @@ class SQLiteStore:
             ).fetchall()
         out = []
         for row in rows:
-            plan = TripPlan.model_validate_json(row["data"])
+            plan = self._readable_plan(row["data"], session_id, row["trip_id"], int(row["version"]))
             out.append(
                 {
                     "trip_id": row["trip_id"],
@@ -2181,7 +2242,20 @@ class SQLiteStore:
                 ") ORDER BY created_at DESC LIMIT ?",
                 (limit,),
             ).fetchall()
-        return [TripPlan.model_validate_json(row["data"]) for row in rows]
+        plans: list[TripPlan] = []
+        for row in rows:
+            try:
+                plans.append(TripPlan.model_validate_json(row["data"]))
+            except ValidationError as exc:
+                if "overlap" not in str(exc):
+                    continue
+                payload = json.loads(row["data"])
+                separate_overlaps(payload)
+                try:
+                    plans.append(TripPlan.model_validate(payload))
+                except ValidationError:
+                    continue
+        return plans
 
     def list_saved_trips(self, limit: int = 20) -> list[SavedTrip]:
         """Every owner's saved trips, for aggregate trending and seeding only.
