@@ -338,6 +338,7 @@ export const EN = {
   "map.legEstimate": "to {name} · est {minutes} min",
   "map.atLastStop": "At the last stop",
   "map.atStop": "At stop",
+  "map.atPlace": "At {name}",
   "map.theStay": "the stay",
   "map.label": "Trip map",
   "map.selectDay": "Select a day",
@@ -510,7 +511,7 @@ export const EN = {
   "share.revoked": "The link is off. Anyone who opens it now sees nothing. Share again to make a new link.",
 
   "settings.escalation": "Escalate to live agent",
-  "settings.escalationBody": "A chat escalates to a live agent in three ways: the traveller asks for a person, a sentiment keyword is hot enough, or the same edit leaves the plan unchanged too many times.",
+  "settings.escalationBody": "A chat escalates to a live agent in two ways: the traveller asks for a person, or the same edit leaves the plan unchanged too many times.",
   "settings.part.useJev": "Use Jev instead of keyword search",
   "settings.part.useJevHint": "Jev scores the sentiment line. The keyword table, with each score, is sent with the line. The cutoff applies to the score Jev returns. If Jev cannot be asked, the keyword scores are used. Asking for a live agent still matches the phrase list.",
   "settings.part.bar": "Counts from this score",

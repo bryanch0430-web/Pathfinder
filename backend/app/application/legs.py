@@ -1,13 +1,10 @@
 """Per-leg route geometry for the map.
 
-The console draws a day as a chain of its scheduled stops; a straight line
-between two pins is a guess, not a route. Trips to and from the stay are not
-invented here: if the itinerary does not schedule them, the map does not draw
-them. This module asks the configured routes provider for the real polyline and
-duration of each scheduled leg, including the legs to restaurants, and falls
-back to a labelled estimate when no provider is available. The estimate is the
-itinerary's own transfer (the transport model the planner's routes.segments call
-returned), so the map and the schedule show the same minutes.
+A day is drawn from the stay: the hotel, then each stop in order, then back to
+the hotel. An airport taxi is the first or last point when that day has one.
+A stay in another region is not used as the start. This module asks the
+configured routes provider for the real polyline of each of those legs, and
+falls back to a labelled estimate when no provider is available.
 
 Results are cached per plan version: a plan version is immutable, so the same
 legs never cost a second API call.
@@ -29,7 +26,7 @@ _CACHE: dict[str, dict[str, Any]] = {}
 _CACHE_LIMIT = 64
 # The routes API vocabulary for the transport model's modes. A local leg is never
 # flown, so the longest legs are driven.
-_API_MODE = {"walk": "walk", "metro": "transit", "drive": "drive", "flight": "drive"}
+_API_MODE = {"walk": "walk", "metro": "transit", "drive": "drive", "flight": "drive", "taxi": "drive"}
 
 # On-demand "how else can I get there" comparison. Speeds are the published
 # transport model (plus a cycle speed), used only when the provider cannot answer.
@@ -44,12 +41,20 @@ def _travel_mode(km: float) -> str:
     return _API_MODE[transport_mode(km)]
 
 
-def _estimate(origin: GeoPoint, destination: GeoPoint, stored: TransferLeg | None) -> RouteLeg:
+def _estimate(origin: GeoPoint, destination: GeoPoint, stored: TransferLeg | None, forced: str | None = None) -> RouteLeg:
     """The itinerary's own leg: the plan's logged transfer, or the same transport model."""
+    from app.infrastructure.providers.routes import TRANSPORT_OVERHEAD_MIN, TRANSPORT_SPEED_KMH
+
     km = haversine_km(origin.lat, origin.lng, destination.lat, destination.lng)
     mode, minutes = model_travel(km)
     if stored is not None:
         mode, minutes = stored.mode, stored.minutes
+    if forced:
+        mode = forced
+        if stored is None:
+            speed = TRANSPORT_SPEED_KMH.get(forced, TRANSPORT_SPEED_KMH["drive"])
+            overhead = TRANSPORT_OVERHEAD_MIN.get(forced, 0)
+            minutes = max(2, round(km / speed * 60 + overhead))
     return RouteLeg(
         from_geo=origin,
         to_geo=destination,
@@ -174,6 +179,73 @@ def _cache_key(plan: TripPlan, day: str | None) -> str:
     return f"{plan.trip_id}:{plan.version}:{day or 'all'}"
 
 
+# A stay farther than this from every stop on the day is another city's hotel.
+_STAY_RADIUS_KM = 150
+_AIRPORT_POINTS: dict[str, GeoPoint] | None = None
+
+
+def _airport_point(code: str) -> GeoPoint | None:
+    global _AIRPORT_POINTS
+    if _AIRPORT_POINTS is None:
+        from app.infrastructure.providers.flights import _bundled_airports
+
+        _AIRPORT_POINTS = {iata: GeoPoint(lat=lat, lng=lng) for iata, lat, lng, _size in _bundled_airports()}
+    return _AIRPORT_POINTS.get((code or "").upper())
+
+
+def _transfer_point(plan: TripPlan, item: Any) -> GeoPoint | None:
+    """Where an airport taxi sits. The item rarely has its own coordinates, so the airport code is used."""
+    if item.geo is not None:
+        return item.geo
+    leg_id = str(item.id).removeprefix("transit_")
+    leg = next((candidate for candidate in plan.legs if candidate.id == leg_id), None)
+    if leg is None or not leg.airport:
+        return None
+    return _airport_point(leg.airport)
+
+
+def _stay_point(plan: TripPlan, day: Any, stops: list[GeoPoint]) -> tuple[str, GeoPoint] | None:
+    stay = plan.stay_on(day.date)
+    if stay is None or stay.geo is None:
+        return None
+    if stops and min(haversine_km(stay.geo.lat, stay.geo.lng, point.lat, point.lng) for point in stops) > _STAY_RADIUS_KM:
+        return None
+    return stay.id, stay.geo
+
+
+def _day_points(plan: TripPlan, day: Any) -> list[tuple[str, GeoPoint, str]]:
+    """The day's route in order: airport arrival, the stay, the stops, then the airport or back to the stay."""
+    ordered = sorted(day.items, key=lambda item: item.start)
+    arrivals = [item for item in ordered if str(item.id).startswith("transit_to_stay_")]
+    departures = [item for item in ordered if str(item.id).startswith("transit_from_stay_")]
+    middle = [item for item in ordered if item.geo is not None and item not in arrivals and item not in departures]
+    stay = _stay_point(plan, day, [item.geo for item in middle if item.geo is not None])
+    hotel = plan.stay_on(day.date) if stay is not None else None
+    points: list[tuple[str, GeoPoint, str]] = []
+    for item in arrivals:
+        geo = _transfer_point(plan, item)
+        if geo is not None:
+            points.append((item.id, geo, item.name))
+    if stay is not None and hotel is not None:
+        points.append((stay[0], stay[1], hotel.name))
+    for item in middle:
+        points.append((item.id, item.geo, item.name))
+    left = False
+    for item in departures:
+        geo = _transfer_point(plan, item)
+        if geo is not None:
+            points.append((item.id, geo, item.name))
+            left = True
+    if stay is not None and hotel is not None and middle and not left:
+        points.append((stay[0], stay[1], hotel.name))
+    kept: list[tuple[str, GeoPoint, str]] = []
+    for point in points:
+        if kept and kept[-1][0] == point[0]:
+            continue
+        kept.append(point)
+    return kept
+
+
 def _dump(leg: RouteLeg, *, from_id: str, to_id: str) -> dict[str, Any]:
     return {
         "from_id": from_id,
@@ -212,26 +284,32 @@ async def legs_for_plan(
     source = routes[0] if routes and getattr(routes[0], "available", False) else None
     days = [entry for entry in plan.days if day is None or entry.date.isoformat() == day]
     jobs: list[tuple[str, str, GeoPoint, GeoPoint, str, TransferLeg | None]] = []
+    anchors: list[dict[str, Any]] = []
+    seen_anchors: set[str] = set()
 
     for entry in days:
-        items = sorted(
-            (item for item in entry.items if item.geo is not None),
-            key=lambda item: item.start,
-        )
-        for first, second in zip(items, items[1:]):
-            first_geo = first.geo
-            second_geo = second.geo
-            if first_geo is None or second_geo is None:
+        points = _day_points(plan, entry)
+        by_id = {item.id: item for item in entry.items}
+        for point_id, geo, name in points:
+            if point_id in seen_anchors or _plan_point(plan, point_id) is not None:
                 continue
+            seen_anchors.add(point_id)
+            anchors.append({"id": point_id, "name": name, "lat": geo.lat, "lng": geo.lng})
+        for (first_id, first_geo, _), (second_id, second_geo, _) in zip(points, points[1:]):
             km = haversine_km(first_geo.lat, first_geo.lng, second_geo.lat, second_geo.lng)
-            # The plan's own transfer for this pair, when it is from this stop.
-            stored = second.transfer if second.transfer and second.transfer.from_item_id == first.id else None
-            jobs.append((first.id, second.id, first_geo, second_geo, _travel_mode(km), stored))
+            following = by_id.get(second_id)
+            stored = (
+                following.transfer
+                if following is not None and following.transfer and following.transfer.from_item_id == first_id
+                else None
+            )
+            airport = first_id.startswith("transit_to_stay_") or first_id.startswith("transit_from_stay_") or second_id.startswith("transit_to_stay_") or second_id.startswith("transit_from_stay_")
+            jobs.append((first_id, second_id, first_geo, second_geo, "drive" if airport else _travel_mode(km), stored))
 
     async def resolve(job: tuple[str, str, GeoPoint, GeoPoint, str, TransferLeg | None]) -> dict[str, Any]:
         from_id, to_id, origin, destination, mode, stored = job
         if source is None:
-            return _dump(_estimate(origin, destination, stored), from_id=from_id, to_id=to_id)
+            return _dump(_estimate(origin, destination, stored, mode if mode == "drive" else None), from_id=from_id, to_id=to_id)
         try:
             leg = await asyncio.wait_for(
                 source.leg(origin, destination, mode=mode),
@@ -247,6 +325,7 @@ async def legs_for_plan(
         "version": plan.version,
         "day": day,
         "legs": legs,
+        "anchors": anchors,
     }
     if len(_CACHE) >= _CACHE_LIMIT:
         _CACHE.pop(next(iter(_CACHE)))

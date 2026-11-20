@@ -38,6 +38,14 @@ def test_heat_escalates_only_when_a_threshold_is_set() -> None:
     assert should_escalate("Can I talk to a person?", 0, _policy(enabled=False)) is None
 
 
+def test_disliking_a_meal_is_not_handed_to_a_person() -> None:
+    from app.application.escalation import queue_reason
+
+    line = "suggest what else can i change? i don't like to eat here"
+    assert should_escalate(line, 72, _policy()) is None
+    assert queue_reason(line, hot=False, stuck=False) is None
+
+
 def test_a_meal_change_stays_with_the_planner_when_the_wording_is_unhappy() -> None:
     from app.application.escalation import keeps_the_planner, queue_reason
 

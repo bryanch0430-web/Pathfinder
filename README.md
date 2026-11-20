@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.14.0 | 2026-11-20 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat |
 | v1.13.0 | 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked |
 | v1.12.0 | 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting |
 | v1.11.0 | 2026-11-19 16:23 | A map hit is confirmed before it is stored, and 简 translates the plan the same way 繁 does |
@@ -41,6 +42,18 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.14.0 — 20 November 2026, 18:10 HKT
+
+A day on the map starts at the hotel. An unhappy sentence about a meal no longer hands the chat to a person. An operator can take any open chat.
+
+**The map starts at the stay.** Each day runs from the hotel, through every stop that has a location, and back to the hotel. The day you land starts at the airport. The day you fly out ends at the airport. A stay that sits in another region is not used as that day's start.
+
+**The airport taxi is a drive.** The map asks for a driving route for that taxi. Before the first stop, the time bar names the hotel and does not say Walk. Walk, Transit, or Drive appears only while the marker is moving between places.
+
+**Sentiment monitoring is gone.** A line is not scored, and it is not handed to a person for sounding unhappy. Settings → Handoff now has two cards: asking for a person, and a stuck edit that leaves the plan unchanged. The desk no longer shows a heat score or a Hot filter.
+
+**Take over works on any chat.** Take over holds the chat that is open, whether or not it was escalated, and whether or not the desk was set to Away. Hand back still returns the chat to the planner.
 
 ### v1.13.0 — 20 November 2026, 15:40 HKT
 

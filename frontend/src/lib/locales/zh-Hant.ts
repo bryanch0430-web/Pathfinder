@@ -338,6 +338,7 @@ export const ZH_HANT: Messages = {
   "map.legEstimate": "前往 {name} · 約 {minutes} 分鐘",
   "map.atLastStop": "已到最後一站",
   "map.atStop": "停留中",
+  "map.atPlace": "在{name}",
   "map.theStay": "住宿",
   "map.label": "行程地圖",
   "map.selectDay": "選擇一天",
@@ -510,7 +511,7 @@ export const ZH_HANT: Messages = {
   "share.revoked": "連結已停用，現在開啟它將看不到任何內容。再次分享即可產生新連結。",
 
   "settings.escalation": "交給人工",
-  "settings.escalationBody": "升級到真人客服有三種：旅客要求找人、情緒關鍵詞夠急，或同一句修改多次都沒有改動行程。",
+  "settings.escalationBody": "升級到真人客服有兩種：旅客要求找人，或同一句修改多次都沒有改動行程。",
   "settings.part.useJev": "用 Jev 代替關鍵詞搜尋",
   "settings.part.useJevHint": "Jev 給情緒那句話打分。關鍵詞表和每個分數會一起送過去。上面的門檻用在 Jev 回傳的分數上。問不到 Jev 時仍用關鍵詞分數。要求真人客服仍按短語表匹配。",
   "settings.part.bar": "達到這個分數才算",

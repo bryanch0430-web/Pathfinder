@@ -74,8 +74,8 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
-import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type LlmProvider, type MapLeg } from "../lib/api";
-import { dayScope, overviewStops, travelLine, withinKm } from "../lib/mapScope";
+import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
+import { dayRoute, dayScope, overviewStops, travelLine } from "../lib/mapScope";
 import {
   chosenFor,
   daysBySegment,
@@ -2565,27 +2565,24 @@ export function MapPanel({
   const day = plan.days.find((entry) => entry.date === activeDay) ?? plan.days[0];
   // The city the day is in: its centre, and the stay of that night.
   const scope = dayScope(plan, day?.date ?? plan.dates.start);
-  const centre = scope.centre;
   const multi = segmentsOf(plan).length > 1;
-  const routePoints = useMemo(
-    () =>
-      (day?.items ?? [])
-        .filter((item) => item.geo)
-        .filter((item) => withinKm(centre, item.geo)),
-    [day, centre],
-  );
-  // Restaurants are part of the day: they get an "M" pin and a leg like any stop.
-  const points = routePoints;
   const [legs, setLegs] = useState<MapLeg[]>([]);
+  const [anchors, setAnchors] = useState<MapAnchor[]>([]);
   useEffect(() => {
     if (!day?.date) return;
     let cancelled = false;
     void getLegs(plan.session_id, day.date)
       .then((next) => {
-        if (!cancelled) setLegs(next);
+        if (!cancelled) {
+          setLegs(next.legs);
+          setAnchors(next.anchors);
+        }
       })
       .catch(() => {
-        if (!cancelled) setLegs([]);
+        if (!cancelled) {
+          setLegs([]);
+          setAnchors([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -2596,33 +2593,22 @@ export function MapPanel({
   const travel = multi && !overview ? travelLine(plan, day?.date ?? plan.dates.start) : null;
   const wholeTrip = multi && overview ? overviewStops(plan) : null;
   const hotelItem = useMemo(() => (hotel ? hotelScopeItem(hotel) : null), [hotel]);
+  const routePoints = useMemo(
+    () => dayRoute(day?.items ?? [], hotelItem),
+    [day, hotelItem],
+  );
+  const points = routePoints;
 
-  /** The replay chain: leave the hotel, visit the day, come back. */
-  const timelinePoints = useMemo(() => {
-    const items = [...routePoints].sort(
-      (a, b) => (minutesOf(a.start) ?? 0) - (minutesOf(b.start) ?? 0),
-    );
-    if (!hotelItem || !items.length) return items;
-    const firstStart = minutesOf(items[0].start) ?? 9 * 60;
-    const lastEnd = items.reduce((latest, item) => {
-      const end = minutesOf(item.end);
-      return end === null ? latest : Math.max(latest, end);
-    }, firstStart);
-    const departStart = Math.max(CLOCK_MIN, firstStart - 30);
-    const departEnd = Math.max(departStart + 10, firstStart - 15);
-    const backStart = Math.min(CLOCK_MAX - 20, lastEnd + 10);
-    const backEnd = Math.min(CLOCK_MAX, backStart + 15);
-    const depart: PlanItem = { ...hotelItem, start: clockText(departStart), end: clockText(departEnd) };
-    const back: PlanItem = { ...hotelItem, start: clockText(backStart), end: clockText(backEnd) };
-    return [depart, ...items, back];
-  }, [routePoints, hotelItem]);
+  /** The replay chain is the same route: leave the hotel, visit the day, come back. */
+  const timelinePoints = routePoints;
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const item of routePoints) map.set(item.id, item.name);
+    for (const anchor of anchors) map.set(anchor.id, anchor.name);
     if (hotelItem) map.set(hotelItem.id, hotelItem.name);
     return map;
-  }, [routePoints, hotelItem]);
+  }, [routePoints, hotelItem, anchors]);
   const selected =
     day?.items.find((item) => item.id === selectedItemId) ??
     (hotel && hotel.id === selectedItemId ? hotelScopeItem(hotel) : null);
@@ -2674,7 +2660,7 @@ export function MapPanel({
       const real = legs.find((entry) => entry.from_id === from.id && entry.to_id === to.id);
       if (real) {
         const mode: TravelMode =
-          real.mode === "transit" ? "metro" : real.mode === "drive" ? "drive" : "walk";
+          real.mode === "transit" ? "metro" : real.mode === "drive" || real.mode === "taxi" ? "drive" : "walk";
         return {
           mode,
           label: t("map.legReal", { name: to.name, minutes: real.minutes ?? "?", mode: t(MODE_LABEL[mode]).toLowerCase() }),
@@ -2697,7 +2683,7 @@ export function MapPanel({
         position: [timeline.active.geo.lat, timeline.active.geo.lng],
         mode: route?.mode ?? "walk",
         moving: false,
-        label: route ? route.label : t("map.atLastStop"),
+        label: t("map.atPlace", { name: timeline.active.name }),
         fromId: timeline.active.id,
         toId: timeline.active.id,
         progress: 0,
@@ -2732,7 +2718,7 @@ export function MapPanel({
       position: [anchor.geo.lat, anchor.geo.lng],
       mode: route?.mode ?? "walk",
       moving: false,
-      label: route ? route.label : t("map.atStop"),
+      label: t("map.atPlace", { name: anchor.name }),
       fromId: anchor.id,
       toId: anchor.id,
       progress: 0,
@@ -2741,7 +2727,7 @@ export function MapPanel({
 
   const dayLegs = useMemo(() => {
     const modeOf = (value: string): TravelMode =>
-      value === "transit" ? "metro" : value === "drive" ? "drive" : "walk";
+      value === "transit" ? "metro" : value === "drive" || value === "taxi" ? "drive" : "walk";
     if (legs.length) {
       return legs.map((entry) => ({
         from: { id: entry.from_id, name: nameById.get(entry.from_id) ?? t("map.theStay") },
@@ -2856,6 +2842,7 @@ export function MapPanel({
         updatedIds={updatedSet}
         hotelChanged={hotelChanged}
         legs={legs}
+        anchors={anchors}
         overview={wholeTrip}
         travel={travel}
       />
@@ -3004,10 +2991,12 @@ export function MapPanel({
             </div>
             {tracker ? (
               <div className="pf-map__legrow">
-                <span className="pf-map__mode" data-mode={tracker.mode}>
-                  <Icon name={MODE[tracker.mode].icon} size={11} />
-                  {t(MODE_LABEL[tracker.mode])}
-                </span>
+                {tracker.moving ? (
+                  <span className="pf-map__mode" data-mode={tracker.mode}>
+                    <Icon name={MODE[tracker.mode].icon} size={11} />
+                    {t(MODE_LABEL[tracker.mode])}
+                  </span>
+                ) : null}
                 <span className="pf-map__leglabel">{tracker.label}</span>
               </div>
             ) : null}

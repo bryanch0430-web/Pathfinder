@@ -137,11 +137,7 @@ function ScoreTable({
 export function AdminTune({ show }: { show: (group: "handoff" | "instructions", text: string) => boolean }) {
   const { t } = useI18n();
   const [hand, setHand] = useState<MonitorDraft>({ ...EMPTY_MONITOR });
-  const [sentiment, setSentiment] = useState<MonitorDraft>({ ...EMPTY_MONITOR });
   const [stuckPart, setStuckPart] = useState<MonitorDraft>({ ...EMPTY_MONITOR, enabled: false });
-  const [jevKey, setJevKey] = useState("");
-  const [keyMode, setKeyMode] = useState<"own" | "env">("env");
-  const [keySource, setKeySource] = useState<"saved" | "gate" | "none">("none");
   const [prompts, setPrompts] = useState<PromptRow[]>([]);
   const [selected, setSelected] = useState("persona");
   const [draft, setDraft] = useState("");
@@ -160,11 +156,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
           examples: policy.examples.map((item) => ({ text: item.utterance, score: "60" })),
           score: policy.frustration_at == null ? "60" : String(policy.frustration_at),
         }));
-        setSentiment(draftFrom(parts?.sentiment, { ...EMPTY_MONITOR, engine: policy.use_jev ? "jev" : "keywords" }));
         setStuckPart(draftFrom(parts?.stuck, { ...EMPTY_MONITOR, enabled: Boolean(policy.stuck_on), after: String(policy.stuck_after ?? 3) }));
-        setJevKey("");
-        setKeySource(policy.key_source === "saved" || policy.key_source === "gate" ? policy.key_source : "none");
-        setKeyMode(policy.key_source === "saved" ? "own" : "env");
       })
       .catch((cause) => setError(String(cause)));
     void getPrompts()
@@ -188,13 +180,17 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
 
   const saveHandoff = async () => {
     setError(null);
-    const monitors = { hand: { ...draftToPart(hand), engine: "keywords" }, sentiment: draftToPart(sentiment), stuck: draftToPart(stuckPart) };
-    const rows = [...monitors.hand.words, ...monitors.hand.examples, ...monitors.sentiment.words, ...monitors.sentiment.examples, ...monitors.stuck.words, ...monitors.stuck.examples];
+    const monitors = {
+      hand: { ...draftToPart(hand), engine: "keywords" },
+      sentiment: { ...draftToPart(EMPTY_MONITOR), enabled: false, words: [], examples: [] },
+      stuck: draftToPart(stuckPart),
+    };
+    const rows = [...monitors.hand.words, ...monitors.hand.examples, ...monitors.stuck.words, ...monitors.stuck.examples];
     if (rows.some((row) => !Number.isInteger(row.score) || row.score < 0 || row.score > 100)) {
       setError(t("settings.part.barHint"));
       return;
     }
-    for (const part of [monitors.hand, monitors.sentiment, monitors.stuck]) {
+    for (const part of [monitors.hand, monitors.stuck]) {
       if (part.score !== null && (!Number.isInteger(part.score) || part.score < 0 || part.score > 100)) {
         setError(t("settings.part.barHint"));
         return;
@@ -204,7 +200,6 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
       setError(t("settings.escalationStuckHint"));
       return;
     }
-    const usesJev = monitors.sentiment.engine === "jev";
     try {
       const saved = await saveEscalation({
         enabled: monitors.hand.enabled,
@@ -212,21 +207,17 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
         frustration_at: monitors.hand.score,
         examples: monitors.hand.examples.map((row) => row.text),
         match_mode: "keywords",
-        use_jev: usesJev,
+        use_jev: false,
         stuck_on: monitors.stuck.enabled,
         stuck_after: monitors.stuck.after,
         words: monitors.hand.words.map((row) => row.text),
-        api_key: usesJev && keyMode === "own" ? jevKey.trim() : "",
-        clear_key: usesJev && keyMode === "env",
+        api_key: "",
+        clear_key: false,
         monitors,
       });
       const parts = saved.parts;
       setHand(draftFrom(parts?.hand, hand));
-      setSentiment(draftFrom(parts?.sentiment, sentiment));
       setStuckPart(draftFrom(parts?.stuck, stuckPart));
-      setJevKey("");
-      setKeySource(saved.key_source === "saved" || saved.key_source === "gate" ? saved.key_source : "none");
-      setKeyMode(saved.key_source === "saved" ? "own" : "env");
     } catch (cause) {
       setError(String(cause));
     }
@@ -249,41 +240,11 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
   return (
     <>
       {error ? <p role="alert">{error}</p> : null}
-      {show("handoff", `${t("settings.escalation")} ${t("settings.part.handTitle")} ${t("settings.part.sentimentTitle")} ${t("settings.part.stuckTitle")}`) ? (
+      {show("handoff", `${t("settings.escalation")} ${t("settings.part.handTitle")} ${t("settings.part.stuckTitle")}`) ? (
       <>
         <Text size="xs" tone="tertiary">{t("settings.escalationBody")}</Text>
-        <Switch
-          checked={sentiment.engine === "jev"}
-          onChange={(on) => setSentiment({ ...sentiment, engine: on ? "jev" : "keywords" })}
-          label={t("settings.part.useJev")}
-        />
-        <Text size="xs" tone="tertiary">{t("settings.part.useJevHint")}</Text>
-        {sentiment.engine === "jev" ? (
-          <>
-            <div className="pf-handoff__keys" role="radiogroup" aria-label={t("settings.escalationJevKey")}>
-              <label className="pf-handoff__choice">
-                <input type="radio" name="pf-handoff-jev-key" checked={keyMode === "env"} onChange={() => setKeyMode("env")} />
-                <span>{t("settings.handoff.keyEnv")}</span>
-              </label>
-              <label className="pf-handoff__choice">
-                <input type="radio" name="pf-handoff-jev-key" checked={keyMode === "own"} onChange={() => setKeyMode("own")} />
-                <span>{t("settings.handoff.keyOwn")}</span>
-              </label>
-            </div>
-            <Text size="xs" tone="tertiary">{t("settings.handoff.keyEnvNote")}</Text>
-            {keyMode === "own" ? (
-              <Field label={t("settings.escalationJevKey")} hint={t("settings.escalationJevKeyHint")} wide htmlFor="pf-handoff-key">
-                <input id="pf-handoff-key" className="pf-input" type="password" value={jevKey} autoComplete="new-password" onChange={(event) => setJevKey(event.target.value)} />
-              </Field>
-            ) : null}
-            <Text size="xs" tone="tertiary">
-              {keySource === "saved" ? t("settings.escalationJevSaved") : keySource === "gate" ? t("settings.escalationJevGate") : t("settings.escalationJevNone")}
-            </Text>
-          </>
-        ) : null}
         {([
           ["hand", t("settings.part.handTitle"), t("settings.part.handBody"), hand, setHand, true, false],
-          ["sentiment", t("settings.part.sentimentTitle"), t("settings.part.sentimentBody"), sentiment, setSentiment, false, false],
           ["stuck", t("settings.part.stuckTitle"), t("settings.part.stuckBody"), stuckPart, setStuckPart, false, true],
         ] as const).map(([key, title, body, draft, setDraft, withMessage, withAfter]) => (
           <section key={key} className="pf-card pf-eval__panel pf-handoff">
@@ -292,7 +253,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
             <Switch
               checked={draft.enabled}
               onChange={(enabled) => setDraft({ ...draft, enabled })}
-              label={key === "sentiment" ? t("settings.part.sentimentOn") : key === "stuck" ? t("settings.escalationStuck") : t("settings.escalationOn")}
+              label={key === "stuck" ? t("settings.escalationStuck") : t("settings.escalationOn")}
             />
             {draft.enabled ? (
               <>
@@ -301,21 +262,16 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
                     <Textarea id={`pf-${key}-message`} rows={3} value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} />
                   </Field>
                 ) : null}
-                {key === "sentiment" ? (
-                  <Field label={t("settings.part.bar")} hint={t("settings.part.barHint")} wide htmlFor={`pf-${key}-score`}>
-                    <input id={`pf-${key}-score`} className="pf-input" value={draft.score} inputMode="numeric" onChange={(event) => setDraft({ ...draft, score: event.target.value })} />
-                  </Field>
-                ) : null}
                 {withAfter ? (
                   <Field label={t("settings.escalationStuckAfter")} hint={t("settings.escalationStuckHint")} wide htmlFor={`pf-${key}-after`}>
                     <input id={`pf-${key}-after`} className="pf-input" value={draft.after} inputMode="numeric" onChange={(event) => setDraft({ ...draft, after: event.target.value })} />
                   </Field>
                 ) : null}
-                {key === "stuck" ? null : (
+                {key === "hand" ? (
                 <>
                 <ScoreTable
-                  label={key === "hand" ? t("settings.part.handList") : t("settings.part.keywords")}
-                  hint={key === "hand" ? t("settings.part.handKeywordsHint") : t("settings.part.keywordsHint")}
+                  label={t("settings.part.handList")}
+                  hint={t("settings.part.handKeywordsHint")}
                   rows={draft.words}
                   onChange={(words) => setDraft({ ...draft, words })}
                   textLabel={t("settings.part.colText")}
@@ -336,7 +292,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
                   scored={key !== "hand"}
                 />
                 </>
-                )}
+                ) : null}
               </>
             ) : null}
             <Button variant="primary" onClick={() => void saveHandoff()}>{t("settings.part.save")}</Button>

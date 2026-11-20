@@ -48,8 +48,7 @@ from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import restore_message_decisions, user_facing_error
 from app.application.prompts import LANGUAGE_RULE, PERSONA_RULE
-from app.application.escalation import agent_reason, is_stuck, line_is_hot
-from app.application.sentiment import frustration_band, frustration_score, line_reading, session_frustration
+from app.application.escalation import agent_reason, is_stuck
 from app.application.skills import prompt_entries, prompt_file
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
@@ -1897,29 +1896,15 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         policy = store.escalation_policy()
         for session in store.recent_sessions(80):
             messages = store.list_messages(session["id"], limit=40)
-            mood = _desk_mood(messages)
             last = messages[-1] if messages else None
             state, on_page = _desk_liveness(session["updated_at"], seen.get(session["id"]), now)
             parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
-            sentiment = parts.get("sentiment") if isinstance(parts.get("sentiment"), dict) else {}
             stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
-            last_user = next((item for item in reversed(messages) if getattr(item, "role", "") == "user"), None)
-            user_meta = getattr(last_user, "meta", None) if last_user is not None else {}
-            user_meta = user_meta if isinstance(user_meta, dict) else {}
-            jev_scored = sentiment.get("engine") == "jev" and (
-                user_meta.get("sentiment") == "jev" or "sentiment_heat" in user_meta
-            )
-            hot = line_is_hot(
-                getattr(last_user, "content", "") if last_user else "",
-                int(user_meta.get("sentiment_heat") or 0),
-                sentiment if jev_scored else {**sentiment, "engine": "keywords"},
-                jev_scored=jev_scored,
-            )
             stuck = bool(stuck_part.get("enabled")) and is_stuck(
                 messages,
                 int(stuck_part.get("after") or 3),
             )
-            flagged = agent_reason(100 if hot else 0, stuck)
+            flagged = agent_reason(0, stuck)
             if flagged and not store.is_held(session["id"]) and not store.returned_chat(session["id"]):
                 store.hold_chat(session["id"], "")
             cards.append(
@@ -1932,12 +1917,12 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                     "held": store.is_held(session["id"]),
                     "agent_name": store.held_agent(session["id"]),
                     "stuck": stuck,
-                    "frustration": mood["frustration"],
-                    "frustration_kind": mood["frustration_kind"],
-                    "band": "hot" if hot else "calm",
-                    "sentiment_score": -1.0 if hot else 0.0,
-                    "sentiment_label": mood["sentiment_label"],
-                    "sentiment_notes": mood["sentiment_notes"],
+                    "frustration": 0,
+                    "frustration_kind": "none",
+                    "band": "calm",
+                    "sentiment_score": 0.0,
+                    "sentiment_label": "",
+                    "sentiment_notes": [],
                     "preview": (last.content if last else "")[:160],
                     "last_role": last.role if last else "",
                     **_desk_contact(store, session["id"]),
@@ -1961,8 +1946,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                     "role": message.role,
                     "content": message.content,
                     "at": message.created_at.isoformat(),
-                    "frustration": frustration_score(message.content) if message.role == "user" else 0,
-                    "sentiment_label": line_reading(message.content)["label"] if message.role == "user" else "",
+                    "frustration": 0,
+                    "sentiment_label": "",
                     "live_agent": bool((message.meta or {}).get("live_agent") or (message.meta or {}).get("operator")),
                     "operator": bool((message.meta or {}).get("operator")),
                 }
@@ -2594,28 +2579,6 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             return index.read_text(encoding="utf-8")
 
     return app
-
-
-def _desk_mood(messages: list[Any]) -> dict[str, Any]:
-    """The latest traveller line, and the session index once three lines are scored."""
-    readings = [line_reading(message.content) for message in messages if getattr(message, "role", "") == "user"]
-    scores = [float(reading["score"]) for reading in readings if reading["score"] is not None]
-    index = session_frustration(scores)
-    latest = readings[-1] if readings else {"score": None, "label": "not_measured", "notes": ["unmeasured"]}
-    line_heat = 0 if latest["score"] is None else round(max(0.0, -float(latest["score"])) * 100)
-    if index is not None:
-        heat, kind = index, "session"
-    elif latest["score"] is not None:
-        heat, kind = line_heat, "line"
-    else:
-        heat, kind = 0, "none"
-    return {
-        "frustration": heat,
-        "frustration_kind": kind,
-        "sentiment_score": latest["score"],
-        "sentiment_label": latest["label"],
-        "sentiment_notes": latest["notes"],
-    }
 
 
 def _parse_stamp(value: str | None) -> datetime | None:

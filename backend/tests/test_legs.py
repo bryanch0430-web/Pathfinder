@@ -88,17 +88,17 @@ def _plan(hotel_geo: GeoPoint | None) -> TripPlan:
     )
 
 
-def test_legs_connect_only_the_scheduled_stops(settings: Settings) -> None:
+def test_a_day_starts_and_ends_at_the_stay(settings: Settings) -> None:
     plan = _plan(GeoPoint(lat=35.0, lng=135.75))
     payload = asyncio.run(
         legs_for_plan(plan, routes=[FakeRoutes()], settings=settings, day="2027-04-01")
     )
     pairs = [(leg["from_id"], leg["to_id"]) for leg in payload["legs"]]
-    # The itinerary does not schedule hotel transfer, so the map must not invent
-    # a walk to/from the stay.
     assert pairs == [
+        ("hotel_x", "a1"),
         ("a1", "m1"),
         ("m1", "a2"),
+        ("a2", "hotel_x"),
     ]
     assert all(leg["source"] == "fake" for leg in payload["legs"])
 
@@ -110,6 +110,30 @@ def test_a_far_away_hotel_is_not_linked_as_a_local_leg(settings: Settings) -> No
     )
     pairs = [(leg["from_id"], leg["to_id"]) for leg in payload["legs"]]
     assert pairs == [("a1", "m1"), ("m1", "a2")]
+
+
+def test_airport_days_start_at_the_stay_and_include_the_airport(settings: Settings) -> None:
+    from app.domain.models import TransportLeg
+
+    plan = _plan(GeoPoint(lat=35.0, lng=135.75))
+    plan.days[0].items.append(
+        PlanItem(
+            id="transit_from_stay_seg_1",
+            type="transit",
+            name="Stay → HKG airport (taxi)",
+            start="19:29",
+            end="20:00",
+        )
+    )
+    plan.legs = [TransportLeg(id="from_stay_seg_1", kind="from_stay", airport="HKG", from_place="Stay", to_place="HKG airport")]
+    payload = asyncio.run(legs_for_plan(plan, routes=[], settings=settings, day="2027-04-01"))
+    pairs = [(leg["from_id"], leg["to_id"]) for leg in payload["legs"]]
+    assert pairs[0] == ("hotel_x", "a1")
+    assert pairs[-1] == ("a2", "transit_from_stay_seg_1")
+    last = payload["legs"][-1]
+    assert last["mode"] == "drive"
+    assert payload["anchors"][0]["id"] == "transit_from_stay_seg_1"
+    assert payload["anchors"][0]["lat"] > 20 and payload["anchors"][0]["lng"] > 110
 
 
 def test_estimate_is_used_when_no_route_provider_is_available(settings: Settings) -> None:

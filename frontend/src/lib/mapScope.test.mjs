@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dayScope, distanceKm, overviewStops, travelLine, withinKm } from "./mapScope.ts";
+import { dayRoute, dayScope, distanceKm, overviewStops, travelLine, withinKm } from "./mapScope.ts";
 
 const place = (name, lat, lng) => ({ name, country_code: "JP", geo: lat === undefined ? null : { lat, lng }, timezone: "" });
 const stay = (id, check_in, check_out, segment_id, geo) => ({ id, name: id, check_in, check_out, segment_id, geo });
@@ -30,6 +30,32 @@ function plan() {
     ],
   };
 }
+
+test("a day route leaves the stay, visits every stop, and returns", () => {
+  const hotel = { id: "hotel_a", type: "hotel", name: "Stay", start: "00:00", end: "00:10", geo: { lat: 35.0, lng: 135.76 } };
+  const stops = [
+    { id: "late", type: "attraction", name: "Late", start: "15:00", end: "16:00", geo: { lat: 35.01, lng: 135.77 } },
+    { id: "early", type: "meal", name: "Early", start: "09:00", end: "10:00", geo: { lat: 35.02, lng: 135.78 } },
+    { id: "transit_from_stay_x", type: "transit", name: "Stay → KIX airport", start: "18:00", end: "19:00", geo: null },
+  ];
+  const chain = dayRoute(stops, hotel);
+  assert.deepEqual(chain.map((item) => item.id), ["hotel_a", "early", "late", "hotel_a"]);
+});
+
+test("an arrival taxi with a point is before the stay, and a departure taxi ends the day", () => {
+  const hotel = { id: "hotel_a", type: "hotel", name: "Stay", start: "00:00", end: "00:10", geo: { lat: 22.32, lng: 114.17 } };
+  const stops = [
+    { id: "transit_to_stay_seg", type: "transit", name: "HKG airport → Stay", start: "21:20", end: "21:55", geo: { lat: 22.308, lng: 113.918 } },
+    { id: "sight", type: "attraction", name: "Harbour", start: "10:00", end: "11:00", geo: { lat: 22.29, lng: 114.17 } },
+    { id: "transit_from_stay_seg", type: "transit", name: "Stay → HKG airport", start: "19:00", end: "19:40", geo: { lat: 22.308, lng: 113.918 } },
+  ];
+  assert.deepEqual(dayRoute(stops, hotel).map((item) => item.id), [
+    "transit_to_stay_seg",
+    "hotel_a",
+    "sight",
+    "transit_from_stay_seg",
+  ]);
+});
 
 test("kilometres between two cities", () => {
   const km = distanceKm({ lat: 35.01, lng: 135.77 }, { lat: 34.69, lng: 135.5 });

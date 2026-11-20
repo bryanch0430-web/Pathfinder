@@ -3,7 +3,7 @@
  * the stops near enough to belong to it, the line a travel day draws from the city before, and the cities of the whole
  * trip. Pure functions on the plan, so they are tested without a map.
  */
-import type { GeoPoint, HotelStay, TripPlan, TripSegment } from "../design-system/types";
+import type { GeoPoint, HotelStay, PlanItem, TripPlan, TripSegment } from "../design-system/types";
 import { chosenFor, legInto, segmentOfDay, segmentsOf, stayOn } from "./segments";
 
 /** A stop farther than this from the centre of its city is not drawn with it. */
@@ -72,7 +72,43 @@ export interface OverviewStop {
   segmentId: string;
 }
 
-/** Every city of the trip with coordinates, in order: the numbered markers of the whole-trip view. */
+/** The day's route: the stay, then every stop that has a location, then back to the stay.
+
+An airport taxi with coordinates is the first point on an arrival day and the last on a departure day.
+A day that leaves for the airport does not also draw a return to the hotel after that taxi.
+*/
+export function dayRoute(items: PlanItem[], hotel: PlanItem | null): PlanItem[] {
+  const minutes = (value: string | null | undefined) => {
+    if (!value || !value.includes(":")) return null;
+    const [hour, minute] = value.split(":").map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour > 23) return null;
+    return hour * 60 + minute;
+  };
+  const clock = (value: number) => {
+    const whole = Math.max(0, Math.min(23 * 60 + 59, Math.floor(value)));
+    return `${String(Math.floor(whole / 60)).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
+  };
+  const ordered = [...items].sort((a, b) => (minutes(a.start) ?? 0) - (minutes(b.start) ?? 0));
+  const arrivals = ordered.filter((item) => item.id.startsWith("transit_to_stay_"));
+  const departures = ordered.filter((item) => item.id.startsWith("transit_from_stay_"));
+  const stops = ordered.filter((item) => item.geo && !item.id.startsWith("transit_to_stay_") && !item.id.startsWith("transit_from_stay_"));
+  const first = minutes(stops[0]?.start) ?? 9 * 60;
+  const last = stops.reduce((latest, item) => Math.max(latest, minutes(item.end) ?? minutes(item.start) ?? latest), first);
+  const chain: PlanItem[] = [];
+  for (const item of arrivals) if (item.geo) chain.push(item);
+  if (hotel?.geo) {
+    const depart = Math.max(0, first - 20);
+    chain.push({ ...hotel, start: clock(depart), end: clock(depart + 10) });
+  }
+  chain.push(...stops);
+  const leaving = departures.filter((item) => item.geo);
+  if (leaving.length) chain.push(...leaving);
+  else if (hotel?.geo && stops.length) {
+    const back = Math.min(23 * 60 + 40, last + 15);
+    chain.push({ ...hotel, start: clock(back), end: clock(Math.min(23 * 60 + 59, back + 15)) });
+  }
+  return chain.filter((item, index) => index === 0 || item.id !== chain[index - 1].id || item.start !== chain[index - 1].start);
+}
 export function overviewStops(plan: TripPlan): OverviewStop[] {
   const stops: OverviewStop[] = [];
   segmentsOf(plan).forEach((segment, index) => {

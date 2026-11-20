@@ -196,10 +196,6 @@ function clockText(since: string | undefined, now: number): string {
   return `${hh}:${mm}:${ss}`;
 }
 
-function chatHot(chat: DeskChat): boolean {
-  return chat.band === "hot" || (typeof chat.sentiment_score === "number" && chat.sentiment_score <= -0.6);
-}
-
 function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -219,7 +215,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   const { t } = useI18n();
   const [chats, setChats] = useState<DeskChat[]>([]);
   const [query, setQuery] = useState("");
-  const [tag, setTag] = useState<"all" | "hot" | "stuck" | "both">("all");
+  const [tag, setTag] = useState<"all" | "stuck">("all");
   const [pane, setPane] = useState<"queue" | "history">("queue");
   const [navOpen, setNavOpen] = useState(() => {
     try {
@@ -361,14 +357,9 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
 
   const current = chats.find((chat) => chat.session_id === active);
   const needle = query.trim().toLowerCase();
-  const tagText = (hot: boolean, stuck: boolean) =>
-    [hot ? t("desk.band.hot") : "", stuck ? t("desk.stuck") : ""].filter(Boolean).join("．").toUpperCase();
+  const tagText = (stuck: boolean) => (stuck ? t("desk.stuck").toUpperCase() : "");
   const matches = (chat: DeskChat) => {
-    const hot = chatHot(chat);
-    const tagged = tag === "all"
-      || (tag === "hot" && hot)
-      || (tag === "stuck" && Boolean(chat.stuck))
-      || (tag === "both" && hot && Boolean(chat.stuck));
+    const tagged = tag === "all" || (tag === "stuck" && Boolean(chat.stuck));
     return tagged && (
       !needle
       || chat.session_id.toLowerCase().includes(needle)
@@ -387,28 +378,6 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
     } catch {
       // The choice still applies for this visit.
     }
-  };
-
-  const kindText = (kind: DeskChat["frustration_kind"]) => {
-    if (kind === "session") return t("desk.kind.session");
-    if (kind === "none") return t("desk.kind.none");
-    return t("desk.kind.line");
-  };
-  const labelText = (label: string | undefined) => {
-    if (label === "positive") return t("desk.label.positive");
-    if (label === "negative") return t("desk.label.negative");
-    if (label === "neutral") return t("desk.label.neutral");
-    return t("desk.label.not_measured");
-  };
-  const noteText = (note: string) => {
-    if (note === "unmeasured") return t("desk.note.unmeasured");
-    if (note === "negative") return t("desk.note.negative");
-    if (note === "positive") return t("desk.note.positive");
-    if (note === "negation") return t("desk.note.negation");
-    if (note === "intensifier") return t("desk.note.intensifier");
-    if (note === "repeat") return t("desk.note.repeat");
-    if (note === "loud") return t("desk.note.loud");
-    return t("desk.note.plain");
   };
 
   const submitBrief = () => {
@@ -538,7 +507,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
 
   const take = () => {
     if (!active) return;
-    if (!held && !ready) return;
+    if (!held) setPresence(true);
     const run = held ? releaseDeskChat : holdDeskChat;
     void run(active).then((data) => {
       publishHold(active, !held, data.agent_name || "");
@@ -631,8 +600,8 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       <strong className="pf-ops__sid">{chat.session_id}</strong>
       <span className="pf-ops__time">{clockText(chat.created_at || chat.updated_at, now)}</span>
       <span className="pf-ops__marks">
-        {tagText(chatHot(chat), Boolean(chat.stuck)) ? (
-          <span className="pf-ops__mark" data-mark={chat.stuck ? "stuck" : "hot"}>{tagText(chatHot(chat), Boolean(chat.stuck))}</span>
+        {tagText(Boolean(chat.stuck)) ? (
+          <span className="pf-ops__mark" data-mark="stuck">{tagText(Boolean(chat.stuck))}</span>
         ) : null}
         {waitingTile ? (
           <button type="button" className="pf-ops__accept" onClick={(event) => { event.stopPropagation(); accept(chat.session_id); }}>
@@ -704,7 +673,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
               aria-label={t("desk.search")}
             />
             <div className="pf-ops__tags" role="radiogroup" aria-label={t("desk.filter")}>
-              {(["all", "hot", "stuck", "both"] as const).map((choice) => (
+              {(["all", "stuck"] as const).map((choice) => (
                 <button
                   key={choice}
                   type="button"
@@ -714,7 +683,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                   data-on={tag === choice || undefined}
                   onClick={() => setTag(choice)}
                 >
-                  {choice === "all" ? t("desk.filterAll") : tagText(choice === "hot" || choice === "both", choice === "stuck" || choice === "both")}
+                  {choice === "all" ? t("desk.filterAll") : tagText(true)}
                 </button>
               ))}
             </div>
@@ -763,7 +732,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                   <Text size="sm" weight="semibold">{current.session_id}</Text>
                   <Text size="xs" tone="tertiary">{current.destination || t("desk.untitled")}</Text>
                 </div>
-                <Button variant={held ? "secondary" : "primary"} disabled={!held && !ready} onClick={take}>{held ? t("desk.release") : t("desk.hold")}</Button>
+                <Button variant={held ? "secondary" : "primary"} onClick={take}>{held ? t("desk.release") : t("desk.hold")}</Button>
               </div>
               <div className="pf-desk__messages" ref={threadRef}>
                 <ChatClock sessionId={current.session_id} since={current.created_at || current.updated_at} />
@@ -772,7 +741,6 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                   <p key={message.id} data-role={message.role} data-live={message.live_agent || undefined}>
                     <span className="pf-desk__who">
                       {message.operator || message.live_agent ? t("desk.person") : message.role === "user" ? t("desk.traveller") : t("desk.planner")}
-                      {message.role === "user" && message.sentiment_label && message.sentiment_label !== "not_measured" && message.frustration >= 25 ? ` · ${message.frustration}` : ""}
                     </span>
                     {message.role === "user" ? maskTyped(message.content) : message.content}
                   </p>
@@ -793,7 +761,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                   <Button type="submit" variant="primary">{t("desk.send")}</Button>
                 </form>
               ) : (
-                <p className="pf-center__lock">{ready ? t("desk.replyLocked") : t("desk.notReady")}</p>
+                <p className="pf-center__lock">{t("desk.replyLocked")}</p>
               )}
             </>
           ) : (
@@ -842,26 +810,6 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                 <dt>{t("desk.budget")}</dt>
                 <dd>{current.budget != null ? `${current.currency} ${current.budget}` : t("desk.none")}</dd>
               </div>
-              <div>
-                <dt>{t("desk.stat.hot")}</dt>
-                <dd>
-                  {current.frustration_kind === "none" ? t("desk.kind.none") : (
-                    <>
-                      <span className="pf-learn__heat" data-band={current.band}>{current.frustration}</span>
-                      {kindText(current.frustration_kind)}
-                    </>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>{labelText(current.sentiment_label)}</dt>
-                <dd>{current.sentiment_score == null ? t("desk.kind.none") : current.sentiment_score}</dd>
-              </div>
-              {(current.sentiment_notes ?? []).map((note) => (
-                <div key={note}>
-                  <dd>{noteText(note)}</dd>
-                </div>
-              ))}
             </dl>
           ) : (
             <Text size="sm" tone="tertiary">{t("desk.pick")}</Text>

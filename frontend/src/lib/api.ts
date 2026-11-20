@@ -296,11 +296,18 @@ export interface MapLeg {
   steps?: MapStep[];
 }
 
+export interface MapAnchor {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 /** Real route geometry per leg, including the legs to restaurants. */
-export async function getLegs(sessionId: string, day?: string): Promise<MapLeg[]> {
+export async function getLegs(sessionId: string, day?: string): Promise<{ legs: MapLeg[]; anchors: MapAnchor[] }> {
   const query = day ? `?day=${encodeURIComponent(day)}` : "";
-  const data = (await request(`/api/journeys/${sessionId}/segments${query}`)) as { legs?: MapLeg[] };
-  return data.legs ?? [];
+  const data = (await request(`/api/journeys/${sessionId}/segments${query}`)) as { legs?: MapLeg[]; anchors?: MapAnchor[] };
+  return { legs: data.legs ?? [], anchors: data.anchors ?? [] };
 }
 
 /** One alternative in the "Getting there" comparison; never changes the plan. */

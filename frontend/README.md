@@ -103,4 +103,4 @@ names remain as the source returned them. Adding a locale is one dictionary entr
 ---
 
 **Version note.** Tracks the repository release described in [CHANGELOG](../docs/CHANGELOG.md);
-current release **v1.13.0 (2026-11-20 15:40 HKT)**.
+current release **v1.14.0 (2026-11-20 18:10 HKT)**.

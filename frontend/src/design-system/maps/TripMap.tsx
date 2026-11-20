@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { IconButton } from "../atoms";
-import { getMapKeys, type MapLeg, type MapStep } from "../../lib/api";
+import { getMapKeys, type MapAnchor, type MapLeg, type MapStep } from "../../lib/api";
 import { createGoogleEngine, loadGoogleMaps } from "./google";
 import type { MapEngine, MapPin, MapPolyline } from "./engine";
 import { kmBetween, modeForDistance, MODE, SEGMENT_COLOR, type LatLng, type TravelMode } from "./geo";
@@ -69,6 +69,8 @@ export interface TripMapProps {
   } | null;
   /** Real route geometry per leg (including restaurants). */
   legs: MapLeg[];
+  /** Points the route uses that are not already stops, such as an airport. */
+  anchors?: MapAnchor[];
   speed: number;
   follow: boolean;
   updatedIds: Set<string>;
@@ -100,6 +102,7 @@ export function TripMap(props: TripMapProps) {
     updatedIds,
     hotelChanged,
     legs,
+    anchors = [],
     overview = null,
     travel = null,
   } = props;
@@ -240,7 +243,12 @@ export function TripMap(props: TripMapProps) {
     const withGeo = points.filter(HAS_GEO);
     const routeGeo = routePoints.filter(HAS_GEO);
     const coords: LatLng[] = routeGeo.map((item) => item.geo);
-    const around = [...(travel ? [travel.from, travel.to] : []), ...(hotel?.geo ? [hotel.geo, ...coords] : coords)];
+    const around = [
+      ...(travel ? [travel.from, travel.to] : []),
+      ...(hotel?.geo ? [hotel.geo] : []),
+      ...coords,
+      ...anchors.map((anchor) => ({ lat: anchor.lat, lng: anchor.lng })),
+    ];
     const now = clockRef.current;
 
     const fitId = `${plan.trip_id}:${day?.date ?? ""}`;
@@ -268,7 +276,7 @@ export function TripMap(props: TripMapProps) {
         return end === null ? latest : Math.max(latest, end);
       }, 0);
       const modeOf = (value: string): TravelMode =>
-        value === "transit" ? "metro" : value === "drive" ? "drive" : "walk";
+        value === "transit" ? "metro" : value === "drive" || value === "taxi" ? "drive" : "walk";
       const drawn: Array<{
         casing: MapPolyline;
         line: MapPolyline;
@@ -337,8 +345,13 @@ export function TripMap(props: TripMapProps) {
       };
 
       if (legs.length) {
+        const byId = new Map(routeGeo.map((item) => [item.id, item.geo]));
+        for (const anchor of anchors) byId.set(anchor.id, { lat: anchor.lat, lng: anchor.lng });
         for (const leg of legs) {
-          const path = leg.path.length > 1 ? leg.path.map(([lat, lng]) => ({ lat, lng })) : null;
+          const routed = leg.path.length > 1 ? leg.path.map(([lat, lng]) => ({ lat, lng })) : null;
+          const from = byId.get(leg.from_id);
+          const to = byId.get(leg.to_id);
+          const path = routed ?? (from && to ? [from, to] : null);
           if (!path) continue;
           const target = itemsById.get(leg.to_id);
           const doneAt = target ? minutesOf(target.start) ?? 0 : lastEnd;
@@ -462,10 +475,9 @@ export function TripMap(props: TripMapProps) {
     const numbers = new Map<string, number>();
     let counter = 0;
     for (const item of withGeo) {
-      if (item.type !== "meal") {
-        counter += 1;
-        numbers.set(item.id, counter);
-      }
+      if (item.type === "hotel" || item.type === "meal") continue;
+      counter += 1;
+      numbers.set(item.id, counter);
     }
 
     const visited = new Set(
@@ -474,7 +486,10 @@ export function TripMap(props: TripMapProps) {
         .map((item) => item.id)
     );
 
+    const seen = new Set<string>();
     for (const item of withGeo) {
+      if (item.type === "hotel" || seen.has(item.id) || !item.geo) continue;
+      seen.add(item.id);
       const meal = item.type === "meal";
       const visual: PinVisual = {
         label: meal ? "M" : String(numbers.get(item.id) ?? counter),
@@ -497,6 +512,24 @@ export function TripMap(props: TripMapProps) {
       pinRefs.current.set(item.id, { pin, item, key: visualKey(visual) });
     }
 
+    for (const anchor of anchors) {
+      if (seen.has(anchor.id)) continue;
+      const visual: PinVisual = { label: "A", variant: "sight" };
+      const pin = engine.pin({ lat: anchor.lat, lng: anchor.lng }, {
+        anchor: [-15, -15],
+        title: anchor.name,
+        z: 400,
+        visual,
+        html: pinHtml(visual),
+        svgIcon: pinSvg(visual),
+      });
+      pinRefs.current.set(anchor.id, {
+        pin,
+        item: { id: anchor.id, type: "transit", name: anchor.name, start: "", end: "", geo: { lat: anchor.lat, lng: anchor.lng } } as PlanItem,
+        key: visualKey(visual),
+      });
+    }
+
     setLayersBuilt((value) => value + 1);
   }, [
     generation,
@@ -509,6 +542,7 @@ export function TripMap(props: TripMapProps) {
     showRoute,
     hotelChanged,
     legs,
+    anchors,
     overview,
     travel,
   ]);

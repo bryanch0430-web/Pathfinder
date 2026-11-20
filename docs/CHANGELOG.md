@@ -5,6 +5,15 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.14.0 — 2026-11-20 18:10
+
+A day on the map starts at the hotel. An unhappy meal no longer hands the chat to a person. An operator can take any chat.
+
+- **The map starts at the stay.** Each day runs from the hotel, through every stop that has a location, and back to the hotel. The day you land starts at the airport. The day you fly out ends at the airport. A stay in another region is not used as the start.
+- **The airport taxi is a drive.** The map asks for a driving route for that taxi. Before the first stop, the time bar names the hotel and does not say Walk. Walk, Transit, or Drive appears only while the marker is moving.
+- **Sentiment monitoring is gone.** A line is not scored, and it is not handed over for sounding unhappy. Settings → Handoff has two cards: asking for a person, and a stuck edit. The desk no longer shows a heat score or a Hot filter.
+- **Take over works on any chat.** The button holds the open chat whether or not it was escalated, and whether or not the desk was set to Away. Hand back still returns it to the planner.
+
 ## v1.13.0 — 2026-11-20 15:40
 
 A change that names no new place stays on the selected stop. A stop cannot sit outside the flight. Personal details are masked before a model sees them.
