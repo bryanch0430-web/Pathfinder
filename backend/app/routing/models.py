@@ -57,5 +57,6 @@ class RouteDecision:
             "reason": self.reason_code,
             "affected_parts": list(self.affected_parts),
             "need_clarification": self.need_clarification,
+            "missing_slots": list(self.missing_slots),
             "minimal": self.intent == Intent.MODIFY and not self.need_clarification,
         }

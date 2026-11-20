@@ -9,6 +9,8 @@ interface Props {
   document: TripDocument;
   day: number | null;
   onSelectDay: (day: number | null) => void;
+  pinned?: string | null;
+  onPin?: (name: string) => void;
 }
 
 export const dayDate = (iso: string | null, style: 'short' | 'long' = 'short') => iso
@@ -25,32 +27,70 @@ export const money = (amount: number, currency: string) => {
 };
 
 const sourceLabel = (url: string) => {
-  try { return new URL(url).hostname.replace(/^www\./, '').split('.')[0]; } catch { return 'source'; }
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if (url.includes('/travel/flights')) return 'Book flight';
+    if (host.includes('google') || host.startsWith('maps.')) return 'Google Maps';
+    return host.split('.')[0];
+  } catch { return 'source'; }
 };
 
-function Item({ item, currency, when }: { item: TripDocumentItem; currency: string; when?: string | null }) {
+/** The sentence before a dumped week of hours. */
+function placeNote(tip?: string | null): string | null {
+  if (!tip) return null;
+  const note = tip.split(/\s+Hours:\s*/i)[0].replace(/\s+/g, ' ').trim();
+  return note || null;
+}
+
+/** A week of identical days becomes one line. The rest keeps the first two days. */
+function briefHours(raw?: string | null): string | null {
+  const text = (raw || '').trim();
+  if (!text) return null;
+  const rows = text.split(';').map((part) => {
+    const split = part.trim().indexOf(':');
+    if (split < 1) return null;
+    return { day: part.trim().slice(0, split).trim(), span: part.trim().slice(split + 1).trim() };
+  }).filter((row): row is { day: string; span: string } => Boolean(row?.span));
+  if (!rows.length) return text.length > 72 ? `${text.slice(0, 69).replace(/\s+\S*$/, '')}…` : text;
+  const spans = [...new Set(rows.map((row) => row.span))];
+  if (spans.length === 1) {
+    if (rows.length >= 7) return `Every day ${spans[0]}`;
+    if (rows.length === 1) return `${rows[0].day.slice(0, 3)} ${spans[0]}`;
+    return `${rows[0].day.slice(0, 3)}–${rows[rows.length - 1].day.slice(0, 3)} ${spans[0]}`;
+  }
+  const shown = rows.slice(0, 2).map((row) => `${row.day.slice(0, 3)} ${row.span}`);
+  return rows.length > 2 ? `${shown.join(' · ')} · later days differ` : shown.join(' · ');
+}
+
+function Item({ item, currency, when, pinned, onPin }: { item: TripDocumentItem; currency: string; when?: string | null; pinned?: boolean; onPin?: (name: string) => void }) {
+  const note = placeNote(item.tip);
+  const hoursInTip = item.tip?.split(/\s+Hours:\s*/i)[1];
+  const hours = briefHours(item.hours || hoursInTip);
   return (
-    <li className={`tv-plan__item${when ? ' has-time' : ''}`}>
+    <li className={`tv-plan__item${when ? ' has-time' : ''}${pinned ? ' is-pinned' : ''}`}>
       {when && <time className="tv-plan__time">{when}</time>}
       <div>
         <strong>{item.name}</strong>
         <span className="tv-plan__meta">
-          {item.category}{item.area ? ` · ${item.area}` : ''}
+          {item.category}{item.area ? ` · ${item.area}` : ''}{hours ? ` · ${hours}` : ''}
           {item.est_cost !== null ? ` · ~${money(item.est_cost, currency)} pp` : ''}
           {item.duration_hours ? ` · ${item.duration_hours} h` : ''}
         </span>
       </div>
-      {item.tip && (
+      {(note || item.source_url) && (
         <p className="tv-plan__tip">
-          “{item.tip}”
-          {item.source_url && <> <a href={item.source_url} target="_blank" rel="noreferrer">via {sourceLabel(item.source_url)}</a></>}
+          {note ? `“${note}”` : null}
+          {item.source_url && <> <a href={item.source_url} target="_blank" rel="noreferrer">{sourceLabel(item.source_url)}</a></>}
         </p>
       )}
+      {onPin && <button type="button" className="tv-plan__pin" aria-pressed={pinned} onClick={() => onPin(item.name)}>
+        {pinned ? 'Asking about this' : 'Ask about this'}
+      </button>}
     </li>
   );
 }
 
-export function StudioPlan({ document, day, onSelectDay }: Props) {
+export function StudioPlan({ document, day, onSelectDay, pinned, onPin }: Props) {
   const currency = document.budget.currency;
   if (!document.days.length) {
     return <p className="tv-plan__empty">The plan appears here once your itinerary is drafted.</p>;
@@ -103,7 +143,7 @@ export function StudioPlan({ document, day, onSelectDay }: Props) {
               const when = source.start
                 ? `${source.start}${source.end ? `–${source.end}` : ''}`
                 : `${formatClock(row.startMin)}–${formatClock(row.endMin)}`;
-              return <Item key={row.key} item={source} currency={currency} when={when} />;
+              return <Item key={row.key} item={source} currency={currency} when={when} pinned={pinned === source.name} onPin={onPin} />;
             })}
           </ul>
         </section>

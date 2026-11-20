@@ -8,8 +8,8 @@ import React, { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
-import { AssistantAvatar } from './AssistantAvatar';
 import { ArrowUpRightIcon } from '../home/v2/IconsV2';
+import { Logo } from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
 import { EASE, prefersReducedMotion, splitLines } from '../home/v2/motion';
 
@@ -85,8 +85,8 @@ export const ChatWelcome: React.FC<ChatWelcomeProps> = ({ onSelectPrompt }) => {
 
   return (
     <div className="tv-welcome" ref={root}>
-      <div className="tv-welcome__mark">
-        <AssistantAvatar size={72} />
+      <div className="tv-welcome__mark" aria-hidden="true">
+        <Logo width={42} height={42} />
       </div>
 
       <h2 className="tv-display tv-welcome__title" ref={titleRef}>

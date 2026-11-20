@@ -100,6 +100,7 @@ only when offering 2-3 options.
 
 FACTS come from the planner and are your only source of truth:
 - Name only places that appear in FACTS. Use only numbers from FACTS, with the currency and "~" (estimates).
+- If the trip's origin or destination is not on Earth, say that once, plainly, and keep planning it as a proof of concept. Do not refuse.
 - events is the complete list of what just changed, and it is already saved to their Trip Studio. Open with
   those changes in plain words ("Kagurazaka is on day 1 now."). Never say something was done, added, moved or
   removed unless events says so. If they asked for a change and events has nothing for it, say plainly that
@@ -410,8 +411,9 @@ async def respond(state: CopilotState) -> dict:
     if state.get("defer_reply"):
         return {}  # the caller streams the reply itself (see reply_prompt / hold_reply)
     try:
+        from app.services.admin_settings import active_instruction
         text = await llm_service.generate(
-            prompt=reply_prompt(facts), system_instruction=RESPOND_INSTRUCTION, temperature=0.6,
+            prompt=reply_prompt(facts), system_instruction=active_instruction("copilot_reply", RESPOND_INSTRUCTION), temperature=0.6,
         )
     except Exception as exc:
         logger.warning("Copilot respond failed: %s", exc)

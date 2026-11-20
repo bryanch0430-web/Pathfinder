@@ -1,8 +1,8 @@
 /*
  * AroundHere — what to see, eat and where to stay near a stop, plus landmarks and stations.
  * Owned by the map session. Shown in the stop detail panel; the studio's info rail can mount it too.
- * Listings come from Wikivoyage and landmarks from Wikipedia, each credited. No ratings: there is
- * no free, legitimate source for them. "Add to day" appears only when the host passes onAddPlace.
+ * Food, stays, and sights come from Google Places near this stop, with Wikivoyage listings
+ * and Wikipedia landmarks beside them. "Add to day" appears only when the host passes onAddPlace.
  */
 import { useMemo, useState } from 'react';
 import { useAroundHere, type AroundItem, type AroundTab } from '../../services/aroundHere';
@@ -99,7 +99,9 @@ export function AroundHere({ lat, lon, day = null, onAddPlace }: Props) {
               {expanded ? 'Show fewer' : `Show all ${items.length}`}
             </button>}
             <p className="tv-ah__sources">
-              {!!data.guides.length && <>Listings: {data.guides.map((guide, i) => <span key={guide.url}>{i ? ', ' : ''}
+              {data.items.some((item) => item.source === 'Google Places') && <>Food, stays, and sights: Google Places. </>}
+              {data.items.some((item) => item.source === 'Google Hotels') && <>Hotels: Google Hotels. </>}
+              {!!data.guides.length && <>Guides: {data.guides.map((guide, i) => <span key={guide.url}>{i ? ', ' : ''}
                 <a href={guide.url} target="_blank" rel="noopener noreferrer">Wikivoyage {guide.title}</a></span>)} · CC BY-SA 4.0. </>}
               Landmarks: Wikipedia · CC BY-SA 4.0.
             </p>

@@ -17,7 +17,7 @@ export type SketchElement = { id: string } & (
   /** A hand-drawn line through the points; `curve` bends it, `arrow` adds a head at the end. */
   | { kind: 'path'; points: Point[]; tone: Tone; dashed?: boolean; arrow?: boolean; curve?: boolean }
   | { kind: 'doodle'; name: DoodleName; x: number; y: number; size: number; tone: Tone }
-  | { kind: 'note'; x: number; y: number; w: number; h: number; rotate: number; title: string; lines: string[]; tag: string | null }
+  | { kind: 'note'; x: number; y: number; w: number; h: number; rotate: number; title: string; titleLines?: string[]; titleSize?: number; lines: string[]; size?: number; tag: string | null }
   | { kind: 'stamp'; x: number; y: number; w: number; text: string; tone: Tone; rotate: number }
   | { kind: 'highlight'; x: number; y: number; w: number; h: number }
 );

@@ -10,6 +10,7 @@ from app.models.trip import ConversationMessage, ConversationSession, Trip
 from app.models.budget import BudgetItem, BudgetPlan
 from app.models.sketch_note import SketchNote
 from app.models.user import User
+from app.models.admin_setting import AdminSetting
 
 __all__ = [
     "TripStatus",
@@ -25,4 +26,5 @@ __all__ = [
     "BudgetItem",
     "SketchNote",
     "User",
+    "AdminSetting",
 ]

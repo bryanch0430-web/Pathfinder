@@ -133,7 +133,7 @@ export function ExportMenu({ document: doc, pdf }: Props) {
 
   return (
     <div className="tv-export" ref={root}>
-      <button type="button" ref={trigger} className="tv-export__trigger" aria-expanded={open} aria-controls="tv-export-panel" onClick={() => { setOpen((value) => !value); if (!busy) setStatus(''); }}>
+      <button type="button" ref={trigger} className="tv-btn tv-btn--ghost tv-btn--sm tv-export__trigger" aria-expanded={open} aria-controls="tv-export-panel" onClick={() => { setOpen((value) => !value); if (!busy) setStatus(''); }}>
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
         </svg>

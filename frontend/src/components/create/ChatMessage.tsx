@@ -20,6 +20,7 @@ import { EASE, prefersReducedMotion } from '../home/v2/motion';
 import type { ItineraryGraph } from './itineraryGraph';
 import type { CopilotOp, CopilotState } from './CopilotPanel';
 import type { RouteWarning } from '../../services/tripService';
+import { maskForDisplay } from '../../lib/maskPii';
 
 /** One line of a turn's receipt: what the planner actually changed (the server's record, not the reply's words). */
 export interface PlanChange {
@@ -42,7 +43,9 @@ export interface ChatMessageItem {
     route?: {
       intent?: string; confidence?: number; source?: string; reason?: string;
       affected_parts?: string[]; minimal?: boolean; need_clarification?: boolean;
+      missing_slots?: string[];
     };
+    previous?: { graph?: ItineraryGraph; day_plan?: unknown };
   } | null;
   metadata?: {
     destination?: string;
@@ -61,6 +64,11 @@ interface ChatMessageProps {
   onRetry?: (change: PlanChange) => void;
   onLockBudget?: () => void;
   onFinalizeTrip?: () => void;
+  onClarify?: (text: string) => void;
+  onUseful?: (useful: boolean) => void;
+  /** The mark already saved for this trip, so the chosen button stays selected. */
+  useful?: boolean | null;
+  onUndo?: () => void;
 }
 
 function PlanReceipt({ changes, onOpenStudio, onRetry }: { changes: PlanChange[] } & Omit<ChatMessageProps, 'message'>) {
@@ -101,14 +109,48 @@ function PlanReceipt({ changes, onOpenStudio, onRetry }: { changes: PlanChange[]
 function routeLine(route: NonNullable<ChatMessageItem['payload']>['route']): string {
   if (!route) return '';
   const names: Record<string, string> = { plan: 'New plan', modify: 'Change', ask: 'Question', unclear: 'Clarifying' };
-  const intent = route.minimal ? 'Minimal change' : names[route.intent || ''] || 'Routed';
+  const intent = route.reason === 'clear_plan' ? 'Plan deleted' : route.minimal ? 'Minimal change' : names[route.intent || ''] || 'Routed';
   const parts = (route.affected_parts || []).map((part) => part.replace(/^day_/, 'day ').replace(/_/g, ' ')).join(', ');
   const via = route.source === 'jev' ? 'Jev' : route.source === 'rules' ? 'rules' : route.source === 'writer' ? 'writer' : route.source || '';
   const score = typeof route.confidence === 'number' ? `${Math.round(route.confidence * 100)}%` : '';
   return [intent, parts, [via, score].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio, onRetry, onLockBudget, onFinalizeTrip }) => {
+const SLOT_LABELS: Record<string, string> = {
+  origin: 'Travelling from',
+  destination: 'Travelling to',
+  duration: 'How many days',
+};
+
+function ClarifyCard({ slots, onClarify }: { slots: string[]; onClarify: (text: string) => void }) {
+  const [values, setValues] = React.useState<Record<string, string>>({});
+  const submit = () => {
+    const parts = slots.flatMap((slot) => {
+      const value = (values[slot] || '').trim();
+      if (!value) return [];
+      if (slot === 'origin') return [`I'm travelling from ${value}`];
+      if (slot === 'destination') return [`to ${value}`];
+      if (slot === 'duration') return [`for ${value} days`];
+      return [value];
+    });
+    if (parts.length) onClarify(parts.join(', '));
+  };
+  return (
+    <form className="tv-receipt" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+      <header><span className="tv-label">A few details first</span></header>
+      {slots.map((slot) => (
+        <label key={slot} className="tv-label" style={{ display: 'block', marginTop: '0.6rem' }}>
+          {SLOT_LABELS[slot] || slot}
+          <input className="tv-input" required inputMode={slot === 'duration' ? 'numeric' : 'text'}
+            value={values[slot] || ''} onChange={(event) => setValues((current) => ({ ...current, [slot]: event.target.value }))} />
+        </label>
+      ))}
+      <button type="submit" className="tv-receipt__open" style={{ marginTop: '0.8rem' }}>Send these details</button>
+    </form>
+  );
+}
+
+export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio, onRetry, onLockBudget, onFinalizeTrip, onClarify, onUseful, useful, onUndo }) => {
   const { user } = useAuth();
   const root = useRef<HTMLDivElement>(null);
   const guide = useGuide();
@@ -168,7 +210,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio,
 
         <div className="tv-msg2__body">
           {isUser ? (
-            <p className="tv-msg2__text">{message.content}</p>
+            <p className="tv-msg2__text">{maskForDisplay(message.content || '')}</p>
           ) : message.content ? (
             <MarkdownMessage content={message.content} />
           ) : (
@@ -205,6 +247,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio,
               </li>
             ))}</ul>
           </section>
+        )}
+        {!isUser && onClarify && (message.payload?.route?.missing_slots?.length || 0) > 0 && message.payload?.route?.need_clarification && (
+          <ClarifyCard slots={message.payload.route.missing_slots || []} onClarify={onClarify} />
+        )}
+        {!isUser && message.payload?.kind === 'ITINERARY_GRAPH' && (onUseful || onUndo) && (
+          <div className="tv-receipt" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {onUseful && <button type="button" className={useful === true ? 'is-selected' : ''} aria-pressed={useful === true} onClick={() => onUseful(true)}>Useful</button>}
+            {onUseful && <button type="button" className={useful === false ? 'is-selected' : ''} aria-pressed={useful === false} onClick={() => onUseful(false)}>Not useful</button>}
+            {useful === true && <span className="tv-meta">Marked as useful</span>}
+            {useful === false && <span className="tv-meta">Marked as not useful</span>}
+            {onUndo && message.payload.previous?.graph && <button type="button" className="tv-receipt__open" onClick={onUndo}>Restore previous plan</button>}
+          </div>
         )}
         {!isUser && message.payload?.offer_lock_budget && onLockBudget && <button type="button" className="tv-receipt__open" onClick={onLockBudget}>Lock this budget</button>}
         {!isUser && message.payload?.offer_finalize_trip && onFinalizeTrip && <button type="button" className="tv-receipt__open" onClick={onFinalizeTrip}>Review & finalize trip</button>}

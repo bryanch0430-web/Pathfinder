@@ -12,6 +12,8 @@ from app.schemas.auth import (
     LocalAccountUser,
     LocalAuthResponse,
     LocalProfileUpdate,
+    PrivacyPreviewRequest,
+    PrivacySettings,
     ClaimGuestTripsRequest,
     ClaimGuestTripsResponse,
     ForgotPasswordRequest,
@@ -171,7 +173,54 @@ async def local_update_profile(
     """Rename a local account and hand back a token carrying the new name."""
     if not settings.LOCAL_AUTH_ENABLED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Local accounts are disabled.")
-    user = await local_auth.update_account(current_user.id, full_name=request.full_name)
+    if request.new_password:
+        stored = await local_auth.get_user(current_user.id)
+        if stored is None or not request.current_password or not local_auth.verify_password(request.current_password, stored.password_hash):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The current password does not match.")
+    user = await local_auth.update_account(
+        current_user.id, full_name=request.full_name, password=request.new_password,
+    )
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
     return _local_session(user)
+
+
+@router.get("/privacy")
+async def get_privacy(_user: AuthenticatedUser = Depends(get_current_user)):
+    """The privacy switches. Personal details stay masked until one is turned off."""
+    from app.services.admin_settings import privacy_view
+    return privacy_view()
+
+
+@router.put("/privacy")
+async def put_privacy(
+    body: PrivacySettings,
+    _user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save which personal details the planner is allowed to read."""
+    from app.services.admin_settings import save_privacy
+    try:
+        return await save_privacy(db, body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/privacy/preview")
+async def preview_privacy(
+    body: PrivacyPreviewRequest,
+    _user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Show the masked sentence. The sample is not stored."""
+    from app.security.pii import Redaction, check_pattern, preview_redaction
+    try:
+        chosen = Redaction(
+            hkid=body.hkid, hk_phone=body.hk_phone, email=body.email, card=body.card,
+            hkid_pattern=check_pattern(body.hkid_pattern),
+            hk_phone_pattern=check_pattern(body.hk_phone_pattern),
+            email_pattern=check_pattern(body.email_pattern),
+            card_pattern=check_pattern(body.card_pattern),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return preview_redaction(body.text, chosen)

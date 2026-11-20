@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { uploadAvatar } from '../services/uploadService';
 import { AppBar } from '../components/common/AppBar';
+import { AdminSettings } from './AdminSettings';
 import { apiFetch } from '../services/apiClient';
 import type { TripModelResponse } from '../services/tripService';
 import {
@@ -302,6 +303,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </section>
         </div>
+
+        {user?.user_metadata?.is_admin ? <AdminSettings /> : null}
 
         {/* Trip library entry */}
         <section className="tv-profile__trips" aria-labelledby="saved-trips">

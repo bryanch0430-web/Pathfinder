@@ -14,7 +14,15 @@ def _planner():
     return state
 
 
-def test_far_afternoon_is_refused_even_with_force_and_receipt_explains():
+def test_a_routed_time_is_used_for_transit_as_well_as_driving():
+    from app.services.route_metrics import route_mode
+    assert route_mode(1.2) == "WALK"
+    assert route_mode(8) == "TRANSIT"
+    assert route_mode(40) == "DRIVE"
+    a, b = (35.01, 135.76), (35.02, 135.77)
+    state = {"route_times": {route_reality.pair_key(a, b): 18}}
+    found = route_reality.leg(state, a, b, "transit")
+    assert found["basis"] == "routed" and found["hours"] == 0.3
     state = _planner()
     far = engine.make_item({"name": "Sapporo", "lat": 43.0621, "lon": 141.3544,
                             "duration_hours": 1, "time_of_day": "afternoon"})

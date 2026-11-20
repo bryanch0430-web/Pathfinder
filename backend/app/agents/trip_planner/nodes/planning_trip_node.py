@@ -1,13 +1,44 @@
 import json
 import logging
+import re
 from typing import Any
 
 from app.agents.trip_planner.planning.graph import planning_graph
 from app.agents.trip_planner.planning.state import create_initial_planning_state
 from app.agents.trip_planner.state import TripPlanningState
+from app.planning.upgrades import evidence_from_result, lock_lines
+from app.routing.places import named_place_instruction
 from app.services.llm.service import llm_service
 
 logger = logging.getLogger(__name__)
+
+_OFF_EARTH = re.compile(
+    r"\b(?:mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto|the moon|luna|"
+    r"europa|titan|ganymede|callisto|enceladus|triton|ceres|the sun|outer space|deep space)\b",
+    re.I,
+)
+
+
+def off_earth_places(*names: str | None) -> list[str]:
+    """Place names in this brief that are not on Earth. A town that shares a planet's name matches too."""
+    found: list[str] = []
+    for name in names:
+        text = (name or "").strip()
+        if text and _OFF_EARTH.search(text) and text not in found:
+            found.append(text)
+    return found
+
+
+def off_earth_note(*names: str | None) -> str:
+    places = off_earth_places(*names)
+    if not places:
+        return ""
+    shown = ", ".join(places)
+    return (
+        f"These places are not on Earth: {shown}.\n"
+        "Say that in the opening, in plain words. Then still write the itinerary they asked for, as a proof of concept.\n"
+        "Do not refuse. Do not invent live hotels, flights, or a real forecast for them. Say those details are imagined.\n"
+    )
 
 
 PLAN_GENERATION_SYSTEM_INSTRUCTION = """
@@ -37,6 +68,8 @@ Guidelines:
 - Under each day, list that day only, in the order the traveler would go. Each stop is one bullet:
   `09:00–11:00 Name — why it is here`. These clock times are planning slots, not reservations.
 - Name the overnight stay on that day. Include breakfast, lunch and dinner as their own stops when the day has room.
+- Every stop must be a real venue a map can pin: a named temple, restaurant, hotel, station, or museum. Never a theme such as "Temples & traditional experiences" or "modern art afternoon".
+- When the day travels to another city, name the train or flight and the hotel you stay at there. Do not write only "Return to Tokyo".
 - Keep the day in one area. Put an intercity move on the travel day as its own stop, with how long it takes, instead of hiding it.
 - Sequence each stop near the one before it, and leave time to arrive, leave, and get between them.
 - If the research is thin, say what needs verification rather than filling gaps with confident specifics.
@@ -47,6 +80,7 @@ Guidelines:
 - Do not claim a specific train time, fare, pass price, or pass coverage unless the supplied research supports it. Mark unverified transport details as things to check.
 - Do not pretend anything has been booked.
 - Treat the plan as a first draft that the traveler can refine.
+- If the origin or destination is not on Earth, say that in the opening, then still write the itinerary as a proof of concept. Do not refuse. Do not present imagined hotels, flights, or weather as live data.
 - Keep it useful and reasonably concise.
 - Do not mention LangGraph, nodes, state, tools, subgraphs, APIs, orchestration,
   or internal implementation details.
@@ -79,6 +113,7 @@ You are Pathfinder, revising a traveler's itinerary while chatting with them.
 - Then give the complete updated itinerary in the same structure and formatting as the current one.
 - Keep every day as its own timed list (Day N, clock times, overnight stay). Do not collapse days into a range.
 - Apply the request faithfully. Keep every other day, base and activity as it was unless the change needs it.
+- A new stop must be a real venue a map can pin. Never add a theme such as "Temples & traditional experiences".
 - If they agree to something you proposed in YOUR LAST MESSAGE ("yes", "do it", "go ahead", "finalize it"),
   apply exactly that proposal.
 - If the request doesn't work (not enough time, too far, it clashes with their preferences), say so plainly
@@ -86,6 +121,7 @@ You are Pathfinder, revising a traveler's itinerary while chatting with them.
 - Every day stays in the same day-by-day format with its day number, so the change shows up in their Trip Studio.
 - The update is saved to their Trip Studio as soon as you finish: don't ask them to confirm or finalize it.
 - Never invent prices, schedules, availability or bookings; flag details to verify.
+- If the origin or destination is not on Earth, say that before the revision, then still apply the request as a proof of concept. Do not refuse, and do not present imagined hotels, flights, or weather as live data.
 - If BUDGET LEDGER is supplied, its projected total and target are authoritative. Do not add up prices
   from the prose or call entered planning costs "spent" money.
 - Markdown only: no raw HTML, no code fences. Never mention internal systems.
@@ -99,9 +135,39 @@ question ("Want me to move Okochi-Sanso to day 1?"): a "yes" applies it.
 If JUST SAVED lists something, confirm it in a few words first.
 If they say the plan is final, or ask to save it or update the studio: every change is saved to their Trip Studio
 the moment it's made, so tell them it's already saved and they can open the studio to see it.
-Never invent prices, schedules or bookings. Markdown only, no headings. Never mention internal systems.
+Never invent prices, schedules or bookings. If they ask about flights or tickets, point them at the Book flight links on the first and last day and say you do not book it for them. Markdown only, no headings. Never mention internal systems.
+If STUDIO SCHEDULE is present, that list is the trip. A place on it is already included. Do not say it is missing, and do not offer to add it again. When a stop has a source or listed hours, use those.
+If the traveler pinned a stop, answer about that stop.
 If BUDGET LEDGER is supplied, use only its total and target when discussing the overall budget.
 """
+
+
+def answer_outline(plan: str) -> str:
+    """Stop names for a question. The full draft stays out of the prompt so it is not copied back."""
+    lines = []
+    for line in (plan or "").splitlines():
+        stripped = line.strip().lstrip("-* ").strip()
+        if not stripped:
+            continue
+        if re.match(r"Day \d+\b", stripped) or re.match(r"\d{1,2}:\d{2}", stripped):
+            lines.append(stripped[:110])
+        if len(lines) >= 36:
+            break
+    return "\n".join(lines) or (plan or "")[:700]
+
+
+def clip_to_answer(text: str) -> str:
+    """Drop a reprinted draft from a question reply. The first answer paragraph stays."""
+    kept = []
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if re.match(r"(#{1,3}\s|\*\*Day \d+|Day \d+\b)", stripped):
+            break
+        if "First Draft" in stripped or stripped.startswith("**Route:"):
+            break
+        kept.append(line)
+    result = "\n".join(kept).strip()
+    return result or (text or "").strip()
 
 
 def build_followup_prompt(
@@ -116,6 +182,7 @@ def build_followup_prompt(
     budget_context: dict[str, Any] | None = None,
     scope: str | None = None,
     tool_notes: str | None = None,
+    answering: bool = False,
 ) -> str:
     """Prompt for revising or discussing an existing itinerary without re-researching the trip.
 
@@ -131,6 +198,8 @@ def build_followup_prompt(
         + (f"BUDGET LEDGER (authoritative trip total): {json.dumps(budget_context)}\n\n" if budget_context else "")
         + (f"{scope}" if scope else "")
         + (f"{tool_notes}\n\n" if tool_notes else "")
+        + lock_lines((planning_preferences or {}).get("locks"))
+        + off_earth_note(origin, destination)
         + f"TRAVELER'S MESSAGE:\n{message}"
     )
 
@@ -176,6 +245,7 @@ def build_plan_generation_prompt(
         **({"season": planning_result["season"]} if planning_result.get("season") else {}),
         # Forecast days and public holidays in the trip's dates (enrichment.draft_conditions), same rules.
         **({"conditions": planning_result["conditions"]} if planning_result.get("conditions") else {}),
+        **({"hotel_references": planning_result["lookups"]} if planning_result.get("lookups") else {}),
         "trip_type": planning_result.get("trip_type"),
         "planning_notes": planning_result.get("planning_notes"),
         "research_queries": planning_result.get("research_queries", []),
@@ -215,7 +285,7 @@ The traveler has not asked for bookings. Give them one section per requested day
 in visit order, with planning-slot clock times they can move around.
 
 Use the researched candidates and findings instead of generic filler.
-{SEASON_TASK if planning_result.get('season') else ''}{CONDITIONS_TASK if planning_result.get('conditions') else ''}
+{SEASON_TASK if planning_result.get('season') else ''}{CONDITIONS_TASK if planning_result.get('conditions') else ''}{off_earth_note(origin, destination)}{named_place_instruction(planning_result.get('named_sights'), planning_result.get('named_restaurants'))}{evidence_from_result(planning_result) + chr(10) if planning_result.get('workers') or planning_result.get('hotel_options') or planning_result.get('meals') or planning_result.get('tickets') else ''}{'Use hotel_references only as names to consider. Do not invent a rate that is not written there.\n' if planning_result.get('lookups') else ''}
 Formatting:
 - Return valid Markdown only.
 - Do not use raw HTML tags such as <br>, <div>, <table>, <p>, or <span>.
@@ -326,11 +396,12 @@ async def planning_trip(state: TripPlanningState) -> dict[str, Any]:
     )
 
     # 3. Generate initial plan
+    from app.services.admin_settings import active_instruction
     logger.info("🔥 GENERATING INITIAL PLAN FROM RESEARCH")
     try:
         assistant_response = await llm_service.generate(
             prompt=plan_generation_prompt,
-            system_instruction=PLAN_GENERATION_SYSTEM_INSTRUCTION,
+            system_instruction=active_instruction("plan", PLAN_GENERATION_SYSTEM_INSTRUCTION),
             temperature=0.5,
         )
     except Exception:

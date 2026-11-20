@@ -29,7 +29,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Real browser speech recognition hook
-  const { isListening, isSupported, toggleListening } = useSpeechRecognition({
+  const { isListening, isSupported, error: speechError, toggleListening } = useSpeechRecognition({
     onTranscript: (spokenText: string) => {
       if (!spokenText.trim()) return;
       setInput((prev) => {
@@ -162,7 +162,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               disabled={isLoading || disabled}
               aria-pressed={isListening}
               aria-label={isListening ? 'Stop dictation' : 'Dictate'}
-              title={isListening ? 'Stop dictation' : 'Dictate'}
+              title={speechError ? speechHint(speechError) : isListening ? 'Stop dictation' : 'Dictate'}
             >
               <MicIcon width={17} height={17} />
             </button>
@@ -180,14 +180,23 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         </div>
       </div>
 
-      <p className="tv-meta tv-comp__hint">
-        {isListening
-          ? 'Listening — speak your changes'
-          : hint}
+      <p className="tv-meta tv-comp__hint" role={speechError ? 'alert' : undefined}>
+        {speechError
+          ? speechHint(speechError)
+          : isListening
+            ? 'Listening — speak, then press the microphone to stop'
+            : hint}
       </p>
     </div>
   );
 };
+
+function speechHint(error: string): string {
+  if (error === 'network') return 'Dictation cannot reach the browser speech service. Type the message, or open this page in Chrome.';
+  if (error === 'not-allowed' || error === 'service-not-allowed') return 'The microphone is blocked. Allow it for this site, then try again.';
+  if (error === 'audio-capture') return 'No microphone was found.';
+  return 'Dictation stopped. Try again.';
+}
 
 function MicIcon(props: React.SVGProps<SVGSVGElement>) {
   return (

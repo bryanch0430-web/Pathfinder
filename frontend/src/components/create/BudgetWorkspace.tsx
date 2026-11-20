@@ -5,6 +5,7 @@ import {
   type BudgetCategory, type BudgetCurrency, type BudgetItem, type BudgetItemInput, type TripBudget,
 } from '../../services/tripService';
 import type { ItineraryGraph } from './itineraryGraph';
+import { CurrencySelect } from './CurrencySelect';
 import '../../styles/budget-workspace.css';
 
 const categories: { value: BudgetCategory; label: string }[] = [
@@ -12,10 +13,13 @@ const categories: { value: BudgetCategory; label: string }[] = [
   { value: 'food', label: 'Food' }, { value: 'activities', label: 'Activities' },
   { value: 'other', label: 'Other' },
 ];
-const currencies: BudgetCurrency[] = ['INR', 'JPY', 'USD', 'EUR', 'GBP', 'HKD', 'AUD', 'CAD'];
-
-function money(amount: string | number, currency: BudgetCurrency): string {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount));
+function money(amount: string | number, currency: string): string {
+  const value = Number(amount);
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
 }
 
 function itemTotal(item: BudgetItem): number | null {
@@ -105,7 +109,7 @@ export function BudgetWorkspace({ tripId, destination, graph, refreshVersion, fi
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [target, setTarget] = useState('');
-  const [currency, setCurrency] = useState<BudgetCurrency>('INR');
+  const [currency, setCurrency] = useState<BudgetCurrency>('HKD');
   const [manualFormVersion, setManualFormVersion] = useState(0);
   const [estimating, setEstimating] = useState(false);
   useEffect(() => {
@@ -190,7 +194,7 @@ export function BudgetWorkspace({ tripId, destination, graph, refreshVersion, fi
           {budget.target_amount !== null && <div className="tv-budget__meter" role="progressbar" aria-label="Budget used" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div>}
           {!readOnly && <form className="tv-budget__settings" onSubmit={(event) => { event.preventDefault(); void mutate(() => updateBudgetSettings(tripId, { currency, target_amount: target.trim() || null })); }}>
             <label>Budget target<input type="number" min="0" step="0.01" value={target} onChange={(event) => setTarget(event.target.value)} placeholder="Optional" /></label>
-            <label>Currency<select value={currency} disabled={hasEnteredAmounts} onChange={(event) => setCurrency(event.target.value as BudgetCurrency)}>{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select></label>
+            <CurrencySelect label="Currency" value={currency} onChange={setCurrency} disabled={hasEnteredAmounts} />
             <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save target'}</button>
           </form>}
           {!readOnly && (canEstimate || pendingSuggestions > 0) && <section className="tv-budget__estimate" aria-label="Suggested amounts">

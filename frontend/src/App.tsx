@@ -19,6 +19,7 @@ const LOADERS = {
   trips: () => import('./pages/TripLibrary').then((m) => ({ default: m.TripLibrary })),
   guide: () => import('./pages/GuidePage').then((m) => ({ default: m.GuidePage })),
   credits: () => import('./pages/Credits').then((m) => ({ default: m.CreditsPage })),
+  desk: () => import('./pages/DeskPage').then((m) => ({ default: m.DeskPage })),
 };
 const Explore = React.lazy(LOADERS.explore);
 const CreateTrip = React.lazy(LOADERS.create);
@@ -29,6 +30,7 @@ const ProfilePage = React.lazy(LOADERS.profile);
 const TripLibrary = React.lazy(LOADERS.trips);
 const GuidePage = React.lazy(LOADERS.guide);
 const CreditsPage = React.lazy(LOADERS.credits);
+const DeskPage = React.lazy(LOADERS.desk);
 
 type ViewState = 'home' | keyof typeof LOADERS;
 
@@ -43,6 +45,7 @@ const VIEW_LABELS: Record<ViewState, string> = {
   trips: 'Your trips',
   guide: 'Guide',
   credits: 'Credits',
+  desk: 'Contact desk',
 };
 
 const getViewFromPath = (): ViewState => {
@@ -58,6 +61,7 @@ const getViewFromPath = (): ViewState => {
   if (path.startsWith('/trips/')) return 'create'; // Trip Studio lives inside the planner
   if (path === '/guide') return 'guide';
   if (path === '/credits') return 'credits';
+  if (path === '/desk') return 'desk';
   return 'home';
 };
 
@@ -177,6 +181,9 @@ export const App: React.FC = () => {
             onStartPlanning={() => navigateTo('create')}
           />
         )}
+        {view === 'desk' && (
+          <DeskPage onBack={() => navigateTo('create')} />
+        )}
         {view === 'credits' && (
           <CreditsPage
             onNavigateHome={() => navigateTo('home')}
@@ -198,7 +205,7 @@ export const App: React.FC = () => {
       </React.Suspense>
       {/* One footer for every page. Home renders its own (it scrolls to its sections); the planner
           is a full-height workspace with nowhere for a footer to go. */}
-      {view !== 'home' && view !== 'create' && (
+      {view !== 'home' && view !== 'create' && view !== 'desk' && (
         <div className="tv2 tv-footer-shell">
           <FooterV2 onStartPlanning={() => navigateTo('create')} onNavigateExplore={() => navigateTo('explore')} />
         </div>

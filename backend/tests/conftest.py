@@ -186,6 +186,8 @@ async def setup_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
+    from app.services.admin_settings import clear_cache
+    clear_cache()
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 

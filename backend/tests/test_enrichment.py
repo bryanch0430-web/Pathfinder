@@ -43,7 +43,7 @@ def router(holiday_on: date | None = None, rain_per_hour=0.0, fail=()):
     calls, real_get = [], httpx.AsyncClient.get
 
     async def get(self, url, params=None, **kwargs):
-        name = next((key for key in ("nominatim", "met.no", "nager", "frankfurter", "power") if key in str(url)), None)
+        name = next((key for key in ("nominatim", "archive-api.open-meteo.com", "api.open-meteo.com", "met.no", "nager", "frankfurter", "power") if key in str(url)), None)
         if name is None:  # the test client calling the app itself
             return await real_get(self, url, params=params, **kwargs)
         calls.append(name)
@@ -51,6 +51,20 @@ def router(holiday_on: date | None = None, rain_per_hour=0.0, fail=()):
             raise httpx.ConnectTimeout("down")
         if name == "nominatim":
             return reply([KYOTO])
+        if name == "api.open-meteo.com":
+            start = date.fromisoformat(params["start_date"])
+            end = date.fromisoformat(params["end_date"])
+            times, day = [], start
+            while day <= end:
+                times.append(day.isoformat())
+                day += timedelta(days=1)
+            return reply({"daily": {
+                "time": times, "weather_code": [61] * len(times),
+                "temperature_2m_max": [18] * len(times), "temperature_2m_min": [10] * len(times),
+                "precipitation_sum": [12 if rain_per_hour else 0] * len(times),
+            }})
+        if name == "archive-api.open-meteo.com":
+            return reply({"daily": {"time": []}})
         if name == "met.no":
             return reply({"properties": {"timeseries": met_series(TODAY, 4, rain_per_hour)}})
         if name == "nager":
@@ -75,6 +89,19 @@ def isolated(tmp_path, monkeypatch):
 async def run(days, start=TODAY, currency="JPY"):
     async with httpx.AsyncClient() as client:
         return await enrichment.enrich(client, "Kyoto", start, days, currency)
+
+
+def test_open_meteo_covers_day_one_of_this_trip_and_reads_a_forecast_row():
+    assert enrichment.in_forecast_window(date(2026, 11, 30), date(2026, 11, 21))
+    assert not enrichment.in_forecast_window(date(2026, 12, 20), date(2026, 11, 21))
+    rows = enrichment.open_meteo_days({
+        "time": ["2026-11-30"], "weather_code": [61],
+        "temperature_2m_max": [14], "temperature_2m_min": [8], "precipitation_sum": [3.2],
+    })
+    day = rows[date(2026, 11, 30)]
+    assert day["condition"] == "rain" and day["temp_min"] == 8 and day["temp_max"] == 14
+    averaged = enrichment.archive_day([(16, 8, 2.0, 61), (14, 6, 4.0, 61), (None, None, None, None)])
+    assert averaged["temp_max"] == 15 and averaged["condition"] == "rain"
 
 
 def test_daily_forecast_groups_by_local_day_without_double_counting_rain():
@@ -102,7 +129,7 @@ def test_forecast_tips_warn_about_rain_with_an_indoor_backup():
 
 @pytest.mark.asyncio
 async def test_forecast_inside_the_window_typical_beyond_it_plus_holidays_and_rates():
-    days = [(1, "Kyoto", [("Fushimi Inari", "Fushimi Inari sight")]), (2, "Kyoto", []), (12, "Kyoto", [])]
+    days = [(1, "Kyoto", [("Fushimi Inari", "Fushimi Inari sight")]), (2, "Kyoto", []), (20, "Kyoto", [])]
     get, calls = router(holiday_on=TODAY + timedelta(days=1), rain_per_hour=0.5)
     with patch("httpx.AsyncClient.get", get):
         result = await run(days)
@@ -110,13 +137,13 @@ async def test_forecast_inside_the_window_typical_beyond_it_plus_holidays_and_ra
     by_day = {w.day: w for w in result.weather}
     assert by_day[1].kind == "forecast" and by_day[1].label == "Forecast" and by_day[1].rain_mm > 5
     assert by_day[1].badge.text == "Rain"
-    far = by_day[12]
+    far = by_day[20]
     assert far.kind == "typical" and far.label.startswith("Typical for ") and far.temp_min is None
     assert [(h.day, h.name, h.country) for h in result.holidays] == [(2, "Sports Day", "JP")]
     assert result.exchange.base == "JPY" and result.exchange.rates == {"INR": 0.61}
     assert {s.covers for s in result.sources} == {"Place lookup", "Weather forecast", "Typical weather",
                                                   "Public holidays", "Exchange rates"}
-    assert calls.count("nominatim") == 1 and calls.count("met.no") == 1  # one base, looked up once
+    assert calls.count("nominatim") == 1 and calls.count("api.open-meteo.com") == 1  # one base, looked up once
     assert [(p.name, round(p.lat, 2), p.country) for p in result.places] == [("Kyoto", 35.01, "jp")]
 
 
@@ -134,7 +161,7 @@ async def test_each_source_is_called_once_per_cache_window():
 @pytest.mark.asyncio
 async def test_a_failing_source_only_hides_its_own_part_and_is_retried_later():
     days = [(1, "Kyoto", [])]
-    get, _ = router(fail=("met.no", "nager"))
+    get, _ = router(fail=("api.open-meteo.com", "met.no", "nager"))
     with patch("httpx.AsyncClient.get", get):
         result = await run(days)
     # No forecast, so the day falls back to the month's typical weather; holidays are simply missing.
@@ -144,7 +171,7 @@ async def test_a_failing_source_only_hides_its_own_part_and_is_retried_later():
     get, calls = router()
     with patch("httpx.AsyncClient.get", get):
         again = await run(days)
-    assert "met.no" in calls and "nager" in calls  # failures were not cached
+    assert "api.open-meteo.com" in calls and "nager" in calls  # failures were not cached
     assert [w.kind for w in again.weather] == ["forecast"]
 
 
@@ -156,7 +183,7 @@ async def test_no_dates_means_only_the_exchange_rate_and_same_currency_means_non
         rupees = await run([(1, "Kyoto", [])], start=None, currency="INR")
     assert undated.weather == [] and undated.holidays == [] and undated.exchange.rates == {"INR": 0.61}
     assert rupees.exchange is not None  # INR trip in Japan still gets the yen rate
-    assert "met.no" not in calls and "nager" not in calls
+    assert "api.open-meteo.com" not in calls and "nager" not in calls
 
     requested = []
     async def spy(self, url, params=None, **kwargs):
@@ -166,7 +193,7 @@ async def test_no_dates_means_only_the_exchange_rate_and_same_currency_means_non
     with patch("httpx.AsyncClient.get", spy):
         async with httpx.AsyncClient() as client:
             await enrichment.enrich(client, "Kyoto", None, [(1, "Kyoto", [])], "JPY", home="USD")
-    assert requested == ["USD"]  # the traveler's home currency replaces the INR default; JPY is the trip's own
+    assert requested == ["USD"]  # the traveler's home currency replaces the HKD default; JPY is the trip's own
 
 
 @pytest.mark.asyncio
@@ -219,7 +246,7 @@ async def test_one_shot_drafts_get_forecast_days_and_holidays_only():
     with patch("httpx.AsyncClient.get", get):
         conditions = await enrichment.draft_conditions("Kyoto", TODAY, 12, "JPY")
     days = [f["day"] for f in conditions["forecast"]]
-    assert days and max(days) <= 5 and conditions["forecast"][0]["note"].startswith("Rain forecast")  # no typical days
+    assert days == list(range(1, 13)) and conditions["forecast"][0]["note"].startswith("Rain forecast")
     assert conditions["public_holidays"] == [{"day": 2, "date": (TODAY + timedelta(days=1)).strftime("%a %d %b"), "name": "Sports Day"}]
     assert await enrichment.draft_conditions("Kyoto", None, 3, "JPY") is None
 

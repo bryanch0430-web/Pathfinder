@@ -3,7 +3,7 @@ import logging
 import re
 from typing import Any
 
-from app.agents.trip_planner.copilot.engine import CURRENCIES, number
+from app.agents.trip_planner.copilot.engine import number
 from app.agents.trip_planner.state import TripPlanningState
 from app.services.llm.service import llm_service, model_for
 
@@ -125,7 +125,7 @@ The JSON object MUST contain exactly these fields:
   "origin": string | null,
   "user_name": string | null,
   "budget_amount": number | null,
-  "budget_currency": "INR" | "JPY" | "USD" | "EUR" | "GBP" | "HKD" | "AUD" | "CAD" | null
+  "budget_currency": "a 3-letter ISO code such as HKD, or null"
 }
 
 Do not return markdown.
@@ -999,10 +999,11 @@ Understand the latest user message according to your instructions.
 Return only the required JSON object.
 """
 
+    from app.services.admin_settings import active_instruction
     try:
         raw_response = await llm_service.generate(
             prompt=prompt,
-            system_instruction=UNDERSTAND_USER_MSG_NODE_SYSTEM_INSTRUCTION,
+            system_instruction=active_instruction("understand", UNDERSTAND_USER_MSG_NODE_SYSTEM_INSTRUCTION),
             temperature=0.0,
             **model_for("fast"),  # intent + field extraction: same answers, ~3x faster
         )
@@ -1092,6 +1093,6 @@ Return only the required JSON object.
     if amount:
         updates["budget_amount"] = amount
         currency = str(parsed.get("budget_currency") or "").upper()
-        updates["budget_currency"] = currency if currency in CURRENCIES else None
+        updates["budget_currency"] = currency if re.fullmatch(r"[A-Z]{3}", currency) else None
 
     return updates

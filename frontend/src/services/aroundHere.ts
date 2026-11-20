@@ -9,7 +9,7 @@ export interface AroundItem {
   lat?: number | null; lon?: number | null; distance_km?: number | null;
   image?: string | null;
   image_credit?: { author?: string | null; license?: string | null; license_url?: string | null; file_page?: string | null } | null;
-  source: 'Wikivoyage' | 'Wikipedia'; source_url?: string | null; wikipedia_url?: string | null;
+  source: 'Wikivoyage' | 'Wikipedia' | 'Google Places' | 'Google Hotels'; source_url?: string | null; wikipedia_url?: string | null;
 }
 export interface AroundHere { items: AroundItem[]; guides: { title: string; url: string }[]; available: boolean }
 

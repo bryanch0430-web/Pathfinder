@@ -19,7 +19,8 @@
 .tv-budget__summary small { color: var(--tv-muted); font-size: .65rem; line-height: 1.4; }
 .tv-budget__meter { height: 4px; background: var(--tv-line); }
 .tv-budget__meter span { display: block; height: 100%; background: var(--tv-ink); }
-.tv-budget__settings { display: grid; grid-template-columns: minmax(0,1fr) 105px auto; align-items: end; gap: .65rem; margin: 1.2rem 0 .35rem; }
+.tv-budget__settings { display: grid; grid-template-columns: minmax(0,1fr) minmax(180px, 1.1fr) auto; align-items: end; gap: .65rem; margin: 1.2rem 0 .35rem; }
+.tv-budget__settings .tv-currency { display: grid; gap: .35rem; color: var(--tv-muted); font: .64rem var(--tv-mono); }
 .tv-budget__settings label, .tv-budget__editor label { display: grid; gap: .35rem; color: var(--tv-muted); font: .64rem var(--tv-mono); }
 .tv-budget input:not([type="checkbox"]), .tv-budget select { width: 100%; min-height: 38px; padding: .45rem .55rem; border: 1px solid var(--tv-line-strong); border-radius: 4px; background: var(--tv-surface); color: var(--tv-ink); font: .78rem var(--tv-sans); }
 .tv-budget input:focus-visible, .tv-budget select:focus-visible, .tv-budget button:focus-visible, .tv-budget summary:focus-visible { outline: 2px solid var(--tv-ink); outline-offset: 2px; }

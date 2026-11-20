@@ -166,6 +166,16 @@ def looks_like_new_trip(message: str) -> bool:
     )
 
 
+def wants_to_clear_plan(message: str) -> bool:
+    """Drop the saved itinerary. Removing one stop or hotel stays a normal edit."""
+    lower = (message or "").lower()
+    direct = r"\b(delete|clear|wipe|erase|scrap|discard|drop|cancel)\s+(?:the\s+|my\s+|our\s+)?(?:whole\s+|entire\s+|full\s+)?(?:plan|itinerary)\b"
+    remove_whole = r"\bremove\s+(?:the\s+|my\s+|our\s+)?(?:whole\s+|entire\s+|full\s+)(?:plan|itinerary)\b"
+    named_then_verb = r"\b(whole|entire|full)\s+(?:plan|itinerary)\b.{0,40}\b(delete|remove|clear|wipe|erase|scrap|discard|drop)\b"
+    wipe_all = r"\b(delete|remove|clear|wipe|erase|scrap|discard|drop)\b.{0,40}\b(whole thing|everything|all of it)\b"
+    return bool(re.search(f"{direct}|{remove_whole}|{named_then_verb}|{wipe_all}", lower))
+
+
 def _names_a_place(text: str) -> bool:
     return any(word[:1].isupper() and word not in {"I", "I'd", "I'm"} for word in text.split()[1:])
 

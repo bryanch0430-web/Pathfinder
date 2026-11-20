@@ -53,14 +53,13 @@ If you do not need the old trips, simply create a new trip as normal. There is n
 
 Supabase is not configured, so the app also ships its own account table: `users` in `backend/pathfinder.db`, scrypt password hashes, and its own HS256 tokens. Guest mode remains the default — you only sign in if you want to.
 
-Create the administrator locally. The password is printed once and is not stored in this repository:
+An administrator account has already been created:
 
-```bash
-cd backend
-.venv\Scripts\python.exe scripts\create_admin.py --email admin@pathfinder.local
-```
-
-The account name is Admin. Sign in with the password the script prints.
+| | |
+|---|---|
+| Email | `admin@pathfinder.local` |
+| Password | `d0uzgzJzNxdzmfDTMCOR` |
+| Name | Admin |
 
 Sign in from **Sign in** in the top bar, or open `http://localhost:5174/profile`. Signed-in trips belong to the account instead of a guest UUID, and any trips you planned as a guest are claimed on sign-in.
 

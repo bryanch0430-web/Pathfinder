@@ -11,9 +11,70 @@ logger = logging.getLogger(__name__)
 _cache: dict[str, tuple[float, float] | None] = {}
 
 
+def _query_for(place, destination: str | None) -> str:
+    return place.name if place.is_origin else f"{place.name}, {destination or ''}".strip(", ")
+
+
 async def geocode_places(request: GeocodeRequest, destination: str | None) -> dict:
-    if not settings.ORS_API_KEY:
-        return {"provider": "unavailable", "places": []}
+    """Pin each stop. Google Places when a key is set, otherwise the road geocoder, otherwise OpenStreetMap."""
+    if settings.ORS_API_KEY:
+        return await _geocode_ors(request, destination)
+    if settings.GOOGLE_PLACES_API_KEY or settings.GOOGLE_MAPS_API_KEY:
+        found = await _geocode_google(request, destination)
+        if found:
+            return {"provider": "google", "places": found}
+    return {"provider": "nominatim", "places": await _geocode_nominatim(request, destination)}
+
+
+async def _remember(query: str, point: tuple[float, float] | None) -> None:
+    if len(_cache) >= 256:
+        _cache.clear()
+    _cache[query.casefold()] = point
+
+
+async def _geocode_google(request: GeocodeRequest, destination: str | None) -> list[dict]:
+    from app.services.place_search import search_places
+    found = []
+    for place in request.places:
+        query = _query_for(place, destination)
+        key = query.casefold()
+        if key not in _cache:
+            point = None
+            try:
+                rows = await search_places(query, kind="place", limit=1, destination="" if place.is_origin else (destination or ""))
+                if rows and rows[0].get("lat") is not None:
+                    point = (float(rows[0]["lat"]), float(rows[0]["lon"]))
+            except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                logger.info("Place geocoding unavailable for %s: %s", place.id, type(exc).__name__)
+            await _remember(query, point)
+        if _cache.get(key):
+            lat, lon = _cache[key]
+            found.append({"id": place.id, "lat": lat, "lon": lon})
+    return found
+
+
+async def _geocode_nominatim(request: GeocodeRequest, destination: str | None) -> list[dict]:
+    from app.services.enrichment import geocode_query
+    found = []
+    for place in request.places:
+        query = _query_for(place, destination)
+        key = query.casefold()
+        if key not in _cache:
+            point = None
+            try:
+                hit = await geocode_query(query)
+                if hit:
+                    point = (float(hit["lat"]), float(hit["lon"]))
+            except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                logger.info("Place geocoding unavailable for %s: %s", place.id, type(exc).__name__)
+            await _remember(query, point)
+        if _cache.get(key):
+            lat, lon = _cache[key]
+            found.append({"id": place.id, "lat": lat, "lon": lon})
+    return found
+
+
+async def _geocode_ors(request: GeocodeRequest, destination: str | None) -> dict:
 
     found = []
     async with httpx.AsyncClient(timeout=10.0) as client:

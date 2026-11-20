@@ -106,7 +106,8 @@ async def test_areas_are_cached_and_failures_are_retried():
 @pytest.mark.asyncio
 async def test_endpoint_refuses_anonymous_but_serves_guests(client):
     assert (await client.get("/api/places/around", params={"lat": 35.66, "lon": 139.7})).status_code == 401
-    with patch("app.api.routes.places.get_around_here", AsyncMock(return_value={"items": [], "guides": [], "available": True})) as service:
+    with patch("app.api.routes.places.get_around_here", AsyncMock(return_value={"items": [], "guides": [], "available": True})) as service, \
+            patch("app.api.routes.places.google_nearby", AsyncMock(return_value=[])):
         response = await client.get("/api/places/around", params={"lat": 35.66, "lon": 139.7},
                                     headers={"X-Guest-ID": "3f1c2a9e-8b7d-4c6e-9a1f-2b3c4d5e6f70"})
     assert response.status_code == 200 and service.await_count == 1

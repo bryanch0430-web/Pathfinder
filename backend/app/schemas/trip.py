@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.budget import BudgetCurrency
+
 from app.models.enums import (
     ConversationSessionStatus,
     ConversationStage,
@@ -26,6 +28,14 @@ class ConversationMessageResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def hide_personal_details(self):
+        """The chat shows the same labels the model is allowed to read."""
+        if self.role == MessageRole.USER and self.content:
+            from app.security.pii import mask_pii
+            self.content = mask_pii(self.content)
+        return self
 
 
 class ConversationSessionResponse(BaseModel):
@@ -52,7 +62,7 @@ class TripResponse(BaseModel):
     origin_latitude: Optional[float] = None
     origin_longitude: Optional[float] = None
     duration_days: Optional[int] = None
-    currency: str = "INR"
+    currency: str = "HKD"
     status: TripStatus
     onboarding_status: OnboardingStatus
     created_at: datetime
@@ -130,7 +140,7 @@ class SendMessageRequest(BaseModel):
 class BuildWithAgentStart(BaseModel):
     action: Literal["START_BUILD_WITH_AGENT"]
     budget_amount: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
-    currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]] = None
+    currency: Optional[BudgetCurrency] = None
     travel_mode: Optional[Literal["walk", "transit", "taxi", "drive"]] = None
     vibe: List[str] = Field(default_factory=list, max_length=5)
 
@@ -146,8 +156,8 @@ class PlanningPreferences(BaseModel):
     """The trip brief beyond route basics. Stored as trip.planning_preferences, so every
     planner prompt and the trip document see it without extra plumbing. All optional."""
     pace: Literal["relaxed", "balanced", "packed"] = "balanced"
-    interests: List[str] = Field(default_factory=list, max_length=3)
-    avoid: List[str] = Field(default_factory=list, max_length=3)
+    interests: List[str] = Field(default_factory=list, max_length=6)
+    avoid: List[str] = Field(default_factory=list, max_length=6)
     start_date: Optional[date] = None
     adults: int = Field(default=1, ge=1, le=20)
     children: int = Field(default=0, ge=0, le=20)
@@ -155,7 +165,7 @@ class PlanningPreferences(BaseModel):
     travel_mode: Literal["transit", "walk", "taxi", "drive"] = "transit"
     guide: Optional[str] = Field(default=None, pattern=r"^[a-z0-9-]{1,32}$")
     # The traveler's own currency, for "≈" conversions next to trip amounts (enrichment's exchange rates).
-    home_currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]] = None
+    home_currency: Optional[BudgetCurrency] = None
 
     @field_validator("interests", "avoid")
     @classmethod
@@ -174,7 +184,7 @@ class OnboardingFormSubmission(BaseModel):
     planning_preferences: PlanningPreferences = Field(default_factory=PlanningPreferences)
     # Kept in the budget ledger (target + trip currency), not in the brief.
     budget_amount: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
-    currency: Optional[Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]] = None
+    currency: Optional[BudgetCurrency] = None
 
     @field_validator("origin", "destination")
     @classmethod
@@ -198,7 +208,7 @@ class ConversationMessageListResponse(BaseModel):
 
 
 class RouteLegInput(BaseModel):
-    id: str = Field(min_length=1, max_length=64)
+    id: str = Field(min_length=1, max_length=240)
     from_lat: float = Field(ge=-90, le=90)
     from_lon: float = Field(ge=-180, le=180)
     to_lat: float = Field(ge=-90, le=90)

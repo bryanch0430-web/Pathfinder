@@ -147,6 +147,12 @@ export const CreateSidebar: React.FC<CreateSidebarProps> = ({
         </div>
 
         <div className="tv-side__foot tv-side__stagger">
+          {user?.user_metadata?.is_admin && (
+            <button type="button" className="tv-btn tv-btn--ghost tv-btn--sm" style={{ width: '100%' }} onClick={() => {
+              window.history.pushState({}, '', '/desk');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}>Contact desk</button>
+          )}
           {onNavigateProfile && (
             <button type="button" className="tv-side__account" onClick={onNavigateProfile}>
               <span className="tv-msg2__you">

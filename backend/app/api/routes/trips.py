@@ -1,6 +1,7 @@
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +32,10 @@ from app.services.route_metrics import get_route_metrics
 from app.services.trip import trip_service
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
+
+
+class TripFeedbackIn(BaseModel):
+    useful: bool
 
 
 async def _owned_trip(db: AsyncSession, trip_id: uuid.UUID, identity: RequestIdentity):
@@ -333,6 +338,28 @@ async def itinerary_graph(
 ):
     """Backfill the graph of an existing, authorized completed itinerary once."""
     return await conversation_service.get_or_create_itinerary_graph(db, trip_id, identity=identity)
+
+
+@router.post("/{trip_id}/feedback")
+async def trip_feedback(
+    trip_id: uuid.UUID,
+    body: TripFeedbackIn,
+    identity: RequestIdentity = Depends(get_request_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remember whether this traveller kept the plan. It does not train a later trip."""
+    return await conversation_service.mark_useful(db, trip_id, identity, body.useful)
+
+
+@router.post("/{trip_id}/undo")
+async def undo_trip_plan(
+    trip_id: uuid.UUID,
+    identity: RequestIdentity = Depends(get_request_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Put the previous saved plan back. One step only."""
+    message = await conversation_service.undo_last_plan(db, trip_id, identity)
+    return {"content": message.content, "payload": message.payload}
 
 
 @router.delete("/{trip_id}")

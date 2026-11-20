@@ -13,7 +13,7 @@ class TripRepository:
     async def create_trip(
         self,
         db: AsyncSession,
-        currency: str = "INR",
+        currency: str = "HKD",
         user_id: Optional[str] = None,
         guest_id: Optional[str] = None,
     ) -> Trip:

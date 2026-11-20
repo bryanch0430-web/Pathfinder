@@ -63,7 +63,7 @@ def _distance_km(lat_a: float, lon_a: float, lat_b: float, lon_b: float) -> floa
 
 
 async def get_nearby_places(request: NearbyPlacesRequest, trip_id: str = "anonymous") -> dict:
-    if not settings.GOOGLE_MAPS_API_KEY:
+    if not (settings.GOOGLE_PLACES_API_KEY or settings.GOOGLE_MAPS_API_KEY):
         return {"provider": "unavailable", "places": []}
 
     key = (round(request.lat, 4), round(request.lon, 4))
@@ -80,7 +80,7 @@ async def get_nearby_places(request: NearbyPlacesRequest, trip_id: str = "anonym
             response = await client.post(
                 "https://places.googleapis.com/v1/places:searchNearby",
                 headers={
-                    "X-Goog-Api-Key": settings.GOOGLE_MAPS_API_KEY,
+                    "X-Goog-Api-Key": settings.GOOGLE_PLACES_API_KEY or settings.GOOGLE_MAPS_API_KEY,
                     "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.primaryTypeDisplayName,places.googleMapsUri",
                 },
                 json={

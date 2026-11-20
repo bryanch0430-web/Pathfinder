@@ -54,6 +54,8 @@ async def _latest_payload(db: AsyncSession, trip_id: UUID, field: str) -> dict |
     )
     for message in result.scalars():
         payload = message.payload or {}
+        if payload.get("kind") == "PLAN_CLEARED":
+            return None
         if payload.get("kind") == "ITINERARY_GRAPH" and isinstance(payload.get(field), dict):
             return payload[field]
     return None
@@ -67,9 +69,13 @@ async def latest_itinerary_payload(db: AsyncSession, trip_id: UUID) -> dict | No
         .where(ConversationSession.trip_id == trip_id, ConversationMessage.role == MessageRole.ASSISTANT)
         .order_by(ConversationMessage.created_at.desc(), ConversationMessage.id.desc())
     )
-    return next((message.payload for message in result.scalars()
-                 if (message.payload or {}).get("kind") == "ITINERARY_GRAPH"
-                 and isinstance(message.payload.get("graph"), dict)), None)
+    for message in result.scalars():
+        payload = message.payload or {}
+        if payload.get("kind") == "PLAN_CLEARED":
+            return None
+        if payload.get("kind") == "ITINERARY_GRAPH" and isinstance(payload.get("graph"), dict):
+            return payload
+    return None
 
 
 async def latest_itinerary_graph(db: AsyncSession, trip_id: UUID) -> dict | None:

@@ -8,6 +8,7 @@ import type { ChatMessageItem } from '../components/create/ChatMessage';
 import type { CurrentTripContext } from '../components/create/CurrentTrip';
 import type { CopilotOp, CopilotState } from '../components/create/CopilotPanel';
 import type { OnboardingValues } from '../components/create/TripOnboardingForm';
+import { prefillFromChat } from '../lib/readBrief';
 import { graphFromLegacyText, type ItineraryGraph } from '../components/create/itineraryGraph';
 import { TripPreviewCard } from '../components/create/TripPreviewCard';
 import { withCopilot } from '../components/sketch/live';
@@ -15,7 +16,7 @@ import { TripStudio } from '../components/studio/TripStudio';
 import { prefersReducedMotion } from '../components/home/v2/motion';
 import { useTheme } from '../context/ThemeContext';
 import {
-  createTrip, deleteTrip, finalizeTrip, getItineraryGraph, getTripBudget, getTripDocument, getTripMessages, listTrips, sendTripMessageStream,
+  createTrip, deleteTrip, finalizeTrip, getItineraryGraph, getTripBudget, getTripDocument, getTripMessages, listTrips, markTripUseful, sendTripMessageStream, undoTripPlan,
   type TripBudget, type TripDocument, type TripModelResponse,
 } from '../services/tripService';
 
@@ -49,7 +50,7 @@ function tripContext(trip: TripModelResponse): CurrentTripContext {
 function sessionItem(trip: TripModelResponse): ChatSessionItem {
   return {
     id: sessionId(trip.id),
-    title: (trip.destination ? trip.destination + ' voyage' : 'New voyage').toUpperCase(),
+    title: (trip.destination ? trip.destination + ' voyage' : 'Your path starts here').toUpperCase(),
     timestamp: timeLabel(trip.updated_at),
     preview: trip.destination ? (trip.status === 'COMPLETED' ? 'Final · ' : '') + String(trip.duration_days || 0) + ' days in ' + trip.destination : 'Journey details needed',
   };
@@ -259,6 +260,15 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     uiAction?: Record<string, unknown>,
   ) => {
     if (isLoading) return;
+    let sent = content;
+    if (_attachments?.length) {
+      const notes = await Promise.all(_attachments.map(async (file) => {
+        const textFile = file.type.startsWith('text/') || /\.(txt|md|csv|json)$/i.test(file.name);
+        if (!textFile) return `Attached file: ${file.name}`;
+        return `Attached ${file.name}:\n${(await file.text()).slice(0, 4000)}`;
+      }));
+      sent = [content, ...notes].filter(Boolean).join('\n\n');
+    }
     let id = activeSessionId;
     let tripId = id ? tripsMap[id]?.id : undefined;
     let assistantId = '';
@@ -292,7 +302,7 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
       setMessagesMap((prev) => ({
         ...prev,
         [currentId]: [...(prev[currentId] || []), {
-          id: 'user-' + Date.now(), sender: 'user', content, timestamp: timeLabel(),
+          id: 'user-' + Date.now(), sender: 'user', content: sent, timestamp: timeLabel(),
         }],
       }));
       setIsLoading(true);
@@ -303,7 +313,7 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
         return next;
       });
       await sendTripMessageStream(
-        tripId, content,
+        tripId, sent,
         {
           onGraph: (graph) => {
             setBackfilledGraphs((previous) => ({ ...previous, [tripId!]: graph }));
@@ -322,6 +332,12 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
             tokenFrame = 0;
             pendingTokens = '';
             setBudgetRevision((value) => value + 1);
+            const savedPlan = result.assistant_message?.payload?.day_plan;
+            if (Array.isArray(savedPlan)) {
+              const names = savedPlan.flatMap((day: { items?: { name?: string }[] }) =>
+                (day?.items || []).map((item) => String(item?.name || '').trim().toLowerCase()));
+              setPinnedStop((current) => current && names.includes(current.trim().toLowerCase()) ? current : null);
+            }
             if (result.trip.status === 'COMPLETED') {
               setStudioDoc((previous) => previous?.trip_id === result.trip.id ? { ...previous, is_final: true } : previous);
               const cached = cachedStudioDoc(result.trip.id);
@@ -351,8 +367,11 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
         },
         form || uiAction ? 'UI_ACTION' : 'TEXT',
         form ? { action: 'SUBMIT_TRIP_ONBOARDING', ...form }
-          // Typed messages in build mode are about the day on screen.
-          : uiAction || (activeCopilot ? { copilot_day: copilotDay ?? activeCopilot.current_day } : undefined),
+          : {
+              ...(uiAction || {}),
+              ...(activeCopilot ? { copilot_day: copilotDay ?? activeCopilot.current_day } : {}),
+              ...(pinnedStop && !uiAction?.selected_stop ? { selected_stop: pinnedStop } : {}),
+            },
       );
       flushTokens();
     } catch (error) {
@@ -395,22 +414,33 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
   }, [activeTrip?.id, activeTrip?.status, budgetRevision]);
   const latestAssistant = [...activeMessages].reverse().find((message) => message.sender === 'assistant');
   const formMessage = latestAssistant?.payload?.action === 'SHOW_ONBOARDING_FORM' ? latestAssistant : null;
+  const saidSoFar = activeMessages.filter((message) => message.sender === 'user').map((message) => message.content).join('\n');
   const onboardingValues = activeTrip?.onboarding_status === 'COMPLETE'
     ? null
-    : (formMessage?.payload?.values || {}) as Partial<OnboardingValues>;
+    : prefillFromChat((formMessage?.payload?.values || {}) as Partial<OnboardingValues>, saidSoFar);
   // Build-with-agent state rides on the latest itinerary message it produced.
   const activeCopilot = useMemo(
-    () => (activeTrip && liveCopilots[activeTrip.id])
-      || [...activeMessages].reverse().find((message) => message.payload?.copilot)?.payload?.copilot || null,
+    () => {
+      if (activeTrip && liveCopilots[activeTrip.id]) return liveCopilots[activeTrip.id];
+      for (const message of [...activeMessages].reverse()) {
+        if (message.payload?.kind === 'PLAN_CLEARED') return null;
+        if (message.payload?.copilot) return message.payload.copilot;
+      }
+      return null;
+    },
     [activeMessages, activeTrip, liveCopilots],
   );
   // Switching days is local; the agent's own focus takes over again after each reply.
   const [copilotDay, setCopilotDay] = useState<number | null>(null);
+  const [pinnedStop, setPinnedStop] = useState<string | null>(null);
   useEffect(() => setCopilotDay(null), [activeCopilot]);
   const showPlanningChoice = activeTrip?.onboarding_status === 'COMPLETE'
     && activeTrip.status === 'DRAFT'
     && activeMessages.some((message) => message.payload?.action === 'SHOW_PLANNING_CHOICE');
   const activeGraph = useMemo((): ItineraryGraph | null => {
+    if (activeTrip?.status === 'DRAFT') return null;
+    if (activeMessages.some((message, index, all) => message.payload?.kind === 'PLAN_CLEARED'
+      && !all.slice(index + 1).some((later) => later.payload?.kind === 'ITINERARY_GRAPH'))) return null;
     if (activeTrip && backfilledGraphs[activeTrip.id]) return backfilledGraphs[activeTrip.id];
     if (activeTrip?.onboarding_status !== 'COMPLETE' || activeTrip.status === 'DRAFT') return null;
     const saved = [...activeMessages].reverse().find((message) => message.payload?.kind === 'ITINERARY_GRAPH');
@@ -430,6 +460,13 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     },
     [activeTrip, studioDoc, activeCopilot, activeBudget],
   );
+  // A pin names a stop on the plan. After a swap removes that stop, the composer should not keep asking about it.
+  useEffect(() => {
+    if (!pinnedStop || !liveDoc?.days.length) return;
+    const folded = pinnedStop.trim().toLowerCase();
+    const present = liveDoc.days.some((day) => day.items.some((item) => item.name.trim().toLowerCase() === folded));
+    if (!present) setPinnedStop(null);
+  }, [liveDoc, pinnedStop]);
   const planned = Boolean(activeTrip && activeTrip.onboarding_status === 'COMPLETE' && activeTrip.status !== 'DRAFT' && activeGraph);
   const isFinal = activeTrip?.status === 'COMPLETED';
   const canFinalize = Boolean(planned && activeTrip?.status === 'PLANNING' && !isLoading
@@ -489,9 +526,28 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     isBudgetOpen,
     onToggleBudget: () => setIsBudgetOpen((open) => !open),
     onSelectPrompt: (prompt: string) => { void sendMessage(prompt); },
+    onClarify: (text: string) => { void sendMessage(text); },
+    onUseful: activeTrip && activeSessionId ? (useful: boolean) => {
+      const sessionId = activeSessionId;
+      const tripId = activeTrip.id;
+      void markTripUseful(tripId, useful).then((ok) => {
+        if (!ok) return;
+        setTripsMap((prev) => {
+          const current = prev[sessionId];
+          if (!current) return prev;
+          return { ...prev, [sessionId]: { ...current, planning_preferences: { ...current.planning_preferences, useful } } };
+        });
+      });
+    } : undefined,
+    useful: (activeTrip?.planning_preferences as { useful?: boolean } | undefined)?.useful ?? null,
+    onUndo: activeTrip && activeSessionId ? () => {
+      void undoTripPlan(activeTrip.id).then((ok) => { if (ok) void loadMessages(activeSessionId, activeTrip.id); });
+    } : undefined,
     isLoading,
     loadingStage,
     guideId: activeTrip?.planning_preferences?.guide,
+    pinnedStop,
+    onClearPin: () => setPinnedStop(null),
     onResetChat: () => { void startNewTrip(); },
     onboardingValues: formMessage ? onboardingValues : null,
     showComposer: !formMessage && !showPlanningChoice,
@@ -574,6 +630,8 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
           onBack={() => closeStudio()} onOpenBudget={() => setIsBudgetOpen(true)}
           onFinalize={canFinalize ? () => { setFinalizeError(null); setFinalizeOpen(true); } : undefined}
           onAddPlace={isLoading || isFinal ? undefined : addPlace}
+          pinned={pinnedStop}
+          onPin={(name) => setPinnedStop((current) => current === name ? null : name)}
           chat={<ChatWorkspace key={`drawer-${activeSessionId}`} {...chatProps} variant="drawer" />} />
       )}
       {isBudgetOpen && activeTrip && <React.Suspense fallback={null}>

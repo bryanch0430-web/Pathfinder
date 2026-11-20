@@ -36,7 +36,7 @@ class Trip(Base):
     origin_latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     origin_longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     duration_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="HKD")
     status: Mapped[TripStatus] = mapped_column(
         SQLEnum(TripStatus, native_enum=False),
         nullable=False,

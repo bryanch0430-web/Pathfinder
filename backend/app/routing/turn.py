@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from app.routing.models import Intent, RouteDecision, TripSnapshot
-from app.routing.rules import looks_like_new_trip
+from app.routing.rules import looks_like_new_trip, wants_to_clear_plan
 from app.routing.system1 import build_router
 
 _SKIP = object()
@@ -67,6 +67,8 @@ def mode_for(decision: RouteDecision | None, message: str, *, has_plan: bool) ->
     """draft builds or rebuilds. revise edits in place. answer does not touch the plan. clarify asks first."""
     if decision is None:
         return "draft"
+    if wants_to_clear_plan(message):
+        return "clear"
     if decision.need_clarification:
         return "clarify"
     if decision.intent == Intent.ASK:

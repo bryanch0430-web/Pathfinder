@@ -1,14 +1,24 @@
 """Budget API contracts. Money is entered in the trip currency, with no hidden FX conversion."""
 
+import re
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 BudgetCategory = Literal["travel", "stay", "food", "activities", "other"]
-BudgetCurrency = Literal["INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"]
+
+
+def currency_code(value: str) -> str:
+    code = value.strip().upper()
+    if not re.fullmatch(r"[A-Z]{3}", code):
+        raise ValueError("Use a 3-letter currency code.")
+    return code
+
+
+BudgetCurrency = Annotated[str, AfterValidator(currency_code)]
 
 
 class BudgetSettingsUpdate(BaseModel):

@@ -82,6 +82,19 @@ _BUDGET_UNLOCK = re.compile(r"\bunlock\b.{0,25}\bbudget\b|\bbudget\b.{0,25}\bunl
 _TRIP_FINALIZE = re.compile(r"\b(finali[sz]e|confirm|lock)\b.{0,35}\b(trip|itinerary|plan)\b|\bfinali[sz]e it\b", re.I)
 
 
+def _bare_agreement(message: str) -> bool:
+    """A yes to the last offer. "Please add Endo Sushi" is a request, not a yes."""
+    text = (message or "").strip()
+    if not text or _EDIT.search(text) or len(text) > 48:
+        return False
+    return bool(re.match(
+        r"^\W*(yes|yeah|yep|yup|sure|ok(ay)?|please|do it|go ahead|sounds good|confirm(ed)?)"
+        r"(?:\W+(?:please|do it|finalize|finalise|confirm|the trip|it))?\W*$",
+        text,
+        re.I,
+    ))
+
+
 def _follow_up_mode(message: str, intent: str | None, offered: bool) -> str:
     """What a message about an existing one-shot plan does: "revise" rewrites it, "answer" only replies.
 
@@ -104,6 +117,17 @@ def _money(amount: float) -> str:
     return f"{amount:,.0f}" if float(amount).is_integer() else f"{amount:,.2f}"
 
 
+def _selected(request) -> str | None:
+    payload = request.payload if isinstance(request.payload, dict) else {}
+    value = payload.get("selected_stop")
+    return str(value) if value else None
+
+
+def mask_for_model(message: str, selected: str | None = None) -> str:
+    from app.planning.upgrades import mask_for_model as _mask
+    return _mask(message, selected)
+
+
 class ConversationService:
     """Service handling conversation interactions, ownership validation, and message workflow."""
 
@@ -117,6 +141,139 @@ class ConversationService:
         self.conversation_repo = conversation_repo or ConversationRepository()
         self.message_repo = message_repo or MessageRepository()
 
+    async def _person_hold(self, db, trip, session, request: SendMessageRequest):
+        """Queue or pause a chat before the planner graph runs. None means the graph should run."""
+        from app.desk.policy import HANDOFF_TEXT, HELD_TEXT, asks_for_a_person, desk_state, queue
+        if request.message_type == MessageType.UI_ACTION:
+            return None
+        desk = desk_state(trip.planning_preferences)
+        text = request.content or ""
+        if desk["status"] == "handling":
+            reply, reason = HELD_TEXT, desk
+        elif desk["status"] == "queued" or asks_for_a_person(text):
+            if desk["status"] != "queued":
+                desk = queue(desk, "asked_for_a_person")
+                trip.planning_preferences = {**(trip.planning_preferences or {}), "desk": desk}
+            reply, reason = HANDOFF_TEXT, desk
+        else:
+            return None
+        assistant_msg = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT,
+            message_type=MessageType.TEXT, content=reply, payload={"kind": "DESK", "desk": reason},
+        )
+        await db.commit()
+        await db.refresh(trip)
+        await db.refresh(session)
+        return TripStateResponse(
+            trip=TripResponse.model_validate(trip),
+            conversation=ConversationSessionResponse.model_validate(session),
+            assistant_message=ConversationMessageResponse.model_validate(assistant_msg),
+        )
+
+    async def _last_assistant_text(self, db: AsyncSession, trip_id) -> str | None:
+        result = await db.execute(
+            select(ConversationMessage.content)
+            .join(ConversationSession, ConversationMessage.session_id == ConversationSession.id)
+            .where(ConversationSession.trip_id == trip_id, ConversationMessage.role == MessageRole.ASSISTANT)
+            .order_by(ConversationMessage.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def _apply_short_slot(self, db, trip, request: SendMessageRequest) -> None:
+        if request.message_type == MessageType.UI_ACTION:
+            return
+        from app.planning.upgrades import fill_asked_slot
+        filled = fill_asked_slot(
+            request.content or "", await self._last_assistant_text(db, trip.id),
+            destination=trip.destination, origin=trip.origin_text,
+        )
+        if filled.get("origin"):
+            trip.origin_text = filled["origin"]
+        if filled.get("destination"):
+            trip.destination = filled["destination"]
+
+    async def _suggestion_turn(self, db, trip, session, request: SendMessageRequest):
+        """Named restaurants or sights. This answers even when the writer is not called."""
+        from app.routing.places import suggestion_kind, suggestion_reply
+        from app.services.place_search import search_places
+        kind = suggestion_kind(request.content or "")
+        destination = (trip.destination or "").strip()
+        if not kind or request.message_type == MessageType.UI_ACTION:
+            return None
+        query = f"{'restaurant' if kind == 'restaurant' else 'tourist attraction'} in {destination}" if destination else ""
+        try:
+            places = await search_places(query, kind=kind, limit=6, destination=destination) if destination else []
+        except Exception:
+            places = []
+        text = suggestion_reply(destination, kind, places)
+        if places:
+            trip.planning_preferences = {**(trip.planning_preferences or {}), "suggested_places": places}
+        assistant_msg = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT,
+            message_type=MessageType.TEXT, content=text,
+            payload={"kind": "PLACE_SUGGESTIONS", "place_kind": kind, "places": places},
+        )
+        await db.commit()
+        await db.refresh(trip)
+        await db.refresh(session)
+        return TripStateResponse(
+            trip=TripResponse.model_validate(trip),
+            conversation=ConversationSessionResponse.model_validate(session),
+            assistant_message=ConversationMessageResponse.model_validate(assistant_msg),
+        )
+
+    async def _fact_turn(self, db, trip, session, request: SendMessageRequest):
+        """Weather, opening hours, and booking. The plan is not rewritten."""
+        from app.routing.facts import (
+            asked_calendar_date, asked_day, asks_across_days, bookings_on_plan, day_span, fact_topics,
+            focused_snippets, google_listing, listing_answer, place_in_question, weather_answer,
+            web_fact_lines, web_facts,
+        )
+        from app.services.budget import latest_itinerary_payload
+        topics = fact_topics(request.content or "")
+        if not topics or request.message_type == MessageType.UI_ACTION:
+            return None
+        payload = await latest_itinerary_payload(db, trip.id) or {}
+        items = [item for day in payload.get("day_plan") or [] for item in day.get("items") or []]
+        name = place_in_question(request.content or "", _selected(request), items)
+        start = _start_date(trip.planning_preferences)
+        day_number = asked_day(request.content or "", trip.duration_days) or 1
+        when = asked_calendar_date(request.content or "")
+        if when and start and trip.duration_days:
+            offset = (when - start).days + 1
+            if 1 <= offset <= trip.duration_days:
+                day_number = offset
+        lines = []
+        if "weather" in topics:
+            lines.append(await weather_answer(trip.destination, start, day_number, trip.currency or "HKD"))
+        span = day_span(request.content or "", trip.duration_days)
+        if "booking" in topics and asks_across_days(request.content or "") and span and not name:
+            lines.append(await bookings_on_plan(payload.get("day_plan") or [], span, trip.destination or ""))
+        elif "hours" in topics or "booking" in topics:
+            listing = await google_listing(name, trip.destination or "") if name else None
+            lines.append(listing_answer(name, listing, when, topics))
+            focus = name or (trip.destination or "")
+            ask = " ".join(part for part in (
+                focus,
+                "opening hours" if "hours" in topics else "",
+                "reservation" if "booking" in topics else "",
+            ) if part)
+            lines.append(web_fact_lines(focused_snippets(await web_facts(ask or request.content or ""), name)))
+        text = "\n\n".join(line for line in lines if line)
+        assistant_msg = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT,
+            message_type=MessageType.TEXT, content=text, payload={"kind": "TRIP_FACTS", "topics": sorted(topics)},
+        )
+        await db.commit()
+        await db.refresh(trip)
+        await db.refresh(session)
+        return TripStateResponse(
+            trip=TripResponse.model_validate(trip),
+            conversation=ConversationSessionResponse.model_validate(session),
+            assistant_message=ConversationMessageResponse.model_validate(assistant_msg),
+        )
+
     async def _trip_finalization_turn(self, db: AsyncSession, trip, request: SendMessageRequest) -> tuple[str, dict] | None:
         """Offer a compact confirmation, then finalize only after explicit agreement."""
         if trip.status == TripStatus.COMPLETED:
@@ -125,10 +282,8 @@ class ConversationService:
         action = (request.payload or {}).get("action")
         asked = (action == "REQUEST_FINALIZE_TRIP" or bool(_TRIP_FINALIZE.search(message))
                  or ("budget" not in message.lower() and bool(re.search(r"\bfinali[sz]e\b", message, re.I))))
-        confirmed = (action == "CONFIRM_FINALIZE_TRIP" or bool(re.match(
-            r"^\W*(yes|yeah|yep|yup|sure|ok(ay)?|please|do it|go ahead|sounds good|confirm(ed)?)\b",
-            message, re.I)))
-        agreed = confirmed or (bool(_AGREE.match(message)) and not asked)
+        confirmed = action == "CONFIRM_FINALIZE_TRIP" or _bare_agreement(message)
+        agreed = confirmed or (bool(_AGREE.match(message)) and _bare_agreement(message) and not asked)
         if not asked and not agreed:
             return None
         from app.services.budget import budget_response, latest_itinerary_payload
@@ -259,13 +414,26 @@ class ConversationService:
             .order_by(ConversationMessage.created_at.desc(), TURN_ORDER.desc())
         )
         rows = [message for message in result.scalars() if message.content]
-        is_plan = lambda message: (message.payload or {}).get("kind") == "ITINERARY_GRAPH"  # noqa: E731
+        plan = None
+        day_plan = None
+        for message in rows:
+            kind = (message.payload or {}).get("kind")
+            if kind == "PLAN_CLEARED":
+                break
+            if message.role == MessageRole.ASSISTANT and kind == "ITINERARY_GRAPH":
+                from app.planning.ground import schedule_text
+                day_plan = (message.payload or {}).get("day_plan")
+                plan = schedule_text(day_plan) if day_plan else message.content
+                break
         last = next((message for message in rows if message.role == MessageRole.ASSISTANT), None)
+        last_is_plan = bool(last and (last.payload or {}).get("kind") == "ITINERARY_GRAPH")
+        from app.security.pii import mask_pii
         return {
-            "plan": next((m.content for m in rows if m.role == MessageRole.ASSISTANT and is_plan(m)), None),
-            "last_reply": last.content if last and not is_plan(last) else None,
+            "plan": mask_pii(plan) if plan else None,
+            "day_plan": day_plan,
+            "last_reply": mask_pii(last.content) if last and not last_is_plan and last.content else None,
             "recent": [{"role": "you" if m.role == MessageRole.ASSISTANT else "traveler",
-                        "text": " ".join(m.content.split())[:600]} for m in rows[:4]][::-1],
+                        "text": mask_pii(" ".join(m.content.split())[:600])} for m in rows[:4]][::-1],
         }
 
     async def _stream_routed_answer(self, db: AsyncSession, trip, session, request: SendMessageRequest, decision, outline: str):
@@ -290,7 +458,9 @@ class ConversationService:
             )
             prompt = f"ITINERARY:\n{outline[:12000]}\n\n{notes}\n\nTRAVELER:\n{request.content or ''}"
             try:
-                text = await llm_service.generate(prompt=prompt, system_instruction=ANSWER_SYSTEM_INSTRUCTION, temperature=0.4)
+                from app.services.admin_settings import active_instruction
+                text = await llm_service.generate(
+                    prompt=prompt, system_instruction=active_instruction("answer", ANSWER_SYSTEM_INSTRUCTION), temperature=0.4)
             except Exception as exc:
                 logger.warning("Routed answer failed: %s", exc)
                 text = "I can answer from the plan you already have, and I won't change it unless you ask me to."
@@ -316,6 +486,7 @@ class ConversationService:
         from app.agents.trip_planner.copilot.graph import (
             RESPOND_INSTRUCTION, ClaimGuard, _fallback_reply, hold_reply, reply_prompt, stream_build_with_agent,
         )
+        from app.services.admin_settings import active_instruction
         from app.services.llm.service import llm_service
 
         def sse(event: dict) -> str:
@@ -324,7 +495,7 @@ class ConversationService:
         starting = not context["copilot"]
         yield sse({"type": "stage", "label": "Getting to know your trip" if starting else "Thinking about that"})
         state = {
-            "user_message": request.content or "",
+            "user_message": mask_for_model(request.content or "", _selected(request)),
             "ui_action": request.payload if request.message_type == MessageType.UI_ACTION else None,
             "destination": trip.destination, "duration_days": trip.duration_days, "origin": trip.origin_text,
             "planning_preferences": trip.planning_preferences or {}, "places_to_visit": trip.places_to_visit or [],
@@ -354,7 +525,8 @@ class ConversationService:
             guard = ClaimGuard(result["facts"])
             try:
                 async for token in llm_service.generate_stream(
-                    prompt=reply_prompt(result["facts"]), system_instruction=RESPOND_INSTRUCTION, temperature=0.6,
+                    prompt=reply_prompt(result["facts"]),
+                    system_instruction=active_instruction("copilot_reply", RESPOND_INSTRUCTION), temperature=0.6,
                 ):
                     if safe := guard.feed(token):
                         text += safe
@@ -373,12 +545,15 @@ class ConversationService:
         session.status = ConversationSessionStatus.COMPLETED
         session.current_stage = ConversationStage.COMPLETE
         await self._persist_copilot(db, trip, {"copilot": copilot})
+        copilot_payload = await self._remember_previous(db, trip.id, self._graph_payload({
+            "itinerary_graph": graph, "copilot": copilot, "changes": result.get("changes"),
+            "offer_finalize_trip": result.get("offer_finalize_trip"),
+            **({"route": route} if route else {}),
+        }))
         assistant_msg = await self.message_repo.create_message(
             db, session_id=session.id, role=MessageRole.ASSISTANT, message_type=MessageType.TEXT,
             content=text.strip(),
-            payload=self._graph_payload({"itinerary_graph": graph, "copilot": copilot, "changes": result.get("changes"),
-                                         "offer_finalize_trip": result.get("offer_finalize_trip"),
-                                         **({"route": route} if route else {})}),
+            payload=copilot_payload,
         )
         await db.commit()
         await db.refresh(trip)
@@ -396,6 +571,97 @@ class ConversationService:
             if result.get(key):
                 payload[key] = result[key]
         return payload
+
+    async def _weather_turn(self, db: AsyncSession, trip, session, request: SendMessageRequest, history: dict):
+        """Answer a weather question from Open-Meteo. None lets the planner continue."""
+        from app.routing.facts import asked_day, fact_topics, weather_answer
+        if request.message_type == MessageType.UI_ACTION or "weather" not in fact_topics(request.content or ""):
+            return None
+        start = _start_date(trip.planning_preferences)
+        day_number = asked_day(request.content or "", trip.duration_days) or 1
+        place = trip.destination
+        for day in history.get("day_plan") or []:
+            if day.get("day") == day_number and day.get("base"):
+                place = str(day["base"])
+                break
+        try:
+            text = await weather_answer(place, start, day_number, trip.currency or "HKD")
+        except Exception as exc:
+            logger.info("Weather lookup skipped: %s", type(exc).__name__)
+            return None
+        assistant_msg = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT,
+            message_type=MessageType.TEXT, content=text, payload={"kind": "TRIP_FACTS", "topics": ["weather"]},
+        )
+        await db.commit()
+        await db.refresh(trip)
+        await db.refresh(session)
+        await db.refresh(assistant_msg)
+        return text, assistant_msg
+
+    async def _swap_turn(self, db: AsyncSession, trip, session, request: SendMessageRequest, history: dict):
+        """Write a restaurant (or stay, or sight) swap onto the day list. None lets the planner continue."""
+        from app.planning.swap import plan_swap, rename_stop
+        from app.services.budget import latest_itinerary_payload
+        days = history.get("day_plan")
+        if not days or request.message_type == MessageType.UI_ACTION:
+            return None
+        context = " ".join(
+            row.get("text") or "" for row in (history.get("recent") or []) if row.get("role") == "you"
+        )
+        if history.get("last_reply"):
+            context = f"{history['last_reply']} {context}"
+        stored = await latest_itinerary_payload(db, trip.id) or {}
+        previous = stored.get("previous") if isinstance(stored.get("previous"), dict) else {}
+        try:
+            outcome = await plan_swap(
+                days, request.content or "", _selected(request), context, previous.get("day_plan"),
+            )
+        except Exception as exc:
+            logger.info("Place swap skipped: %s", type(exc).__name__)
+            return None
+        if outcome is None:
+            return None
+        text = outcome["text"]
+        if not outcome.get("days"):
+            payload = {"changes": [{"status": "skipped", "text": text}]}
+        else:
+            from app.services.budget import sync_budget_for_graph
+            current = stored
+            graph = current.get("graph") if isinstance(current.get("graph"), dict) else {"version": 8, "nodes": [], "edges": []}
+            graph = rename_stop(graph, outcome.get("old") or "", outcome.get("new") or "")
+            payload = {
+                "kind": "ITINERARY_GRAPH",
+                "graph": graph,
+                "day_plan": outcome["days"],
+                "changes": [{"status": "done", "text": text if text.startswith("Put ") else f"Swapped {outcome.get('old')} for {outcome.get('new')}."}],
+            }
+            if isinstance(current.get("graph"), dict):
+                payload["previous"] = {"graph": current["graph"], "day_plan": current.get("day_plan")}
+            await sync_budget_for_graph(db, trip.id, graph)
+        assistant_msg = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT,
+            message_type=MessageType.TEXT, content=text, payload=payload,
+        )
+        await db.commit()
+        await db.refresh(trip)
+        await db.refresh(session)
+        await db.refresh(assistant_msg)
+        return text, payload, assistant_msg
+
+    async def _remember_previous(self, db: AsyncSession, trip_id: uuid.UUID, payload: dict | None) -> dict | None:
+        """Keep one earlier plan on the new message so the studio can step back once."""
+        if not isinstance(payload, dict) or payload.get("kind") != "ITINERARY_GRAPH" or payload.get("previous"):
+            return payload
+        from app.services.budget import latest_itinerary_payload
+        current = await latest_itinerary_payload(db, trip_id)
+        if not isinstance(current, dict) or not isinstance(current.get("graph"), dict):
+            return payload
+        if current.get("graph") == payload.get("graph"):
+            return payload
+        remembered = dict(payload)
+        remembered["previous"] = {"graph": current["graph"], "day_plan": current.get("day_plan")}
+        return remembered
 
     async def process_message(
         self,
@@ -419,6 +685,8 @@ class ConversationService:
                 and trip.status != TripStatus.DRAFT):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail="Trip details can only be edited before itinerary generation.")
+        from app.security.pii import mask_pii
+        request.content = mask_pii(request.content or "")
 
         # 3. Get or create active session
         session = await self.conversation_repo.get_or_create_active_session(
@@ -434,6 +702,11 @@ class ConversationService:
             content=request.content,
             payload=request.payload,
         )
+
+        held = await self._person_hold(db, trip, session, request)
+        if held:
+            return held
+        await self._apply_short_slot(db, trip, request)
 
         prior = await self._history(db, trip.id) if _AGREE.match((request.content or "").strip()) else {}
         control_turn = await self._trip_finalization_turn(db, trip, request)
@@ -459,7 +732,7 @@ class ConversationService:
             "user_id": str(trip.user_id) if trip.user_id else None,
             "guest_id": str(trip.guest_id) if trip.guest_id else None,
             "user_name": user_name,
-            "user_message": request.content or "",
+            "user_message": mask_for_model(request.content or "", _selected(request)),
             "destination": trip.destination,
             "places_to_visit": trip.places_to_visit or [],
             "planning_preferences": trip.planning_preferences or {},
@@ -546,7 +819,8 @@ class ConversationService:
 
         if graph_result.get("itinerary_graph") and (not graph_result.get("copilot") or graph_result["copilot"].get("status") == "complete"):
             graph_result["offer_finalize_trip"] = True
-        assistant_payload = self._graph_payload(graph_result) or graph_result.get("ui_action")
+        assistant_payload = await self._remember_previous(
+            db, trip.id, self._graph_payload(graph_result) or graph_result.get("ui_action"))
         assistant_msg = await self.message_repo.create_message(
             db,
             session_id=session.id,
@@ -638,6 +912,8 @@ class ConversationService:
                 and trip.status != TripStatus.DRAFT):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail="Trip details can only be edited before itinerary generation.")
+        from app.security.pii import mask_pii
+        request.content = mask_pii(request.content or "")
 
         # 2. Get or create active session
         session = await self.conversation_repo.get_or_create_active_session(db, trip.id)
@@ -653,6 +929,28 @@ class ConversationService:
             content=request.content,
             payload=request.payload,
         )
+
+        held = await self._person_hold(db, trip, session, request)
+        if held:
+            text = held.assistant_message.content or ""
+            yield f"data: {json.dumps({'type': 'token', 'delta': text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(held.assistant_message).model_dump(mode='json')})}\n\n"
+            return
+        await self._apply_short_slot(db, trip, request)
+        swapped = await self._swap_turn(db, trip, session, request, history)
+        if swapped:
+            text, payload, assistant_msg = swapped
+            if payload.get("kind") == "ITINERARY_GRAPH" and payload.get("graph"):
+                yield f"data: {json.dumps({'type': 'graph', 'graph': payload['graph'], 'final': True})}\n\n"
+            yield f"data: {json.dumps({'type': 'token', 'delta': text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode='json')})}\n\n"
+            return
+        weather = await self._weather_turn(db, trip, session, request, history)
+        if weather:
+            text, assistant_msg = weather
+            yield f"data: {json.dumps({'type': 'token', 'delta': text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode='json')})}\n\n"
+            return
 
         control_turn = await self._trip_finalization_turn(db, trip, request)
         if control_turn is None:
@@ -677,6 +975,14 @@ class ConversationService:
             and request.payload.get("action") == "GENERATE_FULL_ITINERARY"
         )
         copilot_context = await self._copilot_context(db, trip, request)
+        from app.core.config import settings
+        from app.routing.rules import wants_to_clear_plan
+        from app.services.admin_settings import router_enabled
+        gate = router_enabled()
+        if gate and wants_to_clear_plan(request.content or "") and (history.get("plan") or copilot_context.get("copilot")):
+            async for event in self._stream_clear_plan(db, trip, session):
+                yield event
+            return
         starting_build = ((request.payload or {}).get("action") == "START_BUILD_WITH_AGENT"
                           and trip.onboarding_status == OnboardingStatus.COMPLETE)
         if (copilot_context["copilot"] or starting_build) and not generating_full_draft:
@@ -684,11 +990,11 @@ class ConversationService:
             from app.routing.turn import classify, prepare, should_skip
 
             payload = request.payload if isinstance(request.payload, dict) else {}
-            prepared = prepare(payload)
-            route_decision = None if should_skip(prepared) else prepared
+            prepared = prepare(payload) if gate else None
+            route_decision = None if prepared is None or should_skip(prepared) else prepared
             action = payload.get("action")
-            if (route_decision is None and copilot_context["copilot"] and (request.content or "").strip()
-                    and action != "COPILOT_OPS"):
+            if (gate and route_decision is None and copilot_context["copilot"]
+                    and (request.content or "").strip() and action != "COPILOT_OPS"):
                 days = [{"day": day.get("day"), "base": day.get("base"), "items": day.get("items") or []}
                         for day in (copilot_context["copilot"].get("days") or [])]
                 route_decision = await classify(
@@ -717,7 +1023,7 @@ class ConversationService:
             form_state = {
                 "trip_id": str(trip.id),
                 "user_name": identity.user_name if identity else None,
-                "user_message": request.content or "",
+                "user_message": mask_for_model(request.content or "", _selected(request)),
                 "origin": trip.origin_text,
                 "destination": trip.destination,
                 "places_to_visit": trip.places_to_visit or [],
@@ -796,7 +1102,7 @@ class ConversationService:
             "user_id": str(trip.user_id) if trip.user_id else None,
             "guest_id": str(trip.guest_id) if trip.guest_id else None,
             "user_name": user_name,
-            "user_message": request.content or "",
+            "user_message": mask_for_model(request.content or "", _selected(request)),
             "destination": trip.destination,
             "duration_days": trip.duration_days,
             "places_to_visit": trip.places_to_visit or [],
@@ -814,10 +1120,12 @@ class ConversationService:
         # intent-parsing call so the draft can enter the real token stream.
         basics_before = (trip.destination, trip.duration_days, trip.origin_text)
         understood_updates = {} if generating_full_draft else await understand_user_message(current_state)
-        message = request.content or ""
-        if history.get("plan") and understood_updates.get("duration_days") and not _TRIP_LENGTH.search(message):
+        raw_message = request.content or ""
+        message = raw_message
+        if history.get("plan") and understood_updates.get("duration_days") and not _TRIP_LENGTH.search(raw_message):
             # "Move X to day 2" read as a 2-day trip would cut the trip and redraft it from scratch.
             understood_updates.pop("duration_days")
+        message = mask_for_model(raw_message, _selected(request))
         current_state.update(understood_updates)
 
         # What this turn changed, shown under the reply (a budget now; the day plan's diff after a revision).
@@ -834,6 +1142,24 @@ class ConversationService:
         if current_state.get("user_name") and identity and not identity.user_name:
             identity.user_name = current_state["user_name"]
         if current_state.get("destination"):
+            proposed = current_state["destination"]
+            from app.planning.upgrades import map_hit, needs_place_confirmation, place_decision
+            if needs_place_confirmation(proposed, basics_before[0]):
+                stored, question = place_decision(proposed, basics_before[0], map_hit(proposed))
+                if question:
+                    trip.destination = stored
+                    assistant_msg = await self.message_repo.create_message(
+                        db, session_id=session.id, role=MessageRole.ASSISTANT,
+                        message_type=MessageType.TEXT, content=question,
+                        payload={"kind": "PLACE_CONFIRM", "proposed": proposed},
+                    )
+                    await db.commit()
+                    await db.refresh(trip)
+                    await db.refresh(session)
+                    yield f"data: {json.dumps({'type': 'token', 'delta': question})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode='json')})}\n\n"
+                    return
+                current_state["destination"] = stored or proposed
             trip.destination = current_state["destination"]
         if current_state.get("duration_days"):
             trip.duration_days = current_state["duration_days"]
@@ -853,7 +1179,7 @@ class ConversationService:
         decision = None
         stored_plan = None
         mode = "draft"
-        if previous_plan:
+        if previous_plan and gate:
             from app.routing.turn import classify, mode_for
             from app.services.budget import latest_itinerary_payload
 
@@ -871,9 +1197,26 @@ class ConversationService:
                 mode = "draft"
             elif mode == "draft":
                 mode = _follow_up_mode(message, understood_updates.get("intent"), offered="?" in (last_reply or ""))
-        if previous_plan and changes and not _EDIT.search(message):
+        elif previous_plan:
+            mode = _follow_up_mode(message, understood_updates.get("intent"), offered="?" in (last_reply or ""))
+        if previous_plan and mode == "revise" and changes and not _EDIT.search(raw_message):
             mode = "answer"  # a budget on its own is saved, not a reason to rewrite the plan
         answering = mode == "answer"
+
+        from app.planning.upgrades import render_plan, translate_request
+        language = translate_request(raw_message)
+        if language and previous_plan:
+            translated = render_plan(previous_plan, language, (trip.planning_preferences or {}).get("place_names"))
+            assistant_msg = await self.message_repo.create_message(
+                db, session_id=session.id, role=MessageRole.ASSISTANT,
+                message_type=MessageType.TEXT, content=translated, payload={"kind": "TRANSLATION", "language": language},
+            )
+            await db.commit()
+            await db.refresh(trip)
+            await db.refresh(session)
+            yield f"data: {json.dumps({'type': 'token', 'delta': translated})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode='json')})}\n\n"
+            return
 
         # 6. Emit metadata event immediately
         yield f"data: {json.dumps({'type': 'metadata', 'destination': trip.destination, 'duration_days': trip.duration_days, 'origin': trip.origin_text, 'onboarding_complete': is_complete, 'missing_fields': validation.get('missing_fields', []), 'user_name': current_state.get('user_name')})}\n\n"
@@ -887,6 +1230,10 @@ class ConversationService:
             from app.routing.turn import stage_label
             yield f"data: {json.dumps({'type': 'stage', 'label': stage_label(decision)})}\n\n"
 
+        if mode == "clear":
+            async for event in self._stream_clear_plan(db, trip, session):
+                yield event
+            return
         if mode == "clarify" and decision is not None:
             from app.routing.turn import clarify_text
             accumulated_text = clarify_text(decision)
@@ -937,8 +1284,11 @@ class ConversationService:
                                       (trip.planning_preferences or {}).get("start_date"), trip.currency),
                         message, decision.affected_parts, plan_names((stored_plan or {}).get("day_plan")),
                     )
+                from app.planning.ground import stop_facts
+                pinned = stop_facts(history.get("day_plan"), _selected(request))
+                traveler = f"{pinned}\n\n{message}".strip() if pinned else message
                 plan_prompt = build_followup_prompt(
-                    previous_plan, message, trip.destination, trip.duration_days,
+                    previous_plan, traveler, trip.destination, trip.duration_days,
                     trip.origin_text, trip.planning_preferences or {}, last_reply=last_reply,
                     saved=[change["text"] for change in changes if change["status"] == "done"],
                     budget_context={"currency": current_budget.currency,
@@ -946,9 +1296,13 @@ class ConversationService:
                                     "projected_total": str(current_budget.projected_total),
                                     "unpriced_count": current_budget.unpriced_count,
                                     "is_locked": current_budget.is_locked},
-                    scope=scope, tool_notes=notes,
+                    scope=scope, tool_notes=notes, answering=answering,
                 )
-                system_instruction = ANSWER_SYSTEM_INSTRUCTION if answering else REVISION_SYSTEM_INSTRUCTION
+                from app.services.admin_settings import active_instruction
+                system_instruction = active_instruction(
+                    "answer" if answering else "revise",
+                    ANSWER_SYSTEM_INSTRUCTION if answering else REVISION_SYSTEM_INSTRUCTION,
+                )
             else:
                 # Fresh draft: destination research and candidate curation first.
                 yield f"data: {json.dumps({'type': 'stage', 'label': 'Researching possible stops'})}\n\n"
@@ -971,6 +1325,7 @@ class ConversationService:
                 candidates = planning_result.get("candidates", [])
                 logger.info("🔥 PLANNING DATA READY: candidates=%d", len(candidates))
                 yield f"data: {json.dumps({'type': 'stage', 'label': 'Writing your day-by-day draft'})}\n\n"
+                from app.services.admin_settings import active_instruction
                 plan_prompt = build_plan_generation_prompt(
                     planning_result=planning_result,
                     destination=trip.destination,
@@ -980,7 +1335,7 @@ class ConversationService:
                     places_to_visit=trip.places_to_visit or [],
                     planning_preferences=trip.planning_preferences or {},
                 )
-                system_instruction = PLAN_GENERATION_SYSTEM_INSTRUCTION
+                system_instruction = active_instruction("plan", PLAN_GENERATION_SYSTEM_INSTRUCTION)
 
             # Stream the reply; itinerary text also redraws the map as it arrives.
             from app.agents.trip_planner.nodes.extract_itinerary_node import build_itinerary_graph
@@ -1041,6 +1396,30 @@ class ConversationService:
                 })
                 itinerary_graph = graph_result.get("itinerary_graph")
                 day_plan = graph_result.get("day_plan")
+                if day_plan:
+                    from app.planning.ground import fill_vague_stops, listings_for_cities, plan_cities
+                    catalogues = await listings_for_cities(plan_cities(day_plan))
+                    if catalogues:
+                        day_plan = fill_vague_stops(day_plan, catalogues, only_unmappable=bool(previous_plan))
+                if day_plan:
+                    from app.planning.tickets import attach_trip_tickets
+                    day_plan, ticket_note = attach_trip_tickets(
+                        day_plan, origin=trip.origin_text, destination=trip.destination,
+                        start=_start_date(trip.planning_preferences), duration_days=trip.duration_days,
+                    )
+                    if ticket_note and not previous_plan and ticket_note not in accumulated_text:
+                        accumulated_text += "\n\n" + ticket_note
+                        yield f"data: {json.dumps({'type': 'token', 'delta': chr(10) + chr(10) + ticket_note})}\n\n"
+                if day_plan:
+                    from app.planning.upgrades import apply_plan_upgrades
+                    day_plan, plan_notes = apply_plan_upgrades(
+                        day_plan, trip.planning_preferences,
+                        known=set(trip.places_to_visit or []), city=trip.destination or "",
+                    )
+                    moves = [note for note in plan_notes if note.startswith("Moved ")]
+                    if moves:
+                        accumulated_text += "\n\n" + " ".join(moves)
+                        changes += [{"status": "done", "text": note} for note in moves]
                 if mode == "revise" and decision is not None and before and day_plan:
                     from app.routing.minimal import apply_minimal_change
                     day_plan, itinerary_graph, _kept = apply_minimal_change(
@@ -1107,10 +1486,19 @@ class ConversationService:
 
         if not accumulated_text.strip():
             accumulated_text = "I'm ready to help plan your trip! Where are you thinking of going?"
+        if mode == "revise":
+            from app.desk.policy import HANDOFF_TEXT, desk_state, note_unchanged_edit
+            unchanged = any("didn't change" in str(change.get("text") or "") for change in changes)
+            desk = note_unchanged_edit(desk_state(trip.planning_preferences), raw_message, unchanged=unchanged)
+            trip.planning_preferences = {**(trip.planning_preferences or {}), "desk": desk}
+            if desk["status"] == "queued" and HANDOFF_TEXT not in accumulated_text:
+                accumulated_text += "\n\n" + HANDOFF_TEXT
+                changes.append({"status": "skipped", "text": "This chat is waiting for a person."})
         if changes:
             ui_action = {**(ui_action or {}), "changes": changes}
         if decision is not None:
             ui_action = {**(ui_action or {}), "route": decision.public()}
+        ui_action = await self._remember_previous(db, trip.id, ui_action)
 
         # 8. Save assistant message and commit to database
         assistant_msg = await self.message_repo.create_message(
@@ -1138,6 +1526,69 @@ class ConversationService:
             "assistant_message": ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode="json"),
         }
         yield f"data: {json.dumps(done_payload)}\n\n"
+
+    async def _stream_clear_plan(self, db: AsyncSession, trip, session):
+        """Remove the saved itinerary and leave the brief, so a new draft can start."""
+        import json
+        text = "The itinerary is deleted. Your origin, destination, and dates are still saved, so you can draft again or build one day at a time."
+        payload = {
+            "kind": "PLAN_CLEARED",
+            "action": "SHOW_PLANNING_CHOICE",
+            "options": ["full_itinerary", "build_with_agent"],
+            "route": {
+                "intent": "modify", "confidence": 0.95, "source": "rules", "reason": "clear_plan",
+                "affected_parts": ["plan"], "need_clarification": False, "missing_slots": [], "minimal": False,
+            },
+        }
+        if trip.onboarding_status == OnboardingStatus.COMPLETE:
+            trip.status = TripStatus.DRAFT
+        session.status = ConversationSessionStatus.ACTIVE
+        session.current_stage = ConversationStage.REVIEW
+        assistant_msg = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT,
+            message_type=MessageType.TEXT, content=text, payload=payload,
+        )
+        await db.commit()
+        await db.refresh(trip)
+        await db.refresh(session)
+        yield f"data: {json.dumps({'type': 'token', 'delta': text})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode='json')})}\n\n"
+
+    async def mark_useful(self, db: AsyncSession, trip_id: uuid.UUID, identity: Optional[RequestIdentity], useful: bool) -> dict:
+        trip = await self.trip_repo.get_by_id(db, trip_id)
+        if not trip:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
+        trip_service.verify_trip_ownership(trip, identity)
+        preferences = dict(trip.planning_preferences or {})
+        preferences["useful"] = useful
+        trip.planning_preferences = preferences
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(trip, "planning_preferences")
+        await db.commit()
+        return {"useful": useful}
+
+    async def undo_last_plan(self, db: AsyncSession, trip_id: uuid.UUID, identity: Optional[RequestIdentity]):
+        trip = await self.trip_repo.get_by_id(db, trip_id)
+        if not trip:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
+        trip_service.verify_trip_ownership(trip, identity)
+        from app.services.budget import latest_itinerary_payload, sync_budget_for_graph
+        current = await latest_itinerary_payload(db, trip.id) or {}
+        previous = current.get("previous") if isinstance(current, dict) else None
+        if not isinstance(previous, dict) or not isinstance(previous.get("graph"), dict):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="There is no earlier plan to restore.")
+        session = await self.conversation_repo.get_or_create_active_session(db, trip.id)
+        restored = {"kind": "ITINERARY_GRAPH", "graph": previous["graph"]}
+        if previous.get("day_plan"):
+            restored["day_plan"] = previous["day_plan"]
+        message = await self.message_repo.create_message(
+            db, session_id=session.id, role=MessageRole.ASSISTANT, message_type=MessageType.TEXT,
+            content="Restored the previous plan.", payload=restored,
+        )
+        await sync_budget_for_graph(db, trip.id, restored["graph"])
+        await db.commit()
+        await db.refresh(message)
+        return message
 
     async def get_trip_messages(
         self,

@@ -298,7 +298,7 @@ export const SpatialWorkspace: React.FC<Props> = ({ isOpen, guide: guideProp, on
       for (let index = 1; index < locatedChain.length; index += 1) {
         const from = { lat: locatedChain[index - 1].lat, lon: locatedChain[index - 1].lon };
         const to = { lat: locatedChain[index].lat, lon: locatedChain[index].lon };
-        const id = `${locatedChain[index - 1].id}>${locatedChain[index].id}`;
+        const id = `day-${index}`;
         const hit = roadCache.get(legKey(from, to));
         if (hit) next[id] = { ...hit, id };
         else if (!pairs.find((pair) => pair.id === id)) pairs.push({ id, from, to });
@@ -322,7 +322,7 @@ export const SpatialWorkspace: React.FC<Props> = ({ isOpen, guide: guideProp, on
     if (!dayPlan || !locatedChain.length) return null;
     const legs = [];
     for (let index = 1; index < locatedChain.length; index += 1) {
-      const id = `${locatedChain[index - 1].id}>${locatedChain[index].id}`;
+      const id = `day-${index}`;
       const metric = dayRoads[id];
       const path = metric?.geometry?.length
         ? metric.geometry.map(([lng, lat]) => ({ lat, lng }))

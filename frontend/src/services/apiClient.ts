@@ -63,6 +63,27 @@ export async function getAuthHeaders(skipAuth: boolean = false): Promise<Headers
   return headers;
 }
 
+/** FastAPI validation errors are a list of objects. `new Error(that)` prints "[object Object]". */
+export function errorText(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (Array.isArray(value)) {
+    const lines = value.map((item) => errorText(item, '')).filter(Boolean);
+    if (lines.length) return lines.join(' ');
+  }
+  if (value && typeof value === 'object') {
+    const record = value as { msg?: unknown; message?: unknown; loc?: unknown };
+    const raw = typeof record.msg === 'string' ? record.msg : typeof record.message === 'string' ? record.message : '';
+    const message = raw.replace(/^Value error,\s*/, '').trim();
+    if (message) {
+      const loc = Array.isArray(record.loc)
+        ? record.loc.filter((part) => part !== 'body' && part !== 'payload').join('.')
+        : '';
+      return loc ? `${loc}: ${message}` : message;
+    }
+  }
+  return fallback;
+}
+
 /**
  * Centralized API fetch wrapper for Pathfinder.
  * Automatically injects:
@@ -109,7 +130,7 @@ export async function apiFetch<T = any>(
     }
 
     if (!res.ok) {
-      const errorMessage = responseData?.detail || responseData?.message || `HTTP ${res.status}`;
+      const errorMessage = errorText(responseData?.detail ?? responseData?.message, `HTTP ${res.status}`);
       return {
         data: responseData,
         status: res.status,

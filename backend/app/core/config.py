@@ -59,7 +59,9 @@ class Settings(BaseSettings):
     # Optional free openrouteservice key for road distance and duration.
     ORS_API_KEY: str = ""
     GOOGLE_MAPS_API_KEY: str = ""
+    GOOGLE_PLACES_API_KEY: str = ""
     GOOGLE_ROUTES_ENABLED: bool = False
+    YOUTUBE_API_KEY: str = ""
     # Weather, holidays and exchange rates from free public APIs (services/enrichment.py).
     ENRICHMENT_ENABLED: bool = True
 
@@ -81,9 +83,11 @@ class Settings(BaseSettings):
     LOCAL_AUTH_SECRET: str = "pathfinder-local-dev-secret-change-me"
     LOCAL_AUTH_TOKEN_HOURS: int = 24 * 14
 
-    # System 1 router. Jev is used only when both the URL and the key are set;
-    # otherwise a confident rule decides, and the writer model is the fallback.
-    DECISION_ENABLED: bool = True
+    # System 1 router. Off matches the original LangGraph app: a follow-up is revised or
+    # answered by the planner, with no rules, Jev, or clarification gate in front.
+    ROUTER_ENABLED: bool = False
+    # Jev is off unless this is turned on and both the URL and the key are set.
+    DECISION_ENABLED: bool = False
     DECISION_API_URL: str = ""
     DECISION_API_KEY: str = ""
     DECISION_MODEL: str = "jev-latest"
@@ -95,8 +99,16 @@ class Settings(BaseSettings):
 
     # Optional live lookups on the plan and modify paths. Empty keys skip the call.
     SERPAPI_KEY: str = ""
+    SERPAPI_KEY_POOL: str = ""
     ENABLE_HOTELS: bool = True
     ENABLE_FLIGHTS: bool = True
+    ENABLE_ROUTES: bool = False
+    ENABLE_YOUTUBE: bool = False
+    ENABLE_NOTES: bool = False
+    ENABLE_BILIBILI: bool = False
+    ENABLE_ROUTE_MATRIX: bool = False
+    ENABLE_TIMEZONE: bool = False
+    ENABLE_ELEVATION: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

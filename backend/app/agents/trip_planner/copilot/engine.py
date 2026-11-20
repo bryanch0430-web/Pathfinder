@@ -29,7 +29,9 @@ PACE_HOURS = {"relaxed": 6.0, "balanced": 8.0, "packed": 11.0}
 MODES = ("walk", "transit", "taxi", "drive")
 # Used only when a place has no verified coordinates; shown as provisional.
 HOP_MINUTES = {"walk": 30, "transit": 35, "taxi": 25, "drive": 30}
-CURRENCIES = {"INR", "JPY", "USD", "EUR", "GBP", "HKD", "AUD", "CAD"}
+def _currency(code: str | None, default: str = "HKD") -> str:
+    text = (code or "").strip().upper()
+    return text if re.fullmatch(r"[A-Z]{3}", text) else default
 COMFORT = ("budget", "mid_range", "comfortable")
 PREF_LISTS = {"must": ("hard", "must"), "avoid": ("hard", "avoid"),
               "like": ("soft", "likes"), "dislike": ("soft", "dislikes")}
@@ -73,7 +75,7 @@ def new_copilot(*, destination: str, duration_days: int, currency: str | None,
         "status": "building",
         "current_day": 1,
         "destination": destination,
-        "currency": currency if currency in CURRENCIES else "INR",
+        "currency": _currency(currency),
         "budget": number(overrides.get("budget_amount")) or number(budget_target),
         "profile": {
             "pace": prefs.get("pace") if prefs.get("pace") in PACE_HOURS else "balanced",
@@ -448,7 +450,7 @@ def apply_ops(copilot: dict, ops: list[Any]) -> tuple[list[str], list[dict], lis
         elif kind == "set_budget":
             amount = number(op.get("amount"))
             currency = str(op.get("currency") or "").upper()
-            if currency in CURRENCIES and currency != copilot["currency"]:
+            if _currency(currency, "") and currency != copilot["currency"]:
                 if any(i["est_cost"] for i in copilot["pool"]) or scheduled(copilot):
                     events.append(f"Kept estimates in {copilot['currency']}; I don't convert currencies silently")
                 else:

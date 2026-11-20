@@ -22,6 +22,7 @@ class DocItem(BaseModel):
     duration_hours: Optional[float] = None
     tip: Optional[str] = None  # the traveler insight behind the suggestion
     source_url: Optional[str] = None
+    hours: Optional[str] = None  # listed opening hours, when a source gave them
     option: bool = False  # one of several alternatives the plan offers for that day
 
 

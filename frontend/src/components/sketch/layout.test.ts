@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TripDocument } from '../../services/tripService';
 import { base, item, kyoto, tokyo } from './fixtures';
-import { FRAMES, dayTitle, layoutSketch, slotItems, textWidth, wrap, type Orientation } from './layout';
+import { FRAMES, dayTitle, fitLines, layoutSketch, noteSentence, slotItems, textWidth, wrap, type Orientation } from './layout';
 import type { SketchElement, SketchPage } from './types';
 
 const ORIENTATIONS: Orientation[] = ['landscape', 'portrait'];
@@ -57,6 +57,7 @@ describe('layoutSketch', () => {
           const card = page.elements.find((box) => box.id === el.id.replace(/-(name|meta)$/, ''));
           if (card?.kind !== 'box') throw new Error(`no card for ${el.id}`);
           expect(el.y + (el.lines.length - 1) * el.size * 1.08).toBeLessThanOrEqual(card.y + card.h - 6);
+          el.lines.forEach((line) => expect(el.x + textWidth(line, el.size, !!el.bold)).toBeLessThanOrEqual(card.x + card.w - 8));
         });
         const shownCards = page.elements.filter((el) => el.kind === 'box').length;
         const more = page.elements.filter((el) => el.kind === 'text' && el.lines[0].startsWith('+'))
@@ -146,7 +147,10 @@ describe('layoutSketch', () => {
 
 describe('wrap', () => {
   it('wraps words and ends overflow with an ellipsis', () => {
-    expect(wrap('Fushimi Inari Taisha', 200, 25, 2)).toEqual(['Fushimi Inari', 'Taisha']);
+    expect(noteSentence({ tip: 'Japanese. Rated 4.8 on Google Hours: Monday: 11:00 AM – 10:00 PM; Tuesday: 11:00 AM – 10:00 PM' })).toBe('Japanese. Rated 4.8 on Google');
+    const wide = fitLines('Kobe Beef WANOMIYA Dotonbori Main Store', 147, 22, 3, true, 15);
+    wide.lines.forEach((line) => expect(textWidth(line, wide.size, true)).toBeLessThanOrEqual(147));
+    expect(wide.lines.join(' ')).toContain('Dotonbori');
     const long = wrap('A very long place name that keeps going and going past two lines', 150, 25, 2);
     expect(long).toHaveLength(2);
     expect(long[1].endsWith('…')).toBe(true);

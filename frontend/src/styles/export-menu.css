@@ -3,9 +3,7 @@
    which makes the item its own stacking context. ponytail: 1000 clears the studio's FloatingWindows, which
    count up from 2 per click; isolate the board (isolation: isolate) if windows ever need to rise past it. */
 .tv-export { position: relative; z-index: 1000; flex: none; }
-.tv-export__trigger { display: inline-flex; align-items: center; gap: .4rem; min-height: 34px; padding: .35rem .8rem; border: 1px solid var(--tv-line-strong);
-  border-radius: var(--tv-r-sm, 8px); background: var(--tv-surface); color: var(--tv-ink); font: 500 .76rem var(--tv-sans); cursor: pointer;
-  transition: background-color .15s ease, transform .12s var(--tv-ease, ease); }
+.tv-export__trigger { gap: .4rem; }
 .tv-export__trigger svg { width: 15px; height: 15px; }
 .tv-export__trigger[aria-expanded='true'] { background: var(--tv-ink); color: var(--tv-canvas); }
 .tv-export__trigger:active { transform: scale(.97); }

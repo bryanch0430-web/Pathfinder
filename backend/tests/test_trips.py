@@ -779,6 +779,9 @@ def test_the_brief_intro_says_what_is_still_needed_and_that_the_rest_is_optional
     assert "how many days" not in asked  # already known, so not asked again
     nothing_known = show_onboarding_form({})["assistant_response"]
     assert all(part in nothing_known for part in ("where you're going", "how many days", "where you're travelling from"))
+    assert "not on Earth" not in asked
+    mars = show_onboarding_form({"destination": "Mars"})["assistant_response"]
+    assert "Mars is not on Earth" in mars and "proof of concept" in mars
 
 
 @pytest.mark.asyncio

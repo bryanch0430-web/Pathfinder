@@ -49,8 +49,7 @@ const WINDOWS: { id: Win; label: string; Icon: typeof ClockIcon }[] = [
 ];
 const LAYOUT_KEY = 'tripverse-studio-windows';
 const SHEET_QUERY = '(max-width: 900px)'; // phones and portrait tablets
-const MIN_CANVAS = 420; // below this, docked windows float over the canvas instead of squeezing it
-const EDGE = 24;        // within this of a side, a window counts as docked there
+const READABLE = 480; // the plan keeps at least this much width when a window can move aside
 
 interface Layout { open: Record<Win, boolean>; rects: Partial<Record<Win, Rect>> }
 
@@ -102,11 +101,13 @@ interface Props {
   onFinalize?: () => void;
   /** "Add to day N" in Around here; left out while a reply is streaming, which hides the button. */
   onAddPlace?: (name: string, day: number | null) => void;
+  pinned?: string | null;
+  onPin?: (name: string) => void;
   chat: React.ReactNode;
 }
 
 export function TripStudio({
-  trip, tripContext, graph, document, dark, isLoading, loadingStage, day, onSelectDay, onBack, onOpenBudget, onFinalize, onAddPlace, chat,
+  trip, tripContext, graph, document, dark, isLoading, loadingStage, day, onSelectDay, onBack, onOpenBudget, onFinalize, onAddPlace, pinned, onPin, chat,
 }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -150,30 +151,56 @@ export function TripStudio({
   });
   const toggle = (id: Win, open?: boolean) => {
     if (sheet) { setSheetWin((current) => (open ?? current !== id) ? id : null); return; }
-    save((prev) => ({ ...prev, open: { ...prev.open, [id]: open ?? !prev.open[id] } }));
+    save((prev) => {
+      const nextOpen = open ?? !prev.open[id];
+      const rects = { ...prev.rects };
+      // Opening chat parks it on the right when it would cover the plan, and keeps the day list slim.
+      if (id === 'chat' && nextOpen && board) {
+        const current = rects.chat || defaultRect('chat', board);
+        const planLeft = board.w * 0.18;
+        const planRight = board.w * 0.78;
+        const overlap = Math.min(current.x + current.w, planRight) - Math.max(current.x, planLeft);
+        if (overlap > 64) {
+          const chatW = Math.min(400, Math.max(320, Math.round(board.w * 0.3)));
+          const room = board.w - WINDOW_GAP * 3 - chatW;
+          const daysW = Math.min(rects.days?.w || defaultRect('days', board).w, Math.max(200, room - READABLE));
+          rects.chat = { x: board.w - chatW - WINDOW_GAP, y: WINDOW_GAP, w: chatW, h: board.h - WINDOW_GAP * 2 };
+          if (prev.open.days) rects.days = { x: WINDOW_GAP, y: WINDOW_GAP, w: daysW, h: Math.min(board.h - WINDOW_GAP * 2, 620) };
+        }
+      }
+      return { ...prev, open: { ...prev.open, [id]: nextOpen }, rects };
+    });
   };
   const rectOf = (id: Win) => board ? clampRect(layout.rects[id] || defaultRect(id, board), board) : null;
   const setRect = (id: Win, rect: Rect | undefined) => save((prev) => ({ ...prev, rects: { ...prev.rects, [id]: rect } }));
   const resetLayout = () => save((prev) => ({ ...prev, rects: {} }));
 
-  // Windows docked against a side reserve that strip, unless that would leave the canvas too thin.
+  // The plan uses the widest horizontal gap between open windows, so a chat on the right
+  // does not cover the schedule even when that window is not snapped to the edge.
   const inset = useMemo(() => {
     const none = { left: 0, right: 0 };
     if (!board || sheet) return none;
-    const sides = WINDOWS.reduce((acc, { id }) => {
-      const rect = layout.open[id] && clampRect(layout.rects[id] || defaultRect(id, board), board);
-      if (!rect) return acc;
-      if (rect.x <= EDGE) acc.left = Math.max(acc.left, rect.x + rect.w + WINDOW_GAP);
-      else if (rect.x + rect.w >= board.w - EDGE) acc.right = Math.max(acc.right, board.w - rect.x + WINDOW_GAP);
-      return acc;
-    }, { ...none });
-    return board.w - sides.left - sides.right >= MIN_CANVAS ? sides : none;
+    const blocks = WINDOWS.flatMap(({ id }) => {
+      if (!layout.open[id]) return [];
+      const rect = clampRect(layout.rects[id] || defaultRect(id, board), board);
+      return [{ start: rect.x, end: rect.x + rect.w }];
+    }).sort((a, b) => a.start - b.start);
+    const gaps: { start: number; end: number }[] = [];
+    let cursor = 0;
+    for (const block of blocks) {
+      if (block.start > cursor + 8) gaps.push({ start: cursor, end: block.start });
+      cursor = Math.max(cursor, block.end);
+    }
+    if (cursor < board.w - 8) gaps.push({ start: cursor, end: board.w });
+    const best = gaps.reduce((widest, gap) => (gap.end - gap.start > widest.end - widest.start ? gap : widest), { start: 0, end: 0 });
+    if (best.end - best.start < 240) return none;
+    return { left: best.start, right: board.w - best.end };
   }, [board, sheet, layout]);
 
   // Rails settle in after the canvas morph lands.
   useGSAP(() => {
     if (prefersReducedMotion()) return;
-    gsap.from('.tv-studio__bar > *, .tv-studio__toolbar > *', { opacity: 0, y: 8, duration: 0.45, ease: EASE, stagger: 0.03, delay: 0.25 });
+    gsap.from('.tv-studio__bar > *, .tv-studio__toolbar > *', { opacity: 0, y: 8, duration: 0.45, ease: EASE, stagger: 0.03, delay: 0.25, clearProps: 'transform' });
   }, { scope: root });
 
   useEffect(() => {
@@ -213,12 +240,14 @@ export function TripStudio({
         <span className="tv-app__bar-spacer" />
         {isLoading && <span className="tv-studio__live" role="status"><i aria-hidden="true" />{guide.name}: {loadingStage}</span>}
         <ThemeToggle />
-        {trip.status === 'COMPLETED' ? <span className="tv-tag tv-tag--green">Final trip</span>
-          : onFinalize && <button type="button" className="tv-btn tv-btn--primary tv-btn--sm" onClick={onFinalize}>Finalize trip</button>}
-        <button type="button" className="tv-btn tv-btn--ghost tv-btn--sm" onClick={onOpenBudget}>Budget</button>
-        <CalendarButton document={document} />
-        <ExportMenu document={document}
-          pdf={document ? () => import('../../lib/exporters/pdf').then(({ tripPdf }) => tripPdf(document, guide)) : undefined} />
+        <div className="tv-studio__actions">
+          {trip.status === 'COMPLETED' ? <span className="tv-tag tv-tag--green">Final trip</span>
+            : onFinalize && <button type="button" className="tv-btn tv-btn--primary tv-btn--sm" onClick={onFinalize}>Finalize trip</button>}
+          <button type="button" className="tv-btn tv-btn--ghost tv-btn--sm" onClick={onOpenBudget}>Budget</button>
+          <CalendarButton document={document} />
+          <ExportMenu document={document}
+            pdf={document ? () => import('../../lib/exporters/pdf').then(({ tripPdf }) => tripPdf(document, guide)) : undefined} />
+        </div>
       </header>
 
       <main className="tv-studio__stage" data-flip-id="trip-stage">
@@ -258,7 +287,10 @@ export function TripStudio({
             style={{ '--inset-left': `${inset.left}px`, '--inset-right': `${inset.right}px` } as React.CSSProperties}>
             {tab === 'plan' || tab === 'sketch' ? (
               !document ? <p className="tv-plan__empty">Loading your plan…</p>
-                : tab === 'plan' ? <StudioPlan document={document} day={day} onSelectDay={onSelectDay} />
+                : tab === 'plan' ? <StudioPlan document={document} day={day} onSelectDay={onSelectDay} pinned={pinned} onPin={onPin ? (name) => {
+                  onPin(name);
+                  if (!isOpen('chat')) toggle('chat', true);
+                } : undefined} />
                   : (
                     <React.Suspense fallback={<p className="tv-plan__empty">Loading the sketchbook…</p>}>
                       <SketchbookView document={document} day={day} onSelectDay={onSelectDay} guide={guide} busy={isLoading} stage={loadingStage} />

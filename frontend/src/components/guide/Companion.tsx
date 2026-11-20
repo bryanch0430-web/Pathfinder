@@ -52,7 +52,7 @@ export function Companion({ view }: { view: string }) {
     speak(next.line);
   };
 
-  if (view === 'create') return null;
+  if (view === 'create' || view === 'desk') return null;
   return (
     <div className="tv-companion">
       {say && <p className="tv-say tv-companion__say" role="status">{say}</p>}

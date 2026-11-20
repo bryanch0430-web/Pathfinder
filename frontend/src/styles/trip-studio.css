@@ -8,6 +8,12 @@
 
 /* ---- Top bar ------------------------------------------------------------ */
 .tv-studio__bar { display: flex; flex: none; align-items: center; gap: .75rem; min-height: 60px; padding: .5rem var(--studio-pad); border-bottom: 1px solid var(--tv-line); background: var(--tv-surface); }
+.tv-studio__actions { display: flex; align-items: center; gap: .5rem; flex: none; }
+.tv-studio__actions > .tv-btn,
+.tv-studio__actions .tv-calendar > .tv-btn,
+.tv-studio__actions .tv-export__trigger {
+  height: 38px; min-height: 38px; padding: 0 1rem; box-sizing: border-box;
+}
 .tv-studio__title { display: grid; gap: .15rem; min-width: 0; }
 .tv-studio__back { gap: .4rem; }
 .tv-studio__title h1 { overflow: hidden; margin: 0; font: 400 1.35rem/1.1 var(--tv-serif); letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
@@ -59,7 +65,7 @@
 .tv-playback ol { display: flex; gap: .35rem; min-width: 0; margin: 0; padding: 0; overflow-x: auto; list-style: none; }
 .tv-playback li button { height: 28px; padding: 0 .6rem; border: 1px solid var(--tv-line); border-radius: 999px; color: var(--tv-ink-soft); font: .72rem var(--tv-sans); white-space: nowrap; }
 .tv-playback li button[aria-current='true'] { border-color: var(--tv-ink); color: var(--tv-ink); background: var(--tv-canvas); }
-.tv-calendar { display: inline-flex; align-items: center; gap: .4rem; }
+.tv-calendar { display: inline-flex; align-items: center; gap: .4rem; height: 38px; }
 .tv-calendar__date { display: inline-flex; align-items: center; gap: .35rem; color: var(--tv-muted); font: .68rem var(--tv-mono); }
 .tv-calendar__date input { height: 28px; padding: 0 .4rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-sm, 8px); background: var(--tv-canvas); color: var(--tv-ink); font: .74rem var(--tv-sans); }
 
@@ -86,7 +92,13 @@
 .tv-studio__chat .tv-chat__bar { display: none; }
 
 /* ---- Plan tab ----------------------------------------------------------- */
-.tv-plan { width: 100%; max-width: 46rem; margin: 0 auto; padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem); }
+.tv-plan { width: 100%; max-width: 46rem; margin: 0 auto; padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem); container-type: inline-size; }
+.tv-plan__item strong, .tv-plan__head p, .tv-plan__tip { overflow-wrap: anywhere; }
+@container (max-width: 34rem) {
+  .tv-plan { padding-inline: 1rem; }
+  .tv-plan__item.has-time { grid-template-columns: 1fr; }
+  .tv-plan__head h2 { font-size: 1.7rem; }
+}
 .tv-plan--overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 1rem; align-content: start; max-width: 72rem; }
 .tv-plan__daycard { display: grid; align-content: start; gap: .5rem; min-height: 8rem; padding: 1.1rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-md, 10px); background: var(--tv-surface); text-align: left; transition: border-color .2s var(--tv-ease), transform .2s var(--tv-ease); }
 .tv-plan__daycard strong { font: 400 1.35rem/1.1 var(--tv-serif); }
@@ -104,10 +116,15 @@
 .tv-plan__item.has-time { grid-template-columns: 6.75rem 1fr; column-gap: .75rem; align-items: start; }
 .tv-plan__time { color: var(--tv-ink-soft); font: .72rem var(--tv-mono); padding-top: .15rem; }
 .tv-plan__item strong { display: block; font-size: .92rem; font-weight: 600; }
-.tv-plan__meta { color: var(--tv-muted); font-size: .72rem; }
-.tv-plan__tip { margin: .3rem 0 0; color: var(--tv-ink-soft); font-size: .8rem; font-style: italic; line-height: 1.5; }
+.tv-plan__meta { color: var(--tv-muted); font-size: .72rem; line-height: 1.4; }
+.tv-plan__tip { margin: .3rem 0 0; color: var(--tv-ink-soft); font-size: .8rem; font-style: italic; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tv-plan__item.has-time .tv-plan__tip { grid-column: 2; }
 .tv-plan__tip a { color: var(--tv-ink); font-style: normal; font-size: .7rem; text-decoration: underline; text-underline-offset: 2px; }
-.tv-plan__empty { margin: auto; padding: 2rem; color: var(--tv-muted); font-size: .88rem; text-align: center; }
+.tv-plan__item.is-pinned { border-color: var(--tv-ink); }
+.tv-plan__pin { justify-self: start; margin-top: .2rem; border: 0; background: none; padding: 0; color: var(--tv-muted); font: .68rem var(--tv-sans); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.tv-plan__item.has-time .tv-plan__pin { grid-column: 2; }
+.tv-chat__pin { display: flex; gap: .6rem; align-items: center; margin: 0 0 .4rem; color: var(--tv-ink-soft); font-size: .75rem; }
+.tv-chat__pin button { border: 0; background: none; color: var(--tv-muted); cursor: pointer; text-decoration: underline; font: inherit; }
 
 /* Chat card: the doorway into the studio */
 .tv-trip-card { display: grid; gap: .8rem; width: 100%; padding: 1rem; border: 1px solid var(--tv-line-strong); border-radius: var(--tv-r-lg); background: var(--tv-surface); }

@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { GUIDES, DEFAULT_GUIDE } from '../guide/guides';
+import { CurrencySelect } from './CurrencySelect';
 
 type Pace = 'relaxed' | 'balanced' | 'packed';
 type Comfort = 'budget' | 'mid_range' | 'comfortable';
 type TravelMode = 'transit' | 'walk' | 'taxi' | 'drive';
-const CURRENCIES = ['INR', 'JPY', 'USD', 'EUR', 'GBP', 'HKD', 'AUD', 'CAD'] as const;
 
 export interface OnboardingValues {
   origin: string;
@@ -21,10 +21,10 @@ export interface OnboardingValues {
     comfort?: Comfort;
     travel_mode?: TravelMode;
     guide?: string | null;
-    home_currency?: (typeof CURRENCIES)[number] | null;
+    home_currency?: string | null;
   };
   budget_amount?: number | null;
-  currency?: (typeof CURRENCIES)[number] | null;
+  currency?: string | null;
 }
 
 interface Props {
@@ -62,8 +62,8 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
   const [adults, setAdults] = useState(String(prefs?.adults ?? 1));
   const [children, setChildren] = useState(String(prefs?.children ?? 0));
   const [budget, setBudget] = useState(initial?.budget_amount ? String(initial.budget_amount) : '');
-  const [currency, setCurrency] = useState<(typeof CURRENCIES)[number]>(initial?.currency || 'INR');
-  const [homeCurrency, setHomeCurrency] = useState<(typeof CURRENCIES)[number]>(prefs?.home_currency || 'INR');
+  const [currency, setCurrency] = useState(initial?.currency || 'HKD');
+  const [homeCurrency, setHomeCurrency] = useState(prefs?.home_currency || 'HKD');
   const [comfort, setComfort] = useState<Comfort>(prefs?.comfort || 'mid_range');
   const [travelMode, setTravelMode] = useState<TravelMode>(prefs?.travel_mode || 'transit');
   const [pace, setPace] = useState<Pace>(prefs?.pace || 'balanced');
@@ -71,6 +71,30 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
   const [avoid, setAvoid] = useState((prefs?.avoid || []).join(', '));
   const [guide, setGuide] = useState(prefs?.guide || DEFAULT_GUIDE.id);
   const [error, setError] = useState('');
+  const incoming = JSON.stringify(initial ?? null);
+  // A later reading of the chat fills empty fields without wiping a step the traveler is on.
+  useEffect(() => {
+    if (!initial) return;
+    const next = initial.planning_preferences;
+    setOrigin(initial.origin || '');
+    setDestination(initial.destination || '');
+    setPlaces((initial.places_to_visit || []).join(', '));
+    setDays(initial.duration_days?.toString() || '');
+    setStartDate(next?.start_date || '');
+    setAdults(String(next?.adults ?? 1));
+    setChildren(String(next?.children ?? 0));
+    setBudget(initial.budget_amount ? String(initial.budget_amount) : '');
+    setCurrency(initial.currency || 'HKD');
+    setHomeCurrency(next?.home_currency || 'HKD');
+    if (next?.comfort) setComfort(next.comfort);
+    if (next?.travel_mode) setTravelMode(next.travel_mode);
+    if (next?.pace) setPace(next.pace);
+    setInterests((next?.interests || []).join(', '));
+    setAvoid((next?.avoid || []).join(', '));
+    if (next?.guide) setGuide(next.guide);
+    // incoming is the stable picture of initial; the object itself is new every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incoming]);
   const [step, setStep] = useState(0);
   const last = step === STEPS.length - 1;
   const heading = useRef<HTMLHeadingElement>(null);
@@ -101,8 +125,8 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
       [[!Number.isInteger(adultCount) || adultCount < 1 || adultCount > 20 || !Number.isInteger(childCount) || childCount < 0 || childCount > 20,
         'Travelers: 1–20 adults and 0–20 children.'],
       [budgetAmount !== null && !(budgetAmount > 0), 'Budget must be a positive amount, or leave it empty.']],
-      [[[selectedInterests, selectedAvoid].some((items) => items.length > 3 || items.some((item) => item.length > 80)),
-        'Add up to 3 interests and 3 things to avoid, each under 80 characters.']],
+      [[[selectedInterests, selectedAvoid].some((items) => items.length > 6 || items.some((item) => item.length > 80)),
+        'Add up to 6 interests and 6 things to avoid, each under 80 characters.']],
     ];
     for (const [index, group] of checks.slice(0, upTo + 1).entries()) {
       const failed = group.find(([bad]) => bad);
@@ -163,17 +187,8 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
           <label><span>Total budget <span className="tv-onboarding__optional">(optional)</span></span>
             <input className="tv-input" type="number" min="1" step="1" inputMode="numeric" placeholder="e.g. 150000" value={budget} onChange={(e) => setBudget(e.target.value)} disabled={disabled} />
           </label>
-          <label>Currency
-            <select className="tv-input" value={currency} onChange={(e) => setCurrency(e.target.value as (typeof CURRENCIES)[number])} disabled={disabled}>
-              {CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-            </select>
-          </label>
-          <label>Your home currency
-            <select className="tv-input" value={homeCurrency} onChange={(e) => setHomeCurrency(e.target.value as (typeof CURRENCIES)[number])} disabled={disabled}>
-              {CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-            </select>
-            <small>For “≈” conversions of local prices.</small>
-          </label>
+          <CurrencySelect label="Currency" value={currency} onChange={setCurrency} disabled={disabled} />
+          <CurrencySelect label="Your home currency" value={homeCurrency} onChange={setHomeCurrency} disabled={disabled} hint="For “≈” conversions of local prices. Search by code or name." />
         </div>
       </fieldset>,
 
@@ -197,11 +212,11 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
           </label>
           <label>What interests you?
             <input className="tv-input" placeholder="e.g. food, quiet streets, architecture" value={interests} onChange={(event) => setInterests(event.target.value)} disabled={disabled} />
-            <small>Up to 3, separated by commas.</small>
+            <small>Up to 6, separated by commas.</small>
           </label>
           <label>Anything to avoid?
             <input className="tv-input" placeholder="e.g. early starts, crowded attractions" value={avoid} onChange={(event) => setAvoid(event.target.value)} disabled={disabled} />
-            <small>Up to 3, separated by commas.</small>
+            <small>Up to 6, separated by commas.</small>
           </label>
         </div>
       </fieldset>,
@@ -225,7 +240,7 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
   ];
 
   return (
-    <form className={`tv-onboarding ${allAtOnce ? '' : 'tv-onboarding--steps'}`} aria-label="Your trip brief"
+    <form className={`tv-onboarding ${allAtOnce ? '' : 'tv-onboarding--steps'}`} aria-label="Your trip brief" autoComplete="off"
       onSubmit={(event) => { event.preventDefault(); go(allAtOnce || last); }}>
       {allAtOnce ? (
         <div className="tv-onboarding__heading">

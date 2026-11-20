@@ -102,19 +102,29 @@ function Element({ el }: { el: SketchElement }) {
           <Rough tone={el.tone} width={1.7} drawable={gen.path(DOODLES[el.name], { seed, roughness: 0.6, stroke: INK, disableMultiStroke: true })} />
         </g>
       );
-    case 'note':
+    case 'note': {
+      const titleLines = el.titleLines?.length ? el.titleLines : [el.title];
+      const titleSize = el.titleSize ?? 16;
+      const bodySize = el.size ?? 15;
+      const clip = `sk-note-${el.id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
       return (
         <g transform={`rotate(${el.rotate} ${el.x + el.w / 2} ${el.y + el.h / 2})`} className="tv-sketch__note">
           <Rough tone="muted" width={1.4} drawable={gen.rectangle(el.x, el.y, el.w, el.h, {
             seed, roughness: 0.8, stroke: INK, fill: FILL, fillStyle: 'solid',
           })} />
-          <text x={el.x + 12} y={el.y + 28} fontSize={18} fontWeight={700} style={{ fill: TONE.ink }}>{el.title}</text>
-          <text x={el.x + 12} y={el.y + 54} fontSize={19} style={{ fill: TONE.ink }}>
-            {el.lines.map((line, index) => <tspan key={index} x={el.x + 12} dy={index ? 20.5 : 0}>{line}</tspan>)}
-          </text>
+          <clipPath id={clip}><rect x={el.x + 8} y={el.y + 6} width={el.w - 16} height={el.h - 12} /></clipPath>
+          <g clipPath={`url(#${clip})`}>
+            <text x={el.x + 12} y={el.y + 24} fontSize={titleSize} fontWeight={700} style={{ fill: TONE.ink }}>
+              {titleLines.map((line, index) => <tspan key={index} x={el.x + 12} dy={index ? titleSize * 1.12 : 0}>{line}</tspan>)}
+            </text>
+            <text x={el.x + 12} y={el.y + 24 + titleLines.length * titleSize * 1.12 + 8} fontSize={bodySize} style={{ fill: TONE.ink }}>
+              {el.lines.map((line, index) => <tspan key={index} x={el.x + 12} dy={index ? bodySize * 1.15 : 0}>{line}</tspan>)}
+            </text>
+          </g>
           {el.tag && <text x={el.x + el.w - 6} y={el.y + el.h + 20} fontSize={17} textAnchor="end" style={{ fill: TONE.accent }}>via {el.tag}</text>}
         </g>
       );
+    }
     case 'stamp':
       return (
         <g transform={`rotate(${el.rotate} ${el.x + el.w / 2} ${el.y + 20})`}>

@@ -103,6 +103,9 @@ async def init_db():
                 await conn.execute(text("ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS estimate_note VARCHAR(255)"))
             except Exception as e:
                 logger.debug(f"PostgreSQL migration check note: {e}")
+    from app.services.admin_settings import load_cache
+    async with async_session_maker() as session:
+        await load_cache(session)
     logger.info("Database schema initialized.")
 
 

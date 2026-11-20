@@ -39,6 +39,18 @@ def _agent_days(copilot: dict) -> list[DocDay]:
     ) for day in copilot.get("days", [])]
 
 
+def _doc_item(item: dict) -> DocItem:
+    hours = item.get("hours")
+    if isinstance(hours, list):
+        hours = "; ".join(str(part) for part in hours if part)
+    elif hours is not None:
+        hours = str(hours)
+    data = {key: value for key, value in item.items() if key in DocItem.model_fields}
+    if hours:
+        data["hours"] = hours
+    return DocItem(**data)
+
+
 def _legacy_days(graph: dict, duration_days: int, destination: str) -> list[dict]:
     """Trips planned before day_plan existed: bases from the graph, each stop's places on its first day."""
     days = normalize_day_plan(None, duration_days, graph, destination)
@@ -64,7 +76,7 @@ async def build_trip_document(db: AsyncSession, trip: Trip) -> TripDocument:
     elif graph:
         raw = payload.get("day_plan") or _legacy_days(graph, duration, trip.destination or "Trip")
         mode, days = "one_shot", [DocDay(day=entry["day"], base=entry["base"],
-                                         items=[DocItem(**item) for item in entry["items"]]) for entry in raw]
+                                         items=[_doc_item(item) for item in entry["items"]]) for entry in raw]
     else:
         mode, days = "none", []
     if mode == "one_shot":

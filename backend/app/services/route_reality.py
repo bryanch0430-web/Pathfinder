@@ -13,7 +13,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 POINT_LIMIT = 12
-ROAD_LIMIT = 6
+ROAD_LIMIT = 16
 SPEED_KMH = {"walk": 4.5, "transit": 35.0, "taxi": 38.0, "drive": 42.0}
 
 
@@ -58,8 +58,8 @@ def leg(state: dict, a: tuple[float, float] | None, b: tuple[float, float] | Non
     if distance < 0.2:
         return {"hours": 0.0, "distance_km": 0.0, "basis": "nearby"}
     road = (state.get("route_times") or {}).get(pair_key(a, b))
-    if road is not None and mode in ("taxi", "drive"):
-        return {"hours": round(float(road) / 60, 2), "distance_km": round(distance, 1), "basis": "road"}
+    if road is not None:
+        return {"hours": round(float(road) / 60, 2), "distance_km": round(distance, 1), "basis": "routed"}
     speed = SPEED_KMH.get(mode, SPEED_KMH["transit"])
     if mode == "transit" and distance > 50:
         speed = 65.0
@@ -125,7 +125,7 @@ async def resolve_points(state: dict, requests: list[tuple[str, str]], *, per_tu
 
 
 async def resolve_roads(state: dict, pairs: list[tuple[tuple[float, float], tuple[float, float]]],
-                        *, per_turn: int = 2) -> None:
+                        *, per_turn: int = 8) -> None:
     """Use the existing optional road provider for a few legs; never require it."""
     from app.schemas.trip import RouteMetricsRequest
     from app.services.route_metrics import get_route_metrics
@@ -226,11 +226,10 @@ async def assess_itinerary(days: list[dict], destination: str, mode: str, pace: 
     for day in days:
         items = [item for item in day.get("items", []) if not item.get("option")]
         pairs += road_pairs_for_day(state, day.get("base") or destination, items)
-    if mode in ("taxi", "drive"):
-        try:
-            await asyncio.wait_for(resolve_roads(state, pairs), timeout=6.0)
-        except asyncio.TimeoutError:
-            logger.info("Road lookup reached its six-second turn budget")
+    try:
+        await asyncio.wait_for(resolve_roads(state, pairs), timeout=12.0)
+    except asyncio.TimeoutError:
+        logger.info("Road lookup reached its turn budget")
     capacity = {"relaxed": 6.0, "balanced": 8.0, "packed": 11.0}.get(pace, 8.0)
     state["warnings"] = check_plan_days(state, days, mode, capacity)
     return state

@@ -34,29 +34,61 @@ def _decode_polyline(encoded: str) -> list[list[float]]:
     return points
 
 
-async def _google_route(client: httpx.AsyncClient, leg) -> dict | None:
+def route_mode(km: float) -> str:
+    """The same split the router uses: walk nearby, transit across a city, drive beyond that."""
+    if km < 2.5:
+        return "WALK"
+    if km < 35:
+        return "TRANSIT"
+    return "DRIVE"
+
+
+async def _google_route(client: httpx.AsyncClient, leg, mode: str) -> dict | None:
+    key = settings.GOOGLE_MAPS_API_KEY or settings.GOOGLE_PLACES_API_KEY
+    if not key:
+        return None
+    payload = {
+        "origin": {"location": {"latLng": {"latitude": leg.from_lat, "longitude": leg.from_lon}}},
+        "destination": {"location": {"latLng": {"latitude": leg.to_lat, "longitude": leg.to_lon}}},
+        "travelMode": mode,
+        "languageCode": "en",
+        "units": "METRIC",
+    }
+    if mode == "DRIVE":
+        payload["extraComputations"] = ["TOLLS"]
+    if mode == "TRANSIT":
+        from datetime import datetime, timezone
+        payload["departureTime"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     response = await client.post(
         "https://routes.googleapis.com/directions/v2:computeRoutes",
         headers={
-            "X-Goog-Api-Key": settings.GOOGLE_MAPS_API_KEY,
+            "X-Goog-Api-Key": key,
             "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.travelAdvisory.tollInfo",
+            "Content-Type": "application/json",
         },
-        json={
-            "origin": {"location": {"latLng": {"latitude": leg.from_lat, "longitude": leg.from_lon}}},
-            "destination": {"location": {"latLng": {"latitude": leg.to_lat, "longitude": leg.to_lon}}},
-            "travelMode": "DRIVE",
-            "extraComputations": ["TOLLS"],
-        },
+        json=payload,
     )
     response.raise_for_status()
-    route = response.json()["routes"][0]
+    routes = response.json().get("routes") or []
+    if not routes:
+        if mode == "TRANSIT":
+            road = await _google_route(client, leg, "DRIVE")
+            if road:
+                road["mode"] = "TRANSIT"
+                return road
+        return None
+    route = routes[0]
     tolls = (route.get("travelAdvisory") or {}).get("tollInfo", {}).get("estimatedPrice", [])
     toll = tolls[0] if tolls else None
     amount = (int(toll.get("units", "0")) + int(toll.get("nanos", 0)) / 1e9) if toll else None
+    geometry = _decode_polyline((route.get("polyline") or {}).get("encodedPolyline", ""))
+    if len(geometry) < 2:
+        return None
     return {
-        "distance_km": round(route["distanceMeters"] / 1000, 1),
-        "duration_minutes": round(float(route["duration"].rstrip("s")) / 60),
-        "geometry": _decode_polyline((route.get("polyline") or {}).get("encodedPolyline", "")),
+        "distance_km": round((route.get("distanceMeters") or 0) / 1000, 1),
+        "duration_minutes": round(float(str(route.get("duration") or "0s").rstrip("s")) / 60) or 1,
+        "geometry": geometry,
+        "mode": mode,
         "toll_cost": f"{amount:.2f} {toll['currencyCode']}" if toll and amount is not None else None,
     }
 
@@ -69,19 +101,20 @@ def _air_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 async def get_route_metrics(request: RouteMetricsRequest) -> dict:
     """Return road metrics when available; never substitute them for air distance."""
-    google_routes = bool(settings.GOOGLE_MAPS_API_KEY and settings.GOOGLE_ROUTES_ENABLED)
+    google_routes = bool((settings.GOOGLE_MAPS_API_KEY or settings.GOOGLE_PLACES_API_KEY) and settings.GOOGLE_ROUTES_ENABLED)
     if not google_routes and not settings.ORS_API_KEY:
         return {"provider": "unavailable", "legs": []}
 
     results = []
     async with httpx.AsyncClient(timeout=12.0) as client:
         for leg in request.legs:
-            # Intercontinental legs are usually flights and cannot use a road router.
-            if _air_km(leg.from_lat, leg.from_lon, leg.to_lat, leg.to_lon) > 2500:
+            km = _air_km(leg.from_lat, leg.from_lon, leg.to_lat, leg.to_lon)
+            if km > 2500:
                 continue
+            mode = route_mode(km)
             key = tuple(round(value, 5) for value in (
                 leg.from_lat, leg.from_lon, leg.to_lat, leg.to_lon,
-            ))
+            )) + (mode,)
             route = _cache.get(key)
             if route is None:
                 try:
@@ -89,7 +122,7 @@ async def get_route_metrics(request: RouteMetricsRequest) -> dict:
                     # explicit opt-in so a demo Places key cannot incur route calls.
                     if google_routes:
                         try:
-                            route = await _google_route(client, leg)
+                            route = await _google_route(client, leg, mode)
                         except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
                             logger.info("Google route unavailable for leg %s: %s", leg.id, exc)
                     if route is None and settings.ORS_API_KEY:

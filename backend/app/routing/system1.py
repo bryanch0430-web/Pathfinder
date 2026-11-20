@@ -8,7 +8,7 @@ from typing import Any
 from app.routing.gate import apply_gate
 from app.routing.jev import JevDecisionClient
 from app.routing.models import Intent, RouteDecision, TripSnapshot
-from app.routing.rules import RULES_FIRST, RuleRouter, affected_parts_for, message_flagged, rules_decide_alone
+from app.routing.rules import RULES_FIRST, RuleRouter, affected_parts_for, message_flagged, rules_decide_alone, wants_to_clear_plan
 from app.routing.writer import WriterRouter
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,11 @@ class System1Router:
         message: str, *, source: str,
     ) -> RouteDecision:
         gated = apply_gate(decision, snapshot, plan_summary, threshold=self.threshold, source=source)
+        if wants_to_clear_plan(message):
+            return gated.replace(
+                intent=Intent.MODIFY, need_clarification=False, reason_code="clear_plan",
+                affected_parts=["plan"], confidence=max(gated.confidence, 0.9), source=source,
+            )
         if gated.intent == Intent.MODIFY and not gated.affected_parts and not gated.need_clarification:
             gated = gated.replace(affected_parts=affected_parts_for(message))
         if gated.intent == Intent.MODIFY and not gated.affected_parts:
@@ -82,9 +87,11 @@ class System1Router:
 
 def build_router() -> System1Router:
     from app.core.config import settings
+    from app.services.admin_settings import jev_enabled, router_controls
 
+    threshold, rules_first = router_controls()
     jev = None
-    if settings.DECISION_ENABLED and settings.DECISION_API_URL.strip() and settings.DECISION_API_KEY.strip():
+    if jev_enabled() and settings.DECISION_API_URL.strip() and settings.DECISION_API_KEY.strip():
         jev = JevDecisionClient(
             api_url=settings.DECISION_API_URL,
             api_key=settings.DECISION_API_KEY,
@@ -93,4 +100,4 @@ def build_router() -> System1Router:
             timeout=settings.DECISION_TIMEOUT_SECONDS,
             auth_prefix=settings.DECISION_AUTH_PREFIX,
         )
-    return System1Router(threshold=settings.ROUTER_THRESHOLD, rules_first=settings.ROUTER_RULES_FIRST, jev=jev)
+    return System1Router(threshold=threshold, rules_first=rules_first, jev=jev)

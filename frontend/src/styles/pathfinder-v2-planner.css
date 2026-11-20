@@ -501,7 +501,8 @@
 .tv-onboarding__heading h2 { margin: .45rem 0; font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; }
 .tv-onboarding__heading p { margin: 0; max-width: 55ch; }
 .tv-onboarding__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.tv-onboarding__grid label { display: grid; gap: .5rem; font-weight: 600; }
+.tv-onboarding__grid label, .tv-onboarding__grid .tv-currency { display: grid; gap: .5rem; font-weight: 600; }
+.tv-onboarding__grid .tv-currency small { font-weight: 400; }
 .tv-onboarding__grid input { width: 100%; }
 .tv-onboarding__grid select { width: 100%; }
 .tv-onboarding__grid small { font-weight: 400; }

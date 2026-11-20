@@ -18,28 +18,28 @@ const WIDE = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}]/u;
 const CAPS = /[A-Z]/, DIGIT = /[0-9]/;
 
 /**
- * Width of handwritten text in ems, per character, measured on Caveat in the browser
- * (lowercase ~0.36, capitals and W/M up to 0.55, CJK 1.0) and rounded up, so text never overruns.
+ * Width of handwritten text in ems, per character, measured on Caveat and rounded up.
+ * Bold titles are wider than the same letters at regular weight, so they are measured apart.
  */
-export const textWidth = (text: string, size: number) =>
-  [...text].reduce((sum, char) => sum + (WIDE.test(char) ? 1 : CAPS.test(char) ? 0.55 : DIGIT.test(char) ? 0.46 : 0.4), 0) * size;
+export const textWidth = (text: string, size: number, bold = false) =>
+  [...text].reduce((sum, char) => sum + (WIDE.test(char) ? 1 : CAPS.test(char) ? 0.55 : DIGIT.test(char) ? 0.46 : 0.4), 0) * size * 1.22 * (bold ? 1.06 : 1);
 
 /** Greedy word wrap to `maxLines`, ending in "…" when the text doesn't fit. */
-export function wrap(text: string, width: number, size: number, maxLines: number): string[] {
+export function wrap(text: string, width: number, size: number, maxLines: number, bold = false): string[] {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = '';
   const fit = (value: string) => {
     let out = value;
-    while (out.length > 1 && textWidth(`${out}…`, size) > width) out = out.slice(0, -1);
+    while (out.length > 1 && textWidth(`${out}…`, size, bold) > width) out = out.slice(0, -1);
     return out;
   };
   for (let index = 0; index < words.length; index++) {
     const word = words[index];
     const next = line ? `${line} ${word}` : word;
-    if (textWidth(next, size) <= width) { line = next; continue; }
+    if (textWidth(next, size, bold) <= width) { line = next; continue; }
     if (line) lines.push(line);
-    line = textWidth(word, size) <= width ? word : fit(word);
+    line = textWidth(word, size, bold) <= width ? word : fit(word);
     if (lines.length === maxLines) {
       lines[maxLines - 1] = `${fit(lines[maxLines - 1])}…`;
       return lines;
@@ -52,6 +52,29 @@ export function wrap(text: string, width: number, size: number, maxLines: number
     return kept;
   }
   return lines;
+}
+
+/** Shrink the type until the words fit. The last step may still end in "…". */
+export function fitLines(text: string, width: number, size: number, maxLines: number, bold = false, minSize = 15): { lines: string[]; size: number } {
+  let current = size;
+  while (current > minSize) {
+    const trial = wrap(text, width, current, maxLines + 12, bold);
+    if (trial.length <= maxLines && trial.every((line) => !line.endsWith('…'))) return { lines: trial, size: current };
+    current -= 1;
+  }
+  return { lines: wrap(text, width, minSize, maxLines, bold), size: minSize };
+}
+
+/** The sentence on a sticky note. A dumped week of hours is not the note. */
+export function noteSentence(item: { tip?: string | null; hours?: string | null }): string {
+  const sentence = (item.tip || '').split(/\s+Hours:\s*/i)[0].replace(/\s+/g, ' ').trim();
+  if (sentence) return sentence;
+  const hours = (item.hours || '').trim();
+  if (!hours) return '';
+  const rows = hours.split(';').map((part) => part.trim()).filter(Boolean);
+  const spans = new Set(rows.map((row) => row.slice(row.indexOf(':') + 1).trim()));
+  if (rows.length >= 5 && spans.size === 1 && !spans.has('')) return `Open every day ${[...spans][0]}`;
+  return hours.length > 72 ? `${hours.slice(0, 69).replace(/\s+\S*$/, '')}…` : hours;
 }
 
 /** Small stable hash, for per-element wobble that never changes between renders. */
@@ -353,7 +376,8 @@ function dayPage(doc: TripDocument, day: TripDocument['days'][number], f: Frame)
   if (holiday) {
     const [hx, hy] = f.holidayBelow ? [M, 154] : [M + Math.min(f.subWidth, textWidth(sub, 23)) + 28, 124];
     els.push({ id: `${p}-holiday-flag`, kind: 'doodle', name: 'flag', x: hx, y: hy - 20, size: 24, tone: 'red' });
-    els.push({ id: `${p}-holiday`, kind: 'text', x: hx + 30, y: hy, lines: [wrap(`${holiday.name} (holiday)`, f.holidayEnd - hx, 21, 1)[0]], size: 21, tone: 'red' });
+    const holidayText = fitLines(`${holiday.name} (holiday)`, Math.max(120, f.holidayEnd - hx - 30), 21, 1, false, 16);
+    els.push({ id: `${p}-holiday`, kind: 'text', x: hx + 30, y: hy, lines: holidayText.lines, size: holidayText.size, tone: 'red' });
   }
 
   // Weather in the top-right corner, always with its "forecast" or "typical" label.
@@ -384,17 +408,20 @@ function dayPage(doc: TripDocument, day: TripDocument['days'][number], f: Frame)
       const id = ids[index];
       els.push({ id, kind: 'box', x, y, w: CARD.w, h: CARD.h, tone: item.option ? 'muted' : 'ink', dashed: item.option, label: item.name });
       els.push({ id: `${id}-icon`, kind: 'doodle', name: categoryDoodle(item.category), x: x + 12, y: y + 14, size: 34, tone: 'accent' });
-      const name = wrap(item.name, CARD.w - 66, 25, 3);
+      const name = fitLines(item.name, CARD.w - 78, 24, 3, true, 16);
       if (isMustSee(item.name, mustSee)) {
-        const hw = Math.min(CARD.w - 60, Math.max(...name.map((line) => textWidth(line, 25))) + 10);
-        els.push({ id: `${id}-hl`, kind: 'highlight', x: x + 52, y: y + 14, w: hw, h: name.length * 27 + 8 });
+        const hw = Math.min(CARD.w - 70, Math.max(...name.lines.map((line) => textWidth(line, name.size, true))) + 10);
+        els.push({ id: `${id}-hl`, kind: 'highlight', x: x + 52, y: y + 14, w: hw, h: name.lines.length * name.size * 1.08 + 8 });
       }
-      els.push({ id: `${id}-name`, kind: 'text', x: x + 56, y: y + 38, lines: name, size: 25, tone: 'ink', bold: true });
+      els.push({ id: `${id}-name`, kind: 'text', x: x + 52, y: y + 36, lines: name.lines, size: name.size, tone: 'ink', bold: true });
       const meta = [
         item.option ? 'optional' : null, item.area, item.duration_hours ? `${item.duration_hours} h` : null,
         item.est_cost ? money(item.est_cost, doc.budget.currency) : item.est_cost === 0 ? 'free' : null,
       ].filter(Boolean).join(' · ');
-      if (meta) els.push({ id: `${id}-meta`, kind: 'text', x: x + 14, y: y + 38 + name.length * 27 + 14, lines: wrap(meta, CARD.w - 28, 18, name.length > 2 ? 1 : 2), size: 18, tone: 'muted' });
+      const nameBottom = 36 + Math.max(0, name.lines.length - 1) * name.size * 1.08 + name.size;
+      if (meta && nameBottom < CARD.h - 28) {
+        els.push({ id: `${id}-meta`, kind: 'text', x: x + 14, y: y + nameBottom + 16, lines: wrap(meta, CARD.w - 28, 16, 1), size: 16, tone: 'muted' });
+      }
       visible.push({ id, x, y, slot: c, item });
     });
     const hidden = column.length - CARD.perSlot;
@@ -433,11 +460,18 @@ function dayPage(doc: TripDocument, day: TripDocument['days'][number], f: Frame)
   }
 
   // Margin sticky notes: each item's own traveler tip, tagged with where it came from.
-  visible.filter(({ item }) => item.tip).slice(0, NOTES.max).forEach(({ id, item }, index) => {
+  visible.filter(({ item }) => noteSentence(item)).slice(0, NOTES.max).forEach(({ id, item }, index) => {
     const [x, y] = NOTES.at(index);
+    const inner = NOTES.w - 28;
+    const title = fitLines(item.name, inner, 16, 2, true, 13);
+    const titleBlock = 24 + title.lines.length * title.size * 1.12;
+    const bodySize = 15;
+    const bodyLines = Math.max(2, Math.floor((NOTES.h - titleBlock - 14) / (bodySize * 1.15)));
+    const body = fitLines(noteSentence(item), inner, bodySize, bodyLines, false, 13);
     els.push({
       id: `${id}-note`, kind: 'note', x, y, w: NOTES.w, h: NOTES.h, rotate: Math.round(tilt(id, 2.5) * 10) / 10,
-      title: wrap(item.name, NOTES.w - 24, 18, 1)[0], lines: wrap(item.tip!, NOTES.w - 24, 19, NOTES.lines), tag: sourceTag(item.source_url),
+      title: title.lines[0], titleLines: title.lines, titleSize: title.size,
+      lines: body.lines, size: body.size, tag: sourceTag(item.source_url),
     });
   });
 

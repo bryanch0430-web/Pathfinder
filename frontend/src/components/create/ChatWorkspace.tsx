@@ -55,9 +55,15 @@ interface ChatWorkspaceProps {
   onCopilotOps?: (ops: CopilotOp[], label: string, day: number) => void;
   copilotDay?: number | null;
   onCopilotDay?: (day: number) => void;
+  onClarify?: (text: string) => void;
+  onUseful?: (useful: boolean) => void;
+  useful?: boolean | null;
+  onUndo?: () => void;
   showComposer?: boolean;
   /** The trip's chosen guide (planning_preferences.guide); every assistant avatar becomes them. */
   guideId?: string | null;
+  pinnedStop?: string | null;
+  onClearPin?: () => void;
 }
 
 function ResetIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -99,8 +105,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   onCopilotOps,
   copilotDay,
   onCopilotDay,
+  onClarify,
+  onUseful,
+  useful = null,
+  onUndo,
   showComposer = true,
   guideId,
+  pinnedStop,
+  onClearPin,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingBrief, setEditingBrief] = useState(false);
@@ -120,6 +132,16 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       // nothing to clear
     }
   }, []);
+  // The pin names one stop. When a reply swaps that stop away, drop the pin even if the old name remains on another day.
+  const lastAssistant = [...messages].reverse().find((message) => message.sender === 'assistant');
+  useEffect(() => {
+    if (!pinnedStop || !onClearPin || !lastAssistant?.content) return;
+    const text = lastAssistant.content.trim();
+    const swapped = text.match(/^Swapped (.+?) for /);
+    const restored = text.match(/in place of (.+?)\.?\s*$/);
+    const removed = (swapped?.[1] || restored?.[1] || '').trim();
+    if (removed && removed.toLowerCase() === pinnedStop.trim().toLowerCase()) onClearPin();
+  }, [lastAssistant?.id, lastAssistant?.content, pinnedStop, onClearPin]);
   const hasMessages = messages.length > 0;
   // Until the traveler says something, the opening screen stands in for the lone server greeting.
   const fresh = !isLoading && messages.length <= 1 && !messages.some((msg) => msg.sender !== 'assistant');
@@ -161,7 +183,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
         <div className="tv-chat__title">
           <GraphIcon width={15} height={15} />
-          <h1>{activeChatTitle || 'New trip'}</h1>
+          <h1>{activeChatTitle || 'YOUR PATH STARTS HERE'}</h1>
           {variant === 'page' && planned && <span className="tv-meta tv-chat__saved">{isFinal ? 'Final trip · read-only' : 'Changes save to your studio'}</span>}
         </div>
 
@@ -206,18 +228,21 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 <ChatMessage message={msg} onOpenStudio={variant === 'page' ? onOpenStudio : undefined}
                   onRetry={msg.id === latestReplyId && !isLoading && copilot && onCopilotOps ? retry : undefined}
                   onLockBudget={msg.id === latestReplyId && !isLoading && !isFinal ? () => onSendMessage('Lock this budget') : undefined}
-                  onFinalizeTrip={msg.id === latestReplyId && !isLoading && canFinalize ? onRequestFinalize : undefined} />
+                  onFinalizeTrip={msg.id === latestReplyId && !isLoading && canFinalize ? onRequestFinalize : undefined}
+                  onClarify={msg.id === latestReplyId && !isLoading ? onClarify : undefined}
+                  onUseful={msg.id === latestReplyId && !isLoading && onUseful ? onUseful : undefined}
+                  useful={msg.id === latestReplyId ? useful : null}
+                  onUndo={msg.id === latestReplyId && !isLoading ? onUndo : undefined} />
                 {index === planIndex && tripPreview}
               </React.Fragment>
             ))}
 
-            {/* Forms belong to the turn before a stream; the trip status only updates when
-                the stream finishes, so hide them while a response is being written. */}
-            {!isLoading && onboardingValues && onSubmitOnboarding && (
+            {/* Keep the form mounted while a turn runs. Unmounting it threw away a brief the server refused. */}
+            {onboardingValues && onSubmitOnboarding && (
               <TripOnboardingForm initial={onboardingValues} onSubmit={onSubmitOnboarding} disabled={isLoading} />
             )}
 
-            {!isLoading && showPlanningChoice && onGenerateFull && (
+            {showPlanningChoice && onGenerateFull && (
               editingBrief && planningBrief && onSubmitOnboarding
                 ? <TripOnboardingForm allAtOnce initial={planningBrief} disabled={isLoading} onSubmit={(values) => { setEditingBrief(false); onSubmitOnboarding(values); }} />
                 : <TripPlanningChoice disabled={isLoading} onGenerateFull={onGenerateFull} onStartBuild={onStartBuild} brief={planningBrief || undefined} onEditDetails={() => setEditingBrief(true)} />
@@ -244,6 +269,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         viewDay={copilotDay || copilot.current_day} onViewDay={onCopilotDay} onOps={onCopilotOps} />}
 
       {showComposer && !isFinal && <div className="tv-chat__composer">
+        {pinnedStop && <p className="tv-chat__pin">Asking about <strong>{pinnedStop}</strong>
+          {onClearPin && <button type="button" onClick={onClearPin}>Clear</button>}
+        </p>}
         <ChatComposer
           onSendMessage={onSendMessage}
           initialValue={draft}

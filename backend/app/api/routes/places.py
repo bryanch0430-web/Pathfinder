@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.auth import RequestIdentity, get_request_identity
 from app.schemas.places import PlaceMediaRequest, SeasonRequest
 from app.services.around_here import get_around_here
+from app.services.place_search import google_nearby, merge_places
 from app.services.place_media import get_place_media
 from app.services.seasonality import get_season
 
@@ -25,9 +26,12 @@ async def around_here(
     lon: float = Query(ge=-180, le=180),
     identity: RequestIdentity = Depends(get_request_identity),
 ):
-    """What to see, eat and where to stay near a stop, plus landmarks and stations, all credited."""
+    """What to see, eat and where to stay near a stop. Google Places first, then the guides."""
     _require_identity(identity)
-    return await get_around_here(lat, lon)
+    base = await get_around_here(lat, lon)
+    extra = await google_nearby(lat, lon)
+    items = merge_places(extra, base.get("items") or [])
+    return {**base, "items": items, "available": bool(items) or bool(base.get("available"))}
 
 
 @router.post("/season")

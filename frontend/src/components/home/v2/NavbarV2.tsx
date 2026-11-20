@@ -94,17 +94,25 @@ export function NavbarV2({
 
         <div className="tv-nav__right">
           {user ? (
-            <button
-              type="button"
-              className="tv-nav__account tv-hide-mobile"
-              onClick={onNavigateProfile}
-              title={user.email ?? 'Account'}
-            >
+            <>
+              {user.user_metadata?.is_admin && (
+                <button type="button" className="tv-nav__link tv-hide-mobile" onClick={() => {
+                  window.history.pushState({}, '', '/desk');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }}>Desk</button>
+              )}
+              <button
+                type="button"
+                className="tv-nav__account tv-hide-mobile"
+                onClick={onNavigateProfile}
+                title={user.email ?? 'Account'}
+              >
               <span className="tv-nav__avatar" aria-hidden="true">
                 <UserAvatar avatarUrl={user.user_metadata?.avatar_url} seed={user.id ?? user.email} size={26} />
               </span>
               <span className="tv-nav__account-label">Account</span>
             </button>
+            </>
           ) : (
             <button type="button" className="tv-nav__signin tv-hide-mobile" onClick={onGetStarted}>
               Sign in

@@ -64,6 +64,23 @@ class LocalAccountUser(BaseModel):
 
 class LocalProfileUpdate(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=120, description="Display name")
+    current_password: Optional[str] = None
+    new_password: Optional[str] = Field(default=None, min_length=6, max_length=128)
+
+
+class PrivacySettings(BaseModel):
+    hkid: bool = True
+    hk_phone: bool = True
+    email: bool = True
+    card: bool = True
+    hkid_pattern: str = ""
+    hk_phone_pattern: str = ""
+    email_pattern: str = ""
+    card_pattern: str = ""
+
+
+class PrivacyPreviewRequest(PrivacySettings):
+    text: str = Field(default="", max_length=2000)
 
 
 class LocalAuthResponse(BaseModel):

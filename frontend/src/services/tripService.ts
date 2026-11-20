@@ -1,4 +1,4 @@
-import { apiFetch, getAuthHeaders, API_BASE_URL } from './apiClient';
+import { apiFetch, getAuthHeaders, API_BASE_URL, errorText } from './apiClient';
 import type { Coordinates, ItineraryGraph, NearbyPlace, RoadMetric } from '../components/create/itineraryGraph';
 import type { OnboardingValues } from '../components/create/TripOnboardingForm';
 
@@ -42,7 +42,7 @@ export interface TripModelResponse {
 }
 
 export type BudgetCategory = 'travel' | 'stay' | 'food' | 'activities' | 'other';
-export type BudgetCurrency = 'INR' | 'JPY' | 'USD' | 'EUR' | 'GBP' | 'HKD' | 'AUD' | 'CAD';
+export type BudgetCurrency = string;
 
 export interface BudgetItemInput {
   label: string;
@@ -115,6 +115,7 @@ export interface TripDocumentItem {
   duration_hours: number | null;
   tip: string | null;
   source_url: string | null;
+  hours?: string | null;
   option: boolean;
 }
 
@@ -418,7 +419,7 @@ export async function sendTripMessageStream(
     let errMsg = `HTTP ${res.status}`;
     try {
       const errJson = await res.json();
-      errMsg = errJson.detail || errJson.message || errMsg;
+      errMsg = errorText(errJson.detail ?? errJson.message, errMsg);
     } catch (_) {}
     const err = new Error(errMsg);
     callbacks.onError?.(err);
@@ -473,7 +474,7 @@ export async function sendTripMessageStream(
                 receivedDone = true;
                 callbacks.onDone?.(event);
               } else if (event.type === 'error') {
-                throw new Error(event.error || 'The planner could not finish. Please try again.');
+                throw new Error(errorText(event.error, 'The planner could not finish. Please try again.'));
               }
           }
         }
@@ -526,6 +527,16 @@ export async function deleteTrip(tripId: string): Promise<boolean> {
     { method: 'DELETE' }
   );
 
+  return res.ok;
+}
+
+export async function markTripUseful(tripId: string, useful: boolean): Promise<boolean> {
+  const res = await apiFetch(`/api/trips/${tripId}/feedback`, { method: 'POST', body: JSON.stringify({ useful }) });
+  return res.ok;
+}
+
+export async function undoTripPlan(tripId: string): Promise<boolean> {
+  const res = await apiFetch(`/api/trips/${tripId}/undo`, { method: 'POST' });
   return res.ok;
 }
 

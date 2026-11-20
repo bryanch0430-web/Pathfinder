@@ -2,8 +2,9 @@
 
 Free sources only, all fine for commercial use with attribution:
 - OpenStreetMap Nominatim: base city -> coordinates and country (1 request a second, cached forever)
-- MET Norway Locationforecast: the ~9-day forecast (identifying User-Agent, cached for an hour)
-- NASA POWER climatology (seasonality.py): "typical for <month>" beyond the forecast window
+- Open-Meteo: the 16-day forecast, then a three-year average of the same dates beyond that
+- MET Norway Locationforecast: a shorter forecast if Open-Meteo misses
+- NASA POWER climatology (seasonality.py): "typical for <month>" when the archive misses
 - Nager.Date: public holidays per country and year (cached 30 days)
 - Frankfurter: European Central Bank reference rates (cached 6 hours)
 
@@ -31,10 +32,12 @@ logger = logging.getLogger(__name__)
 
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 MET = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 NAGER = "https://date.nager.at/api/v3/PublicHolidays/{year}/{country}"
 FRANKFURTER = "https://api.frankfurter.dev/v1/latest"
-HOME_CURRENCY = "INR"  # when the brief has no home_currency (trips made before it existed)
-FORECAST_DAYS = 8  # MET Norway reaches ~9-10 days ahead; the last day is usually partial
+HOME_CURRENCY = "HKD"  # when the brief has no home_currency
+FORECAST_DAYS = 15  # Open-Meteo publishes today through today+15, the same 16-day window as the router
 MAX_BASES = 8
 NOMINATIM_INTERVAL = 1.1  # seconds between uncached lookups (Nominatim's usage policy: max 1/s)
 MAX_POINTS, PLACE_RADIUS_KM, POINTS_BUDGET_SECONDS = 60, 60, 40.0  # map exports (locate_places)
@@ -43,7 +46,9 @@ FOREVER = 1e18
 
 SOURCES = {
     "geo": DocSource(name="© OpenStreetMap contributors", url="https://www.openstreetmap.org/copyright", covers="Place lookup"),
-    "forecast": DocSource(name="MET Norway (CC BY 4.0)", url="https://api.met.no/", covers="Weather forecast"),
+    "forecast": DocSource(name="Open-Meteo", url="https://open-meteo.com/", covers="Weather forecast"),
+    "forecast_met": DocSource(name="MET Norway (CC BY 4.0)", url="https://api.met.no/", covers="Weather forecast"),
+    "archive": DocSource(name="Open-Meteo archive", url="https://open-meteo.com/en/docs/historical-weather-api", covers="Seasonal weather"),
     "typical": DocSource(name="NASA POWER climatology", url="https://power.larc.nasa.gov/", covers="Typical weather"),
     "holidays": DocSource(name="Nager.Date", url="https://date.nager.at/", covers="Public holidays"),
     "exchange": DocSource(name="Frankfurter (ECB reference rates)", url="https://frankfurter.dev/", covers="Exchange rates"),
@@ -132,6 +137,42 @@ async def _search(client: httpx.AsyncClient, query: str) -> dict | None:
     return await _cached(f"geo|{query.casefold()}", None, fetch, miss_ttl=TTL["geo_miss"])
 
 
+async def geocode_query(query: str) -> dict | None:
+    """One place on OpenStreetMap. Used when the trip has no routing key."""
+    async with httpx.AsyncClient(timeout=10.0, headers=HEADERS) as client:
+        return await _search(client, query)
+
+
+async def search_named(query: str, limit: int = 6) -> list[dict]:
+    """Named places for a suggestion. Each row is a real result, with coordinates."""
+    async def fetch():
+        async with _nominatim_lock:
+            await asyncio.sleep(max(0.0, _last_nominatim[0] + NOMINATIM_INTERVAL - time.monotonic()))
+            _last_nominatim[0] = time.monotonic()
+            async with httpx.AsyncClient(timeout=10.0, headers=HEADERS) as client:
+                response = await client.get(NOMINATIM, params={
+                    "q": query, "format": "jsonv2", "limit": limit, "addressdetails": 1,
+                    "namedetails": 1, "accept-language": "en",
+                })
+        response.raise_for_status()
+        rows = []
+        for hit in response.json():
+            name = ((hit.get("namedetails") or {}).get("name") or hit.get("name") or "").strip()
+            if not name:
+                name = str(hit.get("display_name") or "").split(",")[0].strip()
+            if not name:
+                continue
+            rows.append({
+                "name": name,
+                "lat": float(hit["lat"]),
+                "lon": float(hit["lon"]),
+                "label": str(hit.get("display_name") or name),
+            })
+        return rows
+    found = await _cached(f"named|{limit}|{query.casefold()}", TTL["geo_miss"], fetch)
+    return found or []
+
+
 async def _locate(client: httpx.AsyncClient, base: str, destination: str | None) -> dict | None:
     """{"lat", "lon", "country"} for a base city, trying it with the destination as context first."""
     same = not destination or base.casefold() == destination.casefold()
@@ -184,6 +225,76 @@ def _condition(symbol: str) -> str:
     return "partly" if code == "partlycloudy" else "sun"  # clearsky, fair
 
 
+def wmo_condition(code: int) -> str:
+    """Open-Meteo weather code -> one of SEVERITY."""
+    if code >= 95:
+        return "storm"
+    if code in {71, 73, 75, 77, 85, 86}:
+        return "snow"
+    if code in {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82}:
+        return "rain"
+    if code in {45, 48}:
+        return "fog"
+    if code == 3:
+        return "cloud"
+    if code in {1, 2}:
+        return "partly"
+    return "sun"
+
+
+def _at(values: list | None, index: int):
+    if not values or index >= len(values) or values[index] is None:
+        return None
+    return values[index]
+
+
+def open_meteo_days(daily: dict) -> dict[date, dict]:
+    """One forecast row per date Open-Meteo actually returned."""
+    found = {}
+    times = daily.get("time") or []
+    for index, raw in enumerate(times):
+        try:
+            when = date.fromisoformat(str(raw))
+        except ValueError:
+            continue
+        code = _at(daily.get("weather_code"), index)
+        high, low = _at(daily.get("temperature_2m_max"), index), _at(daily.get("temperature_2m_min"), index)
+        rain = _at(daily.get("precipitation_sum"), index)
+        if high is None or low is None:
+            continue
+        found[when] = {
+            "temp_min": float(low), "temp_max": float(high),
+            "temp_mean": round((float(low) + float(high)) / 2, 1),
+            "rain_mm": round(float(rain), 1) if rain is not None else 0.0,
+            "condition": wmo_condition(int(code)) if code is not None else None,
+            "code": int(code) if code is not None else None,
+        }
+    return found
+
+
+def archive_day(samples: list[tuple]) -> dict | None:
+    """Mean of the same calendar date over previous years. None when every year missed."""
+    highs = [high for high, _, _, _ in samples if high is not None]
+    lows = [low for _, low, _, _ in samples if low is not None]
+    rains = [rain for _, _, rain, _ in samples if rain is not None]
+    codes = [code for _, _, _, code in samples if code is not None]
+    if not highs or not lows:
+        return None
+    return {
+        "temp_min": round(sum(lows) / len(lows), 1),
+        "temp_max": round(sum(highs) / len(highs), 1),
+        "temp_mean": round((sum(lows) / len(lows) + sum(highs) / len(highs)) / 2, 1),
+        "rain_mm": round(sum(rains) / len(rains), 1) if rains else 0.0,
+        "condition": wmo_condition(max(set(codes), key=codes.count)) if codes else None,
+    }
+
+
+def in_forecast_window(when: date, today: date | None = None) -> bool:
+    """True for today through today+15, Open-Meteo's published forecast."""
+    start = today or date.today()
+    return start <= when <= start + timedelta(days=FORECAST_DAYS)
+
+
 def daily_forecast(timeseries: list[dict], lon: float) -> dict[date, dict]:
     """Per local date: temperature range and mean, total rain, and the worst daytime sky."""
     # ponytail: solar offset from longitude, not the real time zone; can shift a day boundary by an hour.
@@ -234,7 +345,24 @@ async def _weather(client: httpx.AsyncClient, start: date, days: list[DayInput],
     today = date.today()
     dated = [(number, start + timedelta(days=number - 1), base, places) for number, base, places in days if spots.get(base)]
 
-    async def forecast(base: str):
+    async def open_forecast(base: str, first: date, last: date) -> dict[date, dict]:
+        spot = spots[base]
+        async def fetch():
+            response = await client.get(OPEN_METEO, params={
+                "latitude": f"{spot['lat']:.2f}", "longitude": f"{spot['lon']:.2f}",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+                "timezone": "auto", "start_date": first.isoformat(), "end_date": last.isoformat(),
+            })
+            response.raise_for_status()
+            return response.json().get("daily") or {}
+        daily = await _cached(f"om|{spot['lat']:.2f},{spot['lon']:.2f}|{first}|{last}", TTL["forecast"], fetch)
+        try:
+            return open_meteo_days(daily or {})
+        except (TypeError, ValueError) as exc:
+            logger.info("Unreadable Open-Meteo forecast for %s: %s", base, exc)
+            return {}
+
+    async def met_forecast(base: str) -> dict[date, dict]:
         spot = spots[base]
         async def fetch():
             response = await client.get(MET, params={"lat": f"{spot['lat']:.2f}", "lon": f"{spot['lon']:.2f}"})
@@ -242,26 +370,77 @@ async def _weather(client: httpx.AsyncClient, start: date, days: list[DayInput],
             return response.json()["properties"]["timeseries"]
         series = await _cached(f"forecast|{spot['lat']:.2f},{spot['lon']:.2f}", TTL["forecast"], fetch)
         try:
-            return base, daily_forecast(series, spot["lon"]) if series else {}
+            return daily_forecast(series, spot["lon"]) if series else {}
         except (KeyError, TypeError, ValueError) as exc:
             logger.info("Unreadable forecast for %s: %s", base, exc)
-            return base, {}
+            return {}
+
+    async def archive(base: str, when: date) -> dict | None:
+        spot = spots[base]
+        samples = []
+        for year in (today.year - 1, today.year - 2, today.year - 3):
+            try:
+                window = when.replace(year=year)
+            except ValueError:
+                continue
+            async def fetch(day=window):
+                response = await client.get(OPEN_METEO_ARCHIVE, params={
+                    "latitude": f"{spot['lat']:.2f}", "longitude": f"{spot['lon']:.2f}",
+                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+                    "timezone": "auto", "start_date": day.isoformat(), "end_date": day.isoformat(),
+                })
+                response.raise_for_status()
+                return response.json().get("daily") or {}
+            daily = await _cached(f"om-archive|{spot['lat']:.2f},{spot['lon']:.2f}|{window}", 7 * 86400, fetch)
+            row = open_meteo_days(daily or {}).get(window) if daily else None
+            if row:
+                samples.append((row["temp_max"], row["temp_min"], row["rain_mm"], row.get("code")))
+        return archive_day(samples)
 
     async def climate(base: str):
         return base, await _climate(client, f"{spots[base]['lat']:.1f},{spots[base]['lon']:.1f}")
 
-    soon = {base for _, when, base, _ in dated if today <= when <= today + timedelta(days=FORECAST_DAYS)}
-    forecasts = dict(await asyncio.gather(*(forecast(base) for base in soon)))
-    later = {base for _, when, base, _ in dated if when not in forecasts.get(base, {})}
+    forecasts: dict[str, dict[date, dict]] = {}
+    met_days: set[tuple[str, date]] = set()
+    soon = {base for _, when, base, _ in dated if in_forecast_window(when, today)}
+    for base in soon:
+        span = [when for _, when, name, _ in dated if name == base and in_forecast_window(when, today)]
+        forecasts[base] = await open_forecast(base, min(span), max(span))
+    missing = [base for base in {name for _, when, name, _ in dated if in_forecast_window(when, today) and when not in forecasts.get(name, {})}]
+    if missing:
+        fetched = await asyncio.gather(*(met_forecast(base) for base in missing))
+        for base, rows in zip(missing, fetched):
+            kept = {when: row for when, row in rows.items() if when not in forecasts.get(base, {}) and in_forecast_window(when, today)}
+            forecasts.setdefault(base, {}).update(kept)
+            met_days.update((base, when) for when in kept)
+
+    seasonal: dict[tuple[str, date], dict] = {}
+    for _, when, base, _ in dated:
+        if when in forecasts.get(base, {}) or in_forecast_window(when, today):
+            continue
+        row = await archive(base, when)
+        if row:
+            seasonal[(base, when)] = row
+
+    later = {base for _, when, base, _ in dated if when not in forecasts.get(base, {}) and (base, when) not in seasonal}
     climates = dict(await asyncio.gather(*(climate(base) for base in later)))
 
     weather = []
+    archive_note = "Average of this calendar date over the previous three years, not a forecast for that day."
     for number, when, base, places in dated:
-        if (day := forecasts.get(base, {}).get(when)) is not None:
-            used.add("forecast")
+        day = forecasts.get(base, {}).get(when)
+        if day is not None:
+            used.add("forecast_met" if (base, when) in met_days else "forecast")
             tips = forecast_tips(day, places)
-            weather.append(DocWeather(day=number, date=when, base=base, kind="forecast", label="Forecast", **day,
-                                      badge=DocNote(**tips["badge"]), notes=[DocNote(**n) for n in tips["notes"]]))
+            weather.append(DocWeather(day=number, date=when, base=base, kind="forecast", label="Forecast", **{
+                key: day[key] for key in ("temp_min", "temp_max", "temp_mean", "rain_mm", "condition")
+            }, badge=DocNote(**tips["badge"]), notes=[DocNote(**n) for n in tips["notes"]]))
+        elif (row := seasonal.get((base, when))):
+            used.add("archive")
+            tips = forecast_tips(row, places)
+            weather.append(DocWeather(day=number, date=when, base=base, kind="typical", label="Seasonal average", **{
+                key: row[key] for key in ("temp_min", "temp_max", "temp_mean", "rain_mm", "condition")
+            }, badge=DocNote(**tips["badge"]), notes=[DocNote(tone="info", text=archive_note), *[DocNote(**n) for n in tips["notes"]]]))
         elif climates.get(base):
             used.add("typical")
             temp_c, rain = climates[base][MONTHS[when.month - 1]]
