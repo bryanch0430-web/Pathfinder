@@ -88,6 +88,20 @@ def _plan(hotel_geo: GeoPoint | None) -> TripPlan:
     )
 
 
+def test_a_how_to_get_there_option_includes_the_line(settings: Settings) -> None:
+    from app.application.legs import leg_options_for_plan
+
+    plan = _plan(GeoPoint(lat=35.0, lng=135.75))
+    plan.trip_id = "opt-line"
+    payload = asyncio.run(
+        leg_options_for_plan(plan, routes=[FakeRoutes()], settings=settings, from_id="a1", to_id="m1")
+    )
+    walk = next(option for option in payload["options"] if option["mode"] == "walk")
+    assert walk["path"] == [[35.0054, 135.7736], [35.0042, 135.7745]]
+    assert walk["minutes"] == 11
+    assert walk["steps"] == []
+
+
 def test_a_day_starts_and_ends_at_the_stay(settings: Settings) -> None:
     plan = _plan(GeoPoint(lat=35.0, lng=135.75))
     payload = asyncio.run(

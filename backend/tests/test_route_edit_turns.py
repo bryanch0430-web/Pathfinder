@@ -6,7 +6,7 @@ import asyncio
 from datetime import timedelta
 from typing import Any, Self
 
-from multi_city_rig import multi_city_rig, route_context
+from multi_city_rig import START, multi_city_rig, route_context
 
 from app.application.validation import _route_errors
 from app.config import Settings
@@ -334,6 +334,31 @@ def test_generating_again_with_the_cities_reordered_keeps_one_plan_and_moves_the
 
     assert [s.destination.name for s in after.segments] == ["Osaka", "Kyoto"]
     assert after.destination.name == "Osaka"
+
+
+def test_generating_again_lengthens_a_one_day_plan_across_the_form_dates(settings: Settings) -> None:
+    """A one-day plan plus a leftover city used the plan's zero nights and asked which city to drop."""
+    from app.domain.models import TripStop
+
+    async def body(trip: Trip):
+        context = trip.context
+        context.destination = "Chiba, Japan"
+        context.stops = [TripStop(city="Tokyo")]
+        context.start_date = START
+        context.end_date = START + timedelta(days=8)
+        context.days = 9
+        trip.ledger.store.save_context(context)
+        events = await trip.turn("Re-plan with the updated details.")
+        return trip.plan, events
+
+    after, events = _run(settings, [("Chiba, Japan", 0)], body)
+
+    assert not [event for event in events if event.event == "clarify"], [event.data for event in events if event.event == "clarify"]
+    assert [(segment.destination.name, segment.dates.night_count) for segment in after.segments] == [
+        ("Tokyo", 4),
+        ("Chiba, Japan", 4),
+    ]
+    assert (after.dates.start, after.dates.end) == (START, START + timedelta(days=8))
 
 
 def test_generating_again_with_none_of_the_cities_left_is_another_trip(settings: Settings) -> None:

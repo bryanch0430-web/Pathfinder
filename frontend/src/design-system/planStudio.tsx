@@ -42,6 +42,8 @@ export function PlanStudio({
   onApply,
   onCommitStop,
   layer = "traveller",
+  embedded = false,
+  focusDay,
 }: {
   plan: TripPlan;
   title: string;
@@ -62,9 +64,13 @@ export function PlanStudio({
   onCommitStop?: (change: StopCommit) => Promise<void>;
   /** The desk studio sits above the desk. The traveller's stays with the plan. */
   layer?: "desk" | "traveller";
+  /** Fill the plan column instead of opening a floating window. */
+  embedded?: boolean;
+  /** The day the left rail has selected. */
+  focusDay?: string;
 }) {
   const { t } = useI18n();
-  const [day, setDay] = useState<string | null>(null);
+  const [day, setDay] = useState<string | null>(focusDay ?? null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState({ previousName: "", name: "", start: "", end: "", day: 0 });
   const [formNote, setFormNote] = useState("");
@@ -85,6 +91,9 @@ export function PlanStudio({
       day: found.day,
     });
   }, [plan, selectedId]);
+  useEffect(() => {
+    if (focusDay) setDay(focusDay);
+  }, [focusDay]);
   const [place, setPlace] = useState(() => {
     const w = Math.min(1100, Math.max(720, window.innerWidth - 96));
     const h = Math.min(720, Math.max(460, window.innerHeight - 96));
@@ -134,13 +143,14 @@ export function PlanStudio({
       setFormNote(cause instanceof Error && cause.message ? cause.message : "");
     });
   };
-  return createPortal(
+  const studio = (
     <section
-      className={layer === "desk" ? "pf-win pf-ops__studio pf-ops__studio--desk" : "pf-win pf-ops__studio"}
+      className={embedded ? "pf-ops__studio pf-ops__studio--embedded" : layer === "desk" ? "pf-win pf-ops__studio pf-ops__studio--desk" : "pf-win pf-ops__studio"}
       role="dialog"
       aria-label={title}
-      style={{ left: place.x, top: place.y, width: place.w, height: place.h }}
+      style={embedded ? undefined : { left: place.x, top: place.y, width: place.w, height: place.h }}
     >
+      {embedded ? null : (
       <header
         className="pf-win__bar"
         onPointerDown={beginDrag("move")}
@@ -156,6 +166,7 @@ export function PlanStudio({
           <Icon name="close" size={16} />
         </button>
       </header>
+      )}
       <div className="pf-win__body pf-ops__studio-stage">
         <nav className="pf-ops__studio-days" aria-label={t("desk.dates")}>
           <button type="button" data-active={day === null || undefined} onClick={() => setDay(null)}>{t("desk.whole")}</button>
@@ -239,6 +250,7 @@ export function PlanStudio({
           </div>
         ) : null}
       </div>
+      {embedded ? null : (
       <span
         className="pf-win__size"
         aria-hidden="true"
@@ -247,7 +259,8 @@ export function PlanStudio({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       />
-    </section>,
-    document.body,
+      )}
+    </section>
   );
+  return embedded ? studio : createPortal(studio, document.body);
 }

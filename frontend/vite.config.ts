@@ -4,6 +4,8 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Vite runs under WSL while files are saved from Windows, where inotify does not fire.
+    watch: { usePolling: true, interval: 800 },
     proxy: {
       "/api": {
         target: process.env.VITE_API_TARGET || "http://127.0.0.1:8100",

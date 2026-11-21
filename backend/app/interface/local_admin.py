@@ -70,14 +70,30 @@ def is_loopback_origin(value: str | None) -> bool:
     return _host_name(parts.netloc) in LOOPBACK_NAMES
 
 
+def _private_or_loopback_host(value: str | None) -> bool:
+    """A Host that is this machine: loopback, or a private address (the Vite proxy's target)."""
+    if is_loopback_host_header(value):
+        return True
+    name = _host_name(value or "")
+    try:
+        address = ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback
+
+
 def local_admin_for(request: Request, settings: Settings) -> bool:
     """True when local admin mode is on and this request is the owner's own page on the owner's own machine."""
     if not settings.local_admin_active:
         return False
-    if not is_loopback(request.client.host if request.client else None):
-        return False
-    if not is_loopback_host_header(request.headers.get("host")):
-        return False
+    peer = request.client.host if request.client else None
+    proxy = str(getattr(settings, "local_admin_proxy", "") or "").strip()
+    via_named_proxy = bool(proxy) and peer == proxy and _private_or_loopback_host(request.headers.get("host"))
+    if not via_named_proxy:
+        if not is_loopback(peer):
+            return False
+        if not is_loopback_host_header(request.headers.get("host")):
+            return False
     if request.method.upper() not in SAFE_METHODS and not is_loopback_origin(request.headers.get("origin")):
         return False
     return True

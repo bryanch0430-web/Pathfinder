@@ -208,7 +208,7 @@ export function DirectSheet({
   canUndo?: boolean;
   onUndo?: () => void;
   onDraftSteps?: (steps: number) => void;
-  onApply?: (items: LayoutMove[]) => Promise<void>;
+  onApply?: (items: LayoutMove[], drops: string[]) => Promise<void>;
   onFocusDay?: (date: string) => void;
   onOpenStop?: (id: string) => void;
   openStopId?: string | null;
@@ -228,6 +228,7 @@ export function DirectSheet({
   const [refused, setRefused] = useState("");
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const headRef = useRef<HTMLDivElement | null>(null);
+  const shownDay = useRef(activeDay);
   const px = onlyDay ? 1.45 : PX;
   if (plan.version !== version) {
     setVersion(plan.version);
@@ -275,11 +276,25 @@ export function DirectSheet({
         const node = document.getElementById(`pf-sheet-day-${day.date}`);
         if (node && node.getBoundingClientRect().left <= edge) next = day.date;
       }
-      if (next) onFocusDay(next);
+      if (next && next !== shownDay.current) {
+        shownDay.current = next;
+        onFocusDay(next);
+      }
     };
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => scroller.removeEventListener("scroll", onScroll);
   }, [plan, onFocusDay]);
+
+  useEffect(() => {
+    if (!activeDay || onlyDay || shownDay.current === activeDay) return;
+    shownDay.current = activeDay;
+    const scroller = scrollerRef.current;
+    const node = document.getElementById(`pf-sheet-day-${activeDay}`);
+    if (!scroller || !node) return;
+    const left = node.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft - 48;
+    scroller.scrollTo({ left: Math.max(0, left) });
+    if (headRef.current) headRef.current.scrollLeft = scroller.scrollLeft;
+  }, [activeDay, onlyDay]);
 
   const remember = () => {
     history.current.push(draft.map((row) => ({ ...row })));
@@ -357,8 +372,10 @@ export function DirectSheet({
     const items = draft
       .filter((item) => !item.fixed)
       .map((item) => ({ id: item.id, day: item.day + 1, start: clock(item.start), end: clock(item.end) }));
+    const saved = readDraft(plan);
+    const drops = saved.filter((item) => !item.fixed && !draft.some((row) => row.id === item.id)).map((item) => item.id);
     setRefused("");
-    void Promise.resolve(onApply(items)).catch((cause: unknown) => {
+    void Promise.resolve(onApply(items, drops)).catch((cause: unknown) => {
       setDraft(readDraft(plan));
       history.current = [];
       setSteps(0);
@@ -367,12 +384,12 @@ export function DirectSheet({
   };
 
   return (
-    <div className="pf-sheet" data-span={onlyDay ? "day" : "trip"}>
+    <div className="pf-sheet" data-span={onlyDay ? "day" : "trip"} data-locked={locked ? "true" : undefined}>
       <div className="pf-sheet__bar">
         <Text size="xs" tone="secondary">{stay ? `${stay} · ${t("sheet.hint")}` : t("sheet.hint")}</Text>
         <span className="pf-row" style={{ gap: 6 }}>
           <Button size="sm" disabled={saving || (steps === 0 && !canUndo)} onClick={undo}>{t("sheet.undo")}</Button>
-          <Button size="sm" variant="primary" disabled={locked || !canApply || !dirty || saving || clashes.length > 0} loading={saving} onClick={apply}>
+          <Button size="sm" variant="primary" disabled={locked || !canApply || !dirty || saving} loading={saving} onClick={apply}>
             {t("sheet.apply")}
           </Button>
         </span>
@@ -455,6 +472,22 @@ export function DirectSheet({
                       onOpenStop(item.id);
                     }}
                   >
+                    {!item.fixed && !locked ? (
+                      <button
+                        type="button"
+                        className="pf-sheet__remove"
+                        aria-label={t("sheet.remove")}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          remember();
+                          setDraft((rows) => rows.filter((row) => row.id !== item.id));
+                        }}
+                      >
+                        ×
+                      </button>
+                    ) : null}
                     <div
                       className="pf-sheet__name"
                       draggable={!item.fixed && !locked}

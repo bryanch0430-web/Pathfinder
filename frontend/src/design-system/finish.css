@@ -595,3 +595,226 @@ html.is-dark .pf-surface-scrim {
     transform: none;
   }
 }
+
+/* Days | plan | chat. The chat fills its column; the composer stays one line. */
+.pf-view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* The centre column scrolls the day list. This bar stays on top, as it does on the map. */
+.pf-workspace > .pf-view-switch {
+  padding: var(--p30-gap-md) var(--p30-gap-md) 0;
+}
+
+.pf-workspace > .pf-view-switch + .pf-workspace__head {
+  padding-top: 8px;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__centre .pf-workspace > .pf-view-switch {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-bottom: 8px;
+  background: var(--pf-surface);
+}
+
+/* The column is the scroller. The plan has to be as tall as its days, or the bar
+   only sticks inside a short box and then scrolls away. */
+.pf-shell[data-dock="true"] .pf-planner__centre .pf-plan-shell {
+  height: auto;
+  min-height: 100%;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__centre .pf-plan-panel,
+.pf-shell[data-dock="true"] .pf-planner__centre .pf-plan-panel > .pf-workspace {
+  flex: none;
+  height: auto;
+}
+
+.pf-view-switch button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: var(--pf-surface);
+  color: var(--pf-ink-secondary);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pf-view-switch button[aria-selected="true"] {
+  background: var(--p30-tone-neutral-gray900);
+  border-color: var(--p30-tone-neutral-gray900);
+  color: var(--p30-tone-neutral-white);
+}
+
+.pf-day-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0 8px;
+}
+
+.pf-day-rail button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--pf-ink);
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pf-day-rail button[aria-current="true"] {
+  border-color: var(--pf-line);
+  background: var(--pf-surface);
+  box-shadow: var(--pf-shadow-card);
+}
+
+.pf-planner__left .pf-trip-bar {
+  padding: 8px 10px;
+}
+
+.pf-planner__left .pf-trip-bar__icon,
+.pf-planner__left .pf-trip-bar__kicker,
+.pf-planner__left .pf-trip-bar__meta {
+  display: none;
+}
+
+.pf-shell[data-dock="true"] .pf-planner[data-chat="open"] .pf-day-strip {
+  display: none;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__left .pf-left-stack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__left .pf-day-rail {
+  flex: 1;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__right .pf-chat,
+.pf-surface-sheet .pf-chat {
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.pf-chat__messages {
+  min-height: 0;
+}
+
+.pf-chat__composer {
+  gap: 6px;
+  padding: 8px 10px 10px;
+}
+
+.pf-quick {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.pf-quick .pf-chip {
+  flex: none;
+}
+
+.pf-composer {
+  align-items: center;
+  padding: 4px 4px 4px 8px;
+}
+
+.pf-composer textarea {
+  min-height: 36px;
+  max-height: 72px;
+  padding: 6px 0;
+}
+
+.pf-ops__studio--embedded {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: min(72vh, 760px);
+  min-height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--pf-line);
+  border-radius: 12px;
+  background: var(--pf-surface);
+}
+
+.pf-ops__studio--embedded .pf-win__body {
+  flex: 1;
+  min-height: 0;
+}
+
+.pf-workspace__body .pf-map__canvas {
+  height: clamp(420px, 62vh, 720px);
+}
+
+.pf-workspace__body > .pf-sheet {
+  width: 100%;
+  height: calc(100vh - var(--p30-frame-header) - 220px);
+  min-height: 360px;
+}
+
+.pf-shell[data-dock="true"] .pf-workspace__body:has(.pf-sheet),
+.pf-shell[data-dock="true"] .pf-workspace__body:has(.pf-map),
+.pf-shell[data-dock="true"] .pf-workspace__body:has(.pf-ops__studio--embedded) {
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+
+.pf-shell[data-dock="true"] .pf-workspace__body:has(.pf-sheet) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Below 1280px the old layout dropped the right column under the plan.
+   That column is the chat now, so it stays on the right while three columns fit. */
+.pf-sheet[data-locked="true"] .pf-sheet__bar {
+  display: none;
+}
+
+.pf-workspace__head[data-compact="true"] .pf-workspace__title .pf-stack:first-child > :not(:first-child),
+.pf-workspace__head[data-compact="true"] .pf-workspace__title > .pf-stack:last-child,
+.pf-workspace__head[data-compact="true"] .pf-workspace__meta,
+.pf-workspace__head[data-compact="true"] .pf-day-strip {
+  display: none;
+}
+
+.pf-shell[data-dock="true"] .pf-planner__centre {
+  position: sticky;
+  top: calc(var(--p30-frame-header) + 60px);
+  align-self: start;
+  height: calc(100vh - var(--p30-frame-header) - 84px);
+  max-height: calc(100vh - var(--p30-frame-header) - 84px);
+  overflow: auto;
+}
+
+@media (max-width: 1279px) {
+  .pf-shell[data-dock="true"] .pf-planner__right {
+    grid-column: auto;
+  }
+
+  .pf-shell[data-dock="true"] .pf-planner__right .pf-chat {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+}

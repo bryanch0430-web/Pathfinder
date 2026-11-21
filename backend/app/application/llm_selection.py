@@ -402,6 +402,7 @@ class CallerLLM:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         images: Sequence[ImageInput] | None = None,
+        reasoning: str | None = None,
     ) -> Any:
         state = _caller.get()
         if state is not None and state.failed is not None:
@@ -418,6 +419,7 @@ class CallerLLM:
                 max_tokens=max_tokens,
                 # Passed only when there are pictures, so a writer that takes text only is called as before.
                 **({"images": images} if images else {}),
+                **({"reasoning": reasoning} if reasoning else {}),
             )
         except ProviderError as exc:
             if selection.source != "byok" or _empty_reply(exc):

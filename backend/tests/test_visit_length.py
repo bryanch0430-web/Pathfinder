@@ -16,10 +16,10 @@ MONDAY = date(2027, 4, 12)
 
 # name, source types, stated minutes or None, minutes arm B must schedule
 CASES = [
-    ("Ocean Park", ["amusement_park"], None, 180),
-    ("Ocean Park", [], None, 180),
-    ("Hong Kong Disneyland", [], None, 180),
-    ("A city zoo", ["zoo"], None, 180),
+    ("Ocean Park", ["amusement_park"], None, 300),
+    ("Ocean Park", [], None, 300),
+    ("Hong Kong Disneyland", [], None, 300),
+    ("A city zoo", ["zoo"], None, 300),
     ("Lion Rock trail", ["hiking_area"], None, 120),
     ("Kiyomizu-dera", ["place_of_worship"], None, 90),
     ("A small shrine", [], None, 90),
@@ -72,7 +72,7 @@ def test_refine_lengthens_ocean_park_and_leaves_a_stated_hour() -> None:
     park = next(item for item in refined.days[0].items if item.name == "Ocean Park")
     shrine = next(item for item in refined.days[0].items if item.name == "A small shrine")
     assert rounds >= 1
-    assert park.end == "12:00"
+    assert park.end == "14:00"
     assert shrine.end == "16:30"
 
     asked = stop("park", "Ocean Park", "09:00", "10:00", tags=[STATED])

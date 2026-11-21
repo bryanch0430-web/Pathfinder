@@ -68,6 +68,7 @@ class AnthropicLLM:
         images: Sequence[ImageInput] | None = None,
         timeout: float | None = None,
         retries: int | None = None,
+        reasoning: str | None = None,
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")

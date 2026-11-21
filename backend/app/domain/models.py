@@ -315,11 +315,9 @@ class DayPlan(BaseModel):
     segment_id: str = ""
 
     @model_validator(mode="after")
-    def _no_overlap(self) -> "DayPlan":
-        ordered = sorted(self.items, key=lambda item: item.start)
-        for previous, current in zip(ordered, ordered[1:]):
-            if current.start < previous.end:
-                raise ValueError(f"items overlap on {self.date}: {previous.name} / {current.name}")
+    def _keep_overlaps(self) -> "DayPlan":
+        # Two stops may share a clock. The page shows that as a warning and a side column.
+        # ponytail: the day no longer rejects an overlap; the UI is the reminder.
         return self
 
 

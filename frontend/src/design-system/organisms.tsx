@@ -7,8 +7,7 @@ import { AgentChip, EmptyState, IntentBadge, StatusPill, type AgentStatus } from
 import { timelineAt } from "../lib/mapTimeline";
 import { maskTyped, setRedaction, DEFAULT_PATTERNS, type RedactionFlags } from "../lib/maskPii";
 import { previewRedaction } from "../lib/api";
-import { ClashNote, clashesOf, clashIds, type LayoutMove, type StopCommit } from "./directEdit";
-import { PlanStudio } from "./planStudio";
+import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove, type StopCommit } from "./directEdit";
 import { Icon, type IconName } from "./icons";
 import { type ModelKeysProps } from "./ModelKeys";
 import { OrchestratorSettings } from "./OrchestratorSettings";
@@ -22,6 +21,7 @@ import {
   ClarifyCard,
   ConstraintList,
   DaySection,
+  type StopOffer,
   DayStrip,
   ExperimentTable,
   failureReason,
@@ -74,7 +74,7 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
-import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
+import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg, type MapStep } from "../lib/api";
 import { dayRoute, dayScope, overviewStops, travelLine } from "../lib/mapScope";
 import {
   chosenFor,
@@ -557,15 +557,84 @@ function DeveloperToggle() {
 
 interface DecisionCall {
   purpose?: string;
+  model?: string;
   latency_ms?: number;
   reasoning?: string;
   output_preview?: string;
   user_preview?: string;
 }
 
+interface DecisionStep {
+  id?: string;
+  phase?: string;
+  model?: string;
+  status?: string;
+  seconds?: number;
+  note?: string;
+}
+
 interface DecisionRecord {
   why?: string[];
   generations?: DecisionCall[];
+  steps?: DecisionStep[];
+}
+
+interface DecisionSection {
+  id: string;
+  phase: string;
+  model: string;
+  seconds?: number;
+  call: DecisionCall | null;
+  notes: string[];
+}
+
+function phaseOfPurpose(purpose: string): string {
+  const text = purpose.toLowerCase();
+  if (text.includes("route") || text.includes("router")) return "routing";
+  if (text.includes("modify") || text.includes("extract")) return "editing";
+  if (text.includes("review")) return "review";
+  if (text.includes("reply")) return "reply";
+  if (text.includes("plan") || text.includes("compose")) return "planning";
+  return text || "model";
+}
+
+function decisionSections(decision: DecisionRecord): DecisionSection[] {
+  const calls = decision.generations ?? [];
+  const used = new Set<number>();
+  const take = (phase: string): DecisionCall | null => {
+    const index = calls.findIndex((call, cursor) => !used.has(cursor) && phaseOfPurpose(call.purpose ?? "") === phase);
+    if (index < 0) return null;
+    used.add(index);
+    return calls[index];
+  };
+  const steps = (decision.steps ?? []).filter((step) => (step.phase ?? "").trim());
+  const sections: DecisionSection[] = steps.map((step, index) => ({
+    id: step.id || `${step.phase}-${index}`,
+    phase: step.phase ?? "",
+    model: step.model ?? "",
+    seconds: typeof step.seconds === "number" ? step.seconds : undefined,
+    call: take(step.phase ?? ""),
+    notes: step.note ? [step.note] : [],
+  }));
+  calls.forEach((call, index) => {
+    if (used.has(index)) return;
+    const phase = phaseOfPurpose(call.purpose ?? "");
+    sections.push({
+      id: `call-${index}`,
+      phase,
+      model: call.model ?? "",
+      seconds: call.latency_ms ? call.latency_ms / 1000 : undefined,
+      call,
+      notes: [],
+    });
+  });
+  const notes = decision.why ?? [];
+  if (notes.length) {
+    const routing = sections.find((section) => section.phase === "routing");
+    if (routing) routing.notes = notes;
+    else sections.unshift({ id: "decision", phase: "decision", model: "", notes, call: null });
+  }
+  return sections;
 }
 
 function decisionOf(meta?: Record<string, unknown>): DecisionRecord | null {
@@ -574,10 +643,11 @@ function decisionOf(meta?: Record<string, unknown>): DecisionRecord | null {
   const decision = raw as DecisionRecord;
   const why = (decision.why ?? []).filter((line) => line.trim());
   const generations = (decision.generations ?? []).filter(
-    (call) => call.purpose || call.reasoning?.trim() || call.output_preview?.trim() || call.user_preview?.trim(),
+    (call) => call.purpose || call.model || call.reasoning?.trim() || call.output_preview?.trim() || call.user_preview?.trim(),
   );
-  if (!why.length && !generations.length) return null;
-  return { why, generations };
+  const steps = (decision.steps ?? []).filter((step) => (step.phase ?? "").trim());
+  if (!why.length && !generations.length && !steps.length) return null;
+  return { why, generations, steps };
 }
 
 function decisionFromLive(
@@ -587,6 +657,7 @@ function decisionFromLive(
   const generations = [
     ...(trace?.generations ?? []).map((call) => ({
       purpose: call.purpose,
+      model: call.model,
       latency_ms: call.latency_ms,
       reasoning: call.reasoning,
       output_preview: call.output_preview,
@@ -599,42 +670,146 @@ function decisionFromLive(
   return { why, generations };
 }
 
-/** Developer mode: the reasoning for this reply, closed until the admin opens it. */
-function WhyThisDecision({ decision }: { decision: DecisionRecord | null }) {
+function DecisionCallBody({ call }: { call: DecisionCall }) {
+  const { t } = useI18n();
+  return (
+    <>
+      {call.user_preview ? (
+        <>
+          <p className="pf-decision__call">{t("chat.sentToModel")}</p>
+          <pre className="pf-decision__prompt">{call.user_preview}</pre>
+        </>
+      ) : null}
+      {call.reasoning?.trim() ? <p>{call.reasoning}</p> : null}
+      {call.output_preview ? <pre>{call.output_preview}</pre> : null}
+    </>
+  );
+}
+
+/** Headings the review prompt already writes. Each one becomes its own section. */
+const REVIEW_MARKS: { key: "skill" | "traveller" | "edit" | "plan" | "pages"; mark: string }[] = [
+  { key: "skill", mark: "Reasonableness skill" },
+  { key: "traveller", mark: "Traveller:" },
+  { key: "edit", mark: "What the edit did:" },
+  { key: "plan", mark: "Plan now:" },
+  { key: "pages", mark: "Duration pages" },
+];
+
+function reviewParts(preview: string): { key: (typeof REVIEW_MARKS)[number]["key"]; body: string }[] | null {
+  const found = REVIEW_MARKS
+    .map((item) => ({ ...item, at: preview.indexOf(item.mark) }))
+    .filter((item) => item.at >= 0)
+    .sort((a, b) => a.at - b.at);
+  if (!found.some((item) => item.key === "skill")) return null;
+  return found
+    .map((item, index) => {
+      const lineEnd = preview.indexOf("\n", item.at);
+      const start = lineEnd >= 0 ? lineEnd + 1 : item.at + item.mark.length;
+      const end = index + 1 < found.length ? found[index + 1].at : preview.length;
+      return { key: item.key, body: preview.slice(start, end).trim() };
+    })
+    .filter((item) => item.body);
+}
+
+function DecisionPart({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <details className="pf-decision__part">
+      <summary>{title}</summary>
+      <div className="pf-decision__part-body">{children}</div>
+    </details>
+  );
+}
+
+/** A review call, opened as separate sections instead of one prompt dump. */
+function ReviewCall({ call, reply }: { call: DecisionCall; reply?: string }) {
+  const { t } = useI18n();
+  const parts = reviewParts(call.user_preview ?? "");
+  if (!parts) return <DecisionCallBody call={call} />;
+  const time = typeof call.latency_ms === "number" && call.latency_ms > 0 ? `${call.latency_ms} ms` : "";
+  const label: Record<(typeof REVIEW_MARKS)[number]["key"], "chat.review.skill" | "chat.review.traveller" | "chat.review.edit" | "chat.review.plan" | "chat.review.pages"> = {
+    skill: "chat.review.skill",
+    traveller: "chat.review.traveller",
+    edit: "chat.review.edit",
+    plan: "chat.review.plan",
+    pages: "chat.review.pages",
+  };
+  return (
+    <>
+      <DecisionPart title={[t("chat.review.model"), call.model, time].filter(Boolean).join(" · ")}>
+        <p>{[call.purpose, call.model, time].filter(Boolean).join(" · ")}</p>
+      </DecisionPart>
+      {parts.map((part) => (
+        <DecisionPart key={part.key} title={t(label[part.key])}>
+          <pre className="pf-decision__prompt">{part.body}</pre>
+        </DecisionPart>
+      ))}
+      {call.reasoning?.trim() || call.output_preview ? (
+        <DecisionPart title={t("chat.review.output")}>
+          {call.output_preview ? <pre>{call.output_preview}</pre> : null}
+          {call.reasoning?.trim() ? (
+            <DecisionPart title={t("chat.review.reasoning")}>
+              <p>{call.reasoning}</p>
+            </DecisionPart>
+          ) : null}
+        </DecisionPart>
+      ) : null}
+      {reply?.trim() ? (
+        <DecisionPart title={t("chat.review.reply")}>
+          <p>{reply}</p>
+        </DecisionPart>
+      ) : null}
+    </>
+  );
+}
+
+/** Developer mode: the reasoning for this reply, closed until the admin opens it.
+ * Each stage opens on its own. The model call inside a stage opens on its own too. */
+function WhyThisDecision({ decision, reply }: { decision: DecisionRecord | null; reply?: string }) {
   const { t } = useI18n();
   const [developer] = useDeveloperMode();
-  if (!developer) return null;
-  const why = decision?.why ?? [];
-  const calls = decision?.generations ?? [];
+  if (!developer || !decision) return null;
+  const sections = decisionSections(decision);
+  if (!sections.length) return null;
+  const replyOn = [...sections].reverse().find((section) => section.phase === "review")?.id;
   return (
     <details className="pf-decision">
       <summary>{t("chat.thinking")}</summary>
       <div className="pf-decision__body">
-        {why.map((line) => (
-          <p key={line}>{line}</p>
-        ))}
-        {calls.length ? calls.map((call, index) => (
-          <div key={`${call.purpose ?? "call"}-${index}`}>
-            <p className="pf-decision__call">
-              {call.purpose || t("chat.thinking")}
-              {typeof call.latency_ms === "number" && call.latency_ms > 0 ? ` · ${call.latency_ms} ms` : ""}
-            </p>
-            {call.user_preview ? (
-              <>
-                <p className="pf-decision__call">{t("chat.sentToModel")}</p>
-                <pre className="pf-decision__prompt">{call.user_preview}</pre>
-              </>
-            ) : null}
-            {call.reasoning?.trim() ? (
-              <p>{call.reasoning}</p>
-            ) : why.length ? null : (
-              <p>{t("trace.noReasoning")}</p>
-            )}
-            {call.output_preview ? <pre>{call.output_preview}</pre> : null}
-          </div>
-        )) : (
-          <p>{t("trace.noReasoning")}</p>
-        )}
+        {sections.map((section) => {
+          const time = typeof section.seconds === "number" ? `${section.seconds}s` : "";
+          const call = section.call;
+          const callTime = call && typeof call.latency_ms === "number" && call.latency_ms > 0 ? `${call.latency_ms} ms` : "";
+          const structured = section.phase === "review" && call != null && reviewParts(call.user_preview ?? "") != null;
+          return (
+            <details key={section.id} className="pf-decision__part">
+              <summary>
+                {section.phase}
+                {section.model ? ` · ${section.model}` : ""}
+                {time ? ` · ${time}` : ""}
+                {section.notes[0] ? ` — ${section.notes[0]}` : ""}
+              </summary>
+              <div className="pf-decision__part-body">
+                {section.notes.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+                {structured && call ? (
+                  <ReviewCall call={call} reply={section.id === replyOn ? reply : undefined} />
+                ) : call ? (
+                  <details className="pf-decision__part">
+                    <summary>
+                      model
+                      {call.model ? ` · ${call.model}` : ""}
+                      {callTime ? ` · ${callTime}` : ""}
+                    </summary>
+                    <div className="pf-decision__part-body">
+                      <DecisionCallBody call={call} />
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+            </details>
+          );
+        })}
       </div>
     </details>
   );
@@ -741,6 +916,7 @@ export function ChatPanel({
   onDecide,
   trace,
   live,
+  steps = [],
   held = false,
   agentName = "",
   disabled = false,
@@ -779,6 +955,8 @@ export function ChatPanel({
   onDecide?: (messageId: string, changeId: string, accept: boolean) => void;
   trace?: RunTrace | null;
   live?: { id: string; title: string; body: string }[];
+  /** Stages of this turn, updated as each one starts and finishes. */
+  steps?: { id: string; phase: string; model: string; status: "running" | "done"; seconds?: number }[];
   /** A person on the desk has this chat. */
   held?: boolean;
   /** That person's account name. */
@@ -814,7 +992,7 @@ export function ChatPanel({
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [messages.length, lastContent, busy, clarify?.question, intake]);
+  }, [messages.length, lastContent, busy, clarify?.question, intake, steps.length]);
   useEffect(() => {
     if (focusSignal) composerRef.current?.focus();
   }, [focusSignal]);
@@ -886,9 +1064,11 @@ export function ChatPanel({
             <Text size="sm" weight="semibold">
               {t("chat.title")}
             </Text>
-            <Text size="xs" tone="tertiary">
-              {held ? t("chat.taken", { name: agentName.trim() || t("chat.liveAgent") }) : t("chat.subtitle")}
-            </Text>
+            {held ? (
+              <Text size="xs" tone="tertiary">
+                {t("chat.taken", { name: agentName.trim() || t("chat.liveAgent") })}
+              </Text>
+            ) : null}
           </div>
         </div>
         <div className="pf-row pf-chat__tools">
@@ -967,6 +1147,7 @@ export function ChatPanel({
               </ChatBubble>
               {message.role !== "user" && !fromAgent ? (
                 <WhyThisDecision
+                  reply={message.content}
                   decision={
                     decisionOf(message.meta)
                     ?? (message.id === lastAssistantId ? decisionFromLive(live, trace) : null)
@@ -1003,6 +1184,19 @@ export function ChatPanel({
             onSubmit={onClarifySubmit}
             submitting={busy}
           />
+        ) : null}
+        {busy && steps.length ? (
+          <ol className="pf-steps" aria-live="polite">
+            {steps.map((step) => (
+              <li key={step.id} data-status={step.status}>
+                <span>{step.phase}</span>
+                <span className="pf-steps__model">{step.model}</span>
+                <span className="pf-steps__time">
+                  {step.status === "done" && typeof step.seconds === "number" ? `${step.seconds}s` : "…"}
+                </span>
+              </li>
+            ))}
+          </ol>
         ) : null}
         {busy ? (
           <div className="pf-thinking" role="status">
@@ -1093,7 +1287,7 @@ export function ChatPanel({
           <textarea
             ref={composerRef}
             value={draft}
-            rows={2}
+            rows={1}
             disabled={composerLocked}
             placeholder={disabled ? t("chat.offline") : busy ? t("chat.working") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
             aria-label={t("chat.message")}
@@ -1107,7 +1301,7 @@ export function ChatPanel({
             onInput={(event) => {
               const el = event.currentTarget;
               el.style.height = "auto";
-              el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+              el.style.height = `${Math.min(el.scrollHeight, 72)}px`;
             }}
             onKeyDown={(event) => {
               // Enter that confirms an input-method candidate (Chinese, Japanese, Korean) is not a send.
@@ -1130,12 +1324,6 @@ export function ChatPanel({
             <Icon name={busy ? "stop" : "send"} size={16} />
           </Button>
         </div>
-        <div className="pf-row pf-row--between pf-small pf-muted">
-          <span>{t("chat.hint")} · {t("chat.shareHint")}</span>
-          <span className="pf-row" style={{ gap: 5 }} title={t("chat.dataNotInstructions")}>
-            <Icon name="shield" size={12} />
-          </span>
-        </div>
       </div>
     </section>
   );
@@ -1149,16 +1337,24 @@ function Collapsible({
   badge,
   children,
   defaultOpen = false,
+  id,
+  openToken = 0,
 }: {
   title: string;
   icon: "wallet" | "check" | "ticket" | "alert" | "info" | "hotel" | "route";
   badge?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
+  id?: string;
+  /** Bump this to open the section from a badge. */
+  openToken?: number;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    if (openToken) setOpen(true);
+  }, [openToken]);
   return (
-    <div className="pf-collapsible">
+    <div className="pf-collapsible" id={id}>
       <button type="button" className="pf-collapsible__head" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="pf-row" style={{ gap: 7 }}>
           <Icon name={icon} size={14} />
@@ -1884,6 +2080,54 @@ function scrollPort(node: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/** Leave the pinned Trip map / Detail view / Direct edit bar clear of the target. */
+function scrollTopBelowBar(scroller: HTMLElement, node: HTMLElement): number {
+  const bar = scroller.querySelector<HTMLElement>(".pf-view-switch");
+  const cover = bar && getComputedStyle(bar).position === "sticky" ? bar.getBoundingClientRect().height : 0;
+  return node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - cover - 8;
+}
+
+type PlanView = "map" | "detail" | "edit";
+
+function stopOffers(messages: ChatMessage[]): StopOffer[] {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const raw = (messages[index].meta?.proposal as { changes?: unknown } | undefined)?.changes;
+    if (!Array.isArray(raw) || !raw.length) continue;
+    const found: StopOffer[] = [];
+    for (const row of raw) {
+      const change = row as { id?: unknown; status?: unknown; puts?: unknown; drops?: unknown };
+      if (change.status === "accepted" || change.status === "rejected") continue;
+      const changeId = typeof change.id === "string" ? change.id : "";
+      const head = changeId.split("-")[0];
+      const puts = Array.isArray(change.puts) ? change.puts : [];
+      const drops = Array.isArray(change.drops) ? change.drops.map(String) : [];
+      if (!changeId) continue;
+      if (head === "drop" || head === "replace") {
+        for (const itemId of drops) {
+          found.push({ messageId: messages[index].id, changeId, kind: "drop", day: 0, itemId });
+        }
+      }
+      for (const put of puts) {
+        const entry = put as { day?: unknown; item?: PlanItem };
+        const item = entry.item;
+        if (!item || typeof item.id !== "string") continue;
+        const kind = head === "add" || head === "replace" ? "add" : "time";
+        if (kind !== "add" && head !== "time" && head !== "move" && head !== "rename") continue;
+        found.push({
+          messageId: messages[index].id,
+          changeId,
+          kind,
+          day: Number(entry.day) || 0,
+          itemId: item.id,
+          item,
+        });
+      }
+    }
+    if (found.length) return found;
+  }
+  return [];
+}
+
 export function TripWorkspace({
   plan,
   versions,
@@ -1900,6 +2144,8 @@ export function TripWorkspace({
   trace,
   onRefresh,
   onFocusDay,
+  focusedDay,
+  map = null,
   updatedIds,
   changedStayIds,
   changedLegIds,
@@ -1916,6 +2162,8 @@ export function TripWorkspace({
   paused = false,
   pausedNote = "",
   onCommitStop,
+  messages = [],
+  onDecide,
 }: {
   plan: TripPlan;
   /** Takes the traveller to the chat box to answer the question the plan's assessment asks. */
@@ -1931,7 +2179,7 @@ export function TripWorkspace({
   /** The room types the hotel source lists for a stay. */
   onLoadHotelRooms?: (hotelId: string) => Promise<RoomType[]>;
   /** Write the direct-edit grid onto the latest plan. */
-  onApplyLayout?: (items: LayoutMove[]) => Promise<void>;
+  onApplyLayout?: (items: LayoutMove[], drops?: string[]) => Promise<void>;
   /** While an operator holds the chat, the traveller cannot edit this plan. */
   held?: boolean;
   agentName?: string;
@@ -1939,6 +2187,9 @@ export function TripWorkspace({
   paused?: boolean;
   pausedNote?: string;
   onCommitStop?: (change: StopCommit) => Promise<void>;
+  /** Chat turns, so a held edit can be drawn on the plan. */
+  messages?: ChatMessage[];
+  onDecide?: (messageId: string, changeId: string, accept: boolean) => void;
   /** The disclaimer and translation notice shown at the top of a non-English plan view. */
   languageNotice?: ReactNode;
   versions: { version: number; change_summary: string; created_at: string }[];
@@ -1948,7 +2199,7 @@ export function TripWorkspace({
   onRestoreVersion?: (version: number) => void;
   selectedItemId: string | null;
   onSelectItem: (item: PlanItem | null) => void;
-  onUseful: (stars: number) => void;
+  onUseful: () => void;
   onNotUseful: () => void;
   feedbackStars: number | null;
   feedbackVerdict: "useful" | "not_useful" | null;
@@ -1957,6 +2208,10 @@ export function TripWorkspace({
   trace?: RunTrace | null;
   onRefresh?: () => void;
   onFocusDay?: (date: string) => void;
+  /** The day chosen on the left rail. The workspace follows it. */
+  focusedDay?: string;
+  /** Shown when the middle view is the map. */
+  map?: ReactNode;
   updatedIds?: string[];
   /** The stays and legs (by id) the last change touched. */
   changedStayIds?: ReadonlySet<string>;
@@ -1964,21 +2219,28 @@ export function TripWorkspace({
 }) {
   const { t } = useI18n();
   const [activeDay, setActiveDay] = useState(plan.days[0]?.date ?? "");
-  const [sheet, setSheet] = useState(false);
+  const [view, setView] = useState<PlanView>("detail");
   // The desk studio is the editor while it is open. This one would cover the same screen.
   useEffect(() => {
     const onDeskStudio = (event: Event) => {
-      if ((event as CustomEvent<{ open?: boolean }>).detail?.open) setSheet(false);
+      if ((event as CustomEvent<{ open?: boolean }>).detail?.open) setView("detail");
     };
     window.addEventListener("pf-desk-studio", onDeskStudio);
     return () => window.removeEventListener("pf-desk-studio", onDeskStudio);
   }, []);
   const [hideBudget, setHideBudget] = useState(false);
+  const [openToken, setOpenToken] = useState<{ which: "constraints" | "gaps" | ""; n: number }>({ which: "", n: 0 });
   const [savingSheet, setSavingSheet] = useState(false);
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef(activeDay);
   activeRef.current = activeDay;
+  useEffect(() => {
+    if (!focusedDay || !plan.days.some((day) => day.date === focusedDay)) return;
+    if (focusedDay === activeRef.current) return;
+    activeRef.current = focusedDay;
+    setActiveDay(focusedDay);
+  }, [focusedDay, plan]);
   const hotel = plan.hotels[0];
   const multi = segmentsOf(plan).length > 1;
   const anyStayChanged = (changedStayIds?.size ?? 0) > 0;
@@ -2007,47 +2269,15 @@ export function TripWorkspace({
       node.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    const top =
-      node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
-    scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    scroller.scrollTo({ top: Math.max(0, scrollTopBelowBar(scroller, node)), behavior: "smooth" });
   };
 
   const jump = (date: string) => {
     setActiveDay(date);
     activeRef.current = date;
     onFocusDay?.(date);
-    if (sheet) {
-      const node = document.getElementById(`pf-sheet-day-${date}`);
-      const scroller = node?.closest(".pf-sheet__scroller") as HTMLElement | null;
-      if (node && scroller) {
-        const left = node.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft - 48;
-        scroller.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
-      }
-      return;
-    }
-    scrollToDay(date);
+    if (view === "detail") scrollToDay(date);
   };
-
-  useEffect(() => {
-    const scroller = scrollPort(bodyRef.current);
-    if (!scroller || sheet) return;
-    const onScroll = () => {
-      const top = scroller.getBoundingClientRect().top;
-      let next = plan.days[0]?.date ?? null;
-      for (const day of plan.days) {
-        const node = dayRefs.current[day.date];
-        if (node && node.getBoundingClientRect().top - top <= 72) next = day.date;
-      }
-      if (next && next !== activeRef.current) {
-        activeRef.current = next;
-        setActiveDay(next);
-        onFocusDay?.(next);
-      }
-    };
-    scroller.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => scroller.removeEventListener("scroll", onScroll);
-  }, [plan, sheet, onFocusDay]);
 
   useEffect(() => {
     if (!firstUpdated) return;
@@ -2059,13 +2289,45 @@ export function TripWorkspace({
     return () => window.clearTimeout(timer);
   }, [firstUpdated, plan]);
 
+  const offers = stopOffers(messages);
   const clashes = clashesOf(
-    plan.days.map((day, index) => ({
-      label: `${t("day.number", { n: index + 1 })} · ${day.date}`,
-      items: day.items.map((item) => ({ id: item.id, name: item.name, start: item.start, end: item.end })),
-    })),
+    plan.days.map((day, index) => {
+      const dayNumber = index + 1;
+      const items = day.items.map((item) => {
+        const time = offers.find((offer) => offer.kind === "time" && offer.itemId === item.id && offer.item);
+        return { id: item.id, name: item.name, start: time?.item?.start || item.start, end: time?.item?.end || item.end };
+      });
+      for (const offer of offers) {
+        if (offer.kind === "add" && offer.day === dayNumber && offer.item) {
+          items.push({ id: offer.item.id, name: offer.item.name, start: offer.item.start, end: offer.item.end });
+        }
+      }
+      return { label: `${t("day.number", { n: dayNumber })} · ${day.date}`, items };
+    }),
   );
   const overlapping = clashIds(clashes);
+  const history = (plan.data_quality.notes ?? []).filter((line) => line.toLowerCase().includes("overlap"));
+  const recorded = [
+    ...history,
+    ...clashes
+      .filter((clash) => !history.some((line) => line.includes(clash.a) && line.includes(clash.b)))
+      .map((clash) => t("warnings.overlap", { a: clash.a, b: clash.b, day: clash.label })),
+  ];
+  const openRecord = (which: "constraints" | "gaps") => {
+    setView("detail");
+    setOpenToken((current) => ({ which, n: current.n + 1 }));
+  };
+  useEffect(() => {
+    if (!openToken.which || view !== "detail") return;
+    const node = document.getElementById(`pf-${openToken.which}`);
+    if (!node) return;
+    const scroller = scrollPort(node);
+    if (!scroller) {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    scroller.scrollTo({ top: Math.max(0, scrollTopBelowBar(scroller, node)), behavior: "smooth" });
+  }, [openToken, view]);
   const groups = multi ? daysBySegment(plan) : [];
   const homeLeg = multi ? legHome(plan) : undefined;
   const renderDay = (day: DayPlan) => (
@@ -2078,6 +2340,8 @@ export function TripWorkspace({
         clashIds={overlapping}
         onSelectItem={(item) => onSelectItem(item)}
         onChooseAlternative={choose ? (item, alternativeId) => choose("item", item.id, alternativeId) : undefined}
+        offers={offers}
+        onDecide={onDecide}
       />
     </div>
   );
@@ -2150,15 +2414,29 @@ export function TripWorkspace({
 
   return (
     <section className="pf-card pf-workspace" aria-label={t("workspace.label")}>
-      <div className="pf-workspace__head">
+      <div className="pf-view-switch" role="tablist" aria-label={t("workspace.label")}>
+        {([
+          ["map", t("map.label")],
+          ["detail", t("sheet.detail")],
+          ["edit", t("sheet.edit")],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => setView(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="pf-workspace__head" data-compact={view === "detail" ? undefined : "true"}>
         <div className="pf-workspace__title">
           <div className="pf-stack" style={{ gap: 3 }}>
             <div className="pf-row">
               <Heading level={3}>{routeLabel(plan)}</Heading>
               <Badge tone="brand">v{plan.version}</Badge>
-              <Button size="sm" variant={sheet ? "primary" : "secondary"} onClick={() => setSheet((open) => !open)}>
-                {sheet ? t("sheet.detail") : t("sheet.edit")}
-              </Button>
               {updatedIds?.length ? (
                 <Badge tone="success" dot>{t("workspace.updatedCount", { count: updatedIds.length })}</Badge>
               ) : anyStayChanged ? (
@@ -2183,7 +2461,7 @@ export function TripWorkspace({
               onUseful={onUseful}
               onNotUseful={onNotUseful}
             />
-            <StatusSummary plan={plan} />
+            <StatusSummary plan={plan} conflicts={recorded.length} onOpen={openRecord} />
             <span className="pf-version">
               {t("workspace.version")}
               <select value={activeVersion} onChange={(event) => onVersionChange(Number(event.target.value))}>
@@ -2201,7 +2479,7 @@ export function TripWorkspace({
             </span>
           </div>
         </div>
-        {languageNotice}
+        {view === "detail" ? languageNotice : null}
         <div className="pf-workspace__meta">
           <MiniStat icon="calendar" label={t("workspace.dates")} value={t(plan.days.length === 1 ? "workspace.daysOne" : "workspace.days", { count: plan.days.length })} />
           <MiniStat icon="users" label={t("workspace.party")} value={String(plan.party_size)} />
@@ -2222,25 +2500,22 @@ export function TripWorkspace({
             <BannerClose onClose={() => setHideBudget(true)} />
           </div>
         ) : null}
-        {sheet ? (
-          <PlanStudio
+        {view === "map" ? (
+          map ?? <Text size="sm" tone="secondary">{t("map.empty")}</Text>
+        ) : view === "edit" ? (
+          <DirectSheet
             plan={plan}
-            title={routeLabel(plan)}
-            onBack={() => setSheet(false)}
-            backLabel={t("sheet.detail")}
-            note={t("desk.samePlan")}
-            locked={held || !viewingLatest || !onApplyLayout}
-            lockNote={held ? t("sheet.operatorEditing", { name: agentName.trim() || t("chat.liveAgent") }) : ""}
-            paused={paused}
-            pausedNote={pausedNote}
+            activeDay={activeDay}
             canApply={viewingLatest && Boolean(onApplyLayout) && !held && !paused}
             saving={savingSheet}
-            onCommitStop={onCommitStop}
-            onApply={async (items) => {
+            locked={held || !viewingLatest || !onApplyLayout || paused}
+            lockNote={held ? t("sheet.operatorEditing", { name: agentName.trim() || t("chat.liveAgent") }) : paused ? pausedNote : ""}
+            onFocusDay={onFocusDay}
+            onApply={async (items, drops) => {
               if (!onApplyLayout) return;
               setSavingSheet(true);
               try {
-                await onApplyLayout(items);
+                await onApplyLayout(items, drops);
               } finally {
                 setSavingSheet(false);
               }
@@ -2256,6 +2531,7 @@ export function TripWorkspace({
         {multi ? (
           <>
             {groups.map(({ segment, days }) => {
+              if (!days.some((day) => day.date === activeDay)) return null;
               const into = legInto(plan, segment.id);
               const arriving = transferInto(plan, segment.id);
               const leaving = transferOutOf(plan, segment.id);
@@ -2289,7 +2565,7 @@ export function TripWorkspace({
                         }),
                       ),
                     )}
-                    {days.map(renderDay)}
+                    {days.filter((day) => day.date === activeDay).map(renderDay)}
                   </section>
                   {leaving ? renderTransfer(leaving) : null}
                 </Fragment>
@@ -2299,16 +2575,18 @@ export function TripWorkspace({
           </>
         ) : (
           <>
-        {plan.days.map((day, index) => (
+        {plan.days.filter((day) => day.date === activeDay).map((day) => (
           <div key={day.date} ref={(node) => { dayRefs.current[day.date] = node; }}>
             <DaySection
               day={day}
-              index={index}
+              index={plan.days.findIndex((entry) => entry.date === day.date)}
               selectedItemId={selectedItemId}
               updatedIds={new Set(updatedIds ?? [])}
               clashIds={overlapping}
               onSelectItem={(item) => onSelectItem(item)}
               onChooseAlternative={choose ? (item, alternativeId) => choose("item", item.id, alternativeId) : undefined}
+              offers={offers}
+              onDecide={onDecide}
             />
           </div>
         ))}
@@ -2334,8 +2612,25 @@ export function TripWorkspace({
           <Collapsible title={t("workspace.cost")} icon="wallet" defaultOpen>
             <BudgetPanel cost={plan.cost} />
           </Collapsible>
-          <Collapsible title={t("workspace.constraints")} icon="check" badge={<Badge tone={plan.constraints.some((c) => c.status === "fail") ? "danger" : "success"}>{plan.constraints.length}</Badge>}>
+          <Collapsible
+            id="pf-constraints"
+            openToken={openToken.which === "constraints" ? openToken.n : 0}
+            title={t("workspace.constraints")}
+            icon="check"
+            badge={<Badge tone={plan.constraints.some((c) => c.status === "fail") || recorded.length ? "danger" : "success"}>{plan.constraints.length + recorded.length}</Badge>}
+          >
             <ConstraintList checks={plan.constraints} />
+            {recorded.length ? (
+              <div className="pf-stack" style={{ marginTop: 8 }}>
+                <Text size="xs" tone="tertiary">{t("warnings.record")}</Text>
+                {recorded.map((line) => (
+                  <div className="pf-gap" key={line}>
+                    <Icon name="alert" size={13} />
+                    <span>{line}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </Collapsible>
           <Collapsible title={t("workspace.reservations")} icon="ticket" badge={<Badge tone="warning">{plan.reservations.length}</Badge>}>
             {plan.reservations.length ? (
@@ -2369,7 +2664,13 @@ export function TripWorkspace({
             )}
           </Collapsible>
           <PlanAssessmentCard assessment={plan.assessment} onAnswer={onAnswerQuestion} />
-          <Collapsible title={t("workspace.dataSources", { count: unknownGaps })} icon="info" badge={<Badge tone={unknownGaps ? "warning" : "success"} dot>{unknownGaps ? t("workspace.gaps") : t("workspace.complete")}</Badge>}>
+          <Collapsible
+            id="pf-gaps"
+            openToken={openToken.which === "gaps" ? openToken.n : 0}
+            title={t("workspace.dataSources", { count: unknownGaps })}
+            icon="info"
+            badge={<Badge tone={unknownGaps ? "warning" : "success"} dot>{unknownGaps ? t("workspace.gaps") : t("workspace.complete")}</Badge>}
+          >
             <GapList gaps={plan.data_quality.gaps} />
             {(plan.data_quality.freshness ?? []).map((mark) => (
               <div className="pf-gap" key={mark.section}>
@@ -2497,14 +2798,23 @@ export function TraceList({ trace }: { trace: RunTrace }) {
 /** Travel-mode names; `MODE` in maps/geo keeps the colours and icons. */
 export const MODE_LABEL: Record<TravelMode, MessageKey> = {
   walk: "map.mode.walk",
+  cycle: "map.optionCycle",
   metro: "map.mode.metro",
   drive: "map.mode.drive",
   flight: "map.mode.flight",
 };
 
+function modeOf(value: string): TravelMode {
+  if (value === "cycle") return "cycle";
+  if (value === "transit" || value === "metro") return "metro";
+  if (value === "drive" || value === "taxi") return "drive";
+  if (value === "flight") return "flight";
+  return "walk";
+}
+
 function modeMinutes(km: number, mode: TravelMode): number {
-  const speed = mode === "walk" ? 4.5 : mode === "metro" ? 22 : mode === "drive" ? 32 : 620;
-  const overhead = mode === "walk" ? 0 : mode === "metro" ? 8 : mode === "drive" ? 5 : 90;
+  const speed = mode === "walk" ? 4.5 : mode === "cycle" ? 15 : mode === "metro" ? 22 : mode === "drive" ? 32 : 620;
+  const overhead = mode === "walk" || mode === "cycle" ? 0 : mode === "metro" ? 8 : mode === "drive" ? 5 : 90;
   return Math.max(2, Math.round((km / speed) * 60 + overhead));
 }
 
@@ -2519,6 +2829,73 @@ function localClock(zone: string, t: Translate): string {
   } catch {
     return zone;
   }
+}
+
+type LegRef = { fromId: string; toId: string };
+
+type LegChoice = {
+  mode: string;
+  minutes: number;
+  km: number | null;
+  path: [number, number][];
+  steps: MapStep[];
+  source: string;
+};
+
+const legKey = (fromId: string, toId: string) => `${fromId}|${toId}`;
+
+const sameLeg = (left: LegRef | null, right: LegRef) =>
+  left !== null && left.fromId === right.fromId && left.toId === right.toId;
+
+function shiftTime(value: string, delta: number): string {
+  const mins = minutesOf(value);
+  if (mins === null || delta === 0) return value;
+  const next = Math.max(0, Math.min(23 * 60 + 59, mins + delta));
+  return clockText(next);
+}
+
+/** The picked mode replaces that hop. Later stops move by the minute difference. */
+function applyLegChoices(
+  day: DayPlan | undefined,
+  legs: MapLeg[],
+  choices: Record<string, LegChoice>,
+): { day: DayPlan | undefined; legs: MapLeg[] } {
+  const nextLegs = legs.map((leg) => {
+    const choice = choices[legKey(leg.from_id, leg.to_id)];
+    if (!choice) return leg;
+    return {
+      ...leg,
+      mode: choice.mode,
+      minutes: choice.minutes,
+      km: choice.km,
+      path: choice.path,
+      steps: choice.steps,
+      source: choice.source,
+    };
+  });
+  if (!day) return { day, legs: nextLegs };
+  const startOf = new Map(day.items.map((item) => [item.id, minutesOf(item.start) ?? 0]));
+  const deltas = legs.flatMap((leg) => {
+    const choice = choices[legKey(leg.from_id, leg.to_id)];
+    if (!choice || leg.minutes === null) return [];
+    const at = startOf.get(leg.to_id);
+    const delta = choice.minutes - leg.minutes;
+    return at === undefined || delta === 0 ? [] : [{ at, delta }];
+  });
+  if (!deltas.length) return { day, legs: nextLegs };
+  return {
+    day: {
+      ...day,
+      items: day.items.map((item) => {
+        const start = minutesOf(item.start);
+        if (start === null) return item;
+        const delta = deltas.filter((row) => row.at <= start).reduce((sum, row) => sum + row.delta, 0);
+        if (!delta) return item;
+        return { ...item, start: shiftTime(item.start, delta), end: shiftTime(item.end, delta) };
+      }),
+    },
+    legs: nextLegs,
+  };
 }
 
 export function MapPanel({
@@ -2547,13 +2924,17 @@ export function MapPanel({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [follow, setFollow] = useState(true);
-  const [legTarget, setLegTarget] = useState<{ label: string } | null>(null);
+  const [legTarget, setLegTarget] = useState<LegRef | null>(null);
   const [legOptions, setLegOptions] = useState<LegOptions | null>(null);
   const [legLoading, setLegLoading] = useState(false);
   const [legError, setLegError] = useState<string | null>(null);
+  const [hoverLeg, setHoverLeg] = useState<LegRef | null>(null);
+  const [pinnedLeg, setPinnedLeg] = useState<LegRef | null>(null);
+  const [choices, setChoices] = useState<Record<string, LegChoice>>({});
 
-  const openLegOptions = (fromId: string, toId: string, fromName: string, toName: string) => {
-    setLegTarget({ label: `${fromName} → ${toName}` });
+  const openLegOptions = (fromId: string, toId: string) => {
+    setPinnedLeg({ fromId, toId });
+    setLegTarget({ fromId, toId });
     setLegOptions(null);
     setLegError(null);
     setLegLoading(true);
@@ -2588,14 +2969,22 @@ export function MapPanel({
       cancelled = true;
     };
   }, [plan.session_id, plan.trip_id, plan.version, day?.date]);
+  useEffect(() => {
+    setChoices({});
+    setPinnedLeg(null);
+    setHoverLeg(null);
+  }, [plan.trip_id, plan.version, day?.date]);
   const hotel = scope.stay ?? undefined;
   const hotelChanged = Boolean(hotel && changedStayIds?.has(hotel.id));
   const travel = multi && !overview ? travelLine(plan, day?.date ?? plan.dates.start) : null;
   const wholeTrip = multi && overview ? overviewStops(plan) : null;
   const hotelItem = useMemo(() => (hotel ? hotelScopeItem(hotel) : null), [hotel]);
+  const shown = useMemo(() => applyLegChoices(day, legs, choices), [day, legs, choices]);
+  const shownDay = shown.day;
+  const shownLegs = shown.legs;
   const routePoints = useMemo(
-    () => dayRoute(day?.items ?? [], hotelItem),
-    [day, hotelItem],
+    () => dayRoute(shownDay?.items ?? [], hotelItem),
+    [shownDay, hotelItem],
   );
   const points = routePoints;
 
@@ -2622,7 +3011,7 @@ export function MapPanel({
   }, [day]);
 
   const activeItem = useMemo(() => {
-    const items = day?.items ?? [];
+    const items = shownDay?.items ?? [];
     return (
       items.find((item) => {
         const start = minutesOf(item.start);
@@ -2630,10 +3019,10 @@ export function MapPanel({
         return start !== null && start <= clock && (end === null || end > clock);
       }) ?? null
     );
-  }, [day, clock]);
+  }, [shownDay, clock]);
 
   const currentItem = useMemo(() => {
-    const items = day?.items ?? [];
+    const items = shownDay?.items ?? [];
     return (
       activeItem ??
       [...items].reverse().find((item) => {
@@ -2642,7 +3031,7 @@ export function MapPanel({
       }) ??
       null
     );
-  }, [day, clock, activeItem]);
+  }, [shownDay, clock, activeItem]);
 
   const tracker = useMemo<{
     position: [number, number];
@@ -2657,10 +3046,9 @@ export function MapPanel({
     if (!items.length) return null;
 
     const leg = (from: PlanItem, to: PlanItem) => {
-      const real = legs.find((entry) => entry.from_id === from.id && entry.to_id === to.id);
+      const real = shownLegs.find((entry) => entry.from_id === from.id && entry.to_id === to.id);
       if (real) {
-        const mode: TravelMode =
-          real.mode === "transit" ? "metro" : real.mode === "drive" || real.mode === "taxi" ? "drive" : "walk";
+        const mode = modeOf(real.mode);
         return {
           mode,
           label: t("map.legReal", { name: to.name, minutes: real.minutes ?? "?", mode: t(MODE_LABEL[mode]).toLowerCase() }),
@@ -2723,13 +3111,11 @@ export function MapPanel({
       toId: anchor.id,
       progress: 0,
     };
-  }, [timelinePoints, legs, clock, activeItem, t]);
+  }, [timelinePoints, shownLegs, clock, activeItem, t]);
 
   const dayLegs = useMemo(() => {
-    const modeOf = (value: string): TravelMode =>
-      value === "transit" ? "metro" : value === "drive" || value === "taxi" ? "drive" : "walk";
-    if (legs.length) {
-      return legs.map((entry) => ({
+    if (shownLegs.length) {
+      return shownLegs.map((entry) => ({
         from: { id: entry.from_id, name: nameById.get(entry.from_id) ?? t("map.theStay") },
         to: { id: entry.to_id, name: nameById.get(entry.to_id) ?? t("map.theStay") },
         mode: modeOf(entry.mode),
@@ -2756,7 +3142,7 @@ export function MapPanel({
         longWalk: mode === "walk" && modeMinutes(km, mode) > 30,
       };
     });
-  }, [legs, nameById, routePoints, t]);
+  }, [shownLegs, nameById, routePoints, t]);
 
   const legendModes = useMemo(
     () => [...new Set(dayLegs.map((entry) => entry.mode))],
@@ -2764,13 +3150,13 @@ export function MapPanel({
   );
   const specialModes = useMemo(() => {
     const found = new Set<string>();
-    for (const leg of legs) {
+    for (const leg of shownLegs) {
       for (const step of leg.steps ?? []) {
         if (step.mode in SEGMENT_COLOR) found.add(step.mode);
       }
     }
     return [...found];
-  }, [legs]);
+  }, [shownLegs]);
 
   const autoAdvance = useRef(false);
 
@@ -2800,7 +3186,7 @@ export function MapPanel({
       advancing.current = false;
       return;
     }
-    const lastEnd = (day?.items ?? []).reduce((latest, item) => {
+    const lastEnd = (shownDay?.items ?? []).reduce((latest, item) => {
       const end = minutesOf(item.end);
       return end === null ? latest : Math.max(latest, end);
     }, 0);
@@ -2819,13 +3205,13 @@ export function MapPanel({
     autoAdvance.current = true;
     setClock(nextStarts.length ? Math.max(CLOCK_MIN, Math.min(...nextStarts)) : 9 * 60);
     onActiveDay(next.date);
-  }, [clock, playing, day, plan.days, onActiveDay]);
+  }, [clock, playing, day, shownDay, plan.days, onActiveDay]);
 
   return (
     <section className="pf-card pf-map" aria-label={t("map.label")}>
       <TripMap
         plan={plan}
-        day={day}
+        day={shownDay}
         points={points}
         routePoints={routePoints}
         hotel={hotel}
@@ -2838,13 +3224,15 @@ export function MapPanel({
         currentName={currentItem?.name ?? null}
         speed={speed}
         token={tracker}
-        follow={follow && playing}
+        follow={follow && playing && !pinnedLeg && !hoverLeg}
         updatedIds={updatedSet}
         hotelChanged={hotelChanged}
-        legs={legs}
+        legs={shownLegs}
         anchors={anchors}
         overview={wholeTrip}
         travel={travel}
+        focusFromId={(pinnedLeg ?? hoverLeg)?.fromId ?? null}
+        focusToId={(pinnedLeg ?? hoverLeg)?.toId ?? null}
       />
       <div className="pf-map__foot">
         <div className="pf-row pf-row--between">
@@ -2926,7 +3314,21 @@ export function MapPanel({
                 className="pf-route-leg"
                 key={`${entry.from.id}-${entry.to.id}-${index}`}
                 title={t("map.optionsTitle")}
-                onClick={() => openLegOptions(entry.from.id, entry.to.id, entry.from.name, entry.to.name)}
+                data-active={sameLeg(pinnedLeg ?? hoverLeg, { fromId: entry.from.id, toId: entry.to.id })}
+                onMouseEnter={() => {
+                  if (!pinnedLeg) setHoverLeg({ fromId: entry.from.id, toId: entry.to.id });
+                }}
+                onMouseLeave={() => setHoverLeg(null)}
+                onClick={() => {
+                  const next = { fromId: entry.from.id, toId: entry.to.id };
+                  // A second click on the pinned hop releases it and the day route returns.
+                  if (sameLeg(pinnedLeg, next)) {
+                    setPinnedLeg(null);
+                    setLegTarget(null);
+                    return;
+                  }
+                  openLegOptions(next.fromId, next.toId);
+                }}
               >
                 <span className="pf-route-leg__mode" style={{ color: MODE[entry.mode].color }}>
                   {t(MODE_LABEL[entry.mode])}
@@ -3044,8 +3446,48 @@ export function MapPanel({
         </div>
         <PlaceCard item={selected} weather={day?.weather ?? null} onClose={() => onSelectItem(null)} />
       </div>
-      <Dialog open={Boolean(legTarget)} onClose={() => setLegTarget(null)} title={t("map.optionsTitle")}>
-        <TravelOptions data={legOptions} loading={legLoading} error={legError} />
+      <Dialog
+        open={Boolean(legTarget)}
+        onClose={() => setLegTarget(null)}
+        title={t("map.optionsTitle")}
+      >
+        <TravelOptions
+          data={legOptions}
+          loading={legLoading}
+          error={legError}
+          selected={(() => {
+            if (!legTarget) return null;
+            const picked =
+              choices[legKey(legTarget.fromId, legTarget.toId)]?.mode ??
+              shownLegs.find((leg) => leg.from_id === legTarget.fromId && leg.to_id === legTarget.toId)?.mode;
+            if (picked === "metro") return "transit";
+            if (picked === "taxi") return "drive";
+            return picked ?? null;
+          })()}
+          onSelect={(option) => {
+            if (!legTarget || option.minutes === null) return;
+            const key = legKey(legTarget.fromId, legTarget.toId);
+            const baseline = legs.find((leg) => leg.from_id === legTarget.fromId && leg.to_id === legTarget.toId);
+            const previous = choices[key]?.minutes ?? baseline?.minutes ?? option.minutes;
+            const step = option.minutes - previous;
+            const arrival = minutesOf(day?.items.find((item) => item.id === legTarget.toId)?.start);
+            setChoices((current) => ({
+              ...current,
+              [key]: {
+                mode: option.mode,
+                minutes: option.minutes ?? 0,
+                km: option.km,
+                path: option.path ?? [],
+                steps: option.steps ?? [],
+                source: option.source,
+              },
+            }));
+            if (step !== 0 && arrival !== null && clock >= arrival) {
+              setPlaying(false);
+              setClock((value) => Math.min(CLOCK_MAX, Math.max(CLOCK_MIN, value + step)));
+            }
+          }}
+        />
       </Dialog>
     </section>
   );
@@ -3223,12 +3665,12 @@ export function SavedTripsView({
             <button type="button" className="pf-card pf-saved-card" key={trip.id} onClick={() => onOpen?.(trip.id)}>
               <div className="pf-row pf-row--between">
                 <Heading level={4}>{trip.destination}</Heading>
-                <Badge tone="success" dot>{t("saved.useful")}</Badge>
+                <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
               </div>
               <Text size="sm" tone="secondary">{trip.summary}</Text>
               <div className="pf-row pf-row--between">
                 <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
-                <Badge tone="warning">{trip.stars ? `${trip.stars}★` : `${Math.round(trip.rating * 5)}★`}</Badge>
+                {trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
               </div>
             </button>
           ))}

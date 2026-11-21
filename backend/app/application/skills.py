@@ -1,4 +1,4 @@
-"""One skill per writer job. The gateway still asks for a prompt name.
+"""One skill per writer job, plus warn-edit, which the add graph reads by name.
 
 ``modify`` maps to ``edit-itinerary``, and the same for every other prompt name.
 The skill body is the instruction. Notes on how the Python agents search are not
@@ -55,6 +55,8 @@ _PROMPT_SKILLS = {
     "repair": "repair-plan",
     "review": "review-failures",
     "translate": "translate-plan",
+    "reply": "reply-after-edit",
+    "turn-review": "turn-review",
 }
 
 
@@ -89,6 +91,14 @@ def skill_for(prompt: str) -> Skill | None:
 def skill_for_modify() -> Skill | None:
     """The edit skill. The router has already called this turn a change."""
     return skill_for("modify")
+
+
+def skill_by_name(name: str) -> Skill | None:
+    """A skill the add graph reads by the name in its file, not a writer prompt."""
+    for skill in load_skills():
+        if skill.name == name:
+            return skill
+    return None
 
 
 def _frontmatter(text: str) -> tuple[dict[str, str], str]:

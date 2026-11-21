@@ -19,6 +19,7 @@ export interface PinVisual {
 const TOKEN_GLYPH: Record<TravelMode, string> = {
   walk:
     '<circle cx="13" cy="4.5" r="2"/><path d="m10.5 21 2.2-5.4 2.1 2.1V21M9 11.5l3-2.4 3 3 2.5.8M12 9.1 9.8 14"/>',
+  cycle: '<circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/><path d="M7 17 12 8h4.5M12 8 9.5 17M14 8l3 9"/>',
   metro:
     '<rect x="5" y="3.5" width="14" height="13" rx="3"/><path d="M8 20.5l2-4M16 20.5l-2-4M5 10h14M9 6.5h6"/>',
   drive:
@@ -44,6 +45,7 @@ export function pinHtml(visual: PinVisual): string {
 
 const MODE_COLOR: Record<TravelMode, string> = {
   walk: "#7A746B",
+  cycle: "#0369A1",
   metro: "#0B7FA6",
   drive: "#C25A1F",
   flight: "#E08E2B",

@@ -87,6 +87,7 @@ class OpenAICompatibleLLM:
         images: Sequence[ImageInput] | None = None,
         timeout: float | None = None,
         retries: int | None = None,
+        reasoning: str | None = None,
     ) -> LLMResult:
         if not self.available:
             raise ProviderError("No writer model is configured", kind=FailureKind.AUTH, source="llm")
@@ -106,8 +107,12 @@ class OpenAICompatibleLLM:
         }
         if json_mode and self.settings.llm_json_mode:
             payload["response_format"] = {"type": "json_object"}
-        if self._extra:
-            payload["extra_body"] = dict(self._extra)
+        extra = dict(self._extra)
+        effort = (reasoning or "").strip().lower()
+        if effort in {"low", "medium", "high"}:
+            extra["reasoning_effort"] = effort
+        if extra:
+            payload["extra_body"] = extra
 
         started = time.perf_counter()
         data = await self._post(payload, purpose, timeout=timeout, retries=retries)

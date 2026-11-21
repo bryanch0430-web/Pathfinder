@@ -79,6 +79,9 @@ export interface TripMapProps {
   overview?: OverviewStop[] | null;
   /** On a travel day, the line from the city before. */
   travel?: TravelLine | null;
+  /** One hop to draw instead of the whole day. Hover previews it; a click keeps it. */
+  focusFromId?: string | null;
+  focusToId?: string | null;
 }
 
 export function TripMap(props: TripMapProps) {
@@ -105,6 +108,8 @@ export function TripMap(props: TripMapProps) {
     anchors = [],
     overview = null,
     travel = null,
+    focusFromId = null,
+    focusToId = null,
   } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -125,8 +130,10 @@ export function TripMap(props: TripMapProps) {
   const tokenMode = useRef("");
   const followRef = useRef(follow);
   const selectedRef = useRef(selectedItemId);
+  const focusLockRef = useRef(false);
   followRef.current = follow;
   selectedRef.current = selectedItemId;
+  focusLockRef.current = Boolean(focusFromId && focusToId);
   const pinRefs = useRef(new Map<string, { pin: MapPin; item: PlanItem; key: string }>());
   const hotelPinRef = useRef<MapPin | null>(null);
   const routeRef = useRef<{
@@ -252,7 +259,8 @@ export function TripMap(props: TripMapProps) {
     const now = clockRef.current;
 
     const fitId = `${plan.trip_id}:${day?.date ?? ""}`;
-    if (fitKey.current !== fitId) {
+    const focusId = focusFromId && focusToId ? `${focusFromId}|${focusToId}` : "";
+    if (!focusId && fitKey.current !== fitId) {
       fitKey.current = fitId;
       engine.fit(around, [92, 42, 52, 42]);
     }
@@ -276,7 +284,16 @@ export function TripMap(props: TripMapProps) {
         return end === null ? latest : Math.max(latest, end);
       }, 0);
       const modeOf = (value: string): TravelMode =>
-        value === "transit" ? "metro" : value === "drive" || value === "taxi" ? "drive" : "walk";
+        value === "cycle"
+          ? "cycle"
+          : value === "transit" || value === "metro"
+            ? "metro"
+            : value === "drive" || value === "taxi"
+              ? "drive"
+              : value === "flight"
+                ? "flight"
+                : "walk";
+      const focused = Boolean(focusFromId && focusToId);
       const drawn: Array<{
         casing: MapPolyline;
         line: MapPolyline;
@@ -355,6 +372,7 @@ export function TripMap(props: TripMapProps) {
           if (!path) continue;
           const target = itemsById.get(leg.to_id);
           const doneAt = target ? minutesOf(target.start) ?? 0 : lastEnd;
+          if (focused && (leg.from_id !== focusFromId || leg.to_id !== focusToId)) continue;
           draw(path, modeOf(leg.mode), leg.from_id, leg.to_id, doneAt, leg.source, leg.steps ?? []);
         }
       } else {
@@ -362,7 +380,16 @@ export function TripMap(props: TripMapProps) {
           const from = routeGeo[index - 1];
           const to = routeGeo[index];
           const mode = modeForDistance(kmBetween(from.geo, to.geo));
+          if (focused && (from.id !== focusFromId || to.id !== focusToId)) continue;
           draw([from.geo, to.geo], mode, from.id, to.id, minutesOf(to.start) ?? 0, "estimate");
+        }
+      }
+
+      if (focusId && pending.length) {
+        const focusKey = `focus:${fitId}:${focusId}:${pending[0].original.length}`;
+        if (fitKey.current !== focusKey) {
+          fitKey.current = focusKey;
+          engine.fit(pending[0].original, [80, 64, 80, 64]);
         }
       }
 
@@ -545,6 +572,8 @@ export function TripMap(props: TripMapProps) {
     anchors,
     overview,
     travel,
+    focusFromId,
+    focusToId,
   ]);
 
   // --- playback state: restyle pins and legs in place --------------------
@@ -596,14 +625,14 @@ export function TripMap(props: TripMapProps) {
       hotelPinRef.current.setHtml(pinHtml(visual));
     }
 
-    // One route leg at full strength: the one being travelled (or the next one
-    // from the active stop). Everything else recedes so the eye has one line.
-    const active =
-      token && token.moving && token.fromId && token.toId
+    // A hovered or pinned hop stays the line on the map. Otherwise every hop
+    // stays visible; only a moving playback token picks out the hop it is on.
+    const focused = Boolean(focusFromId && focusToId);
+    const active = focused
+      ? { fromId: focusFromId, toId: focusToId }
+      : token && token.moving && token.fromId && token.toId
         ? { fromId: token.fromId, toId: token.toId }
-        : currentItemId
-          ? routeRef.current.legs.find((leg) => leg.fromId === currentItemId) ?? null
-          : null;
+        : null;
     const hasActive = Boolean(active);
     for (const leg of routeRef.current.legs) {
       const done = clock >= leg.doneAt;
@@ -640,12 +669,13 @@ export function TripMap(props: TripMapProps) {
     if (selectedItemId !== lastSelected.current) {
       lastSelected.current = selectedItemId;
       const selected = withGeo.find((item) => item.id === selectedItemId);
-      if (selected) {
+      // A pinned hop owns the camera; selecting a stop must not zoom away from it.
+      if (!focused && selected) {
         engine.panTo(selected.geo);
         engine.setZoom(15);
       }
     }
-  }, [layersBuilt, clock, currentItemId, selectedItemId, updatedIds, hotelChanged, status, points, token]);
+  }, [layersBuilt, clock, currentItemId, selectedItemId, updatedIds, hotelChanged, status, points, token, focusFromId, focusToId]);
 
   // --- playback token ----------------------------------------------------
   useEffect(() => {
@@ -703,11 +733,11 @@ export function TripMap(props: TripMapProps) {
     // One animated pan when a new leg starts; with follow on, the motion loop
     // owns the camera so the two never fight.
     const legKey = `${token.fromId ?? ""}|${token.toId ?? ""}|${token.moving ? "go" : "stay"}`;
-    if (token.moving && legKey !== lastLeg.current && !selectedItemId && !follow) {
+    if (token.moving && legKey !== lastLeg.current && !selectedItemId && !follow && !focusFromId) {
       lastLeg.current = legKey;
       engine.panTo(target);
     }
-  }, [token, follow, speed, status, generation, layersBuilt, legs, selectedItemId]);
+  }, [token, follow, speed, status, generation, layersBuilt, legs, selectedItemId, focusFromId]);
 
   // --- token motion + follow, once per frame, outside React ---------------
   useEffect(() => {
@@ -730,6 +760,7 @@ export function TripMap(props: TripMapProps) {
           tokenPos.current = next;
           if (
             followRef.current &&
+            !focusLockRef.current &&
             !selectedRef.current &&
             !engine.isDragging() &&
             (reduced || now - lastCamera >= 33)

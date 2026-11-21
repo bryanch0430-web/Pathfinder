@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import date
 
 from app.application.llm_gateway import LLMGateway
 from app.application.prompts import PromptLibrary
@@ -35,6 +36,22 @@ def test_two_cities_with_nights_are_stored_in_order(settings: Settings) -> None:
 
     assert [(stop.city, stop.nights) for stop in context.stops] == [("Tokyo", 4), ("Kyoto", None)]
     assert context.destination == "Tokyo"
+
+
+def test_one_later_date_fills_the_end_when_the_start_is_already_set(settings: Settings) -> None:
+    gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
+    context = TripContext(
+        session_id="s",
+        destination="Chiba, Japan",
+        origin="Hong Kong",
+        start_date=date(2027, 3, 6),
+        party_size=2,
+        budget=20000,
+    )
+
+    updated = asyncio.run(understand("Here are the missing details — dates: 2027-03-14.", context, gateway))
+
+    assert (updated.start_date, updated.end_date) == (date(2027, 3, 6), date(2027, 3, 14))
 
 
 def test_one_city_leaves_the_stops_empty(settings: Settings) -> None:

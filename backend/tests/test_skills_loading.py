@@ -1,4 +1,4 @@
-"""The skill files are read once per process, and only the files that steer a writer are in the skills folder."""
+"""The skill files are read once per process. Writer prompts and the add-graph warning skill live in the folder."""
 
 from pathlib import Path
 
@@ -12,12 +12,14 @@ NOT_A_PATH = {
     "weather-forecast",
     "web-search",
 }
+# Read by code on a path. They are not writer prompts.
+PATH_SKILLS = {"review-duration", "warn-edit", "check-reasonable", "read-a-wish", "read-the-stop"}
 
 
 def test_every_skill_in_the_folder_is_a_prompt_skill() -> None:
     names = {skill.name for skill in load_skills()}
 
-    assert names == set(_PROMPT_SKILLS.values())
+    assert names == set(_PROMPT_SKILLS.values()) | PATH_SKILLS
     assert not names & NOT_A_PATH
 
 
@@ -37,7 +39,7 @@ def test_the_files_are_read_once_per_process(monkeypatch) -> None:
         for prompt in _PROMPT_SKILLS:
             assert skill_for(prompt) is not None
         load_skills()
-        assert after_first == len(_PROMPT_SKILLS.values()), reads
+        assert after_first == len(_PROMPT_SKILLS) + len(PATH_SKILLS), reads
         assert len(reads) == after_first, "a later call read the folder again"
         assert first is not None and first.name == "edit-itinerary"
     finally:

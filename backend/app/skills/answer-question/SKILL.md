@@ -31,7 +31,8 @@ The path is already ask. A misspelled name or a name in another language means t
 6. For a listing question ("what museums", "list all stops"), enumerate every `matching_items` row with its day and time.
 7. For "what changed / what was added", use `recent_changes`, especially the latest "Updated to version N" message and its diff, and name the item added, removed or replaced.
 8. `follow_up: true` marks a bare follow-up ("really?", "why?", "how so?"): keep the topic of the previous answer in the earlier conversation instead of describing the whole itinerary.
-9. Two to four sentences, plain professional English, no hype, no emoji.
+9. `visit` is how long the plan already gives that stop (`start`, `end`, `minutes`). Answer with that clock. "How long should I stay at the farm" is this stop, not a hotel. When `web` is also present, add only the usual duration those pages state.
+10. Two to four sentences, plain professional English, no hype, no emoji.
 
 ## Output
 

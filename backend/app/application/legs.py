@@ -112,10 +112,10 @@ async def leg_options_for_plan(
     from_id: str,
     to_id: str,
 ) -> dict[str, Any]:
-    """Walk / cycle / transit / taxi comparison for one leg.
+    """Walk / cycle / transit / taxi for one leg, each with the line the map draws.
 
-    Read-only: it never changes the plan's timing or mode. Google answers where
-    it can; each option says whether it is routed or an estimate.
+    The plan itself is not rewritten here. The map applies the picked mode:
+    that line replaces the hop, and later stop times move by the difference.
     """
     key = f"{plan.trip_id}:{plan.version}:{from_id}:{to_id}"
     cached = _OPTIONS_CACHE.get(key)
@@ -141,25 +141,10 @@ async def leg_options_for_plan(
                     # The provider can answer "no bicycle route"; use the cycle
                     # speed rather than its walking fallback.
                     leg = _option_estimate(origin, destination, mode)
-                return {
-                    "mode": mode,
-                    "minutes": leg.duration_minutes,
-                    "km": round(leg.distance_km, 2) if leg.distance_km is not None else None,
-                    "source": leg.source,
-                    "routed": leg.source == "google-routes",
-                    "ferry": any(step.mode == "ferry" for step in leg.steps),
-                }
+                return _option_payload(mode, leg, routed=leg.source == "google-routes")
             except Exception:
                 pass
-        leg = _option_estimate(origin, destination, mode)
-        return {
-            "mode": mode,
-            "minutes": leg.duration_minutes,
-            "km": round(leg.distance_km, 2) if leg.distance_km is not None else None,
-            "source": leg.source,
-            "routed": False,
-            "ferry": False,
-        }
+        return _option_payload(mode, _option_estimate(origin, destination, mode), routed=False)
 
     options = await asyncio.gather(*(resolve(mode) for mode in ("walk", "cycle", "transit", "drive")))
     payload = {
@@ -244,6 +229,21 @@ def _day_points(plan: TripPlan, day: Any) -> list[tuple[str, GeoPoint, str]]:
             continue
         kept.append(point)
     return kept
+
+
+def _option_payload(mode: str, leg: RouteLeg, *, routed: bool) -> dict[str, Any]:
+    """One how-to-get-there choice, including the line so the map can draw it."""
+    dumped = _dump(leg, from_id="", to_id="")
+    return {
+        "mode": mode,
+        "minutes": dumped["minutes"],
+        "km": dumped["km"],
+        "source": leg.source,
+        "routed": routed,
+        "ferry": any(step.mode == "ferry" for step in leg.steps),
+        "path": dumped["path"],
+        "steps": dumped["steps"],
+    }
 
 
 def _dump(leg: RouteLeg, *, from_id: str, to_id: str) -> dict[str, Any]:

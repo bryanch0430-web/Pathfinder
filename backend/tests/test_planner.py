@@ -230,6 +230,26 @@ def test_named_must_see_opens_the_day_before_the_crowds() -> None:
     assert first.start == "08:00"
 
 
+def test_a_full_draft_still_keeps_the_place_the_traveller_asked_for(
+    settings: Settings, offline_gateway: LLMGateway
+) -> None:
+    from app.application.planner import PlannerAssignment, PlannerDraft
+
+    planner = Planner(offline_gateway, settings, FxService())
+    fillers = [_place(f"p{i}", f"Hall {i}", 36.2, 138.0) for i in range(8)]
+    wish = _place("g", "THE GUNDAM BASE TOKYO", 35.62, 139.78, tags=["requested"])
+    draft = PlannerDraft(
+        assignments=[
+            PlannerAssignment(day_index=0, item_ids=[f"p{i}" for i in range(4)]),
+            PlannerAssignment(day_index=1, item_ids=[f"p{i}" for i in range(4, 8)]),
+        ]
+    )
+    assignment = planner._assign_places([*fillers, wish], 2, draft, pace="balanced")
+    names = [row["name"] for rows in assignment.values() for row in rows]
+    assert "THE GUNDAM BASE TOKYO" in names
+    assert all(len(rows) <= 4 for rows in assignment.values())
+
+
 def test_a_trusted_draft_keeps_uneven_days(settings: Settings, offline_gateway: LLMGateway) -> None:
     from app.application.planner import PlannerAssignment, PlannerDraft
 

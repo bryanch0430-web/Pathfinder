@@ -165,7 +165,8 @@ def run_trip(
 
 
 def reply_of(events: list) -> str:
-    return "".join(event.data["text"] for event in events if event.event == "token")
+    text = "".join(event.data["text"] for event in events if event.event == "token")
+    return text.split("\n\nModels:", 1)[0]
 
 
 def event_of(events: list, name: str) -> dict | None:

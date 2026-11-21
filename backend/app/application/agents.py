@@ -36,6 +36,7 @@ from app.domain.models import (
     utcnow,
 )
 from app.infrastructure.http import classify_exception, haversine_km
+from app.infrastructure.providers.places import GUIDE_RADIUS_KM, NAMED_WISH_RADIUS_KM
 from app.infrastructure.providers.hotels import OVER_BUDGET_NOTE
 
 
@@ -295,7 +296,9 @@ class AttractionAgent(BaseAgent):
                 known = next((place for place in places if _same_place(place, match)), None)
                 match.geo = known.geo if known is not None else None
             if match is not None:
-                await self._locate(request, [match], located)
+                # A wish may sit in another region of the same country. The 80km guide
+                # radius would drop Gundam in Tokyo when Japan geocodes to Nagano.
+                await self._locate(request, [match], located, radius_km=NAMED_WISH_RADIUS_KM)
                 if match.geo is None:
                     failure = located.unchecked.get(match.name)
                     match = None
@@ -309,6 +312,45 @@ class AttractionAgent(BaseAgent):
                 wished.append(match)
                 sources.extend(match.source_refs)
             self._keep_wish(request, wish, match, wish_failures.get(wish))
+
+        # The generic list was searched around the destination centre. When the wish
+        # is outside that neighbourhood, that list is the wrong city: search again
+        # around the wish and build the day there. The wish itself is still placed first.
+        anchor = next(
+            (
+                place
+                for place in wished
+                if place.geo is not None
+                and haversine_km(
+                    request.destination.geo.lat,
+                    request.destination.geo.lng,
+                    place.geo.lat,
+                    place.geo.lng,
+                )
+                > GUIDE_RADIUS_KM
+            ),
+            None,
+        )
+        if anchor is not None:
+            for source in self.registry.places:
+                if not getattr(source, "available", True):
+                    continue
+                try:
+                    results = await self._call(
+                        request,
+                        "places.search",
+                        source.search,
+                        destination=request.context.destination,
+                        geo=anchor.geo,
+                        category="attraction",
+                        limit=wanted,
+                    )
+                except (ProviderError, asyncio.TimeoutError, Exception):
+                    continue
+                if results:
+                    places = _merge_places(results)
+                    sources.extend(ref for place in results for ref in place.source_refs)
+                    break
 
         places = _choose_places(places, wished, limit=wanted)
         # A guide place that came back located another way (the traveller named it, and a place source gave its
@@ -394,7 +436,9 @@ class AttractionAgent(BaseAgent):
             started=started,
         )
 
-    async def _locate(self, request: AgentContext, places: list[PlaceCandidate], found: Located) -> None:
+    async def _locate(
+        self, request: AgentContext, places: list[PlaceCandidate], found: Located, *, radius_km: float = GUIDE_RADIUS_KM
+    ) -> None:
         """Geocode each place without coordinates (a logged tool call per place), recording the outcome in `found`.
 
         `unplaced` are the names the geocoder answered for with nothing, or with a place
@@ -428,8 +472,8 @@ class AttractionAgent(BaseAgent):
                     continue
                 location = None  # a no-result answer: the geocoder knows no such place. It did not fail.
             found.streak = 0
-            # 80 km: the radius the guide source keeps a listing within.
-            if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= 80:
+            # `radius_km` is the guide radius, or the wider wish radius for a place the traveller named.
+            if location is not None and haversine_km(centre.lat, centre.lng, location.geo.lat, location.geo.lng) <= radius_km:
                 place.geo = location.geo
                 self._keep(request, [place])
                 # Asked about again (a place the traveller named): an earlier miss no longer stands.

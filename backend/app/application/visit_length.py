@@ -53,5 +53,14 @@ def visit_minutes(
     return minutes
 
 
+def minimum_minutes(name: str, source_types: list[str] | None = None) -> int | None:
+    """The table's shortest visit for this stop, or None when the table has no minimum."""
+    kind = kind_of(name, source_types)
+    if kind is None:
+        return None
+    floor = _kinds()[kind].get("min")
+    return int(floor) if floor else None
+
+
 def unclassified(name: str, source_types: list[str] | None = None) -> bool:
     return kind_of(name, source_types) is None

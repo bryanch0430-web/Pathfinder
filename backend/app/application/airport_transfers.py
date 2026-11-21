@@ -387,8 +387,13 @@ def outside_transfer(plan: TripPlan, day_index: int, start: str, end: str, name:
     return None
 
 
-def dropped_hand_edit(before: TripPlan, after: TripPlan) -> str | None:
-    """A stop the airport transfer removed after a hand edit. The save must be refused so the stop does not vanish."""
+def dropped_hand_edit(
+    before: TripPlan, after: TripPlan, *, allowed: set[str] | None = None
+) -> str | None:
+    """A stop the airport transfer removed after a hand edit. The save must be refused so the stop does not vanish.
+
+    ``allowed`` are stops the traveller removed on purpose (the cross on a block). Those are not a refusal.
+    """
     prior = set(before.data_quality.notes)
     fresh = [note for note in after.data_quality.notes if note not in prior and "was left out of" in note]
     if fresh:
@@ -403,7 +408,8 @@ def dropped_hand_edit(before: TripPlan, after: TripPlan) -> str | None:
             and getattr(item.type, "value", str(item.type)) not in ("transit", "ticket", "hotel")
         }
 
-    if kept(before) - kept(after):
+    gone = kept(before) - kept(after) - set(allowed or ())
+    if gone:
         return "That stop would fall outside the flight, so it stays where it was."
     return None
 

@@ -68,6 +68,29 @@ def test_seeing_gundam_is_a_wish_not_a_city(settings: Settings) -> None:
     assert updated.origin == ""
 
 
+def test_lowercase_gundam_is_a_wish_and_not_the_departure_city() -> None:
+    from app.application.understanding import PlaceGrounding, understand_note
+    class Gateway:
+        available = True
+
+        async def json(self, prompt, *, user, purpose):
+            assert "must-see: Gundam" in user
+            return {"destination": "Japan", "origin": "Japan"}
+
+    context = TripContext(session_id="s")
+    updated = asyncio.run(understand("I want to go japan to see gundam", context, Gateway()))
+    assert updated.destination == "Japan"
+    assert updated.origin == ""
+    assert "must-see: Gundam" in updated.preferences
+    note = understand_note(
+        context,
+        updated,
+        PlaceGrounding(suggestions=[("destination", "Japan", "Japan")]),
+    )
+    assert note.startswith("Destination Japan. Wish must-see: Gundam. Confirm Japan as Japan")
+    assert "Still missing" in note
+
+
 def test_a_question_with_no_plan_is_answered_from_a_lookup(settings: Settings) -> None:
     from types import SimpleNamespace
 

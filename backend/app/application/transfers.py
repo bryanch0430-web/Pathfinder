@@ -126,19 +126,6 @@ def with_transfer_note(notes: str, transfer: TransferLeg | None, *, meal: bool =
     return f"{base} {sentence}".strip()[:700] if sentence else base[:700]
 
 
-def _minutes(value: str) -> int:
-    hours, minutes = value.split(":")
-    return int(hours) * 60 + int(minutes)
-
-
-def _hhmm(minutes: int) -> str:
-    return f"{minutes // 60:02d}:{minutes % 60:02d}"
-
-
-def _round5(minutes: int) -> int:
-    return -(-minutes // 5) * 5
-
-
 def _signature(items: list[PlanItem]) -> list[tuple]:
     return [
         (item.id, (item.geo.lat, item.geo.lng) if item.geo else None, item.start, item.end)
@@ -158,10 +145,8 @@ async def refresh_transfers(
 
     Only days whose stops, places or times changed are touched. A transfer whose
     previous stop or coordinates changed is fetched again (one logged call per
-    day), and a stop that now starts before the previous stop's end plus the
-    transfer is moved later, with the rest of the day after it. A day that would
-    then end after 23:30, or would move a locked or confirmed stop, keeps its
-    times. Returns the names of stops that were moved.
+    day). A stop that shares a clock with another is left where it is; the page
+    shows that as a warning. Returns the names of stops that were moved.
     """
     old_geo: dict[str, GeoPoint | None] = {}
     old_days: list[list[tuple]] = []
@@ -207,32 +192,8 @@ async def refresh_transfers(
 
 
 def _push_later(ordered: list[PlanItem], buffer: int) -> list[str]:
-    times: list[tuple[int, int]] = []
-    previous_end: int | None = None
-    changed = False
-    for item in ordered:
-        start, end = _minutes(item.start), _minutes(item.end)
-        if previous_end is not None and item.transfer is not None:
-            earliest = previous_end + item.transfer.minutes + item.transfer.delay_minutes + buffer
-            if start < earliest:
-                if item.locked or item.confirmed:
-                    return []
-                shift = _round5(earliest) - start
-                start, end = start + shift, end + shift
-                changed = True
-        elif previous_end is not None and start < previous_end:
-            if item.locked or item.confirmed:
-                return []
-            shift = previous_end - start
-            start, end = start + shift, end + shift
-            changed = True
-        times.append((start, end))
-        previous_end = end
-    if not changed or times[-1][1] > LATEST_END:
-        return []
-    moved: list[str] = []
-    for item, (start, end) in zip(ordered, times):
-        if (item.start, item.end) != (_hhmm(start), _hhmm(end)):
-            item.start, item.end = _hhmm(start), _hhmm(end)
-            moved.append(item.name)
-    return moved
+    # ponytail: overlapping clocks are kept. The old slide (push the later stop
+    # past the previous end, or past the transfer) is what made a chosen overlap
+    # disappear on save. buffer is unused until a caller asks to pack the day again.
+    del ordered, buffer
+    return []

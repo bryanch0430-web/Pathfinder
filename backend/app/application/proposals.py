@@ -52,6 +52,67 @@ def mark_decision(changes: list[dict[str, Any]], change_id: str, accept: bool) -
     return change
 
 
+def move_choices(plan: TripPlan, item: PlanItem, day_number: int) -> list[dict[str, Any]]:
+    """Ways to put this stop on a full day. The first keeps every other stop. The rest replace one."""
+    kept = _place_after_last(plan, item, day_number)
+    return ([kept] if kept else []) + swap_suggestions(plan, item, day_number)
+
+
+def _minutes(value: str) -> int:
+    hour, minute = str(value).split(":", 1)
+    return int(hour) * 60 + int(minute)
+
+
+def _clock(minutes: int) -> str:
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+#: Same ceiling as a re-timed day: nothing is offered past 23:30.
+_LATEST = 23 * 60 + 30
+
+
+def _place_after_last(plan: TripPlan, item: PlanItem, day_number: int) -> dict[str, Any] | None:
+    """Put the stop after the last one on that day. The other stops stay. The traveller still ticks it."""
+    if not 1 <= day_number <= len(plan.days):
+        return None
+    try:
+        duration = max(30, _minutes(item.end) - _minutes(item.start))
+    except (ValueError, AttributeError):
+        duration = 90
+    ends = []
+    for other in plan.days[day_number - 1].items:
+        if other.id == item.id or not other.end:
+            continue
+        try:
+            ends.append(_minutes(other.end))
+        except (ValueError, AttributeError):
+            continue
+    start = max(ends) if ends else 9 * 60
+    end = start + duration
+    note = ""
+    if end > _LATEST:
+        end = _LATEST
+        if end - start < 30:
+            return None
+        note = f" The visit is shortened so it ends by {_clock(_LATEST)}."
+    moved = item.model_copy(deep=True)
+    moved.start, moved.end, moved.transfer = _clock(start), _clock(end), None
+    late = " The day runs past 21:00." if end > 21 * 60 else ""
+    return {
+        "id": f"place-{item.id}",
+        "label": (
+            f"Put {item.name} on Day {day_number} at {moved.start}–{moved.end}, and keep the other stops"
+        ),
+        "detail": (
+            f"Day {day_number} has no free gap, so {item.name} would follow the last stop.{late}{note}"
+        ),
+        "status": "pending",
+        "group": f"swap-{item.id}-{day_number}",
+        "puts": [{"day": day_number, "item": moved.model_dump(mode="json")}],
+        "drops": [],
+    }
+
+
 def swap_suggestions(plan: TripPlan, item: PlanItem, day_number: int) -> list[dict[str, Any]]:
     """The day has no free time. One suggestion per unlocked stop: this stop takes its hours, and that stop goes."""
     if not 1 <= day_number <= len(plan.days):
@@ -135,8 +196,10 @@ def _whole_edit(new: TripPlan, summary: str) -> dict[str, Any]:
 
 
 def review_tier(old: TripPlan, new: TripPlan, changes: list[dict[str, Any]]) -> str:
-    """What the edit asks of the traveller: ``direct`` (nothing, it changed one stop or nothing), ``stops`` (a tick for
-    each of several changes to stops) or ``whole`` (one whole-edit, it was more than stops)."""
+    """How big the edit is: ``direct`` (nothing, or one stop), ``stops`` (several stop changes) or ``whole``.
+
+    The chat holds every non-empty change for a tick. This label does not write the plan.
+    """
     if not is_stops_only(old, new):
         return "whole"
     if not changes:
@@ -365,20 +428,36 @@ _CLOCK = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _DERIVED_ROWS = ("transit", "ticket", "hotel")
 
 
-def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
+def apply_layout(
+    plan: TripPlan, moves: list[dict[str, Any]], drops: list[str] | None = None
+) -> TripPlan:
     """Move stops to the day and times the traveller set in the grid. Unlisted rows stay put.
 
-    A ``ValueError`` with a sentence the page can show refuses a layout that would break the plan: a locked or confirmed
-    stop that moves, a travel, ticket or hotel row that moves, a stop on a day of another city, two items that overlap,
-    a stop before the flight opens the day or after it closes the day.
+    ``drops`` are stops the traveller removed in the grid. A ``ValueError`` with a sentence the page can show refuses
+    a layout that would break the plan: a locked or confirmed stop that moves or is removed, a travel, ticket or hotel
+    row that moves, a stop on a day of another city, or a stop before the flight opens the day or after it closes the
+    day. Two stops may share a clock; the page warns and still saves.
     Transfers between stops are worked out again by the caller.
     """
     home: dict[str, tuple[int, Any]] = {}
     for index, day in enumerate(plan.days, start=1):
         for item in day.items:
             home[item.id] = (index, item)
+    drop_ids = {str(item_id) for item_id in (drops or []) if str(item_id)}
+    for item_id in drop_ids:
+        found = home.get(item_id)
+        if found is None:
+            raise ValueError("One of those stops is no longer in the plan.")
+        _, item = found
+        kind = getattr(item.type, "value", str(item.type))
+        if kind in _DERIVED_ROWS:
+            raise ValueError(f"{item.name} is a {kind} row; it follows the trip and cannot be removed by hand.")
+        if item.locked or item.confirmed:
+            raise ValueError(f"{item.name} is locked or confirmed; unlock it before removing it.")
     wanted: dict[str, tuple[int, str, str, str]] = {}
     for move in moves:
+        if str(move.get("id") or "") in drop_ids:
+            continue
         item_id = str(move.get("id") or "")
         found = home.get(item_id)
         if found is None:
@@ -408,9 +487,12 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         if blocked:
             raise ValueError(blocked)
         wanted[item_id] = (target, start, end, new_name if new_name and new_name != item.name else "")
-    if not wanted:
+    if not wanted and not drop_ids:
         return plan
     updated = plan.model_copy(deep=True)
+    if drop_ids:
+        for day in updated.days:
+            day.items = [item for item in day.items if item.id not in drop_ids]
     taken = []
     for day in updated.days:
         stay = []
@@ -428,12 +510,6 @@ def apply_layout(plan: TripPlan, moves: list[dict[str, Any]]) -> TripPlan:
         updated.days[target - 1].items.append(item)
     for day in updated.days:
         day.items.sort(key=lambda item: item.start)
-    touched = {home[item_id][0] - 1 for item_id in wanted} | {target - 1 for target, _, _, _ in wanted.values()}
-    for index in sorted(touched):
-        day = updated.days[index]
-        for previous, current in zip(day.items, day.items[1:]):
-            if current.start < previous.end:
-                raise ValueError(f"{previous.name} and {current.name} would overlap on {day.date}")
     updated.version = plan.version + 1
     updated.change_summary = "Direct edit"
     updated.updated_at = utcnow()

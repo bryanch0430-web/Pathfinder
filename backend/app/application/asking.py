@@ -29,6 +29,27 @@ QUALITY_WORDS = (
     r"\b(good|great|worth|best|recommend|recommended|review|reviews|rating|rated|"
     r"famous|known for|why|should i|any good|is it|popular|signature|speciality|specialty)\b"
 )
+#: "Which hotel am I staying at?" is a hotel. A flight or a train is travel, not a visit length.
+_HOTEL_TOPIC = r"\b(?:hotel|hostel|room|check[- ]?in|check[- ]?out|flight|flights|train)\b"
+
+
+def _asks_visit_length(question: str) -> bool:
+    """The question is how long to spend at a place already on the plan.
+
+    "Stay" in that sentence is the visit. A hotel, a room, or a flight is not.
+    """
+    lower = (question or "").lower()
+    if re.search(_HOTEL_TOPIC, lower):
+        return False
+    if re.search(r"\b(?:get to|travel time|how far|walk|from the hotel|from the station)\b", lower):
+        return False
+    if re.search(r"\b(?:duration|how many times?|how much time|how many hours?|how many minutes)\b", lower):
+        return True
+    if re.search(r"\bhow long\b", lower) and re.search(r"\b(?:stay|spend|visit|there|at)\b", lower):
+        return True
+    return re.search(r"\b(?:stay|spend)\b.{0,40}\b(?:at|there)\b", lower) is not None
+
+
 #: a follow-up that only makes sense against the previous answer
 FOLLOW_UP_WORDS = (
     r"^\s*(really|why|how come|and|so|hmm|sure|ok|okay|right|go on|continue|"
@@ -100,6 +121,14 @@ def _forecast_unavailable(failure: ProviderError) -> str:
     return f"{text} Asking again later may work." if failure.retryable else text
 
 
+def _records_an_edit(message: Any) -> bool:
+    """A saved edit reply. The spoken text may be the model's; the facts live on the message."""
+    if "Updated to version" in str(getattr(message, "content", "")):
+        return True
+    meta = getattr(message, "meta", None) or {}
+    return bool(meta.get("edit_facts"))
+
+
 class AskPath:
     def __init__(self, *, gateway: LLMGateway, registry: Any, settings: Settings):
         self.gateway = gateway
@@ -126,8 +155,7 @@ class AskPath:
             updates = [
                 message
                 for message in (history or [])
-                if getattr(message, "role", "") == "assistant"
-                and "Updated to version" in str(getattr(message, "content", ""))
+                if getattr(message, "role", "") == "assistant" and _records_an_edit(message)
             ]
             if updates:
                 return str(updates[-1].content), True, "plan"
@@ -177,6 +205,7 @@ class AskPath:
                 and "web" not in facts
                 and getattr(self.registry, "web", None)
             )
+            or (_asks_visit_length(question) and getattr(self.registry, "web", None))
         )
         # A numeric distance for the selected stop is answered from the numbers
         # themselves; a writer that opens with "the plan does not contain the
@@ -191,7 +220,7 @@ class AskPath:
         # A question about a section the plan does not have is answered by the
         # recorded reason, not by the writer guessing around it. A distance
         # question still gets its numbers, with the missing hotel named.
-        if facts.get("missing") and "distances" not in facts:
+        if facts.get("missing") and "distances" not in facts and "visit" not in facts:
             return _fallback_answer(facts, "plan"), related, "plan"
         if facts and not needs_live_tool:
             text = await self._phrase(question, plan, facts, "plan", conversation, scope_item_id=scope_item_id)
@@ -211,7 +240,10 @@ class AskPath:
             # web results and place detail, but not for an anonymous "tool" blob.
             named = {"web", "web_answer", "place_detail"}
             key = tool_name if tool_name in named else "tool"
-            text = await self._phrase(question, plan, {key: tool_result}, source or tool_name, conversation, scope_item_id=scope_item_id)
+            payload = {key: tool_result}
+            if facts.get("visit"):
+                payload["visit"] = facts["visit"]
+            text = await self._phrase(question, plan, payload, source or tool_name, conversation, scope_item_id=scope_item_id)
             return text, related, source or tool_name
         if facts:
             text = await self._phrase(question, plan, facts, "plan", conversation, scope_item_id=scope_item_id)
@@ -278,7 +310,12 @@ class AskPath:
                 except Exception as exc:
                     return "weather", {"unavailable": _forecast_unavailable(classify_exception(exc, "weather"))}, "weather"
         scoped_dist = _scoped_item(plan, scope_item_id)
-        if re.search(DISTANCE_WORDS, lower) and self.registry.routes and scoped_dist is None:
+        if (
+            re.search(DISTANCE_WORDS, lower)
+            and not _asks_visit_length(question)
+            and self.registry.routes
+            and scoped_dist is None
+        ):
             points = _two_points(plan, question)
             if points:
                 source = self.registry.routes[0]
@@ -287,6 +324,19 @@ class AskPath:
                     return "route", leg.model_dump(mode="json"), source.name
                 except Exception:
                     return "route", None, "route"
+        if plan is not None and _asks_visit_length(question) and getattr(self.registry, "web", None):
+            # "How long should I stay at the farm" is a duration page, not a hotel and not a review.
+            item = _scoped_item(plan, scope_item_id) or _find_item(plan, question, scope_item_id)
+            if item is not None:
+                try:
+                    rows, source_name = await self._first_web_rows(
+                        toolbox,
+                        query=f"{item.name} recommended visit duration"[:128],
+                        question=question[:128],
+                    )
+                    return "web", rows, source_name or "web"
+                except Exception:
+                    return "web", [], "web"
         if re.search(HOURS_WORDS, lower):
             item = _find_item(plan, question)
             if item:
@@ -524,7 +574,8 @@ def _plan_facts(
         ]
         if weather:
             facts["weather"] = weather
-    if re.search(r"\b(hotel|stay|room|check[- ]?in|check[- ]?out)\b", lower) and plan.hotels:
+    visit = _asks_visit_length(question)
+    if re.search(r"\b(hotel|stay|room|check[- ]?in|check[- ]?out)\b", lower) and plan.hotels and not visit:
         facts["hotel"] = plan.first_stay.model_dump(mode="json")
     if re.search(r"\b(flight|fly|train|ticket|depart|arrive)\b", lower) and plan.tickets:
         facts["tickets"] = [ticket.model_dump(mode="json") for ticket in plan.tickets]
@@ -539,7 +590,7 @@ def _plan_facts(
     # A question about a section the plan does not have should name the reason
     # the source failed, not just say "the plan does not contain it".
     missing: list[str] = []
-    if re.search(r"\b(hotel|stay|room|check[- ]?in)\b", lower) and not plan.hotels:
+    if re.search(r"\b(hotel|stay|room|check[- ]?in)\b", lower) and not plan.hotels and not visit:
         missing.append("hotel")
     if re.search(r"\b(flight|fly|ticket|train|depart|arrive)\b", lower) and not plan.tickets:
         missing.append("tickets")
@@ -567,6 +618,10 @@ def _plan_facts(
         if re.search(r"\b(this|that|it|here)\b", lower):
             facts["about_selected"] = True
 
+    if visit:
+        named = _scoped_item(plan, scope_item_id) or _find_item(plan, question, scope_item_id)
+        if named is not None:
+            facts["visit"] = _visit_clock(plan, named)
     item = _find_item(plan, question, scope_item_id)
     if item and (
         scope_item_id
@@ -598,7 +653,14 @@ def _plan_facts(
             role = getattr(message, "role", "")
             content = strip_fence_tags(str(getattr(message, "content", "")))[:500]
             meta = getattr(message, "meta", {}) or {}
-            recent.append({"role": role, "content": content, "diff": meta.get("diff")})
+            recent.append(
+                {
+                    "role": role,
+                    "content": content,
+                    "diff": meta.get("diff"),
+                    "edit_facts": meta.get("edit_facts") or "",
+                }
+            )
         facts["recent_changes"] = recent
 
     if not facts and plan.destination.name.lower() in lower:
@@ -609,6 +671,30 @@ def _plan_facts(
             "summary": plan.summary,
         }
     return facts
+
+
+def _visit_clock(plan: TripPlan, item: Any) -> dict[str, Any]:
+    """The hours the plan already gives this stop. That is the answer a duration question can state."""
+    day_number = 1
+    for index, day in enumerate(plan.days, start=1):
+        if any(row.id == item.id for row in day.items):
+            day_number = index
+            break
+    minutes = None
+    try:
+        start_h, start_m = item.start.split(":")
+        end_h, end_m = item.end.split(":")
+        minutes = (int(end_h) * 60 + int(end_m)) - (int(start_h) * 60 + int(start_m))
+    except (AttributeError, ValueError):
+        minutes = None
+    return {
+        "name": item.name,
+        "day": day_number,
+        "start": item.start,
+        "end": item.end,
+        "minutes": minutes,
+        "opening_hours": list(item.opening_hours) if getattr(item, "hours_status", "") == "stated" else [],
+    }
 
 
 def _matching_items(plan: TripPlan, lower: str) -> list[dict] | None:
@@ -991,6 +1077,16 @@ def _fallback_answer(facts: dict, source: str) -> str:
                 "no rating or summary for it."
             )
         return f"{detail.get('name')} — " + " — ".join(bits) + f" ({source})."
+    if "visit" in facts:
+        visit = facts["visit"]
+        span = ""
+        minutes = visit.get("minutes")
+        if isinstance(minutes, int) and minutes > 0:
+            span = f", {minutes // 60} h {minutes % 60} min".replace(" 0 min", "")
+        return (
+            f"The plan has {visit.get('name')} on day {visit.get('day')} "
+            f"from {visit.get('start')} to {visit.get('end')}{span}."
+        )
     if "missing" in facts:
         missing = facts["missing"]
         sections = ", ".join(missing.get("sections") or [])
@@ -1039,7 +1135,11 @@ def _fallback_answer(facts: dict, source: str) -> str:
     if "recent_changes" in facts:
         changes = [
             row for row in facts["recent_changes"]
-            if row.get("role") == "assistant" and "Updated to version" in str(row.get("content", ""))
+            if row.get("role") == "assistant"
+            and (
+                "Updated to version" in str(row.get("content", ""))
+                or row.get("edit_facts")
+            )
         ]
         if changes:
             return changes[-1]["content"]

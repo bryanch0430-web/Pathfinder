@@ -17,6 +17,7 @@ from typing import Any, Sequence
 from pydantic import BaseModel, Field
 
 from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_candidate_limit
+from app.application.apply_graph import run_apply
 from app.application.day_rewrite import (
     rewrite_days,
     should_rewrite,
@@ -53,7 +54,7 @@ from app.application.router import (
 )
 from app.application.toolbox import Toolbox
 from app.application.transfers import LATEST_END, refresh_transfers, with_transfer_note
-from app.application.proposals import locks_to_one_row, swap_suggestions
+from app.application.proposals import locks_to_one_row, move_choices
 from app.application.ranking import _price_level
 from app.application.route_edit import MULTI_CITY_RULES, RouteChange, SplitStay, route_differs, rule_route_change
 from app.application.trip_rules import blocked_dates, travel_windows
@@ -243,6 +244,7 @@ class EditResult(tuple):
     selected: bool
     asks: EditQuestion | None
     offers: list
+    hold: bool
 
     def __new__(
         cls,
@@ -254,10 +256,12 @@ class EditResult(tuple):
         selected: bool = False,
         asks: EditQuestion | None = None,
         offers: list | None = None,
+        hold: bool = False,
     ):
         result = super().__new__(cls, (plan, diff))
         result.scope, result.day, result.selected, result.asks = scope, day, selected, asks
         result.offers = list(offers or [])
+        result.hold = hold
         return result
 
 
@@ -325,6 +329,11 @@ class ModifyPath:
         if replanning and form_is_a_trip and new_range == plan.dates and not form_changes:
             # The page's own message needs no writer to be read when the form holds nothing the plan does not.
             return _nothing_differs(plan)
+        exclusive = exclusive_day_edit(plan, message)
+        if exclusive is not None:
+            # "Whole day for Ocean Park, no other attractions": one tick per removal and one for the long clock.
+            # Read here, before the writer, so a "remove" guess cannot delete the place they named.
+            return exclusive
         draft = await self._extract(
             message, plan, context, route_parts, history=history, scope_item_id=scope_item_id
         )
@@ -886,18 +895,30 @@ class ModifyPath:
                 updated.data_quality.gaps.append(_gap("attractions", sentence))
         elif skill_op == "move":
             day_number = _move_day(message, draft.target_day)
-            moved, sentence = _move_named(updated, skill_place, day_number)
+            meant = _stop_the_words_mean(updated, draft, skill_place, message)
+            place = meant.name if meant is not None else skill_place
+            if not place:
+                named_stop = _stop_named_on_plan(updated, message)
+                place = named_stop.name if named_stop is not None else ""
+            moved, sentence = _move_named(updated, place, day_number, _part_named(draft, message))
             if moved:
                 draft.description = sentence
             else:
-                updated.data_quality.gaps.append(_gap("attractions", sentence))
                 if day_number and "no free time slot" in sentence:
-                    found = next(
-                        (item for _, item in updated.iter_items() if _matches_name(item.name, skill_place)),
-                        None,
-                    )
+                    found = meant
+                    if found is None:
+                        found = next(
+                            (item for _, item in updated.iter_items() if _matches_name(item.name, place)),
+                            None,
+                        )
                     if found is not None:
-                        move_offers = swap_suggestions(updated, found, day_number)
+                        move_offers = move_choices(updated, found, day_number)
+                        if move_offers:
+                            sentence = (
+                                f"Day {day_number} has no free gap, so nothing is written yet and the itinerary "
+                                f"stayed as it was. Tick a suggestion to put {found.name} on that day anyway."
+                            )
+                updated.data_quality.gaps.append(_gap("attractions", sentence))
         elif shape.requested and referred is None:
             draft.description = shape.reason or apply_plan_shape(updated, shape)
         elif AgentName.ATTRACTION in agent_names:
@@ -919,12 +940,16 @@ class ModifyPath:
                         place=named or None,
                     ) or places
                 before_add = {item.id for _, item in updated.iter_items()}
-                added = _add_attractions(updated, places, message, day=day_scope, named=named or None)
+                added, warnings = run_apply(
+                    updated, places, message, day=day_scope, named=named or None
+                )
+                for text in warnings:
+                    updated.data_quality.gaps.append(_gap("attractions", text))
                 if added and more_stops:
                     draft.description = _added_sentence(updated, before_add)
                 if not added and _lookup_limit(toolbox, places):
                     updated.data_quality.gaps.append(_limit_gap("attractions"))
-                elif not added:
+                elif not added and not warnings:
                     wanted = [
                         word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())
                     ]
@@ -980,58 +1005,72 @@ class ModifyPath:
                             )
                         )
                     else:
-                        wanted_text = named or _requested_alternative_text(message)
-                        if wanted_text and _is_a_wish(wanted_text):
+                        named_stop = _stop_the_message_names(updated, message)
+                        if named_stop is not None:
+                            day, target_item = named_stop
+                        if _is_a_long_visit(message):
+                            # "disneyland for a whole day, not just 2 hour" is a longer visit,
+                            # not a search for a place called "a whole day, not just 2 hour".
+                            sentence, warnings = _give_a_long_visit(updated, day, target_item)
+                            draft.description = sentence
+                            for text in warnings:
+                                updated.data_quality.gaps.append(_gap("attractions", text))
                             wanted_text = None
-                        cuisine = _cuisine(message)
-                        replaced = _replace_target(
-                            updated,
-                            places,
-                            meals,
-                            (day, target_item),
-                            message,
-                            distance_aware=_FAR_MOTION.search(message) is not None,
-                            prefer_name=wanted_text,
-                            cuisine=cuisine,
-                            cheaper=cheaper,
-                        )
-                        closure = _CLOSURE.search(message) is not None
-                        # The search the cap refused found nothing because it was never made.
-                        limited = not replaced and _lookup_limit(toolbox, meals if cuisine else places)
-                        if closure:
-                            # A reported closure is a disruption on the plan's record,
-                            # whether or not a replacement was found.
-                            updated.disruptions.append(
-                                Disruption(
-                                    kind="closure",
-                                    summary=f"{before} was reported closed.",
-                                    affected_item_ids=[target_item.id],
-                                    resolution=(
-                                        f"Replaced with {target_item.name}." if replaced
-                                        else f"{TOOL_LIMIT_MESSAGE} The stop is still in the plan." if limited
-                                        else "No verified alternative came back; the stop is still in the plan."
-                                    ),
-                                    resolved=replaced,
-                                )
-                            )
-                        if replaced:
-                            draft.description = f"Replaced {before} with {target_item.name}."
-                        elif limited:
-                            updated.data_quality.gaps.append(_limit_gap("attractions"))
+                            cuisine = None
+                            replaced = True
                         else:
-                            if cuisine:
-                                outcome = f"No verified {cuisine} restaurant came back, so {before} stayed as it was."
-                            else:
-                                if cheaper and not wanted_text:
-                                    detail = f"No cheaper verified place came back for {before}"
-                                elif wanted_text:
-                                    detail = f"I could not find a verified {wanted_text!r} in the configured sources"
-                                else:
-                                    detail = (
-                                        f"No verified alternative for {before!r} came back from the configured sources"
+                            wanted_text = named or _requested_alternative_text(message)
+                            if wanted_text and _is_a_wish(wanted_text):
+                                wanted_text = None
+                            cuisine = _cuisine(message)
+                            replaced = _replace_target(
+                                updated,
+                                places,
+                                meals,
+                                (day, target_item),
+                                message,
+                                distance_aware=_FAR_MOTION.search(message) is not None,
+                                prefer_name=wanted_text,
+                                cuisine=cuisine,
+                                cheaper=cheaper,
+                            )
+                            closure = _CLOSURE.search(message) is not None
+                            # The search the cap refused found nothing because it was never made.
+                            limited = not replaced and _lookup_limit(toolbox, meals if cuisine else places)
+                            if closure:
+                                # A reported closure is a disruption on the plan's record,
+                                # whether or not a replacement was found.
+                                updated.disruptions.append(
+                                    Disruption(
+                                        kind="closure",
+                                        summary=f"{before} was reported closed.",
+                                        affected_item_ids=[target_item.id],
+                                        resolution=(
+                                            f"Replaced with {target_item.name}." if replaced
+                                            else f"{TOOL_LIMIT_MESSAGE} The stop is still in the plan." if limited
+                                            else "No verified alternative came back; the stop is still in the plan."
+                                        ),
+                                        resolved=replaced,
                                     )
-                                outcome = f"{detail}, so that stop stayed as it was."
-                            updated.data_quality.gaps.append(_gap("attractions", outcome))
+                                )
+                            if replaced:
+                                draft.description = f"Replaced {before} with {target_item.name}."
+                            elif limited:
+                                updated.data_quality.gaps.append(_limit_gap("attractions"))
+                            else:
+                                if cuisine:
+                                    outcome = f"No verified {cuisine} restaurant came back, so {before} stayed as it was."
+                                else:
+                                    if cheaper and not wanted_text:
+                                        detail = f"No cheaper verified place came back for {before}"
+                                    elif wanted_text:
+                                        detail = f"I could not find a verified {wanted_text!r} in the configured sources"
+                                    else:
+                                        detail = (
+                                            f"No verified alternative for {before!r} came back from the configured sources"
+                                        )
+                                    outcome = f"{detail}, so that stop stayed as it was."
+                                updated.data_quality.gaps.append(_gap("attractions", outcome))
 
         if AgentName.TICKET in agent_names and referred is None:
             ticket_result = results.get("ticket")
@@ -1114,9 +1153,24 @@ class ModifyPath:
         )
 
         errors = validate_plan(updated, self.settings)
+        if any("overlap" in error for error in errors):
+            # An overlap is a warning the traveller can accept or reject. Separating the
+            # clocks keeps the plan loadable. The model is not asked to reprint the whole plan.
+            for text in _separate_overlaps(updated):
+                updated.data_quality.gaps.append(_gap("attractions", text))
+            errors = [error for error in validate_plan(updated, self.settings) if "overlap" not in error]
         if errors:
             emit("progress", {"phase": "repair", "message": "Repairing the edited itinerary.", "progress": 85})
-            updated = await repair_plan(updated, errors, self.gateway, self.settings)
+            try:
+                updated = await repair_plan(updated, errors, self.gateway, self.settings)
+            except PlanInvalidError as exc:
+                updated.data_quality.gaps.append(
+                    _gap(
+                        "attractions",
+                        "Heads-up: the edit is ready for you to accept or reject. "
+                        + str(exc),
+                    )
+                )
         updated = tidy_data_gaps(updated)
 
         diff = diff_plans(old_plan, updated)
@@ -1285,8 +1339,16 @@ class ModifyPath:
             # named); else the outline with that day in detail, and the selected stop named. Then the
             # trip slots, not the stored context. The earlier turns say what "add it" or "that hotel" is.
             focus = focus_day(plan, message, scope_item_id)
+            from app.application.skills import skill_by_name
+
+            stop_skill = skill_by_name("read-the-stop")
+            # Every edit is read against the stops already on the plan. A wish ("sheep farm") is that stop.
+            understood = (
+                f"Stop skill (apply these rules):\n{stop_skill.body}\n\n" if stop_skill is not None else ""
+            )
             user = (
-                f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id, notes=False)}\n"
+                understood
+                + f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id, notes=False)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
                 + (MULTI_CITY_RULES if len(plan.segments) > 1 else "")
                 + with_conversation(conversation_block(history, message, settings=self.settings))
@@ -1297,6 +1359,7 @@ class ModifyPath:
                 draft = ChangeDraft.model_validate(data)
                 if not draft.affected_parts:
                     draft.affected_parts = route_parts
+                _fill_target_day(draft, message)
                 return draft
             except CanaryLeak:
                 raise
@@ -1377,7 +1440,7 @@ def _requested_alternative_text(message: str) -> str | None:
     for index, length in sorted(markers, reverse=True):
         phrase = cleaned[index + length :].strip(" .,?!")
         phrase = re.split(r"[.?!]", phrase, maxsplit=1)[0].strip(" .,?!")
-        if not phrase or _is_a_wish(phrase):
+        if not phrase or _is_a_wish(phrase) or _is_a_long_visit(phrase):
             continue
         folded = phrase.lower()
         if folded.startswith(
@@ -1429,6 +1492,118 @@ def _close_wish(word: str) -> bool:
         len(known) >= 6 and abs(len(known) - len(word)) <= 1 and _letter_edits(word, known) <= 1
         for known in _WISH_WORDS
     )
+
+
+_LONG_VISIT = re.compile(
+    r"\b(?:whole|full|entire|all)\s+day\b|\bnot\s+just\s+\d+\s+hours?\b",
+    re.IGNORECASE,
+)
+_VISIT_START = 9 * 60
+_VISIT_END = 18 * 60 + 30
+
+
+def _is_a_long_visit(text: str) -> bool:
+    """A request for a longer stay ("a whole day, not just 2 hour"), not the name of a place."""
+    return _LONG_VISIT.search(text or "") is not None
+
+
+def _stop_the_message_names(plan: TripPlan, message: str) -> tuple[DayPlan, PlanItem] | None:
+    """The planned stop a sentence names by one of its words ("disneyland" for Hong Kong Disneyland)."""
+    words = set(re.findall(r"[a-z0-9]+", message.lower()))
+    best: tuple[int, DayPlan, PlanItem] | None = None
+    for day, item in plan.iter_items():
+        labels = [item.name, *item.names.values()]
+        parts = [word for label in labels for word in re.findall(r"[a-z0-9]+", label.lower()) if len(word) >= 5]
+        hits = [word for word in parts if word in words]
+        if not hits:
+            continue
+        score = len(max(hits, key=len))
+        if best is None or score > best[0]:
+            best = (score, day, item)
+    return None if best is None else (best[1], best[2])
+
+
+def _fit_span(day: DayPlan, duration: int, earliest: int, skip_id: str) -> tuple[int, int] | None:
+    taken = [
+        (_clock_minutes(item.start), _clock_minutes(item.end))
+        for item in day.items
+        if item.id != skip_id and item.start and item.end
+    ]
+    start = _free_start(taken, earliest, duration)
+    if start is None:
+        return None
+    return start, start + duration
+
+
+def _give_a_long_visit(plan: TripPlan, day: DayPlan, item: PlanItem) -> tuple[str, list[str]]:
+    """Give one stop the daytime, and move whatever else was sitting in that stretch.
+
+    Two stops still cannot share a clock time. A meal or another sight that was in the way moves
+    to the next free stretch, on this day or a later one. The warning names what moved.
+    """
+    before = f"{item.start}–{item.end}"
+    number = plan.days.index(day) + 1
+    in_the_way = []
+    for other in list(day.items):
+        if other.id == item.id or other.locked or other.confirmed:
+            continue
+        if _clock_minutes(other.end) <= _VISIT_START or _clock_minutes(other.start) >= _VISIT_END:
+            continue
+        in_the_way.append(other)
+    item.start = _hhmm(_VISIT_START)
+    item.end = _hhmm(_VISIT_END)
+    day.items.sort(key=lambda entry: entry.start)
+    moved: list[str] = []
+    for other in in_the_way:
+        length = max(30, _clock_minutes(other.end) - _clock_minutes(other.start))
+        home: DayPlan | None = None
+        span: tuple[int, int] | None = None
+        for minutes in (length, min(length, 90), 45, 30):
+            span = _fit_span(day, minutes, _VISIT_END, other.id)
+            if span is not None:
+                home = day
+                break
+            for other_day in plan.days:
+                if other_day is day:
+                    continue
+                span = _fit_span(other_day, minutes, _MIN_START, other.id)
+                if span is not None:
+                    home = other_day
+                    break
+            if span is not None:
+                break
+        if home is None or span is None:
+            # A stop left on top of the long visit would make the plan unloadable.
+            other_start = _clock_minutes(other.start)
+            visit_end = _clock_minutes(item.end)
+            if _VISIT_START < other_start < visit_end:
+                item.end = other.start
+            moved.append(other.name + " (kept, no other free minute)")
+            continue
+        if home is not day:
+            day.items.remove(other)
+            home.items.append(other)
+        other.start = _hhmm(span[0])
+        other.end = _hhmm(span[1])
+        home.items.sort(key=lambda entry: entry.start)
+        moved.append(other.name)
+    sentence = f"{item.name} on day {number} now runs {item.start}–{item.end}. It was {before}."
+    warnings = [
+        f"Heads-up: {item.name} on day {number} now runs {item.start}–{item.end}. It was {before}."
+    ]
+    if moved:
+        warnings.append(
+            "Heads-up: " + ", ".join(moved) + " moved so they do not overlap that visit."
+        )
+    late = [
+        other.name
+        for one_day in plan.days
+        for other in one_day.items
+        if other.end > "21:00"
+    ]
+    if late:
+        warnings.append("Heads-up: " + ", ".join(late) + " now ends after 21:00.")
+    return sentence, warnings
 
 
 def _is_a_wish(phrase: str) -> bool:
@@ -1642,8 +1817,9 @@ def _replace_target(
     day, item = target
     if item.locked or item.confirmed:
         return False
-    named_place = bool(prefer_name and not _is_a_wish(prefer_name))
-    if not named_place:
+    activity = _activity(prefer_name)
+    named_place = bool(prefer_name and not _is_a_wish(prefer_name) and activity is None)
+    if not named_place and activity is None:
         from app.application.choices import swap_option
 
         used = {other.name for _, other in _items_in_order(plan)}
@@ -1653,7 +1829,15 @@ def _replace_target(
             return True
     used = {other.name for _, other in _items_in_order(plan)}
     pool = _candidate_pool(item, places, meals, used)
-    if prefer_name and not _is_a_wish(prefer_name):
+    if activity is not None:
+        # "a harbour walk" is a walk by a harbour, not a place of that name. The stop has to say so.
+        hints = activity[1]
+        pool = [
+            row
+            for row in pool
+            if any(hint in f"{row.get('name', '')} {row.get('description', '')}".lower() for hint in hints)
+        ]
+    elif prefer_name and not _is_a_wish(prefer_name):
         # The place they named, or nothing. A nearby unused row is not a stand-in for it.
         pool = [row for row in pool if _matches_name(str(row.get("name") or ""), prefer_name)]
     if cheaper and not (prefer_name and not _is_a_wish(prefer_name)):
@@ -1689,8 +1873,9 @@ def _replace_target(
         if not matched:
             return False
         pool = matched
-    if distance_aware:
-        anchor = _anchor_geo(plan, day, item)
+    if distance_aware or activity is not None:
+        # An outing is the one nearest the stop being replaced. "Too far" still measures from the hotel.
+        anchor = item.geo if activity is not None and item.geo is not None else _anchor_geo(plan, day, item)
         if anchor is not None:
 
             def distance(row: dict) -> float:
@@ -1722,6 +1907,43 @@ def _cuisine(message: str) -> str | None:
     return cuisine_slot(message)
 
 
+_WALK = re.compile(r"\b(?:walk|walking|stroll|strolling|wander|wandering|hike|hiking)\b", re.IGNORECASE)
+# A setting word, the search the place source can answer, and the words a returned stop must actually use.
+_ACTIVITY_KINDS: tuple[tuple[tuple[str, ...], str, tuple[str, ...]], ...] = (
+    (("harbour", "harbor"), "harbour promenade", ("harbour", "harbor", "promenade", "waterfront")),
+    (("waterfront", "promenade", "seafront"), "waterfront promenade", ("waterfront", "promenade", "harbour", "harbor")),
+    (("beach",), "beach", ("beach", "shore")),
+    (("park", "garden"), "city park", ("park", "garden")),
+    (("market",), "street market", ("market",)),
+    (("trail", "peak"), "hiking trail", ("trail", "hike", "peak")),
+)
+
+
+def _activity(text: str | None) -> tuple[str, tuple[str, ...]] | None:
+    """An outing such as "a harbour walk": a search query, and the words a verified stop must use.
+
+    It is not a place name. "Ocean Park" has no walk in it, so it stays a name.
+    """
+    if not text or _WALK.search(text) is None:
+        return None
+    folded = text.lower()
+    for words, query, hints in _ACTIVITY_KINDS:
+        if any(re.search(rf"\b{re.escape(word)}\b", folded) for word in words):
+            return query, hints
+    return None
+
+
+def _activity_query(place: str | None, message: str) -> str | None:
+    found = _activity(place)
+    if found:
+        return found[0]
+    if (place or "").strip():
+        return None
+    phrase = _requested_alternative_text(message) or ""
+    found = _activity(phrase)
+    return found[0] if found else None
+
+
 def _search_extra(message: str, *, place: str | None = None, hotel: bool = False) -> dict[str, str] | None:
     if place and _is_a_wish(place):
         place = None
@@ -1732,7 +1954,7 @@ def _search_extra(message: str, *, place: str | None = None, hotel: bool = False
     if hotel and place:
         extra["hotels_query"] = place
     else:
-        places = (place or "").strip() or _places_query(message)
+        places = _activity_query(place, message) or (place or "").strip() or _places_query(message)
         if places:
             extra["places_query"] = places
     return extra or None
@@ -1747,6 +1969,210 @@ def _skill_operation(draft: ChangeDraft) -> str:
 
 
 _MOVE_VERB = re.compile(r"\b(?:move|put|switch)\b", re.IGNORECASE)
+
+
+def exclusive_day_edit(plan: TripPlan, message: str) -> EditResult | None:
+    """A day given over to one place: lengthen that place, and take the other attractions off the day.
+
+    Nothing here is written. The caller holds each removal and the new clock for a tick.
+    Returns None when the sentence is not that request, or when it would not change the day.
+    """
+    lower = (message or "").lower()
+    whole = re.search(r"\b(?:whole|all|entire|full)\s+day\b", lower)
+    clear = re.search(r"\bno other\b", lower) and re.search(r"\b(?:attractions?|stops?|sights?)\b", lower)
+    if not whole and not clear:
+        return None
+    day_number = day_number_named(message)
+    if day_number is None or not 1 <= day_number <= len(plan.days):
+        return None
+    phrase = _exclusive_phrase(message)
+    current = _stop_named_on_plan(plan, phrase or message)
+    if current is not None and getattr(current.type, "value", str(current.type)) == "meal":
+        current = None
+    fresh = None if current is not None else _place_from_phrase(plan, phrase)
+    if current is None and fresh is None:
+        return None
+    start, end = _visit_span(current or fresh)
+    updated = plan.model_copy(deep=True)
+    target = updated.days[day_number - 1]
+    kept_row = None
+    if current is not None:
+        for day in updated.days:
+            for row in day.items:
+                if row.id == current.id:
+                    kept_row = row
+                    if day is not target:
+                        day.items = [other for other in day.items if other.id != row.id]
+                    break
+            if kept_row is not None:
+                break
+    if kept_row is None and fresh is not None:
+        kept_row = fresh
+    if kept_row is None:
+        return None
+    kept_row.start, kept_row.end = start, end
+    if kept_row not in target.items:
+        target.items.append(kept_row)
+    removed: list[str] = []
+    staying = []
+    for row in target.items:
+        kind = getattr(row.type, "value", str(row.type))
+        if row.id != kept_row.id and kind == "attraction" and not row.locked and not row.confirmed:
+            removed.append(row.name)
+            continue
+        staying.append(row)
+    target.items = sorted(staying, key=lambda row: (row.start, row.end))
+    diff = diff_plans(plan, updated)
+    if not diff:
+        return None
+    names = ", ".join(removed) if removed else "no other attraction"
+    updated.change_summary = (
+        f"Day {day_number} would be {kept_row.name} from {start} to {end}. "
+        f"Other attractions to take off: {names}."
+    )
+    return EditResult(updated, diff, scope="plan", day=day_number, hold=True)
+
+
+def _exclusive_phrase(message: str) -> str:
+    """The place in 'for Ocean Park only' or 'whole day Ocean Park'."""
+    patterns = (
+        r"\bfor\s+(.+?)\s+only\b",
+        r"\b(?:whole|all|entire|full)\s+day(?:\s+\d+)?\s+(?:for|at|to|go(?:ing)?\s+to)?\s*(.+?)(?:\s+only|\s+(?:on|to)\s+day\b|[.,]|$)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, message, re.IGNORECASE)
+        if not match:
+            continue
+        phrase = re.sub(r"^(?:the|a|an)\s+", "", match.group(1).strip(), flags=re.IGNORECASE).strip(" .")
+        if 2 <= len(phrase) <= 60 and not re.fullmatch(r"day\s*\d+", phrase, flags=re.IGNORECASE):
+            return phrase
+    return ""
+
+
+def _place_from_phrase(plan: TripPlan, phrase: str) -> PlanItem | None:
+    """A stop to add when the place is not already on the plan: an alternative, or a named suggestion."""
+    if not phrase:
+        return None
+    folded = _norm(phrase)
+    for _, item in plan.iter_items():
+        for alt in item.alternatives or []:
+            label = _norm(getattr(alt, "name", ""))
+            if label and (label in folded or folded in label):
+                refs = list(getattr(alt, "source_refs", None) or [])
+                return PlanItem(
+                    type=ItemType.ATTRACTION,
+                    name=alt.name,
+                    start="10:00",
+                    end="18:00",
+                    geo=getattr(alt, "geo", None),
+                    address=getattr(alt, "address", "") or "",
+                    source_refs=refs or [SourceRef(title=alt.name, source="suggestion")],
+                    opening_hours=list(getattr(alt, "opening_hours", None) or []),
+                    hours_status="stated" if getattr(alt, "opening_hours", None) else "unknown",
+                    rating=getattr(alt, "rating", None),
+                    review_count=getattr(alt, "review_count", None),
+                    image=getattr(alt, "image", None),
+                    source_types=list(getattr(alt, "source_types", None) or []),
+                )
+    title = " ".join(word[:1].upper() + word[1:] if word else word for word in phrase.split())
+    return PlanItem(
+        type=ItemType.ATTRACTION,
+        name=title,
+        start="10:00",
+        end="18:00",
+        source_refs=[SourceRef(title=title, source="suggestion")],
+        notes="Suggested. Nothing is added until you accept it.",
+    )
+
+
+_CLOCK_SPAN = re.compile(
+    r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?",
+    re.IGNORECASE,
+)
+
+
+def _visit_span(item: PlanItem | None) -> tuple[str, str]:
+    """Opening hours when they cover at least five hours, otherwise 10:00–18:00."""
+    for line in (getattr(item, "opening_hours", None) or []):
+        match = _CLOCK_SPAN.search(str(line))
+        if match is None:
+            continue
+        start = _meridiem(int(match.group(1)), int(match.group(2) or 0), match.group(3))
+        end = _meridiem(int(match.group(4)), int(match.group(5) or 0), match.group(6) or match.group(3))
+        if end - start >= 300:
+            return _hhmm(start), _hhmm(end)
+    return "10:00", "18:00"
+
+
+def _meridiem(hour: int, minute: int, suffix: str | None) -> int:
+    if suffix:
+        hour = hour % 12
+        if suffix.lower() == "pm":
+            hour += 12
+    return hour * 60 + minute
+
+
+_WORD_SKIP = frozenset(
+    {
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "into",
+        "onto",
+        "this",
+        "that",
+        "please",
+        "day",
+        "move",
+        "put",
+        "can",
+        "you",
+    }
+)
+
+
+def _stop_the_words_mean(plan: TripPlan, draft: ChangeDraft, place: str, message: str) -> PlanItem | None:
+    """The stop already on the plan that this edit is about.
+
+    The model may already have named its id ("sheep farm" is Mother Farm). Otherwise one stop whose
+    name shares a word with theirs is that stop. Two stops sharing the word are not a guess.
+    """
+    if draft.target_item_id:
+        found = plan.find_item(draft.target_item_id)
+        if found is not None and getattr(found[1].type, "value", "") != "transit":
+            return found[1]
+    text = (place or "").strip() or message
+    if place:
+        for _, item in plan.iter_items():
+            if getattr(item.type, "value", "") == "transit":
+                continue
+            if _matches_name(item.name, place):
+                return item
+    named = _stop_named_on_plan(plan, text)
+    if named is not None:
+        return named
+    words = [
+        word
+        for word in re.findall(r"[a-z0-9]+", text.lower())
+        if len(word) >= 4 and word not in _WORD_SKIP
+    ]
+    if not words:
+        return None
+    scored: list[tuple[int, PlanItem]] = []
+    for _, item in plan.iter_items():
+        if getattr(item.type, "value", "") == "transit":
+            continue
+        hay = " ".join([item.name, item.notes, *item.tags, *item.names.values()]).lower()
+        score = sum(1 for word in words if word in hay)
+        if score:
+            scored.append((score, item))
+    if not scored:
+        return None
+    best = max(score for score, _ in scored)
+    winners = [item for score, item in scored if score == best]
+    return winners[0] if len(winners) == 1 else None
 
 
 def _stop_named_on_plan(plan: TripPlan, message: str) -> PlanItem | None:
@@ -2873,10 +3299,17 @@ def _already_planned(plan: TripPlan, row: dict) -> bool:
 def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: str | None = None) -> list[dict]:
     """The verified candidates an add may use: not in the plan already, and the place or kind the message names."""
     named = (named or "").strip() or _named_place(message)
+    activity = _activity(named)
+    if activity is not None:
+        named = ""
     wanted = [] if named else [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
     pool = []
     for row in places:
         if not row.get("name") or not row.get("source_refs") or _already_planned(plan, row):
+            continue
+        if activity is not None and not any(
+            hint in f"{row.get('name', '')} {row.get('description', '')}".lower() for hint in activity[1]
+        ):
             continue
         if named and not any(_matches_name(label, named) for label in _row_labels(row)):
             continue
@@ -3458,34 +3891,39 @@ def _add_attractions(
                 break
             slot = _free_slot(day) or _late_slot(day)
         start, end = slot
-        item_id = f"item_{row.get('id', len(added))}"
-        existing_ids = {item.id for day_plan in plan.days for item in day_plan.items}
-        if item_id in existing_ids:
-            item_id = f"item_added_{len(added)}_{row.get('id', 'x')}"
-        hours, hours_status = _stated_hours(row, day.date)
-        item = PlanItem(
-            opening_hours=hours,
-            hours_status=hours_status,
-            id=item_id,
-            type="attraction",
-            name=row["name"],
-            start=start,
-            end=end,
-            geo=row.get("geo"),
-            address=row.get("address", ""),
-            notes=(row.get("description") or "Added from a verified source.")[:700],
-            source_refs=[SourceRef.model_validate(ref) for ref in row.get("source_refs", [])],
-            data_status=DataStatus.OK,
-            fetched_at=utcnow(),
-            tags=(row.get("tags") or [])[:4],
-            names=trusted_names(row.get("names")),
-            image=image_of(row),
-            step_free=row.get("step_free") if isinstance(row.get("step_free"), bool) else None,
-        )
-        day.items.append(item)
-        day.items.sort(key=lambda entry: entry.start)
-        added.append(item.name)
+        added.append(_append_row(plan, day, row, start, end, seq=len(added)))
     return added
+
+
+def _append_row(plan: TripPlan, day: DayPlan, row: dict, start: str, end: str, *, seq: int) -> str:
+    """Write one source row onto a day at a clock time that does not overlap another stop."""
+    item_id = f"item_{row.get('id', seq)}"
+    existing_ids = {item.id for day_plan in plan.days for item in day_plan.items}
+    if item_id in existing_ids:
+        item_id = f"item_added_{seq}_{row.get('id', 'x')}"
+    hours, hours_status = _stated_hours(row, day.date)
+    item = PlanItem(
+        opening_hours=hours,
+        hours_status=hours_status,
+        id=item_id,
+        type="attraction",
+        name=row["name"],
+        start=start,
+        end=end,
+        geo=row.get("geo"),
+        address=row.get("address", ""),
+        notes=(row.get("description") or "Added from a verified source.")[:700],
+        source_refs=[SourceRef.model_validate(ref) for ref in row.get("source_refs", [])],
+        data_status=DataStatus.OK,
+        fetched_at=utcnow(),
+        tags=(row.get("tags") or [])[:4],
+        names=trusted_names(row.get("names")),
+        image=image_of(row),
+        step_free=row.get("step_free") if isinstance(row.get("step_free"), bool) else None,
+    )
+    day.items.append(item)
+    day.items.sort(key=lambda entry: entry.start)
+    return item.name
 
 
 _TO_DAY = re.compile(r"\b(?:to|onto|on)\s+day\s*(\d+)\b", re.IGNORECASE)
@@ -3580,13 +4018,81 @@ def _shift_part(
 
 
 def _move_day(message: str, told: int | None) -> int | None:
-    """The day a move ends on. "from day 1 to day 3" is day 3, even when the model returns 1."""
+    """The day a move ends on. "from day 1 to day 3" is day 3, even when the model returns 1.
+
+    When that phrase is absent, the model's day is used. A keyword is not required.
+    """
     named = [int(number) for number in _TO_DAY.findall(message)]
     return named[-1] if named else told
 
 
-def _move_named(plan: TripPlan, place: str, day_number: int | None) -> tuple[bool, str]:
-    """Move a stop already on the plan onto another day. The place is not searched for again."""
+_DAY_PART = re.compile(r"^day_(\d+)$")
+
+
+def _day_from_parts(parts: list[str]) -> int | None:
+    """The last day_N the model put in affected_parts. That is the day the stop should end on."""
+    found: list[int] = []
+    for part in parts or []:
+        match = _DAY_PART.match(str(part).strip().lower())
+        if match:
+            found.append(int(match.group(1)))
+    return found[-1] if found else None
+
+
+def _fill_target_day(draft: ChangeDraft, message: str) -> None:
+    """Use the day the model already named when it left target_day empty."""
+    if draft.target_day:
+        return
+    draft.target_day = _day_from_parts(draft.affected_parts) or day_number_named(message)
+
+
+def _part_named(draft: ChangeDraft, message: str) -> str | None:
+    """morning, afternoon, or evening from the model's JSON, else from the sentence when a day is named."""
+    raw = str((draft.new_values or {}).get("part") or "").strip().lower()
+    if raw in _PART_BOUNDS:
+        return raw
+    if draft.target_day is None and day_number_named(message) is None:
+        return None
+    match = re.search(r"\b(morning|afternoon|evening)\b", message, re.IGNORECASE)
+    return match.group(1).lower() if match else None
+
+
+def _part_clock(day: DayPlan, item: PlanItem, part: str) -> tuple[str, str]:
+    """A clock inside the named part of the day. A full window still starts at that part."""
+    window_start, window_end = _PART_BOUNDS[part]
+    try:
+        duration = max(30, _clock_minutes(item.end) - _clock_minutes(item.start))
+    except (ValueError, AttributeError):
+        duration = 90
+    fit = min(duration, window_end - window_start)
+    taken: list[tuple[int, int]] = []
+    for other in day.items:
+        if other is item or not other.start or not other.end:
+            continue
+        try:
+            taken.append((_clock_minutes(other.start), _clock_minutes(other.end)))
+        except (ValueError, AttributeError):
+            continue
+    start = None
+    cursor = window_start
+    while cursor + fit <= window_end:
+        if all(cursor + fit <= begin or cursor >= end for begin, end in taken):
+            start = cursor
+            break
+        cursor += 15
+    if start is None:
+        start = window_start
+    return _hhmm(start), _hhmm(start + fit)
+
+
+def _move_named(
+    plan: TripPlan, place: str, day_number: int | None, part: str | None = None
+) -> tuple[bool, str]:
+    """Move a stop already on the plan onto another day, and into a named part of that day.
+
+    The place is not searched for again. A full morning still receives the stop; the overlap
+    is recorded later instead of refusing the move.
+    """
     stayed = "I could not move that stop onto the day you named, so the itinerary stayed as it was."
     if not place or day_number is None or not (1 <= day_number <= len(plan.days)):
         return False, stayed
@@ -3601,19 +4107,29 @@ def _move_named(plan: TripPlan, place: str, day_number: int | None) -> tuple[boo
         return False, stayed
     source, item = found
     target = plan.days[day_number - 1]
-    if source is target:
+    if source is target and part not in _PART_BOUNDS:
         return False, f"{item.name} is already on Day {day_number}, so the itinerary stayed as it was."
     if item.locked or item.confirmed:
         return False, f"{item.name} is locked, so the itinerary stayed as it was."
-    source.items.remove(item)
+    if source is not target:
+        source.items.remove(item)
+    if part in _PART_BOUNDS:
+        item.start, item.end = _part_clock(target, item, part)
+        item.transfer = None
+        if item not in target.items:
+            target.items.append(item)
+        target.items.sort(key=lambda entry: entry.start)
+        return True, f"Moved {item.name} to the {part} on Day {day_number}, {item.start}–{item.end}."
     slot = _free_slot(target) or _late_slot(target) or _open_span(target)
     if slot is None:
-        source.items.append(item)
-        source.items.sort(key=lambda entry: entry.start)
+        if source is not target:
+            source.items.append(item)
+            source.items.sort(key=lambda entry: entry.start)
         return False, f"Day {day_number} has no free time slot, so {item.name} stayed as it was."
     item.start, item.end = slot
     item.transfer = None
-    target.items.append(item)
+    if item not in target.items:
+        target.items.append(item)
     target.items.sort(key=lambda entry: entry.start)
     return True, f"Moved {item.name} to Day {day_number} at {item.start}."
 
@@ -3657,6 +4173,36 @@ def _recheck(plan: TripPlan, context: TripContext, blocked, windows) -> list[Con
     named = [check for check in plan.constraints if check.text.startswith("Include ") and check.text not in texts]
     flight = _flight_checks(plan)
     return [check for check in fresh if check.text not in FLIGHT_CHECKS] + flight + named
+
+
+def _separate_overlaps(plan: TripPlan) -> list[str]:
+    """Push a later stop to the end of the one before it. Two locked stops are left, and named."""
+    notes: list[str] = []
+    for day in plan.days:
+        ordered = sorted(day.items, key=lambda item: (item.start, item.end))
+        for previous, current in zip(ordered, ordered[1:]):
+            if current.start >= previous.end:
+                continue
+            if current.locked or current.confirmed:
+                notes.append(
+                    f"Heads-up: {previous.name} and {current.name} overlap on {day.date}. "
+                    f"{current.name} is locked, so the times were left for you to change."
+                )
+                continue
+            duration = max(15, _clock_minutes(current.end) - _clock_minutes(current.start))
+            start = _clock_minutes(previous.end)
+            end = min(start + duration, LATEST_END)
+            if end <= start:
+                notes.append(
+                    f"Heads-up: {previous.name} and {current.name} overlap on {day.date}, and the day has no later minute."
+                )
+                continue
+            current.start, current.end = _hhmm(start), _hhmm(end)
+            notes.append(
+                f"Heads-up: {previous.name} and {current.name} overlapped, so {current.name} "
+                f"now runs {current.start}–{current.end}. Accept the change to keep that, or reject it."
+            )
+    return notes
 
 
 def _free_start(taken: list[tuple[int, int]], start: int, duration: int) -> int | None:

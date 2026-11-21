@@ -171,15 +171,30 @@ export function Badge({
   tone = "neutral",
   dot = false,
   children,
+  onClick,
 }: {
   tone?: Tone;
   dot?: boolean;
   children: ReactNode;
+  /** When set, the badge is a button. */
+  onClick?: () => void;
 }) {
-  return (
-    <span className="pf-badge" data-tone={tone}>
+  const mark = (
+    <>
       {dot ? <span className="pf-dot" aria-hidden="true" /> : null}
       {children}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" className="pf-badge" data-tone={tone} onClick={onClick}>
+        {mark}
+      </button>
+    );
+  }
+  return (
+    <span className="pf-badge" data-tone={tone}>
+      {mark}
     </span>
   );
 }

@@ -37,6 +37,21 @@ GOOGLE_FIELD_MASK = ",".join(
 
 #: Place categories that are food. "breakfast" and "cafe" are narrower searches for the meal planner.
 FOOD_CATEGORIES = {"restaurant", "meal", "food", "breakfast", "cafe"}
+
+#: A generic listing stays near the destination. Japan's centroid is in Nagano, so this
+#: radius is why a "best of Japan" search becomes Matsumoto.
+GUIDE_RADIUS_KM = 80
+# ponytail: 500km keeps a named wish in another region of the same country (Gundam in
+# Tokyo when the destination geocodes to Nagano). Beyond that, treat it as a different trip.
+NAMED_WISH_RADIUS_KM = 500
+
+
+def place_radius_km(query: str | None, category: str) -> float:
+    """How far from the destination a result may be. A named wish is allowed much farther than a generic listing."""
+    named = category not in FOOD_CATEGORIES and bool(query and query.strip()) and not _query_is_a_kind(query)
+    return NAMED_WISH_RADIUS_KM if named else GUIDE_RADIUS_KM
+
+
 #: The Places (New) `includedType` per category; anything else is an attraction search.
 GOOGLE_INCLUDED_TYPE = {
     "restaurant": "restaurant",
@@ -228,7 +243,7 @@ class GooglePlacesSource:
             lat, lng = location.get("latitude"), location.get("longitude")
             if lat is None or lng is None:
                 continue
-            if geo and haversine_km(geo.lat, geo.lng, float(lat), float(lng)) > 80:
+            if geo and haversine_km(geo.lat, geo.lng, float(lat), float(lng)) > place_radius_km(query, category):
                 continue
             types = [str(t) for t in (row.get("types") or [])]
             primary = str(row.get("primaryType") or "")
@@ -361,7 +376,7 @@ class WikivoyagePlacesSource:
             lat = _float(params.get("lat"))
             lng = _float(params.get("long"))
             if geo and lat is not None and lng is not None:
-                if haversine_km(geo.lat, geo.lng, lat, lng) > 80:
+                if haversine_km(geo.lat, geo.lng, lat, lng) > place_radius_km(query, category):
                     continue
             description = _clean(params.get("content", ""))
             url = params.get("url", "").strip() or f"https://en.wikivoyage.org/wiki/{title.replace(' ', '_')}"

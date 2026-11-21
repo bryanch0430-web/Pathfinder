@@ -74,27 +74,64 @@ class LLMGateway:
                 )
         raise ProviderError(problem, kind=FailureKind.PARSE, source="llm", detail=problem_detail)
 
-    async def text(self, prompt: str, *, user: str, purpose: str | None = None) -> str:
-        return await self._call(prompt, user=user, purpose=purpose or prompt, json_mode=False)
+    async def text(
+        self,
+        prompt: str,
+        *,
+        user: str,
+        purpose: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning: str | None = None,
+    ) -> str:
+        return await self._call(
+            prompt,
+            user=user,
+            purpose=purpose or prompt,
+            json_mode=False,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            reasoning=reasoning,
+        )
 
     async def _call(
-        self, prompt: str, *, user: str, purpose: str, json_mode: bool, images: Sequence[ImageInput] | None = None
+        self,
+        prompt: str,
+        *,
+        user: str,
+        purpose: str,
+        json_mode: bool,
+        images: Sequence[ImageInput] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning: str | None = None,
     ) -> str:
         system = self.prompts.system(prompt)
         # Which source serves this call (byok, server, env, local or none), so a trace says whose key paid for it.
         # The source only, never the key or its tail.
         llm_source = str(getattr(self.llm, "source", "") or "")
         with self.tracer.span(f"llm.{purpose}", llm_source=llm_source) as span:
-            result = await self.llm.complete(
-                system=system,
-                user=user,
-                purpose=purpose,
-                json_mode=json_mode,
-                temperature=self.settings.llm_temperature,
-                max_tokens=self.settings.llm_max_tokens,
-                # Passed only when there are pictures, so a writer that takes text only is called as before.
-                **({"images": list(images)} if images else {}),
-            )
+            call = {
+                "system": system,
+                "user": user,
+                "purpose": purpose,
+                "json_mode": json_mode,
+                "temperature": self.settings.llm_temperature if temperature is None else temperature,
+                "max_tokens": self.settings.llm_max_tokens if max_tokens is None else max_tokens,
+            }
+            # Passed only when there are pictures, so a writer that takes text only is called as before.
+            if images:
+                call["images"] = list(images)
+            # This one call may think. A writer that has no such argument is asked again without it.
+            if reasoning:
+                call["reasoning"] = reasoning
+            try:
+                result = await self.llm.complete(**call)
+            except TypeError:
+                if "reasoning" not in call:
+                    raise
+                call.pop("reasoning")
+                result = await self.llm.complete(**call)
             text = result.text
             reasoning = "" if canary_leaked(result.reasoning, self.settings) else result.reasoning
             if canary_leaked(text, self.settings):

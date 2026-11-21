@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     #: The owner's own machine: a loopback caller opens the admin routes without the token. Honoured only
     #: with ENVIRONMENT=development/test; `check_secrets` refuses to start with it anywhere else.
     local_admin: bool = False
+    #: Development only. The address of the local Vite proxy (the WSL guest). When the peer is exactly
+    #: this address, local admin still opens. Empty keeps the loopback rule.
+    local_admin_proxy: str = ""
     auth_secret: str = DEFAULT_AUTH_SECRET
     auth_token_hours: int = 168
     user_agent: str = "Pathfinder/1.0 (COMP7608B student project)"

@@ -706,35 +706,13 @@ export default function App() {
                   onSuggestDestination={async (query) => (await suggestPlaces(query)).items}
                   submitting={pf.busy}
                 />
-                <ChatPanel
-                  messages={pf.messages}
-                  busy={pf.busy}
-                  agents={pf.agents}
-                  progress={pf.progress}
-                  progressMessage={pf.progressMessage}
-                  clarify={pf.clarify}
-                  clarifyValues={pf.clarifyValues}
-                  onClarifyChange={pf.setClarifyValue}
-                  onClarifySubmit={(message) => void pf.submitClarify(message)}
-                  onSend={(message, attachments) => void pf.send(message, attachments)}
-                  onStop={pf.abort}
-                  intake={pf.intake}
-                  focusSignal={composerFocus}
-                  scope={scope}
-                  onClearScope={() => pf.selectItem(null)}
-                  error={pf.sessionId ? pf.error : null}
-                  disabled={!pf.sessionId}
-                  tripId={pf.sessionId}
-                  draft={pf.draft}
-                  onDraftChange={pf.setDraft}
-                  onRetry={() => void pf.retry()}
-                  onClear={() => void pf.clearChat()}
-                  onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
-                  trace={pf.trace}
-                  live={pf.live}
-                  held={pf.held}
-                  agentName={pf.agentName}
-                />
+                {pf.plan ? (
+                  <DayRail
+                    days={pf.plan.days}
+                    active={mapDay || pf.plan.days[0]?.date || ""}
+                    onSelect={setMapDay}
+                  />
+                ) : null}
               </div>
             }
             centre={
@@ -764,10 +742,7 @@ export default function App() {
                   onRestoreVersion={(version) => void pf.restoreVersion(version)}
                   selectedItemId={pf.selectedItem?.id ?? null}
                   onSelectItem={selectItem}
-                  onUseful={(stars) => {
-                    pf.setStars(stars);
-                    void pf.feedback(true, stars);
-                  }}
+                  onUseful={() => void pf.feedback(true, null)}
                   onNotUseful={() => void pf.feedback(false)}
                   feedbackStars={pf.feedbackStars}
                   feedbackVerdict={pf.feedbackVerdict}
@@ -775,6 +750,19 @@ export default function App() {
                   trace={pf.trace}
                   onRefresh={() => void pf.send("Refresh the data that is stale or unavailable.")}
                   onFocusDay={setMapDay}
+                  focusedDay={mapDay}
+                  map={
+                    <MapPanel
+                      key={pf.sessionId}
+                      plan={pf.plan}
+                      activeDay={mapDay || pf.plan.days[0]?.date}
+                      onActiveDay={setMapDay}
+                      selectedItemId={pf.selectedItem?.id ?? null}
+                      onSelectItem={selectItem}
+                      updatedIds={pf.changedIds}
+                      changedStayIds={pf.changedStayIds}
+                    />
+                  }
                   updatedIds={pf.changedIds}
                   changedStayIds={pf.changedStayIds}
                   changedLegIds={pf.changedLegIds}
@@ -783,7 +771,9 @@ export default function App() {
                   onReopenChoice={pf.reopenChoice}
                   onMarkBooked={pf.markBooked}
                   onLoadHotelRooms={pf.hotelRooms}
-                  onApplyLayout={pf.held ? undefined : pf.applyLayout}
+                  onApplyLayout={pf.held ? undefined : (items, drops) => pf.applyLayout(items, drops)}
+                  messages={pf.messages}
+                  onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
                   held={pf.held}
                   agentName={pf.agentName}
                   paused={pf.busy || pf.plannerBusy}
@@ -845,22 +835,36 @@ export default function App() {
             }
             profile={<TravellerProfileTool key={identityEpoch} signedIn={Boolean(authUser)} />}
             right={
-              pf.plan ? (
-                <>
-                  <MapPanel
-                    key={pf.sessionId}
-                    plan={pf.plan}
-                    activeDay={mapDay || pf.plan.days[0]?.date}
-                    onActiveDay={setMapDay}
-                    selectedItemId={pf.selectedItem?.id ?? null}
-                    onSelectItem={selectItem}
-                    updatedIds={pf.changedIds}
-                    changedStayIds={pf.changedStayIds}
-                  />
-                </>
-              ) : (
-                <p className="pf-sketch-empty">{t("map.empty")}</p>
-              )
+              <ChatPanel
+                messages={pf.messages}
+                busy={pf.busy}
+                agents={pf.agents}
+                progress={pf.progress}
+                progressMessage={pf.progressMessage}
+                clarify={pf.clarify}
+                clarifyValues={pf.clarifyValues}
+                onClarifyChange={pf.setClarifyValue}
+                onClarifySubmit={(message) => void pf.submitClarify(message)}
+                onSend={(message, attachments) => void pf.send(message, attachments)}
+                onStop={pf.abort}
+                intake={pf.intake}
+                focusSignal={composerFocus}
+                scope={scope}
+                onClearScope={() => pf.selectItem(null)}
+                error={pf.sessionId ? pf.error : null}
+                disabled={!pf.sessionId}
+                tripId={pf.sessionId}
+                draft={pf.draft}
+                onDraftChange={pf.setDraft}
+                onRetry={() => void pf.retry()}
+                onClear={() => void pf.clearChat()}
+                onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
+                trace={pf.trace}
+                live={pf.live}
+                steps={pf.steps}
+                held={pf.held}
+                agentName={pf.agentName}
+              />
             }
           />
         )}
@@ -892,6 +896,32 @@ export default function App() {
       />
       {helpOpen ? <HelpDrawer onClose={() => setHelpOpen(false)} /> : null}
     </>
+  );
+}
+
+function DayRail({
+  days,
+  active,
+  onSelect,
+}: {
+  days: { date: string }[];
+  active: string;
+  onSelect: (date: string) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <nav className="pf-day-rail" aria-label={t("day.strip")}>
+      {days.map((day, index) => (
+        <button
+          key={day.date}
+          type="button"
+          aria-current={day.date === active ? "true" : undefined}
+          onClick={() => onSelect(day.date)}
+        >
+          {t("day.number", { n: index + 1 })}
+        </button>
+      ))}
+    </nav>
   );
 }
 

@@ -106,6 +106,7 @@ class MeteredLLM:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         images: Any = None,
+        reasoning: str | None = None,
     ) -> LLMResult:
         self.images.append(len(images or ()))
         text = self.reply(purpose)

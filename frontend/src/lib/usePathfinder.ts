@@ -220,6 +220,8 @@ export interface PathfinderHook {
   trace: RunTrace | null;
   /** Developer mode: each tool and model step as it finishes. */
   live: { id: string; title: string; body: string }[];
+  /** Stages of the turn in progress, with the model and how long each one took. */
+  steps: TurnStep[];
   route: RoutePayload | null;
   error: string | null;
   /** Something the traveller should know that is not a failure, such as the trip they had open being gone. */
@@ -247,7 +249,7 @@ export interface PathfinderHook {
   /** Accepts or rejects one change that a held edit offered. */
   decideChange: (messageId: string, changeId: string, accept: boolean) => Promise<void>;
   /** Writes the direct-edit grid onto the plan. Rejects with the server's reason, after showing it. */
-  applyLayout: (items: { id: string; day: number; start: string; end: string; name?: string }[]) => Promise<void>;
+  applyLayout: (items: { id: string; day: number; start: string; end: string; name?: string }[], drops?: string[]) => Promise<void>;
   /** Swaps in another option the plan offers (a stop's alternative, a hotel, a flight); no model call. Rejects with the server's reason. */
   choose: (kind: ChoiceKind, targetId: string | null, optionId: string, lock?: boolean) => Promise<void>;
   /** Choose this option for a stay or leg and lock it in (a lock alone, when it is already the chosen one, makes no new version). */
@@ -272,6 +274,14 @@ export interface PathfinderHook {
   newPlan: () => Promise<string | null>;
   /** Opens a saved plan file as a new trip. Its id, or null when the file is not a plan. */
   importPlanFile: (text: string) => Promise<string | null>;
+}
+
+export interface TurnStep {
+  id: string;
+  phase: string;
+  model: string;
+  status: "running" | "done";
+  seconds?: number;
 }
 
 /** A saved decision that still has a why-line or a model call. An empty object is not one. */
@@ -344,6 +354,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [clarifyValues, setClarifyValues] = useState<Record<string, string>>({});
   const [trace, setTrace] = useState<RunTrace | null>(null);
   const [live, setLive] = useState<{ id: string; title: string; body: string }[]>([]);
+  const [steps, setSteps] = useState<TurnStep[]>([]);
   useEffect(() => {
     getConfig()
       .then((data) => setRedaction((data as { redaction?: Parameters<typeof setRedaction>[0] }).redaction))
@@ -461,6 +472,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     setTrace(null);
     setRoute(null);
     setLive([]);
+    setSteps([]);
     setSelectedItem(null);
     setFeedbackStars(null);
   }, [clearBanner]);
@@ -979,6 +991,7 @@ export function usePathfinder(locale: string): PathfinderHook {
       };
       setMessages((current) => [...current, optimistic]);
       setLive([]);
+      setSteps([]);
       let streamingId: string | null = null;
       const controller = new AbortController();
       abortRef.current = controller;
@@ -1016,6 +1029,25 @@ export function usePathfinder(locale: string): PathfinderHook {
               if (event === "progress") {
                 setProgress(Number(data.progress ?? 0));
                 setProgressMessage(String(data.message ?? ""));
+              }
+              if (event === "step") {
+                const id = String(data.id ?? "");
+                if (id) {
+                  const next: TurnStep = {
+                    id,
+                    phase: String(data.phase ?? ""),
+                    model: String(data.model ?? ""),
+                    status: data.status === "done" ? "done" : "running",
+                    seconds: typeof data.seconds === "number" ? data.seconds : undefined,
+                  };
+                  setSteps((current) => {
+                    const index = current.findIndex((step) => step.id === id);
+                    if (index === -1) return [...current, next];
+                    const copy = current.slice();
+                    copy[index] = next;
+                    return copy;
+                  });
+                }
               }
               if (event === "agent") {
                 const name = String(data.agent);
@@ -1120,9 +1152,13 @@ export function usePathfinder(locale: string): PathfinderHook {
               if (event === "trace") {
                 const traceData = data as unknown as RunTrace;
                 setTrace(traceData);
+                const traced = traceData as RunTrace & {
+                  steps?: { id?: string; phase?: string; model?: string; status?: string; seconds?: number }[];
+                };
                 const decision = {
-                  why: traceData.why ?? [],
-                  generations: (traceData.generations ?? []).map((call) => ({
+                  why: traced.why ?? [],
+                  steps: traced.steps ?? [],
+                  generations: (traced.generations ?? []).map((call) => ({
                     purpose: call.purpose,
                     model: call.model,
                     latency_ms: call.latency_ms,
@@ -1239,11 +1275,11 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   // The version on screen: a choice names it, and the server refuses one made on an older version.
   const shownVersion = plan?.version;
-  const saveLayout = useCallback(async (items: { id: string; day: number; start: string; end: string; name?: string }[]) => {
+  const saveLayout = useCallback(async (items: { id: string; day: number; start: string; end: string; name?: string }[], drops: string[] = []) => {
     const id = sessionRef.current;
     if (!id) return;
     try {
-      const result = await applyLayout(id, items, shownVersion);
+      const result = await applyLayout(id, items, shownVersion, drops);
       if (sessionRef.current !== id) return;
       setPlan(result.plan);
       setActiveVersion(result.plan.version);
@@ -1480,6 +1516,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     clarifyValues,
     trace,
     live,
+    steps,
     route,
     error: error === null ? null : describeFailure(error, t),
     notice:

@@ -58,6 +58,44 @@ def test_distance_question_ignores_unrelated_text(settings: Settings) -> None:
     assert _distance_facts(plan, "What should I pack?") is None
 
 
+def test_stay_at_the_farm_is_the_visit_not_a_missing_hotel() -> None:
+    """'Stay at the farm' asks how long the visit is. The missing hotel is a different question."""
+    from app.domain.models import DataGap, FailureKind
+
+    from tests.plan_samples import make_plan
+
+    plan = make_plan(days=2, with_tickets=False)
+    plan.hotels = []
+    farm = plan.days[1].items[0]
+    farm.name = "Mother Farm"
+    farm.start, farm.end = "09:00", "18:30"
+    plan.data_quality.gaps.append(
+        DataGap(
+            section="hotels",
+            kind=FailureKind.NO_DATA,
+            message="serpapi-hotels returned HTTP 429",
+            retryable=False,
+        )
+    )
+    question = "what is the duration of Mother Farm or how many time should I stay at the farm"
+    facts = _plan_facts(question, plan)
+
+    assert "missing" not in facts
+    assert facts["visit"] == {
+        "name": "Mother Farm",
+        "day": 2,
+        "start": "09:00",
+        "end": "18:30",
+        "minutes": 570,
+        "opening_hours": [],
+    }
+    answer = _fallback_answer(facts, "plan")
+    assert "Mother Farm" in answer and "09:00" in answer and "429" not in answer
+
+    hotel = _plan_facts("Which hotel am I staying at?", plan)
+    assert hotel["missing"]["sections"] == ["hotel"]
+
+
 def test_plan_facts_explain_a_missing_section(settings: Settings) -> None:
     from app.domain.models import DataGap, FailureKind
 

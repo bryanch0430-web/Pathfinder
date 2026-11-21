@@ -1,5 +1,5 @@
-"""The direct-edit grid keeps the plan valid: no overlaps, no stop in another city, no derived rows moved by hand, and the
-transfers around a moved stop worked out again."""
+"""The direct-edit grid keeps a stop in its city and leaves travel rows alone. Overlapping clocks are saved, and the
+transfers around a moved stop are worked out again."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ from datetime import datetime
 import pytest
 from fastapi.testclient import TestClient
 from plan_samples import START, make_plan, make_two_city_plan
-from pydantic import ValidationError
-
 from app.application.proposals import apply_layout
 from app.config import Settings
 from app.domain.models import DayPlan, GeoPoint, ItemType, TicketOption, TransportLeg, TripContext, TripPlan
@@ -25,29 +23,27 @@ def _move(item_id: str, day: int, start: str, end: str) -> dict:
 # -- the model keeps its guarantee -------------------------------------------------------------------------------------
 
 
-def test_a_day_with_overlapping_items_does_not_validate() -> None:
+def test_a_day_with_overlapping_items_still_validates() -> None:
     plan = make_plan(days=1, with_tickets=False)
     first, second = plan.days[0].items[0], plan.days[0].items[1]
     clashing = second.model_copy(update={"start": first.start, "end": first.end})
 
-    with pytest.raises(ValidationError, match="overlap"):
-        DayPlan(date=plan.days[0].date, title="Day 1", items=[first, clashing])
+    day = DayPlan(date=plan.days[0].date, title="Day 1", items=[first, clashing])
+    assert [item.name for item in day.items] == [first.name, second.name]
 
 
 # -- what apply_layout refuses -----------------------------------------------------------------------------------------
 
 
-def test_a_move_that_overlaps_another_stop_is_refused_with_both_names() -> None:
+def test_a_move_that_overlaps_another_stop_is_saved() -> None:
     plan = make_plan(days=1, with_tickets=False)
     first, lunch = plan.days[0].items[0], plan.days[0].items[1]
 
-    with pytest.raises(ValueError) as refused:
-        apply_layout(plan, [_move(lunch.id, 1, "09:20", "10:20")])
+    moved = apply_layout(plan, [_move(lunch.id, 1, "09:20", "10:20")])
 
-    assert (
-        str(refused.value)
-        == f"{first.name} and {lunch.name} would overlap on {plan.days[0].date}"
-    )
+    by_id = {item.id: item for item in moved.days[0].items}
+    assert by_id[first.id].start == first.start
+    assert (by_id[lunch.id].start, by_id[lunch.id].end) == ("09:20", "10:20")
 
 
 def test_a_move_to_a_day_in_another_city_is_refused_with_the_city() -> None:
@@ -147,7 +143,7 @@ def stored(settings: Settings):
         yield Stored(client, session_id)
 
 
-def test_an_overlap_through_the_route_is_422_with_the_sentence_and_nothing_is_saved(
+def test_an_overlap_through_the_route_is_saved(
     stored: Stored,
 ) -> None:
     before = stored.plan
@@ -157,12 +153,11 @@ def test_an_overlap_through_the_route_is_422_with_the_sentence_and_nothing_is_sa
         [_move(lunch.id, 1, "09:20", "10:20")], plan_version=before.version
     )
 
-    assert response.status_code == 422
-    assert (
-        response.json()["detail"]
-        == f"{first.name} and {lunch.name} would overlap on {before.days[0].date}"
-    )
-    assert stored.plan.version == before.version
+    assert response.status_code == 200, response.text
+    after = stored.plan
+    by_id = {item.id: item for item in after.days[0].items}
+    assert by_id[first.id].start == first.start
+    assert (by_id[lunch.id].start, by_id[lunch.id].end) == ("09:20", "10:20")
 
 
 def test_a_valid_retime_makes_a_new_version_and_works_the_transfer_around_it_out_again(

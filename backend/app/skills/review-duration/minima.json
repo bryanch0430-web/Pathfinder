@@ -1,6 +1,6 @@
 {
   "theme_park": {
-    "min": 180,
+    "min": 300,
     "types": ["amusement_park", "theme_park", "zoo", "aquarium"],
     "names": ["ocean park", "disneyland", "disney", "universal studios"]
   },

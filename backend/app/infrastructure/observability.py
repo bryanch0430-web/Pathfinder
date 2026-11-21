@@ -347,6 +347,34 @@ def developer_view() -> bool:
     return _developer_view.get()
 
 
+def note_turn_step(data: dict[str, Any]) -> None:
+    """Keep one stage of this turn on the tracer, so the decision log can list it after the reply.
+
+    A later update with the same id replaces the earlier one. A tracer with no metadata is ignored.
+    """
+    tracer = _current_tracer.get()
+    meta = getattr(tracer, "metadata", None)
+    if not isinstance(meta, dict):
+        return
+    steps = meta.setdefault("turn_steps", [])
+    if not isinstance(steps, list):
+        return
+    step_id = str(data.get("id") or "")
+    row = {
+        "id": step_id,
+        "phase": str(data.get("phase") or ""),
+        "model": str(data.get("model") or ""),
+        "status": str(data.get("status") or ""),
+        "seconds": data.get("seconds"),
+        "note": str(data.get("note") or ""),
+    }
+    for index, existing in enumerate(steps):
+        if isinstance(existing, dict) and step_id and existing.get("id") == step_id:
+            steps[index] = row
+            return
+    steps.append(row)
+
+
 def emit_live(event: str, data: dict[str, Any]) -> bool:
     """Push an event to the turn that is streaming. False when no turn is listening, or it refused the event."""
     emit = _live_emit.get()

@@ -250,6 +250,31 @@ async def edit_route(
     )
 
 
+def _replan_cities(context: TripContext) -> list[TripStop]:
+    """The cities the form is asking to plan.
+
+    The route is the stop list. A list that dropped the destination (Tokyo kept, Chiba shown as the
+    place) still includes that city, or a replan would plan the leftover stop and forget the place
+    the form is showing.
+    """
+    from app.application.router import same_destination
+
+    stops = [stop.model_copy(deep=True) for stop in context.route]
+    city = context.destination.strip()
+    if city and not any(same_destination(stop.city, city) for stop in stops):
+        stops.append(TripStop(city=city))
+    return stops
+
+
+def _form_span(context: TripContext, plan: TripPlan) -> DateRange:
+    """The dates the form holds. The plan's old length is used only when the form has no range."""
+    try:
+        span = context.date_range()
+    except ValueError:
+        span = None
+    return span or plan.dates
+
+
 async def edit_route_from_form(
     modify: ModifyPath,
     *,
@@ -260,18 +285,36 @@ async def edit_route_from_form(
     tracer: Any,
     emit: Any,
 ) -> EditResult:
-    """The cities the trip form names, in its order: the nights they state are kept and the rest share the trip's nights."""
+    """The cities the trip form names, over the dates the form holds.
+
+    A one-day plan has no nights. Sharing those nights across the form's cities asks the traveller to
+    drop a city even after they have already lengthened the form. The form's own dates are the length.
+    """
+    cities = _replan_cities(context)
+    span = _form_span(context, plan)
     try:
-        nights, note = allocate_nights(context.route, plan.dates.night_count)
+        nights, note = allocate_nights(cities, span.night_count)
     except RouteQuestion as asked:
         return _asks(plan, asked.question, message)
-    stops = [TripStop(city=stop.city.strip(), nights=count) for stop, count in zip(context.route, nights)]
+    stops = [TripStop(city=stop.city.strip(), nights=count) for stop, count in zip(cities, nights)]
     sentence = (
         f"The route is now {' → '.join(stop.city for stop in stops)} "
         f"({' + '.join(str(count) for count in nights)} nights)."
-    ) + (f" {note}" if note else "")
+    )
+    if span != plan.dates:
+        sentence += f" The trip runs {span.start.isoformat()} to {span.end.isoformat()}."
+    if note:
+        sentence += f" {note}"
     return await _apply_route(
-        modify, plan=plan, context=context, stops=stops, sentence=sentence, toolbox=toolbox, tracer=tracer, emit=emit
+        modify,
+        plan=plan,
+        context=context,
+        stops=stops,
+        sentence=sentence,
+        toolbox=toolbox,
+        tracer=tracer,
+        emit=emit,
+        start=span.start,
     )
 
 

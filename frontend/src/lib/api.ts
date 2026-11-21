@@ -92,10 +92,11 @@ export function applyLayout(
   sessionId: string,
   items: { id: string; day: number; start: string; end: string; name?: string }[],
   planVersion?: number,
+  drops: string[] = [],
 ): Promise<{ plan: TripPlan }> {
   return request(`/api/journeys/${sessionId}/layout`, {
     method: "POST",
-    body: JSON.stringify({ items, plan_version: planVersion }),
+    body: JSON.stringify({ items, drops, plan_version: planVersion }),
   });
 }
 
@@ -310,7 +311,7 @@ export async function getLegs(sessionId: string, day?: string): Promise<{ legs: 
   return { legs: data.legs ?? [], anchors: data.anchors ?? [] };
 }
 
-/** One alternative in the "Getting there" comparison; never changes the plan. */
+/** One way to travel a hop. Picking it updates the map line and the later times. */
 export interface LegOption {
   mode: "walk" | "cycle" | "transit" | "drive";
   minutes: number | null;
@@ -318,6 +319,9 @@ export interface LegOption {
   source: string;
   routed: boolean;
   ferry?: boolean;
+  /** [lat, lng] pairs of this mode's route. */
+  path?: [number, number][];
+  steps?: MapStep[];
 }
 
 export interface LegOptions {

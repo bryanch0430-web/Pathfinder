@@ -309,6 +309,9 @@ class Planner:
         places[:] = profile_order(places, profile)
         if required:
             places.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), required) else 1)
+        # A place the traveller named (tag "requested") comes before a generic listing,
+        # even when its name is longer than the wish ("THE GUNDAM BASE TOKYO" for "Gundam").
+        places.sort(key=lambda row: 0 if "requested" in (row.get("tags") or []) else 1)
         diet = _diet(context)
         diet_note = ""
         if diet:
@@ -709,6 +712,42 @@ class Planner:
                 continue
             assignment[index].append(row)
             counters[index] += 1
+        # The draft may fill every day and leave the wish out. The wish takes a slot
+        # from a stop the traveller did not name.
+        for row in places:
+            if "requested" not in (row.get("tags") or []) or row["id"] in used:
+                continue
+            open_days = [i for i in range(day_count) if len(assignment[i]) < caps[i]]
+            evicted: dict | None = None
+            if open_days:
+                index = min(open_days, key=lambda i: len(assignment[i]))
+            else:
+                victims = [
+                    i
+                    for i in range(day_count)
+                    if caps[i] > 0 and any("requested" not in (item.get("tags") or []) for item in assignment[i])
+                ]
+                if not victims:
+                    continue
+                index = max(victims, key=lambda i: len(assignment[i]))
+                for position in range(len(assignment[index]) - 1, -1, -1):
+                    if "requested" not in (assignment[index][position].get("tags") or []):
+                        evicted = assignment[index].pop(position)
+                        used.discard(evicted["id"])
+                        evicted_name = _normalise_name(str(evicted.get("name", "")))
+                        if evicted_name in accepted:
+                            accepted.remove(evicted_name)
+                        break
+            if not admit(row):
+                if evicted is not None:
+                    assignment[index].append(evicted)
+                    used.add(evicted["id"])
+                    restored = _normalise_name(str(evicted.get("name", "")))
+                    if restored and restored not in accepted:
+                        accepted.append(restored)
+                continue
+            assignment[index].insert(0, row)
+            used.add(row["id"])
         if not trusted:
             # No usable draft: even the days, fill empty ones from the fullest day, and cluster.
             counts = [len(assignment[index]) for index in range(day_count)]

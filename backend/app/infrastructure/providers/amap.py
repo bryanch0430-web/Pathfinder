@@ -24,6 +24,7 @@ from app.domain.models import FailureKind, GeoLocation, GeoPoint, PlaceCandidate
 from app.infrastructure.http import haversine_km, request_json
 from app.infrastructure.providers.gcj02 import gcj02_to_wgs84, in_mainland_china
 from app.infrastructure.providers.geocoding import search_request
+from app.infrastructure.providers.places import place_radius_km
 
 AMAP_BASE = "https://restapi.amap.com"
 
@@ -214,7 +215,7 @@ class AmapPlacesSource(_AmapBase):
             point = parse_location(row.get("location"))
             if not display or point is None:
                 continue  # never invent a name or a position the source did not give
-            if geo is not None and haversine_km(geo.lat, geo.lng, point.lat, point.lng) > 80:
+            if geo is not None and haversine_km(geo.lat, geo.lng, point.lat, point.lng) > place_radius_km(query, category):
                 continue
             types = [part for part in _text(row.get("type")).split(";") if part]
             typecode = _text(row.get("typecode"))

@@ -247,7 +247,7 @@ def _review_turn(trip: Trip, message: str) -> list:
     return go()
 
 
-def test_a_turn_that_removes_one_stop_applies_it_with_no_proposal(
+def test_a_turn_that_removes_one_stop_holds_a_red_block_until_it_is_accepted(
     settings: Settings,
 ) -> None:
     async def body(trip: Trip):
@@ -260,9 +260,12 @@ def test_a_turn_that_removes_one_stop_applies_it_with_no_proposal(
     held = [
         e for e in events if e.event == "proposal" and e.data["proposal"]["changes"]
     ]
-    assert held == []
-    assert after.version == before.version + 1
-    assert "Sumiyoshi Taisha" not in [i.name for _, i in after.iter_items()]
+    assert len(held) == 1
+    change = held[0].data["proposal"]["changes"][0]
+    assert str(change["id"]).startswith("drop-")
+    assert change["status"] == "pending"
+    assert after.version == before.version
+    assert "Sumiyoshi Taisha" in [i.name for _, i in after.iter_items()]
 
 
 def test_a_turn_that_changes_a_stay_holds_one_whole_edit_and_writes_nothing(

@@ -169,3 +169,59 @@ def test_a_named_place_found_under_another_spelling_of_the_same_name_is_cleared_
 
     assert "Gion Corner" in result.payload["wishes"]
     assert not any("could not locate: Gion Corner" in note for note in result.notes), result.notes
+
+
+NAGANO = GeoPoint(lat=36.648, lng=138.195)
+TOKYO_POINT = GeoPoint(lat=35.619, lng=139.776)
+
+
+class _NeighbourhoodGuide:
+    """Generic listings follow the search centre. A wish query returns Gundam in Tokyo."""
+
+    name = "guide"
+    available = True
+    ranks_by_relevance = True
+
+    def __init__(self) -> None:
+        self.centres: list[tuple[float, float]] = []
+
+    async def search(self, **kwargs: Any) -> list[PlaceCandidate]:
+        if kwargs.get("category") != "attraction":
+            return []
+        geo = kwargs.get("geo")
+        if geo is not None:
+            self.centres.append((geo.lat, geo.lng))
+        if kwargs.get("query") == "Gundam":
+            return [PlaceCandidate(name="THE GUNDAM BASE TOKYO", geo=TOKYO_POINT, source_refs=[REF])]
+        if geo is not None and abs(geo.lat - TOKYO_POINT.lat) < 0.05:
+            return [PlaceCandidate(name="teamLab Planets", geo=TOKYO_POINT, source_refs=[REF])]
+        return [PlaceCandidate(name="Matsumoto Castle", geo=NAGANO, source_refs=[REF])]
+
+
+def test_a_wish_far_from_the_country_centre_moves_the_day_to_that_place(settings: Settings) -> None:
+    guide = _NeighbourhoodGuide()
+    start = date.today() + timedelta(days=30)
+    request = AgentContext(
+        context=TripContext(
+            session_id="s",
+            destination="Japan",
+            start_date=start,
+            end_date=start + timedelta(days=1),
+            preferences=["must-see: Gundam"],
+        ),
+        destination=GeoLocation(name="Japan", geo=NAGANO),
+        date_range=DateRange(start=start, end=start + timedelta(days=1)),
+        request_id="req_wish",
+        toolbox=Toolbox(path="plan", tracer=NoopTracer(), store=None, request_id="req_wish"),
+        settings=settings,
+    )
+    registry = SimpleNamespace(places=[guide], notes=[], geocoder=_Geocoder(None), web=[], web_deep=[])
+
+    result = asyncio.run(AttractionAgent(registry, settings).run(request))
+
+    names = _names(result)
+    assert names[0] == "THE GUNDAM BASE TOKYO"
+    assert "teamLab Planets" in names
+    assert "Matsumoto Castle" not in names
+    assert result.payload["wishes"] == {"Gundam": "THE GUNDAM BASE TOKYO"}
+    assert any(abs(lat - TOKYO_POINT.lat) < 0.05 for lat, _lng in guide.centres)

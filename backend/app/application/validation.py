@@ -417,6 +417,7 @@ def is_edit_outcome(gap: DataGap) -> bool:
             "no verified stop",
             "stayed as it was",
             "cannot be added twice",
+            "heads-up:",
         )
     )
 

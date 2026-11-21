@@ -129,6 +129,17 @@ def test_a_name_the_map_returns_is_offered_for_confirmation() -> None:
     assert place_reply(result) == "I found Nagoya, Japan for Nagoya. Is that the one?"
 
 
+def test_the_same_name_is_not_read_as_a_route() -> None:
+    gazetteer = _Map({"Japan": "Japan"})
+    before = _context()
+    context = _context(destination="Japan")
+
+    result = asyncio.run(ground_new_places(before, context, gazetteer))
+
+    assert context.destination == ""
+    assert place_reply(result) == "I found Japan. Is that the one?"
+
+
 def test_a_name_the_map_does_not_know_asks_for_the_destination() -> None:
     gazetteer = _Map({"Zorpville": None})
     before = _context(budget=8000, party_size=2)

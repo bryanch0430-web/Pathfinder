@@ -454,6 +454,7 @@ class LayoutRequest(BaseModel):
     """The stops the direct-edit grid moved or retimed, and the plan version the grid was showing."""
 
     items: list[LayoutMove] = Field(max_length=200)
+    drops: list[str] = Field(default_factory=list, max_length=200)
     plan_version: int | None = Field(default=None, ge=1)
 
 
@@ -1058,7 +1059,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 detail="This edit was made on an earlier version of the plan; open the latest version and edit again.",
             )
         try:
-            updated = apply_layout(plan, [item.model_dump() for item in payload.items])
+            updated = apply_layout(plan, [item.model_dump() for item in payload.items], payload.drops)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc) or "That edit does not fit this plan.") from None
         if updated is not plan:
@@ -1077,7 +1078,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             from app.application.airport_transfers import dropped_hand_edit
 
-            lost = dropped_hand_edit(plan, updated)
+            lost = dropped_hand_edit(plan, updated, allowed=set(payload.drops))
             if lost:
                 raise HTTPException(status_code=422, detail=lost)
             if said:
@@ -1295,7 +1296,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def get_leg_options(
         session_id: str, request: Request, from_id: str, to_id: str
     ) -> dict[str, Any]:
-        """Walk / cycle / transit / taxi for one leg; read-only comparison."""
+        """Walk / cycle / transit / taxi for one leg, each with its route line."""
         c = container(request)
         require_session(c, request, session_id)
         plan = c.store.get_plan(session_id)
@@ -2187,7 +2188,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 detail="This edit was made on an earlier version of the plan; open the latest version and edit again.",
             )
         try:
-            updated = apply_layout(plan, [item.model_dump() for item in payload.items])
+            updated = apply_layout(plan, [item.model_dump() for item in payload.items], payload.drops)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc) or "That edit does not fit this plan.") from None
         if updated is not plan:
@@ -2205,7 +2206,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             )
             from app.application.airport_transfers import dropped_hand_edit
 
-            lost = dropped_hand_edit(plan, updated)
+            lost = dropped_hand_edit(plan, updated, allowed=set(payload.drops))
             if lost:
                 raise HTTPException(status_code=422, detail=lost)
             if said:

@@ -5,6 +5,7 @@ from datetime import date
 from app.application.modification import (
     ChangeDraft,
     _edit_operation,
+    _fill_target_day,
     _move_day,
     _move_named,
     _replace_target,
@@ -18,7 +19,7 @@ from app.domain.models import AgentName, TripContext
 from app.application.prompts import PromptLibrary
 from app.application.skills import skill_for_modify
 from app.infrastructure.providers.hotels import _hotel_name_matches, _hotel_query
-from tests.plan_samples import make_plan
+from tests.plan_samples import make_plan, stop
 
 
 def test_the_edit_skill_is_loaded_only_into_the_modify_prompt(settings) -> None:
@@ -91,6 +92,33 @@ def test_from_day_1_to_day_3_uses_day_3_when_the_model_says_day_1() -> None:
     assert moved
     assert "Day 3" in sentence
     assert any(item.name == "Shibuya Sky" for item in plan.days[2].items)
+
+
+def test_day_2_in_the_model_json_moves_the_stop_to_that_morning() -> None:
+    draft = ChangeDraft(
+        affected_parts=["attraction", "day_2"],
+        target_day=None,
+        operation="move",
+        place="",
+        confidence=0.99,
+        new_values={"part": "morning"},
+    )
+    message = "move Tian Tan Buddha to the morning"
+    _fill_target_day(draft, message)
+    assert draft.target_day == 2
+
+    plan = make_plan(days=2, with_tickets=False, with_stay=False)
+    plan.days[0].items[0].name = "Tian Tan Buddha"
+    plan.days[0].items[0].start = "14:55"
+    plan.days[0].items[0].end = "16:25"
+    plan.days[1].items.insert(0, stop("mendel", "Mendel's", "08:00", "08:45"))
+
+    moved, sentence = _move_named(plan, "Tian Tan Buddha", draft.target_day, "morning")
+
+    assert moved and "morning" in sentence and "Day 2" in sentence
+    assert all(item.name != "Tian Tan Buddha" for item in plan.days[0].items)
+    buddha = next(item for item in plan.days[1].items if item.name == "Tian Tan Buddha")
+    assert buddha.start < "12:00"
 
 
 def test_moving_shibuya_sky_from_day_8_to_day_2_reads_the_plan() -> None:

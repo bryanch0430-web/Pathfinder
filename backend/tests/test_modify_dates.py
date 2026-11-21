@@ -89,7 +89,9 @@ def run_trip(
 
 
 def reply_of(events: list) -> str:
-    return "".join(event.data["text"] for event in events if event.event == "token")
+    text = "".join(event.data["text"] for event in events if event.event == "token")
+    # The model trace is a footer on the chat sentence. These tests check the sentence.
+    return text.split("\n\nModels:", 1)[0]
 
 
 def plan_event(events: list) -> dict:

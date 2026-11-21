@@ -1,13 +1,13 @@
 """A move is not thrown away, and a full day is a list of swaps the traveller accepts."""
 
-from app.application.modification import _move_named, _stated_move, keep_only
-from app.domain.models import TripPlan
+from app.application.modification import ChangeDraft, _move_named, _stated_move, _stop_the_words_mean, keep_only
 from app.application.proposals import (
     apply_change,
     apply_layout,
     decision_record,
     locks_to_one_row,
     mark_decision,
+    move_choices,
     proposal_changes,
     swap_suggestions,
 )
@@ -90,16 +90,14 @@ def test_the_grid_moves_a_stop_to_another_morning_and_refuses_a_locked_one() -> 
     raise AssertionError("a locked stop must stay where it is")
 
 
-def test_an_overlapping_edit_is_refused_and_leaves_the_plan_as_it_was() -> None:
+def test_an_overlapping_edit_is_saved_and_a_drop_removes_one_stop() -> None:
     plan = make_plan(days=1, with_tickets=False)
     first, second = plan.days[0].items[0], plan.days[0].items[1]
-    try:
-        apply_layout(plan, [{"id": second.id, "day": 1, "start": first.start, "end": first.end}])
-    except ValueError as refused:
-        assert first.name in str(refused) and second.name in str(refused)
-    else:
-        raise AssertionError("two stops at the same time must not be saved")
-    assert TripPlan.model_validate_json(plan.model_dump_json()).days[0].items
+    moved = apply_layout(plan, [{"id": second.id, "day": 1, "start": first.start, "end": first.end}])
+    assert any(item.id == second.id and item.start == first.start for item in moved.days[0].items)
+    dropped = apply_layout(moved, [], [second.id])
+    assert all(item.id != second.id for item in dropped.days[0].items)
+    assert any(item.id == first.id for item in dropped.days[0].items)
 
 
 def test_an_edit_that_changed_nothing_records_why() -> None:
@@ -126,3 +124,52 @@ def test_a_held_edit_changes_the_stay_of_each_city_of_a_multi_city_plan() -> Non
     assert [hotel.id for hotel in applied.hotels] == ["hotel_1", "hotel_2"]
     assert applied.hotels[0].price_per_night == old.hotels[0].price_per_night
     assert applied.hotels[1].price_per_night.amount == 900.0
+
+
+def test_sheep_farm_is_the_farm_stop_and_a_full_day_can_still_take_it() -> None:
+    """A nickname is the stop the model named. A full day still offers a tick that keeps the other stops."""
+    plan = make_plan(days=2, with_tickets=False)
+    farm = plan.days[1].items[0]
+    farm.name = "Mother Farm"
+    farm.id = "item_p1"
+    farm.start, farm.end = "16:55", "18:25"
+    plan.days[0].items = [
+        stop("park", "Chiba Park", "09:00", "12:00"),
+        stop("seaside", "Inage Seaside Park", "12:00", "16:00"),
+        stop("dinner", "Ebisuya", "16:00", "20:15"),
+    ]
+    draft = ChangeDraft(
+        operation="move", place="sheep farm", target_item_id="item_p1", target_day=1, confidence=0.99
+    )
+    meant = _stop_the_words_mean(plan, draft, "sheep farm", "can you put sheep farm to day1")
+    assert meant is farm
+
+    bare = ChangeDraft()
+    assert _stop_the_words_mean(plan, bare, "sheep farm", "put the sheep farm on day 1") is farm
+    assert _stop_the_words_mean(plan, bare, "the park", "put the park on day 1") is None
+
+    # The day ends at 20:15, so the farm takes the next free stretch. That is the move the tick then accepts.
+    moved, sentence = _move_named(plan, meant.name, 1)
+    assert moved and "20:15" in sentence
+    assert any(item.name == "Mother Farm" and item.start == "20:15" for item in plan.days[0].items)
+    assert all(item.id != "item_p1" for item in plan.days[1].items)
+
+    packed = make_plan(days=2, with_tickets=False)
+    packed.days[1].items[0].name = "Mother Farm"
+    packed.days[1].items[0].id = "item_p1"
+    packed.days[0].items = [
+        stop("a", "Ivy", "08:00", "12:00"),
+        stop("b", "Museum", "12:00", "16:00"),
+        stop("c", "Park", "16:00", "20:00"),
+        stop("d", "Tower", "20:00", "23:00"),
+    ]
+    farm = packed.days[1].items[0]
+    moved, sentence = _move_named(packed, "Mother Farm", 1)
+    assert not moved and "no free time slot" in sentence
+    offers = move_choices(packed, farm, 1)
+    assert offers[0]["drops"] == [] and "keep the other stops" in offers[0]["label"]
+    assert offers[0]["group"] == offers[1]["group"]
+    updated = apply_change(packed, offers[0])
+    assert any(item.name == "Mother Farm" for item in updated.days[0].items)
+    assert any(item.name == "Ivy" for item in updated.days[0].items)
+    assert all(item.id != "item_p1" for item in updated.days[1].items)

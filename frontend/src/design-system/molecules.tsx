@@ -44,10 +44,14 @@ export function TravelOptions({
   data,
   loading = false,
   error = null,
+  selected = null,
+  onSelect,
 }: {
   data: import("../lib/api").LegOptions | null;
   loading?: boolean;
   error?: string | null;
+  selected?: string | null;
+  onSelect?: (option: import("../lib/api").LegOption) => void;
 }) {
   const { t } = useI18n();
   const labels: Record<string, MessageKey> = {
@@ -66,7 +70,14 @@ export function TravelOptions({
         {t("map.optionsFor", { from: data.from_name, to: data.to_name })}
       </Text>
       {data.options.map((option) => (
-        <div className="pf-travel-option" data-mode={option.mode} key={option.mode}>
+        <button
+          type="button"
+          className="pf-travel-option"
+          data-mode={option.mode}
+          data-active={selected === option.mode}
+          key={option.mode}
+          onClick={() => onSelect?.(option)}
+        >
           <span className="pf-travel-option__icon">
             <Icon name={icons[option.mode]} size={16} />
           </span>
@@ -88,7 +99,7 @@ export function TravelOptions({
           <Text size="sm" weight="semibold">
             {option.minutes !== null ? t("map.minutes", { minutes: option.minutes }) : "—"}
           </Text>
-        </div>
+        </button>
       ))}
       <Text size="xs" tone="tertiary">{t("map.optionsNote")}</Text>
     </div>
@@ -205,8 +216,19 @@ function LimitNote({ full }: { full: boolean }) {
 type CityRow = { city: string; nights: string };
 
 function rowsFrom(values: Partial<TripContext>): CityRow[] {
-  if (values.stops && values.stops.length > 1) {
-    return values.stops.map((stop) => ({ city: stop.city, nights: stop.nights == null ? "" : String(stop.nights) }));
+  const stops = values.stops ?? [];
+  const destination = (values.destination ?? "").trim();
+  const same = (city: string) => city.trim().toLowerCase() === destination.toLowerCase();
+  if (stops.length > 1) {
+    return stops.map((stop) => ({ city: stop.city, nights: stop.nights == null ? "" : String(stop.nights) }));
+  }
+  // One leftover stop that is not the place on the form (Tokyo kept, Chiba shown) is still part of the trip.
+  if (stops.length === 1 && destination && !same(stops[0].city)) {
+    const stop = stops[0];
+    return [
+      { city: stop.city, nights: stop.nights == null ? "" : String(stop.nights) },
+      { city: destination, nights: "" },
+    ];
   }
   return [{ city: values.destination ?? "", nights: "" }];
 }
@@ -925,6 +947,16 @@ export function PlaceFacts({ place }: { place: Partial<PlaceFactFields> }) {
   return <span className="pf-item__facts">{parts.join(" · ")}</span>;
 }
 
+export interface StopOffer {
+  messageId: string;
+  changeId: string;
+  kind: "add" | "drop" | "time";
+  /** 1-based day of an add or a retimed stop. */
+  day: number;
+  itemId: string;
+  item?: PlanItem;
+}
+
 export function ItineraryItem({
   item,
   selected = false,
@@ -933,6 +965,10 @@ export function ItineraryItem({
   onSelect,
   number,
   showSource = true,
+  proposal = null,
+  proposedStart,
+  proposedEnd,
+  decision,
 }: {
   item: PlanItem;
   selected?: boolean;
@@ -942,10 +978,16 @@ export function ItineraryItem({
   onSelect?: () => void;
   number?: number;
   showSource?: boolean;
+  proposal?: "add" | "drop" | "time" | null;
+  proposedStart?: string;
+  proposedEnd?: string;
+  decision?: ReactNode;
 }) {
   const { t } = useI18n();
   const transferText = transferLine(item, t);
   const pending = isPendingChoice(item.notes);
+  const start = proposedStart || item.start;
+  const end = proposedEnd || item.end;
   return (
     <div
       className="pf-item"
@@ -954,6 +996,7 @@ export function ItineraryItem({
       data-selected={selected}
       data-updated={updated}
       data-clash={clash}
+      data-proposal={proposal || undefined}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
@@ -965,10 +1008,11 @@ export function ItineraryItem({
         }
       }}
     >
+      {decision}
       <div className="pf-item__time">
-        {item.start}
+        {start}
         <br />
-        {item.end}
+        {end}
       </div>
       <span className="pf-item__icon">
         <Icon name={ITEM_ICON[item.type] ?? "map"} size={15} />
@@ -979,6 +1023,9 @@ export function ItineraryItem({
           {number ? <span className="pf-mono pf-muted">{number}. </span> : null}
           {item.name}
         </span>
+        {proposal === "time" && proposedStart ? (
+          <span className="pf-item__notes">was {item.start}–{item.end}</span>
+        ) : null}
         <PlaceImage image={item.image} />
         <PlaceFacts place={item} />
         {transferText ? <span className="pf-item__facts">{transferText}</span> : null}
@@ -1142,6 +1189,18 @@ export function WeatherChip({ weather }: { weather: WeatherDay | null }) {
   );
 }
 
+function spansOverlap(start: string, end: string, otherStart: string, otherEnd: string): boolean {
+  return start < otherEnd && otherStart < end;
+}
+
+function spanMinutes(start: string, end: string): number {
+  const to = (value: string) => {
+    const [hour, minute] = value.split(":");
+    return Number(hour) * 60 + Number(minute);
+  };
+  return to(end) - to(start);
+}
+
 export function DaySection({
   day,
   index,
@@ -1151,6 +1210,8 @@ export function DaySection({
   onSelectItem,
   innerRef,
   onChooseAlternative,
+  offers = [],
+  onDecide,
 }: {
   day: DayPlan;
   index: number;
@@ -1161,9 +1222,112 @@ export function DaySection({
   innerRef?: (node: HTMLElement | null) => void;
   /** Swaps a stop for one of its alternatives; resolves when the updated plan is shown, rejects with the reason. */
   onChooseAlternative?: (item: PlanItem, alternativeId: string) => Promise<void>;
+  /** Changes waiting for a tick. Adds are drawn in; removals and new clocks tint the stop. */
+  offers?: StopOffer[];
+  onDecide?: (messageId: string, changeId: string, accept: boolean) => void;
 }) {
   const { t } = useI18n();
+  const [waiting, setWaiting] = useState<string | null>(null);
   const dayLabel = t("day.number", { n: index + 1 });
+  const dayNumber = index + 1;
+  const choose = (messageId: string, changeId: string, accept: boolean) => {
+    if (!onDecide || waiting) return;
+    setWaiting(changeId);
+    Promise.resolve(onDecide(messageId, changeId, accept)).finally(() => setWaiting(null));
+  };
+  const rows: { key: string; item: PlanItem; proposal: "add" | "drop" | "time" | null; offer?: StopOffer; start: string; end: string }[] = day.items.map((item) => {
+    const drop = offers.find((offer) => offer.kind === "drop" && offer.itemId === item.id);
+    const time = offers.find((offer) => offer.kind === "time" && offer.itemId === item.id);
+    const offer = drop ?? time;
+    return {
+      key: item.id,
+      item,
+      proposal: offer?.kind ?? null,
+      offer,
+      start: time?.item?.start || item.start,
+      end: time?.item?.end || item.end,
+    };
+  });
+  for (const offer of offers) {
+    if (offer.kind !== "add" || offer.day !== dayNumber || !offer.item) continue;
+    if (rows.some((row) => row.item.id === offer.itemId)) continue;
+    rows.push({
+      key: offer.changeId + offer.itemId,
+      item: offer.item,
+      proposal: "add",
+      offer,
+      start: offer.item.start,
+      end: offer.item.end,
+    });
+  }
+  rows.sort((left, right) => left.start.localeCompare(right.start) || left.end.localeCompare(right.end));
+  const lines: { main: (typeof rows)[number]; aside: (typeof rows)[number][] }[] = [];
+  const rank = (row: (typeof rows)[number]) =>
+    spanMinutes(row.start, row.end) + (row.proposal === "add" || row.proposal === "time" ? 1 : 0);
+  for (const row of rows) {
+    const line = lines.find((entry) =>
+      [entry.main, ...entry.aside].some((other) => spansOverlap(other.start, other.end, row.start, row.end)),
+    );
+    if (!line) {
+      lines.push({ main: row, aside: [] });
+      continue;
+    }
+    const members = [...[line.main, ...line.aside, row]].sort((left, right) => rank(right) - rank(left));
+    line.main = members[0];
+    line.aside = members.slice(1);
+  }
+  const card = (row: (typeof rows)[number], number?: number) => (
+    <div key={row.key} className="pf-item-group">
+      <ItineraryItem
+        item={row.item}
+        number={number}
+        selected={selectedItemId === row.item.id}
+        updated={updatedIds?.has(row.item.id) ?? false}
+        clash={clashIds?.has(row.item.id) ?? false}
+        proposal={row.proposal}
+        proposedStart={row.proposal === "time" ? row.start : undefined}
+        proposedEnd={row.proposal === "time" ? row.end : undefined}
+        onSelect={row.proposal === "add" ? undefined : () => onSelectItem?.(row.item)}
+        decision={decide(row)}
+      />
+      {row.proposal !== "add" && row.item.alternatives?.length ? (
+        <ItemAlternatives
+          item={row.item}
+          onChoose={onChooseAlternative ? (alternativeId) => onChooseAlternative(row.item, alternativeId) : undefined}
+        />
+      ) : null}
+    </div>
+  );
+  const decide = (row: (typeof rows)[number]) => row.offer && onDecide ? (
+    <div className="pf-item__decide" onClick={(event) => event.stopPropagation()}>
+      <IconButton
+        icon="check"
+        label={t("chat.acceptChange")}
+        disabled={waiting !== null}
+        onClick={() => choose(row.offer!.messageId, row.offer!.changeId, true)}
+      />
+      <IconButton
+        icon="close"
+        label={t("chat.rejectChange")}
+        disabled={waiting !== null}
+        onClick={() => choose(row.offer!.messageId, row.offer!.changeId, false)}
+      />
+    </div>
+  ) : null;
+  const chip = (row: (typeof rows)[number]) => (
+    <div
+      key={row.key}
+      className="pf-offer"
+      data-proposal={row.proposal || undefined}
+      data-clash={!row.proposal && clashIds?.has(row.item.id) ? "true" : undefined}
+      onClick={row.proposal === "add" ? undefined : () => onSelectItem?.(row.item)}
+      role="group"
+    >
+      <span>{row.start}–{row.end}</span>
+      <b>{row.item.name}</b>
+      {decide(row)}
+    </div>
+  );
   return (
     <section className="pf-day" ref={innerRef} aria-label={dayLabel}>
       <div className="pf-day__head">
@@ -1176,25 +1340,15 @@ export function DaySection({
         </div>
         <WeatherChip weather={day.weather} />
       </div>
-      {day.items.map((item, itemIndex) => (
-        <div key={item.id} className="pf-item-group">
-          <ItineraryItem
-            item={item}
-            number={itemIndex + 1}
-            selected={selectedItemId === item.id}
-            updated={updatedIds?.has(item.id) ?? false}
-            clash={clashIds?.has(item.id) ?? false}
-            onSelect={() => onSelectItem?.(item)}
-          />
-          {item.alternatives?.length ? (
-            <ItemAlternatives
-              item={item}
-              onChoose={onChooseAlternative ? (alternativeId) => onChooseAlternative(item, alternativeId) : undefined}
-            />
-          ) : null}
-        </div>
+      {lines.map((line) => (
+        line.aside.length ? (
+          <div key={line.main.key} className="pf-item-line">
+            <div className="pf-item-line__main">{card(line.main)}</div>
+            <div className="pf-item-line__aside">{line.aside.map((row) => chip(row))}</div>
+          </div>
+        ) : card(line.main, rows.indexOf(line.main) + 1)
       ))}
-      {!day.items.length ? (
+      {!lines.length ? (
         <div className="pf-gap" style={{ margin: "0 8px" }}>
           <Icon name="alert" size={13} />
           {day.note || t("day.noStops")}
@@ -1393,7 +1547,6 @@ export function PlaceCard({
 
 export function PlanFeedback({
   verdict,
-  stars,
   added = [],
   onUseful,
   onNotUseful,
@@ -1401,11 +1554,10 @@ export function PlanFeedback({
   verdict: "useful" | "not_useful" | null;
   stars?: number | null;
   added?: string[];
-  onUseful: (stars: number) => void;
+  onUseful: () => void;
   onNotUseful: () => void;
 }) {
   const { t } = useI18n();
-  const [ratingOpen, setRatingOpen] = useState(false);
   return (
     <div className="pf-plan-feedback">
       {verdict === "useful" ? (
@@ -1417,11 +1569,7 @@ export function PlanFeedback({
         <span className="pf-plan-feedback__not">{t("feedback.markedNotUseful")}</span>
       ) : (
         <>
-          <button
-            type="button"
-            className="pf-plan-feedback__button"
-            onClick={() => setRatingOpen((value) => !value)}
-          >
+          <button type="button" className="pf-plan-feedback__button" onClick={onUseful}>
             <Icon name="star" size={12} /> {t("saved.useful")}
           </button>
           <button type="button" className="pf-plan-feedback__button" onClick={onNotUseful}>
@@ -1429,28 +1577,6 @@ export function PlanFeedback({
           </button>
         </>
       )}
-      {ratingOpen && verdict === null ? (
-        <div className="pf-plan-feedback__rating" role="group" aria-label={t("feedback.rate")}>
-          <span>{t("feedback.question")}</span>
-          <div className="pf-row" style={{ gap: 2 }}>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                className="pf-plan-feedback__star"
-                aria-label={t(value > 1 ? "feedback.stars" : "feedback.star", { count: value })}
-                onClick={() => {
-                  setRatingOpen(false);
-                  onUseful(value);
-                }}
-              >
-                <Icon name="star" size={16} />
-              </button>
-            ))}
-          </div>
-          {stars ? <small>{t("feedback.saved", { stars })}</small> : null}
-        </div>
-      ) : null}
       {verdict === "useful" && added.length ? (
         <span className="pf-plan-feedback__added">+ {added.slice(0, 3).join(", ")}</span>
       ) : null}
@@ -1828,18 +1954,27 @@ export function PlanLanguageBanner({
   );
 }
 
-export function StatusSummary({ plan }: { plan: { constraints: ConstraintCheck[]; data_quality: { gaps: DataGap[] } } }) {
+export function StatusSummary({
+  plan,
+  conflicts = 0,
+  onOpen,
+}: {
+  plan: { constraints: ConstraintCheck[]; data_quality: { gaps: DataGap[] } };
+  /** Shared clocks and other recorded warnings, on top of failing checks. */
+  conflicts?: number;
+  onOpen?: (which: "constraints" | "gaps") => void;
+}) {
   const { t } = useI18n();
-  const failing = plan.constraints.filter((check) => check.status === "fail").length;
+  const failing = plan.constraints.filter((check) => check.status === "fail").length + conflicts;
   const gaps = plan.data_quality.gaps.length;
   return (
     <div className="pf-row pf-row--wrap">
-      <Badge tone={failing ? "danger" : "success"} dot>
+      <Badge tone={failing ? "danger" : "success"} dot onClick={onOpen ? () => onOpen("constraints") : undefined}>
         {failing
           ? t(failing > 1 ? "summary.failing" : "summary.failingOne", { count: failing })
           : t("summary.hold")}
       </Badge>
-      <Badge tone={gaps ? "warning" : "neutral"} dot>
+      <Badge tone={gaps ? "warning" : "neutral"} dot onClick={onOpen ? () => onOpen("gaps") : undefined}>
         {gaps ? t(gaps > 1 ? "summary.gaps" : "summary.gapsOne", { count: gaps }) : t("summary.noGaps")}
       </Badge>
     </div>

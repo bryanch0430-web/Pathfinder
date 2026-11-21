@@ -23,7 +23,7 @@ from typing import Any, Callable, Sequence
 from pydantic import ValidationError
 
 from app.domain.credentials import StoredCredential
-from app.domain.schedule import separate_overlaps
+from app.domain.schedule import record_overlaps, separate_overlaps
 from app.domain.models import (
     DatasetMeta,
     EvalCaseResult,
@@ -1911,11 +1911,14 @@ class SQLiteStore:
         its creation time, so rewriting an older version never makes it the latest. No summary
         (`None`) leaves a rewritten version's summary as it is, and is the plan's own on a new row.
 
-        A merge that left two stops on one time, or wrote the same place twice, is separated
-        first, so the row can be read back.
+        The same place written twice on one clock is merged first, so the row can be read back.
+        Two different stops may share a clock.
         """
         payload = json.loads(plan.model_dump_json())
-        if separate_overlaps(payload):
+        # A shared clock is kept and written down. The note stays after the times are moved apart.
+        merged = separate_overlaps(payload)
+        noted = record_overlaps(payload)
+        if merged or noted:
             plan = TripPlan.model_validate(payload)
         plan.refresh_derived()  # an edit may have changed what a link or a rank is built from
         try:

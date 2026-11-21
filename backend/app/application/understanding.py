@@ -155,11 +155,15 @@ async def understand(
     # rewrite the trip dates, and the common turn stays fast.
     missing = updated.missing_slots()
     if gateway.available and missing:
+        from app.application.skills import skill_by_name
+
+        wish = skill_by_name("read-a-wish")
         # What this step extracts is stored with the trip and in the profile: it reads the traveller's own earlier
         # turns and only the last assistant turn (the question the message may answer), never earlier answers.
         conversation = conversation_block(history, message, last_assistant_only=True, settings=settings)
         prompt = (
-            f"Current date: {today.isoformat()}\n"
+            (f"Visit wish skill (apply these rules):\n{wish.body}\n\n" if wish is not None else "")
+            + f"Current date: {today.isoformat()}\n"
             f"Existing context: {trip_state(updated)}\n"
             f"Still missing: {missing}\n\n"
             + with_conversation(conversation)
@@ -176,6 +180,16 @@ async def understand(
 
     _normalise_dates(updated)
     _apply_confirmations(message, labeled, context, updated, history=history)
+    # "go to Japan to see Gundam" names one place. The same name is not also the departure city
+    # unless the message says the trip leaves from there.
+    if (
+        updated.origin
+        and updated.destination
+        and updated.origin.casefold() == updated.destination.casefold()
+        and re.search(r"\b(?:go|see|visit|to)\b", message, re.IGNORECASE)
+        and not re.search(r"\bfrom\b", message, re.IGNORECASE)
+    ):
+        updated.origin = ""
     return updated
 
 
@@ -381,8 +395,13 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     if destination_changed or not (old_start and old_end):
         start, end = _find_dates(lower, today)
         if start:
-            context.start_date = start
-            context.end_date = end
+            # "When does the trip end?" answered with one day: that day is the end, and the start already
+            # stored stays. Replacing the start made a one-day trip on the end date.
+            if end is None and old_start and not old_end and start >= old_start:
+                context.end_date = start
+            else:
+                context.start_date = start
+                context.end_date = end
         elif destination_changed:
             context.start_date = old_start
             context.end_date = (
@@ -428,9 +447,11 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         preference = f"must-see: {named.group(1).strip()}"
         if preference not in context.preferences:
             context.preferences.append(preference)
-    # "see Gundam" / "visit the Gundam Base": an attraction, not a city and not a departure point.
-    for match in re.finditer(r"\b(?:see|visit)\s+(?:the\s+)?([A-Z][\w'’-]{2,}(?:\s+[A-Z][\w'’-]*){0,3})", text):
-        sight = match.group(1).strip()
+    # "see Gundam" / "to see gundam": an attraction, not a city and not a departure point.
+    for match in re.finditer(r"\b(?:see|visit)\s+(?:the\s+)?([A-Za-z][\w'’-]{2,}(?:\s+[A-Za-z][\w'’-]*){0,3})", text):
+        sight = " ".join(word[:1].upper() + word[1:] for word in match.group(1).split())
+        if sight.lower() in {"you", "it", "me", "us", "them", "this", "that", "if", "some", "any", "more", "one"}:
+            continue
         if _known_place(sight):
             continue
         preference = f"must-see: {sight}"
@@ -875,6 +896,29 @@ class PlaceGrounding:
         return ""
 
 
+def understand_note(before: TripContext, after: TripContext, grounding: PlaceGrounding | None = None) -> str:
+    """One line for the decision log: what this turn read, and what is still missing."""
+    bits: list[str] = []
+    for key in ("destination", "origin"):
+        new = str(getattr(after, key) or "").strip()
+        old = str(getattr(before, key) or "").strip()
+        if new and new.casefold() != old.casefold():
+            bits.append(f"{key} {new}")
+    wishes = [item for item in after.preferences if item not in before.preferences]
+    if wishes:
+        bits.append("wish " + ", ".join(wishes))
+    if grounding is not None:
+        for slot, asked, found in grounding.suggestions:
+            bits.append(f"confirm {asked} as {found} for {slot}, not stored yet")
+    if not bits:
+        bits.append("no new slot was read")
+    missing = after.missing_slots()
+    sentence = ". ".join(bit[0].upper() + bit[1:] for bit in bits)
+    if missing:
+        sentence += ". Still missing " + ", ".join(missing)
+    return sentence + "."
+
+
 def place_reply(result: PlaceGrounding) -> str:
     """The question for a failed city, plus every other city this turn was checked."""
     head = result.first()
@@ -882,7 +926,9 @@ def place_reply(result: PlaceGrounding) -> str:
         return ""
     bits = []
     for _slot, asked, found in result.suggestions:
-        if _same_place(asked, found):
+        if asked.casefold() == found.casefold():
+            bits.append(f"I found {found}.")
+        elif _same_place(asked, found):
             bits.append(f"I found {found} for {asked}.")
         else:
             bits.append(f"The closest place I can find for {asked} is {found}.")
@@ -1358,9 +1404,14 @@ def _apply_labeled(context: TripContext, labeled: dict[str, str], today: date) -
             except ValueError:
                 start = None
         if start:
-            context.start_date = start
-            if end:
-                context.end_date = end
+            # The card asked for the end, and the answer is one day: keep the start already stored.
+            # Writing that day as the start turned "6 March, ending 14 March" into a one-day trip on the 14th.
+            if end is None and context.start_date and not context.end_date and start >= context.start_date:
+                context.end_date = start
+            else:
+                context.start_date = start
+                if end:
+                    context.end_date = end
     end_text = labeled.get("end date") or labeled.get("end_date")
     if end_text:
         try:

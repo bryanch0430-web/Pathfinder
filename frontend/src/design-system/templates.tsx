@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { useI18n } from "../lib/i18n";
-import { CanvasBoard } from "./CanvasBoard";
 import { Icon } from "./icons";
 
 /** Saved dock state. A narrow viewport uses a sheet and does not read this. */
 const PANELS_KEY = "pathfinder-planner-panels";
-const WIDTHS_KEY = "pathfinder-planner-widths";
-const CHAT_MIN = 240;
-const MAP_MIN = 280;
+/** v2: the left column is the day list and the right column is the chat. */
+const WIDTHS_KEY = "pathfinder-planner-widths-v2";
+const CHAT_MIN = 168;
+const MAP_MIN = 320;
 const PLAN_MIN = 320;
-const CHAT_DEFAULT = 340;
-const MAP_DEFAULT = 400;
+const CHAT_DEFAULT = 200;
+const MAP_DEFAULT = 420;
 const FRAME_PAD = 32;
 
 type Panels = { chat: boolean; map: boolean };
@@ -27,8 +27,8 @@ function readWidths(): Widths {
     if (!raw) return { chat: CHAT_DEFAULT, map: MAP_DEFAULT };
     const parsed = JSON.parse(raw) as Partial<Widths>;
     return {
-      chat: clamp(Number(parsed.chat) || CHAT_DEFAULT, CHAT_MIN, 760),
-      map: clamp(Number(parsed.map) || MAP_DEFAULT, MAP_MIN, 880),
+      chat: clamp(Number(parsed.chat) || CHAT_DEFAULT, CHAT_MIN, 280),
+      map: clamp(Number(parsed.map) || MAP_DEFAULT, MAP_MIN, 640),
     };
   } catch {
     return { chat: CHAT_DEFAULT, map: MAP_DEFAULT };
@@ -36,11 +36,8 @@ function readWidths(): Widths {
 }
 
 /** Three columns stay up while the plan can keep 320px. Below that, one sheet. */
-function canDock(viewport: number, panels: Panels) {
-  const chat = panels.chat ? CHAT_MIN : 0;
-  const map = panels.map ? MAP_MIN : 0;
-  const gaps = 12 * ((panels.chat ? 1 : 0) + (panels.map ? 1 : 0));
-  return viewport >= FRAME_PAD + chat + map + gaps + PLAN_MIN;
+function canDock(viewport: number) {
+  return viewport >= FRAME_PAD + CHAT_MIN + MAP_MIN + 24 + PLAN_MIN;
 }
 
 function fitWidths(viewport: number, panels: Panels, widths: Widths): Widths {
@@ -165,8 +162,8 @@ export function PlannerTemplate({
   const chatCloseRef = useRef<HTMLButtonElement>(null);
   const mapCloseRef = useRef<HTMLButtonElement>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
-  const dock = canDock(width, panels);
-  const shown = fitWidths(width, panels, widths);
+  const dock = canDock(width);
+  const shown = fitWidths(width, { chat: true, map: true }, widths);
 
   useEffect(() => {
     let frame = 0;
@@ -190,7 +187,7 @@ export function PlannerTemplate({
   }, [widths]);
 
   useEffect(() => {
-    if (dock || !sheet) return;
+    if (!sheet) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setSheet(null);
@@ -239,20 +236,8 @@ export function PlannerTemplate({
     <div className="pf-app">
       {header}
       <div className="pf-shell" data-dock={dock ? "true" : "false"}>
-        {dock ? (
-          <CanvasBoard
-            chat={left}
-            plan={centre}
-            map={right}
-            budget={budget ?? null}
-            exchange={exchange ?? null}
-            profile={profile ?? null}
-            sketch={sketch ?? null}
-            videos={videos ?? null}
-            trending={trending ?? null}
-          />
-        ) : null}
-        {dock ? null : <div className="pf-shell__bar" role="toolbar" aria-label={t("panels.surfaces")}>
+        <div className="pf-shell__bar" role="toolbar" aria-label={t("panels.surfaces")}>
+          {dock ? null : (
           <button
             type="button"
             className="pf-shell__toggle"
@@ -260,9 +245,11 @@ export function PlannerTemplate({
             aria-controls="pf-panel-chat"
             onClick={toggleChat}
           >
-            <Icon name="sparkles" size={15} />
-            <span>{t("chat.label")}</span>
+            <Icon name="calendar" size={15} />
+            <span>{t("day.strip")}</span>
           </button>
+          )}
+          {dock ? null : (
           <button
             type="button"
             className="pf-shell__toggle"
@@ -270,9 +257,10 @@ export function PlannerTemplate({
             aria-controls="pf-panel-map"
             onClick={toggleMap}
           >
-            <Icon name="map" size={15} />
-            <span>{t("map.label")}</span>
+            <Icon name="sparkles" size={15} />
+            <span>{t("chat.label")}</span>
           </button>
+          )}
           <button
             type="button"
             className="pf-shell__toggle"
@@ -321,32 +309,30 @@ export function PlannerTemplate({
           >
             <span>{t("trending.eyebrow")}</span>
           </button>
-        </div>}
+        </div>
 
-        {dock ? null : <div
+        <div
           ref={plannerRef}
           className="pf-planner"
           data-dock={dock ? "true" : "false"}
-          data-chat={dock && panels.chat ? "open" : "closed"}
-          data-map={dock && panels.map ? "open" : "closed"}
+          data-chat={dock ? "open" : "closed"}
+          data-map={dock ? "open" : "closed"}
           style={{ ["--pf-w-chat" as string]: `${shown.chat}px`, ["--pf-w-map" as string]: `${shown.map}px` }}
         >
           {dock ? (
-            <div className="pf-planner__left" id="pf-panel-chat" hidden={!panels.chat}>
-              <DockBar label={t("chat.label")} hideLabel={t("panels.hideChat")} onHide={toggleChat} />
+            <div className="pf-planner__left" id="pf-panel-days">
               <div className="pf-dock__body">{left}</div>
             </div>
           ) : null}
           <div className="pf-planner__centre">{centre}</div>
           {dock ? (
-            <div className="pf-planner__right" id="pf-panel-map" hidden={!panels.map}>
-              <DockBar label={t("map.label")} hideLabel={t("panels.hideMap")} onHide={toggleMap} />
+            <div className="pf-planner__right" id="pf-panel-chat">
               <div className="pf-dock__body">{right}</div>
             </div>
           ) : null}
-        </div>}
+        </div>
 
-        {!dock && sheet ? (
+        {sheet ? (
           <button type="button" className="pf-surface-scrim" aria-label={t("panels.close")} onClick={() => setSheet(null)} />
         ) : null}
 
@@ -356,11 +342,11 @@ export function PlannerTemplate({
             id="pf-panel-chat"
             role="dialog"
             aria-modal={sheet === "chat"}
-            aria-label={t("chat.label")}
+            aria-label={t("day.strip")}
             hidden={sheet !== "chat"}
           >
             <DockBar
-              label={t("chat.label")}
+              label={t("day.strip")}
               hideLabel={t("panels.close")}
               onHide={() => setSheet(null)}
               buttonRef={chatCloseRef}
@@ -375,11 +361,11 @@ export function PlannerTemplate({
             id="pf-panel-map"
             role="dialog"
             aria-modal={sheet === "map"}
-            aria-label={t("map.label")}
+            aria-label={t("chat.label")}
             hidden={sheet !== "map"}
           >
             <DockBar
-              label={t("map.label")}
+              label={t("chat.label")}
               hideLabel={t("panels.close")}
               onHide={() => setSheet(null)}
               buttonRef={mapCloseRef}
@@ -388,54 +374,42 @@ export function PlannerTemplate({
           </div>
         ) : null}
 
-        {!dock ? (
-          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "profile"} aria-label={t("settings.profile")} hidden={sheet !== "profile"}>
-            <DockBar label={t("settings.profile")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-            <div className="pf-dock__body">{profile}</div>
-          </div>
-        ) : null}
+        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "profile"} aria-label={t("settings.profile")} hidden={sheet !== "profile"}>
+          <DockBar label={t("settings.profile")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+          <div className="pf-dock__body">{profile}</div>
+        </div>
 
-        {!dock ? (
-          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "budget"} aria-label={t("budget.tool")} hidden={sheet !== "budget"}>
-            <DockBar label={t("budget.tool")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-            <div className="pf-dock__body">{budget}</div>
-          </div>
-        ) : null}
+        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "budget"} aria-label={t("budget.tool")} hidden={sheet !== "budget"}>
+          <DockBar label={t("budget.tool")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+          <div className="pf-dock__body">{budget}</div>
+        </div>
 
-        {!dock ? (
-          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "exchange"} aria-label={t("budget.exchange")} hidden={sheet !== "exchange"}>
-            <DockBar label={t("budget.exchange")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-            <div className="pf-dock__body">{exchange}</div>
-          </div>
-        ) : null}
+        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "exchange"} aria-label={t("budget.exchange")} hidden={sheet !== "exchange"}>
+          <DockBar label={t("budget.exchange")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+          <div className="pf-dock__body">{exchange}</div>
+        </div>
 
-        {!dock ? (
-          <div
-            className="pf-surface-sheet"
-            id="pf-panel-sketch"
-            role="dialog"
-            aria-modal={sheet === "sketch"}
-            aria-label={t("panels.sketch")}
-            hidden={sheet !== "sketch"}
-          >
-            <DockBar label={t("panels.sketch")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-            <div className="pf-dock__body">{sketch}</div>
-          </div>
-        ) : null}
+        <div
+          className="pf-surface-sheet"
+          id="pf-panel-sketch"
+          role="dialog"
+          aria-modal={sheet === "sketch"}
+          aria-label={t("panels.sketch")}
+          hidden={sheet !== "sketch"}
+        >
+          <DockBar label={t("panels.sketch")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+          <div className="pf-dock__body">{sketch}</div>
+        </div>
 
-        {!dock ? (
-          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "videos"} aria-label={t("videos.title")} hidden={sheet !== "videos"}>
-            <DockBar label={t("videos.title")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-            <div className="pf-dock__body">{videos}</div>
-          </div>
-        ) : null}
+        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "videos"} aria-label={t("videos.title")} hidden={sheet !== "videos"}>
+          <DockBar label={t("videos.title")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+          <div className="pf-dock__body">{videos}</div>
+        </div>
 
-        {!dock ? (
-          <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "trending"} aria-label={t("trending.eyebrow")} hidden={sheet !== "trending"}>
-            <DockBar label={t("trending.eyebrow")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-            <div className="pf-dock__body">{trending}</div>
-          </div>
-        ) : null}
+        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "trending"} aria-label={t("trending.eyebrow")} hidden={sheet !== "trending"}>
+          <DockBar label={t("trending.eyebrow")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
+          <div className="pf-dock__body">{trending}</div>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,8 @@
-"""Make a stored day readable again when a merge left two stops on one time.
+"""Make a stored day readable again when the same place was written twice.
 
-A locked or confirmed stop stays. A later row with the same name is the same
-place written twice and is dropped. A different place slides to the next free
-minute and keeps its length. A stop that cannot fit before the day ends is left
-out, and the day says so.
+A later row with the same name on an overlapping clock is the same place and is
+dropped. A different place keeps its clock, even when the times cross: the page
+shows that overlap as a warning.
 """
 
 from __future__ import annotations
@@ -12,7 +11,48 @@ import re
 from typing import Any
 
 _CLOCK = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-_DAY_END = 23 * 60 + 59
+
+
+def record_overlaps(data: dict[str, Any]) -> list[str]:
+    """Append one line for each shared clock. A line already recorded is left as it is.
+
+    Fixing a time does not delete the old line. The list only grows, up to 80 lines.
+    """
+    quality = data.get("data_quality")
+    if not isinstance(quality, dict):
+        quality = {}
+        data["data_quality"] = quality
+    notes = [str(line) for line in (quality.get("notes") or []) if str(line).strip()]
+    fresh: list[str] = []
+    for day in data.get("days") or []:
+        if not isinstance(day, dict):
+            continue
+        when = str(day.get("date") or "")
+        ordered = sorted(
+            (item for item in (day.get("items") or []) if isinstance(item, dict)),
+            key=lambda item: (str(item.get("start") or ""), str(item.get("end") or "")),
+        )
+        for index, raw in enumerate(ordered):
+            start, end = str(raw.get("start") or ""), str(raw.get("end") or "")
+            if _CLOCK.match(start) is None or _CLOCK.match(end) is None or start >= end:
+                continue
+            finish = _minutes(end)
+            name = str(raw.get("name") or "A stop")
+            for other in ordered[index + 1 :]:
+                other_start, other_end = str(other.get("start") or ""), str(other.get("end") or "")
+                if _CLOCK.match(other_start) is None or _CLOCK.match(other_end) is None:
+                    continue
+                if _minutes(other_start) >= finish:
+                    break
+                other_name = str(other.get("name") or "A stop")
+                if other_name.casefold() == name.casefold():
+                    continue
+                line = f"{name} and {other_name} overlap on {when}."
+                if line not in notes and line not in fresh:
+                    fresh.append(line)
+    if fresh:
+        quality["notes"] = (notes + fresh)[-80:]
+    return fresh
 
 
 def separate_overlaps(data: dict[str, Any]) -> list[str]:
@@ -37,7 +77,6 @@ def _separate_day(when: str, items: list[dict[str, Any]]) -> tuple[list[dict[str
     ordered = sorted(items, key=lambda item: (str(item.get("start") or ""), str(item.get("end") or "")))
     kept: list[dict[str, Any]] = []
     notes: list[str] = []
-    taken: list[tuple[int, int]] = []
     for raw in ordered:
         start, end = str(raw.get("start") or ""), str(raw.get("end") or "")
         if _CLOCK.match(start) is None or _CLOCK.match(end) is None or start >= end:
@@ -57,17 +96,7 @@ def _separate_day(when: str, items: list[dict[str, Any]]) -> tuple[list[dict[str
         if twin is not None:
             notes.append(f"Merged a duplicate {name} on {when}.")
             continue
-        slot = _room(taken, begin, finish - begin, bool(raw.get("locked") or raw.get("confirmed")))
-        if slot is None:
-            notes.append(f"Left out {name} on {when}: the day was already full.")
-            continue
-        item = raw
-        if slot != begin:
-            item = dict(raw)
-            item["start"], item["end"] = _hhmm(slot), _hhmm(slot + finish - begin)
-            notes.append(f"Moved {name} on {when} to {item['start']}–{item['end']} so it does not overlap.")
-        taken.append((slot, slot + finish - begin))
-        kept.append(item)
+        kept.append(raw)
     kept.sort(key=lambda item: (str(item.get("start") or ""), str(item.get("end") or "")))
     return kept, notes
 
@@ -80,34 +109,6 @@ def _ranges_overlap(start: int, end: int, other_start: int, other_end: int) -> b
     return start < other_end and other_start < end
 
 
-def _room(taken: list[tuple[int, int]], start: int, duration: int, pinned: bool) -> int | None:
-    """The item's own start when that stretch is free, otherwise the next free minute at or after it.
-
-    A pinned stop keeps its start whenever the minute is free. When it is not, it slides too:
-    a saved day has to be readable.
-    """
-    del pinned
-    if duration <= 0:
-        return None
-    if _free(taken, start, duration):
-        return start
-    for _, end in sorted(taken):
-        if end >= start and _free(taken, end, duration):
-            return end
-    return None
-
-
-def _free(taken: list[tuple[int, int]], begin: int, duration: int) -> bool:
-    return begin + duration <= _DAY_END + 1 and all(
-        end <= begin or open_at >= begin + duration for open_at, end in taken
-    )
-
-
 def _minutes(value: str) -> int:
     hour, minute = value.split(":", 1)
     return int(hour) * 60 + int(minute)
-
-
-def _hhmm(minutes: int) -> str:
-    minutes = max(0, min(minutes, _DAY_END))
-    return f"{minutes // 60:02d}:{minutes % 60:02d}"

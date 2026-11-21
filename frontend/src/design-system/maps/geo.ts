@@ -5,10 +5,11 @@ export interface LatLng {
   lng: number;
 }
 
-export type TravelMode = "walk" | "metro" | "drive" | "flight";
+export type TravelMode = "walk" | "cycle" | "metro" | "drive" | "flight";
 
-export const MODE: Record<TravelMode, { label: string; color: string; icon: "walk" | "train" | "car" | "plane" }> = {
+export const MODE: Record<TravelMode, { label: string; color: string; icon: "walk" | "bike" | "train" | "car" | "plane" }> = {
   walk: { label: "Walk", color: "#0F766E", icon: "walk" },
+  cycle: { label: "Cycle", color: "#0369A1", icon: "bike" },
   metro: { label: "Transit", color: "#1D4ED8", icon: "train" },
   drive: { label: "Drive", color: "#C2410C", icon: "car" },
   flight: { label: "Flight", color: "#B45309", icon: "plane" },
