@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.15.0 | 2026-11-21 19:35 | An edit waits for a tick, a nickname finds the stop on the plan, and "how long should I stay" is the visit |
 | v1.14.0 | 2026-11-20 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat |
 | v1.13.0 | 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked |
 | v1.12.0 | 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting |
@@ -42,6 +43,21 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.15.0 — 21 November 2026, 19:35 HKT
+
+An edit is shown first and written only when you accept it. A nickname means the stop already on the plan. A question about how long to stay is about that visit.
+
+- **Tick to apply, cross to leave it.** A chat edit is not written until you tick it. A cross leaves that part as it is. The form's own Re-plan button still writes the plan at once, because that button is you applying the details.
+- **A full day can still take the stop.** If the day has no free gap, the first tick puts the stop after the last one and keeps the others. The other ticks each replace one stop to make room. Nothing is written until you tick one.
+- **A nickname is the stop already on the plan.** "Put the sheep farm on day 1" is Mother Farm when that farm is already on the trip. The move uses that stop.
+- **A whole day is a long visit.** "Disneyland for a whole day, not just 2 hours" lengthens that stop to 09:00–18:30 and moves what would overlap it.
+- **"How long should I stay" is the visit.** "How long should I stay at the farm" and "what is the duration of Mother Farm" use the hours already on the plan, and a duration page when one comes back. "Which hotel am I staying at?" is still the hotel.
+- **Re-plan uses the dates on the form.** A one-day plan can be lengthened across the form's dates. A city shown on the form and a leftover city are both planned. One later date, when the start is already set, fills the end.
+- **A harbour walk looks nearby.** "A harbour walk" is an outing. The edit looks for a verified promenade near the stop, rather than a place whose name is exactly those words.
+- **Overlapping stops are separated.** The later stop is pushed on, and the reply says so. The chat does not stop with a failed plan.
+- **The steps show while the turn runs.** Routing, editing, review, and the reply each name what is working and how many seconds it took. The model list is no longer pasted under the reply.
+- **The reply is written from the plan and the chat.** After an edit, the sentence describes what is on the plan now. It no longer uses a fixed "Updated to version" line.
 
 ### v1.14.0 — 20 November 2026, 18:10 HKT
 

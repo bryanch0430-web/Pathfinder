@@ -5,6 +5,21 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.15.0 — 2026-11-21 19:35
+
+An edit is shown first and written only when you accept it. A nickname means the stop already on the plan. A question about how long to stay is about that visit.
+
+- **Tick to apply, cross to leave it.** A chat edit is not written until you tick it. A cross leaves that part as it is. The form's own Re-plan button still writes the plan at once.
+- **A full day can still take the stop.** If the day has no free gap, the first tick puts the stop after the last one and keeps the others. The other ticks each replace one stop. Nothing is written until you tick one.
+- **A nickname is the stop already on the plan.** "Put the sheep farm on day 1" is Mother Farm when that farm is already on the trip.
+- **A whole day is a long visit.** "Disneyland for a whole day, not just 2 hours" lengthens that stop to 09:00–18:30 and moves what would overlap it.
+- **"How long should I stay" is the visit.** The reply uses the hours already on the plan, and a duration page when one comes back. "Which hotel am I staying at?" is still the hotel.
+- **Re-plan uses the dates on the form.** A one-day plan can be lengthened across those dates. A city on the form and a leftover city are both planned. One later date, when the start is already set, fills the end.
+- **A harbour walk looks nearby.** The edit looks for a verified promenade near the stop.
+- **Overlapping stops are separated.** The later stop is pushed on, and the reply says so.
+- **The steps show while the turn runs.** Routing, editing, review, and the reply each name what is working and how many seconds it took.
+- **The reply is written from the plan and the chat.** It no longer uses a fixed "Updated to version" line.
+
 ## v1.14.0 — 2026-11-20 18:10
 
 A day on the map starts at the hotel. An unhappy meal no longer hands the chat to a person. An operator can take any chat.
