@@ -104,7 +104,7 @@ Omit `--password` and the script generates one and prints it once. Sign in from 
 
 ## Trips already in the database
 
-`backend/pathfinder.db` is local SQLite and is not part of a fresh install. Guest identity is stored in the browser under `tripverse_guest_id`. A new browser creates a new guest, so older trips stay in the database until that guest id is set again. Create a new trip if you do not need the old ones.
+`backend/pathfinder.db` is local SQLite and is not part of a fresh install. Guest identity is stored in the browser. A new browser creates a new guest, so older trips stay in the database until that guest id is set again. Create a new trip if you do not need the old ones.
 
 ## Tests
 
@@ -124,8 +124,6 @@ npx pnpm@11.25.0 exec tsc --noEmit
 ## Open-source projects referenced
 
 This note lists public GitHub repositories the running code imports or calls. Pathfinder is not a fork of these projects. Each one keeps its own licence. Smaller packages that only appear as transitive dependencies are not listed; they remain in `backend/requirements.txt` and `frontend/package.json`.
-
-The Wikimedia user-agent string still names an earlier repository, [watermelon588/Tripverse](https://github.com/watermelon588/Tripverse).
 
 | Repository | Where it shows up |
 | --- | --- |
