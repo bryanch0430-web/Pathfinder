@@ -5,6 +5,7 @@ import { RouteCurtain, type RouteCurtainHandle } from './components/common/Route
 import { HomeV2 } from './components/home/v2/HomeV2';
 import { FooterV2 } from './components/home/v2/FooterV2';
 import { useAuth } from './context/AuthContext';
+import { usePlannerBusy } from './services/plannerActivity';
 
 // Home is the landing page and ships in the main bundle. Every other page loads on demand,
 // so `/` doesn't pay for the planner, the studio or the chat's markdown renderer.
@@ -71,6 +72,9 @@ export const App: React.FC = () => {
   viewRef.current = view;
   const { user, loading: authLoading } = useAuth();
   const curtain = useRef<RouteCurtainHandle>(null);
+  const plannerBusy = usePlannerBusy();
+  // Once the planner has opened, keep it mounted. Hiding it leaves the itinerary stream running.
+  const [keepPlanner, setKeepPlanner] = useState(() => getViewFromPath() === 'create');
 
   // Every route change runs through the shared curtain transition.
   const transitionTo = useCallback((next: ViewState) => {
@@ -102,6 +106,10 @@ export const App: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [transitionTo]);
+
+  useEffect(() => {
+    if (view === 'create') setKeepPlanner(true);
+  }, [view]);
 
   useEffect(() => {
     if (view === 'profile' && !authLoading && !user) {
@@ -193,16 +201,26 @@ export const App: React.FC = () => {
             onStartPlanning={() => navigateTo('create')}
           />
         )}
-        {view === 'create' && (
-          <CreateTrip
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateExplore={() => navigateTo('explore')}
-            onNavigateProfile={() => navigateTo('profile')}
-            onNavigateLogin={() => navigateTo('login')}
-            onNavigateSignup={() => navigateTo('signup')}
-          />
-        )}
       </React.Suspense>
+      {keepPlanner && (
+        <React.Suspense fallback={null}>
+          <div hidden={view !== 'create'}>
+            <CreateTrip
+              onNavigateHome={() => navigateTo('home')}
+              onNavigateExplore={() => navigateTo('explore')}
+              onNavigateProfile={() => navigateTo('profile')}
+              onNavigateLogin={() => navigateTo('login')}
+              onNavigateSignup={() => navigateTo('signup')}
+            />
+          </div>
+        </React.Suspense>
+      )}
+      {view !== 'create' && plannerBusy && (
+        <div className="tv-plan-keep" role="status">
+          <p>Your itinerary is still being written. Other pages do not stop it. Closing or reloading this tab will.</p>
+          <button type="button" onClick={() => navigateTo('create')}>Back to the planner</button>
+        </div>
+      )}
       {/* One footer for every page. Home renders its own (it scrolls to its sections); the planner
           is a full-height workspace with nowhere for a footer to go. */}
       {view !== 'home' && view !== 'create' && view !== 'desk' && (

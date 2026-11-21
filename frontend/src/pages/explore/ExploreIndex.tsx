@@ -18,6 +18,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Flip } from 'gsap/Flip';
 
 import { ArrowUpRightIcon } from '../../components/home/v2/IconsV2';
+import { planTrending, TrendingPlaces } from '../../components/trending/TrendingPlaces';
 import { EASE, prefersReducedMotion, splitLines } from '../../components/home/v2/motion';
 import { KINDS, MOODS, PLACES, moodImage, placeById, placeImage, planFrom, type Kind } from './places';
 
@@ -244,6 +245,10 @@ export function ExploreIndex({ onStartPlanning }: { onStartPlanning: () => void 
           </a>
         </div>
       </header>
+
+      <div className="tv-container">
+        <TrendingPlaces onPlan={(card) => { planTrending(card); onStartPlanning(); }} />
+      </div>
 
       <div className="tv-container xi-window">
         <figure className="xi-window__fig">

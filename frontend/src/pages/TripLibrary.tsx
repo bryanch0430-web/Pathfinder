@@ -6,7 +6,7 @@ import { creditLine, sizedImage, usePlaceMedia } from '../services/placeMedia';
 import { deleteTrip, getTripMessages, type TripModelResponse } from '../services/tripService';
 import '../styles/trip-library.css';
 
-type Filter = 'all' | 'completed' | 'in-progress';
+type Filter = 'all' | 'completed' | 'in-progress' | 'rated';
 type Sort = 'recent' | 'oldest' | 'destination';
 
 interface TripLibraryProps {
@@ -20,6 +20,10 @@ interface TripLibraryProps {
 const isCompleted = (trip: TripModelResponse) => trip.status === 'COMPLETED';
 const isInProgress = (trip: TripModelResponse) => trip.status !== 'COMPLETED' && trip.status !== 'ARCHIVED';
 const isStarted = (trip: TripModelResponse) => trip.onboarding_status === 'COMPLETE';
+const starsOf = (trip: TripModelResponse) => {
+  const stars = trip.planning_preferences?.stars;
+  return typeof stars === 'number' && stars >= 1 && stars <= 5 ? stars : null;
+};
 const title = (trip: TripModelResponse) => trip.destination?.trim() || 'Untitled journey';
 const date = (value: string) => {
   const parsed = new Date(value);
@@ -81,6 +85,7 @@ export function TripLibrary({ onNavigateHome, onNavigateExplore, onNavigateProfi
     return trips.filter((trip) => {
       if (filter === 'completed' && !isCompleted(trip)) return false;
       if (filter === 'in-progress' && !isInProgress(trip)) return false;
+      if (filter === 'rated' && !starsOf(trip)) return false;
       return !term || [trip.destination, trip.origin_text, ...trip.places_to_visit]
         .some((value) => value?.toLocaleLowerCase().includes(term));
     }).sort((a, b) => {
@@ -200,7 +205,7 @@ export function TripLibrary({ onNavigateHome, onNavigateExplore, onNavigateProfi
                 </label>
               </div>
               <div className="tv-library__filters" role="group" aria-label="Filter journeys">
-                {([['all', 'All'], ['completed', 'Completed'], ['in-progress', 'In progress']] as const).map(([key, label]) => (
+                {([['all', 'All'], ['completed', 'Completed'], ['in-progress', 'In progress'], ['rated', 'Rated']] as const).map(([key, label]) => (
                   <button key={key} type="button" className={filter === key ? 'is-active' : ''} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>
                 ))}
               </div>
@@ -213,12 +218,12 @@ export function TripLibrary({ onNavigateHome, onNavigateExplore, onNavigateProfi
                         {photos[trip.id] && <img src={sizedImage(photos[trip.id].image, 120)} alt="" title={creditLine(photos[trip.id])} loading="lazy" decoding="async" onLoad={revealed} ref={revealIfReady} />}
                       </span>
                       <span className="tv-library__row-main"><strong>{title(trip)}</strong><span>{trip.origin_text ? `From ${trip.origin_text}` : 'Origin to be decided'} · {trip.duration_days ? `${trip.duration_days} ${trip.duration_days === 1 ? 'day' : 'days'}` : 'Dates open'}</span></span>
-                      <span className={`tv-library__status ${isCompleted(trip) ? 'is-ready' : ''}`}>{stateLabel(trip)}</span>
+                      <span className={`tv-library__status ${isCompleted(trip) ? 'is-ready' : ''}`}>{starsOf(trip) ? `${starsOf(trip)} / 5 · ` : ''}{stateLabel(trip)}</span>
                       <ArrowRightIcon width={17} height={17} />
                     </button>
                   ))}
                 </div>
-              ) : <div className="tv-library__no-results">{query.trim() ? 'No journeys match that search.' : filter === 'completed' ? 'No completed journeys yet.' : 'No journeys in this view yet.'} <button type="button" onClick={() => { setQuery(''); setFilter('all'); }}>Show all journeys</button></div>}
+              ) : <div className="tv-library__no-results">{query.trim() ? 'No journeys match that search.' : filter === 'completed' ? 'No completed journeys yet.' : filter === 'rated' ? 'No rated journeys yet. Open a plan and give it a star rating.' : 'No journeys in this view yet.'} <button type="button" onClick={() => { setQuery(''); setFilter('all'); }}>Show all journeys</button></div>}
             </section>
 
             {selected && (
@@ -239,6 +244,7 @@ export function TripLibrary({ onNavigateHome, onNavigateExplore, onNavigateProfi
                   <div><dt>Duration</dt><dd>{selected.duration_days ? `${selected.duration_days} ${selected.duration_days === 1 ? 'day' : 'days'}` : 'Open'}</dd></div>
                   <div><dt>Started</dt><dd>{date(selected.created_at)}</dd></div>
                   <div><dt>Status</dt><dd>{stateLabel(selected)}</dd></div>
+                  <div><dt>Your rating</dt><dd>{starsOf(selected) ? `${starsOf(selected)} / 5` : 'Not rated'}</dd></div>
                 </dl>
                 <section className="tv-library__places"><h3>Places on the list</h3>{selected.places_to_visit.length ? <div>{selected.places_to_visit.map((place) => <span key={place}>{place}</span>)}</div> : <p>No places added yet. Add them while planning.</p>}</section>
                 <section className="tv-library__note"><div><ClockIcon width={16} height={16} /><h3>Latest from your planner</h3></div><p>{noteLoading ? 'Loading the latest note…' : latestNote ? notePreview(latestNote) : 'Open this journey to continue the conversation.'}</p></section>

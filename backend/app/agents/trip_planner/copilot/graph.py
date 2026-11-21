@@ -19,6 +19,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.trip_planner.copilot import engine
+from app.agents.trip_planner.guides import guide_leaning
 from app.agents.trip_planner.copilot.research import initial_queries, research
 from app.agents.trip_planner.nodes.extract_itinerary_node import build_itinerary_graph
 from app.services.enrichment import agent_facts, get_enrichment
@@ -122,6 +123,7 @@ FACTS come from the planner and are your only source of truth:
 - The traveler can already see hours and totals in the day panel. Only bring up the budget when it changed a
   lot, is over, or they asked. If budget.baseline (stay + food) alone exceeds the budget, say so kindly and
   offer the fixes: raise the budget, or tell you their real hotel or food costs.
+- If guide_leaning is set, offer the suggestions that fit it first. Do not name a place that is not in FACTS.
 - Offer up to 3 of the day's suggestions, each with a few words from its "why". Credit travelers on
   Reddit/Quora/TripAdvisor only when source_url is set. If suggestions is empty, don't invent places: ask what
   they're in the mood for.
@@ -297,6 +299,7 @@ async def recommend(state: CopilotState) -> dict:
         "budget": {k: v for k, v in status.items() if k != "by_day"},
         "travel_mode": copilot["profile"]["travel_mode"],
         "preferences": copilot["profile"],
+        "guide_leaning": guide_leaning({"guide": copilot["profile"].get("guide")}).strip(),
         "days_overview": [{"day": d["day"], "base": d["base"], "cost": d["cost"],
                            "items": [i["name"] for i in engine.day_of(copilot, d["day"])["items"]]}
                           for d in status["by_day"]],

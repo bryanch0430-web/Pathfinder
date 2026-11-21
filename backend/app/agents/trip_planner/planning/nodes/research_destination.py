@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from app.agents.trip_planner.planning.state import PlanningState
+from app.agents.trip_planner.guides import guide_leaning
 from app.services.llm.service import llm_service
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ Instructions:
      * "name": The city or region name (e.g. "Tokyo", "Kyoto", "Osaka")
      * "type": "city", "region", or "hub"
      * "reason": 1-2 sentence evidence-backed justification for why this candidate fits the trip.
+   - When GUIDE LEANING is present, prefer candidates that fit it. The traveler's own brief still wins.
 
 Do NOT invent unsupported facts.
 Do NOT generate a detailed day-by-day itinerary yet.
@@ -104,7 +106,7 @@ Traveler's requested places (include where practical): {", ".join(places) or "no
 Travel pace: {preferences.get("pace", "balanced")}
 Traveler interests: {", ".join(preferences.get("interests") or []) or "not specified"}
 Traveler wants to avoid: {", ".join(preferences.get("avoid") or []) or "not specified"}
-Planning Notes: {planning_notes}
+{guide_leaning(preferences)}Planning Notes: {planning_notes}
 
 {research_context}
 

@@ -96,7 +96,7 @@ export function StudioPlan({ document, day, onSelectDay, pinned, onPin }: Props)
     return <p className="tv-plan__empty">The plan appears here once your itinerary is drafted.</p>;
   }
 
-  if (day === null) {
+  if (day === null || !document.days.some((entry) => entry.day === day)) {
     return (
       <div className="tv-plan tv-plan--overview">
         {document.days.map((entry) => (
@@ -115,8 +115,7 @@ export function StudioPlan({ document, day, onSelectDay, pinned, onPin }: Props)
     );
   }
 
-  const current = document.days.find((entry) => entry.day === day);
-  if (!current) return null;
+  const current = document.days.find((entry) => entry.day === day)!;
   const planned = current.items.filter((item) => !item.option);
   const options = current.items.filter((item) => item.option);
   return (

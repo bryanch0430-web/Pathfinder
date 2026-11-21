@@ -1,8 +1,8 @@
 """Administrator-only endpoints.
 
 The admin flag lives on the local account (models/user.py). The settings here
-are the gate and the instructions the graphs already read. API keys stay in the
-environment file.
+are the gate and the instructions the graphs already read. A writer key
+pasted in Settings is stored encrypted and used on the next turn.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from uuid import UUID
@@ -191,6 +191,7 @@ async def _trip_or_404(db: AsyncSession, trip_id: UUID):
 @router.get("/desk/{trip_id}")
 async def desk_chat(trip_id: UUID, _admin: AuthenticatedUser = Depends(require_admin), db: AsyncSession = Depends(get_db)):
     """The open chat, the brief, and the current day plan. The planner graph is not called."""
+    from app.desk.activity import read_planner_run
     from app.models.enums import MessageRole
     from app.models.trip import ConversationMessage, ConversationSession
     trip = await _trip_or_404(db, trip_id)
@@ -202,6 +203,7 @@ async def desk_chat(trip_id: UUID, _admin: AuthenticatedUser = Depends(require_a
     )
     messages = []
     day_plan = None
+    previous_at = None
     for message in result.scalars():
         payload = message.payload or {}
         if message.role == MessageRole.USER:
@@ -212,11 +214,18 @@ async def desk_chat(trip_id: UUID, _admin: AuthenticatedUser = Depends(require_a
             speaker = "planner"
         from app.security.pii import mask_pii
         shown = mask_pii(message.content or "") if speaker == "traveller" else (message.content or "")
+        created = message.created_at
+        latency_ms = None
+        if speaker == "planner" and previous_at is not None and created is not None:
+            latency_ms = max(0, int((created - previous_at).total_seconds() * 1000))
+        if created is not None:
+            previous_at = created
         messages.append({
             "id": str(message.id),
             "speaker": speaker,
             "content": shown,
-            "created_at": message.created_at.isoformat() if message.created_at else None,
+            "created_at": created.isoformat() if created else None,
+            "latency_ms": latency_ms,
         })
         if isinstance(payload.get("day_plan"), list):
             day_plan = payload["day_plan"]
@@ -233,6 +242,7 @@ async def desk_chat(trip_id: UUID, _admin: AuthenticatedUser = Depends(require_a
         },
         "messages": messages[-80:],
         "day_plan": day_plan or [],
+        "activity": read_planner_run(str(trip_id)),
     }
 
 

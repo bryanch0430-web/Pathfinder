@@ -87,6 +87,10 @@ async def init_db():
             if columns and not any(column[1] == "planning_preferences" for column in columns):
                 await conn.execute(text("ALTER TABLE trips ADD COLUMN planning_preferences JSON NOT NULL DEFAULT '{}'"))
             budget_columns = {column[1] for column in (await conn.execute(text("PRAGMA table_info(budget_items)"))).all()}
+            key_columns = {column[1] for column in (await conn.execute(text("PRAGMA table_info(llm_keys)"))).all()}
+            if key_columns and "temperature" not in key_columns:
+                await conn.execute(text("ALTER TABLE llm_keys ADD COLUMN temperature VARCHAR(8)"))
+                await conn.execute(text("ALTER TABLE llm_keys ADD COLUMN reasoning VARCHAR(16)"))
             if budget_columns and "estimate_amount" not in budget_columns:
                 await conn.execute(text("ALTER TABLE budget_items ADD COLUMN estimate_amount NUMERIC(12, 2)"))
                 await conn.execute(text("ALTER TABLE budget_items ADD COLUMN estimate_note VARCHAR(255)"))

@@ -21,6 +21,13 @@ interface DeskMessage {
   id: string;
   speaker: 'traveller' | 'planner' | 'person';
   content: string;
+  created_at?: string | null;
+  latency_ms?: number | null;
+}
+
+interface DeskActivity {
+  stage: string;
+  started_at: string;
 }
 
 interface DayItem { name: string; start?: string | null }
@@ -31,9 +38,39 @@ interface DeskDetail {
   brief: { origin: string; destination: string; duration_days: number | null; currency: string; pace: string; travel_mode: string };
   messages: DeskMessage[];
   day_plan: DayPlan[];
+  activity?: DeskActivity | null;
 }
 
 const shortId = (id: string) => id.slice(0, 8);
+const stamp = (value: string | null | undefined) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return date.toDateString() === new Date().toDateString() ? time : `${date.toLocaleDateString()} ${time}`;
+};
+const took = (ms: number | null | undefined) => {
+  if (ms == null) return '';
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
+};
+
+function PlannerRun({ activity }: { activity: DeskActivity }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const started = new Date(activity.started_at).getTime();
+  const elapsed = Number.isNaN(started) ? 0 : Math.max(0, now - started);
+  return (
+    <p className="is-planner is-running" role="status">
+      <span className="tv-ops__who">Planner · reasoning</span>
+      {activity.stage}
+      <span className="tv-ops__when">Started {stamp(activity.started_at)} · running {took(elapsed)}</span>
+    </p>
+  );
+}
 const when = (value: string | null) => {
   if (!value) return '';
   const then = new Date(value).getTime();
@@ -45,7 +82,7 @@ const when = (value: string | null) => {
   return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 };
 
-export const DeskPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const DeskPage: React.FC<{ onBack: () => void; overlay?: boolean }> = ({ onBack, overlay = false }) => {
   const { user, loading } = useAuth();
   const admin = Boolean(user?.user_metadata?.is_admin);
   const [chats, setChats] = useState<DeskChat[]>([]);
@@ -103,7 +140,7 @@ export const DeskPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   useEffect(() => {
     const node = threadRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [detail?.messages.length, active]);
+  }, [detail?.messages.length, detail?.activity?.stage, detail?.activity?.started_at, active]);
 
   const act = async (tripId: string, path: string, body?: object) => {
     setNotice('');
@@ -186,7 +223,7 @@ export const DeskPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   if (!loading && !admin) {
     return (
-      <main className="tv-ops tv-ops--locked">
+      <main className={`tv-ops tv-ops--locked${overlay ? ' tv-ops--overlay' : ''}`}>
         <h1 className="tv-ops__brand">Pathfinder</h1>
         <p>This desk is for an operator.</p>
         <button type="button" className="tv-ops__tag" onClick={onBack}>Back to the planner</button>
@@ -195,14 +232,14 @@ export const DeskPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }
 
   return (
-    <main className="tv-ops">
+    <main className={`tv-ops${overlay ? ' tv-ops--overlay' : ''}`} role={overlay ? 'dialog' : undefined} aria-modal={overlay ? true : undefined} aria-label={overlay ? 'Contact desk' : undefined}>
       <header className="tv-ops__bar">
         <strong className="tv-ops__brand">Pathfinder</strong>
         <div className="tv-ops__status">
           <i className={`tv-ops__dot${ready ? ' is-ready' : ''}`} />
           <span>Presence</span>
           <button type="button" onClick={() => { const next = !ready; setReady(next); localStorage.setItem('pathfinder.desk-ready', next ? 'ready' : 'away'); }}>{ready ? 'Ready' : 'Away'}</button>
-          <button type="button" className="tv-ops__textbtn" onClick={onBack}>Back to the planner</button>
+          <button type="button" className="tv-ops__textbtn" onClick={onBack}>{overlay ? 'Close' : 'Back to the planner'}</button>
           <button type="button" className="tv-ops__textbtn" onClick={() => window.open('/desk', 'pathfinder-desk', 'width=1280,height=840')}>Open in a window</button>
         </div>
       </header>
@@ -255,8 +292,13 @@ export const DeskPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       <p key={message.id} className={`is-${message.speaker}`}>
                         <span className="tv-ops__who">{message.speaker === 'traveller' ? 'Traveller' : message.speaker === 'person' ? 'Person' : 'Planner'}</span>
                         {message.content}
+                        <span className="tv-ops__when">
+                          {stamp(message.created_at)}
+                          {message.speaker === 'planner' && message.latency_ms != null ? ` · reply took ${took(message.latency_ms)}` : ''}
+                        </span>
                       </p>
                     )) : <p>No messages yet.</p>}
+                    {detail.activity && <PlannerRun activity={detail.activity} />}
                   </div>
                   {held ? (
                     <form className="tv-ops__say" onSubmit={(event) => { event.preventDefault(); if (!reply.trim()) return; void act(active, 'say', { text: reply }).then(() => setReply('')); }}>
@@ -274,6 +316,7 @@ export const DeskPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div><dt>From</dt><dd>{detail.brief.origin || 'None'}</dd></div>
                     <div><dt>Days</dt><dd>{detail.brief.duration_days || 'None'}</dd></div>
                     <div><dt>Preferences</dt><dd>{[detail.brief.pace, detail.brief.travel_mode, detail.brief.currency].filter(Boolean).join(' · ') || 'None saved'}</dd></div>
+                    <div><dt>Planner</dt><dd>{detail.activity ? `${detail.activity.stage}` : 'Idle'}</dd></div>
                   </dl>
                   {notice && <p className="tv-ops__time">{notice}</p>}
                   {held && (

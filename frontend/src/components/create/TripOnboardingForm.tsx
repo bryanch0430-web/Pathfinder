@@ -21,6 +21,7 @@ export interface OnboardingValues {
     comfort?: Comfort;
     travel_mode?: TravelMode;
     guide?: string | null;
+    guide_shapes_plan?: boolean;
     home_currency?: string | null;
   };
   budget_amount?: number | null;
@@ -70,6 +71,7 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
   const [interests, setInterests] = useState((prefs?.interests || []).join(', '));
   const [avoid, setAvoid] = useState((prefs?.avoid || []).join(', '));
   const [guide, setGuide] = useState(prefs?.guide || DEFAULT_GUIDE.id);
+  const [shapesPlan, setShapesPlan] = useState(prefs?.guide_shapes_plan !== false);
   const [error, setError] = useState('');
   const incoming = JSON.stringify(initial ?? null);
   // A later reading of the chat fills empty fields without wiping a step the traveler is on.
@@ -92,6 +94,7 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
     setInterests((next?.interests || []).join(', '));
     setAvoid((next?.avoid || []).join(', '));
     if (next?.guide) setGuide(next.guide);
+    setShapesPlan(next?.guide_shapes_plan !== false);
     // incoming is the stable picture of initial; the object itself is new every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming]);
@@ -149,7 +152,7 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
       planning_preferences: {
         pace, interests: selectedInterests, avoid: selectedAvoid,
         start_date: startDate || null, adults: adultCount, children: childCount,
-        comfort, travel_mode: travelMode, guide, home_currency: homeCurrency,
+        comfort, travel_mode: travelMode, guide, guide_shapes_plan: shapesPlan, home_currency: homeCurrency,
       },
       budget_amount: budgetAmount,
       currency,
@@ -236,6 +239,13 @@ export const TripOnboardingForm: React.FC<Props> = ({ initial, disabled, onSubmi
         <p className="tv-onboarding__guide-line" aria-live="polite">
           {GUIDES.find((entry) => entry.id === guide)?.line}
         </p>
+        <label className="tv-label" style={{ display: 'flex', gap: '0.55rem', alignItems: 'flex-start', marginTop: '0.8rem' }}>
+          <input type="checkbox" checked={shapesPlan} disabled={disabled} onChange={(event) => setShapesPlan(event.target.checked)} />
+          <span>
+            Let this guide shape the plan
+            <span className="tv-meta" style={{ display: 'block' }}>Turn this off and the guide stays a face and a signature. The days follow your pace, interests, and avoids.</span>
+          </span>
+        </label>
       </fieldset>,
   ];
 

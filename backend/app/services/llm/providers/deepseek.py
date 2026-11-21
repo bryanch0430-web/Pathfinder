@@ -28,13 +28,20 @@ class DeepSeekProvider(LLMProvider):
         if system_instruction and system_instruction.strip():
             messages.append({"role": "system", "content": system_instruction.strip()})
         messages.append({"role": "user", "content": prompt})
+        effort = kwargs.pop("reasoning_effort", None)
+        if effort == "xhigh" or effort == "medium":
+            effort = "high"
+        if effort not in {"low", "high", "max"}:
+            effort = None
         payload = {
             "model": self._model_name,
             "messages": messages,
             "temperature": temperature,
-            # Interactive extraction and replies should not spend their token budget on reasoning.
-            "thinking": {"type": "disabled"},
         }
+        if effort:
+            payload["reasoning_effort"] = effort
+        else:
+            payload["thinking"] = {"type": "disabled"}
         if max_output_tokens is not None:
             payload["max_tokens"] = max_output_tokens
         payload.update(kwargs)

@@ -876,15 +876,36 @@ class ConversationService:
         if use_managed_db:
             from app.core.database import async_session_maker
             async with async_session_maker() as stream_db:
-                async for event in self._process_message_stream_impl(
+                source = self._process_message_stream_impl(
                     stream_db, target_trip_id, target_request, target_identity
-                ):
+                )
+                async for event in self._watch_run(target_trip_id, source):
                     yield event
         else:
-            async for event in self._process_message_stream_impl(
+            source = self._process_message_stream_impl(
                 active_db, target_trip_id, target_request, target_identity
-            ):
+            )
+            async for event in self._watch_run(target_trip_id, source):
                 yield event
+
+    async def _watch_run(self, trip_id, source):
+        """Tell the desk which step is running, then clear it when the turn ends."""
+        import json
+        from app.desk.activity import set_planner_run
+        set_planner_run(str(trip_id), "Reading the message")
+        try:
+            async for event in source:
+                if isinstance(event, str) and '"type": "stage"' in event:
+                    line = next((part[5:].strip() for part in event.splitlines() if part.startswith("data:")), "")
+                    try:
+                        label = json.loads(line).get("label")
+                    except json.JSONDecodeError:
+                        label = None
+                    if isinstance(label, str) and label:
+                        set_planner_run(str(trip_id), label)
+                yield event
+        finally:
+            set_planner_run(str(trip_id), None)
 
     async def _process_message_stream_impl(
         self,
@@ -1262,8 +1283,26 @@ class ConversationService:
             )
 
             candidates: list = []
-            if previous_plan:
-                yield f"data: {json.dumps({'type': 'stage', 'label': 'Thinking about that' if answering else 'Updating your itinerary'})}\n\n"
+            local_days = None
+            local_before = None
+            local_notes: list[str] = []
+            if previous_plan and not answering:
+                from app.planning.edit_patch import apply_edit, parse_edit
+                from app.services.budget import latest_itinerary_payload
+
+                stored = stored_plan or await latest_itinerary_payload(db, trip.id) or {}
+                local_before = stored.get("day_plan")
+                edit = parse_edit(message, local_before)
+                if edit and local_before:
+                    patched, local_notes = apply_edit(local_before, edit)
+                    if local_notes and patched is not local_before:
+                        local_days = patched
+            if local_days is not None:
+                accumulated_text = " ".join(local_notes)
+                yield f"data: {json.dumps({'type': 'stage', 'label': 'Updating one stop'})}\n\n"
+                yield f"data: {json.dumps({'type': 'token', 'delta': accumulated_text})}\n\n"
+            elif previous_plan:
+                yield f"data: {json.dumps({'type': 'stage', 'label': 'Thinking about that' if answering else 'Applying that change'})}\n\n"
                 from app.services.budget import budget_response
                 current_budget = await budget_response(db, trip)
                 scope, notes = "", ""
@@ -1341,13 +1380,36 @@ class ConversationService:
             from app.agents.trip_planner.nodes.extract_itinerary_node import build_itinerary_graph
             last_graph_length = 0
             last_graph_shape = None
+            # A revision still writes the full day list for the studio. The chat only receives the opening.
+            hide_days = bool(previous_plan) and not answering and local_days is None
+            pending_line = ""
+            days_started = False
+            from app.agents.trip_planner.nodes.planning_trip_node import revision_visible
             try:
-                async for token in llm_service.generate_stream(
-                    prompt=plan_prompt,
-                    system_instruction=system_instruction,
-                    temperature=0.5,
-                ):
+                if local_days is not None:
+                    token_stream = None
+                else:
+                    token_stream = llm_service.generate_stream(
+                        prompt=plan_prompt,
+                        system_instruction=system_instruction,
+                        temperature=0.5,
+                    )
+                async for token in token_stream or []:
                     accumulated_text += token
+                    if hide_days:
+                        if days_started:
+                            continue
+                        pending_line += token
+                        while "\n" in pending_line:
+                            line, pending_line = pending_line.split("\n", 1)
+                            visible, started = revision_visible(line)
+                            if started:
+                                days_started = True
+                                pending_line = ""
+                                break
+                            if visible:
+                                yield f"data: {json.dumps({'type': 'token', 'delta': visible + chr(10)})}\n\n"
+                        continue
                     yield f"data: {json.dumps({'type': 'token', 'delta': token})}\n\n"
                     if not answering and len(accumulated_text) - last_graph_length >= 700:
                         last_graph_length = len(accumulated_text)
@@ -1366,6 +1428,10 @@ class ConversationService:
                         if shape != last_graph_shape:
                             last_graph_shape = shape
                             yield f"data: {json.dumps({'type': 'graph', 'graph': preview, 'final': False})}\n\n"
+                if hide_days and pending_line and not days_started:
+                    visible, started = revision_visible(pending_line)
+                    if visible and not started:
+                        yield f"data: {json.dumps({'type': 'token', 'delta': visible})}\n\n"
             except Exception as exc:
                 logger.warning("Error during plan stream generation: %s", exc)
                 if not accumulated_text:
@@ -1380,28 +1446,42 @@ class ConversationService:
                     yield f"data: {json.dumps({'type': 'token', 'delta': accumulated_text})}\n\n"
 
             logger.info("🔥 STREAM PLAN COMPLETED (mode=%s)", "answer" if answering else "revise" if previous_plan else "draft")
+            plan_text = accumulated_text
+            if hide_days:
+                opening, _started = revision_visible(plan_text)
+                accumulated_text = opening
             if not answering:
                 # A final, evidence-backed graph before persisting keeps the map in sync with this reply.
                 from app.agents.trip_planner.nodes.extract_itinerary_node import day_plan_changes, extract_itinerary
                 from app.services.budget import latest_itinerary_payload
 
                 # The day plan the studio shows now: the extractor reuses its names, and the receipt diffs against it.
-                before = (await latest_itinerary_payload(db, trip.id) or {}).get("day_plan") if previous_plan else None
-                graph_result = await extract_itinerary({
-                    **current_state,
-                    "assistant_response": accumulated_text,
-                    "candidates": candidates,
-                    "places_to_visit": trip.places_to_visit or [],
-                    "known_places": [item["name"] for day in before or [] for item in day["items"]],
-                })
-                itinerary_graph = graph_result.get("itinerary_graph")
-                day_plan = graph_result.get("day_plan")
-                if day_plan:
+                before = local_before if local_days is not None else (
+                    (await latest_itinerary_payload(db, trip.id) or {}).get("day_plan") if previous_plan else None)
+                if local_days is not None:
+                    from app.planning.edit_patch import graph_from_days
+                    day_plan = local_days
+                    itinerary_graph = graph_from_days(
+                        day_plan, origin=trip.origin_text, destination=trip.destination or "Trip",
+                    )
+                    changes += [{"status": "done", "text": note} for note in local_notes]
+                    graph_result = {"itinerary_graph": itinerary_graph, "day_plan": day_plan}
+                else:
+                    graph_result = await extract_itinerary({
+                        **current_state,
+                        "assistant_response": plan_text,
+                        "candidates": candidates,
+                        "places_to_visit": trip.places_to_visit or [],
+                        "known_places": [item["name"] for day in before or [] for item in day["items"]],
+                    })
+                    itinerary_graph = graph_result.get("itinerary_graph")
+                    day_plan = graph_result.get("day_plan")
+                if local_days is None and day_plan:
                     from app.planning.ground import fill_vague_stops, listings_for_cities, plan_cities
                     catalogues = await listings_for_cities(plan_cities(day_plan))
                     if catalogues:
                         day_plan = fill_vague_stops(day_plan, catalogues, only_unmappable=bool(previous_plan))
-                if day_plan:
+                if local_days is None and day_plan:
                     from app.planning.tickets import attach_trip_tickets
                     day_plan, ticket_note = attach_trip_tickets(
                         day_plan, origin=trip.origin_text, destination=trip.destination,
@@ -1410,7 +1490,7 @@ class ConversationService:
                     if ticket_note and not previous_plan and ticket_note not in accumulated_text:
                         accumulated_text += "\n\n" + ticket_note
                         yield f"data: {json.dumps({'type': 'token', 'delta': chr(10) + chr(10) + ticket_note})}\n\n"
-                if day_plan:
+                if local_days is None and day_plan:
                     from app.planning.upgrades import apply_plan_upgrades
                     day_plan, plan_notes = apply_plan_upgrades(
                         day_plan, trip.planning_preferences,
@@ -1420,7 +1500,7 @@ class ConversationService:
                     if moves:
                         accumulated_text += "\n\n" + " ".join(moves)
                         changes += [{"status": "done", "text": note} for note in moves]
-                if mode == "revise" and decision is not None and before and day_plan:
+                if mode == "revise" and local_days is None and decision is not None and before and day_plan:
                     from app.routing.minimal import apply_minimal_change
                     day_plan, itinerary_graph, _kept = apply_minimal_change(
                         before, day_plan, (stored_plan or {}).get("graph"), itinerary_graph,
@@ -1436,33 +1516,59 @@ class ConversationService:
                         day_plan = before
                         changes.append({"status": "skipped", "text": "Couldn't read the new day-by-day plan, so the "
                                                                      "studio still shows the previous one. Try again?"})
-                    elif before:
+                    elif before and local_days is None:
                         changes += day_plan_changes(before, day_plan) or [
                             {"status": "skipped", "text": "The day-by-day plan didn't change"}]
                 if itinerary_graph:
                     ui_action = {"kind": "ITINERARY_GRAPH", "graph": itinerary_graph, "day_plan": day_plan}
+                    if previous_plan:
+                        ui_action["change_only"] = True
+                    if not previous_plan:
+                        ui_action["offer_finalize_trip"] = True
+                    # The studio can draw the new days before the slower road check finishes.
+                    yield f"data: {json.dumps({'type': 'graph', 'graph': itinerary_graph, 'final': True})}\n\n"
                     if day_plan:
-                        from app.services.route_reality import assess_itinerary
+                        from app.services.route_reality import assess_itinerary, changed_days
                         previous_route = (await latest_itinerary_payload(db, trip.id) or {}).get("route_reality")
-                        yield f"data: {json.dumps({'type': 'stage', 'label': 'Checking travel time'})}\n\n"
+                        touched = changed_days(before, day_plan) if previous_plan else None
+                        if touched is None or touched:
+                            yield f"data: {json.dumps({'type': 'stage', 'label': 'Checking travel time'})}\n\n"
                         ui_action["route_reality"] = await assess_itinerary(
                             day_plan, trip.destination or "Trip",
                             (trip.planning_preferences or {}).get("travel_mode") or "transit",
-                            (trip.planning_preferences or {}).get("pace") or "balanced", previous_route)
+                            (trip.planning_preferences or {}).get("pace") or "balanced", previous_route, touched)
                         impossible = [warning for warning in ui_action["route_reality"]["warnings"]
                                       if warning["severity"] == "impossible"]
                         if impossible:
-                            notice = "\n\nTravel check: " + " ".join(
-                                f"Day {warning['day']} needs a different base or day: {warning['message']}."
-                                for warning in impossible[:3])
+                            from app.planning.edit_patch import graph_from_days
+                            from app.planning.travel_repair import repair_once
+                            repaired, repair_notes, again = repair_once(
+                                day_plan, ui_action["route_reality"],
+                                (trip.planning_preferences or {}).get("travel_mode") or "transit",
+                                (trip.planning_preferences or {}).get("pace") or "balanced",
+                            )
+                            if repair_notes and repaired is not day_plan:
+                                day_plan = repaired
+                                itinerary_graph = graph_from_days(
+                                    day_plan, origin=trip.origin_text, destination=trip.destination or "Trip",
+                                )
+                                ui_action["graph"] = itinerary_graph
+                                ui_action["day_plan"] = day_plan
+                                ui_action["route_reality"]["warnings"] = again
+                                yield f"data: {json.dumps({'type': 'graph', 'graph': itinerary_graph, 'final': True})}\n\n"
+                            still = [warning for warning in again if warning.get("severity") == "impossible"]
+                            if repair_notes:
+                                notice = "\n\nTravel check: " + " ".join(repair_notes)
+                                changes += [{"status": "done" if not still else "skipped", "text": note} for note in repair_notes]
+                            else:
+                                notice = "\n\nTravel check: " + " ".join(
+                                    f"Day {warning['day']} needs a different base or day: {warning['message']}."
+                                    for warning in still[:3])
+                                changes += [{"status": "skipped", "text":
+                                             f"Day {warning['day']} needs review: {warning['message']}"}
+                                            for warning in still]
                             accumulated_text += notice
-                            changes += [{"status": "skipped", "text":
-                                         f"Day {warning['day']} needs review: {warning['message']}"}
-                                        for warning in impossible]
                             yield f"data: {json.dumps({'type': 'token', 'delta': notice})}\n\n"
-                    if not previous_plan:
-                        ui_action["offer_finalize_trip"] = True
-                    yield f"data: {json.dumps({'type': 'graph', 'graph': itinerary_graph, 'final': True})}\n\n"
         else:
             trip.onboarding_status = OnboardingStatus.IN_PROGRESS
             session.status = ConversationSessionStatus.ACTIVE
@@ -1485,7 +1591,10 @@ class ConversationService:
                     yield f"data: {json.dumps({'type': 'token', 'delta': chunk})}\n\n"
 
         if not accumulated_text.strip():
-            accumulated_text = "I'm ready to help plan your trip! Where are you thinking of going?"
+            accumulated_text = (
+                "Updated the plan. The full days are in the studio."
+                if changes else "I'm ready to help plan your trip! Where are you thinking of going?"
+            )
         if mode == "revise":
             from app.desk.policy import HANDOFF_TEXT, desk_state, note_unchanged_edit
             unchanged = any("didn't change" in str(change.get("text") or "") for change in changes)
@@ -1554,18 +1663,31 @@ class ConversationService:
         yield f"data: {json.dumps({'type': 'token', 'delta': text})}\n\n"
         yield f"data: {json.dumps({'type': 'done', 'trip': TripResponse.model_validate(trip).model_dump(mode='json'), 'conversation': ConversationSessionResponse.model_validate(session).model_dump(mode='json'), 'assistant_message': ConversationMessageResponse.model_validate(assistant_msg).model_dump(mode='json')})}\n\n"
 
-    async def mark_useful(self, db: AsyncSession, trip_id: uuid.UUID, identity: Optional[RequestIdentity], useful: bool) -> dict:
+    async def mark_useful(
+        self, db: AsyncSession, trip_id: uuid.UUID, identity: Optional[RequestIdentity],
+        useful: bool | None, stars: int | None = None,
+    ) -> dict:
         trip = await self.trip_repo.get_by_id(db, trip_id)
         if not trip:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
         trip_service.verify_trip_ownership(trip, identity)
+        if trip.status != TripStatus.COMPLETED:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You can rate a trip after it is finalized.")
         preferences = dict(trip.planning_preferences or {})
-        preferences["useful"] = useful
+        if useful is None:
+            preferences["useful"] = None
+            preferences.pop("stars", None)
+        else:
+            preferences["useful"] = useful
+            if useful and stars is not None:
+                preferences["stars"] = stars
+            elif not useful:
+                preferences.pop("stars", None)
         trip.planning_preferences = preferences
         from sqlalchemy.orm.attributes import flag_modified
         flag_modified(trip, "planning_preferences")
         await db.commit()
-        return {"useful": useful}
+        return {"useful": preferences.get("useful"), "stars": preferences.get("stars")}
 
     async def undo_last_plan(self, db: AsyncSession, trip_id: uuid.UUID, identity: Optional[RequestIdentity]):
         trip = await self.trip_repo.get_by_id(db, trip_id)

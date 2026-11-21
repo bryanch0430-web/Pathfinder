@@ -13,12 +13,15 @@ import { graphFromLegacyText, type ItineraryGraph } from '../components/create/i
 import { TripPreviewCard } from '../components/create/TripPreviewCard';
 import { withCopilot } from '../components/sketch/live';
 import { TripStudio } from '../components/studio/TripStudio';
+import { TripVerdict } from '../components/create/TripVerdict';
+import { NEW_PLAN_KEY } from '../components/trending/TrendingPlaces';
 import { prefersReducedMotion } from '../components/home/v2/motion';
 import { useTheme } from '../context/ThemeContext';
 import {
   createTrip, deleteTrip, finalizeTrip, getItineraryGraph, getTripBudget, getTripDocument, getTripMessages, listTrips, markTripUseful, sendTripMessageStream, undoTripPlan,
   type TripBudget, type TripDocument, type TripModelResponse,
 } from '../services/tripService';
+import { setPlannerBusy } from '../services/plannerActivity';
 
 gsap.registerPlugin(Flip);
 const BudgetWorkspace = React.lazy(() => import('../components/create/BudgetWorkspace').then((module) => ({ default: module.BudgetWorkspace })));
@@ -87,6 +90,7 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessageItem[]>>({});
   const [tripsMap, setTripsMap] = useState<Record<string, TripModelResponse>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [replying, setReplying] = useState(false);
   const [loadingStage, setLoadingStage] = useState('Preparing your trip');
   // Below 1024 px the sidebar is a drawer over the chat, so it starts closed there.
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -98,6 +102,10 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [budgetRevision, setBudgetRevision] = useState(0);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [verdictOpen, setVerdictOpen] = useState(false);
+  const [planSeed, setPlanSeed] = useState<{ destination: string; days: number | null; places: string[]; sessionId: string } | null>(null);
+  const openingPlan = useRef(false);
+  const preferNewPlan = useRef(false);
   const [finalizeSaving, setFinalizeSaving] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<Record<string, TripBudget>>({});
@@ -151,6 +159,40 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     }
   }, []);
 
+  const openNewPlan = useCallback(async () => {
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(NEW_PLAN_KEY); } catch { raw = null; }
+    if (!raw || openingPlan.current) return;
+    let parsed: { destination?: string; days?: number | null; places?: string[] };
+    try { parsed = JSON.parse(raw); } catch { return; }
+    const destination = parsed.destination?.trim();
+    if (!destination) return;
+    openingPlan.current = true;
+    preferNewPlan.current = true;
+    try { sessionStorage.removeItem(NEW_PLAN_KEY); } catch { /* already taken */ }
+    setStudioOpen(false);
+    setVerdictOpen(false);
+    setFinalizeOpen(false);
+    try {
+      const created = await startNewTrip();
+      setPlanSeed({
+        destination,
+        days: typeof parsed.days === 'number' ? parsed.days : null,
+        places: Array.isArray(parsed.places) ? parsed.places.filter((place) => typeof place === 'string').slice(0, 8) : [],
+        sessionId: created.id,
+      });
+    } finally {
+      openingPlan.current = false;
+    }
+  }, [startNewTrip]);
+
+  useEffect(() => {
+    void openNewPlan();
+    const onNew = () => { void openNewPlan(); };
+    window.addEventListener('tripverse-new-plan', onNew);
+    return () => window.removeEventListener('tripverse-new-plan', onNew);
+  }, [openNewPlan]);
+
   useEffect(() => {
     let alive = true;
     const boot = async () => {
@@ -164,12 +206,14 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
         const map = Object.fromEntries(trips.map((trip) => [sessionId(trip.id), trip]));
         setTripsMap(map);
         setSessions(trips.map(sessionItem));
-        const saved = localStorage.getItem('tripverse-active-session-id');
-        const linked = studioTripFromPath();
-        const id = linked && map[sessionId(linked)] ? sessionId(linked)
-          : saved && map[saved] ? saved : sessionId(trips[0].id);
-        setActiveSessionId(id);
-        await loadMessages(id, map[id].id);
+        if (!preferNewPlan.current) {
+          const saved = localStorage.getItem('tripverse-active-session-id');
+          const linked = studioTripFromPath();
+          const id = linked && map[sessionId(linked)] ? sessionId(linked)
+            : saved && map[saved] ? saved : sessionId(trips[0].id);
+          setActiveSessionId(id);
+          await loadMessages(id, map[id].id);
+        }
       } catch (error) {
         console.error('Could not load trips', error);
       } finally {
@@ -306,17 +350,20 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
         }],
       }));
       setIsLoading(true);
+      setReplying(true);
+      setPlannerBusy(true);
       setLoadingStage('Getting your trip ready');
-      setBackfilledGraphs((previous) => {
-        const next = { ...previous };
-        delete next[tripId!];
-        return next;
-      });
       await sendTripMessageStream(
         tripId, sent,
         {
-          onGraph: (graph) => {
-            setBackfilledGraphs((previous) => ({ ...previous, [tripId!]: graph }));
+          onGraph: (graph, final) => {
+            setBackfilledGraphs((previous) => {
+              const current = previous[tripId!];
+              const stops = (value?: ItineraryGraph) => (value?.nodes || []).filter((node) => node.kind !== 'origin').length;
+              // A partial preview must not wipe the plan that is already on screen.
+              if (!final && current && stops(graph) < stops(current)) return previous;
+              return { ...previous, [tripId!]: graph };
+            });
           },
           onCopilot: (copilot: CopilotState) => {
             setLiveCopilots((previous) => ({ ...previous, [tripId!]: copilot }));
@@ -390,6 +437,8 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
         }));
       }
     } finally {
+      setReplying(false);
+      setPlannerBusy(false);
       setIsLoading(false);
       if (tripId) {
         setLiveCopilots((previous) => {
@@ -400,6 +449,16 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
       }
     }
   };
+
+  useEffect(() => {
+    if (!replying) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [replying]);
 
   const activeMessages = activeSessionId ? messagesMap[activeSessionId] || [] : [];
   const activeTrip = activeSessionId ? tripsMap[activeSessionId] : undefined;
@@ -415,9 +474,18 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
   const latestAssistant = [...activeMessages].reverse().find((message) => message.sender === 'assistant');
   const formMessage = latestAssistant?.payload?.action === 'SHOW_ONBOARDING_FORM' ? latestAssistant : null;
   const saidSoFar = activeMessages.filter((message) => message.sender === 'user').map((message) => message.content).join('\n');
+  const seededBrief = planSeed && planSeed.sessionId === activeSessionId && activeTrip?.onboarding_status !== 'COMPLETE'
+    ? {
+        origin: '',
+        destination: planSeed.destination,
+        duration_days: planSeed.days || undefined,
+        places_to_visit: planSeed.places,
+        planning_preferences: { pace: 'balanced' as const, interests: [] as string[], avoid: [] as string[] },
+      }
+    : null;
   const onboardingValues = activeTrip?.onboarding_status === 'COMPLETE'
     ? null
-    : prefillFromChat((formMessage?.payload?.values || {}) as Partial<OnboardingValues>, saidSoFar);
+    : seededBrief ?? prefillFromChat((formMessage?.payload?.values || {}) as Partial<OnboardingValues>, saidSoFar);
   // Build-with-agent state rides on the latest itinerary message it produced.
   const activeCopilot = useMemo(
     () => {
@@ -450,6 +518,11 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
       ? graphFromLegacyText(lastDraft.content, activeTrip.origin_text, activeTrip.destination, activeTrip.places_to_visit || [])
       : null;
   }, [activeMessages, activeTrip, backfilledGraphs]);
+  const heldGraph = useRef<ItineraryGraph | null>(null);
+  if ((activeGraph?.nodes.length ?? 0) > 1) heldGraph.current = activeGraph;
+  const shownGraph = (activeGraph?.nodes.length ?? 0) > 1
+    ? activeGraph
+    : (isLoading && heldGraph.current ? heldGraph.current : activeGraph);
 
   // The studio document, with the agent's streamed plan folded in so the sketch updates mid-reply.
   const liveDoc = useMemo(
@@ -460,6 +533,12 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     },
     [activeTrip, studioDoc, activeCopilot, activeBudget],
   );
+  // Keep the days that are already drawn while a change is still being written.
+  const heldDoc = useRef<TripDocument | null>(null);
+  if (liveDoc?.days?.length) heldDoc.current = liveDoc;
+  const shownDoc = liveDoc?.days?.length
+    ? liveDoc
+    : (isLoading && heldDoc.current?.trip_id === activeTrip?.id ? heldDoc.current : liveDoc);
   // A pin names a stop on the plan. After a swap removes that stop, the composer should not keep asking about it.
   useEffect(() => {
     if (!pinnedStop || !liveDoc?.days.length) return;
@@ -484,6 +563,7 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
       if (cached) try { localStorage.setItem(STUDIO_DOC_KEY, JSON.stringify({ ...cached, is_final: true })); } catch { /* cache only */ }
       setBudgetRevision((revision) => revision + 1);
       setFinalizeOpen(false);
+      setVerdictOpen(true);
     } catch (error) {
       setFinalizeError(error instanceof Error ? error.message : 'Could not finalize the trip. Try again.');
     } finally {
@@ -494,12 +574,16 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     if (studioOpen && !planned && !isLoading && activeTrip) closeStudio();
   }, [studioOpen, planned, isLoading, activeTrip]);
   useEffect(() => {
-    if (!studioOpen || !activeTrip || isLoading) return;
+    if (!studioOpen || !activeTrip) return;
     let alive = true;
     void getTripDocument(activeTrip.id).then((doc) => {
       if (!alive) return;
-      setStudioDoc(doc);
-      try { localStorage.setItem(STUDIO_DOC_KEY, JSON.stringify(doc)); } catch { /* cache only */ }
+      setStudioDoc((previous) => (
+        previous?.trip_id === doc.trip_id && previous.days.length && !doc.days.length ? previous : doc
+      ));
+      if (doc.days.length) {
+        try { localStorage.setItem(STUDIO_DOC_KEY, JSON.stringify(doc)); } catch { /* cache only */ }
+      }
     })
       .catch((error) => console.warn('Could not load the trip document', error));
     return () => { alive = false; };
@@ -527,19 +611,7 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     onToggleBudget: () => setIsBudgetOpen((open) => !open),
     onSelectPrompt: (prompt: string) => { void sendMessage(prompt); },
     onClarify: (text: string) => { void sendMessage(text); },
-    onUseful: activeTrip && activeSessionId ? (useful: boolean) => {
-      const sessionId = activeSessionId;
-      const tripId = activeTrip.id;
-      void markTripUseful(tripId, useful).then((ok) => {
-        if (!ok) return;
-        setTripsMap((prev) => {
-          const current = prev[sessionId];
-          if (!current) return prev;
-          return { ...prev, [sessionId]: { ...current, planning_preferences: { ...current.planning_preferences, useful } } };
-        });
-      });
-    } : undefined,
-    useful: (activeTrip?.planning_preferences as { useful?: boolean } | undefined)?.useful ?? null,
+    onOpenVerdict: isFinal ? () => setVerdictOpen(true) : undefined,
     onUndo: activeTrip && activeSessionId ? () => {
       void undoTripPlan(activeTrip.id).then((ok) => { if (ok) void loadMessages(activeSessionId, activeTrip.id); });
     } : undefined,
@@ -549,8 +621,9 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     pinnedStop,
     onClearPin: () => setPinnedStop(null),
     onResetChat: () => { void startNewTrip(); },
-    onboardingValues: formMessage ? onboardingValues : null,
-    showComposer: !formMessage && !showPlanningChoice,
+    onboardingValues: seededBrief ?? (formMessage ? onboardingValues : null),
+    openBrief: Boolean(seededBrief),
+    showComposer: !seededBrief && !formMessage && !showPlanningChoice,
     showPlanningChoice,
     planningBrief: showPlanningChoice && activeTrip ? {
       origin: activeTrip.origin_text || '',
@@ -576,6 +649,7 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
     onCopilotDay: setCopilotDay,
     onCopilotOps: (ops: CopilotOp[], label: string, day: number) => { void sendMessage(label, undefined, undefined, { action: 'COPILOT_OPS', ops, copilot_day: day }); },
     onSubmitOnboarding: (values: OnboardingValues) => {
+      setPlanSeed(null);
       const summary = values.origin + ' to ' + values.destination + ' for ' + values.duration_days + ' days'
         + (values.places_to_visit.length ? ', visiting ' + values.places_to_visit.join(', ') : '');
       void sendMessage(summary, undefined, values);
@@ -617,15 +691,15 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
         key={activeSessionId || 'new-trip'}
         {...chatProps}
         onOpenStudio={planned ? () => openStudio() : undefined}
-        tripPreview={planned && activeTrip && activeGraph ? (
+        tripPreview={(planned || isLoading) && activeTrip && shownGraph ? (
           <TripPreviewCard tripId={activeTrip.id} destination={activeTrip.destination}
             days={activeTrip.duration_days} startDate={activeTrip.planning_preferences?.start_date}
-            guideId={activeTrip.planning_preferences?.guide} graph={activeGraph} onOpen={(day) => openStudio(day ?? null)} />
+            guideId={activeTrip.planning_preferences?.guide} graph={shownGraph} onOpen={(day) => openStudio(day ?? null)} />
         ) : null}
       />
-      {studioOpen && planned && activeTrip && (
-        <TripStudio trip={activeTrip} tripContext={tripContext(activeTrip)} graph={activeGraph}
-          document={liveDoc} dark={theme === 'dark'}
+      {studioOpen && (planned || isLoading) && activeTrip && (
+        <TripStudio trip={activeTrip} tripContext={tripContext(activeTrip)} graph={shownGraph}
+          document={shownDoc} dark={theme === 'dark'}
           isLoading={isLoading} loadingStage={loadingStage} day={studioDay} onSelectDay={setStudioDay}
           onBack={() => closeStudio()} onOpenBudget={() => setIsBudgetOpen(true)}
           onFinalize={canFinalize ? () => { setFinalizeError(null); setFinalizeOpen(true); } : undefined}
@@ -639,6 +713,17 @@ export const CreateTrip: React.FC<CreateTripProps> = ({
           refreshVersion={budgetRevision} onClose={() => setIsBudgetOpen(false)}
           onChange={(value) => { setBudgets((previous) => ({ ...previous, [activeTrip.id]: value })); setBudgetRevision((revision) => revision + 1); }} />
       </React.Suspense>}
+      {verdictOpen && activeTrip && isFinal && (
+        <TripVerdict trip={activeTrip} onClose={() => setVerdictOpen(false)} onSaved={(saved) => {
+          const sessionKey = activeSessionId;
+          if (!sessionKey) return;
+          setTripsMap((prev) => {
+            const current = prev[sessionKey];
+            if (!current) return prev;
+            return { ...prev, [sessionKey]: { ...current, planning_preferences: { ...current.planning_preferences, useful: saved.useful, stars: saved.stars } } };
+          });
+        }} />
+      )}
       {finalizeOpen && activeTrip && <div className="tv-finalize" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !finalizeSaving) setFinalizeOpen(false); }}>
         <section className="tv-finalize__card" role="dialog" aria-modal="true" aria-labelledby="tv-finalize-title">
           <span className="tv-label">FINAL REVIEW</span>

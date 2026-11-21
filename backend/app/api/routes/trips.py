@@ -1,7 +1,7 @@
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +35,8 @@ router = APIRouter(prefix="/api/trips", tags=["trips"])
 
 
 class TripFeedbackIn(BaseModel):
-    useful: bool
+    useful: bool | None
+    stars: int | None = Field(default=None, ge=1, le=5)
 
 
 async def _owned_trip(db: AsyncSession, trip_id: uuid.UUID, identity: RequestIdentity):
@@ -66,6 +67,17 @@ async def list_trips(
     elif identity.guest_id:
         return await trip_service.get_guest_trips(db, identity.guest_id)
     return []
+
+
+@router.get("/trending")
+async def trip_trending(
+    q: str = Query(default="", max_length=80),
+    limit: int = Query(default=6, ge=1, le=12),
+    db: AsyncSession = Depends(get_db),
+):
+    """Destinations travellers kept. No sign-in, and no private trip fields."""
+    from app.services.trending import trending_cards
+    return await trending_cards(db, q, limit)
 
 
 @router.post("", response_model=TripCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -347,8 +359,8 @@ async def trip_feedback(
     identity: RequestIdentity = Depends(get_request_identity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remember whether this traveller kept the plan. It does not train a later trip."""
-    return await conversation_service.mark_useful(db, trip_id, identity, body.useful)
+    """Remember whether this traveller kept the plan, and the star rating if they gave one."""
+    return await conversation_service.mark_useful(db, trip_id, identity, body.useful, body.stars)
 
 
 @router.post("/{trip_id}/undo")

@@ -121,6 +121,53 @@ npx pnpm@11.25.0 test
 npx pnpm@11.25.0 exec tsc --noEmit
 ```
 
+## Open-source projects referenced
+
+This note lists public GitHub repositories the running code imports or calls. Pathfinder is not a fork of these projects. Each one keeps its own licence. Smaller packages that only appear as transitive dependencies are not listed; they remain in `backend/requirements.txt` and `frontend/package.json`.
+
+The Wikimedia user-agent string still names an earlier repository, [watermelon588/Tripverse](https://github.com/watermelon588/Tripverse).
+
+| Repository | Where it shows up |
+| --- | --- |
+| [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | The planner graph that drafts and revises a trip |
+| [langchain-ai/langsmith-sdk](https://github.com/langchain-ai/langsmith-sdk) | Optional run tracing when a LangSmith key is set |
+| [fastapi/fastapi](https://github.com/fastapi/fastapi) | The HTTP API |
+| [encode/uvicorn](https://github.com/encode/uvicorn) | The local API server |
+| [pydantic/pydantic](https://github.com/pydantic/pydantic) | Request and response models |
+| [sqlalchemy/sqlalchemy](https://github.com/sqlalchemy/sqlalchemy) | SQLite access |
+| [omnilib/aiosqlite](https://github.com/omnilib/aiosqlite) | Async SQLite driver |
+| [encode/httpx](https://github.com/encode/httpx) | Outbound calls to model and place APIs |
+| [jpadilla/pyjwt](https://github.com/jpadilla/pyjwt) | Local sign-in tokens |
+| [pyca/cryptography](https://github.com/pyca/cryptography) | Encryption for a pasted model key |
+| [googleapis/python-genai](https://github.com/googleapis/python-genai) | Optional Gemini client |
+| [groq/groq-python](https://github.com/groq/groq-python) | Optional Groq client |
+| [supabase/supabase-py](https://github.com/supabase/supabase-py) | Optional hosted Postgres client; local use is SQLite |
+| [open-meteo/open-meteo](https://github.com/open-meteo/open-meteo) | Forecasts and seasonal weather |
+| [osm-search/Nominatim](https://github.com/osm-search/Nominatim) | Place-name lookup on OpenStreetMap |
+| [GIScience/openrouteservice](https://github.com/GIScience/openrouteservice) | Optional road time when an ORS key is set |
+| [nager/Nager.Date](https://github.com/nager/Nager.Date) | Public holidays |
+| [lineofflight/frankfurter](https://github.com/lineofflight/frankfurter) | Exchange rates |
+| [facebook/react](https://github.com/facebook/react) | The studio and planner interface |
+| [vitejs/vite](https://github.com/vitejs/vite) | The local frontend server and build |
+| [mrdoob/three.js](https://github.com/mrdoob/three.js) | The 3D route |
+| [pmndrs/react-three-fiber](https://github.com/pmndrs/react-three-fiber) | React bindings for that 3D view |
+| [pmndrs/drei](https://github.com/pmndrs/drei) | Helpers used by the 3D view |
+| [maplibre/maplibre-gl-js](https://github.com/maplibre/maplibre-gl-js) | The everyday map |
+| [excalidraw/excalidraw](https://github.com/excalidraw/excalidraw) | Sketch surfaces that use the Excalidraw editor |
+| [rough-stuff/rough](https://github.com/rough-stuff/rough) | Hand-drawn sketchbook marks |
+| [steveruizok/perfect-freehand](https://github.com/steveruizok/perfect-freehand) | Pen strokes in the sketchbook |
+| [parallax/jsPDF](https://github.com/parallax/jsPDF) | Trip PDF export |
+| [yWorks/svg2pdf.js](https://github.com/yWorks/svg2pdf.js) | Sketchbook pages inside that PDF |
+| [darkroomengineering/lenis](https://github.com/darkroomengineering/lenis) | Smooth scrolling on the home page |
+| [motiondivision/motion](https://github.com/motiondivision/motion) | Interface animation published as Framer Motion |
+| [GreenSock/GSAP](https://github.com/GreenSock/GSAP) | Page motion and the studio transition |
+| [lucide-icons/lucide](https://github.com/lucide-icons/lucide) | Interface icons |
+| [remarkjs/react-markdown](https://github.com/remarkjs/react-markdown) | Planner replies written in Markdown |
+| [tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss) | Utility styles |
+| [vercel/geist](https://github.com/vercel/geist-font) | Body and mono type |
+| [googlefonts/instrument-serif](https://github.com/googlefonts/instrument-serif) | Display type |
+| [googlefonts/caveat](https://github.com/googlefonts/caveat) | Sketchbook handwriting |
+
 ## License
 
 Pathfinder is released under the MIT License. See [LICENSE](LICENSE).

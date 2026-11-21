@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     DEEPSEEK_MODEL: str = "deepseek-flash"
     DEEPSEEK_FAST_MODEL: str = "deepseek-flash"
 
+    # Server writers that can be chosen beside DeepSeek. A pasted bring-your-own key still wins.
+    SERVER_WRITER: str = "deepseek"
+    POE_API_KEY: str = ""
+    POE_BASE_URL: str = "https://api.poe.com/v1"
+    POE_MODEL: str = "claude-sonnet-5-5"
+    XAI_API_KEY: str = ""
+    XAI_BASE_URL: str = "https://api.x.ai/v1"
+    XAI_MODEL: str = "grok-4.7"
+
     # Groq LLM Configuration (Primary)
     GROQ_API_KEY: str = ""
     # Optional second key from another Groq account: used when the first hits its rate or daily limit.

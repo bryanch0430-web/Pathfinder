@@ -75,7 +75,7 @@ async def grok_generate(prompt: str, system_instruction: str | None = None, temp
             "https://api.x.ai/v1/chat/completions",
             headers={"Authorization": "Bearer " + os.environ["XAI_KEY"]},
             json={
-                "model": os.environ.get("XAI_MODEL", "grok-4.20-0309-non-reasoning"),
+                "model": os.environ.get("XAI_MODEL", "grok-4.7"),
                 "messages": messages,
                 "temperature": temperature,
                 "max_tokens": 300,
@@ -149,7 +149,7 @@ async def main() -> None:
 
     heldout = [item for item in model_rows if item["split"] == "heldout"]
     report = {
-        "model": os.environ.get("XAI_MODEL", "grok-4.20-0309-non-reasoning"),
+        "model": os.environ.get("XAI_MODEL", "grok-4.7"),
         "n": len(records),
         "rules_alone": summarize([item for item in records if "rules" in item], "rules"),
         "model_turns": {

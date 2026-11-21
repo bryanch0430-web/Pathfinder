@@ -56,9 +56,10 @@ interface ChatWorkspaceProps {
   copilotDay?: number | null;
   onCopilotDay?: (day: number) => void;
   onClarify?: (text: string) => void;
-  onUseful?: (useful: boolean) => void;
-  useful?: boolean | null;
   onUndo?: () => void;
+  onOpenVerdict?: () => void;
+  /** A trending card started this trip: show the brief even on the opening screen. */
+  openBrief?: boolean;
   showComposer?: boolean;
   /** The trip's chosen guide (planning_preferences.guide); every assistant avatar becomes them. */
   guideId?: string | null;
@@ -106,9 +107,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   copilotDay,
   onCopilotDay,
   onClarify,
-  onUseful,
-  useful = null,
   onUndo,
+  onOpenVerdict,
+  openBrief = false,
   showComposer = true,
   guideId,
   pinnedStop,
@@ -204,6 +205,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         </button>}
 
         {variant === 'page' && canFinalize && onRequestFinalize && <button type="button" className="tv-btn tv-btn--sm tv-btn--ghost" onClick={onRequestFinalize}>Finalize trip</button>}
+        {variant === 'page' && isFinal && onOpenVerdict && <button type="button" className="tv-btn tv-btn--sm tv-btn--ghost" onClick={onOpenVerdict}>Rate this plan</button>}
 
         {variant === 'page' && onOpenStudio && (
           <button type="button" className="tv-btn tv-btn--sm tv-btn--primary" onClick={onOpenStudio} aria-label="Open studio">
@@ -217,7 +219,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         const el = event.currentTarget;
         pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
       }}>
-        {fresh ? (
+        {fresh && !openBrief ? (
           <div className="tv-chat__welcome-wrap">
             <ChatWelcome onSelectPrompt={onSelectPrompt} />
           </div>
@@ -230,9 +232,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                   onLockBudget={msg.id === latestReplyId && !isLoading && !isFinal ? () => onSendMessage('Lock this budget') : undefined}
                   onFinalizeTrip={msg.id === latestReplyId && !isLoading && canFinalize ? onRequestFinalize : undefined}
                   onClarify={msg.id === latestReplyId && !isLoading ? onClarify : undefined}
-                  onUseful={msg.id === latestReplyId && !isLoading && onUseful ? onUseful : undefined}
-                  useful={msg.id === latestReplyId ? useful : null}
-                  onUndo={msg.id === latestReplyId && !isLoading ? onUndo : undefined} />
+                  onUndo={msg.id === latestReplyId && !isLoading && !isFinal ? onUndo : undefined} />
                 {index === planIndex && tripPreview}
               </React.Fragment>
             ))}

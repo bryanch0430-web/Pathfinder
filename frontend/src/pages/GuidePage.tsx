@@ -235,7 +235,9 @@ export function GuidePage(props: GuidePageProps) {
               </Shot>
               <Shot src="02d-guide-picker" alt="Step 4 of the trip brief: six guides to choose from">
                 <strong>Step 4: pick your guide.</strong> Six guides, each with a one-line personality. Your guide chats
-                with you, draws the sketchbook and signs the PDF cover. The planning is the same whoever you pick.
+                with you, draws the sketchbook and signs the PDF cover. Leave <strong>Let this guide shape the plan</strong> on
+                and the draft leans that way: quieter days, famous sights, meals, a tighter budget, lesser-known places,
+                or late nights. Turn it off and the days ignore the guide. Your own pace, interests, and avoids still win.
               </Shot>
               <Shot src="03-planning-choice" alt="The planning choice with the saved brief and two ways to plan">
                 The brief is saved and summed up on a card (<strong>Edit details</strong> reopens it on one page). Then

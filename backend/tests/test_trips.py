@@ -251,7 +251,7 @@ async def test_form_onboarding_persists_places_and_plan(client: AsyncClient):
         "pace": "relaxed", "interests": ["Food", "Architecture"], "avoid": ["Early starts"],
         # brief v2 defaults when the form leaves them out
         "start_date": None, "adults": 1, "children": 0, "comfort": "mid_range",
-        "travel_mode": "transit", "guide": None, "home_currency": None,
+        "travel_mode": "transit", "guide": None, "guide_shapes_plan": True, "home_currency": None,
     }
     assert data["conversation"]["current_stage"] == "REVIEW"
     assert data["trip"]["status"] == "DRAFT"

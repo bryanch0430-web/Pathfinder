@@ -1,7 +1,7 @@
 /*
  * Choices an administrator can make for the next turn: how a message is handled,
  * which personal details are hidden, and which instruction a graph reads.
- * Keys stay in the server environment file. Router-only controls are not here.
+ * A writer key pasted here is stored encrypted and used on the next turn.
  */
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../services/apiClient';
@@ -48,6 +48,50 @@ const PRIVACY_ROWS: { key: keyof PrivacySettings; pattern: keyof PrivacySettings
 
 const SAMPLE = 'Plan 4 days in Kyoto. My HKID is Y123456(7). Call 9123 4567 or a@example.com. The card is 4111111111111111.';
 
+interface LlmProvider {
+  id: string;
+  label: string;
+  default_model: string;
+  efforts?: string[];
+}
+
+interface SavedKey {
+  id: string;
+  provider: string;
+  label: string;
+  model: string;
+  hint: string;
+  active: boolean;
+  temperature?: string | null;
+  reasoning?: string | null;
+}
+
+interface KeyStatus {
+  source: string;
+  provider: string;
+  model: string;
+  hint: string;
+  selected?: string;
+  ready?: boolean;
+}
+
+interface ServerChoice {
+  id: string;
+  label: string;
+  model: string;
+  ready: boolean;
+  efforts?: string[];
+}
+
+interface ServerWriter {
+  selected: string;
+  effective: string;
+  ready: boolean;
+  choices: ServerChoice[];
+  temperature?: string | null;
+  reasoning?: string | null;
+}
+
 export const AdminSettings: React.FC = () => {
   const [settings, setSettings] = useState<RouterSettings | null>(null);
   const [threshold, setThreshold] = useState('0.8');
@@ -64,6 +108,47 @@ export const AdminSettings: React.FC = () => {
   const [patternsOpen, setPatternsOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [providers, setProviders] = useState<LlmProvider[]>([]);
+  const [savedKeys, setSavedKeys] = useState<SavedKey[]>([]);
+  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
+  const [providerId, setProviderId] = useState('poe');
+  const [model, setModel] = useState('claude-sonnet-5-5');
+  const [apiKey, setApiKey] = useState('');
+  const [serverWriter, setServerWriter] = useState<ServerWriter | null>(null);
+  const [serverPick, setServerPick] = useState('deepseek');
+  const [serverTemp, setServerTemp] = useState('');
+  const [serverEffort, setServerEffort] = useState('');
+  const [byokTemp, setByokTemp] = useState('');
+  const [byokEffort, setByokEffort] = useState('');
+  const [byokEfforts, setByokEfforts] = useState<string[]>([]);
+
+  const loadKeys = async () => {
+    const [providerRes, keyRes, serverRes] = await Promise.all([
+      apiFetch<{ providers: LlmProvider[] }>('/api/llm/providers'),
+      apiFetch<{ keys: SavedKey[]; status: KeyStatus }>('/api/llm/keys'),
+      apiFetch<ServerWriter>('/api/llm/server'),
+    ]);
+    if (providerRes.ok && providerRes.data) {
+      setProviders(providerRes.data.providers);
+      const current = providerRes.data.providers.find((item) => item.id === providerId);
+      if (current?.efforts) setByokEfforts(current.efforts);
+    }
+    if (keyRes.ok && keyRes.data) {
+      setSavedKeys(keyRes.data.keys);
+      setKeyStatus(keyRes.data.status);
+    }
+    if (serverRes.ok && serverRes.data) {
+      setServerWriter(serverRes.data);
+      setServerPick(serverRes.data.selected);
+      setServerTemp(serverRes.data.temperature || '');
+      setServerEffort(serverRes.data.reasoning || '');
+    }
+    const active = keyRes.data?.keys.find((row) => row.active);
+    if (active) {
+      setByokTemp(active.temperature || '');
+      setByokEffort(active.reasoning || '');
+    }
+  };
 
   const load = async () => {
     const [settingsRes, promptsRes, usersRes, privacyRes] = await Promise.all([
@@ -78,6 +163,7 @@ export const AdminSettings: React.FC = () => {
     }
     const next = settingsRes.data;
     setSettings(next);
+    await loadKeys();
     setThreshold(String(next.router_threshold));
     setRulesFirst(next.rules_first);
     setGateOn(next.router_enabled);
@@ -220,6 +306,136 @@ export const AdminSettings: React.FC = () => {
           <button type="button" className="tv-btn tv-btn--primary" style={{ marginTop: '0.9rem' }} onClick={() => { void saveGate(); }}>Save this choice</button>
         </fieldset>
       )}
+
+      <fieldset className="tv-card tv-profile__card" style={{ marginBottom: '1.25rem' }}>
+        <legend className="tv-label">Server writer</legend>
+        <p className="tv-meta">
+          DeepSeek, Poe, and Grok use the keys in the server file. A key pasted below replaces this choice until you switch back.
+        </p>
+        {(serverWriter?.choices || []).map((choice) => (
+          <label key={choice.id} className="tv-label" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginTop: '0.7rem' }}>
+            <input
+              type="radio"
+              name="server-writer"
+              checked={serverPick === choice.id}
+              disabled={!choice.ready}
+              onChange={() => {
+                setServerPick(choice.id);
+                if (serverEffort && !(choice.efforts || []).includes(serverEffort)) setServerEffort('');
+              }}
+            />
+            <span>
+              {choice.label} · {choice.model}
+              <span className="tv-meta" style={{ display: 'block' }}>{choice.ready ? 'Key is in the server file.' : 'No key in the server file.'}</span>
+            </span>
+          </label>
+        ))}
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.8rem' }}>
+          Temperature
+          <input className="tv-input" inputMode="decimal" placeholder="default" value={serverTemp} onChange={(event) => setServerTemp(event.target.value)} />
+        </label>
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.6rem' }}>
+          Reasoning effort
+          <select className="tv-input" value={serverEffort} onChange={(event) => setServerEffort(event.target.value)}>
+            <option value="">default</option>
+            {(serverWriter?.choices.find((item) => item.id === serverPick)?.efforts || []).map((effort) => <option key={effort} value={effort}>{effort}</option>)}
+          </select>
+        </label>
+        <p className="tv-meta">Blank temperature keeps the code default. The reasoning list is only what this model accepts. xhigh is Grok 4.7 and Claude Sonnet 5.5, not DeepSeek or Gemini.</p>
+        <button type="button" className="tv-btn tv-btn--primary" style={{ marginTop: '0.9rem' }} onClick={() => { void (async () => {
+          setError('');
+          const res = await apiFetch<ServerWriter>('/api/llm/server', { method: 'PUT', body: JSON.stringify({ writer: serverPick, temperature: serverTemp || null, reasoning: serverEffort || null }) });
+          if (!res.ok || !res.data) { setError(res.error || 'That server writer was not saved.'); return; }
+          setServerWriter(res.data);
+          setNotice(keyStatus?.source === 'byok'
+            ? 'Saved. The pasted key is still the one in use until you choose the server key.'
+            : `The next turn uses ${res.data.choices.find((item) => item.id === res.data?.effective)?.label || 'the server writer'}.`);
+          await loadKeys();
+        })(); }}>Use this server writer</button>
+      </fieldset>
+
+      <fieldset className="tv-card tv-profile__card" style={{ marginBottom: '1.25rem' }}>
+        <legend className="tv-label">Your model key</legend>
+        <p className="tv-meta">
+          {keyStatus?.source === 'byok'
+            ? `The next turn uses your ${keyStatus.provider} key · ${keyStatus.model}. A failed call is not sent to the server key.`
+            : `No pasted key is chosen. The next turn uses the server ${keyStatus?.provider || 'deepseek'} model ${keyStatus?.model || ''}.`}
+        </p>
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.8rem' }}>
+          Provider
+          <select
+            className="tv-input"
+            value={providerId}
+            onChange={(event) => {
+              const next = event.target.value;
+              setProviderId(next);
+              const found = providers.find((item) => item.id === next);
+              if (found) {
+                setModel(found.default_model);
+                setByokEfforts(found.efforts || []);
+                if (byokEffort && !(found.efforts || []).includes(byokEffort)) setByokEffort('');
+              }
+            }}
+          >
+            {providers.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.6rem' }}>
+          Model
+          <input className="tv-input" value={model} onChange={(event) => setModel(event.target.value)} onBlur={() => { void (async () => {
+            const res = await apiFetch<{ efforts: string[] }>(`/api/llm/efforts?provider=${encodeURIComponent(providerId)}&model=${encodeURIComponent(model)}`);
+            if (res.ok && res.data) {
+              setByokEfforts(res.data.efforts);
+              if (byokEffort && !res.data.efforts.includes(byokEffort)) setByokEffort('');
+            }
+          })(); }} />
+        </label>
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.6rem' }}>
+          Key
+          <input className="tv-input" type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} />
+        </label>
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.6rem' }}>
+          Temperature
+          <input className="tv-input" inputMode="decimal" placeholder="default" value={byokTemp} onChange={(event) => setByokTemp(event.target.value)} />
+        </label>
+        <label className="tv-label" style={{ display: 'block', marginTop: '0.6rem' }}>
+          Reasoning effort
+          <select className="tv-input" value={byokEffort} onChange={(event) => setByokEffort(event.target.value)}>
+            <option value="">default</option>
+            {byokEfforts.map((effort) => <option key={effort} value={effort}>{effort}</option>)}
+          </select>
+          {!byokEfforts.length && <span className="tv-meta" style={{ display: 'block' }}>This model has no reasoning-effort control.</span>}
+        </label>
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.8rem' }}>
+          <button type="button" className="tv-btn tv-btn--ghost" onClick={() => { void (async () => {
+            setError('');
+            const res = await apiFetch<{ ok: boolean; message: string }>('/api/llm/keys/test', { method: 'POST', body: JSON.stringify({ provider: providerId, api_key: apiKey, model }) });
+            if (!res.ok || !res.data) { setError(res.error || 'The key could not be tested.'); return; }
+            setNotice(res.data.message);
+          })(); }}>Test key</button>
+          <button type="button" className="tv-btn tv-btn--primary" onClick={() => { void (async () => {
+            setError('');
+            const res = await apiFetch<{ status: KeyStatus }>('/api/llm/keys', { method: 'POST', body: JSON.stringify({ provider: providerId, api_key: apiKey, model, temperature: byokTemp || null, reasoning: byokEffort || null }) });
+            if (!res.ok) { setError(res.error || 'The key was not saved.'); return; }
+            setApiKey('');
+            setNotice('Saved. The next turn uses this key.');
+            await loadKeys();
+          })(); }}>Save and use</button>
+        </div>
+        {!!savedKeys.length && (
+          <ul className="tv-meta" style={{ marginTop: '0.9rem' }}>
+            {savedKeys.map((row) => (
+              <li key={row.id} style={{ marginTop: '0.4rem' }}>
+                {row.label} · {row.model} · {row.hint}{row.active ? ' · in use' : ''}
+                {!row.active && <button type="button" className="tv-link" style={{ marginLeft: '0.5rem' }} onClick={() => { void (async () => { await apiFetch('/api/llm/choice', { method: 'PUT', body: JSON.stringify({ key_id: row.id }) }); await loadKeys(); })(); }}>Use</button>}
+                {row.active && <button type="button" className="tv-link" style={{ marginLeft: '0.5rem' }} onClick={() => { void (async () => { await apiFetch(`/api/llm/keys/${row.id}/sampling`, { method: 'PUT', body: JSON.stringify({ temperature: byokTemp || null, reasoning: byokEffort || null }) }); setNotice('Saved temperature and reasoning for this key.'); await loadKeys(); })(); }}>Save sampling</button>}
+                {row.active && <button type="button" className="tv-link" style={{ marginLeft: '0.5rem' }} onClick={() => { void (async () => { await apiFetch('/api/llm/choice', { method: 'PUT', body: JSON.stringify({ key_id: null }) }); await loadKeys(); })(); }}>Use server key</button>}
+                <button type="button" className="tv-link" style={{ marginLeft: '0.5rem' }} onClick={() => { void (async () => { await apiFetch(`/api/llm/keys/${row.id}`, { method: 'DELETE' }); await loadKeys(); })(); }}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </fieldset>
 
       {privacy && (
         <fieldset className="tv-card tv-profile__card" style={{ marginBottom: '1.25rem' }}>

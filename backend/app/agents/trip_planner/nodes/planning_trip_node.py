@@ -3,6 +3,7 @@ import logging
 import re
 from typing import Any
 
+from app.agents.trip_planner.guides import guide_leaning
 from app.agents.trip_planner.planning.graph import planning_graph
 from app.agents.trip_planner.planning.state import create_initial_planning_state
 from app.agents.trip_planner.state import TripPlanningState
@@ -59,6 +60,7 @@ Guidelines:
 - Use the destination, duration, origin, research findings, and candidates.
 - Include the traveler's requested places when feasible; flag any that do not fit the stay.
 - Follow the traveler's stated pace, interests, and things to avoid when selecting and sequencing activities.
+- When GUIDE LEANING is present, choose and order stops to match it. The traveler's own brief still wins if they conflict.
 - Use the rest of the brief in planning_preferences when present: travel dates (season, weekdays; never invent
   event schedules), adults/children (keep it family-friendly with children), comfort level (budget, mid_range,
   comfortable) for stays and dining, and travel_mode for how they get around.
@@ -108,11 +110,11 @@ End with a natural invitation to refine the plan.
 REVISION_SYSTEM_INSTRUCTION = """
 You are Pathfinder, revising a traveler's itinerary while chatting with them.
 
-- Start with one or two natural sentences saying exactly what you changed, like a friend planning alongside
-  them ("Done: Fushimi Inari moves to the morning of day 2, and Okochi-Sanso takes its afternoon slot.").
-- Then give the complete updated itinerary in the same structure and formatting as the current one.
+- The chat shows only your opening. Start with two to four sentences that name exactly what changed and what stayed put, like a friend planning alongside them ("Done: Fushimi Inari moves to the morning of day 2, and Okochi-Sanso takes its afternoon slot. The other days are unchanged.").
+- After that opening, give the complete updated itinerary in the same structure and formatting as the current one. The studio saves this list; do not skip a day or a stop that stayed.
 - Keep every day as its own timed list (Day N, clock times, overnight stay). Do not collapse days into a range.
 - Apply the request faithfully. Keep every other day, base and activity as it was unless the change needs it.
+- When GUIDE LEANING is present, a new or moved stop should fit that leaning unless this message asks for something else.
 - A new stop must be a real venue a map can pin. Never add a theme such as "Temples & traditional experiences".
 - If they agree to something you proposed in YOUR LAST MESSAGE ("yes", "do it", "go ahead", "finalize it"),
   apply exactly that proposal.
@@ -156,6 +158,25 @@ def answer_outline(plan: str) -> str:
     return "\n".join(lines) or (plan or "")[:700]
 
 
+_DAY_HEADING = re.compile(r"^(#{1,3}\s*)?(\*\*)?Day \d+\b", re.I)
+
+
+def revision_visible(text: str) -> tuple[str, bool]:
+    """The opening the traveler should read, and whether the day-by-day list has started.
+
+    The day list is still stored for the studio. It is not repeated in the chat.
+    """
+    kept: list[str] = []
+    started = False
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if _DAY_HEADING.match(stripped) or stripped.startswith("**Route:") or "First Draft" in stripped:
+            started = True
+            break
+        kept.append(line)
+    return "\n".join(kept).strip(), started
+
+
 def clip_to_answer(text: str) -> str:
     """Drop a reprinted draft from a question reply. The first answer paragraph stays."""
     kept = []
@@ -191,7 +212,8 @@ def build_followup_prompt(
     """
     return (
         f"TRIP: {duration_days} days in {destination}, travelling from {origin or 'not specified'}\n"
-        f"PREFERENCES: {json.dumps(planning_preferences or {}, ensure_ascii=False)}\n\n"
+        f"PREFERENCES: {json.dumps(planning_preferences or {}, ensure_ascii=False)}\n"
+        f"{guide_leaning(planning_preferences)}\n"
         f"CURRENT ITINERARY:\n{previous_plan[:16000]}\n\n"
         + (f"YOUR LAST MESSAGE:\n{last_reply[:3000]}\n\n" if last_reply else "")
         + (f"JUST SAVED: {'; '.join(saved)}\n\n" if saved else "")
@@ -298,7 +320,7 @@ Duration: {duration_days} days
 Origin: {origin or "not specified"}
 Requested places: {", ".join(places_to_visit or []) or "open to suggestions"}
 Planning preferences: {json.dumps(planning_preferences or {}, ensure_ascii=False)}
-"""
+{guide_leaning(planning_preferences)}"""
 
 
 async def execute_planning_subgraph(

@@ -127,7 +127,7 @@ export function HomeV2({
         <Capabilities />
         <Marquee />
         <AgentPreview />
-        <Destinations onNavigateExplore={onNavigateExplore} />
+        <Destinations onNavigateExplore={onNavigateExplore} onStartPlanning={onStartPlanning} />
         <TravelJournals />
         <Questions />
         <CtaBand onStartPlanning={onStartPlanning} />

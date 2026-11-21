@@ -65,10 +65,17 @@ interface ChatMessageProps {
   onLockBudget?: () => void;
   onFinalizeTrip?: () => void;
   onClarify?: (text: string) => void;
-  onUseful?: (useful: boolean) => void;
-  /** The mark already saved for this trip, so the chosen button stays selected. */
-  useful?: boolean | null;
   onUndo?: () => void;
+}
+
+function changeSummary(content: string) {
+  const kept: string[] = [];
+  for (const line of content.split(/\r?\n/)) {
+    const stripped = line.trim();
+    if (/^(#{1,3}\s*)?(\*\*)?Day \d+\b/i.test(stripped) || stripped.startsWith('**Route:')) break;
+    kept.push(line);
+  }
+  return kept.join('\n').trim() || 'Updated the plan. The full days are in the studio.';
 }
 
 function PlanReceipt({ changes, onOpenStudio, onRetry }: { changes: PlanChange[] } & Omit<ChatMessageProps, 'message'>) {
@@ -150,7 +157,7 @@ function ClarifyCard({ slots, onClarify }: { slots: string[]; onClarify: (text: 
   );
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio, onRetry, onLockBudget, onFinalizeTrip, onClarify, onUseful, useful, onUndo }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio, onRetry, onLockBudget, onFinalizeTrip, onClarify, onUndo }) => {
   const { user } = useAuth();
   const root = useRef<HTMLDivElement>(null);
   const guide = useGuide();
@@ -212,7 +219,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio,
           {isUser ? (
             <p className="tv-msg2__text">{maskForDisplay(message.content || '')}</p>
           ) : message.content ? (
-            <MarkdownMessage content={message.content} />
+            <MarkdownMessage content={message.payload?.change_only ? changeSummary(message.content) : message.content} />
           ) : (
             <span className="tv-dots" aria-label="Writing">
               <i /> <i /> <i />
@@ -251,13 +258,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onOpenStudio,
         {!isUser && onClarify && (message.payload?.route?.missing_slots?.length || 0) > 0 && message.payload?.route?.need_clarification && (
           <ClarifyCard slots={message.payload.route.missing_slots || []} onClarify={onClarify} />
         )}
-        {!isUser && message.payload?.kind === 'ITINERARY_GRAPH' && (onUseful || onUndo) && (
-          <div className="tv-receipt" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {onUseful && <button type="button" className={useful === true ? 'is-selected' : ''} aria-pressed={useful === true} onClick={() => onUseful(true)}>Useful</button>}
-            {onUseful && <button type="button" className={useful === false ? 'is-selected' : ''} aria-pressed={useful === false} onClick={() => onUseful(false)}>Not useful</button>}
-            {useful === true && <span className="tv-meta">Marked as useful</span>}
-            {useful === false && <span className="tv-meta">Marked as not useful</span>}
-            {onUndo && message.payload.previous?.graph && <button type="button" className="tv-receipt__open" onClick={onUndo}>Restore previous plan</button>}
+        {!isUser && onUndo && message.payload?.kind === 'ITINERARY_GRAPH' && message.payload.previous?.graph && (
+          <div className="tv-receipt">
+            <button type="button" className="tv-receipt__open" onClick={onUndo}>Restore previous plan</button>
           </div>
         )}
         {!isUser && message.payload?.offer_lock_budget && onLockBudget && <button type="button" className="tv-receipt__open" onClick={onLockBudget}>Lock this budget</button>}

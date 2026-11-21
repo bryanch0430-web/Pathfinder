@@ -66,6 +66,41 @@ def test_draft_and_revision_flag_impossible_days_without_live_lookups():
     assert result["warnings"][0]["travel_hours"] > 8
 
 
+def test_a_revision_looks_up_only_the_day_that_changed():
+    import asyncio
+    before = [
+        {"day": 1, "base": "Tokyo", "items": [{"name": "Senso-ji"}]},
+        {"day": 2, "base": "Osaka", "items": [{"name": "Dotonbori"}]},
+    ]
+    after = [
+        {"day": 1, "base": "Tokyo", "items": [{"name": "Senso-ji"}, {"name": "teamLab"}]},
+        {"day": 2, "base": "Osaka", "items": [{"name": "Dotonbori"}]},
+    ]
+    assert route_reality.changed_days(before, after) == {1}
+    seen: list[str] = []
+
+    async def capture(_state, requests, per_turn=3):
+        seen.extend(key for key, _query in requests)
+        assert per_turn == 3
+
+    with patch.object(route_reality, "resolve_points", new=capture), \
+         patch.object(route_reality, "resolve_roads", new_callable=AsyncMock):
+        asyncio.run(route_reality.assess_itinerary(after, "Japan", "transit", "balanced", {}, {1}))
+    assert any("teamlab" in key for key in seen)
+    assert not any("dotonbori" in key for key in seen)
+
+
+def test_revision_chat_keeps_the_change_and_drops_the_day_list():
+    from app.agents.trip_planner.nodes.planning_trip_node import revision_visible
+    opening, started = revision_visible(
+        "Done: teamLab is now on day 1. The other days are unchanged.\n\n"
+        "Day 1 — Tokyo\n- teamLab\nDay 2 — Osaka\n- Dotonbori\n"
+    )
+    assert started
+    assert opening == "Done: teamLab is now on day 1. The other days are unchanged."
+    assert "Dotonbori" not in opening
+
+
 def test_unlocated_place_stays_provisional_not_impossible():
     state = _planner()
     unknown = [{"name": f"Unknown local place {n}", "duration_hours": 0.1} for n in range(14)]

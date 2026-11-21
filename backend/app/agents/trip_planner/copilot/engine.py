@@ -85,6 +85,8 @@ def new_copilot(*, destination: str, duration_days: int, currency: str | None,
             "vibe": [clean(v, 40) for v in overrides.get("vibe") or [] if clean(v, 40)][:5],
             "hard": {"must": list(places or []), "avoid": list(prefs.get("avoid") or [])},
             "soft": {"likes": list(prefs.get("interests") or []), "dislikes": []},
+            "guide": prefs.get("guide") if prefs.get("guide_shapes_plan", True) and prefs.get("guide") in {
+                "tetra", "hexa", "octa", "dode", "icosa", "sphere"} else None,
             "rejected": [],
         },
         "rates": {"transfer": {"walk": 0.0, "transit": None, "taxi": None, "drive": None},
@@ -175,6 +177,11 @@ def score(copilot: dict, item: dict, day: dict) -> float:
     value -= 3.0 * sum(matches(t, item) for t in profile["soft"]["dislikes"])
     value += 2.0 * sum(matches(t, item) for t in profile["vibe"])
     value += 6.0 * any(key(item["name"]) == key(m) for m in profile["hard"]["must"])
+    from app.agents.trip_planner.guides import score_terms
+    liked, disliked = score_terms(profile.get("guide"))
+    # One bump for the guide, below a single stated interest, so the traveler's own like still wins.
+    value += 2.0 if any(matches(term, item) for term in liked) else 0
+    value -= 2.0 if any(matches(term, item) for term in disliked) else 0
     value += 1.0 * (item["basis"] == "community")
     value += 1.0 * any(key(i.get("area")) == key(item.get("area")) for i in day["items"] if item.get("area"))
     return value

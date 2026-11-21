@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from app.agents.trip_planner.planning.state import PlanningState
+from app.agents.trip_planner.guides import guide_leaning
 from app.services.llm.service import llm_service
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ Traveler's requested places: {", ".join(places) or "none specified"}
 Travel pace: {preferences.get("pace", "balanced")}
 Traveler interests: {", ".join(preferences.get("interests") or []) or "not specified"}
 Traveler wants to avoid: {", ".join(preferences.get("avoid") or []) or "not specified"}
-Analyze this trip context and return the structured JSON object with "trip_type" and "planning_notes".
+{guide_leaning(preferences)}Analyze this trip context and return the structured JSON object with "trip_type" and "planning_notes".
 """
 
     trip_type = None

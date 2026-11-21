@@ -1,5 +1,6 @@
 """Optional road metrics from the free openrouteservice quota."""
 
+import asyncio
 import logging
 from math import asin, cos, radians, sin, sqrt
 
@@ -105,47 +106,53 @@ async def get_route_metrics(request: RouteMetricsRequest) -> dict:
     if not google_routes and not settings.ORS_API_KEY:
         return {"provider": "unavailable", "legs": []}
 
-    results = []
-    async with httpx.AsyncClient(timeout=12.0) as client:
-        for leg in request.legs:
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        gate = asyncio.Semaphore(3)
+
+        async def one(leg):
             km = _air_km(leg.from_lat, leg.from_lon, leg.to_lat, leg.to_lon)
             if km > 2500:
-                continue
+                return None
             mode = route_mode(km)
             key = tuple(round(value, 5) for value in (
                 leg.from_lat, leg.from_lon, leg.to_lat, leg.to_lon,
             )) + (mode,)
             route = _cache.get(key)
             if route is None:
-                try:
-                    # Free ORS routing is preferred. Google Routes requires an
-                    # explicit opt-in so a demo Places key cannot incur route calls.
-                    if google_routes:
-                        try:
-                            route = await _google_route(client, leg, mode)
-                        except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
-                            logger.info("Google route unavailable for leg %s: %s", leg.id, exc)
-                    if route is None and settings.ORS_API_KEY:
-                        response = await client.post(
-                            "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
-                            headers={"Authorization": settings.ORS_API_KEY},
-                            json={"coordinates": [[leg.from_lon, leg.from_lat], [leg.to_lon, leg.to_lat]]},
-                        )
-                        response.raise_for_status()
-                        feature = response.json()["features"][0]
-                        summary = feature["properties"]["summary"]
-                        route = {
-                            "distance_km": round(summary["distance"] / 1000, 1),
-                            "duration_minutes": round(summary["duration"] / 60),
-                            "geometry": feature["geometry"]["coordinates"],
-                        }
+                async with gate:
+                    route = _cache.get(key)
                     if route is None:
-                        continue
-                    if len(_cache) >= 256:
-                        _cache.clear()
-                    _cache[key] = route
-                except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
-                    logger.info("Road metrics unavailable for leg %s: %s", leg.id, exc)
-                    continue
-            results.append({"id": leg.id, **route})
+                        try:
+                            # Free ORS routing is preferred. Google Routes requires an
+                            # explicit opt-in so a demo Places key cannot incur route calls.
+                            if google_routes:
+                                try:
+                                    route = await _google_route(client, leg, mode)
+                                except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
+                                    logger.info("Google route unavailable for leg %s: %s", leg.id, exc)
+                            if route is None and settings.ORS_API_KEY:
+                                response = await client.post(
+                                    "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+                                    headers={"Authorization": settings.ORS_API_KEY},
+                                    json={"coordinates": [[leg.from_lon, leg.from_lat], [leg.to_lon, leg.to_lat]]},
+                                )
+                                response.raise_for_status()
+                                feature = response.json()["features"][0]
+                                summary = feature["properties"]["summary"]
+                                route = {
+                                    "distance_km": round(summary["distance"] / 1000, 1),
+                                    "duration_minutes": round(summary["duration"] / 60),
+                                    "geometry": feature["geometry"]["coordinates"],
+                                }
+                            if route is None:
+                                return None
+                            if len(_cache) >= 256:
+                                _cache.clear()
+                            _cache[key] = route
+                        except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as exc:
+                            logger.info("Road metrics unavailable for leg %s: %s", leg.id, exc)
+                            return None
+            return {"id": leg.id, **route}
+
+        results = [row for row in await asyncio.gather(*(one(leg) for leg in request.legs)) if row]
     return {"provider": "google" if google_routes else "openrouteservice", "legs": results}

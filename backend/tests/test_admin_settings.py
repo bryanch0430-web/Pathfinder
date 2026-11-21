@@ -141,7 +141,7 @@ async def test_undo_restores_the_previous_plan(client: AsyncClient):
     user_id, token = await _account(True)
     trip = Trip(
         user_id=user_id, destination="Kyoto", origin_text="Hong Kong", duration_days=3,
-        status=TripStatus.PLANNING, onboarding_status=OnboardingStatus.COMPLETE, currency="HKD",
+        status=TripStatus.COMPLETED, onboarding_status=OnboardingStatus.COMPLETE, currency="HKD",
         places_to_visit=[], planning_preferences={},
     )
     generator = app.dependency_overrides[get_db]()

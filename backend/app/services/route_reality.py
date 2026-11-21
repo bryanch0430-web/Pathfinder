@@ -178,6 +178,20 @@ def road_pairs_for_day(state: dict, base: str, items: list[dict]) -> list[tuple[
     return pairs
 
 
+def changed_days(before: list[dict] | None, after: list[dict]) -> set[int] | None:
+    """Days whose base or stops differ. None means there is no earlier plan to compare."""
+    if not before:
+        return None
+
+    def signature(day: dict) -> tuple:
+        names = tuple(_key(item.get("name") or "") for item in day.get("items") or [] if not item.get("option"))
+        return (_key(day.get("base") or ""), names)
+
+    old = {day.get("day"): signature(day) for day in before}
+    new = {day.get("day"): signature(day) for day in after}
+    return {day for day in set(old) | set(new) if old.get(day) != new.get(day)}
+
+
 def check_plan_days(state: dict, days: list[dict], mode: str, capacity: float) -> list[dict]:
     warnings = []
     for day in days:
@@ -205,31 +219,37 @@ def check_plan_days(state: dict, days: list[dict], mode: str, capacity: float) -
 
 
 async def assess_itinerary(days: list[dict], destination: str, mode: str, pace: str,
-                           previous: dict | None = None) -> dict:
-    """Check a full draft or revision using a bounded set of named-place lookups."""
+                           previous: dict | None = None, touched: set[int] | None = None) -> dict:
+    """Check a draft, or only the days a revision actually changed.
+
+    Untouched days keep the coordinates and road times already stored. The warning
+    pass still reads every day, so a cached impossible day is not forgotten.
+    """
     state = {key: (previous or {}).get(key, {}).copy() if key in ("route_points", "route_times")
              else list((previous or {}).get(key, []))
              for key in ("route_points", "route_times", "route_queries", "route_requests")}
-    requests = []
-    for day in days:
-        items = [item for item in day.get("items", []) if not item.get("option")]
-        selected = [item for item in items if item.get("time_of_day") in ("afternoon", "evening")]
-        day_requests = requests_for_day(destination, day.get("base") or destination,
-                                        [*selected, *[item for item in items if item not in selected]])
-        requests += day_requests
-    requests = list(dict(requests).items())
-    try:
-        await asyncio.wait_for(resolve_points(state, requests, per_turn=6), timeout=8.0)
-    except asyncio.TimeoutError:
-        logger.info("Route place lookup reached its eight-second turn budget")
-    pairs = []
-    for day in days:
-        items = [item for item in day.get("items", []) if not item.get("option")]
-        pairs += road_pairs_for_day(state, day.get("base") or destination, items)
-    try:
-        await asyncio.wait_for(resolve_roads(state, pairs), timeout=12.0)
-    except asyncio.TimeoutError:
-        logger.info("Road lookup reached its turn budget")
+    focus = days if touched is None else [day for day in days if day.get("day") in touched]
+    if focus:
+        requests = []
+        for day in focus:
+            items = [item for item in day.get("items", []) if not item.get("option")]
+            selected = [item for item in items if item.get("time_of_day") in ("afternoon", "evening")]
+            requests += requests_for_day(destination, day.get("base") or destination,
+                                         [*selected, *[item for item in items if item not in selected]])
+        requests = list(dict(requests).items())
+        point_budget = 6 if touched is None else 3
+        try:
+            await asyncio.wait_for(resolve_points(state, requests, per_turn=point_budget), timeout=8.0)
+        except asyncio.TimeoutError:
+            logger.info("Route place lookup reached its eight-second turn budget")
+        pairs = []
+        for day in focus:
+            items = [item for item in day.get("items", []) if not item.get("option")]
+            pairs += road_pairs_for_day(state, day.get("base") or destination, items)
+        try:
+            await asyncio.wait_for(resolve_roads(state, pairs, per_turn=8 if touched is None else 3), timeout=8.0)
+        except asyncio.TimeoutError:
+            logger.info("Road lookup reached its turn budget")
     capacity = {"relaxed": 6.0, "balanced": 8.0, "packed": 11.0}.get(pace, 8.0)
     state["warnings"] = check_plan_days(state, days, mode, capacity)
     return state

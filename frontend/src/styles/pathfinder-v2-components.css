@@ -1234,3 +1234,20 @@
 
 /* Hero: the guide cast sits under the actions. */
 .tv-bg__cast { margin-top: clamp(1.2rem, 2.4vw, 1.8rem); padding-top: clamp(1rem, 2vw, 1.4rem); border-top: 1px solid var(--tv-line); }
+
+.tv-trend { display: grid; gap: 1.25rem; padding-bottom: clamp(2rem, 4vw, 3.5rem); }
+.tv-trend em { color: var(--tv-muted); }
+.tv-trend__head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem); gap: 1.5rem; align-items: end; }
+.tv-trend__title { font-size: clamp(2rem, 4vw, 3.2rem); line-height: 0.98; margin: 0.35rem 0 0.6rem; }
+.tv-trend__search { display: grid; gap: 0.35rem; }
+.tv-trend__list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+.tv-trend__card { display: grid; gap: 0.55rem; align-content: start; padding: 1rem 1rem 0.9rem; border: 1px solid var(--tv-line); border-radius: var(--tv-r-md, 12px); background: var(--tv-paper, transparent); }
+.tv-trend__top { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; }
+.tv-trend__top h3 { margin: 0; font-size: 1.15rem; font-weight: 500; }
+.tv-trend__places { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.tv-trend__places li { font-size: 0.72rem; padding: 0.15rem 0.45rem; border: 1px solid var(--tv-line); border-radius: 999px; }
+.tv-trend__confirm { display: grid; gap: 0.55rem; }
+.tv-trend__confirm div { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+@media (max-width: 900px) {
+  .tv-trend__head, .tv-trend__list { grid-template-columns: 1fr; }
+}

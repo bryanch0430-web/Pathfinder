@@ -29,7 +29,7 @@ export interface TripModelResponse {
   guest_id?: string | null;
   destination?: string | null;
   places_to_visit: string[];
-  planning_preferences?: Partial<OnboardingValues['planning_preferences']>;
+  planning_preferences?: Partial<OnboardingValues['planning_preferences']> & { useful?: boolean | null; stars?: number | null };
   origin_text?: string | null;
   origin_latitude?: number | null;
   origin_longitude?: number | null;
@@ -530,9 +530,12 @@ export async function deleteTrip(tripId: string): Promise<boolean> {
   return res.ok;
 }
 
-export async function markTripUseful(tripId: string, useful: boolean): Promise<boolean> {
-  const res = await apiFetch(`/api/trips/${tripId}/feedback`, { method: 'POST', body: JSON.stringify({ useful }) });
-  return res.ok;
+export async function markTripUseful(tripId: string, useful: boolean | null, stars?: number | null): Promise<{ useful: boolean | null; stars: number | null } | null> {
+  const res = await apiFetch<{ useful: boolean | null; stars: number | null }>(`/api/trips/${tripId}/feedback`, {
+    method: 'POST',
+    body: JSON.stringify(useful && stars ? { useful, stars } : { useful }),
+  });
+  return res.ok && res.data ? res.data : null;
 }
 
 export async function undoTripPlan(tripId: string): Promise<boolean> {

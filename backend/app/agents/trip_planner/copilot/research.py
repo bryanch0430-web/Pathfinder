@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from app.agents.trip_planner.copilot import engine
+from app.agents.trip_planner.guides import guide_leaning
 from app.agents.trip_planner.planning.tools.web_search import search_web
 from app.services.llm.service import llm_service, model_for
 
@@ -50,10 +51,13 @@ async def community_search(query: str) -> list[dict[str, Any]]:
 
 
 def initial_queries(copilot: dict) -> list[str]:
+    from app.agents.trip_planner.guides import search_hint
+
     profile, destination = copilot["profile"], copilot["destination"]
     likes = " ".join((profile["soft"]["likes"] + profile["vibe"])[:3])
+    leaning = search_hint(profile.get("guide"))
     return [f"{destination} {len(copilot['days'])} day itinerary advice",
-            f"{destination} hidden gems {likes}".strip(),
+            f"{destination} {leaning or 'hidden gems'} {likes}".strip(),
             f"{destination} budget tips transport food cost"]
 
 
@@ -74,6 +78,7 @@ async def research(copilot: dict, queries: list[str], *, plan_bases: bool = Fals
         f"PLAN BASES: {'yes' if plan_bases else 'no'}",
         f"MUST: {profile['hard']['must']}  AVOID: {profile['hard']['avoid']}",
         f"LIKES: {profile['soft']['likes']}  DISLIKES: {profile['soft']['dislikes']}  VIBE: {profile['vibe']}",
+        guide_leaning({"guide": profile.get("guide")}).strip(),
         f"FOCUS: {queries}",
         "EVIDENCE:",
         *(f"[{i}] {r.get('title', '')} ({r.get('url', '')}): {str(r.get('content', ''))[:600]}"

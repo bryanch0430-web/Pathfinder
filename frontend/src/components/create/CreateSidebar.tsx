@@ -5,7 +5,7 @@
  * links. Resizable by drag on desktop; an overlay drawer below 1024px.
  */
 import { UserAvatar } from '../guide/UserAvatar';
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
@@ -36,6 +36,7 @@ interface CreateSidebarProps {
 }
 
 const isNarrow = () => window.innerWidth < 1024;
+const DeskPage = React.lazy(() => import('../../pages/DeskPage').then((module) => ({ default: module.DeskPage })));
 
 export const CreateSidebar: React.FC<CreateSidebarProps> = ({
   isOpen,
@@ -55,6 +56,7 @@ export const CreateSidebar: React.FC<CreateSidebarProps> = ({
 }) => {
   const { user } = useAuth();
   const root = useRef<HTMLElement>(null);
+  const [deskOpen, setDeskOpen] = useState(false);
   const avatarUrl = user?.user_metadata?.avatar_url;
 
   // Stagger the rail's contents in whenever it opens.
@@ -71,6 +73,15 @@ export const CreateSidebar: React.FC<CreateSidebarProps> = ({
     },
     { scope: root, dependencies: [isOpen] },
   );
+
+  useEffect(() => {
+    if (!deskOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDeskOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [deskOpen]);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -148,10 +159,7 @@ export const CreateSidebar: React.FC<CreateSidebarProps> = ({
 
         <div className="tv-side__foot tv-side__stagger">
           {user?.user_metadata?.is_admin && (
-            <button type="button" className="tv-btn tv-btn--ghost tv-btn--sm" style={{ width: '100%' }} onClick={() => {
-              window.history.pushState({}, '', '/desk');
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            }}>Contact desk</button>
+            <button type="button" className="tv-btn tv-btn--ghost tv-btn--sm" style={{ width: '100%' }} aria-haspopup="dialog" aria-expanded={deskOpen} onClick={() => setDeskOpen(true)}>Contact desk</button>
           )}
           {onNavigateProfile && (
             <button type="button" className="tv-side__account" onClick={onNavigateProfile}>
@@ -187,6 +195,11 @@ export const CreateSidebar: React.FC<CreateSidebarProps> = ({
           />
         )}
       </aside>
+      {deskOpen && (
+        <React.Suspense fallback={null}>
+          <DeskPage overlay onBack={() => setDeskOpen(false)} />
+        </React.Suspense>
+      )}
     </>
   );
 };

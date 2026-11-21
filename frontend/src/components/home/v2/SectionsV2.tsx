@@ -14,6 +14,7 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+import { planTrending, TrendingPlaces } from '../../trending/TrendingPlaces';
 import {
   AGENT_STEPS,
   AGENT_TRANSCRIPT,
@@ -385,7 +386,7 @@ export function AgentPreview() {
  * Destinations rail
  * ------------------------------------------------------------------ */
 
-export function Destinations({ onNavigateExplore }: { onNavigateExplore?: () => void }) {
+export function Destinations({ onNavigateExplore, onStartPlanning }: { onNavigateExplore?: () => void; onStartPlanning?: () => void }) {
   const root = useRef<HTMLElement>(null);
 
   useGSAP(
@@ -451,6 +452,9 @@ export function Destinations({ onNavigateExplore }: { onNavigateExplore?: () => 
         <button type="button" className="tv-btn tv-btn--ghost" onClick={onNavigateExplore} style={{ width: '100%' }}>
           Explore all trips
         </button>
+      </div>
+      <div className="tv-container" style={{ marginTop: '3rem' }}>
+        <TrendingPlaces onPlan={(card) => { planTrending(card); onStartPlanning?.(); }} />
       </div>
     </section>
   );

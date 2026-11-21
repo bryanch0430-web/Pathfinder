@@ -11,6 +11,7 @@ from app.models.budget import BudgetItem, BudgetPlan
 from app.models.sketch_note import SketchNote
 from app.models.user import User
 from app.models.admin_setting import AdminSetting
+from app.models.llm_key import LlmKey
 
 __all__ = [
     "TripStatus",
@@ -27,4 +28,5 @@ __all__ = [
     "SketchNote",
     "User",
     "AdminSetting",
+    "LlmKey",
 ]

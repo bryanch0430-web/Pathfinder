@@ -113,6 +113,7 @@ export function prefillFromChat(initial: Partial<OnboardingValues> | null | unde
       comfort: brief.comfort || prefs.comfort,
       travel_mode: brief.travelMode || prefs.travel_mode,
       guide: prefs.guide,
+      guide_shapes_plan: prefs.guide_shapes_plan !== false,
       home_currency: prefs.home_currency,
     },
   };

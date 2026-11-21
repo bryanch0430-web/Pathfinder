@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, Optional
 
 from app.core.config import settings
@@ -56,6 +57,7 @@ class LLMService:
         fallback_provider: Any = _UNSET,
         provider: Any = _UNSET,
     ):
+        self._follow_server_menu = False
         if provider is not _UNSET:
             self._primary_provider = provider
             self._fallback_provider = fallback_provider if fallback_provider is not _UNSET else None
@@ -74,6 +76,7 @@ class LLMService:
             self._fallback_provider = fallback_provider if fallback_provider is not _UNSET else (
                 default_fallback() if selected == "groq" else None
             )
+            self._follow_server_menu = primary_provider is _UNSET
 
     @property
     def _provider(self) -> LLMProvider:
@@ -96,6 +99,37 @@ class LLMService:
         """Allow runtime swapping of both primary and fallback LLM providers."""
         self._primary_provider = primary
         self._fallback_provider = fallback
+        self._follow_server_menu = False
+
+    def _writer(self, override: Any) -> Any:
+        """A pasted key wins. Otherwise Poe or Grok from the server file, then DeepSeek."""
+        if override is not None:
+            return override
+        if self._follow_server_menu:
+            from app.services.byok import server_provider
+            chosen = server_provider()
+            if chosen is not None:
+                return chosen
+        return self._primary_provider
+
+    @staticmethod
+    def _model_name(writer: Any) -> str:
+        return str(getattr(writer, "_model", None) or getattr(writer, "_model_name", None) or settings.DEEPSEEK_MODEL or "")
+
+    def _tune(self, writer: Any, temperature: float, kwargs: dict) -> tuple[float, dict]:
+        """A saved temperature or reasoning effort replaces the caller's default."""
+        chosen = getattr(writer, "sampling_temperature", None)
+        effort = getattr(writer, "sampling_reasoning", None)
+        if writer is self._primary_provider and self._follow_server_menu:
+            from app.services.byok import server_sampling
+            sample = server_sampling()
+            chosen = chosen or sample["temperature"]
+            effort = effort or sample["reasoning"]
+        if chosen not in (None, ""):
+            temperature = float(chosen)
+        if effort:
+            kwargs = {**kwargs, "reasoning_effort": effort}
+        return temperature, kwargs
 
     def _is_provider_limit_error(self, exc: Exception) -> bool:
         """
@@ -147,31 +181,53 @@ class LLMService:
         """
         Generate completion text via the primary provider, automatically retrying with fallback on limit failure.
         """
+        from app.services.usage_log import record
+
+        started = time.perf_counter()
+        writer = self._writer(await self._byok())
+        temperature, kwargs = self._tune(writer, temperature, kwargs)
+        model = self._model_name(writer)
+        text = ""
         try:
-            return await self._primary_provider.generate(
-                prompt=prompt,
-                system_instruction=system_instruction,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-                **kwargs,
-            )
-        except Exception as exc:
-            if self._fallback_provider and self._is_provider_limit_error(exc):
-                logger.warning(
-                    "Primary LLM provider (%s) limit/quota reached (%s: %s). Falling back to %s.",
-                    type(self._primary_provider).__name__,
-                    type(exc).__name__,
-                    exc,
-                    type(self._fallback_provider).__name__,
-                )
-                return await self._fallback_provider.generate(
+            if writer is not self._primary_provider:
+                text = await writer.generate(
                     prompt=prompt,
                     system_instruction=system_instruction,
                     temperature=temperature,
                     max_output_tokens=max_output_tokens,
                     **kwargs,
                 )
-            raise
+                return text
+            try:
+                text = await self._primary_provider.generate(
+                    prompt=prompt,
+                    system_instruction=system_instruction,
+                    temperature=temperature,
+                    max_output_tokens=max_output_tokens,
+                    **kwargs,
+                )
+                return text
+            except Exception as exc:
+                if self._fallback_provider and self._is_provider_limit_error(exc):
+                    logger.warning(
+                        "Primary LLM provider (%s) limit/quota reached (%s: %s). Falling back to %s.",
+                        type(self._primary_provider).__name__,
+                        type(exc).__name__,
+                        exc,
+                        type(self._fallback_provider).__name__,
+                    )
+                    model = self._model_name(self._fallback_provider)
+                    text = await self._fallback_provider.generate(
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        temperature=temperature,
+                        max_output_tokens=max_output_tokens,
+                        **kwargs,
+                    )
+                    return text
+                raise
+        finally:
+            record("generate", model, prompt or "", text or "", started)
 
     async def generate_with_tools(
         self,
@@ -185,6 +241,17 @@ class LLMService:
         """
         Generate completion text with tool calls via primary provider with automatic fallback on limit failure.
         """
+        writer = self._writer(await self._byok())
+        temperature, kwargs = self._tune(writer, temperature, kwargs)
+        if writer is not self._primary_provider:
+            return await writer.generate_with_tools(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                tools=tools,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                **kwargs,
+            )
         try:
             return await self._primary_provider.generate_with_tools(
                 prompt=prompt,
@@ -224,34 +291,71 @@ class LLMService:
         """
         Stream completion tokens via primary provider with automatic fallback on limit failure.
         """
+        from app.services.usage_log import record
+
+        started = time.perf_counter()
+        writer = self._writer(await self._byok())
+        temperature, kwargs = self._tune(writer, temperature, kwargs)
+        model = self._model_name(writer)
+        pieces: list[str] = []
         try:
-            async for token in self._primary_provider.generate_stream(
-                prompt=prompt,
-                system_instruction=system_instruction,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-                **kwargs,
-            ):
-                yield token
-        except Exception as exc:
-            if self._fallback_provider and self._is_provider_limit_error(exc):
-                logger.warning(
-                    "Primary LLM provider (%s) limit/quota reached in generate_stream (%s: %s). Falling back to %s.",
-                    type(self._primary_provider).__name__,
-                    type(exc).__name__,
-                    exc,
-                    type(self._fallback_provider).__name__,
-                )
-                async for token in self._fallback_provider.generate_stream(
+            source = writer if writer is not self._primary_provider else self._primary_provider
+            try:
+                async for token in source.generate_stream(
                     prompt=prompt,
                     system_instruction=system_instruction,
                     temperature=temperature,
                     max_output_tokens=max_output_tokens,
                     **kwargs,
                 ):
+                    pieces.append(token)
                     yield token
-            else:
-                raise
+            except Exception as exc:
+                if source is self._primary_provider and self._fallback_provider and self._is_provider_limit_error(exc):
+                    logger.warning(
+                        "Primary LLM provider (%s) limit/quota reached in generate_stream (%s: %s). Falling back to %s.",
+                        type(self._primary_provider).__name__,
+                        type(exc).__name__,
+                        exc,
+                        type(self._fallback_provider).__name__,
+                    )
+                    model = self._model_name(self._fallback_provider)
+                    async for token in self._fallback_provider.generate_stream(
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        temperature=temperature,
+                        max_output_tokens=max_output_tokens,
+                        **kwargs,
+                    ):
+                        pieces.append(token)
+                        yield token
+                else:
+                    raise
+        finally:
+            record("generate_stream", model, prompt or "", "".join(pieces), started)
+
+    async def _byok(self):
+        """The chosen bring-your-own writer, or None when the server key is in use."""
+        from app.core.database import async_session_maker
+        from app.services.byok import PROVIDERS, active_key, decrypt_key
+        from app.services.llm.providers.byok_chat import ByokChatProvider
+
+        async with async_session_maker() as db:
+            row = await active_key(db)
+        if row is None:
+            return None
+        spec = PROVIDERS.get(row.provider)
+        if spec is None:
+            return None
+        try:
+            secret = decrypt_key(row.key_ciphertext)
+        except ValueError:
+            logger.warning("The chosen model key can no longer be read. The server key is not used in its place.")
+            return None
+        return ByokChatProvider(
+            api_key=secret, base_url=spec.base_url, model=row.model, wire=spec.wire,
+            sampling_temperature=row.temperature, sampling_reasoning=row.reasoning,
+        )
 
     async def generate_welcome_greeting(
         self,
