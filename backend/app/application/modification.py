@@ -17,6 +17,11 @@ from typing import Any, Sequence
 from pydantic import BaseModel, Field
 
 from app.application.agents import MAX_PLACE_CANDIDATES, _same_place, place_candidate_limit
+from app.application.day_rewrite import (
+    rewrite_days,
+    should_rewrite,
+    touch_days,
+)
 from app.application.freshness import FLIGHT_CHECKS, _flight_checks, outdated_sections
 from app.application.language import cuisine_slot, language_slot
 from app.application.meals import image_of
@@ -1115,6 +1120,7 @@ class ModifyPath:
         updated = tidy_data_gaps(updated)
 
         diff = diff_plans(old_plan, updated)
+        rewritten_days: list[int] = []
         if diff:
             updated.version = plan.version + 1
         else:
@@ -1136,6 +1142,61 @@ class ModifyPath:
                 )
             ]
             updated.change_summary = news[-1].message if news else NOTHING_MATCHED
+            # A clear verb already ran and changed nothing. An open request about a day's
+            # shape gets one rewrite of the named days from ids already on the trip.
+            if should_rewrite(
+                message=message,
+                draft_confidence=draft.confidence,
+                draft_operation=skill_op,
+                changed=False,
+                asked=False,
+            ):
+                rewritten_days = touch_days(
+                    plan,
+                    message,
+                    target_day=draft.target_day or day_scope,
+                    scope_days=draft.scope_days or None,
+                )
+                attraction_payload = (results.get("attraction").payload if results.get("attraction") else {}) or {}
+                rewritten = await rewrite_days(
+                    plan=plan,
+                    context=context,
+                    message=message,
+                    gateway=self.gateway,
+                    days=rewritten_days,
+                    places=list(attraction_payload.get("places") or []),
+                    toolbox=toolbox,
+                    transfers=getattr(self.plan_path.registry, "transfers", None),
+                    history=history,
+                )
+                if rewritten is not None:
+                    updated, summary = rewritten
+                    emit(
+                        "progress",
+                        {
+                            "phase": "rewrite",
+                            "message": "Rewriting the day from stops already on the trip.",
+                            "progress": 80,
+                        },
+                    )
+                    await refresh_transfers(
+                        plan,
+                        updated,
+                        toolbox=toolbox,
+                        source=getattr(self.plan_path.registry, "transfers", None),
+                        buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
+                    )
+                    errors = validate_plan(updated, self.settings)
+                    if errors:
+                        updated = await repair_plan(updated, errors, self.gateway, self.settings)
+                    updated = tidy_data_gaps(updated)
+                    diff = diff_plans(old_plan, updated)
+                    if diff:
+                        updated.version = plan.version + 1
+                        updated.change_summary = summary
+                    else:
+                        updated.version = plan.version
+                        updated.change_summary = summary or NOTHING_MATCHED
         if noted_home is not None:
             # Said where the traveller lives while asking for something else: the home is kept as a note as well.
             _note_home(updated, noted_home)
@@ -1148,6 +1209,8 @@ class ModifyPath:
             return EditResult(
                 updated, diff, scope="day", day=day_scope, selected=day_from_selection, offers=move_offers
             )
+        if diff and rewritten_days:
+            return EditResult(updated, diff, scope="day", day=rewritten_days[0], offers=move_offers)
         return EditResult(updated, diff, offers=move_offers)
 
     def _grander_stay(self, plan: TripPlan, candidates: list[dict], context: TripContext) -> HotelStay | None:

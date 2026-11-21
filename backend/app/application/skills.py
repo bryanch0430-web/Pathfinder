@@ -45,6 +45,7 @@ _PROMPT_SKILLS = {
     "modify": "edit-itinerary",
     "clarify": "clarify-trip",
     "planner": "compose-itinerary",
+    "rewrite": "rewrite-day",
     "ask": "answer-question",
     "router": "route-message",
     "understand": "read-trip-request",

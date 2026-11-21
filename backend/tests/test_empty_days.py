@@ -99,27 +99,29 @@ def _stops(day) -> list[str]:
 # --- planner: the draft's packing is spread over the trip --------------------
 
 
-def test_a_draft_that_packs_the_first_days_leaves_no_day_empty(settings: Settings) -> None:
+def test_a_trusted_draft_that_packs_the_first_days_keeps_later_days_empty(settings: Settings) -> None:
     places = _places(16)
     planner = Planner(None, settings, FxService())  # type: ignore[arg-type]
     draft = PlannerDraft(assignments=[PlannerAssignment(**row) for row in _packed([p["id"] for p in places])])
     assignment = planner._assign_places(places, 13, draft, pace="balanced")
     counts = [len(assignment[index]) for index in range(13)]
-    assert min(counts) >= 1, counts
+    assert min(counts[:6]) >= 1, counts
+    assert all(count == 0 for count in counts[6:]), counts
     ids = [row["id"] for index in range(13) for row in assignment[index]]
     assert sorted(ids) == sorted(p["id"] for p in places)  # every place once, none invented
 
 
-def test_a_packed_draft_composes_into_a_plan_with_a_stop_every_day(settings: Settings) -> None:
+def test_a_packed_draft_composes_and_names_the_open_days(settings: Settings) -> None:
     places = _places(16)
     plan = _compose(settings, places, 13, {"assignments": _packed([p["id"] for p in places])})
     assert len(plan.days) == 13
-    assert all(_stops(day) for day in plan.days), [len(_stops(day)) for day in plan.days]
+    covered = [day for day in plan.days if _stops(day)]
+    assert len(covered) == 6
     names = [name for day in plan.days for name in _stops(day)]
     assert len(names) == len(set(names)) == 16
     item_ids = [item.id for day in plan.days for item in day.items]
     assert len(item_ids) == len(set(item_ids))
-    assert not any("days have verified stops" in gap.message for gap in plan.data_quality.gaps)
+    assert any("days have verified stops" in gap.message for gap in plan.data_quality.gaps)
 
 
 def test_a_day_with_two_stops_is_not_split_while_no_day_is_empty(settings: Settings) -> None:
@@ -145,12 +147,13 @@ def test_fewer_places_than_days_leaves_the_rest_open_and_says_so(settings: Setti
     places = _places(10)
     plan = _compose(settings, places, 13, {"assignments": _packed([p["id"] for p in places])})
     covered = [day for day in plan.days if _stops(day)]
-    assert len(covered) == 10
+    # A trusted draft keeps the model's six packed days; later days stay open.
+    assert len(covered) == 6
     names = [name for day in plan.days for name in _stops(day)]
     assert len(names) == len(set(names)) == 10  # nothing padded, nothing repeated
     gaps = [gap for gap in plan.data_quality.gaps if gap.section == "attractions"]
     assert [(gap.kind, gap.message) for gap in gaps] == [
-        (FailureKind.NO_DATA, "Only 10 of 13 days have verified stops; the rest are open.")
+        (FailureKind.NO_DATA, "Only 6 of 13 days have verified stops; the rest are open.")
     ]
 
 
@@ -161,7 +164,7 @@ def test_the_open_days_gap_survives_tidying(settings: Settings) -> None:
     plan = _compose(settings, places, 13, {"assignments": _packed([p["id"] for p in places])})
     for drop in (False, True):
         tidy = tidy_data_gaps(plan.model_copy(deep=True), drop_edit_gaps=drop)
-        assert any(gap.message.startswith("Only 10 of 13 days") for gap in tidy.data_quality.gaps)
+        assert any(gap.message.startswith("Only 6 of 13 days") for gap in tidy.data_quality.gaps)
 
 
 # --- no empty day: nothing new ------------------------------------------------

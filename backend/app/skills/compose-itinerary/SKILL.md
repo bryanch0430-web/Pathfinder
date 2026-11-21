@@ -29,8 +29,9 @@ You receive only those results.
 ## Steps
 
 1. Keep the stated dates, party size, and budget authoritative.
-2. Every day must be geographically sensible: cluster nearby stops and avoid backtracking.
-3. Select and order the candidate ids from the agents that ran.
+2. Every day must be geographically sensible: cluster nearby stops and avoid backtracking. Cover as many open days as the candidates allow; do not pack every place onto the first days while later days sit empty.
+3. Select and order the candidate ids from the agents that ran. That order is what the traveller gets: the scheduler keeps it.
+4. For each day, set optional `dwell_minutes` (one integer per id, in the same order), `lunch_after` (the index in `item_ids` after which lunch sits, or null), and `why` (one sentence the traveller can read).
 
 ## Output
 
@@ -40,7 +41,14 @@ Return JSON only:
   "summary": "2-3 plain professional English sentences about the shape of the trip.",
   "day_titles": ["Arrival and the old town", "Temples and a slow afternoon"],
   "assignments": [
-    {"day_index": 0, "item_ids": ["p1", "p3"], "theme": "short label"}
+    {
+      "day_index": 0,
+      "item_ids": ["p1", "p3"],
+      "theme": "short label",
+      "dwell_minutes": [90, 120],
+      "lunch_after": 0,
+      "why": "The shrine opens early, so the quieter lane comes after lunch."
+    }
   ],
   "hotel_id": "h1 or null",
   "notes": ["short factual note about a gap or trade-off"]

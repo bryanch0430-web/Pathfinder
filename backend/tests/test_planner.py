@@ -230,7 +230,7 @@ def test_named_must_see_opens_the_day_before_the_crowds() -> None:
     assert first.start == "08:00"
 
 
-def test_a_single_stop_day_is_rebalanced(settings: Settings, offline_gateway: LLMGateway) -> None:
+def test_a_trusted_draft_keeps_uneven_days(settings: Settings, offline_gateway: LLMGateway) -> None:
     from app.application.planner import PlannerAssignment, PlannerDraft
 
     planner = Planner(offline_gateway, settings, FxService())
@@ -251,7 +251,7 @@ def test_a_single_stop_day_is_rebalanced(settings: Settings, offline_gateway: LL
     )
     assignment = planner._assign_places(places, 4, draft, pace="balanced")
     counts = [len(assignment[index]) for index in range(4)]
-    assert min(counts) >= 2
+    assert counts == [3, 2, 1, 3]
     assert sum(counts) == 9
 
 

@@ -2,8 +2,10 @@
 
 The planner is allowed to decide *selection and order*; it is not allowed to
 create facts. Candidate places, hotels, flights and weather all arrive from the
-agents with sources. The model returns only ids, day titles and a summary, and
-every id is validated before use.
+agents with sources. The model returns only ids (plus optional dwell, lunch
+placement and a why-line), day titles and a summary, and every id is validated
+before use. When those ids are all real candidates, that order is kept: code
+does not rebalance or nearest-neighbour reorder a day the draft already filled.
 """
 
 from __future__ import annotations
@@ -132,6 +134,12 @@ class PlannerAssignment(BaseModel):
     day_index: int = 0
     item_ids: list[str] = Field(default_factory=list)
     theme: str = ""
+    #: Minutes at each stop, same order as ``item_ids``. A missing or zero entry uses the pace default.
+    dwell_minutes: list[int] = Field(default_factory=list)
+    #: Index into ``item_ids`` after which lunch sits. None keeps the scheduler's usual lunch slot.
+    lunch_after: int | None = None
+    #: One sentence the traveller can read about why this day is shaped this way.
+    why: str = ""
 
 
 class PlannerDraft(BaseModel):
@@ -140,6 +148,10 @@ class PlannerDraft(BaseModel):
     assignments: list[PlannerAssignment] = Field(default_factory=list)
     hotel_id: str | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+#: A leg longer than this (km) on a draft-ordered day is named on the day note; the order is not rewritten.
+LONG_LEG_KM = 8.0
 
 
 # --- local transport -------------------------------------------------------
@@ -346,9 +358,24 @@ class Planner:
             suitable=(lambda row: _serves_diet(row, diet)) if diet else None,
         )
 
+        draft_by_day = {
+            item.day_index: item
+            for item in (draft.assignments if draft else [])
+            if 0 <= item.day_index < day_count
+        }
+
         async def day_schedule(index: int, day_places: list[dict]) -> tuple[list[PlanItem], list[str]]:
             day_meals = meal_plan.get(index, {})
             breakfast, lunch, dinner = day_meals.get("breakfast"), day_meals.get("lunch"), day_meals.get("dinner")
+            hint = draft_by_day.get(index)
+            dwell_by_id: dict[str, int] = {}
+            lunch_after_id: str | None = None
+            if hint is not None:
+                for position, item_id in enumerate(hint.item_ids):
+                    if position < len(hint.dwell_minutes) and hint.dwell_minutes[position] > 0:
+                        dwell_by_id[item_id] = hint.dwell_minutes[position]
+                if hint.lunch_after is not None and 0 <= hint.lunch_after < len(hint.item_ids):
+                    lunch_after_id = hint.item_ids[hint.lunch_after]
             # Transfer times come from one logged routes.segments call per day
             # (Proposal TC-09), covering every pair the schedule may need.
             stops = [row for row in [breakfast, *day_places, lunch, dinner] if row and _geo_point(row) is not None]
@@ -364,6 +391,8 @@ class Planner:
                 breakfast=breakfast, snack=day_meals.get("snack"),
                 stops_end_by=CHILDREN_STOPS_END_BY if profile.with_children else None,
                 step_free=profile.step_free,
+                dwell_by_id=dwell_by_id or None,
+                lunch_after_id=lunch_after_id,
             )
 
         schedules: list[dict[str, Any]] = []
@@ -433,6 +462,12 @@ class Planner:
                     f"{note} Not scheduled, for lack of time inside the day or the stated "
                     f"opening hours: {', '.join(left_out)}."
                 ).strip()
+            hint = draft_by_day.get(index)
+            if hint is not None and hint.why.strip():
+                note = f"{hint.why.strip()} {note}".strip()
+            long_leg = _long_leg_note(day_places)
+            if long_leg:
+                note = f"{note} {long_leg}".strip()
             days.append(DayPlan(date=day_date, title=title, weather=weather, items=items, note=note))
 
         hotel_stay = self._build_hotel(hotel, date_range)
@@ -642,6 +677,13 @@ class Planner:
             accepted.append(name)
             return True
 
+        # A draft whose ids are all real candidates is the day the traveller gets. Code only
+        # fills ids the model left out; it does not move stops between days or reorder a day.
+        trusted = bool(draft and draft.assignments) and all(
+            item_id in by_id
+            for item in (draft.assignments if draft else [])
+            for item_id in item.item_ids
+        )
         if draft:
             for item in draft.assignments:
                 if not 0 <= item.day_index < day_count:
@@ -667,34 +709,29 @@ class Planner:
                 continue
             assignment[index].append(row)
             counters[index] += 1
-        # A model can leave one day with a single stop while another has three.
-        # Move one stop across, but never break a day that already has two.
-        counts = [len(assignment[index]) for index in range(day_count)]
-        for _ in range(2):
-            roomy = [i for i in range(day_count) if counts[i] < caps[i]]
-            if not roomy:
-                break
-            low = min(roomy, key=lambda i: counts[i])
-            high = max(range(day_count), key=lambda i: counts[i])
-            if counts[low] >= 2 or counts[high] <= 2:
-                break
-            assignment[low].append(assignment[high].pop())
-            counts[low] += 1
-            counts[high] -= 1
-        # A model can also pack every place onto the first days of a long trip. No day with room is left
-        # empty while another holds two or more stops: the fullest day gives up the stop farthest from
-        # the rest of its day. With fewer places than days some days stay empty; nothing is invented.
-        while True:
-            empty = [i for i in range(day_count) if not assignment[i] and caps[i] > 0]
-            fullest = max(range(day_count), key=lambda i: len(assignment[i]), default=None)
-            if not empty or fullest is None or len(assignment[fullest]) < 2:
-                break
-            assignment[empty[0]].append(_outlier(assignment[fullest]))
-        _pull_nearby(assignment, caps)
-
-        # Geographic order inside each day.
-        for index, rows in assignment.items():
-            assignment[index] = _nearest_order(rows, rows[0].get("geo") if rows else None)
+        if not trusted:
+            # No usable draft: even the days, fill empty ones from the fullest day, and cluster.
+            counts = [len(assignment[index]) for index in range(day_count)]
+            for _ in range(2):
+                roomy = [i for i in range(day_count) if counts[i] < caps[i]]
+                if not roomy:
+                    break
+                low = min(roomy, key=lambda i: counts[i])
+                high = max(range(day_count), key=lambda i: counts[i])
+                if counts[low] >= 2 or counts[high] <= 2:
+                    break
+                assignment[low].append(assignment[high].pop())
+                counts[low] += 1
+                counts[high] -= 1
+            while True:
+                empty = [i for i in range(day_count) if not assignment[i] and caps[i] > 0]
+                fullest = max(range(day_count), key=lambda i: len(assignment[i]), default=None)
+                if not empty or fullest is None or len(assignment[fullest]) < 2:
+                    break
+                assignment[empty[0]].append(_outlier(assignment[fullest]))
+            _pull_nearby(assignment, caps)
+            for index, rows in assignment.items():
+                assignment[index] = _nearest_order(rows, rows[0].get("geo") if rows else None)
         return assignment
 
     async def _matrix_order(self, assignment: dict[int, list[dict]], toolbox) -> dict[int, list[dict]]:
@@ -1436,6 +1473,25 @@ def _schedule_day(
     )[0]
 
 
+def _long_leg_note(places: list[dict]) -> str:
+    """Name a long hop the draft left in place. The order is not rewritten."""
+    previous = None
+    longest: tuple[float, str, str] | None = None
+    for row in places:
+        geo = row.get("geo") if isinstance(row.get("geo"), dict) else None
+        if previous is not None and geo and geo.get("lat") is not None and geo.get("lng") is not None:
+            prior = previous.get("geo") if isinstance(previous.get("geo"), dict) else None
+            if prior and prior.get("lat") is not None and prior.get("lng") is not None:
+                km = haversine_km(float(prior["lat"]), float(prior["lng"]), float(geo["lat"]), float(geo["lng"]))
+                if km >= LONG_LEG_KM and (longest is None or km > longest[0]):
+                    longest = (km, str(previous.get("name") or ""), str(row.get("name") or ""))
+        previous = row
+    if longest is None:
+        return ""
+    km, left, right = longest
+    return f"About {km:.0f} km between {left} and {right}; leave extra time for that hop."
+
+
 def _schedule(
     day_date: date,
     places: list[dict],
@@ -1451,6 +1507,8 @@ def _schedule(
     snack: dict | None = None,
     stops_end_by: int | None = None,
     step_free: bool = False,
+    dwell_by_id: dict[str, int] | None = None,
+    lunch_after_id: str | None = None,
 ) -> tuple[list[PlanItem], list[str]]:
     """Lay the day out chronologically with realistic transfer time.
 
@@ -1463,7 +1521,8 @@ def _schedule(
     that date. A named must-see, or a crowd-sensitive marquee site, takes the
     08:00 slot before the crowds when its hours allow. On a flight day nothing
     starts before the traveller is in town or ends after they must leave for the
-    airport. Returns the items and the names of stops that did not fit.
+    airport. ``dwell_by_id`` and ``lunch_after_id`` come from a trusted draft.
+    Returns the items and the names of stops that did not fit.
     """
     open_from = window.start if window and window.start is not None else None
     open_until = window.end if window and window.end is not None else None
@@ -1481,10 +1540,13 @@ def _schedule(
     must_see = must_see or []
     legs = legs or {}
     ordered = list(places)
-    if must_see:
+    # A draft that already ordered the day keeps that order. Must-see early slots
+    # still apply when the day was filled without a draft.
+    if must_see and not dwell_by_id and not lunch_after_id:
         ordered.sort(key=lambda row: 0 if _is_must_see(str(row.get("name", "")), must_see) else 1)
 
     dwell = PACE_DWELL_MINUTES.get(pace, 90)
+    dwell_by_id = dwell_by_id or {}
     buffer = PACE_BUFFER_MINUTES.get(pace, 5)
     gap = PACE_MIN_GAP.get(pace)  # the least time between two stops; a balanced day has no floor
     start_at = PACE_FIRST_START.get(pace, 9 * 60)
@@ -1576,10 +1638,11 @@ def _schedule(
         row = queue.pop(0)
         # Never before the day's usual start (a breakfast stop ends earlier than that).
         earliest = max(start_at, arrival(state["row"], state["end"], row, start_at, sight=True))
+        place_dwell = dwell_by_id.get(_item_id(row), dwell)
         minutes = visit_minutes(
             str(row.get("name") or ""),
             list(row.get("source_types") or []),
-            dwell,
+            place_dwell,
             stated=row.get("stated_minutes"),
         )
         slot = fit(row, earliest, minutes, min(MIN_DWELL_MINUTES, minutes), latest=stops_end_by)
@@ -1587,17 +1650,18 @@ def _schedule(
             deferred.add(id(row))
             queue.append(row)
             continue
-        if slot and lunch_due and lunch is not None:
+        if slot and lunch_due and lunch is not None and lunch_after_id is None:
             to_lunch = leg(row, lunch)
             ready = slot[1] + ((to_lunch.duration_minutes or 0) + buffer if to_lunch else 0)
             if ready > LUNCH_START + LUNCH_SLACK:
                 lunch_due = False
                 place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
                 earliest = max(start_at, arrival(state["row"], state["end"], row, start_at, sight=True))
+                place_dwell = dwell_by_id.get(_item_id(row), dwell)
                 minutes = visit_minutes(
                     str(row.get("name") or ""),
                     list(row.get("source_types") or []),
-                    dwell,
+                    place_dwell,
                     stated=row.get("stated_minutes"),
                 )
                 slot = fit(row, earliest, minutes, min(MIN_DWELL_MINUTES, minutes), latest=stops_end_by)
@@ -1636,6 +1700,9 @@ def _schedule(
             )
         )
         state["row"], state["end"] = row, end
+        if lunch_due and lunch is not None and lunch_after_id is not None and _item_id(row) == lunch_after_id:
+            lunch_due = False
+            place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
 
     if lunch_due and lunch is not None:
         place_meal(lunch, "Lunch", LUNCH_START, LUNCH_LATEST, LUNCH_END - LUNCH_START)
