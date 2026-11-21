@@ -46,6 +46,20 @@ export function loadGoogleMaps(key: string): Promise<void> {
   return loader;
 }
 
+function boundsSpanKm(points: LatLng[]): number {
+  let span = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[0];
+    const to = points[index];
+    const rad = (degrees: number) => (degrees * Math.PI) / 180;
+    const h =
+      Math.sin(rad(to.lat - from.lat) / 2) ** 2 +
+      Math.cos(rad(from.lat)) * Math.cos(rad(to.lat)) * Math.sin(rad(to.lng - from.lng) / 2) ** 2;
+    span = Math.max(span, 2 * 6371 * Math.asin(Math.sqrt(h)));
+  }
+  return span;
+}
+
 export function createGoogleEngine(el: HTMLElement, centre: LatLng): MapEngine {
   const g: AnyMap = window.google;
   const map = new g.maps.Map(el, {
@@ -195,6 +209,12 @@ export function createGoogleEngine(el: HTMLElement, centre: LatLng): MapEngine {
         right: padding[1],
         bottom: padding[2],
         left: padding[3],
+      });
+      // Padding on a short day can resolve to a zoom of the whole region, and a second fit then zooms further out.
+      // A city-sized frame is not allowed below a street zoom.
+      g.maps.event.addListenerOnce(map, "idle", () => {
+        const zoom = map.getZoom();
+        if (zoom !== undefined && zoom < 12 && boundsSpanKm(points) < 40) map.setZoom(14);
       });
     },
     panTo(point) {

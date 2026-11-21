@@ -24,6 +24,7 @@ import {
   me,
   patchContext,
   postFeedback,
+  postFinalise,
   streamChat,
   type ChoiceKind,
   type ContextPatch,
@@ -145,12 +146,13 @@ const emptyContext = (sessionId = ""): TripContext => ({
   start_date: null,
   end_date: null,
   days: null,
-  party_size: 2,
+  party_size: null,
   budget: null,
   currency: "HKD",
   hotel_style: "",
   pace: "balanced",
   preferences: [],
+  finalized: false,
   hard_constraints: [],
   language: "en",
 });
@@ -260,6 +262,7 @@ export interface PathfinderHook {
   markBooked: (kind: "hotel" | "transport", targetId: string, booked: boolean) => Promise<void>;
   /** The room types the hotel source lists for a stay; they are kept on the shown plan. Rejects with the server's reason. */
   hotelRooms: (hotelId: string) => Promise<RoomType[]>;
+  finalise: () => Promise<void>;
   feedback: (useful: boolean, starsOverride?: number | null) => Promise<void>;
   setStars: (stars: number) => void;
   retry: () => Promise<void>;
@@ -1390,6 +1393,20 @@ export function usePathfinder(locale: string): PathfinderHook {
     return rooms;
   }, []);
 
+  const finalise = useCallback(async (): Promise<void> => {
+    const id = sessionRef.current;
+    if (!id) return;
+    try {
+      const data = await postFinalise(id);
+      if (sessionRef.current !== id) return;
+      contextRef.current = { ...contextRef.current, ...data.context };
+      setContextState(data.context);
+    } catch (cause) {
+      const failure = await failureOfCall(cause, "errors.feedback");
+      if (sessionRef.current === id) showBanner(failure, { kind: "save", run: () => finalise() });
+    }
+  }, [failureOfCall, showBanner]);
+
   const feedback = useCallback(
     async (useful: boolean, starsOverride?: number | null): Promise<void> => {
       const id = sessionRef.current;
@@ -1550,6 +1567,7 @@ export function usePathfinder(locale: string): PathfinderHook {
     reopenChoice,
     markBooked,
     hotelRooms,
+    finalise,
     feedback,
     setStars: setFeedbackStars,
     retry: async () => {

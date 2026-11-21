@@ -180,6 +180,14 @@ def test_the_answers_to_the_question_are_read_back(offline_gateway) -> None:
         understand("Here are the missing details — dates: Keep these dates and plan anyway.", past, offline_gateway)
     )
     assert kept_dates.past_dates_confirmed is True and kept_dates.start_date == past.start_date
+    negative = asyncio.run(
+        understand("Here are the missing details — party size: -43; budget: 40009.", context, offline_gateway)
+    )
+    assert negative.party_size == 2
+    from app.application.understanding import figure_warning
+    assert "1 to 20" in figure_warning("Here are the missing details — party size: -43.")
+    assert figure_warning("Here are the missing details — budget: Keep HKD 5,000 and plan anyway.") == ""
+    assert TripContext.model_validate({"session_id": "s", "party_size": 43}).party_size is None
 
 
 

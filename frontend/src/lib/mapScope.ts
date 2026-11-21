@@ -23,6 +23,22 @@ export function withinKm(centre: GeoPoint | null | undefined, geo: GeoPoint | nu
   return !centre || !geo || distanceKm(centre, geo) <= km;
 }
 
+function finitePoint(point: GeoPoint | null | undefined): point is GeoPoint {
+  if (!point) return false;
+  return Number.isFinite(point.lat) && Number.isFinite(point.lng) && Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180;
+}
+
+/**
+ * The points a day's camera may frame. A pin farther than the day radius from the city, or a coordinate that is not a
+ * place, is left out. One of those used to fit the whole world, and the fit ran again whenever the day was redrawn.
+ */
+export function cameraPoints(centre: GeoPoint | null | undefined, points: Array<GeoPoint | null | undefined>): GeoPoint[] {
+  const finite = points.filter(finitePoint);
+  if (!centre || !finitePoint(centre)) return finite;
+  const near = finite.filter((point) => distanceKm(centre, point) <= DAY_RADIUS_KM);
+  return near.length ? near : [centre];
+}
+
 export interface DayScope {
   segment: TripSegment;
   /** The centre of the city; null when the source gave the city no coordinates. */

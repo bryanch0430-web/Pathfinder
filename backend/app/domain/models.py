@@ -946,6 +946,8 @@ class TripContext(BaseModel):
     #: old ``pace`` string gets its profile from it.
     profile: TravellerProfile = Field(default_factory=TravellerProfile)
     preferences: list[str] = Field(default_factory=list)
+    #: Set when the traveller finalises the plan. Edits stop; a rating may then write preferences.
+    finalized: bool = False
     hard_constraints: list[str] = Field(default_factory=list)
     language: str = "en"
     #: the plan's display language; the English plan stays the source of truth
@@ -974,6 +976,20 @@ class TripContext(BaseModel):
     @pace.setter
     def pace(self, value: str) -> None:
         self.profile = self.profile.model_copy(update={"pace": _legacy_pace(value)})
+
+    @field_validator("party_size", mode="before")
+    @classmethod
+    def _party_or_blank(cls, value: object) -> int | None:
+        """A party outside 1–20 is not stored. A saved -43 or 43 used to make the trip unreadable."""
+        if value is None or value == "":
+            return None
+        try:
+            number = int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+        if number < 1 or number > 20:
+            return None
+        return number
 
     @model_validator(mode="after")
     def _within_limits(self) -> "TripContext":

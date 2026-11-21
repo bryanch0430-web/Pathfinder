@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dayRoute, dayScope, distanceKm, overviewStops, travelLine, withinKm } from "./mapScope.ts";
+import { cameraPoints, dayRoute, dayScope, distanceKm, overviewStops, travelLine, withinKm } from "./mapScope.ts";
 
 const place = (name, lat, lng) => ({ name, country_code: "JP", geo: lat === undefined ? null : { lat, lng }, timezone: "" });
 const stay = (id, check_in, check_out, segment_id, geo) => ({ id, name: id, check_in, check_out, segment_id, geo });
@@ -30,6 +30,13 @@ function plan() {
     ],
   };
 }
+
+test("the day camera drops a pin that is not in the city", () => {
+  const kyoto = { lat: 35.01, lng: 135.77 };
+  const framed = cameraPoints(kyoto, [kyoto, { lat: 35.02, lng: 135.78 }, { lat: 22.3, lng: 114.2 }, { lat: Number.NaN, lng: 0 }]);
+  assert.equal(framed.length, 2);
+  assert.ok(framed.every((point) => distanceKm(kyoto, point) < 50));
+});
 
 test("a day route leaves the stay, visits every stop, and returns", () => {
   const hotel = { id: "hotel_a", type: "hotel", name: "Stay", start: "00:00", end: "00:10", geo: { lat: 35.0, lng: 135.76 } };

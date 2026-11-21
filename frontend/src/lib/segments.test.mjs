@@ -141,11 +141,24 @@ test("the options of a leg and the one chosen", () => {
   assert.equal(chosenFor(plan, "leg_none"), undefined);
 });
 
+test("a saved outbound hop still shows the flight home when the fare carries one", () => {
+  const plan = {
+    ...oldPlan(),
+    legs: [{ id: "leg_out", from_place: "Hong Kong", to_place: "Taipei", depart_date: "2026-12-01", kind: "outbound" }],
+    tickets: [{ id: "f1", name: "CX", mode: "flight", leg_id: "leg_out", selected: true, return_depart_at: "2026-12-02T13:55:00" }],
+  };
+  assert.deepEqual(
+    legsOf(plan).map((leg) => leg.kind),
+    ["outbound", "return"],
+  );
+  assert.deepEqual(optionsFor(plan, "leg_home").map((ticket) => ticket.id), ["f1"]);
+});
+
 test("a plan from before legs has one outbound leg whose options are every ticket", () => {
   const plan = oldPlan();
   assert.deepEqual(
     legsOf(plan).map((l) => [l.id, l.kind]),
-    [["leg_out", "outbound"]],
+    [["leg_out", "outbound"], ["leg_home", "return"]],
   );
   assert.deepEqual(
     optionsFor(plan, "leg_out").map((t) => t.id),
@@ -161,7 +174,7 @@ test("the leg into a city and the leg home", () => {
   assert.equal(legInto(plan, "seg_b")?.id, "leg_ab");
   assert.equal(legInto(plan, "nope"), undefined);
   assert.equal(legHome(plan)?.id, "leg_home");
-  assert.equal(legHome(oldPlan()), undefined);
+  assert.equal(legHome(oldPlan())?.id, "leg_home");
 });
 
 test("nights between two dates", () => {

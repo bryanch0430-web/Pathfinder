@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AdminTune } from "./adminTune";
+import { Dialog } from "../design-system/atoms";
 import {
   EvalDashboard,
   SavedTripsView,
@@ -34,6 +35,7 @@ import {
   type LlmProvider,
   type LlmStatus,
   getProfile,
+  getSavedTrip,
   getSavedTrips,
   runEval,
   saveProfilePreferences,
@@ -53,6 +55,8 @@ export function SavedPage() {
   // Kept as a message key, so that a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState<Awaited<ReturnType<typeof getSavedTrip>> | null>(null);
+  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     getSavedTrips(ensureClientToken())
@@ -61,15 +65,45 @@ export function SavedPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const show = (id: string) => {
+    setOpening(true);
+    getSavedTrip(ensureClientToken(), id)
+      .then((trip) => setOpen(trip))
+      .catch((cause) => setError(failureOf(cause, "errors.savedTrips")))
+      .finally(() => setOpening(false));
+  };
+
   if (loading) return <LoadingScreen label={t("saved.loading")} />;
-  if (error) {
+  if (error && trips.length === 0) {
     return (
       <main className="pf-saved">
         <Banner>{describeFailure(error, t)}</Banner>
       </main>
     );
   }
-  return <SavedTripsView trips={trips} />;
+  return (
+    <>
+      <SavedTripsView trips={trips} onOpen={show} />
+      <Dialog open={Boolean(open) || opening} onClose={() => setOpen(null)} title={open?.destination || t("saved.open")}>
+        {opening && !open ? <p>{t("saved.loading")}</p> : null}
+        {open ? (
+          <div className="pf-stack">
+            <p>{open.summary}</p>
+            {open.days.map((day) => (
+              <section key={day.date}>
+                <strong>{day.title || day.date}</strong>
+                <ul>
+                  {day.items.map((name) => (
+                    <li key={`${day.date}-${name}`}>{name}</li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : null}
+      </Dialog>
+    </>
+  );
 }
 
 export function EvaluationPage() {

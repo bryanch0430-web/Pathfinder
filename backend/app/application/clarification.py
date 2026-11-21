@@ -68,7 +68,13 @@ class Clarifier:
         plan: TripPlan | None = None,
         scope_item_id: str | None = None,
     ) -> tuple[str, list[str]]:
-        if decision.reason_code in {"unknown_place", "unchecked_place", "suggest_place"}:
+        from app.application.understanding import figure_warning
+
+        warning = figure_warning(message)
+        if warning:
+            missing = context.missing_slots() or decision.missing_slots or ["party_size"]
+            return f"{warning} {self._fallback(missing)}", missing
+        if decision.reason_code in {"unknown_place", "unchecked_place", "suggest_place", "impossible_place", "ambiguous_place"}:
             slot = "origin" if "origin" in decision.missing_slots else "destination"
             if decision.rationale.strip():
                 return decision.rationale.strip(), [slot]

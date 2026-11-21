@@ -38,6 +38,8 @@ class YouTubeNotesSource:
                 "type": "video",
                 "maxResults": limit,
                 "order": "relevance",
+                "videoDuration": "medium",
+                "videoEmbeddable": "true",
                 "publishedAfter": published_after,
                 "relevanceLanguage": "en",
                 "key": self.settings.youtube_api_key,

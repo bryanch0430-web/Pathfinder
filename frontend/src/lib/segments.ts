@@ -79,31 +79,54 @@ export function transferOutOf(plan: PlanLike, segmentId: string): TransportLeg |
   return transferLegsOf(plan).find((leg) => leg.kind === "from_stay" && leg.segment_id === segmentId);
 }
 
+function returnHop(plan: PlanLike): TransportLeg {
+  return {
+    id: "leg_home",
+    from_place: plan.destination.name,
+    to_place: plan.origin ?? "",
+    depart_date: plan.dates.end,
+    kind: "return",
+  };
+}
+
+/** A round trip still needs a way home when the saved hops only recorded the flight out. */
+function needsReturn(plan: PlanLike, hops: TransportLeg[]): boolean {
+  if (!plan.origin || plan.origin === plan.destination.name || !plan.dates.end) return false;
+  if (hops.some((leg) => leg.kind === "return")) return false;
+  const tickets = plan.tickets ?? [];
+  return tickets.some((ticket) => ticket.leg_id === "leg_home" || ticket.return_depart_at) || (hops.length === 0 && tickets.length > 0);
+}
+
 /** The hops of the trip (never an airport transfer); the one outbound leg a plan from before legs implies when it
- * has tickets. */
+ * has tickets. A return hop is added when the fare carries a flight home but the saved legs do not. */
 export function legsOf(plan: PlanLike): TransportLeg[] {
   const hops = (plan.legs ?? []).filter((leg) => HOPS.has(leg.kind));
-  if (hops.length > 0) return hops;
-  if ((plan.tickets ?? []).length === 0) return [];
-  return [
-    {
-      id: "leg_out",
-      from_place: plan.origin ?? "",
-      to_place: plan.destination.name,
-      depart_date: plan.dates.start,
-      kind: "outbound",
-    },
-  ];
+  const home = needsReturn(plan, hops);
+  if (hops.length > 0) return home ? [...hops, returnHop(plan)] : hops;
+  const tickets = plan.tickets ?? [];
+  if (tickets.length === 0) return [];
+  const outbound: TransportLeg = {
+    id: "leg_out",
+    from_place: plan.origin ?? "",
+    to_place: plan.destination.name,
+    depart_date: plan.dates.start,
+    kind: "outbound",
+  };
+  return home ? [outbound, returnHop(plan)] : [outbound];
 }
 
 /** The options of a leg in the order they are kept; an option that names no known leg is on the first leg. */
 export function optionsFor(plan: PlanLike, legId: string): TicketOption[] {
   const legs = legsOf(plan);
   const known = new Set([...legs, ...allLegsOf(plan)].map((leg) => leg.id));
-  return (plan.tickets ?? []).filter((ticket) => {
+  const matched = (plan.tickets ?? []).filter((ticket) => {
     const own = ticket.leg_id && known.has(ticket.leg_id) ? ticket.leg_id : legs[0]?.id;
     return own === legId;
   });
+  if (matched.length > 0) return matched;
+  const leg = legs.find((item) => item.id === legId);
+  if (leg?.kind !== "return") return matched;
+  return (plan.tickets ?? []).filter((ticket) => ticket.mode === "flight" && Boolean(ticket.return_depart_at));
 }
 
 /** The option chosen for a leg: the one marked selected, else the first; undefined when the leg has none. */

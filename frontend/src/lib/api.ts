@@ -161,6 +161,10 @@ export function getTranslation(sessionId: string, version: number, locale: PlanL
   return request(`/api/journeys/${sessionId}/translation?${params.toString()}`);
 }
 
+export function postFinalise(sessionId: string): Promise<{ context: TripContext }> {
+  return request(`/api/journeys/${sessionId}/finalise`, { method: "POST", body: "{}" });
+}
+
 export function postFeedback(
   sessionId: string,
   useful: boolean,
@@ -653,6 +657,18 @@ export async function getTrending(
 }
 
 /** The caller's own saved trips (guest token, or the signed-in bearer). */
+export async function getSavedTrip(clientToken: string, id: string): Promise<{
+  id: string;
+  destination: string;
+  summary: string;
+  stars: number | null;
+  days: { date: string; title: string; items: string[] }[];
+}> {
+  return request(`/api/wishlist/${encodeURIComponent(id)}?client_token=${encodeURIComponent(clientToken)}`, {
+    headers: { "X-Client-Token": clientToken },
+  });
+}
+
 export async function getSavedTrips(clientToken: string): Promise<{
   trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
 }> {

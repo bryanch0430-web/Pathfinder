@@ -49,7 +49,7 @@ from app.application.transfers import (
     transfer_from,
     transfer_sentence,
 )
-from app.application.trip_rules import DayWindow, blocked_dates, flight_windows, travel_windows
+from app.application.trip_rules import DayWindow, blocked_dates, flight_windows, keep_morning_on_a_short_trip, travel_windows
 from app.application.trip_rules import must_include as _must_include
 from app.application.validation import _URL
 from app.config import Settings
@@ -297,6 +297,7 @@ class Planner:
             if flight_window.end is not None:
                 window.end = flight_window.end if window.end is None else min(window.end, flight_window.end)
             window.texts.extend(flight_window.texts)
+        keep_morning_on_a_short_trip(windows, dates)
         profile = profile_of(context)
         business = is_business(context) and pace != "packed"
         first_stop = business_first_start(context) if business else None
@@ -456,6 +457,14 @@ class Planner:
                 note = "Kept free, as you asked."
             elif items:
                 note = ""
+            elif window is not None and window.start is not None and window.start >= 20 * 60:
+                note = (
+                    f"You land in {context.destination} at night, so this evening is the flight and the hotel. "
+                    "The city starts the next morning."
+                    if index + 1 < len(dates)
+                    else f"You land in {context.destination} at night, so there is no time in the city on this day. "
+                    "The flight and the stay are still on the plan."
+                )
             elif window is not None:
                 note = "Travel day: no time for stops around your flight."
             else:

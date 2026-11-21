@@ -508,6 +508,22 @@ class TurnService:
             return
 
         context = self.store.get_context(session_id) or TripContext(session_id=session_id, language=locale)
+        if context.finalized:
+            frozen = "This plan is final. Open My trips to view it, or start a new plan to change anything."
+            with _early_exit(tracer, developer_token, "ok"):
+                tracer.metadata["reason"] = "finalized"
+                tracer.metadata["intent"] = "ask"
+                self.store.add_message(
+                    Message(session_id=session_id, role="assistant", content=frozen, intent=Intent.ASK)
+                )
+                self._keep_decision(session_id, user_message.created_at, tracer)
+                yield TurnEvent(event="token", data={"text": frozen})
+                self.store.touch_session(session_id)
+            yield TurnEvent(
+                event="done",
+                data={"request_id": request_id, "intent": "ask", "session_id": session_id, "finalized": True},
+            )
+            return
         as_read = context.model_copy(deep=True)
         context.language = locale or context.language
         plan = self.store.get_plan(session_id)
@@ -605,9 +621,7 @@ class TurnService:
                 )
                 _note_understand(tracer, as_read, context, place_check)
                 context = self._save_changes(as_read, context)
-                if context.preferences:
-                    # The owner as it is now: signing in may have moved the trip while the message was understood.
-                    self._remember_in_background(self._memory_owner(session_id), context)
+                # Preferences are written only after the traveller finalises the plan and marks it useful.
 
             if captured:
                 decision = RouteDecision(
@@ -2010,6 +2024,22 @@ def _fill_origin_answer(context: TripContext, slots: list[str], message: str) ->
         return False
     context.origin = known
     return True
+
+
+def _answers_pending_question(pending: EditQuestion, message: str, plan: Any) -> bool:
+    """True when a short reply names an option the pending question already offered, or a stop on the plan."""
+    text = " ".join(message.casefold().strip(" \t?.!,").split())
+    if len(text) < 3 or len(text) > 60 or _imperative_edit(message):
+        return False
+    if text in pending.question.casefold():
+        return True
+    if plan is None:
+        return False
+    return any(
+        item.name.strip() and re.search(rf"\b{re.escape(item.name.casefold())}\b", text) is not None
+        for day in plan.days
+        for item in day.items
+    )
 
 
 def _pending_edit_question(history: Sequence[Message]) -> EditQuestion | None:

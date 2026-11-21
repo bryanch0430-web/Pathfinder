@@ -2273,6 +2273,16 @@ class SQLiteStore:
         trips.sort(key=lambda trip: trip.created_at, reverse=True)
         return trips[:limit]
 
+    def saved_trip_for_owner(self, owner: str, saved_id: str) -> SavedTrip | None:
+        """One saved trip, only when it belongs to this identity."""
+        if not owner or not saved_id:
+            return None
+        with self._connect() as conn:
+            row = conn.execute("SELECT data, owner FROM kept_journeys WHERE id=?", (saved_id,)).fetchone()
+        if row is None or row["owner"] != owner:
+            return None
+        return SavedTrip.model_validate_json(row["data"])
+
     def list_saved_trips_for_owner(self, owner: str, limit: int = 20) -> list[SavedTrip]:
         """One identity's saved trips, newest first. Ownerless rows never match."""
         if not owner:

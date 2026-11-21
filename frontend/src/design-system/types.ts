@@ -491,6 +491,8 @@ export interface TripContext {
   /** The traveller profile; absent when it is the default. */
   profile?: TravellerProfile;
   preferences: string[];
+  /** True after Finalise. The plan can be viewed, not changed. */
+  finalized?: boolean;
   hard_constraints: string[];
   language: string;
   /** The language the plan is shown in; the English plan stays the source of truth. */

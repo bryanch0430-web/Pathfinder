@@ -12,7 +12,7 @@ const EDGE = 16;
 const COL_GAP = 16;
 const BOTTOM = 16;
 /** Bump when the default arrangement changes, so a saved layout from an older default is replaced once. */
-const LAYOUT_VERSION = 3;
+const LAYOUT_VERSION = 4;
 const MIN: Record<Id, Size> = {
   chat: { w: 220, h: 200 },
   plan: { w: 280, h: 200 },
@@ -160,8 +160,8 @@ function defaults(board: Size): Record<Id, Rect> {
   const chatW = core.chat?.w ?? MIN.chat.w;
   const mapW = core.map?.w ?? MIN.map.w;
   const xMap = core.map?.x ?? EDGE;
-  const sketchW = Math.min(880, Math.max(MIN.sketch.w, Math.round(board.w * 0.56)));
-  const sketchH = Math.min(bodyH, Math.max(MIN.sketch.h, Math.round(bodyH * 0.86)));
+  const sketchW = Math.min(560, Math.max(MIN.sketch.w, Math.round(board.w * 0.34)));
+  const sketchH = Math.min(420, Math.max(MIN.sketch.h, Math.round(bodyH * 0.48)));
   const videoW = Math.min(Math.max(mapW, MIN.videos.w), Math.max(MIN.videos.w, Math.round(board.w * 0.28)));
   const videoH = Math.min(bodyH, Math.max(MIN.videos.h, Math.round(bodyH * 0.55)));
   const trendW = Math.min(420, Math.max(MIN.trending.w, Math.round(board.w * 0.24)));

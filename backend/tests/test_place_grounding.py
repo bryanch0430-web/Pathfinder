@@ -72,19 +72,89 @@ def test_a_known_city_is_accepted_without_calling_the_map() -> None:
 
 
 def test_a_different_name_is_offered_and_not_stored() -> None:
-    gazetteer = _Map({"Mars": "Marseille, France"})
+    gazetteer = _Map({"Nagoia": "Nagoya, Japan"})
     before = _context(destination="Kyoto")
-    context = _context(destination="Kyoto", origin="Mars")
+    context = _context(destination="Kyoto", origin="Nagoia")
 
     result = asyncio.run(ground_new_places(before, context, gazetteer))
 
     assert context.origin == ""
     assert context.destination == "Kyoto"
-    assert result.first() == ("suggest_place", "origin", "Mars")
-    assert result.suggestion_for("origin") == "Marseille, France"
+    assert result.first() == ("suggest_place", "origin", "Nagoia")
+    assert result.suggestion_for("origin") == "Nagoya, Japan"
     assert place_reply(result) == (
-        "The closest place I can find for Mars is Marseille, France. Is that the one?"
+        "The closest place I can find for Nagoia is Nagoya, Japan. Is that the one?"
     )
+
+
+def test_mars_and_jupiter_are_not_sent_to_the_map() -> None:
+    gazetteer = _Map({"Mars": "Mars, Pennsylvania, USA", "Jupiter": "Jupiter, Florida, USA"})
+    context = _context(destination="Mars", origin="Jupiter")
+
+    result = asyncio.run(ground_new_places(_context(), context, gazetteer))
+
+    assert gazetteer.calls == []
+    assert context.destination == "" and context.origin == ""
+    assert result.first() == ("impossible_place", "destination", "Mars")
+    reply = place_reply(result)
+    assert "Extraplanar travel off Earth might be happening in 2077" in reply
+    assert "Please name a city on Earth." in reply
+
+
+def test_a_shared_city_name_asks_for_the_country_and_is_not_mapped() -> None:
+    gazetteer = _Map({"Springfield": "Springfield, Missouri, USA"})
+    context = _context(destination="Springfield")
+
+    result = asyncio.run(ground_new_places(_context(), context, gazetteer))
+
+    assert gazetteer.calls == []
+    assert context.destination == ""
+    assert result.first() == ("ambiguous_place", "destination", "Springfield")
+    assert "country" in place_reply(result).casefold()
+    assert "Missouri" not in place_reply(result)
+
+
+def test_the_moon_is_an_example_and_is_not_mapped() -> None:
+    gazetteer = _Map({"Moon": "Muhu, Saare maakond, Eesti"})
+    context = _context(destination="Moon")
+
+    result = asyncio.run(ground_new_places(_context(), context, gazetteer))
+
+    assert gazetteer.calls == []
+    assert context.destination == ""
+    assert result.first() == ("impossible_place", "destination", "Moon")
+    assert "2077" in place_reply(result)
+    assert "Muhu" not in place_reply(result)
+
+
+def test_mcdonalds_asks_which_branch_and_is_not_mapped() -> None:
+    gazetteer = _Map({"McDonald's": "McDonald's, Nathan Road, Hong Kong"})
+    context = _context(destination="McDonald's")
+
+    result = asyncio.run(ground_new_places(_context(), context, gazetteer))
+
+    assert gazetteer.calls == []
+    assert context.destination == ""
+    assert result.first() == ("ambiguous_place", "destination", "McDonald's")
+    assert place_reply(result) == (
+        "Which McDonald's? There are many, in different places. Name the city, or the branch."
+    )
+
+
+def test_a_weak_place_search_is_quoted_and_still_not_stored() -> None:
+    class _Scored(_Map):
+        async def match_share(self, name: str) -> float:
+            return 0.25
+
+    gazetteer = _Scored()
+    context = _context(destination="McDonald's")
+
+    result = asyncio.run(ground_new_places(_context(), context, gazetteer))
+
+    assert context.destination == ""
+    assert gazetteer.calls == []
+    assert "25%" in place_reply(result)
+    assert "Name the city, or the branch." in place_reply(result)
 
 
 def test_gundam_and_mars_are_both_offered_and_neither_is_stored() -> None:
@@ -98,11 +168,12 @@ def test_gundam_and_mars_are_both_offered_and_neither_is_stored() -> None:
     result = asyncio.run(ground_new_places(before, context, gazetteer))
 
     assert context.destination == "" and context.origin == ""
-    assert result.first() == ("suggest_place", "destination", "Gundam")
+    assert gazetteer.calls == ["Gundam"]
+    assert result.first() == ("impossible_place", "origin", "Mars")
     reply = place_reply(result)
-    assert "I found Gundam, Mopidevi Mandal, Andhra Pradesh, India for Gundam." in reply
-    assert "The closest place I can find for Mars is Marseille, France." in reply
-    assert reply.endswith("Are these the ones?")
+    assert "2077" in reply
+    assert "Marseille" not in reply
+    assert "Gundam" in reply
 
 
 def test_a_confirmed_name_is_kept_without_searching_again() -> None:
@@ -155,16 +226,16 @@ def test_a_name_the_map_does_not_know_asks_for_the_destination() -> None:
 
 
 def test_an_unknown_departure_city_asks_where_you_are_leaving_from_and_keeps_the_destination() -> None:
-    gazetteer = _Map({"Hell": None})
+    gazetteer = _Map({"Zorpville": None})
     before = _context(destination="Kyoto")
-    context = _context(destination="Kyoto", origin="Hell")
+    context = _context(destination="Kyoto", origin="Zorpville")
 
     result = asyncio.run(ground_new_places(before, context, gazetteer))
 
-    assert result.first() == ("unknown_place", "origin", "Hell")
+    assert result.first() == ("unknown_place", "origin", "Zorpville")
     assert context.destination == "Kyoto"
     assert context.origin == ""
-    assert place_reply(result) == "I can't find a place called Hell. Which city are you leaving from?"
+    assert place_reply(result) == "I can't find a place called Zorpville. Which city are you leaving from?"
 
 
 def test_a_map_timeout_does_not_store_the_name() -> None:
@@ -190,29 +261,29 @@ def test_a_map_with_no_data_erases_the_name_and_keeps_the_previous_city() -> Non
     assert context.destination == "Kyoto"
 
 
-def test_heaven_and_hell_are_both_checked_and_the_destination_is_asked_first() -> None:
-    gazetteer = _Map({"Heaven": None, "Hell": None})
+def test_bare_heaven_and_hell_are_a_question_and_are_not_mapped() -> None:
+    gazetteer = _Map({"Heaven": "Heaven, Somewhere", "Hell": "Hell, Norway"})
     context = _context()
     _apply_rules("i want to go to Heaven, from Hell", context, TODAY)
 
     result = asyncio.run(ground_new_places(_context(), context, gazetteer))
 
     assert context.destination == "" and context.origin == ""
-    assert set(gazetteer.calls) == {"Heaven", "Hell"}
-    assert result.first() == ("unknown_place", "destination", "Heaven")
+    assert gazetteer.calls == []
+    assert result.first()[0] == "impossible_place"
+    assert "2077" in place_reply(result)
 
 
-def test_a_real_village_called_hell_is_accepted_when_the_map_echoes_it() -> None:
-    gazetteer = _Map({"Hell": "Hell, Norway", "Heaven": None})
-    context = _context()
-    _apply_rules("i want to go to Heaven, from Hell", context, TODAY)
+def test_hell_norway_is_specific_enough_to_ask_the_map() -> None:
+    gazetteer = _Map({"Hell, Norway": "Hell, Norway"})
+    before = _context()
+    context = _context(destination="Hell, Norway")
 
-    result = asyncio.run(ground_new_places(_context(), context, gazetteer))
+    result = asyncio.run(ground_new_places(before, context, gazetteer))
 
-    assert context.origin == "" and context.destination == ""
-    assert result.suggestion_for("origin") == "Hell, Norway"
-    assert result.first() == ("unknown_place", "destination", "Heaven")
-    assert "Hell, Norway" in place_reply(result)
+    assert gazetteer.calls == ["Hell, Norway"]
+    assert result.first() == ("suggest_place", "destination", "Hell, Norway")
+    assert "2077" not in place_reply(result)
 
 
 def test_an_unknown_extra_stop_is_dropped() -> None:

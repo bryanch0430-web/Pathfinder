@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref } from "react";
 import { useI18n } from "../lib/i18n";
 import { Icon } from "./icons";
 
@@ -107,6 +107,139 @@ function ColumnGrip({
         }
       }}
     />
+  );
+}
+
+type WidgetId = "profile" | "budget" | "exchange" | "sketch" | "videos" | "trending";
+
+/** Share of the screen. The window is never a fixed pixel box. */
+const WIDGET_SHARE: Record<WidgetId, { w: number; h: number }> = {
+  profile: { w: 0.4, h: 0.78 },
+  budget: { w: 0.38, h: 0.64 },
+  exchange: { w: 0.36, h: 0.56 },
+  sketch: { w: 0.56, h: 0.72 },
+  videos: { w: 0.42, h: 0.7 },
+  trending: { w: 0.36, h: 0.74 },
+};
+
+function fitShare(share: { w: number; h: number }) {
+  const w = Math.round(Math.min(window.innerWidth - 32, Math.max(320, window.innerWidth * share.w)));
+  const h = Math.round(Math.min(window.innerHeight - 80, Math.max(240, window.innerHeight * share.h)));
+  return {
+    left: Math.max(16, Math.round((window.innerWidth - w) / 2)),
+    top: Math.max(56, Math.round((window.innerHeight - h) / 2)),
+    w,
+    h,
+  };
+}
+
+function isWidget(sheet: Sheet): sheet is WidgetId {
+  return sheet === "profile" || sheet === "budget" || sheet === "exchange" || sheet === "sketch" || sheet === "videos" || sheet === "trending";
+}
+
+function WidgetPop({
+  label,
+  onHide,
+  children,
+  share,
+}: {
+  label: string;
+  onHide: () => void;
+  children: ReactNode;
+  share: { w: number; h: number };
+}) {
+  const { t } = useI18n();
+  const frame = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ mode: "move" | "size"; x: number; y: number; left: number; top: number; w: number; h: number } | null>(null);
+  const shaped = useRef(false);
+  const [box, setBox] = useState(() => fitShare(share));
+  useEffect(() => {
+    const onResize = () => {
+      if (!shaped.current) setBox(fitShare(share));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [share]);
+  const [min, setMin] = useState(false);
+  const [large, setLarge] = useState(false);
+  const remembered = useRef(box);
+
+  const place = (next: typeof box) => {
+    const w = Math.min(Math.max(next.w, 280), window.innerWidth - 24);
+    const h = Math.min(Math.max(next.h, 160), window.innerHeight - 24);
+    setBox({
+      w,
+      h,
+      left: Math.min(Math.max(8, next.left), Math.max(8, window.innerWidth - w - 8)),
+      top: Math.min(Math.max(8, next.top), Math.max(8, window.innerHeight - 44)),
+    });
+  };
+
+  const begin = (mode: "move" | "size") => (event: ReactPointerEvent) => {
+    if (event.button !== 0) return;
+    if (mode === "move" && (event.target as HTMLElement).closest("button")) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const current = large ? { left: 24, top: 72, w: window.innerWidth - 48, h: window.innerHeight - 96 } : box;
+    drag.current = { mode, x: event.clientX, y: event.clientY, ...current };
+    shaped.current = true;
+    if (large) setLarge(false);
+    if (min && mode === "size") setMin(false);
+  };
+  const follow = (event: ReactPointerEvent) => {
+    const current = drag.current;
+    if (!current) return;
+    const dx = event.clientX - current.x;
+    const dy = event.clientY - current.y;
+    if (current.mode === "move") place({ ...box, left: current.left + dx, top: current.top + dy });
+    else place({ ...box, w: current.w + dx, h: current.h + dy });
+  };
+  const finish = () => {
+    drag.current = null;
+  };
+
+  const shown = large
+    ? { left: 24, top: 72, w: Math.max(280, window.innerWidth - 48), h: Math.max(180, window.innerHeight - 96) }
+    : box;
+
+  return (
+    <div
+      ref={frame}
+      className={`pf-pop${min ? " is-min" : ""}`}
+      role="dialog"
+      aria-label={label}
+      style={{ left: shown.left, top: shown.top, width: shown.w, height: min ? undefined : shown.h }}
+    >
+      <div className="pf-pop__bar" onPointerDown={begin("move")} onPointerMove={follow} onPointerUp={finish} onPointerCancel={finish}>
+        <span className="pf-dock__label">{label}</span>
+        <span className="pf-pop__actions">
+          <button type="button" className="pf-dock__close" aria-label={min ? t("panels.restore") : t("panels.minimize")} onClick={() => setMin((value) => !value)}>
+            <Icon name={min ? "plus" : "minus"} size={14} />
+          </button>
+          <button
+            type="button"
+            className="pf-dock__close"
+            aria-label={large ? t("panels.restore") : t("panels.enlarge")}
+            onClick={() => {
+              setMin(false);
+              setLarge((value) => {
+                if (!value) remembered.current = box;
+                else place(remembered.current);
+                return !value;
+              });
+            }}
+          >
+            <Icon name={large ? "layers" : "external"} size={14} />
+          </button>
+          <button type="button" className="pf-dock__close" aria-label={t("panels.close")} onClick={onHide}>
+            <Icon name="close" size={16} />
+          </button>
+        </span>
+      </div>
+      <div className="pf-pop__body pf-dock__body">{children}</div>
+      {min ? null : (
+        <span className="pf-pop__size" aria-hidden="true" onPointerDown={begin("size")} onPointerMove={follow} onPointerUp={finish} onPointerCancel={finish} />
+      )}
+    </div>
   );
 }
 
@@ -332,7 +465,7 @@ export function PlannerTemplate({
           ) : null}
         </div>
 
-        {sheet ? (
+        {sheet && !isWidget(sheet) ? (
           <button type="button" className="pf-surface-scrim" aria-label={t("panels.close")} onClick={() => setSheet(null)} />
         ) : null}
 
@@ -374,42 +507,28 @@ export function PlannerTemplate({
           </div>
         ) : null}
 
-        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "profile"} aria-label={t("settings.profile")} hidden={sheet !== "profile"}>
-          <DockBar label={t("settings.profile")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-          <div className="pf-dock__body">{profile}</div>
-        </div>
-
-        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "budget"} aria-label={t("budget.tool")} hidden={sheet !== "budget"}>
-          <DockBar label={t("budget.tool")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-          <div className="pf-dock__body">{budget}</div>
-        </div>
-
-        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "exchange"} aria-label={t("budget.exchange")} hidden={sheet !== "exchange"}>
-          <DockBar label={t("budget.exchange")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-          <div className="pf-dock__body">{exchange}</div>
-        </div>
-
-        <div
-          className="pf-surface-sheet"
-          id="pf-panel-sketch"
-          role="dialog"
-          aria-modal={sheet === "sketch"}
-          aria-label={t("panels.sketch")}
-          hidden={sheet !== "sketch"}
-        >
-          <DockBar label={t("panels.sketch")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-          <div className="pf-dock__body">{sketch}</div>
-        </div>
-
-        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "videos"} aria-label={t("videos.title")} hidden={sheet !== "videos"}>
-          <DockBar label={t("videos.title")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-          <div className="pf-dock__body">{videos}</div>
-        </div>
-
-        <div className="pf-surface-sheet" role="dialog" aria-modal={sheet === "trending"} aria-label={t("trending.eyebrow")} hidden={sheet !== "trending"}>
-          <DockBar label={t("trending.eyebrow")} hideLabel={t("panels.close")} onHide={() => setSheet(null)} />
-          <div className="pf-dock__body">{trending}</div>
-        </div>
+        {isWidget(sheet) ? (
+          <WidgetPop
+            key={sheet}
+            label={
+              sheet === "profile" ? t("settings.profile")
+              : sheet === "budget" ? t("budget.tool")
+              : sheet === "exchange" ? t("budget.exchange")
+              : sheet === "sketch" ? t("panels.sketch")
+              : sheet === "videos" ? t("videos.title")
+              : t("trending.eyebrow")
+            }
+            share={WIDGET_SHARE[sheet]}
+            onHide={() => setSheet(null)}
+          >
+            {sheet === "profile" ? profile
+              : sheet === "budget" ? budget
+              : sheet === "exchange" ? exchange
+              : sheet === "sketch" ? sketch
+              : sheet === "videos" ? videos
+              : trending}
+          </WidgetPop>
+        ) : null}
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ import { pinHtml, pinSvg, tokenHtml, tokenSvg, type PinVisual } from "./pins";
 import { hotelScopeItem } from "../scope";
 import { useI18n } from "../../lib/i18n";
 import { buildGeometry, offsetPath, pointAlong, type RouteGeometry } from "../../lib/mapGeometry";
-import type { OverviewStop, TravelLine } from "../../lib/mapScope";
+import { cameraPoints, type OverviewStop, type TravelLine } from "../../lib/mapScope";
 import type { DayPlan, PlanItem, TripPlan } from "../types";
 
 const HAS_GEO = (item: PlanItem): item is PlanItem & { geo: NonNullable<PlanItem["geo"]> } => Boolean(item.geo);
@@ -250,19 +250,19 @@ export function TripMap(props: TripMapProps) {
     const withGeo = points.filter(HAS_GEO);
     const routeGeo = routePoints.filter(HAS_GEO);
     const coords: LatLng[] = routeGeo.map((item) => item.geo);
-    const around = [
-      ...(travel ? [travel.from, travel.to] : []),
+    // The line from the city before is drawn, but it is not part of the frame. A pin outside the city is not either.
+    const framed = cameraPoints(known, [
       ...(hotel?.geo ? [hotel.geo] : []),
       ...coords,
       ...anchors.map((anchor) => ({ lat: anchor.lat, lng: anchor.lng })),
-    ];
+    ]);
     const now = clockRef.current;
 
     const fitId = `${plan.trip_id}:${day?.date ?? ""}`;
     const focusId = focusFromId && focusToId ? `${focusFromId}|${focusToId}` : "";
-    if (!focusId && fitKey.current !== fitId) {
+    if (!focusId && !followRef.current && fitKey.current !== fitId) {
       fitKey.current = fitId;
-      engine.fit(around, [92, 42, 52, 42]);
+      engine.fit(framed, [92, 42, 52, 42]);
     }
 
     if (travel) {
@@ -738,6 +738,22 @@ export function TripMap(props: TripMapProps) {
       engine.panTo(target);
     }
   }, [token, follow, speed, status, generation, layersBuilt, legs, selectedItemId, focusFromId]);
+
+  // Pin holds the camera on the traveller. It does this even while playback is paused, and it does not refit the day.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || status !== "ready" || !follow || focusFromId) return;
+    const here =
+      tokenTarget.current ??
+      points.find((item) => item.id === currentItemId && item.geo)?.geo ??
+      points.find((item) => item.geo)?.geo ??
+      known;
+    if (!here) return;
+    engine.setCenter(here);
+    if (engine.getZoom() < 13) engine.setZoom(14);
+    // Only when pin is turned on or the day changes. Following the clock would fight the playback camera.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follow, status, day?.date, generation, focusFromId]);
 
   // --- token motion + follow, once per frame, outside React ---------------
   useEffect(() => {

@@ -920,6 +920,8 @@ export function ChatPanel({
   held = false,
   agentName = "",
   disabled = false,
+  finished = false,
+  onStartNew,
   tripId = null,
   draft: heldDraft,
   onDraftChange,
@@ -963,6 +965,9 @@ export function ChatPanel({
   agentName?: string;
   /** No trip is open to send to (the server could not be reached): nothing can be typed or sent. */
   disabled?: boolean;
+  /** The plan is final, so the box asks for a new trip instead of a reconnect. */
+  finished?: boolean;
+  onStartNew?: () => void;
   /** The trip the chat belongs to. A message typed and not sent stays with its trip, not with the next one opened. */
   tripId?: string | null;
   /**
@@ -1073,7 +1078,7 @@ export function ChatPanel({
         </div>
         <div className="pf-row pf-chat__tools">
           <DeveloperToggle />
-          {developer && ((live ?? []).length > 0 || trace) ? (
+          {developer ? (
             <button type="button" className="pf-plan-tab" onClick={() => downloadTurnLog(trace, live, messages)}>
               {t("settings.downloadLog")}
             </button>
@@ -1265,6 +1270,12 @@ export function ChatPanel({
         {fileErrorText ? (
           <span className="pf-field__error" role="alert">{fileErrorText}</span>
         ) : null}
+        {finished && onStartNew ? (
+          <div className="pf-row pf-row--between">
+            <Text size="xs" tone="secondary">{t("chat.final")}</Text>
+            <Button size="sm" variant="primary" onClick={onStartNew}>{t("chat.startNew")}</Button>
+          </div>
+        ) : null}
         <div className="pf-composer">
           <input
             ref={fileInputRef}
@@ -1289,7 +1300,7 @@ export function ChatPanel({
             value={draft}
             rows={1}
             disabled={composerLocked}
-            placeholder={disabled ? t("chat.offline") : busy ? t("chat.working") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
+            placeholder={finished ? t("chat.final") : disabled ? t("chat.offline") : busy ? t("chat.working") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
             aria-label={t("chat.message")}
             onChange={(event) => setDraft(event.target.value)}
             onPaste={(event) => {
@@ -1651,12 +1662,15 @@ export function TicketCard({
   selected,
   choosable,
   onChoose,
+  side = "both",
 }: {
   ticket: TicketOption;
   selected: boolean;
   /** More than one option exists, so the card shows whether it is the one chosen. */
   choosable: boolean;
   onChoose?: () => Promise<void>;
+  /** ``return`` leads with the flight home. The fare is still the round trip. */
+  side?: "both" | "return";
 }) {
   const { t } = useI18n();
   const { pending, error, run } = useOptionAction();
@@ -1676,27 +1690,49 @@ export function TicketCard({
       <span className="pf-ticket-card__thumb"><Icon name={icon} size={20} /></span>
       <div className="pf-stack pf-grow" style={{ gap: 2 }}>
         <Text size="sm" weight="semibold">
-          {ticket.name}
-          {operator ? <span className="pf-muted pf-small"> · {operator}</span> : null}
+          {side === "return" && ticket.return_airline
+            ? `${ticket.return_airline} ${ticket.return_flight_number ?? ""}`.trim()
+            : ticket.name}
+          {side !== "return" && operator ? <span className="pf-muted pf-small"> · {operator}</span> : null}
         </Text>
-        <Text size="xs" tone="tertiary">
-          {ticket.return_depart_at ? `${t("workspace.outbound")} · ` : ""}
-          {ticket.origin} → {ticket.destination}
+        {side === "return" ? (
+          <Text size="xs" tone="secondary">
+            <strong>{t("workspace.return")}</strong>
+            {` · ${ticket.return_origin || ticket.destination} → ${ticket.return_destination || ticket.origin}`}
+            {ticket.return_depart_at ? ` · ${stamp(ticket.return_depart_at)}` : ""}
+            {ticket.return_arrive_at ? ` · ${t("options.arrives", { time: stamp(ticket.return_arrive_at).slice(11) })}` : ""}
+            {returnDuration ? ` · ${returnDuration}` : ""}
+          </Text>
+        ) : null}
+        {side === "both" ? (
+        <Text size="xs" tone="secondary">
+          <strong>{t("workspace.outbound")}</strong>
+          {` · ${ticket.origin} → ${ticket.destination}`}
           {estimated
             ? ` · ${[clock(ticket.depart_at), clock(ticket.arrive_at)].filter(Boolean).join(" – ")} (${t("options.estimate")})`
             : `${depart ? ` · ${depart}` : ""}${arriveShown ? ` · ${t("options.arrives", { time: arriveShown })}` : ""}`}
           {duration ? ` · ${duration}` : ""}
         </Text>
-        {ticket.return_depart_at ? (
-          <Text size="xs" tone="tertiary">
-            {t("workspace.return")}{ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
-            {` · ${ticket.return_origin} → ${ticket.return_destination} · ${stamp(ticket.return_depart_at)}`}
-            {returnDuration ? ` · ${returnDuration}` : ""}
-          </Text>
         ) : null}
-        <Text size="xs" tone="secondary">
+        {side === "both" && ticket.mode === "flight" ? (
+          ticket.return_depart_at ? (
+            <Text size="xs" tone="secondary">
+              <strong>{t("workspace.return")}</strong>
+              {ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
+              {` · ${ticket.return_origin} → ${ticket.return_destination} · ${stamp(ticket.return_depart_at)}`}
+              {ticket.return_arrive_at ? ` · ${t("options.arrives", { time: stamp(ticket.return_arrive_at).slice(11) })}` : ""}
+              {returnDuration ? ` · ${returnDuration}` : ""}
+            </Text>
+          ) : (
+            <Text size="xs" tone="tertiary">{t("workspace.returnMissing")}</Text>
+          )
+        ) : null}
+        <Text size="sm" weight="semibold">
           {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
+        {ticket.booking_url ? (
+          <a href={ticket.booking_url} target="_blank" rel="noopener noreferrer">{t("workspace.book")}</a>
+        ) : null}
         <RankNote rank={ticket.rank} reasons={ticket.reasons} />
         <LinkRow links={ticket.links} />
         {error ? <span className="pf-field__error" role="alert">{t("options.failed", { reason: error.reason })}</span> : null}
@@ -2064,7 +2100,9 @@ function LegSlot({
           ) : null}
         </>
       }
-      renderOption={(option) => <TicketCard ticket={option} selected={false} choosable={false} />}
+      renderOption={(option) => (
+        <TicketCard ticket={option} selected={false} choosable={false} side={leg.kind === "return" ? "return" : "both"} />
+      )}
     />
   );
 }
@@ -2136,8 +2174,11 @@ export function TripWorkspace({
   onRestoreVersion,
   selectedItemId,
   onSelectItem,
+  finalized = false,
+  onFinalise,
   onUseful,
   onNotUseful,
+  onStars,
   feedbackStars,
   feedbackVerdict,
   feedbackAdded = [],
@@ -2199,6 +2240,8 @@ export function TripWorkspace({
   onRestoreVersion?: (version: number) => void;
   selectedItemId: string | null;
   onSelectItem: (item: PlanItem | null) => void;
+  finalized?: boolean;
+  onFinalise?: () => void;
   onUseful: () => void;
   onNotUseful: () => void;
   feedbackStars: number | null;
@@ -2350,7 +2393,7 @@ export function TripWorkspace({
       key={leg.id}
       plan={plan}
       leg={leg}
-      title={`${leg.from_place} → ${leg.to_place}${leg.depart_date ? ` · ${leg.depart_date}` : ""}`}
+      title={`${leg.kind === "return" ? `${t("workspace.return")} · ` : ""}${leg.from_place} → ${leg.to_place}${leg.depart_date ? ` · ${leg.depart_date}` : ""}`}
       icon="route"
       changed={Boolean(changedLegIds?.has(leg.id))}
       busy={slotActions.busy.has(leg.id)}
@@ -2455,10 +2498,12 @@ export function TripWorkspace({
           </div>
           <div className="pf-stack" style={{ gap: 6, alignItems: "flex-end" }}>
             <PlanFeedback
+              finalized={finalized}
               verdict={feedbackVerdict}
               stars={feedbackStars}
               added={feedbackAdded}
-              onUseful={onUseful}
+              onFinalise={onFinalise}
+              onUseful={(stars) => (stars ? onStars?.(stars) : onUseful())}
               onNotUseful={onNotUseful}
             />
             <StatusSummary plan={plan} conflicts={recorded.length} onOpen={openRecord} />
@@ -2923,7 +2968,7 @@ export function MapPanel({
   const [clock, setClock] = useState(9 * 60);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [follow, setFollow] = useState(true);
+  const [follow, setFollow] = useState(false);
   const [legTarget, setLegTarget] = useState<LegRef | null>(null);
   const [legOptions, setLegOptions] = useState<LegOptions | null>(null);
   const [legLoading, setLegLoading] = useState(false);
@@ -3224,7 +3269,7 @@ export function MapPanel({
         currentName={currentItem?.name ?? null}
         speed={speed}
         token={tracker}
-        follow={follow && playing && !pinnedLeg && !hoverLeg}
+        follow={follow && !pinnedLeg && !hoverLeg}
         updatedIds={updatedSet}
         hotelChanged={hotelChanged}
         legs={shownLegs}

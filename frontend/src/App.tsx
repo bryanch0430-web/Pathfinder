@@ -157,6 +157,8 @@ export default function App() {
   }, [dark]);
   // Counts the requests to put the cursor in the chat box (the plan's question is answered there).
   const [composerFocus, setComposerFocus] = useState(0);
+  // The assessment question the next chat message is answering. Shown above the box and sent with the reply.
+  const [answering, setAnswering] = useState<string | null>(null);
   const [trending, setTrending] = useState<TrendingPlace[]>([]);
   const [trendingTrace, setTrendingTrace] = useState<TrendingTrace | null>(null);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -599,6 +601,7 @@ export default function App() {
   };
 
   const scope = useMemo(() => {
+    if (answering) return answering;
     if (!pf.selectedItem || !pf.plan) return null;
     if (isHotelScope(pf.selectedItem.id, pf.plan.hotels)) {
       return `${t("map.hotel")} · ${pf.selectedItem.name}`;
@@ -606,7 +609,7 @@ export default function App() {
     const day = pf.plan.days.find((entry) => entry.items.some((item) => item.id === pf.selectedItem?.id));
     const index = day ? pf.plan.days.indexOf(day) + 1 : 0;
     return `${day ? t("day.number", { n: index }) : t("plan.stop")} · ${pf.selectedItem.name}`;
-  }, [pf.plan, pf.selectedItem, t]);
+  }, [answering, pf.plan, pf.selectedItem, t]);
 
   const trendingRail = (
     <TrendingRail
@@ -702,7 +705,9 @@ export default function App() {
                   plan={pf.plan}
                   onChange={pf.setContext}
                   onSave={() => void pf.saveContext()}
-                  onGenerate={() => void pf.generate()}
+                  onGenerate={() => {
+                    if (!pf.context.finalized) void pf.generate();
+                  }}
                   onSuggestDestination={async (query) => (await suggestPlaces(query)).items}
                   submitting={pf.busy}
                 />
@@ -742,8 +747,11 @@ export default function App() {
                   onRestoreVersion={(version) => void pf.restoreVersion(version)}
                   selectedItemId={pf.selectedItem?.id ?? null}
                   onSelectItem={selectItem}
+                  finalized={Boolean(pf.context.finalized)}
+                  onFinalise={() => void pf.finalise()}
                   onUseful={() => void pf.feedback(true, null)}
                   onNotUseful={() => void pf.feedback(false)}
+                  onStars={(stars) => void pf.feedback(true, stars)}
                   feedbackStars={pf.feedbackStars}
                   feedbackVerdict={pf.feedbackVerdict}
                   feedbackAdded={pf.feedbackAdded}
@@ -776,8 +784,8 @@ export default function App() {
                   onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
                   held={pf.held}
                   agentName={pf.agentName}
-                  paused={pf.busy || pf.plannerBusy}
-                  pausedNote={pf.busy ? pf.progressMessage : pf.plannerNote}
+                  paused={pf.busy || pf.plannerBusy || Boolean(pf.context.finalized)}
+                  pausedNote={pf.context.finalized ? t("feedback.frozen") : pf.busy ? pf.progressMessage : pf.plannerNote}
                   onCommitStop={pf.held ? undefined : async (change) => {
                     if (change.lookup) {
                       await pf.send(`Replace ${change.previousName} with ${change.name}. Put it on day ${change.day} from ${change.start} to ${change.end}.`);
@@ -785,7 +793,11 @@ export default function App() {
                     }
                     await pf.applyLayout([{ id: change.id, day: change.day, start: change.start, end: change.end, name: change.name }]);
                   }}
-                  onAnswerQuestion={() => setComposerFocus((count) => count + 1)}
+                  onAnswerQuestion={() => {
+                    const question = pf.plan?.assessment?.question?.trim();
+                    if (question) setAnswering(question);
+                    setComposerFocus((count) => count + 1);
+                  }}
                 />
               ) : (
                 <WelcomePanel
@@ -845,14 +857,23 @@ export default function App() {
                 clarifyValues={pf.clarifyValues}
                 onClarifyChange={pf.setClarifyValue}
                 onClarifySubmit={(message) => void pf.submitClarify(message)}
-                onSend={(message, attachments) => void pf.send(message, attachments)}
+                onSend={(message, attachments) => {
+                  const text = answering ? `About this question on the plan: ${answering}\n\n${message}` : message;
+                  setAnswering(null);
+                  void pf.send(text, attachments);
+                }}
                 onStop={pf.abort}
                 intake={pf.intake}
                 focusSignal={composerFocus}
                 scope={scope}
-                onClearScope={() => pf.selectItem(null)}
+                onClearScope={() => {
+                  setAnswering(null);
+                  pf.selectItem(null);
+                }}
                 error={pf.sessionId ? pf.error : null}
-                disabled={!pf.sessionId}
+                disabled={!pf.sessionId || Boolean(pf.context.finalized)}
+                finished={Boolean(pf.context.finalized)}
+                onStartNew={() => void createTripTab()}
                 tripId={pf.sessionId}
                 draft={pf.draft}
                 onDraftChange={pf.setDraft}

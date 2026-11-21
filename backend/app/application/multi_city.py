@@ -128,7 +128,35 @@ async def _round_trip(
         emit=emit,
         names={AgentName.TICKET},
     )
-    return Planner._build_tickets(results[AgentName.TICKET.value].payload.get("flights") or [])
+    tickets = [
+        ticket.model_copy(update={"leg_id": ticket.leg_id or "leg_out"})
+        for ticket in Planner._build_tickets(results[AgentName.TICKET.value].payload.get("flights") or [])
+    ]
+    # A round trip whose fare search came back with only the flight out still needs a ticket home.
+    if context.one_way or not context.origin or any(ticket.return_depart_at for ticket in tickets):
+        return tickets
+    home = await _origin(path, context.origin, toolbox)
+    if home is None:
+        return tickets
+    back = TransportLeg(
+        id="leg_home",
+        from_place=segment.destination.name,
+        to_place=context.origin,
+        depart_date=segment.dates.end,
+        kind="return",
+    )
+    tickets.extend(
+        await leg_options(
+            back,
+            segment.destination,
+            home,
+            registry=path.registry,
+            toolbox=toolbox,
+            party_size=context.party_size or 1,
+            currency=context.currency,
+        )
+    )
+    return tickets
 
 
 async def plan_route(

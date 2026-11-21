@@ -33,6 +33,13 @@ from app.security import fence_user_message
 
 # Interest and style tags the rules recognise. Any other tag is read by the
 # planner as a place the traveller wants to visit.
+_WISH_CUE = re.compile(
+    r"\b(?:foodie|cuisine|taste|tasting|coffee|café|ramen|sushi|seafood|barbecue|bbq|omakase|izakaya|"
+    r"dim\s*sum|hot\s*pot|noodles?|dumplings?|dessert|street\s*food|night\s*market|onsen|festival|anime|"
+    r"manga|gundam|karaoke|nightlife|snorkel\w*|diving|surf\w*|skiing|snowboard\w*)\b",
+    re.IGNORECASE,
+)
+
 PREFERENCE_PATTERNS = {
     "vegetarian": r"\bvegetarian\b",
     "vegan": r"\bvegan\b",
@@ -322,7 +329,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
             if family:
                 token = family.group(1)
                 party = NUMBER_WORDS.get(token, int(token) if token.isdigit() else None)
-    if party and party <= 20:
+    if party and 1 <= party <= 20:
         # "99 people" does not fit the trip form's own limit, so the slot stays open and is asked again.
         context.party_size = party
 
@@ -339,7 +346,7 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         days = 14
     elif re.search(r"\bweekend\b", lower):
         days = 2
-    if days and days <= 60:
+    if days and 1 <= days <= 60:
         # Same ceiling as the trip form: a longer stated length is not a plan, so the slot stays open.
         context.days = days
 
@@ -648,6 +655,7 @@ def _side_mention(lower: str, position: int) -> bool:
 #: The first word of a cued phrase that is a thing, not a place, however many words follow it ("about money
 #: exchange", "to breakfast buffet"). "The Maldives" keeps its article: only these nouns reject.
 _NOT_A_CUE_START = frozenset("money breakfast brunch lunch dinner everything anything nothing".split())
+
 
 #: A verb that follows "to" in "love to see Lyon" (not after "in" or "visit": "3 days in Do Son"): the place comes after it,
 #: so it is not part of the name.
@@ -963,6 +971,97 @@ def _same_place(asked: str, found: str) -> bool:
     return bool(left) and (left == primary or left == full)
 
 
+def _folded_place(name: str) -> str:
+    return " ".join(name.casefold().replace("'", "").replace("’", "").replace("-", " ").split())
+
+
+def _example_key(name: str) -> str:
+    """The example and the split-out name in one form. A leading "the" does not make a different name."""
+    folded = _folded_place(name)
+    return folded[4:] if folded.startswith("the ") else folded
+
+
+def _place_skill() -> tuple[frozenset[str], frozenset[str], frozenset[str], str, str, str]:
+    """Examples and reply lines from the judge-a-place skill. The names are not written in this file.
+
+    The third set is real cities that share a name. They are asked about, like a chain, but the reply
+    asks for the country rather than a branch.
+    """
+    from app.application.skills import skill_by_name
+
+    skill = skill_by_name("judge-a-place")
+    impossible: set[str] = set()
+    branches: set[str] = set()
+    several: set[str] = set()
+    impossible_line = ""
+    branch_line = ""
+    several_line = ""
+    section = ""
+    if skill is None:
+        return frozenset(), frozenset(), frozenset(), "", "", ""
+    for raw in skill.body.splitlines():
+        line = raw.strip()
+        if line.startswith("## "):
+            title = line[3:].casefold()
+            if "not a trip" in title:
+                section = "impossible"
+            elif "branch" in title:
+                section = "branches"
+            elif "several" in title:
+                section = "several"
+            else:
+                section = ""
+            continue
+        if line.lower().startswith("reply:"):
+            text = line.split(":", 1)[1].strip()
+            if section == "impossible":
+                impossible_line = text
+            elif section == "branches":
+                branch_line = text
+            elif section == "several":
+                several_line = text
+            continue
+        if section and line.startswith("- "):
+            key = _example_key(line[2:].strip().strip("\"'"))
+            if not key:
+                continue
+            {"impossible": impossible, "branches": branches, "several": several}[section].add(key)
+    return (
+        frozenset(impossible),
+        frozenset(branches),
+        frozenset(several),
+        impossible_line,
+        branch_line,
+        several_line,
+    )
+
+
+def _matches_example(name: str, examples: frozenset[str]) -> bool:
+    """The name is an example. A trailing s matches too, so "mcdonald" meets "mcdonald's". Extra words do not."""
+    if name in examples:
+        return True
+    if name.endswith("s") and name[:-1] in examples:
+        return True
+    return f"{name}s" in examples
+
+
+def edge_case(name: str) -> str | None:
+    """After a name has been split out of the sentence: ``impossible``, ``ambiguous``, or nothing.
+
+    The judge-a-place skill supplies the examples. A known city is not an edge case. A longer name
+    ("Hell, Norway") is not the bare example. This does not call the map.
+    """
+    folded = _example_key(name)
+    if not folded or _known_place(name):
+        return None
+    impossible, branches, several, _, _, _ = _place_skill()
+    if _matches_example(folded, impossible):
+        return "impossible"
+    if _matches_example(folded, branches) or _matches_example(folded, several):
+        return "ambiguous"
+    return None
+
+
 @dataclass(frozen=True)
 class PlaceCheck:
     """One gazetteer result. ``accept`` stores ``name``. ``suggest`` keeps a different place to confirm."""
@@ -970,6 +1069,8 @@ class PlaceCheck:
     status: str
     name: str
     suggestion: str = ""
+    #: How sure the place search is that one hit is this name. None when it was not asked.
+    match: float | None = None
 
 
 @dataclass(frozen=True)
@@ -981,9 +1082,23 @@ class PlaceGrounding:
     accepted: list[tuple[str, str]] = field(default_factory=list)
     #: slot, the words the traveller used, and the different place the map found
     suggestions: list[tuple[str, str, str]] = field(default_factory=list)
+    #: Not a trip (Mars, Jupiter). The map was not asked.
+    impossible: list[tuple[str, str]] = field(default_factory=list)
+    #: A brand with many branches (McDonald's). The map was not asked to pick one.
+    ambiguous: list[tuple[str, str]] = field(default_factory=list)
+    #: Place-search certainty for an ambiguous name, when the search was asked. A low share means many hits.
+    matches: dict[tuple[str, str], float] = field(default_factory=dict)
 
     def first(self) -> tuple[str, str, str] | None:
-        """Destination before departure. A close match is asked about before a miss or a timeout."""
+        """An edge case is asked about before any map hit. Destination before departure."""
+        for slot in ("destination", "origin"):
+            for status, rows in (
+                ("impossible_place", self.impossible),
+                ("ambiguous_place", self.ambiguous),
+            ):
+                for item_slot, name in rows:
+                    if item_slot == slot:
+                        return status, slot, name
         for slot in ("destination", "origin"):
             for item_slot, asked, _found in self.suggestions:
                 if item_slot == slot:
@@ -1030,6 +1145,34 @@ def place_reply(result: PlaceGrounding) -> str:
     if head is None:
         return ""
     bits = []
+    if result.impossible:
+        names = [name for _, name in result.impossible]
+        if len(names) >= 2:
+            trip = f"A trip to {names[0]} from {names[1]}"
+        else:
+            trip = f"A trip to {names[0]}"
+        _, _, _, impossible_line, _, _ = _place_skill()
+        bits.append(f"{trip} is not a place I can map. {impossible_line}".strip())
+    _, _, several, _, branch_line, several_line = _place_skill()
+    for slot, name in result.ambiguous:
+        key = _example_key(name)
+        if _matches_example(key, several):
+            ask = several_line or "Name the city and the country."
+            many = "That name is a city in more than one country."
+        else:
+            ask = branch_line or "Name the city, or the branch."
+            many = "There are many, in different places."
+        share = result.matches.get((slot, name))
+        if share is not None and not _matches_example(key, several):
+            bits.append(f"Which {name}? The place search is only about {share:.0%} sure of one match. {ask}")
+        else:
+            bits.append(f"Which {name}? {many} {ask}")
+    others = len(result.suggestions) + len(result.rejected) + len(result.unchecked)
+    if result.impossible and not result.ambiguous and not others:
+        bits.append("Please name a city on Earth.")
+        return " ".join(bits)
+    if result.ambiguous and not result.impossible and not others:
+        return " ".join(bits)
     for _slot, asked, found in result.suggestions:
         if asked.casefold() == found.casefold():
             bits.append(f"I found {found}.")
@@ -1054,16 +1197,40 @@ def place_reply(result: PlaceGrounding) -> str:
     return " ".join(bits)
 
 
-async def confirm_place(name: str, geocoder: Any | None) -> PlaceCheck:
+async def _match_share(geocoder: Any | None, name: str) -> float | None:
+    """The place search's own certainty, when it offers one. A failure is no number, not a guess."""
+    ask = getattr(geocoder, "match_share", None)
+    if ask is None:
+        return None
+    try:
+        share = await ask(name)
+    except Exception:
+        return None
+    if isinstance(share, bool) or not isinstance(share, (int, float)):
+        return None
+    return max(0.0, min(1.0, float(share)))
+
+
+async def confirm_place(name: str, geocoder: Any | None, *, edges: bool = True) -> PlaceCheck:
     """Whether ``name`` is a place. A known city is an accept. Any other name must be echoed by the geocoder.
 
     Nothing back, or a different name, is a reject. A geocoder that is missing or down is unchecked:
     the name is not stored, and the traveller is asked again.
+
+    ``edges`` is the extra step after the name was split out. On, a planet, bare Heaven or Hell, or a
+    chain is a question and is not stored. Off, those names are sent to the map as any other word is,
+    which is the comparison used to see that ordinary cities did not change.
     """
     known = _known_place(name)
     if known:
         return PlaceCheck("accept", known)
     cleaned = name.strip()
+    if edges:
+        case = edge_case(cleaned)
+        if case == "impossible":
+            return PlaceCheck("impossible", cleaned)
+        if case == "ambiguous":
+            return PlaceCheck("ambiguous", cleaned, match=await _match_share(geocoder, cleaned))
     if geocoder is None or not getattr(geocoder, "available", True):
         return PlaceCheck("unchecked", cleaned)
     try:
@@ -1093,10 +1260,13 @@ async def ground_new_places(
     unchecked: list[tuple[str, str]] = []
     accepted: list[tuple[str, str]] = []
     suggestions: list[tuple[str, str, str]] = []
+    impossible: list[tuple[str, str]] = []
+    ambiguous: list[tuple[str, str]] = []
+    matches: dict[tuple[str, str], float] = {}
     confirmed_names = {item.casefold() for item in (confirmed or set())}
 
     def note(slot: str, status: str, name: str) -> None:
-        rows = rejected if status == "reject" else unchecked
+        rows = {"reject": rejected, "impossible": impossible, "ambiguous": ambiguous}.get(status, unchecked)
         if (slot, name) not in rows and name.casefold() not in {item.casefold() for _, item in rows}:
             rows.append((slot, name))
 
@@ -1120,6 +1290,8 @@ async def ground_new_places(
             suggestions.append((slot, current.strip(), check.suggestion))
             return
         note(slot, check.status, current.strip())
+        if check.match is not None:
+            matches[(slot, current.strip())] = check.match
 
     await settle("destination")
     await settle("origin")
@@ -1135,11 +1307,13 @@ async def ground_new_places(
             suggestions.append(("destination", stop.city.strip(), check.suggestion))
         else:
             note("destination", check.status, stop.city.strip())
+            if check.match is not None:
+                matches[("destination", stop.city.strip())] = check.match
     if len(kept) != len(context.stops):
         context.stops = kept
-        if any(name.casefold() == context.destination.casefold() for _, name in rejected + unchecked):
+        if any(name.casefold() == context.destination.casefold() for _, name in rejected + unchecked + impossible + ambiguous):
             context.destination = kept[0].city if kept else before.destination
-    return PlaceGrounding(rejected, unchecked, accepted, suggestions)
+    return PlaceGrounding(rejected, unchecked, accepted, suggestions, impossible, ambiguous, matches)
 
 
 def _known_prefix(lowered: list[str]) -> str | None:
@@ -1469,6 +1643,56 @@ def _relative_dates(lower: str, today: date) -> tuple[date | None, date | None] 
     return None
 
 
+def figure_count(text: str, low: int, high: int) -> int | None:
+    """A whole number in range, the way a duration is kept only from 1 to 365 elsewhere.
+
+    The whole answer has to be the digits. "-43" is not 43, and 43 is not a party of at most 20.
+    """
+    if not re.fullmatch(r"\d{1,6}", text.strip()):
+        return None
+    number = int(text.strip())
+    return number if low <= number <= high else None
+
+
+def figure_money(text: str) -> float | None:
+    """A budget. Thousands commas are allowed. A minus, or a number that isn't finite, is not a budget."""
+    cleaned = text.strip()
+    if not cleaned or cleaned[0] == "-":
+        return None
+    match = re.search(r"[0-9][0-9,]*(?:\.[0-9]+)?", cleaned)
+    if not match:
+        return None
+    if match.start() > 0 and cleaned[match.start() - 1] == "-":
+        return None
+    try:
+        amount = float(match.group().replace(",", ""))
+    except ValueError:
+        return None
+    if amount < 0 or amount != amount or amount == float("inf"):
+        return None
+    return amount
+
+
+def figure_warning(message: str) -> str:
+    """Why a figure in a clarify answer was not stored. Empty when every figure in it is usable."""
+    labeled = _labeled_clarify(message)
+    party = (
+        labeled.get("travellers")
+        or labeled.get("travelers")
+        or labeled.get("party size")
+        or labeled.get("party_size")
+    )
+    if party is not None and party.strip() and figure_count(party, 1, 20) is None:
+        return f"A party has to be a whole number from 1 to 20. {party.strip()} isn't."
+    days = labeled.get("days")
+    if days is not None and days.strip() and re.search(r"\d", days) and figure_count(days, 1, 60) is None:
+        return f"A trip has to be from 1 to 60 days. {days.strip()} isn't."
+    budget = labeled.get("budget")
+    if budget and not _ANYWAY.search(budget) and re.search(r"\d", budget) and figure_money(budget) is None:
+        return "A budget has to be zero or more. A minus isn't a budget."
+    return ""
+
+
 def _labeled_clarify(message: str) -> dict[str, str]:
     """Parse the clarify form's "slot: value; slot: value" answer."""
     if ":" not in message:
@@ -1531,21 +1755,16 @@ def _apply_labeled(context: TripContext, labeled: dict[str, str], today: date) -
         or labeled.get("party_size")
     )
     if party_text:
-        # Signed read: "party size: -2" is not 2. Out-of-range answers leave the slot empty, so the
-        # traveller is asked again instead of planning for a party that cannot exist.
-        digits = re.search(r"-?\d{1,2}", party_text)
-        if digits:
-            party = int(digits.group())
-            if 1 <= party <= 20:
-                context.party_size = party
+        # A minus or a party outside 1 to 20 is not stored. "HKD -100" is not a budget of 100.
+        party = figure_count(party_text, 1, 20)
+        if party is not None:
+            context.party_size = party
 
     budget_text = labeled.get("budget")
     if budget_text:
-        amount_match = re.search(r"-?[0-9][0-9,]*(?:\.[0-9]+)?", budget_text)
-        if amount_match:
-            amount = float(amount_match.group().replace(",", ""))
-            if amount >= 0:
-                context.budget = amount
+        amount = figure_money(budget_text)
+        if amount is not None:
+            context.budget = amount
         code = re.search(
             r"\b(USD|EUR|GBP|JPY|HKD|CNY|SGD|THB|TWD|KRW|AUD|CAD)\b", budget_text, re.I
         )

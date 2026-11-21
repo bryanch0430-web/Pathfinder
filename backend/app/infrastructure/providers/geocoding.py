@@ -109,6 +109,29 @@ class GoogleGeocoder:
         _GEOCODE_CACHE[cache_key] = location
         return location
 
+    async def match_share(self, name: str) -> float | None:
+        """How sure one hit is this name. Several hits, or a partial hit, is a low share. None when the search cannot say."""
+        if not self.available:
+            return None
+        data = await search_request(
+            "https://maps.googleapis.com/maps/api/geocode/json",
+            source=self.name,
+            params={"address": name, "language": "en", "key": self._key},
+            timeout=self.settings.http_timeout_seconds,
+            retries=self.settings.http_retries,
+            user_agent=self.settings.user_agent,
+        )
+        if str(data.get("status") or "") != "OK":
+            return None
+        rows = data.get("results") or []
+        if not rows:
+            return None
+        partial = any(bool(row.get("partial_match")) for row in rows)
+        if len(rows) == 1 and not partial:
+            return 1.0
+        share = 1.0 / len(rows)
+        return share * 0.5 if partial else share
+
 
 class TentativeLocation(GeoLocation):
     """A match too obscure to trust for a bare name; the chain keeps it only as a last resort."""
@@ -255,6 +278,20 @@ class GeocoderChain:
             return fallback
         if failures:
             raise self._failure(failures)
+        return None
+
+    async def match_share(self, name: str) -> float | None:
+        """The first source that can say how sure it is. A source without that number is skipped."""
+        for source in self.sources:
+            ask = getattr(source, "match_share", None)
+            if ask is None:
+                continue
+            try:
+                share = await ask(name)
+            except Exception:
+                continue
+            if isinstance(share, (int, float)) and not isinstance(share, bool):
+                return max(0.0, min(1.0, float(share)))
         return None
 
     @staticmethod

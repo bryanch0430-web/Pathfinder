@@ -29,7 +29,7 @@ def test_health_and_session_flow(client: TestClient) -> None:
     created = client.post("/api/journeys", json={"client_token": "test"})
     assert created.status_code == 200
     session_id = created.json()["session"]["id"]
-    assert created.json()["context"]["party_size"] == 2
+    assert created.json()["context"]["party_size"] is None
 
     patched = client.patch(
         f"/api/journeys/{session_id}/state",
@@ -49,6 +49,31 @@ def test_health_and_session_flow(client: TestClient) -> None:
     state = client.get(f"/api/journeys/{session_id}", headers=GUEST)
     assert state.status_code == 200
     assert state.json()["context"]["destination"] == "Kyoto"
+
+    cleared = client.patch(
+        f"/api/journeys/{session_id}/state",
+        json={
+            "destination": "",
+            "origin": "",
+            "start_date": None,
+            "end_date": None,
+            "days": None,
+            "party_size": None,
+            "budget": None,
+            "preferences": [],
+            "hard_constraints": [],
+        },
+        headers=GUEST,
+    )
+    assert cleared.status_code == 200
+    blank = cleared.json()["context"]
+    assert blank["destination"] == ""
+    assert blank["origin"] == ""
+    assert blank["start_date"] is None
+    assert blank["end_date"] is None
+    assert blank["days"] is None
+    assert blank["party_size"] is None
+    assert blank["budget"] is None
 
 
 def test_blocked_message_does_not_reach_planning(client: TestClient) -> None:

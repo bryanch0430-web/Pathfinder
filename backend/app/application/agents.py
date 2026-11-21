@@ -149,6 +149,12 @@ PLACES_PER_DAY = 3
 MAX_PLACE_CANDIDATES = 20
 
 
+def _food_query(context: TripContext) -> str | None:
+    """The meal search a food wish asks for ("must-eat: sushi" looks for a sushi restaurant)."""
+    wishes = food_wishes(context)
+    return f"{wishes[0]} restaurant" if wishes else None
+
+
 def place_candidate_limit(days: int) -> int:
     """How many place candidates a trip of `days` days asks for and keeps."""
     return min(max(MIN_PLACE_CANDIDATES, days * PLACES_PER_DAY), MAX_PLACE_CANDIDATES)
@@ -267,12 +273,16 @@ class AttractionAgent(BaseAgent):
                     request,
                     "places.notes",
                     source.search,
-                    query=f"{request.context.destination} travel guide attractions",
+                    query=_guide_query(request.context.destination),
                     limit=3,
                     window_months=self.settings.search_window_months,
                     timeout=min(self.settings.agent_timeout_seconds, 15.0),
                 )
+                city = _guide_city(request.context.destination)
+                sights = {place.name.casefold() for place in places if place.name}
                 for note in results:
+                    if not _about_this_trip(note.title, note.snippet, city, sights):
+                        continue
                     notes.append(note.model_dump(mode="json"))
                     self._record(request, [{"note": notes[-1]}])
                 sources.extend(
@@ -1099,6 +1109,27 @@ def _merge_places(places: list[PlaceCandidate]) -> list[PlaceCandidate]:
     for place in merged:
         place.geo = _agreed_geo(points[id(place)]) or place.geo
     return merged
+
+
+def _guide_city(destination: str) -> str:
+    return destination.split(",")[0].strip()
+
+
+def _guide_query(destination: str) -> str:
+    """A guide search for this city, not the words "travel guide" on their own."""
+    city = _guide_city(destination)
+    return f"{city} travel guide" if city else destination
+
+
+def _about_this_trip(title: str, snippet: str, city: str, sights: set[str]) -> bool:
+    """A video stays only when its title or description names the city or a sight on the plan."""
+    text = f"{title} {snippet}".casefold()
+    token = city.casefold()
+    if not token:
+        return True
+    if token in text:
+        return True
+    return any(sight and sight in text for sight in sights)
 
 
 def _dedupe_sources(sources: list[SourceRef]) -> list[SourceRef]:

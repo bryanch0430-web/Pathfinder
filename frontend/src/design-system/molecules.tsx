@@ -459,7 +459,7 @@ export function TripContextForm({
                     value={row.city}
                     onChange={(event) => setRow(index, { city: event.target.value })}
                     onFocus={() => setActiveRow(index)}
-                    placeholder={index === 0 ? "Kyoto" : ""}
+                    placeholder=""
                     autoComplete="off"
                     maxLength={TRIP_FIELD_MAX_LENGTH}
                     list={`${id}-destination-options`}
@@ -531,7 +531,7 @@ export function TripContextForm({
             id={`${id}-origin`}
             value={values.origin ?? ""}
             onChange={(event) => onChange({ origin: event.target.value })}
-            placeholder="Hong Kong"
+            placeholder=""
             autoComplete="off"
             maxLength={TRIP_FIELD_MAX_LENGTH}
           />
@@ -578,7 +578,7 @@ export function TripContextForm({
               step="any"
               value={values.budget ?? ""}
               onChange={(event) => onChange({ budget: event.target.value ? Number(event.target.value) : null })}
-              placeholder="400000"
+              placeholder=""
             />
             <Select
               aria-label={t("form.currency")}
@@ -655,7 +655,7 @@ export function TripContextForm({
                 className="pf-preference-tags__input"
                 value={prefInput}
                 aria-label={t("settings.addPreference")}
-                placeholder={preferenceTags.length ? t("settings.addAnother") : t("settings.preferencesExample")}
+                placeholder={preferenceTags.length ? t("settings.addAnother") : ""}
                 onChange={(event) => setPrefInput(event.target.value)}
                 onKeyDown={(event) => {
                   if ((event.key === "Enter" || event.key === ",") && !isImeKey(event)) {
@@ -681,7 +681,7 @@ export function TripContextForm({
                 onChange({ hard_constraints: limitList(splitList(event.target.value), TRIP_LINES_MAX, TRIP_LINE_MAX_LENGTH) });
               }}
               // The planner reads "must include …" in English, so the example stays English.
-              placeholder="must include Fushimi Inari"
+              placeholder=""
             />
             <LimitNote full={splitList(constraintText).length >= TRIP_LINES_MAX} />
           </Field>
@@ -765,6 +765,7 @@ export function ClarifyCard({
     if (!raw) return false;
     const amount = Number(raw);
     if (slot === "party_size") return !Number.isFinite(amount) || amount < 1 || amount > 20;
+    if (slot === "days") return !Number.isFinite(amount) || amount < 1 || amount > 60;
     if (slot === "budget") return !Number.isFinite(amount) || amount < 0;
     return false;
   };
@@ -788,9 +789,9 @@ export function ClarifyCard({
           return (
             <Field key={slot} label={label} wide={slot === "destination"}>
               <Input
-                type={isDate ? "date" : slot === "party_size" || slot === "budget" ? "number" : "text"}
-                min={slot === "party_size" ? 1 : slot === "budget" ? 0 : undefined}
-                max={slot === "party_size" ? 20 : undefined}
+                type={isDate ? "date" : slot === "party_size" || slot === "budget" || slot === "days" ? "number" : "text"}
+                min={slot === "party_size" || slot === "days" ? 1 : slot === "budget" ? 0 : undefined}
+                max={slot === "party_size" ? 20 : slot === "days" ? 60 : undefined}
                 invalid={badNumber(slot)}
                 value={values[slot] ?? ""}
                 onChange={(event) => onChange(slot, event.target.value)}
@@ -1346,7 +1347,9 @@ export function DaySection({
     <section className="pf-day" ref={innerRef} aria-label={dayLabel}>
       <div className="pf-day__head">
         <div className="pf-stack" style={{ gap: 2 }}>
-          <span className="pf-day__date">{dayLabel} · {day.date}</span>
+          <span className="pf-day__date">
+            {dayLabel.toUpperCase()} · {new Date(`${day.date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase()}
+          </span>
           <span className="pf-day__title">{day.title || dayLabel}</span>
           {typeof day.elevation_gain_m === "number" && day.elevation_gain_m > 0 ? (
             <span className="pf-muted">↑ {t("day.climb", { m: Math.round(day.elevation_gain_m) })}</span>
@@ -1560,18 +1563,32 @@ export function PlaceCard({
 }
 
 export function PlanFeedback({
+  finalized = false,
   verdict,
+  stars = null,
   added = [],
+  onFinalise,
   onUseful,
   onNotUseful,
 }: {
+  finalized?: boolean;
   verdict: "useful" | "not_useful" | null;
   stars?: number | null;
   added?: string[];
-  onUseful: () => void;
+  onFinalise?: () => void;
+  onUseful: (stars?: number) => void;
   onNotUseful: () => void;
 }) {
   const { t } = useI18n();
+  if (!finalized) {
+    return (
+      <div className="pf-plan-feedback">
+        <button type="button" className="pf-plan-feedback__button" onClick={onFinalise}>
+          {t("feedback.finalise")}
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="pf-plan-feedback">
       {verdict === "useful" ? (
@@ -1583,17 +1600,36 @@ export function PlanFeedback({
         <span className="pf-plan-feedback__not">{t("feedback.markedNotUseful")}</span>
       ) : (
         <>
-          <button type="button" className="pf-plan-feedback__button" onClick={onUseful}>
-            <Icon name="star" size={12} /> {t("saved.useful")}
+          <span className="pf-day__date">{t("feedback.question")}</span>
+          <button type="button" className="pf-plan-feedback__button" onClick={() => onUseful()}>
+            {t("saved.useful")}
           </button>
           <button type="button" className="pf-plan-feedback__button" onClick={onNotUseful}>
             {t("feedback.notUseful")}
           </button>
+          <span className="pf-row">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                key={value}
+                type="button"
+                className="pf-plan-feedback__button"
+                aria-label={t("feedback.stars", { count: value })}
+                onClick={() => onUseful(value)}
+              >
+                <Icon name="star" size={12} />
+                {value}
+              </button>
+            ))}
+          </span>
         </>
       )}
+      {verdict === "useful" && stars ? (
+        <span className="pf-plan-feedback__added">{t("feedback.saved", { stars })}</span>
+      ) : null}
       {verdict === "useful" && added.length ? (
         <span className="pf-plan-feedback__added">+ {added.slice(0, 3).join(", ")}</span>
       ) : null}
+      {verdict ? <span className="pf-muted">{t("feedback.frozen")}</span> : null}
     </div>
   );
 }

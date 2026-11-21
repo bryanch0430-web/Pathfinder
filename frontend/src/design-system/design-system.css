@@ -2957,6 +2957,7 @@ button.pf-badge:hover {
   display: flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   font-size: var(--p30-type-size-body-xs);
   color: var(--pf-ink-secondary);
 }
@@ -2969,8 +2970,16 @@ button.pf-badge:hover {
   flex: none;
 }
 
+.pf-legend__row > span:not(.pf-legend__amount) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .pf-legend__amount {
   margin-left: auto;
+  flex: none;
+  white-space: nowrap;
   font-family: var(--p30-type-family-mono);
   color: var(--pf-ink);
 }

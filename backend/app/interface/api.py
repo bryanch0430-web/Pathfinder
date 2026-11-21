@@ -975,12 +975,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         context = c.store.get_context(session_id) or TripContext(session_id=session_id)
         was = (context.budget, context.currency.upper(), context.start_date)
         data = payload.model_dump(exclude_unset=True)
+        # A field the form sent as null is being cleared. Omitting it leaves the stored value, which is
+        # what made a cleared form come back with its old dates, party and budget.
+        clearable = {"start_date", "end_date", "days", "party_size", "budget"}
         for key, value in data.items():
-            if value is not None:
-                if key in {"with_children", "purpose", "step_free"}:
+            if value is None and key not in clearable:
+                continue
+            if key in {"with_children", "purpose", "step_free"}:
+                if value is not None:
                     context.profile = context.profile.model_copy(update={key: value})
-                else:
-                    setattr(context, key, [TripStop.model_validate(row) for row in value] if key == "stops" else value)
+            else:
+                setattr(context, key, [TripStop.model_validate(row) for row in value] if key == "stops" else value)
         # "Plan anyway" was said of the budget and the start date the form had: other ones are checked again.
         if (context.budget, context.currency.upper()) != was[:2]:
             context.budget_confirmed = False
@@ -1476,6 +1481,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 pass
         return {"rooms": [room.model_dump(mode="json") for room in rooms]}
 
+    @app.post("/api/journeys/{session_id}/finalise")
+    async def finalise(session_id: str, request: Request) -> dict[str, Any]:
+        """Freeze the plan. Nothing is written to preferences until the traveller rates it."""
+        c = container(request)
+        require_session(c, request, session_id)
+        if c.store.get_plan(session_id) is None:
+            raise HTTPException(status_code=404, detail="No plan for this session")
+        context = c.store.get_context(session_id) or TripContext(session_id=session_id)
+        context.finalized = True
+        c.store.save_context(context)
+        return {"context": context.model_dump(mode="json")}
+
     @app.post("/api/journeys/{session_id}/rating")
     async def feedback(
         session_id: str,
@@ -1488,6 +1505,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plan = c.store.get_plan(session_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="No plan for this session")
+        context = c.store.get_context(session_id)
+        if context is None or not context.finalized:
+            raise HTTPException(status_code=409, detail="Finalise the plan before rating it.")
         token = (payload.client_token or session.client_token).strip()
         if token and payload.useful:
             # Derived preferences go to the caller's own profile only.
@@ -1508,7 +1528,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 owner=session.owner or None,
             )
             if token:
-                context = c.store.get_context(session_id)
                 derived = derive_preferences(plan, context)
                 existing = c.store.get_preferences(token)
                 merged: list[str] = list(existing.preferences) if existing else []
@@ -1624,6 +1643,28 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         identity = resolve_identity(request, c, payload.client_token if payload else "")
         cleared = c.store.clear_memory(identity)
         return {"cleared": True, **cleared}
+
+    @app.get("/api/wishlist/{saved_id}")
+    async def saved_trip(request: Request, saved_id: str, client_token: str = Query(default="", max_length=TOKEN_MAX_LENGTH)) -> dict[str, Any]:
+        c = container(request)
+        trip = c.store.saved_trip_for_owner(resolve_identity(request, c, client_token), saved_id)
+        if trip is None:
+            raise HTTPException(status_code=404, detail="That saved trip was not found.")
+        days = []
+        if trip.plan is not None:
+            for day in trip.plan.days:
+                days.append({
+                    "date": day.date.isoformat() if hasattr(day.date, "isoformat") else str(day.date),
+                    "title": day.title,
+                    "items": [item.name for item in day.items],
+                })
+        return {
+            "id": trip.id,
+            "destination": trip.destination,
+            "summary": trip.summary,
+            "stars": trip.stars,
+            "days": days,
+        }
 
     @app.get("/api/wishlist")
     async def saved_trips(

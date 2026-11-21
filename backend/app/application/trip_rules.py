@@ -191,6 +191,34 @@ def flight_windows(flights: Iterable[dict], dates: Iterable[date]) -> dict[date,
     return windows
 
 
+def keep_morning_on_a_short_trip(windows: dict[date, "DayWindow"], dates: Iterable[date]) -> None:
+    """A night landing on a one- or two-day trip must not erase the city.
+
+    The arrival evening stays a travel evening. If the flight home also closes the
+    only other morning, keep 90 minutes to reach the airport instead of 210, so
+    one stop still fits before the flight.
+    """
+    trip = list(dates)
+    if not trip or len(trip) > 2:
+        return
+    landed_late = any(
+        window.start is not None and window.start >= 20 * 60
+        for window in windows.values()
+        if "flight arrival" in window.texts
+    )
+    if not landed_late:
+        return
+    for window in windows.values():
+        if window.end is None or "flight departure" not in window.texts:
+            continue
+        leave = window.end + DEPARTURE_BUFFER_MINUTES
+        softer = leave - 90
+        if softer - 9 * 60 >= 75 and window.end - 9 * 60 < 75:
+            window.end = softer
+            if "one morning before the flight" not in window.texts:
+                window.texts.append("one morning before the flight")
+
+
 def must_include(text: str) -> str | None:
     lower = text.lower()
     if re.search(r"\b(?:do not|don't|not|never|exclude|without)\s+(?:include|visit)\b", lower):
