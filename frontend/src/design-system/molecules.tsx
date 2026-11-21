@@ -758,6 +758,17 @@ export function ClarifyCard({
   const { t } = useI18n();
   const choices = payload.choices ?? [];
   const slotsOnly = payload.slots.length > 0;
+  // A number the trip could not take (a party of -2) flags its field and holds Continue;
+  // an empty field is just unanswered and the backend still re-asks anything missing.
+  const badNumber = (slot: string): boolean => {
+    const raw = (values[slot] ?? "").trim();
+    if (!raw) return false;
+    const amount = Number(raw);
+    if (slot === "party_size") return !Number.isFinite(amount) || amount < 1 || amount > 20;
+    if (slot === "budget") return !Number.isFinite(amount) || amount < 0;
+    return false;
+  };
+  const blocked = payload.slots.some(badNumber);
   return (
     <div className="pf-clarify">
       <div className="pf-row">
@@ -778,6 +789,9 @@ export function ClarifyCard({
             <Field key={slot} label={label} wide={slot === "destination"}>
               <Input
                 type={isDate ? "date" : slot === "party_size" || slot === "budget" ? "number" : "text"}
+                min={slot === "party_size" ? 1 : slot === "budget" ? 0 : undefined}
+                max={slot === "party_size" ? 20 : undefined}
+                invalid={badNumber(slot)}
                 value={values[slot] ?? ""}
                 onChange={(event) => onChange(slot, event.target.value)}
                 placeholder={slot === "budget" ? "400000" : undefined}
@@ -836,7 +850,7 @@ export function ClarifyCard({
               : t("clarify.free")}
         </Text>
         {slotsOnly ? (
-          <Button variant="primary" size="sm" onClick={() => onSubmit()} loading={submitting} iconRight="send">
+          <Button variant="primary" size="sm" onClick={() => onSubmit()} loading={submitting} disabled={blocked} iconRight="send">
             {t("common.continue")}
           </Button>
         ) : null}

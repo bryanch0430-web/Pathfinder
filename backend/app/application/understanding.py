@@ -49,6 +49,17 @@ PREFERENCE_PATTERNS = {
     "food": r"\bfood|restaurant|eat\b",
 }
 
+#: Words that say the message may hold a food or experience wish the rules never read ("for the sushi",
+#: "for the onsen"). A cue only asks the writer to look; it never writes a wish itself. Generic interest
+#: words ("food", "museums") are left out: the rule tags above already read those. Ceiling: a wish with no
+#: cue word ("for the omakase" before it was listed) still slips through when every slot is filled.
+_WISH_CUE = re.compile(
+    r"\b(?:foodie|cuisine|taste|tasting|coffee|café|ramen|sushi|seafood|barbecue|bbq|omakase|izakaya|"
+    r"dim\s*sum|hot\s*pot|noodles?|dumplings?|dessert|street\s*food|night\s*market|onsen|festival|anime|"
+    r"manga|gundam|karaoke|nightlife|snorkel\w*|diving|surf\w*|skiing|snowboard\w*)\b",
+    re.IGNORECASE,
+)
+
 CITY_HINTS = [
     "Hong Kong",
     "Kyoto",
@@ -135,6 +146,7 @@ async def understand(
     today: date | None = None,
     history: Sequence[Message] = (),
     settings: Any | None = None,
+    has_plan: bool = False,
 ) -> TripContext:
     today = today or date.today()
     updated = context.model_copy(deep=True)
@@ -152,9 +164,13 @@ async def understand(
 
     # The writer is only asked to fill slots the rules could not fill. On a
     # complete context it is skipped entirely: a hotel swap must never silently
-    # rewrite the trip dates, and the common turn stays fast.
+    # rewrite the trip dates, and the common turn stays fast. The one exception:
+    # a new trip whose message may hold a food or experience wish the rules do
+    # not read ("for the sushi", "to eat ramen"). The cue pattern decides only
+    # WHEN to ask; what the words mean is the model's call, never the pattern's.
     missing = updated.missing_slots()
-    if gateway.available and missing:
+    wish_cue = not has_plan and not missing and _WISH_CUE.search(message) is not None
+    if gateway.available and (missing or wish_cue):
         from app.application.skills import skill_by_name
 
         wish = skill_by_name("read-a-wish")
@@ -306,7 +322,8 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
             if family:
                 token = family.group(1)
                 party = NUMBER_WORDS.get(token, int(token) if token.isdigit() else None)
-    if party:
+    if party and party <= 20:
+        # "99 people" does not fit the trip form's own limit, so the slot stays open and is asked again.
         context.party_size = party
 
     # duration
@@ -322,7 +339,8 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         days = 14
     elif re.search(r"\bweekend\b", lower):
         days = 2
-    if days:
+    if days and days <= 60:
+        # Same ceiling as the trip form: a longer stated length is not a plan, so the slot stays open.
         context.days = days
 
     # budget: currency symbol or code plus amount. Blanks are matched only after a word or a symbol, and a
@@ -508,7 +526,7 @@ _ROUTE_EDIT = re.compile(r"\b(?:add|remove|drop|skip|swap|(?:best|nearest)\s+ord
 _NIGHTS_IN = re.compile(r"\b\d{1,2}\s+nights?\s+in\b")
 
 #: The words after which a place in a sentence is read as the destination.
-_PLACE_CUES = ["to", "in", "visit", "explore", "around"]
+_PLACE_CUES = ["to", "in", "visit", "explore", "around", "about"]
 
 
 def _find_place(lower: str, prepositions: list[str], origin: str | None = None) -> str | None:
@@ -569,11 +587,55 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
                 and candidate.lower() != origin_lower
                 and not (prep == "to" and first_word in _VERBS_AFTER_TO)
                 and first_word not in prepositions
+                and first_word not in _NOT_A_CUE_START  # "about money exchange", "about breakfast buffet"
             ):
                 unknown.append((_side_mention(lower, match.start()), match.start(), candidate.title()))
                 break
+            if prep == "to" and first_word in _VERBS_AFTER_TO:
+                # "want to go Phu Quoc": the verb hides the cue. Two or more words after it may name the
+                # place; one word is too often a thing to do ("to eat sushi"), so it is left alone. An
+                # article after the verb ("to confirm the late check-in") means no place follows it.
+                words = candidate.split()[1:]
+                if words and words[0].lower() not in _NOT_A_NAME_START:
+                    rest = _unknown_name(" ".join(words), origin_lower)
+                    if rest and len(rest.split()) >= 2:
+                        unknown.append((_side_mention(lower, match.start()), match.start(), rest))
+                        break
             start = match.start() + 1  # "want to go to Porto": the first "to" is no cue, the next one is
-    return min(unknown)[2] if unknown else None
+    if unknown:
+        return min(unknown)[2]
+
+    # 5. "<name> trip/itinerary/holiday" with a name the hint list does not hold ("Phu Quoc trip for 5 days").
+    for match in re.finditer(r"\b([a-z][a-z .'-]{2,40}?)\s+(?:trip|itinerary|holiday|vacation|break)\b", lower):
+        raw = match.group(1).strip(" .")
+        candidate = _until_name_ends(raw)
+        if candidate == raw:  # a cut at "from"/"to" means the words are no name ("flights from Porto trip")
+            name = _unknown_name(candidate, origin_lower)
+            if name:
+                return name
+
+    # 5b. "plan <name>": the planning verb cues the place ("plan Sapa for me").
+    match = re.search(
+        r"\bplan\s+([a-z][a-z .'-]{2,40}?)(?=\s+(?:for|with|from|on|in|next|this|and|please)\b|[,.!?]|$)", lower
+    )
+    if match:
+        raw = match.group(1).strip(" .")
+        candidate = _until_name_ends(raw)
+        if candidate == raw:
+            name = _unknown_name(candidate, origin_lower)
+            if name:
+                return name
+
+    # 6. "Phu Quoc, 5 days, 2 people": the message opens with the place, then gives the trip's numbers.
+    match = re.match(r"\s*([a-z][a-z .'-]{2,40}?)\s*,", lower)
+    if match and re.search(r"\b\d{1,2}\s*(?:days?|nights?|people|persons?|travellers?|travelers?|adults?|pax)\b", lower):
+        raw = match.group(1).strip(" .")
+        candidate = _until_name_ends(raw)
+        if candidate == raw:
+            name = _unknown_name(candidate, origin_lower)
+            if name:
+                return name
+    return None
 
 
 def _side_mention(lower: str, position: int) -> bool:
@@ -582,6 +644,10 @@ def _side_mention(lower: str, position: int) -> bool:
     destination only when the sentence names no other place."""
     return re.search(r"\b(?:stop-?over|layover|stop|live|lives|living|based|born|grew up)\s+$", lower[max(0, position - 12) : position]) is not None
 
+
+#: The first word of a cued phrase that is a thing, not a place, however many words follow it ("about money
+#: exchange", "to breakfast buffet"). "The Maldives" keeps its article: only these nouns reject.
+_NOT_A_CUE_START = frozenset("money breakfast brunch lunch dinner everything anything nothing".split())
 
 #: A verb that follows "to" in "love to see Lyon" (not after "in" or "visit": "3 days in Do Son"): the place comes after it,
 #: so it is not part of the name.
@@ -653,6 +719,14 @@ _GENERIC_PLACES = {
     "countryside",
     "station",
     "airport",
+    "breakfast",
+    "brunch",
+    "lunch",
+    "dinner",
+    "money",
+    "everything",
+    "anything",
+    "nothing",
     "winter",
     "summer",
     "spring",
@@ -707,6 +781,36 @@ def _valid_place(candidate: str) -> bool:
     if value in NUMBER_WORDS or value in {"a", "an", "the"}:
         return False
     return True
+
+
+#: A word before "trip" that names the kind of trip, not a place ("road trip", "business trip"). A place named like
+#: one of these still works through a cue ("to Road Town"). Ceiling: a city whose bare name is also a trip kind is
+#: missed without a cue; the gazetteer never sees it.
+_NOT_A_TRIP_NAME = frozenset("road business family solo honeymoon camping backpacking girls boys guys".split())
+
+
+def _unknown_name(candidate: str, origin_lower: str) -> str | None:
+    """The candidate as a place name, or None. Leading filler ("plan a ...") is dropped; what is left must be
+    name words only. The gazetteer still has the last word: nothing here is stored without its say-so."""
+    words = candidate.strip(" .,'").split()
+    lead = _NOT_A_NAME_START | {"plan", "planned", "planning"}
+    while words and words[0].lower() in lead:
+        words = words[1:]
+    lowered = [word.lower() for word in words]
+    if not words or not _valid_place(" ".join(words)) or " ".join(lowered) == origin_lower:
+        return None
+    if lowered[0] in _VERBS_AFTER_TO:  # a verb starts an action ("eat sushi"), not a name ("Do Son" is the ceiling)
+        return None
+    if any(
+        word in _GENERIC_PLACES
+        or word in _NOT_A_PLACE
+        or word in _NOT_AN_ORIGIN
+        or word in _NOT_A_TRIP_NAME
+        or word in NUMBER_WORDS
+        for word in lowered
+    ):
+        return None
+    return " ".join(words).title()
 
 
 #: The apostrophes a name may hold: the typewriter one, the curly ones a phone types and the Hawaiian okina ("Coeur d’Alene").
@@ -800,7 +904,8 @@ _NOT_A_DAY = frozenset(
 _NOT_AN_ORIGIN = frozenset(
     (
         "home work office school scratch terminal gate airline airlines airways carrier carriers abroad overseas "
-        "somewhere anywhere everywhere nowhere here there noon midnight unknown none tbd tba flexible same different"
+        "somewhere anywhere everywhere nowhere here there noon midnight unknown none tbd tba flexible same different "
+        "anyway anyways"
     ).split()
 )
 #: The last word of a name that is a building, a part of a city or what comes from one, not a city.
@@ -1426,15 +1531,21 @@ def _apply_labeled(context: TripContext, labeled: dict[str, str], today: date) -
         or labeled.get("party_size")
     )
     if party_text:
-        digits = re.search(r"\d{1,2}", party_text)
+        # Signed read: "party size: -2" is not 2. Out-of-range answers leave the slot empty, so the
+        # traveller is asked again instead of planning for a party that cannot exist.
+        digits = re.search(r"-?\d{1,2}", party_text)
         if digits:
-            context.party_size = int(digits.group())
+            party = int(digits.group())
+            if 1 <= party <= 20:
+                context.party_size = party
 
     budget_text = labeled.get("budget")
     if budget_text:
-        amount_match = re.search(r"[0-9][0-9,]*(?:\.[0-9]+)?", budget_text)
+        amount_match = re.search(r"-?[0-9][0-9,]*(?:\.[0-9]+)?", budget_text)
         if amount_match:
-            context.budget = float(amount_match.group().replace(",", ""))
+            amount = float(amount_match.group().replace(",", ""))
+            if amount >= 0:
+                context.budget = amount
         code = re.search(
             r"\b(USD|EUR|GBP|JPY|HKD|CNY|SGD|THB|TWD|KRW|AUD|CAD)\b", budget_text, re.I
         )

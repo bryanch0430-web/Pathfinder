@@ -187,15 +187,76 @@ def strip_language_phrases(message: str) -> str:
     return text
 
 
-_CUISINE = re.compile(
-    r"\b(japanese|sushi|ramen|chinese|korean|thai|italian|indian|french|vietnamese)\b", re.IGNORECASE
+_CUISINES = (
+    "japanese", "sushi", "ramen", "chinese", "dim sum", "korean", "thai", "italian", "indian", "french",
+    "vietnamese",
 )
+_CUISINE = re.compile(r"\b(" + "|".join(_CUISINES) + r")\b", re.IGNORECASE)
 
 
 def cuisine_slot(message: str) -> str | None:
-    """The ``cuisine`` slot. A language phrase ("in Traditional Chinese") never fills it."""
-    match = _CUISINE.search(strip_language_phrases(message))
-    return match.group(1).lower() if match else None
+    """The ``cuisine`` slot. A language phrase ("in Traditional Chinese") never fills it.
+
+    An exact word wins first. With none, one wrong letter is still that cuisine ("sushii"
+    is sushi): the writer model reads most typos, and this is the fallback for when it did
+    not name a place. Words under five letters ("thai") are exact-only — a one-letter slip
+    on four letters is too often another word.
+    """
+    text = strip_language_phrases(message)
+    match = _CUISINE.search(text)
+    if match:
+        return match.group(1).lower()
+    for word in re.findall(r"[a-z]+", text.lower()):
+        close = _close_cuisine(word)
+        if close:
+            return close
+    return None
+
+
+def _close_cuisine(word: str) -> str | None:
+    """The cuisine one edit away from ``word``, or None. Two letters typed the wrong way round count as one slip."""
+    return close_word(word, _CUISINES)
+
+
+def close_word(word: str, choices: tuple[str, ...] | frozenset) -> str | None:
+    """The choice one edit away from ``word`` ("restaruant" is "restaurant"), or None. Choices under five letters
+    are exact-only — a one-letter slip on four letters is too often another word."""
+    return next(
+        (
+            choice
+            for choice in choices
+            if len(choice) >= 5
+            and abs(len(choice) - len(word)) <= 1
+            and (_letter_edits(word, choice) <= 1 or _swap_fix(word, choice))
+        ),
+        None,
+    )
+
+
+def _swap_fix(word: str, cuisine: str) -> bool:
+    """Two next-to-each-other letters typed the wrong way round: "shusi" is "sushi"."""
+    if len(word) != len(cuisine):
+        return False
+    diffs = [index for index, (left, right) in enumerate(zip(word, cuisine)) if left != right]
+    return (
+        len(diffs) == 2
+        and diffs[1] == diffs[0] + 1
+        and word[diffs[0]] == cuisine[diffs[1]]
+        and word[diffs[1]] == cuisine[diffs[0]]
+    )
+
+
+def _letter_edits(left: str, right: str) -> int:
+    """How many single-character edits turn ``left`` into ``right``. Used only for a one-letter typo."""
+    previous = list(range(len(right) + 1))
+    for index, char in enumerate(left, start=1):
+        current = [index]
+        for other_index, other in enumerate(right, start=1):
+            current.append(
+                min(current[-1] + 1, previous[other_index] + 1, previous[other_index - 1] + (char != other))
+            )
+        previous = current
+    return previous[-1]
 
 
 _REFRESH = re.compile(

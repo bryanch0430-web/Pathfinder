@@ -43,10 +43,23 @@ from app.application.persona import identity_reply
 from app.application.clarification import Clarifier, SLOT_LABELS
 from app.application.freshness import LABELS as FRESHNESS_LABELS
 from app.application.freshness import FreshnessService
-from app.application.language import chinese_input_reply, refresh_reply, set_language_reply, unsupported_reply
+from app.application.language import (
+    chinese_input_reply,
+    cuisine_slot,
+    refresh_reply,
+    set_language_reply,
+    unsupported_reply,
+)
 from app.application.llm_gateway import LLMGateway
 from app.application.memory import MemoryService
-from app.application.modification import HOME_FACTS, EditQuestion, ModifyPath, answers_the_home_question, plan_shape
+from app.application.modification import (
+    HOME_FACTS,
+    EditQuestion,
+    ModifyPath,
+    _imperative_edit,
+    answers_the_home_question,
+    plan_shape,
+)
 from app.application.proposals import decision_record, proposal_changes
 from app.application.planning import PlanPath
 from app.application.escalation import is_stuck, keeps_the_planner, queue_reason, should_escalate
@@ -83,6 +96,7 @@ from app.domain.models import (
     Message,
     RouteDecision,
     TripContext,
+    TripPlan,
     TurnEvent,
     new_id,
     utcnow,
@@ -540,7 +554,10 @@ class TurnService:
             # yes, no or doubt, goes back to that edit whatever a router would make of it. A request of its own ("plan
             # a trip to Osaka", "make day 2 lighter") is understood and routed as any message is, and the question
             # is dropped.
-            captured = pending is not None and pending.fact in HOME_FACTS and answers_the_home_question(message)
+            captured = pending is not None and (
+                (pending.fact in HOME_FACTS and answers_the_home_question(message))
+                or _answers_pending_question(pending, message, plan)
+            )
             answering = pending if captured else None
             # A link in the message, or an attached PDF or picture, is read first: what it says about a trip
             # fills the form's empty fields, and the message is then understood and routed without the link.
@@ -560,7 +577,9 @@ class TurnService:
                     locked_places[pending_place["slot"]] = pending_place["name"]
             with tracer.span("understand"):
                 try:
-                    context = await understand(understood, context, self.gateway, history=history, settings=self.settings)
+                    context = await understand(
+                        understood, context, self.gateway, history=history, settings=self.settings, has_plan=plan is not None
+                    )
                     route_overflow = context.route_overflow
                 except CanaryLeak:
                     raise
@@ -795,6 +814,25 @@ class TurnService:
                         "reason_code": "meal_swap" if about_food else "item_swap",
                         "missing_slots": [],
                         "affected_parts": ["meal"] if about_food else (decision.affected_parts or ["attraction"]),
+                    }
+                )
+            # "ok other suggestion for dim sum restaruant?": JEV often returns modify at 0.76 and the
+            # threshold would clarify forever. A cuisine + suggestion/another is already an edit.
+            if (
+                plan is not None
+                and decision.intent == Intent.MODIFY
+                and decision.need_clarification
+                and str(decision.reason_code).startswith("below_threshold")
+                and cuisine_slot(message)
+                and re.search(r"\b(?:another|other|suggest(?:ion)?s?|replace|swap|change)\b", message, re.IGNORECASE)
+            ):
+                decision = decision.model_copy(
+                    update={
+                        "need_clarification": False,
+                        "confidence": max(decision.confidence, 0.9),
+                        "reason_code": "meal_suggestion",
+                        "missing_slots": [],
+                        "affected_parts": ["meal"],
                     }
                 )
             intent = decision.intent
@@ -1644,6 +1682,13 @@ class TurnService:
             message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
         )
         meta: dict[str, Any] = {"clarify": True, "slots": slots}
+        if plan is not None and not slots:
+            # The question is about what to change ("Would you like a sushi restaurant near X, Y, or Z?"): the
+            # answer on the next turn completes the message that was asked about, so it is kept the way an
+            # edit's own question keeps its request.
+            meta["edit_question"] = True
+            meta["fact"] = "intent"
+            meta["request"] = message[:600]
         if suggestions:
             meta["place_suggestions"] = [
                 {"slot": slot, "asked": asked, "name": found} for slot, asked, found in suggestions
@@ -1976,6 +2021,26 @@ def _pending_edit_question(history: Sequence[Message]) -> EditQuestion | None:
         return None
     meta = rows[-1].meta
     return EditQuestion(rows[-1].content, fact=str(meta.get("fact") or ""), request=str(meta.get("request") or ""))
+
+
+def _answers_pending_question(pending: EditQuestion, message: str, plan: TripPlan | None) -> bool:
+    """True when the message picks an option the pending question named, or names a stop of the plan: "Kiss
+    Bridge" after "Would you like a sushi restaurant near Sunworld, Sunset Town, or Kiss Bridge?". The router
+    reads such a short answer as a chat of its own, so it is matched here, before routing. A longer message, or
+    one that asks for a change, is a request of its own and routes as one; the pending question is then dropped,
+    as it always was."""
+    text = " ".join(message.casefold().strip(" \t?.!,").split())
+    if len(text) < 3 or len(text) > 60 or _imperative_edit(message):
+        return False
+    if text in pending.question.casefold():
+        return True
+    if plan is None:
+        return False
+    return any(
+        item.name.strip() and re.search(rf"\b{re.escape(item.name.casefold())}\b", text) is not None
+        for day in plan.days
+        for item in day.items
+    )
 
 
 def _scope_line(metadata: dict[str, Any]) -> str:

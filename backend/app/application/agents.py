@@ -16,7 +16,7 @@ from difflib import SequenceMatcher
 from typing import Any, Awaitable, Callable
 
 from app.application.toolbox import Toolbox
-from app.application.trip_rules import place_wishes, wish_matches
+from app.application.trip_rules import food_wishes, place_wishes, wish_matches
 from app.config import Settings
 from app.domain.errors import ProviderError, ToolBudgetExceeded
 from app.domain.models import (
@@ -28,6 +28,7 @@ from app.domain.models import (
     DateRange,
     FailureKind,
     GeoLocation,
+    GeoPoint,
     HotelCandidate,
     NoteItem,
     PlaceCandidate,
@@ -153,6 +154,12 @@ def place_candidate_limit(days: int) -> int:
     return min(max(MIN_PLACE_CANDIDATES, days * PLACES_PER_DAY), MAX_PLACE_CANDIDATES)
 
 
+def _food_query(context: TripContext) -> str | None:
+    """The meal search a food wish asks for ("must-eat: sushi" looks for a sushi restaurant)."""
+    wishes = food_wishes(context)
+    return f"{wishes[0]} restaurant" if wishes else None
+
+
 #: Lookups in a row that may fail before the agent stops asking the geocoder. Each can take the
 #: whole lookup timeout, so asking a dead service about every guide place would outlast the
 #: pre-planning budget before its failure was ever reported.
@@ -200,6 +207,12 @@ class AttractionAgent(BaseAgent):
             # An edit whose candidates are all in the plan asks for more; never past the cap any trip has.
             wanted = min(max(wanted, asked), MAX_PLACE_CANDIDATES)
 
+        search_geo = request.destination.geo
+        anchor = request.extra.get("anchor_geo")
+        if isinstance(anchor, dict) and isinstance(anchor.get("lat"), (int, float)) and isinstance(anchor.get("lng"), (int, float)):
+            # "near the day 2 stops": an edit asked for a place around them, not around the city centre.
+            search_geo = GeoPoint(lat=float(anchor["lat"]), lng=float(anchor["lng"]))
+
         for source in self.registry.places:
             if not getattr(source, "available", True):
                 continue
@@ -209,7 +222,7 @@ class AttractionAgent(BaseAgent):
                     "places.search",
                     source.search,
                     destination=request.context.destination,
-                    geo=request.destination.geo,
+                    geo=search_geo,
                     category="attraction",
                     limit=wanted,
                     query=request.extra.get("places_query"),
@@ -232,10 +245,10 @@ class AttractionAgent(BaseAgent):
                     "places.search",
                     source.search,
                     destination=request.context.destination,
-                    geo=request.destination.geo,
+                    geo=search_geo,
                     category="restaurant",
                     limit=6,
-                    query=request.extra.get("meals_query"),
+                    query=request.extra.get("meals_query") or _food_query(request.context),
                 )
                 if results:
                     restaurants = _merge_places(restaurants + results)

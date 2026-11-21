@@ -24,7 +24,7 @@ from app.application.day_rewrite import (
     touch_days,
 )
 from app.application.freshness import FLIGHT_CHECKS, _flight_checks, outdated_sections
-from app.application.language import cuisine_slot, language_slot
+from app.application.language import _letter_edits, close_word, cuisine_slot, language_slot
 from app.application.meals import image_of
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
 from app.application.plan_focus import date_named, day_number_named, focus_day
@@ -334,6 +334,12 @@ class ModifyPath:
             # "Whole day for Ocean Park, no other attractions": one tick per removal and one for the long clock.
             # Read here, before the writer, so a "remove" guess cannot delete the place they named.
             return exclusive
+        answer = message
+        if answering is not None and answering.request and not _imperative_edit(message):
+            # The message answers the question an earlier edit asked ("Mong Kok" to "Where do you live?", "Kiss
+            # Bridge" to "near which stop?"): the edit and its answer are read as one request, so the writer sees
+            # the whole of it. The raw answer stays in `answer` for the home and dismissal checks below.
+            message = f"{answering.request} ({message.strip()})"
         draft = await self._extract(
             message, plan, context, route_parts, history=history, scope_item_id=scope_item_id
         )
@@ -346,11 +352,6 @@ class ModifyPath:
             return await edit_route(
                 self, plan=plan, context=context, change=added, message=message, toolbox=toolbox, tracer=tracer, emit=emit
             )
-        answer = message
-        if answering is not None and answering.request and not _imperative_edit(message):
-            # The message answers the question an earlier edit asked ("Mong Kok" to "Where do you live?"): the rules
-            # below read that edit together with its answer. The writer read both in the conversation.
-            message = f"{answering.request} ({message.strip()})"
         asked_for_home = answering is not None and answering.fact in HOME_FACTS
         home = _stated_home(draft, answer, history, asked_for_home=asked_for_home)
         # The home is what the edit adds ("add the place I live", the answer to "Where do you live?"), or only where
@@ -556,8 +557,10 @@ class ModifyPath:
             # neither the stop to edit nor, by the words of its name ("Garden"), a wish for a garden.
             message = _stay_as_word(message, place.name)
         # Naming a hotel or a stop in a request for other dates does not turn it into a single-row edit.
-        # More stops are added to a day: the stop selected or named only says which day.
-        referred = None if dates_move or whole_trip or more_stops else resolve_referred(plan, message, scope_item_id)
+        # More stops are added to a day: the stop selected or named only says which day. An answer to the edit's
+        # own question is a fact inside that request, not a pointer at a row: the request decides the scope.
+        scope_source = answering.request if answering is not None and answering.request else message
+        referred = None if dates_move or whole_trip or more_stops else resolve_referred(plan, scope_source, scope_item_id)
         if (
             referred is not None
             and referred == scope_item_id
@@ -743,9 +746,15 @@ class ModifyPath:
             place=skill_place or None,
             hotel=hotel_named,
         )
+        anchor = _day_anchor(plan, draft, message)
+        if anchor is not None and not hotel_named:
+            # "near the day 2 stops": the search for the new place centres on that day, not the city centre.
+            search_extra = {**(search_extra or {}), "anchor_geo": {"lat": anchor.lat, "lng": anchor.lng}}
         # A sure "move" is not also an add of a place named "day 3".
+        # A sure "replace" ("other suggestion for dim sum", "replace X with another Y") must not fall into
+        # add because the word "another" looks like a new stop — that path never swaps the target.
         add_requested = skill_op == "add" or (
-            skill_op != "move"
+            skill_op not in {"move", "replace"}
             and (
                 _ADD_REQUEST.search(lower_message) is not None
                 or more_stops
@@ -927,7 +936,11 @@ class ModifyPath:
             places = payload.get("places") or []
             meals = payload.get("meals") or []
             if add_requested:
-                if places and not _fresh_places(updated, places, message, named=named or None) and AgentName.ATTRACTION in needed:
+                # A meal request ("another dim sum restaurant") eats from the dining candidates too: the
+                # restaurant search fills the meals bucket, and a pool of sights alone refuses a real table.
+                meal_request = bool(_cuisine(message) or _MEAL_WORDS.search(message))
+                pool = [*places, *meals] if meal_request else list(places)
+                if pool and not _fresh_places(updated, pool, message, named=named or None) and AgentName.ATTRACTION in needed:
                     # Every candidate the lookup returned is already in the plan: the source is asked again, for as
                     # many as a trip may ask for, by the same agent through the same toolbox and its cap.
                     places = await self._more_places(
@@ -939,9 +952,10 @@ class ModifyPath:
                         message=message,
                         place=named or None,
                     ) or places
+                    pool = [*places, *meals] if meal_request else list(places)
                 before_add = {item.id for _, item in updated.iter_items()}
                 added, warnings = run_apply(
-                    updated, places, message, day=day_scope, named=named or None
+                    updated, pool, message, day=day_scope, named=named or None
                 )
                 for text in warnings:
                     updated.data_quality.gaps.append(_gap("attractions", text))
@@ -1818,8 +1832,13 @@ def _replace_target(
     if item.locked or item.confirmed:
         return False
     activity = _activity(prefer_name)
+    # "dim sum restaurant" is a kind, not a name: name-match would empty the pool, and a random
+    # alternative on the stop is not a cuisine answer either.
+    if prefer_name and _is_a_kind(prefer_name):
+        cuisine = cuisine or _cuisine(prefer_name)
+        prefer_name = None
     named_place = bool(prefer_name and not _is_a_wish(prefer_name) and activity is None)
-    if not named_place and activity is None:
+    if not named_place and activity is None and not cuisine:
         from app.application.choices import swap_option
 
         used = {other.name for _, other in _items_in_order(plan)}
@@ -1865,11 +1884,7 @@ def _replace_target(
         pool = local
     if cuisine:
         hints = _CUISINE_HINTS.get(cuisine, (cuisine,))
-        matched = [
-            row
-            for row in pool
-            if any(hint in f"{row.get('name', '')} {row.get('description', '')}".lower() for hint in hints)
-        ]
+        matched = [row for row in pool if _row_matches_cuisine(row, hints)]
         if not matched:
             return False
         pool = matched
@@ -1895,11 +1910,23 @@ _CUISINE_HINTS = {
     "sushi": ("sushi", "japanese"),
     "ramen": ("ramen", "japanese"),
     "chinese": ("chinese", "cantonese", "dim sum", "sichuan"),
+    "dim sum": ("dim sum", "dimsum", "cantonese", "dumpling"),
     "korean": ("korean", "barbecue"),
     "thai": ("thai",),
     "italian": ("italian", "pizza", "pasta"),
     "indian": ("indian", "curry"),
 }
+
+
+def _row_matches_cuisine(row: dict, hints: tuple[str, ...]) -> bool:
+    """True when the source row says the cuisine: name, description, cuisine field, or tags."""
+    said = (
+        f"{row.get('name', '')} {row.get('description', '')} {row.get('cuisine') or ''} "
+        f"{' '.join(str(tag) for tag in row.get('tags') or [])}"
+        .lower()
+        .replace("_", " ")
+    )
+    return any(hint in said for hint in hints)
 
 
 def _cuisine(message: str) -> str | None:
@@ -1942,6 +1969,32 @@ def _activity_query(place: str | None, message: str) -> str | None:
     phrase = _requested_alternative_text(message) or ""
     found = _activity(phrase)
     return found[0] if found else None
+
+
+#: "near the day 2 stops", "around day 3": the new place belongs near them, not near the city centre.
+_NEAR_A_DAY = re.compile(r"\b(?:near|nearby|around|close to|next to)\b", re.IGNORECASE)
+
+
+def _day_anchor(plan: TripPlan, draft: ChangeDraft, message: str) -> GeoPoint | None:
+    """The middle of the stops of the day the message names, when it asks for a place near them. A stop the
+    message names ("near Kiss Bridge", or the answer to "near which stop?") anchors on that stop itself."""
+    if _NEAR_A_DAY.search(message) is None:
+        return None
+    number = draft.target_day or day_number_named(message)
+    if number is None or not 1 <= number <= len(plan.days):
+        return None
+    items = plan.days[number - 1].items
+    lowered = message.casefold()
+    for item in items:
+        if item.geo is not None and item.name.strip() and re.search(rf"\b{re.escape(item.name.casefold())}\b", lowered):
+            return item.geo
+    geos = [item.geo for item in items if item.geo is not None]
+    if not geos:
+        return None
+    return GeoPoint(
+        lat=sum(point.lat for point in geos) / len(geos),
+        lng=sum(point.lng for point in geos) / len(geos),
+    )
 
 
 def _search_extra(message: str, *, place: str | None = None, hotel: bool = False) -> dict[str, str] | None:
@@ -2297,7 +2350,10 @@ def _is_a_kind(phrase: str) -> bool:
         # No English kind word. A name in another script is still a name.
         return not any(char.isalpha() for char in phrase)
     kinds = _KIND_WORDS | set(_ADD_KEYWORDS)
-    if words[-1] in _MEAL_KINDS and _cuisine(phrase):
+    # A mistyped meal word is still a meal word when a cuisine stands next to it: "dim sum restaruant" is a kind.
+    # Only long kinds: one wrong letter on a five-letter word is too often a name ("Sushi Palace", not "place").
+    long_kinds = tuple(kind for kind in _MEAL_KINDS if len(kind) >= 6)
+    if (words[-1] in _MEAL_KINDS or close_word(words[-1], long_kinds) is not None) and _cuisine(phrase):
         return True
     words = [word for word in words if word not in _QUANTITY_WORDS]
     if not words:
@@ -2332,9 +2388,15 @@ def _named_place(message: str) -> str | None:
             and not _is_a_kind(cleaned)
             and not _is_only_a_day(cleaned)
             and not _is_a_wish(cleaned)
+            and cleaned.lower() not in _SHARED_PRONOUNS
         ):
             return cleaned
     return None
+
+
+#: Words that point at material the traveller shared or at earlier candidates, never at a place's name
+#: ("add these to day 2", "put the ones I sent on day 3").
+_SHARED_PRONOUNS = frozenset({"these", "those", "them", "the ones", "them all", "all of them"})
 
 
 def _matches_name(found: str, wanted: str) -> bool:
@@ -2361,19 +2423,6 @@ def _matches_name(found: str, wanted: str) -> bool:
     ):
         return True
     return False
-
-
-def _letter_edits(left: str, right: str) -> int:
-    """How many single-character edits turn ``left`` into ``right``. Used only for a one-letter typo."""
-    previous = list(range(len(right) + 1))
-    for index, char in enumerate(left, start=1):
-        current = [index]
-        for other_index, other in enumerate(right, start=1):
-            current.append(
-                min(current[-1] + 1, previous[other_index] + 1, previous[other_index - 1] + (char != other))
-            )
-        previous = current
-    return previous[-1]
 
 
 def _other_script(text: str) -> bool:
@@ -3161,7 +3210,12 @@ def _missing_fact_question(
         return _one_question(draft.question) or HOME_QUESTION, HOME_FACT
     missing = " ".join(strip_fence_tags(draft.missing_info or "").split())[:120]
     # The writer's own question counts only for a fact it says is missing: an edit it could read is done, not asked.
-    if missing:
+    # A fact a search can find (a restaurant or place near the stops) is not asked for: the add below searches for it.
+    if missing and not re.search(
+        r"\b(?:restaurant|cafe|café|food|meal|eatery|diner|shop|store|place|venue|spot|bar|pub|bakery|market|"
+        r"museum|park|attraction|sight|landmark|shrine|temple|gallery|zoo|aquarium)\b",
+        missing.lower(),
+    ):
         fact = HOME_FACT if re.search(r"\b(?:live|lives|home|house|flat|address)\b", missing.lower()) else missing
         return _one_question(draft.question) or f"Could you tell me {missing.rstrip('.?')}?", fact
     if anchored or not _imperative_edit(message):
@@ -3302,7 +3356,17 @@ def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: st
     activity = _activity(named)
     if activity is not None:
         named = ""
-    wanted = [] if named else [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
+    cuisine_kind = None
+    if named and _is_a_kind(named):
+        # The draft carried a kind into the name slot ("dim sum restaurant"): a name match would refuse every
+        # real table, so its cuisine is matched against what the source says about the place instead.
+        cuisine_kind = _cuisine(named)
+        named = ""
+    wanted = (
+        []
+        if named or cuisine_kind
+        else [word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())]
+    )
     pool = []
     for row in places:
         if not row.get("name") or not row.get("source_refs") or _already_planned(plan, row):
@@ -3314,7 +3378,15 @@ def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: st
         if named and not any(_matches_name(label, named) for label in _row_labels(row)):
             continue
         text = f"{row.get('name', '')} {row.get('description', '')}".lower()
-        if wanted and not any(word in text for word in wanted):
+        if cuisine_kind:
+            said = (
+                f"{text} {row.get('cuisine') or ''} {' '.join(str(tag) for tag in row.get('tags') or [])}"
+                .lower()
+                .replace("_", " ")
+            )
+            if cuisine_kind.lower() not in said:
+                continue
+        elif wanted and not any(word in text for word in wanted):
             continue
         pool.append(row)
     if named and not pool and _other_script(named):
@@ -3847,6 +3919,16 @@ def _late_slot(day: DayPlan) -> tuple[str, str] | None:
     return "18:30", "19:30"
 
 
+#: "add these to day 2", "the places I shared": the message points at material the traveller shared. What it
+#: named is stored as must-see wishes, and the place search located and tagged those rows "requested".
+_SHARED_REF = re.compile(
+    r"\b(?:these|those|them|all of them|the ones)\b|"
+    r"\b(?:i|we)\s+(?:shared|sent|uploaded)\b|"
+    r"\bfrom\s+the\s+(?:screenshot|screen\s*shot|pdf|file|list|photo|picture|image|doc(?:ument)?)\b",
+    re.IGNORECASE,
+)
+
+
 def _add_attractions(
     plan: TripPlan, places: list[dict], message: str, *, day: int | None = None, named: str | None = None
 ) -> list[str]:
@@ -3860,6 +3942,12 @@ def _add_attractions(
         r"\b(?:two|2)\s+(?:more\s+)?(?:museums?|attractions?|stops?|places?)\b|\ba couple\b",
         message.lower(),
     ) else 1
+    requested = [row for row in pool if "requested" in (row.get("tags") or [])]
+    if requested and _SHARED_REF.search(message):
+        # "add these to day 2": every shared place the search located, not just the first of the pool.
+        # ponytail: capped at 4; a day holds about that many stops, and the slot finder refuses the rest.
+        pool = requested + [row for row in pool if row not in requested]
+        count = max(count, min(len(requested), 4))
     day_number = day or _rule_day(message)
     if not (day_number and 1 <= day_number <= len(plan.days)):
         # "8 March" is a date of the trip, not "day 8".
@@ -3897,10 +3985,15 @@ def _add_attractions(
 
 def _append_row(plan: TripPlan, day: DayPlan, row: dict, start: str, end: str, *, seq: int) -> str:
     """Write one source row onto a day at a clock time that does not overlap another stop."""
-    item_id = f"item_{row.get('id', seq)}"
     existing_ids = {item.id for day_plan in plan.days for item in day_plan.items}
-    if item_id in existing_ids:
-        item_id = f"item_added_{seq}_{row.get('id', 'x')}"
+    # Candidate search reuses short ids (p2, m1). A prior add already claimed item_added_0_p2 for sushi,
+    # so one fallback is not enough — bump until the id is free.
+    stem = row.get("id") or "x"
+    item_id = f"item_{stem}"
+    n = 0
+    while item_id in existing_ids:
+        item_id = f"item_added_{seq}_{stem}" if n == 0 else f"item_added_{seq}_{stem}_{n}"
+        n += 1
     hours, hours_status = _stated_hours(row, day.date)
     item = PlanItem(
         opening_hours=hours,

@@ -52,6 +52,28 @@ def test_labeled_clarify_answer_fills_slots_without_rewriting_destination(settin
     assert updated.currency == "HKD"
 
 
+def test_labeled_answer_rejects_impossible_numbers(settings: Settings) -> None:
+    context = TripContext(session_id="s", destination="Japan")
+    message = "Here are the missing details — party size: -2; budget: HKD -100; origin: Hong Kong; dates: This weekend."
+
+    updated = asyncio.run(understand(message, context, _gateway(settings), today=TODAY))
+
+    # An impossible party or budget is not a slot value: it stays missing and is asked again.
+    assert updated.party_size is None
+    assert updated.budget is None
+    assert updated.origin == "Hong Kong"
+    assert updated.start_date == TODAY
+
+
+def test_rules_reject_a_party_above_the_form_limit(settings: Settings) -> None:
+    context = TripContext(session_id="s", destination="Japan")
+
+    updated = asyncio.run(understand("99 people to Japan from Hong Kong", context, _gateway(settings), today=TODAY))
+
+    assert updated.party_size is None
+    assert updated.origin == "Hong Kong"
+
+
 def test_missing_slots_reports_dates_once() -> None:
     context = TripContext(
         session_id="s", destination="London", origin="Hong Kong", party_size=2, budget=5000

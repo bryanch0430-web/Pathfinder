@@ -11,3 +11,4 @@ A place to go and a thing to see are different slots.
 - Set origin only when the message says the trip leaves from that place ("from Hong Kong", "leaving Osaka"). Never copy the destination into origin.
 - A country is the destination. Do not invent a city inside it. Leave the city for a later question.
 - "to see X" and "to visit X" are wishes when X is not a city the trip is going to. Write one preference, "must-see: X".
+- "to eat X", "for the sushi", "for the food scene", "to try the ramen", "for the onsen" are food and experience wishes. Write one preference, "must-eat: X", with X the food, cuisine or activity in the traveller's words. A named restaurant or a named place stays "must-see: X". A food wish is never the destination, even when the sentence names no city.

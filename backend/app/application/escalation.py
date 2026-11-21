@@ -262,6 +262,44 @@ def _reply_failed(
     return _failed_edit(reply, content)
 
 
+#: Words a repeated question shares by grammar, not by meaning ("Which stop...?", "Which day...?"). Only a
+#: shared word outside this set marks the same question asked again.
+_QUESTION_FILLER = frozenset(
+    "which what where when who whom whose how why would could should shall will can may might do does did "
+    "is are was were you your yours i me my we us our they them their it its this that these those there "
+    "here a an the to of in on at for with and or not no yes ok okay please tell know let add change make "
+    "like want need prefer one ones any some".split()
+)
+
+
+def _question_runs(turns: list[tuple[str, Any, Any, str]]) -> list[int]:
+    """The turn indices of every run of 2+ consecutive assistant questions that share a content word.
+
+    "Which sushi restaurant would you like to add?" asked three times is a loop the plan never leaves,
+    however it is rephrased; two different clarifying questions ("Where to?", "When?") share no content
+    word and are a normal chat.
+    """
+    asked: list[tuple[int, set[str]]] = []
+    for index, (_, _, _, content) in enumerate(turns):
+        if "?" in content:
+            words = {word for word in tokens(content) if word not in _QUESTION_FILLER and len(word) >= 4}
+            asked.append((index, words))
+    stuck: list[int] = []
+    start = 0
+    for position in range(1, len(asked) + 1):
+        same = (
+            position < len(asked)
+            and asked[position][0] == asked[position - 1][0] + 1
+            and bool(asked[position][1] & asked[position - 1][1])
+        )
+        if same:
+            continue
+        if position - start >= 2:
+            stuck.extend(asked[j][0] for j in range(start, position))
+        start = position
+    return stuck
+
+
 def is_stuck(
     messages: list[Any],
     after: int = 3,
@@ -273,14 +311,14 @@ def is_stuck(
 ) -> bool:
     """True when the same words keep coming back on edits that left the plan unchanged.
 
-    ``after`` is how many of those failed edits must share one content word.
+    ``after`` is how many of those failed edits must share one content word. A run of replies that ask the
+    same question again also counts: the plan did not move, however the question is phrased.
     ``phrases`` and ``examples`` belong to the stuck part. Without them, the built-in reply check is used.
     """
     need = max(2, int(after))
-    failed: list[str] = []
+    turns: list[tuple[str, Any, Any, str]] = []  # user text, user message, assistant message, assistant text
     previous_user = ""
     previous_message: Any = None
-    own_phrases = phrases is not None
     for message in messages:
         role = getattr(message, "role", "")
         content = str(getattr(message, "content", "") or "")
@@ -290,21 +328,28 @@ def is_stuck(
             continue
         if role != "assistant" or not previous_user:
             continue
+        turns.append((previous_user, previous_message, message, content))
+    failed: list[str] = []
+    counted: set[int] = set()
+    own_phrases = phrases is not None
+    for index, (user_text, user_message, assistant_message, content) in enumerate(turns):
         failed_reply = (
             _reply_failed(
-                message,
+                assistant_message,
                 content,
                 engine=engine,
                 phrases=list(phrases or []),
                 examples=list(examples or []),
-                user=previous_message,
+                user=user_message,
                 bar=bar,
             )
             if own_phrases
-            else _failed_edit(message, content)
+            else _failed_edit(assistant_message, content)
         )
         if failed_reply:
-            failed.append(previous_user)
+            failed.append(user_text)
+            counted.add(index)
+    failed.extend(turns[index][0] for index in _question_runs(turns) if index not in counted)
     if len(failed) < need:
         return False
     sets = [tokens(text) for text in failed[-need:]]

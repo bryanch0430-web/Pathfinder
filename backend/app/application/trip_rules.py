@@ -228,7 +228,7 @@ def place_wishes(context: TripContext) -> list[str]:
             wishes.append(needle)
     for item in context.preferences:
         text = str(item).strip()
-        if text.lower().startswith("must-see:") or not 2 <= len(text) <= 60 or _is_rule_tag(text):
+        if text.lower().startswith(("must-see:", "must-eat:")) or not 2 <= len(text) <= 60 or _is_rule_tag(text):
             continue
         wishes.append(text)
     unique: list[str] = []
@@ -239,6 +239,19 @@ def place_wishes(context: TripContext) -> list[str]:
             seen.add(key)
             unique.append(wish)
     return unique[:MAX_WISHES]
+
+
+def food_wishes(context: TripContext) -> list[str]:
+    """Foods the traveller named as wishes ("must-eat: sushi"). A food is not a place: it is never
+    name-searched like one; the meal search asks for it instead."""
+    wishes: list[str] = []
+    for item in context.preferences:
+        text = str(item)
+        if text.lower().startswith("must-eat:"):
+            wish = text.split(":", 1)[1].strip()
+            if wish and wish.lower() not in {known.lower() for known in wishes}:
+                wishes.append(wish)
+    return wishes
 
 
 def _norm(text: str) -> str:

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.application.budget_check import PrePlanQuestion
+from app.application.understanding import _known_place
 from app.domain.models import GeoLocation, TripContext
 
 #: A trip shorter than this plans as it always did, whatever the place is.
@@ -41,6 +42,10 @@ async def whole_place_question(
     """The question for a one-stop trip to a whole country or region; None for several cities, a city, a short trip,
     or a place the geocoder cannot tell the kind of (or cannot find: planning reports that itself)."""
     if len(context.route) > 1 or not context.destination.strip():
+        return None
+    # A city the assistant knows by name is a city, whatever the geocoder calls the wider area it sits in:
+    # "Tokyo" geocodes as the Metropolis (a first-level region), "Singapore" as the country.
+    if _known_place(context.destination.strip()):
         return None
     days = context.days
     if days is None and context.start_date and context.end_date:
