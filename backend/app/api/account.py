@@ -158,7 +158,11 @@ async def clear_memory(request: Request) -> dict[str, Any]:
     if not identity:
         return {"cleared": False, "saved_trips": 0, "preferences": 0}
     wishlist = await c.store.list_wishlist(identity)
-    return {"cleared": True, "saved_trips": len(wishlist), "preferences": 0}
+    profile = await c.store.get_profile(identity) or {}
+    preferences = len(profile.get("preferences") or [])
+    await c.store.clear_wishlist(identity)
+    await c.store.clear_profile(identity)
+    return {"cleared": True, "saved_trips": len(wishlist), "preferences": preferences}
 
 
 @router.get("/api/wishlist")

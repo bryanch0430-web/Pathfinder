@@ -473,6 +473,12 @@ class Store:
 
         return await self._run(op)
 
+    async def clear_wishlist(self, identity: str) -> int:
+        def op(conn):
+            return conn.execute("DELETE FROM wishlist WHERE identity=?", (identity,)).rowcount
+
+        return await self._run(op)
+
     # -- evaluation ---------------------------------------------------
 
     async def save_eval_run(self, run: dict[str, Any]) -> None:

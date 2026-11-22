@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import sqlite3
+
 from fastapi.testclient import TestClient
 
 from app.api.app import create_app
@@ -170,3 +173,39 @@ def test_stuck_and_automatic_are_independent():
     no_stuck = {"phrases_on": True, "enabled": True, "stuck_on": False, "stuck_after": 3, "frustration_at": 0.5, "human_phrases": []}
     angry = parsed.model_copy(update={"frustration": 0.9})
     assert asyncio.run(_handoff_reason(Store(), "s", angry, no_stuck, "change it")) == "frustration"
+
+
+def test_clear_memory_removes_preferences_and_saved_trips(tmp_path):
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "tester"}
+        saved = client.patch(
+            "/api/traveller",
+            json={"client_token": "tester", "preferences": ["vegetarian", "slow pace"]},
+            headers=headers,
+        )
+        assert saved.status_code == 200
+        assert saved.json()["profile"]["preferences"] == ["vegetarian", "slow pace"]
+
+        # A finalised trip writes this row; insert it directly so the test does not
+        # need to drive a whole planning turn just to exercise the clear button.
+        db = sqlite3.connect(tmp_path / "api.db")
+        db.execute(
+            "INSERT INTO wishlist (id, session_id, identity, destination, summary, stars, body, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            ("saved-1", "session-1", "guest:tester", "Kyoto", "A saved trip", 5, json.dumps({}), "2026-11-23T00:00:00+00:00"),
+        )
+        db.commit()
+        db.close()
+
+        cleared = client.post("/api/recall/clear", json={"client_token": "tester"}, headers=headers)
+        assert cleared.status_code == 200
+        assert cleared.json() == {"cleared": True, "saved_trips": 1, "preferences": 2}
+
+        profile = client.get("/api/traveller", headers=headers).json()
+        assert profile["preferences"] == []
+        assert profile["saved_trips"] == 0
+
+        # Idempotent: a second press reports nothing left, not an error.
+        again = client.post("/api/recall/clear", json={"client_token": "tester"}, headers=headers)
+        assert again.status_code == 200
+        assert again.json() == {"cleared": True, "saved_trips": 0, "preferences": 0}
