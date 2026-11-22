@@ -1,0 +1,12 @@
+[
+  {"id": "ef01", "input": "Plan a 3-day Kyoto trip for 2 people, budget 3000 USD.", "expected_intent": "plan", "destination": "Kyoto", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ef02", "input": "What will the weather be like on day 1?", "expected_intent": "ask", "destination": "Kyoto", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ef03", "input": "Which hotel did you pick and why?", "expected_intent": "ask", "destination": "Tokyo", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ef04", "input": "Is Kiyomizu-dera worth visiting in the evening?", "expected_intent": "ask", "destination": "Kyoto", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ef05", "input": "Swap the hotel for the other option, keep everything else.", "expected_intent": "modify", "destination": "Kyoto", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ef06", "input": "Remove Gion from the plan.", "expected_intent": "modify", "destination": "Kyoto", "origin": "Hong Kong", "days": 3, "party_size": 2, "budget": 3000, "currency": "USD", "split": "dev"},
+  {"id": "ef07", "input": "Hmm, not sure yet.", "expected_intent": "unclear", "destination": "Hong Kong", "origin": "Singapore", "days": 3, "party_size": 2, "budget": 9000, "currency": "HKD", "split": "dev"},
+  {"id": "ef08", "input": "Plan a 2-day Tokyo trip for 1 person, budget 2000 USD.", "expected_intent": "plan", "destination": "Tokyo", "origin": "Hong Kong", "days": 2, "party_size": 1, "budget": 2000, "currency": "USD", "split": "heldout"},
+  {"id": "ef09", "input": "How far is the Star Ferry from the hotel?", "expected_intent": "ask", "destination": "Hong Kong", "origin": "Singapore", "days": 3, "party_size": 2, "budget": 9000, "currency": "HKD", "split": "heldout"},
+  {"id": "ef10", "input": "Swap the hotel for the other option.", "expected_intent": "modify", "destination": "New York", "origin": "London", "days": 3, "party_size": 2, "budget": 2500, "currency": "USD", "split": "heldout"}
+]
