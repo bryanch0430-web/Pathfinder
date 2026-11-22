@@ -960,15 +960,15 @@ async def _handoff_reason(
     """Why this turn should go to a person, or an empty string."""
     if parsed.wants_human:
         return "asked"
-    if not policy.get("enabled", True):
-        return ""
-    threshold = float(policy.get("frustration_at") or 0.75)
-    if float(parsed.frustration or 0) >= threshold:
-        return "frustration"
     if policy.get("stuck_on", True):
         count = await _stuck_count(store, session_id)
         if count >= int(policy.get("stuck_after") or 3):
             return "stuck"
+    if not policy.get("enabled", False):
+        return ""
+    threshold = float(policy.get("frustration_at") or 0.75)
+    if float(parsed.frustration or 0) >= threshold:
+        return "frustration"
     return ""
 
 
@@ -980,7 +980,7 @@ async def _stuck_count(store: Store, session_id: str) -> int:
 
 
 async def _bump_stuck(store: Store, session_id: str, policy: dict[str, Any]) -> int:
-    if not policy.get("enabled", True) or not policy.get("stuck_on", True):
+    if not policy.get("stuck_on", True):
         return 0
     count = await _stuck_count(store, session_id) + 1
     await store.set_kv(f"stuck:{session_id}", count)

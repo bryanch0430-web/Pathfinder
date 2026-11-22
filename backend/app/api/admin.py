@@ -28,7 +28,7 @@ DEFAULT_PATTERNS = {
 }
 
 ESCALATION_DEFAULT = {
-    "enabled": True,
+    "enabled": False,
     "message": "A travel designer will join this chat.",
     "frustration_at": 0.75,
     "match_mode": "examples",
