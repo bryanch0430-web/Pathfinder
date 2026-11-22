@@ -73,3 +73,11 @@ def test_runtime_shape_for_the_settings_page(tmp_path):
         assert set(config["thresholds"]) == {"router", "max_repairs", "turn_deadline"}
         assert config["capabilities"]["jev"] is False
         assert "reviewer" not in config
+
+
+def test_writer_call_settings_persist(tmp_path):
+    with _client(tmp_path) as client:
+        client.put("/api/admin/runtime", json={"writer_call": {"temperature": 0.4, "max_tokens": 1234}})
+        config = client.get("/api/runtime").json()
+        assert config["writer"]["temperature"] == 0.4
+        assert config["writer"]["max_tokens"] == 1234

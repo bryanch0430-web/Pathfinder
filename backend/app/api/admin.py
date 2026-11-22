@@ -51,9 +51,14 @@ async def save_runtime(request: Request) -> dict[str, Any]:
     c = container(request)
     body = await request.json()
     stored = await c.store.get_kv("runtime") or {}
-    for key in ("thresholds", "freshness_hours", "writer", "reviewer", "redaction", "gate", "writer_model", "models", "data_mode"):
+    for key in ("thresholds", "writer", "redaction", "writer_model", "data_mode"):
         if key in body and body[key] is not None:
             stored[key] = body[key]
+    # The Writer form saves temperature / max tokens / reasoning as writer_call.
+    if isinstance(body.get("writer_call"), dict):
+        call = {key: body["writer_call"][key] for key in ("temperature", "max_tokens", "reasoning") if key in body["writer_call"]}
+        if call:
+            stored["writer"] = {**(stored.get("writer") or {}), **call}
     if isinstance(body.get("poe"), dict):
         stored["poe"] = {key: value for key, value in body["poe"].items() if key == "api_key"}
     if isinstance(body.get("plain"), dict):
