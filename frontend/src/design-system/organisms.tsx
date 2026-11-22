@@ -4910,7 +4910,14 @@ export function SettingsView({
     sandbox?: boolean;
     poe_ready?: boolean;
     poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
-    models?: { default: string; purposes: Record<string, string> };
+    models?: {
+      default: string;
+      temperature?: number;
+      reasoning?: string;
+      purposes: Record<string, string>;
+      temperatures?: Record<string, number>;
+      reasoning_by_purpose?: Record<string, string>;
+    };
     writer_model?: string;
     reviewer?: ReviewerConfig;
     orchestrator?: {

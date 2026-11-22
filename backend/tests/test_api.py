@@ -90,11 +90,15 @@ def test_models_and_orchestrator_roundtrip(tmp_path):
             "/api/admin/runtime",
             json={
                 "purpose_models": {"plan": "planner-model", "verify": "verifier-model"},
+                "purpose_temperatures": {"plan": 0.5},
+                "purpose_reasoning": {"verify": "high"},
                 "orchestrator": {"mode": "jev", "jev": {"model": "jev-test", "url": "https://jev.test/systemone"}},
             },
         )
         config = client.get("/api/runtime").json()
         assert config["models"]["purposes"]["plan"] == "planner-model"
+        assert config["models"]["temperatures"]["plan"] == 0.5
+        assert config["models"]["reasoning_by_purpose"]["verify"] == "high"
         assert config["orchestrator"]["mode"] == "jev"
         assert config["orchestrator"]["jev"]["model"] == "jev-test"
         assert config["orchestrator"]["jev"]["url"] == "https://jev.test/systemone"
@@ -111,3 +115,27 @@ def test_per_purpose_model_wins_over_the_writer():
     assert client.model_for("plan") == "planner-model"
     assert client.model_for("ask") == "default-model"
     assert client.model_for("plan", "explicit") == "explicit"
+    assert client.temperature_for("ask") == settings.llm_temperature
+    assert client.reasoning_for("verify") == "none"
+    tuned = settings.model_copy(
+        update={"purpose_temperatures": {"plan": 0.9}, "purpose_reasoning": {"plan": "high"}}
+    )
+    tuned_client = LLMClient(tuned)
+    assert tuned_client.temperature_for("plan") == 0.9
+    assert tuned_client.reasoning_for("plan") == "high"
+
+
+def test_human_phrase_hands_off_even_when_automatic_is_off():
+    import asyncio
+    from app.understand.schemas import ParsedIntent
+    from app.turn.orchestrator import _handoff_reason
+
+    class Store:
+        async def get_kv(self, key):
+            return 0
+
+    parsed = ParsedIntent(intent="ask", confidence=1.0)
+    policy = {"enabled": False, "stuck_on": True, "human_phrases": ["live agent"]}
+    assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "can I talk to a live agent?")) == "asked"
+    assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "just saying hi")) == ""
+    assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "I do not want a live agent")) == ""

@@ -262,6 +262,8 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     jev_url = jev_override.get("url") or settings.decision_api_url
     jev_key = jev_override.get("api_key") or settings.decision_api_key
     purpose_models = overrides.get("purpose_models") or {}
+    purpose_temperatures = overrides.get("purpose_temperatures") or {}
+    purpose_reasoning = overrides.get("purpose_reasoning") or {}
     base, _key, model = settings.writer
     return {
         "version": "5.0.0",
@@ -279,7 +281,14 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "base_url": base,
         },
         "writer_model": writer_model,
-        "models": {"default": writer_model, "purposes": purpose_models},
+        "models": {
+            "default": writer_model,
+            "temperature": writer.get("temperature", settings.llm_temperature),
+            "reasoning": writer.get("reasoning", settings.llm_reasoning),
+            "purposes": purpose_models,
+            "temperatures": purpose_temperatures,
+            "reasoning_by_purpose": purpose_reasoning,
+        },
         "orchestrator": {
             "mode": turn_mode,
             "jev": {

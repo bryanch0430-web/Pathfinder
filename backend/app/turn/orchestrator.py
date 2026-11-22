@@ -204,11 +204,23 @@ async def _produce(
     await store.add_message(session_id, user_row.model_dump())
     session_row = await store.get_session(session_id)
     if session_row and session_row.get("held"):
-        agent = session_row.get("agent_name") or "A travel designer"
+        agent = (session_row.get("agent_name") or "").strip()
         note = session_row.get("note") or ""
-        reply = f"{agent} is with you now and will answer here." + (f" {note}" if note else "")
+        if agent:
+            reply = f"{agent} is with you now and will answer here." + (f" {note}" if note else "")
+        else:
+            reply = (
+                "You are in the travel-designer queue. An agent will accept this chat and reply "
+                "here; you can keep typing in the meantime."
+            )
         await _stream_text(push, reply)
-        await _save_assistant(store, session_id, reply, intent="ask", meta={"live_agent": True, "agent_name": agent})
+        await _save_assistant(
+            store,
+            session_id,
+            reply,
+            intent="ask",
+            meta={"live_agent": bool(agent), "queued": not bool(agent)},
+        )
         await _finish(push, trace, session_id=session_id, intent="ask")
         return
     await push("progress", {"phase": "understand", "message": "Reading your message.", "progress": 4})
@@ -286,7 +298,7 @@ async def _produce(
         await _finish(push, trace, session_id=session_id, intent="ask")
         return
     policy = await store.get_kv("escalation") or {}
-    handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy)
+    handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy, message)
     if handoff_reason:
         await _handoff(push, store, session_id, trace, handoff_reason)
         return
@@ -304,9 +316,7 @@ async def _produce(
 
     # -- clarify -------------------------------------------------------
     if route.need_clarification or (route.intent == "plan" and missing_for_plan(context)):
-        if await _bump_stuck(store, session_id, policy) >= int(policy.get("stuck_after") or 3) and policy.get("stuck_on", True):
-            await _handoff(push, store, session_id, trace, "stuck")
-            return
+        # A clarifying question is normal information gathering, not a stuck chat.
         clarify = understanding.clarify or _fallback_clarify(context, route)
         # The card carries the question and its choices; the chat line stays short so the
         # same sentence is not printed twice.
@@ -955,17 +965,29 @@ def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> Clari
 
 
 async def _handoff_reason(
-    store: Store, session_id: str, parsed: Any, policy: dict[str, Any]
+    store: Store, session_id: str, parsed: Any, policy: dict[str, Any], message: str = ""
 ) -> str:
     """Why this turn should go to a person, or an empty string."""
     if parsed.wants_human:
         return "asked"
+    lowered = (message or "").lower()
+    for phrase in policy.get("human_phrases") or []:
+        needle = str(phrase).strip().lower()
+        if not needle:
+            continue
+        index = lowered.find(needle)
+        if index < 0:
+            continue
+        before = lowered[max(0, index - 18):index]
+        if any(marker in before for marker in ("no ", "not ", "don't", "dont", "do not", "without")):
+            continue
+        return "asked"
+    if not policy.get("enabled", False):
+        return ""
     if policy.get("stuck_on", True):
         count = await _stuck_count(store, session_id)
         if count >= int(policy.get("stuck_after") or 3):
             return "stuck"
-    if not policy.get("enabled", False):
-        return ""
     threshold = float(policy.get("frustration_at") or 0.75)
     if float(parsed.frustration or 0) >= threshold:
         return "frustration"
@@ -980,7 +1002,7 @@ async def _stuck_count(store: Store, session_id: str) -> int:
 
 
 async def _bump_stuck(store: Store, session_id: str, policy: dict[str, Any]) -> int:
-    if not policy.get("stuck_on", True):
+    if not policy.get("enabled", False) or not policy.get("stuck_on", True):
         return 0
     count = await _stuck_count(store, session_id) + 1
     await store.set_kv(f"stuck:{session_id}", count)
@@ -992,11 +1014,11 @@ async def _reset_stuck(store: Store, session_id: str) -> None:
 
 
 async def _handoff(push, store: Store, session_id: str, trace: TurnTrace, reason: str) -> None:
-    await store.set_held(session_id, True, "Travel designer queue")
+    await store.set_held(session_id, True, "")
     replies = {
-        "asked": "I have asked a travel designer to join this chat. They will reply here and can take over the plan; you can keep typing in the meantime.",
-        "frustration": "I am sorry this is not working for you. I have asked a travel designer to join and take over the plan; they will reply here.",
-        "stuck": "We have been circling the same point, so I have asked a travel designer to join and take over. They will reply here; you can keep typing.",
+        "asked": "I have put this chat in the travel-designer queue. An agent will accept it and reply here; you can keep typing in the meantime.",
+        "frustration": "I am sorry this is not working for you. I have put this chat in the travel-designer queue so a person can take over; an agent will accept it and reply here.",
+        "stuck": "We have been circling the same point, so I have put this chat in the travel-designer queue. An agent will accept it and reply here; you can keep typing.",
     }
     reply = replies.get(reason, replies["asked"])
     trace.say(f"Escalated to a person ({reason}).")

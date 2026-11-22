@@ -4,7 +4,11 @@ import { Field } from "./molecules";
 
 type ModelsConfig = {
   default: string;
+  temperature?: number;
+  reasoning?: string;
   purposes: Record<string, string>;
+  temperatures?: Record<string, number>;
+  reasoning_by_purpose?: Record<string, string>;
 };
 
 type JevConfig = {
@@ -45,6 +49,10 @@ export function ModelsSettings({
   onSave: (body: Record<string, unknown>) => Promise<void> | void;
 }) {
   const [purposes, setPurposes] = useState<Record<string, string>>({ ...models.purposes });
+  const [temperatures, setTemperatures] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(models.temperatures ?? {}).map(([key, value]) => [key, String(value)])),
+  );
+  const [reasoning, setReasoning] = useState<Record<string, string>>({ ...(models.reasoning_by_purpose ?? {}) });
   const [mode, setMode] = useState<"analyst" | "jev">(orchestrator.mode === "jev" ? "jev" : "analyst");
   const [jevModel, setJevModel] = useState(orchestrator.jev.model);
   const [jevUrl, setJevUrl] = useState(orchestrator.jev.url);
@@ -59,8 +67,9 @@ export function ModelsSettings({
             <Text size="sm" weight="semibold">Models by part</Text>
             <Text size="xs" tone="tertiary">
               Each part can use its own model; leave a field blank to use the default writer
-              (<span className="pf-mono">{models.default || "not set"}</span>). All parts use the active
-              provider key, including a BYOK key.
+              (<span className="pf-mono">{models.default || "not set"}</span>). Each part can also set
+              its own temperature and reasoning effort; all parts use the active provider key,
+              including a BYOK key.
             </Text>
           </div>
           <Button size="sm" variant="ghost" onClick={() => setOpen((value) => !value)}>
@@ -71,12 +80,35 @@ export function ModelsSettings({
           <div className="pf-form-grid">
             {PARTS.map((part) => (
               <Field key={part.key} label={part.label} hint={part.hint} wide>
-                <Input
-                  value={purposes[part.key] ?? ""}
-                  placeholder="Default"
-                  disabled={!canEdit}
-                  onChange={(event) => setPurposes((current) => ({ ...current, [part.key]: event.target.value }))}
-                />
+                <div className="pf-row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <Input
+                    style={{ flex: "1 1 240px" }}
+                    value={purposes[part.key] ?? ""}
+                    placeholder="Default model"
+                    disabled={!canEdit}
+                    onChange={(event) => setPurposes((current) => ({ ...current, [part.key]: event.target.value }))}
+                  />
+                  <Input
+                    style={{ width: 120 }}
+                    value={temperatures[part.key] ?? ""}
+                    placeholder={`Temp ${models.temperature ?? 0.2}`}
+                    inputMode="decimal"
+                    disabled={!canEdit}
+                    onChange={(event) => setTemperatures((current) => ({ ...current, [part.key]: event.target.value }))}
+                  />
+                  <Select
+                    style={{ width: 170 }}
+                    value={reasoning[part.key] ?? ""}
+                    disabled={!canEdit}
+                    onChange={(event) => setReasoning((current) => ({ ...current, [part.key]: event.target.value }))}
+                  >
+                    <option value="">Reasoning: default</option>
+                    <option value="none">None</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </Select>
+                </div>
               </Field>
             ))}
           </div>
@@ -85,7 +117,22 @@ export function ModelsSettings({
           <Button
             variant="primary"
             disabled={!canEdit}
-            onClick={() => void onSave({ purpose_models: purposes })}
+            onClick={() => {
+              const cleanTemperatures: Record<string, number> = {};
+              for (const [key, value] of Object.entries(temperatures)) {
+                const number = Number(value);
+                if (value.trim() !== "" && Number.isFinite(number)) cleanTemperatures[key] = number;
+              }
+              const cleanReasoning: Record<string, string> = {};
+              for (const [key, value] of Object.entries(reasoning)) {
+                if (value) cleanReasoning[key] = value;
+              }
+              void onSave({
+                purpose_models: purposes,
+                purpose_temperatures: cleanTemperatures,
+                purpose_reasoning: cleanReasoning,
+              });
+            }}
           >
             Save models
           </Button>
@@ -93,12 +140,18 @@ export function ModelsSettings({
             disabled={!canEdit}
             onClick={() => {
               setPurposes({});
-              void onSave({ purpose_models: {} });
+              setTemperatures({});
+              setReasoning({});
+              void onSave({ purpose_models: {}, purpose_temperatures: {}, purpose_reasoning: {} });
             }}
           >
             Use the default for every part
           </Button>
         </div>
+        <Text size="xs" tone="tertiary">
+          Temperature applies to every model. Reasoning effort is sent only to OpenAI reasoning
+          models (GPT-5 / o-series); other providers store it but do not use it.
+        </Text>
       </div>
 
       <div className="pf-card pf-eval__panel">

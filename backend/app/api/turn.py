@@ -52,6 +52,24 @@ async def effective_settings(c: Container):
             for key, value in purpose_models.items()
             if str(value).strip()
         }
+    purpose_temperatures = overrides.get("purpose_temperatures")
+    if isinstance(purpose_temperatures, dict):
+        clean = {}
+        for key, value in purpose_temperatures.items():
+            try:
+                clean[str(key)] = max(0.0, min(2.0, float(value)))
+            except (TypeError, ValueError):
+                continue
+        update["purpose_temperatures"] = clean
+    purpose_reasoning = overrides.get("purpose_reasoning")
+    if isinstance(purpose_reasoning, dict):
+        update["purpose_reasoning"] = {
+            str(key): str(value).strip().lower()
+            for key, value in purpose_reasoning.items()
+            if str(value).strip().lower() in {"none", "low", "medium", "high"}
+        }
+    if writer.get("reasoning"):
+        update["llm_reasoning"] = str(writer["reasoning"])
     mode = overrides.get("data_mode")
     if mode in {"live", "atlas"}:
         update["sandbox"] = mode == "atlas"

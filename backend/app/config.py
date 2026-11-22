@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=60.0, alias="LLM_TIMEOUT_SECONDS")
     # Optional per-part models (same provider/key unless a separate key is added).
     purpose_models: dict[str, str] = Field(default_factory=dict, alias="PURPOSE_MODELS")
+    purpose_temperatures: dict[str, float] = Field(default_factory=dict, alias="PURPOSE_TEMPERATURES")
+    purpose_reasoning: dict[str, str] = Field(default_factory=dict, alias="PURPOSE_REASONING")
+    llm_reasoning: str = Field(default="none", alias="LLM_REASONING")
     turn_orchestrator: str = Field(default="analyst", alias="TURN_ORCHESTRATOR")
 
     openai_base_url: str = Field(default="", alias="OPENAI_BASE_URL")

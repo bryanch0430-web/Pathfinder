@@ -90,6 +90,21 @@ class LLMClient:
         configured = (self.settings.purpose_models or {}).get(purpose, "").strip()
         return (model or configured or self.model).strip()
 
+    def temperature_for(self, purpose: str, temperature: float | None = None) -> float:
+        if temperature is not None:
+            return temperature
+        configured = (self.settings.purpose_temperatures or {}).get(purpose)
+        if configured is None:
+            return self.settings.llm_temperature
+        try:
+            return max(0.0, min(2.0, float(configured)))
+        except (TypeError, ValueError):
+            return self.settings.llm_temperature
+
+    def reasoning_for(self, purpose: str) -> str:
+        configured = (self.settings.purpose_reasoning or {}).get(purpose)
+        return (configured or self.settings.llm_reasoning or "none").strip().lower()
+
     def _payload(
         self,
         *,
@@ -100,6 +115,7 @@ class LLMClient:
         max_tokens: int | None,
         json_mode: bool,
         stream: bool,
+        reasoning: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": model or self.model,
@@ -110,6 +126,11 @@ class LLMClient:
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
+        effort = (reasoning or "none").strip().lower()
+        # Only OpenAI reasoning models take reasoning_effort; Claude and others ignore it.
+        model_name = str(payload["model"]).lower()
+        if effort in {"low", "medium", "high"} and model_name.startswith(("gpt-5", "o1", "o3", "o4")):
+            payload["reasoning_effort"] = effort
         return payload
 
     async def _post(self, payload: dict[str, Any], *, purpose: str) -> dict[str, Any]:
@@ -167,10 +188,11 @@ class LLMClient:
             system=system,
             messages=[{"role": "user", "content": user}],
             model=chosen,
-            temperature=temperature,
+            temperature=self.temperature_for(purpose, temperature),
             max_tokens=max_tokens,
             json_mode=False,
             stream=False,
+            reasoning=self.reasoning_for(purpose),
         )
         data = await self._post(payload, purpose=purpose)
         choice = (data.get("choices") or [{}])[0]
@@ -205,10 +227,11 @@ class LLMClient:
             system=system,
             messages=[{"role": "user", "content": user}],
             model=chosen,
-            temperature=temperature,
+            temperature=self.temperature_for(purpose, temperature),
             max_tokens=max_tokens,
             json_mode=False,
             stream=True,
+            reasoning=self.reasoning_for(purpose),
         )
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         started = time.perf_counter()
@@ -296,10 +319,11 @@ class LLMClient:
                 system=system,
                 messages=messages,
                 model=chosen,
-                temperature=temperature if turn == 0 else 0.0,
+                temperature=self.temperature_for(purpose, temperature) if turn == 0 else 0.0,
                 max_tokens=max_tokens,
                 json_mode=True,
                 stream=False,
+                reasoning=self.reasoning_for(purpose),
             )
             try:
                 data = await self._post(payload, purpose=purpose)

@@ -25,6 +25,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
   const [stuckOn, setStuckOn] = useState(true);
   const [stuckAfter, setStuckAfter] = useState("3");
   const [message, setMessage] = useState("");
+  const [phrases, setPhrases] = useState("");
   const [prompts, setPrompts] = useState<PromptRow[]>([]);
   const [selected, setSelected] = useState("persona");
   const [draft, setDraft] = useState("");
@@ -38,6 +39,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
         setStuckOn(Boolean(policy.stuck_on));
         setStuckAfter(String(policy.stuck_after ?? 3));
         setMessage(policy.message || "");
+        setPhrases((policy.human_phrases || []).join("\n"));
       })
       .catch((cause) => setError(String(cause)));
     void getPrompts()
@@ -78,6 +80,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
         frustration_at: threshold,
         stuck_on: stuckOn,
         stuck_after: after,
+        human_phrases: phrases.split("\n").map((line) => line.trim()).filter(Boolean),
       });
       setEnabled(Boolean(saved.enabled));
       setFrustration(String(saved.frustration_at ?? threshold));
@@ -108,17 +111,17 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
       {show("handoff", "handoff live agent stuck frustration threshold") ? (
         <>
           <Text size="xs" tone="tertiary">
-            Two signals can bring a person in. An explicit request (“live agent”, “real person”)
-            always hands off, whatever these switches say. Keyword lists, example matching and the
-            Jev pre-gate were removed because v5 routes with the analyst only.
+            Automatic handoff is the master switch: when it is off, nothing hands the chat to the
+            desk except an explicit request (“live agent”, “real person”). Clarifying questions are
+            no longer counted as being stuck.
           </Text>
           <section className="pf-card pf-eval__panel pf-handoff">
-            <Text size="sm" weight="semibold">Frustration handoff</Text>
+            <Text size="sm" weight="semibold">Automatic handoff</Text>
             <Text size="xs" tone="tertiary">
-              The analyst estimates how unhappy the traveller is on a 0–1 scale. At or above this
-              threshold the chat is handed to the desk and the trip is held.
+              When this is on, a high frustration score or a stuck streak can hand the chat to the
+              desk. When it is off, only an explicit request brings a person in.
             </Text>
-            <Switch checked={enabled} onChange={setEnabled} label="Hand off when frustration is high" />
+            <Switch checked={enabled} onChange={setEnabled} label="Allow automatic handoff" />
             {enabled ? (
               <Field label="Frustration threshold (0–1)" hint="0.75 means clearly angry; 0.9 is reserved for the worst cases." wide>
                 <input
@@ -135,12 +138,33 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
             <Button variant="primary" onClick={() => void saveHandoff()}>Save this monitor</Button>
           </section>
           <section className="pf-card pf-eval__panel pf-handoff">
+            <Text size="sm" weight="semibold">Explicit request phrases</Text>
+            <Text size="xs" tone="tertiary">
+              When the traveller's message contains one of these phrases, the chat goes to the
+              queue for a person to accept, even while automatic handoff is off. One phrase per line.
+            </Text>
+            <Field label="Hand off when the traveller says" wide>
+              <Textarea
+                rows={5}
+                value={phrases}
+                onChange={(event) => setPhrases(event.target.value)}
+                placeholder="live agent, real person, talk to a person"
+              />
+            </Field>
+            <Button variant="primary" onClick={() => void saveHandoff()}>Save phrases</Button>
+          </section>
+          <section className="pf-card pf-eval__panel pf-handoff">
             <Text size="sm" weight="semibold">Stuck chats</Text>
             <Text size="xs" tone="tertiary">
-              Counts turns that leave the itinerary unchanged or repeat the same clarifying question.
-              A successful plan or edit resets the count.
+              Only runs while automatic handoff is on. Counts edits that leave the itinerary
+              unchanged; a successful plan or edit resets the count.
             </Text>
-            <Switch checked={stuckOn} onChange={setStuckOn} label="Flag a chat that is stuck" />
+            <Switch
+              checked={stuckOn}
+              onChange={setStuckOn}
+              disabled={!enabled}
+              label="Flag a chat that is stuck"
+            />
             {stuckOn ? (
               <Field label="Failed turns before a chat is stuck" hint="A whole number from 2 to 8." wide>
                 <input

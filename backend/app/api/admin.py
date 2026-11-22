@@ -36,6 +36,7 @@ ESCALATION_DEFAULT = {
     "stuck_on": True,
     "stuck_after": 3,
     "words": ["useless", "terrible", "not working", "angry"],
+    "human_phrases": ["live agent", "real person", "human agent", "talk to a person", "转人工", "真人客服"],
     "key_source": "none",
     "key_set": False,
     "key_saved": False,
@@ -51,9 +52,32 @@ async def save_runtime(request: Request) -> dict[str, Any]:
     c = container(request)
     body = await request.json()
     stored = await c.store.get_kv("runtime") or {}
-    for key in ("thresholds", "writer", "redaction", "writer_model", "data_mode", "purpose_models"):
+    for key in (
+        "thresholds",
+        "writer",
+        "redaction",
+        "writer_model",
+        "data_mode",
+        "purpose_models",
+        "purpose_temperatures",
+        "purpose_reasoning",
+    ):
         if key in body and body[key] is not None:
             stored[key] = body[key]
+    if isinstance(body.get("purpose_temperatures"), dict):
+        clean_temperatures = {}
+        for key, value in body["purpose_temperatures"].items():
+            try:
+                clean_temperatures[str(key)] = max(0.0, min(2.0, float(value)))
+            except (TypeError, ValueError):
+                continue
+        stored["purpose_temperatures"] = clean_temperatures
+    if isinstance(body.get("purpose_reasoning"), dict):
+        stored["purpose_reasoning"] = {
+            str(key): str(value).strip().lower()
+            for key, value in body["purpose_reasoning"].items()
+            if str(value).strip().lower() in {"none", "low", "medium", "high"}
+        }
     if isinstance(body.get("orchestrator"), dict):
         incoming = body["orchestrator"]
         current = stored.get("orchestrator") or {}
@@ -173,7 +197,7 @@ async def save_escalation(request: Request) -> dict[str, Any]:
     body = await request.json()
     stored = {
         key: body[key]
-        for key in ("enabled", "message", "frustration_at", "stuck_on", "stuck_after")
+        for key in ("enabled", "message", "frustration_at", "stuck_on", "stuck_after", "human_phrases")
         if key in body
     }
     try:
@@ -182,6 +206,14 @@ async def save_escalation(request: Request) -> dict[str, Any]:
             stored["frustration_at"] = max(0.0, min(1.0, value / 100.0 if value > 1 else value))
     except (TypeError, ValueError):
         stored.pop("frustration_at", None)
+    try:
+        if "human_phrases" in stored:
+            raw = stored["human_phrases"]
+            if isinstance(raw, str):
+                raw = raw.splitlines()
+            stored["human_phrases"] = [str(item).strip()[:80] for item in raw if str(item).strip()][:20]
+    except (TypeError, ValueError):
+        stored.pop("human_phrases", None)
     try:
         if "stuck_after" in stored:
             stored["stuck_after"] = max(2, min(8, int(stored["stuck_after"])))

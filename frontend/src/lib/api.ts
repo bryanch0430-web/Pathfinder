@@ -209,6 +209,10 @@ export function setSerpKeyStatus(id: string, status: SerpKeyStatus): Promise<{ k
 
 export function saveRuntime(body: {
   data_mode?: "live" | "atlas";
+  purpose_models?: Record<string, string>;
+  purpose_temperatures?: Record<string, number>;
+  purpose_reasoning?: Record<string, string>;
+  orchestrator?: { mode: "analyst" | "jev"; jev?: { model: string; url: string; api_key?: string } };
   thresholds?: Record<string, number>;
   freshness_hours?: Record<string, number>;
   gate?: "jev" | "plain" | "reason";
@@ -936,6 +940,7 @@ export interface EscalationPolicy {
   use_jev?: boolean;
   stuck_on?: boolean;
   stuck_after?: number;
+  human_phrases?: string[];
   words?: string[];
   key_source?: "saved" | "gate" | "none";
   key_set?: boolean;
@@ -963,6 +968,7 @@ export function saveEscalation(body: {
   frustration_at: number | null;
   stuck_on: boolean;
   stuck_after: number;
+  human_phrases?: string[];
   /** v4 fields, kept optional so an old client does not break; v5 ignores them. */
   examples?: string[];
   match_mode?: "examples" | "keywords";
