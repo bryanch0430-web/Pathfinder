@@ -1831,7 +1831,7 @@ export function PlanFeedback({
   if (!finalized) {
     return (
       <div className="pf-plan-feedback">
-        <button type="button" className="pf-plan-feedback__button" onClick={onFinalise}>
+        <button type="button" className="pf-plan-feedback__button pf-plan-feedback__finalise" onClick={onFinalise}>
           {t("feedback.finalise")}
         </button>
       </div>

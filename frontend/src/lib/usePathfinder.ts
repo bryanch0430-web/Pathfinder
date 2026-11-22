@@ -1445,8 +1445,11 @@ export function usePathfinder(locale: string): PathfinderHook {
     async (useful: boolean, starsOverride?: number | null): Promise<void> => {
       const id = sessionRef.current;
       if (!id) return;
+      const rating = starsOverride ?? feedbackStars;
+      // Answer the click immediately; the profile extraction runs on the server after it.
+      setFeedbackVerdict(useful ? "useful" : "not_useful");
+      if (useful && rating) setFeedbackStars(rating);
       try {
-        const rating = starsOverride ?? feedbackStars;
         const result = await postFeedback(id, useful, rating);
         // The answer came after another trip was opened: the verdict belongs to the trip that was rated.
         if (sessionRef.current !== id) return;
@@ -1457,7 +1460,10 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
       } catch (cause) {
         const failure = await failureOfCall(cause, "errors.feedback");
-        if (sessionRef.current === id) showBanner(failure, { kind: "rate", run: () => feedback(useful, starsOverride) });
+        if (sessionRef.current === id) {
+          setFeedbackVerdict(null);
+          showBanner(failure, { kind: "rate", run: () => feedback(useful, starsOverride) });
+        }
       }
     },
     [failureOfCall, feedbackStars, showBanner],

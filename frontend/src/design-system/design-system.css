@@ -3195,21 +3195,37 @@ button.pf-badge:hover {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 4px;
-  max-width: 360px;
+  align-items: center;
+  gap: 6px;
+  max-width: 430px;
+}
+
+.pf-plan-feedback__button.pf-plan-feedback__finalise {
+  height: 38px;
+  padding: 0 20px;
+  border-color: var(--p30-tone-brand-primary);
+  background: var(--p30-tone-brand-light);
+  color: var(--p30-tone-brand-secondary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.pf-plan-feedback__button.pf-plan-feedback__finalise:hover {
+  background: var(--p30-tone-brand-primary);
+  color: var(--pf-surface);
 }
 
 .pf-plan-feedback__button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 25px;
-  padding: 0 8px;
+  height: 30px;
+  padding: 0 10px;
   border: 1px solid var(--pf-line);
   border-radius: var(--p30-round-pill);
   background: var(--pf-surface);
   color: var(--pf-ink-secondary);
-  font-size: 9px;
+  font-size: 10px;
   cursor: pointer;
 }
 

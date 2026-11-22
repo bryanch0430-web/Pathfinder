@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 
 from app.api.deps import Container, container, require_session
 from app.api.views import (
@@ -353,11 +353,15 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
 
 
 @router.post("/api/journeys/{session_id}/rating")
-async def rate(session_id: str, payload: dict[str, Any], request: Request) -> dict[str, Any]:
+async def rate(
+    session_id: str,
+    payload: dict[str, Any],
+    request: Request,
+    background: BackgroundTasks,
+) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
     feedback_id = await c.store.save_feedback(session_id, bool(payload.get("useful")), payload.get("stars"))
-    added: list[str] = []
     if payload.get("useful"):
         from app.api.deps import identity_for
         from app.application.memory import remember_trip
@@ -366,14 +370,16 @@ async def rate(session_id: str, payload: dict[str, Any], request: Request) -> di
         plan = await load_plan(c, session_id)
         context = await load_context(c, session_id)
         if identity and plan is not None:
-            added = await remember_trip(
+            # Memory extraction is a model call; it must not hold the star click for seconds.
+            background.add_task(
+                remember_trip,
                 container=c,
                 identity=identity,
                 plan=plan,
                 context=context,
                 session_id=session_id,
             )
-    return {"feedback": {"id": feedback_id}, "preferences_added": added}
+    return {"feedback": {"id": feedback_id}, "preferences_added": []}
 
 
 @router.post("/api/journeys/{session_id}/share")
