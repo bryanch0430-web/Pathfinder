@@ -19,7 +19,7 @@ what is honestly not at parity yet. The baseline is the **`main` branch**
 | Understanding | rules first (`understanding.py` 2,479 lines + `router.py` 1,031), model fallback | **one typed model call** |
 | Facts in a plan | mixed rules + model | **copied from evidence by code** |
 | Edit path | rules (`modification.py` 4,896 lines) | **typed ops (`editor.py` 458 lines), applied by code** |
-| Interface | React + SSE | **the same React + the same SSE events** |
+| Interface | React + SSE | **the same React + the same SSE frame format** |
 
 The frontend is carried over, not rewritten: 17 of its 118 main-branch source files
 differ, plus one new Models settings file (574 lines added, 610 removed). The API
@@ -92,6 +92,7 @@ These are real gaps, listed so nobody is surprised:
 | Area | main | v5 today |
 |---|---|---|
 | Tests | 2,326 test functions | 52 test functions in 7 files |
+| Turn events | 12 event types (`step`, `locale`, …) | 10; `step` and `locale` are not emitted (the carried-over UI treats them as optional) |
 | Multi-city | full segments + legs | `stops` is parsed and stored; the composer plans one city per turn |
 | Hotel rooms | SerpAPI room types | `room_types` exists on the model; the endpoint returns what the plan has (often none) |
 | Video notes | YouTube/Bilibili enrichment | toggles exist, no enrichment yet |
