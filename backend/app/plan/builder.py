@@ -522,17 +522,19 @@ def _tickets(context: TripContext, bundle: Bundle, draft: PlanDraft, start: date
     chosen_refs = {ref for ref in draft.ticket_refs[:2] if ref}
     out: list[TicketOption] = []
     for evidence in pool:
+        kwargs = evidence.to_ticket_kwargs()
+        # Live flights carry their own clock; only a ticket without times gets a placeholder.
+        kwargs["depart_at"] = evidence.depart_at or f"{start.isoformat()}T08:00"
+        kwargs["arrive_at"] = evidence.arrive_at or f"{start.isoformat()}T12:00"
         out.append(
             TicketOption(
                 id=_ticket_id(evidence.name),
                 leg_id="leg-out",
                 origin=context.origin or "",
                 destination=context.destination or "",
-                depart_at=f"{start.isoformat()}T08:00",
-                arrive_at=f"{start.isoformat()}T12:00",
                 duration_minutes=_duration_of(evidence),
                 selected=evidence.ref in chosen_refs if chosen_refs else not out,
-                **evidence.to_ticket_kwargs(),
+                **kwargs,
             )
         )
     if out and not any(ticket.selected for ticket in out):

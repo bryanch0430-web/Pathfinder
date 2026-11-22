@@ -453,6 +453,34 @@ class Providers:
             "hl": "en",
         }
         payload = await self._serp(params, purpose="flights")
+        return_info: dict[str, Any] = {}
+        if end > start:
+            # The round-trip payload shows the outbound legs; ask once more for the return
+            # so the plan can end the last day before the flight leaves.
+            return_payload = await self._serp(
+                {
+                    "engine": "google_flights",
+                    "departure_id": destination_code,
+                    "arrival_id": origin_code,
+                    "outbound_date": end.isoformat(),
+                    "type": 2,
+                    "currency": code,
+                    "adults": max(1, party),
+                    "hl": "en",
+                },
+                purpose="flights",
+            )
+            return_flights = (return_payload or {}).get("best_flights") or []
+            if return_flights:
+                return_legs = return_flights[0].get("flights") or []
+                if return_legs:
+                    first_return, last_return = return_legs[0], return_legs[-1]
+                    return_info = {
+                        "return_depart_at": _leg_time(first_return, "departure_airport"),
+                        "return_arrive_at": _leg_time(last_return, "arrival_airport"),
+                        "return_airline": first_return.get("airline") or "",
+                        "return_flight_number": first_return.get("flight_number") or "",
+                    }
         out: list[Evidence] = []
         for index, flight in enumerate((payload or {}).get("best_flights") or []):
             price = flight.get("price")
@@ -462,17 +490,27 @@ class Providers:
             if not legs:
                 continue
             first, last = legs[0], legs[-1]
-            duration = flight.get("total_duration")
             airline = first.get("airline") or ""
             flight_number = first.get("flight_number") or ""
+            depart_at = _leg_time(first, "departure_airport")
+            arrive_at = _leg_time(last, "arrival_airport")
+            outbound = f"{airline} {flight_number}".strip()
+            if depart_at and arrive_at:
+                outbound = f"{outbound} {depart_at.replace('T', ' ')} → {arrive_at.replace('T', ' ')}"
+            summary = f"Outbound {outbound}."
+            if return_info:
+                summary += (
+                    f" Return {return_info['return_airline']} {return_info['return_flight_number']}"
+                    f" {str(return_info['return_depart_at']).replace('T', ' ')} →"
+                    f" {str(return_info['return_arrive_at']).replace('T', ' ')}."
+                )
+            summary += f" {party} traveller(s)."
             out.append(
                 Evidence(
                     ref=f"t{index + 1}",
                     kind="ticket",
                     name=f"{origin} to {destination} · {airline} {flight_number}".strip(),
-                    summary=f"Return flight, {party} traveller(s), {flight.get('carbon_emissions', {}).get('this_flight', 0)} g CO2."
-                    if flight.get("carbon_emissions")
-                    else f"Return flight for {party} traveller(s).",
+                    summary=summary,
                     source_refs=[
                         SourceRef(
                             title=f"Google Flights {origin_code}-{destination_code}",
@@ -487,6 +525,11 @@ class Providers:
                     price_kind="live",
                     booking_url=f"https://www.google.com/travel/flights?q=Flights%20from%20{origin_code}%20to%20{destination_code}",
                     tags=["flight"],
+                    depart_at=depart_at,
+                    arrive_at=arrive_at,
+                    airline=airline,
+                    flight_number=flight_number,
+                    **return_info,
                 )
             )
         return out or [self._estimated_flight(origin, destination, start, end, party, code)]
@@ -807,6 +850,11 @@ def _same_city(origin: str, destination: str) -> bool:
         return True
     a, b = _iata(origin), _iata(destination)
     return bool(a and a == b)
+
+
+def _leg_time(leg: dict[str, Any], key: str) -> str | None:
+    value = ((leg.get(key) or {}).get("time") or "").strip()
+    return value.replace(" ", "T") or None
 
 
 def _flight_minutes(origin: str, destination: str) -> int:

@@ -50,6 +50,14 @@ class Evidence:
     price_kind: str = "none"
     booking_url: str = ""
     image: ImageRef | None = None
+    depart_at: str | None = None
+    arrive_at: str | None = None
+    return_depart_at: str | None = None
+    return_arrive_at: str | None = None
+    airline: str = ""
+    flight_number: str = ""
+    return_airline: str = ""
+    return_flight_number: str = ""
     links: list[Link] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     source_types: list[str] = field(default_factory=list)
@@ -78,6 +86,10 @@ class Evidence:
             row["hours"] = self.opening_hours[:3]
         if self.tags:
             row["tags"] = self.tags[:6]
+        if self.depart_at or self.arrive_at:
+            row["flight"] = f"{self.depart_at or '?'} → {self.arrive_at or '?'}"
+        if self.return_depart_at or self.return_arrive_at:
+            row["return_flight"] = f"{self.return_depart_at or '?'} → {self.return_arrive_at or '?'}"
         row["visit_minutes"] = self.suggested_minutes
         return row
 
@@ -136,6 +148,11 @@ class Evidence:
             "notes": self.summary,
             "links": self.links,
             "estimated": self.price_kind == "estimate",
+            "depart_at": self.depart_at,
+            "arrive_at": self.arrive_at,
+            "return_depart_at": self.return_depart_at,
+            "return_arrive_at": self.return_arrive_at,
+            "operator": self.airline,
         }
 
 
