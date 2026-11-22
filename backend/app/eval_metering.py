@@ -148,7 +148,11 @@ class RunLedger:
     @property
     def directory(self) -> Path:
         if self._tmp is None:
-            self._tmp = tempfile.TemporaryDirectory(prefix="pathfinder-ledger-", ignore_cleanup_errors=True)
+            # Always under backend/data/ledgers. The process temp folder has been the
+            # project root, which left pathfinder-ledger-* beside frontend.
+            root = Path(__file__).resolve().parents[1] / "data" / "ledgers"
+            root.mkdir(parents=True, exist_ok=True)
+            self._tmp = tempfile.TemporaryDirectory(prefix="pathfinder-ledger-", dir=root, ignore_cleanup_errors=True)
         return Path(self._tmp.name)
 
     @property

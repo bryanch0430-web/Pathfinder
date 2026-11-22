@@ -9,10 +9,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.application.orchestrator import _describe_diff
+from app.application.orchestrator import _describe_diff, explain_lost_adds
 from app.config import Settings
 from tests.test_modify_dates import WEEK_LATER, accept_the_garden_inn, no_flights
 from tests.test_modify_targets import _modify
+
+
+def test_a_stop_the_transfer_removes_is_not_called_unchanged() -> None:
+    diff = [{"kind": "added", "item_id": "item_added_0_p2", "name": "Kyoto National Garden"}]
+    kept, reasons = explain_lost_adds(
+        diff,
+        set(),
+        ["Kyoto National Garden was left out of 2026-11-23: you reach your stay at 12:11."],
+    )
+
+    assert kept == []
+    assert reasons == ["Kyoto National Garden was left out of 2026-11-23: you reach your stay at 12:11."]
+    assert _describe_diff(kept, object()) == "No itinerary items needed to change."
 
 
 def test_a_flight_dropped_by_a_date_move_is_said_to_be_removed(settings: Settings) -> None:

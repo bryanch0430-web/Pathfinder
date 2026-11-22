@@ -731,7 +731,7 @@ export async function getEvalExport(runId: string): Promise<string> {
 }
 
 export interface ReviewCase {
-  source: "evaluation" | "session";
+  source: "evaluation" | "session" | "operator";
   session_state: "" | "live" | "completed";
   run_id: string;
   dataset: string;

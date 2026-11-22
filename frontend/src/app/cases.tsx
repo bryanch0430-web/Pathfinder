@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, Text } from "../design-system/atoms";
+import { SituationReading, WriterDiagnosis } from "../design-system/writerDiagnosis";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import {
   acceptSuggestion,
@@ -194,6 +195,7 @@ export function CasesPage() {
         </div>
       </header>
       {error ? <p className="pf-banner" role="alert">{describeFailure(error, t)}</p> : null}
+      {error ? <WriterDiagnosis text={describeFailure(error, t)} /> : null}
       {notice ? <Text size="sm">{notice}</Text> : null}
       {score ? <Text size="sm" weight="semibold">{t("cases.score", { passed: score.passed, exam: score.exam })}</Text> : null}
       <section className="pf-cases__note">
@@ -325,7 +327,7 @@ export function CasesPage() {
             <article className="pf-card" key={`${item.source}-${item.case_id}`} style={{ padding: 12 }}>
               <div className="pf-row" style={{ flexWrap: "wrap" }}>
                 <Badge tone={item.source === "evaluation" ? "warning" : "neutral"} dot>
-                  {item.source === "session" ? t("cases.session") : t("cases.eval")}
+                  {item.source === "session" ? t("cases.session") : item.source === "operator" ? t("cases.demo") : t("cases.eval")}
                 </Badge>
                 {item.session_state === "live" ? <Badge>{t("cases.live")}</Badge> : null}
                 {item.session_state === "completed" ? <Badge>{t("cases.completed")}</Badge> : null}
@@ -341,6 +343,7 @@ export function CasesPage() {
               ) : null}
               {item.check_summary ? <Text size="xs">{item.check_summary}</Text> : null}
               {item.output_summary ? <Text size="xs" tone="secondary">{item.output_summary}</Text> : null}
+              <SituationReading input={item.input} output={`${item.output_summary} ${item.check_summary}`} />
             </article>
           ))}
         </section>

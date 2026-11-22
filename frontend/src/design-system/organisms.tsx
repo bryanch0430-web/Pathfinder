@@ -9,6 +9,7 @@ import { maskTyped, setRedaction, DEFAULT_PATTERNS, type RedactionFlags } from "
 import { previewRedaction } from "../lib/api";
 import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove, type StopCommit } from "./directEdit";
 import { Icon, type IconName } from "./icons";
+import { SituationReading, WriterDiagnosis } from "./writerDiagnosis";
 import { type ModelKeysProps } from "./ModelKeys";
 import { OrchestratorSettings } from "./OrchestratorSettings";
 import { ReviewerSettings, type ReviewerBody, type ReviewerConfig } from "./ReviewerSettings";
@@ -3826,6 +3827,7 @@ function CaseTrace({ item }: { item: EvalCaseResult }) {
           <dd><Text size="sm">{item.judge_reason || t("eval.notLinked")}</Text></dd>
         </div>
       </dl>
+      {!item.passed ? <SituationReading input={item.input} output={item.output_summary} /> : null}
       {scores.length ? (
         <div className="pf-stack">
           <Text size="xs" weight="semibold" tone="tertiary">{t("eval.components")}</Text>
@@ -4008,6 +4010,7 @@ export function EvalDashboard({
       />
 
       {error ? <div className="pf-banner"><Icon name="alert" size={14} />{error}</div> : null}
+      {error ? <WriterDiagnosis text={error} /> : null}
 
       <div className="pf-card pf-eval__panel">
         <div className="pf-eval__panel-head">

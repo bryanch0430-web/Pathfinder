@@ -69,8 +69,9 @@ def failed_cases(store: Any, *, limit: int = 24) -> list[dict[str, str]]:
 
     A chat counts when the traveller marked the plan not useful, or a change left the plan as it was.
     """
-    rows = _evaluation_failures(store, limit=limit)
-    for row in _operator_cases(store, limit=limit):
+    # Cases an operator added are shown first, so a demo is not pushed out by older exam misses.
+    rows = _operator_cases(store, limit=limit)
+    for row in _evaluation_failures(store, limit=limit):
         if len(rows) >= limit:
             break
         rows.append(row)

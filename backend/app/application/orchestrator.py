@@ -1443,7 +1443,26 @@ class TurnService:
         transfer_said = await sync_session_transfers(
             updated, registry=self.plan_path.registry, store=self.store, session_id=session_id, before=plan
         )
-        if transfer_said:
+        present = {item.id for _, item in updated.iter_items()}
+        prior_notes = set(plan.data_quality.notes)
+        fresh_left_out = [
+            note
+            for note in updated.data_quality.notes
+            if note not in prior_notes and "was left out of" in note
+        ]
+        diff, lost_reasons = explain_lost_adds(diff, present, fresh_left_out)
+        if lost_reasons and re.search(r"\bmorning\b", message, re.IGNORECASE) and any(
+            "reach your stay" in reason for reason in lost_reasons
+        ):
+            lost_reasons.append("That is after the morning, so a morning stop on that day cannot be added.")
+        if lost_reasons:
+            transfer_said = [*transfer_said, *lost_reasons]
+        if not diff:
+            # The only change was a stop the transfer removed. Do not call that a new version.
+            updated.version = plan.version
+            if lost_reasons:
+                updated.change_summary = " ".join(lost_reasons)
+        if transfer_said and diff:
             updated.change_summary = " ".join([updated.change_summary, *transfer_said]).strip()
         # The trip form follows the route the edit made (the cities, their nights, the first as the destination).
         # It is written only when the edit is: an edit that waits to be accepted carries it in the proposal.
@@ -1819,6 +1838,31 @@ class TurnService:
 def _same_place(first: str, second: str) -> bool:
     """The saved plan and the new trip are for one place."""
     return same_destination(first, second)
+
+
+def explain_lost_adds(
+    diff: list[dict[str, Any]], present_ids: set[str], fresh_notes: list[str]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """An add the airport transfer then removed is not 'nothing changed'.
+
+    The diff was taken before the transfer. The stop is gone, so the reply uses the
+    note that says when the traveller can actually be there.
+    """
+    lost = [
+        entry
+        for entry in diff
+        if entry.get("kind") == "added" and entry.get("item_id") not in present_ids
+    ]
+    if not lost:
+        return diff, []
+    kept = [entry for entry in diff if entry not in lost]
+    reasons = list(fresh_notes)
+    if not reasons:
+        reasons = [
+            f"{entry.get('name') or 'The stop'} was found, then left out because of the flight, so it is not on the day."
+            for entry in lost
+        ]
+    return kept, reasons
 
 
 def _describe_diff(diff: list[dict[str, Any]], plan) -> str:
