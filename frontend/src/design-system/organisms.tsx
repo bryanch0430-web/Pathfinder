@@ -5084,7 +5084,7 @@ export function SettingsView({
         <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
       </div>
       ) : null}
-      {onSaveDataMode ? (
+      {onSaveDataMode && show("general", "data source live providers offline atlas") ? (
         <div className="pf-card pf-eval__panel">
           <div className="pf-row pf-row--between">
             <Text size="sm" weight="semibold">Data source</Text>
