@@ -50,6 +50,11 @@ composer/editor and validator, the parallel specialist agents, the local SQLite 
 and the external model and travel providers. Cards cover grounding, state, security
 and evaluation.
 
+The code-level map and each turn path are separate diagrams:
+
+- [Detailed code architecture](docs/architecture/pathfinder-v5-architecture-detailed.html) — every layer, router, module, provider and store.
+- [Plan turn](docs/architecture/pathfinder-v5-flow-plan.html) · [Modify turn](docs/architecture/pathfinder-v5-flow-modify.html) · [Ask turn](docs/architecture/pathfinder-v5-flow-ask.html) · [Clarify turn](docs/architecture/pathfinder-v5-flow-clarify.html)
+
 ## Why a revamp
 
 The `main` branch (v1.18.0) works, and its `backend/app` is 56,831 Python lines:

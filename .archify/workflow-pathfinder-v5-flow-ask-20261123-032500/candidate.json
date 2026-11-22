@@ -1,0 +1,172 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Pathfinder v5 — Ask Turn, Code Path",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "docs/architecture/pathfinder-v5-flow-ask.html",
+    "repository": {
+      "url": "https://github.com/bryanch0430-web/Pathfinder.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "0b74fe25c0048f8a2b98f22012418396939c79ca"
+    }
+  },
+  "lanes": [
+    { "id": "ui", "label": "React UI" },
+    { "id": "api", "label": "FastAPI edge" },
+    { "id": "turn", "label": "Turn control" },
+    { "id": "ask", "label": "Ask + retrieval" },
+    { "id": "state", "label": "Plan, history & search" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "Intake", "fromCol": 0, "toCol": 1 },
+    { "id": "read", "label": "Read + route", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "answer", "label": "Retrieve · answer · stream", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["msg", "stream", "prepare", "understand", "search", "answer", "final"],
+  "nodes": [
+    {
+      "id": "msg",
+      "lane": "ui",
+      "col": 0,
+      "type": "external",
+      "label": "Traveller question",
+      "sublabel": "“is the Peak open?”",
+      "width": 150,
+      "sources": [{ "path": "frontend/src/App.tsx", "line": 1, "end_line": 40 }]
+    },
+    {
+      "id": "stream",
+      "lane": "api",
+      "col": 1,
+      "type": "backend",
+      "label": "POST /api/turn/stream",
+      "sublabel": "same SSE endpoint",
+      "tag": "no plan write",
+      "width": 170,
+      "sources": [{ "path": "backend/app/api/turn.py", "line": 100, "end_line": 179 }]
+    },
+    {
+      "id": "prepare",
+      "lane": "turn",
+      "col": 2,
+      "type": "security",
+      "label": "Prepare turn",
+      "sublabel": "mask PII · load history",
+      "tag": "_produce",
+      "width": 170,
+      "sources": [{ "path": "backend/app/turn/orchestrator.py", "line": 170, "end_line": 180 }]
+    },
+    {
+      "id": "understand",
+      "lane": "turn",
+      "col": 3,
+      "type": "backend",
+      "label": "Understand",
+      "sublabel": "intent=ask",
+      "tag": "one JSON call",
+      "width": 160,
+      "sources": [{ "path": "backend/app/understand/pipeline.py", "line": 39, "end_line": 111 }]
+    },
+    {
+      "id": "search",
+      "lane": "ask",
+      "col": 4,
+      "type": "backend",
+      "label": "Search queries",
+      "sublabel": "purpose=search_query",
+      "tag": "≤2 queries",
+      "width": 160,
+      "sources": [{ "path": "backend/app/turn/orchestrator.py", "line": 690, "end_line": 734 }]
+    },
+    {
+      "id": "providers",
+      "lane": "state",
+      "col": 3,
+      "type": "cloud",
+      "label": "SerpAPI search",
+      "sublabel": "≤4 results / query",
+      "tag": "live or gap",
+      "width": 160,
+      "yOffset": 80,
+      "sources": [{ "path": "backend/app/evidence/providers.py", "line": 564, "end_line": 614 }]
+    },
+    {
+      "id": "context",
+      "lane": "state",
+      "col": 5,
+      "type": "database",
+      "label": "Trip + plan text",
+      "sublabel": "history · sources · cost",
+      "tag": "payload",
+      "width": 160,
+      "sources": [
+        { "path": "backend/app/core/prompts.py", "line": 93, "end_line": 140 },
+        { "path": "backend/app/core/prompts.py", "line": 153, "end_line": 163 }
+      ]
+    },
+    {
+      "id": "answer",
+      "lane": "ask",
+      "col": 5,
+      "type": "backend",
+      "label": "Answer stream",
+      "sublabel": "purpose=ask · tokens",
+      "tag": "ask skill",
+      "width": 160,
+      "sources": [{ "path": "backend/app/turn/orchestrator.py", "line": 713, "end_line": 731 }]
+    },
+    {
+      "id": "final",
+      "lane": "ui",
+      "col": 5,
+      "type": "frontend",
+      "label": "Answer + sources",
+      "sublabel": "token events",
+      "tag": "no plan version",
+      "width": 160,
+      "sources": [{ "path": "frontend/src/lib/usePathfinder.ts", "line": 1040, "end_line": 1130 }]
+    }
+  ],
+  "edges": [
+    { "id": "msg-stream", "from": "msg", "to": "stream", "variant": "emphasis" },
+    { "id": "stream-prepare", "from": "stream", "to": "prepare" },
+    { "id": "prepare-understand", "from": "prepare", "to": "understand" },
+    { "id": "understand-search", "from": "understand", "to": "search", "label": "ask", "variant": "emphasis" },
+    { "id": "search-providers", "from": "search", "to": "providers", "label": "HTTP" },
+    { "id": "search-answer", "from": "search", "to": "answer", "label": "results" },
+    { "id": "context-answer", "from": "context", "to": "answer", "label": "plan + history", "variant": "dashed" },
+    { "id": "answer-final", "from": "answer", "to": "final", "label": "token", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Nothing is planned or edited",
+      "items": [
+        "The ask path reads the stored plan and context; it never composes or persists a plan version.",
+        "The reply is streamed as token events, then _guard_output checks the canary and mask_pii runs again.",
+        "The assistant row is saved with its source URLs; the stuck counter is reset."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Retrieval is bounded",
+      "items": [
+        "_search_queries uses purpose=search_query to propose short queries from the question + plan.",
+        "At most 2 queries run, 4 SerpAPI results each; a failed search is simply no source.",
+        "The payload carries trip brief, plan text with sources, recent turns, retrieved snippets and cost."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "What the reader sees",
+      "items": [
+        "Answer text streams into the same chat surface as a plan reply.",
+        "Source rows travel in message metadata, not as plan items.",
+        "A question about an unsourced place is answered as unknown, not filled from model memory."
+      ]
+    }
+  ]
+}

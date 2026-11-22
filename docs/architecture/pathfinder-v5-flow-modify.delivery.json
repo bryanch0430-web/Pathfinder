@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "3e5ecf0a-327f-4d41-ad5f-ea2187f438f3",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\workflow-pathfinder-v5-flow-modify-20261123-032500\\candidate.json",
+  "output": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-modify.html",
+  "specification": {
+    "sha256": "ea5f99e5859ba61cf05302c6e9cabc731491bb03f440559a7ee072af4b2cc4f5",
+    "bytes": 8514
+  },
+  "artifact": {
+    "sha256": "1df3fca2ad6dc7e4c0542c80fea1a7c5bb6f932fe26452565d69cd0eefbac3c8",
+    "bytes": 853940
+  }
+}

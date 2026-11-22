@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "dd211931-a216-484a-acc5-514097f9bd65",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\workflow-pathfinder-v5-flow-ask-20261123-032500\\candidate.json",
+  "output": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-ask.html",
+  "specification": {
+    "sha256": "73853447c28db1bd5846c74f2e461a4227a64392c116460014671366f66a6a85",
+    "bytes": 5952
+  },
+  "artifact": {
+    "sha256": "f60554c39d7d545d429aa93826528165af1a6cab7f6ab2d81b0b91f428911777",
+    "bytes": 848452
+  }
+}

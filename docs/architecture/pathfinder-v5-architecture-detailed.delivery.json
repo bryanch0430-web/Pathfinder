@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "f238cb34-b148-4e2a-876a-8490aef7a252",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\architecture-pathfinder-v5-detailed-20261123-032500\\candidate.json",
+  "output": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-architecture-detailed.html",
+  "specification": {
+    "sha256": "b83ac7274860d07cc5bb34f842d8e6fe604d2d46aa1b119c1ea999dfec840c7b",
+    "bytes": 29734
+  },
+  "artifact": {
+    "sha256": "9efc705775b04f0f92036489cfbc854690b403330122695bf7a2aac49a3d21fa",
+    "bytes": 926625
+  }
+}

@@ -92,7 +92,7 @@ These are real gaps, listed so nobody is surprised:
 | Area | main | v5 today |
 |---|---|---|
 | Tests | 2,326 test functions | 52 test functions in 7 files |
-| Turn events | 12 event types (`step`, `locale`, …) | 10; `step` and `locale` are not emitted (the carried-over UI treats them as optional) |
+| Turn events | 12 event types (`step`, `locale`, …) | 11; v5 adds `agent` but does not emit `step` or `locale` (the carried-over UI treats them as optional) |
 | Multi-city | full segments + legs | `stops` is parsed and stored; the composer plans one city per turn |
 | Hotel rooms | SerpAPI room types | `room_types` exists on the model; the endpoint returns what the plan has (often none) |
 | Video notes | YouTube/Bilibili enrichment | toggles exist, no enrichment yet |
