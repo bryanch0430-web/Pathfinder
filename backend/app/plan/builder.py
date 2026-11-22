@@ -436,18 +436,36 @@ def _settle_sequence(items: list[PlanItem]) -> None:
         current.end = shift_time(current.end, shift)
 
 
+UPHILL_WORDS = ("peak", "sky", "tower", "buddha", "observatory", "summit", "ridge")
+
+
+def _uphill(item: PlanItem) -> bool:
+    """A stop people normally reach by tram, bus or taxi rather than on foot."""
+    name = item.name.lower()
+    return any(word in name for word in UPHILL_WORDS)
+
+
 def _attach_transfers(items: list[PlanItem], *, avoid_transit: bool = False) -> None:
     for index in range(1, len(items)):
         previous, current = items[index - 1], items[index]
         if not previous.geo or not current.geo:
             continue
         km = haversine_km(previous.geo, current.geo)
+        uphill = _uphill(current) and km > 0.8
         if avoid_transit:
-            mode = "walk" if km <= 3.0 else "drive"
+            mode = "walk" if km <= 2.0 and not uphill else "drive"
+        elif uphill:
+            mode = "transit"
         else:
             mode = "walk" if km <= 1.4 else ("transit" if km <= 12 else "drive")
         speed = {"walk": 4.5, "transit": 18.0, "drive": 30.0}[mode]
         minutes = round(km * 1.3 / speed * 60, 1)
+        # A motorised hop has waiting and access time; a hillside road is slower than
+        # the straight-line estimate. Keep the clock honest.
+        if mode in {"transit", "drive"}:
+            minutes = max(minutes, 6.0)
+        if uphill:
+            minutes = max(minutes, 12.0)
         current.transfer = TransferLeg(
             from_item_id=previous.id,
             minutes=minutes,

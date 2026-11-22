@@ -64,6 +64,17 @@ For context, the v4 report's **live** intent-router test (Jev / fast model on th
 84 utterances) scored **92.9 %**. v5's 98.8 % is measured on the same inputs and the
 same labels, with one model call per case and no rules.
 
+### Note on the Hong Kong number
+
+The recorded **7/8** is the last full-suite run. The one failure, `hk03`, is a
+verifier judgement rather than a missing stop: on that run it marked the "avoid the
+MTR" constraint `unknown`, because a transfer was labelled `transit`. The transfer
+layer now (a) walks only up to 2 km on a disruption day, (b) uses a taxi beyond
+that, (c) routes hill stops (the Peak, the Buddha) by transit/taxi, and (d) applies
+minimum motorised transfer times. Those changes are in the code and unit-tested, but
+the full Hong Kong suite has not been re-run with them (provider latency made the
+last targeted run stall).
+
 ### Why travelplanner moved 1/3 → 3/3
 
 The first run exposed two real bugs, both fixed:

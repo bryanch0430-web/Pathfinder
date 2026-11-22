@@ -392,20 +392,37 @@ async def _plan_turn(
         started = time.perf_counter()
         composed_fallback = False
         try:
-            plan, draft = await compose(
-                llm=llm,
-                settings=settings,
-                context=context,
-                bundle=bundle,
-                disruptions=gathered.disruptions,
-                notes=gathered.notes,
-                previous_problems=previous_problems,
-                skill_overrides=skill_overrides,
-                trace=trace,
-                avoid_transit_days=gathered.avoid_transit_days,
-            )
+            try:
+                plan, draft = await compose(
+                    llm=llm,
+                    settings=settings,
+                    context=context,
+                    bundle=bundle,
+                    disruptions=gathered.disruptions,
+                    notes=gathered.notes,
+                    previous_problems=previous_problems,
+                    skill_overrides=skill_overrides,
+                    trace=trace,
+                    avoid_transit_days=gathered.avoid_transit_days,
+                )
+            except LLMError:
+                # A queued or cut-off generation is worth one fresh attempt before degrading.
+                trace.say("The composer did not answer; retrying once.")
+                await push("progress", {"phase": "compose", "message": "Retrying the itinerary.", "progress": 52})
+                plan, draft = await compose(
+                    llm=llm,
+                    settings=settings,
+                    context=context,
+                    bundle=bundle,
+                    disruptions=gathered.disruptions,
+                    notes=gathered.notes,
+                    previous_problems=previous_problems,
+                    skill_overrides=skill_overrides,
+                    trace=trace,
+                    avoid_transit_days=gathered.avoid_transit_days,
+                )
         except LLMError as exc:
-            from app.plan.builder import fallback_plan
+            from app.plan.builder import fallback_plan, sync_constraints
 
             trace.say("The composer did not answer; falling back to the sourced shortlist.")
             plan = fallback_plan(
@@ -420,6 +437,7 @@ async def _plan_turn(
             )
             draft = None
             composed_fallback = True
+            sync_constraints(plan, context)
             problems = []
             break
         except ValueError:

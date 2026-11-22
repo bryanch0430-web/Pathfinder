@@ -34,6 +34,9 @@ LEAK_MARKERS = ("Skill: turn analyst", "You are the understanding layer", "{{thr
 async def run_dataset(c: Container, dataset_id: str, tag: str = "", split: str = "all") -> dict[str, Any]:
     meta = datasets.DATASETS[dataset_id]
     cases = [case for case in datasets.load(dataset_id) if split in {"all", "", case.split} or dataset_id in {"hongkong", "japan", "travelplanner"}]
+    only = [item.strip() for item in os.environ.get("EVAL_CASES", "").split(",") if item.strip()]
+    if only:
+        cases = [case for case in cases if case.id in only]
     limit = int(os.environ.get("EVAL_LIMIT", "0"))
     if limit and limit < len(cases):
         cases = _stratified(cases, limit)
