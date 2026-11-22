@@ -1,0 +1,54 @@
+[
+  {
+    "dataset": "hongkong",
+    "arm": "sonnet",
+    "model": "claude-sonnet-5.5",
+    "passed": 5,
+    "n": 8,
+    "latency_s": 416.9,
+    "metrics": {
+      "Cases passed": 5,
+      "Constraints met": 68.8,
+      "Disruptions handled": 100.0
+    }
+  },
+  {
+    "dataset": "hongkong",
+    "arm": "flash",
+    "model": "gemini-3.5-flash-lite",
+    "passed": 6,
+    "n": 8,
+    "latency_s": 175.8,
+    "metrics": {
+      "Cases passed": 6,
+      "Constraints met": 85.7,
+      "Disruptions handled": 100.0
+    }
+  },
+  {
+    "dataset": "japan",
+    "arm": "sonnet",
+    "model": "claude-sonnet-5.5",
+    "passed": 6,
+    "n": 6,
+    "latency_s": 213.4,
+    "metrics": {
+      "Cases passed": 6,
+      "Grounded plans": 100.0,
+      "Constraints met": 100.0
+    }
+  },
+  {
+    "dataset": "japan",
+    "arm": "flash",
+    "model": "gemini-3.5-flash-lite",
+    "passed": 6,
+    "n": 6,
+    "latency_s": 73.2,
+    "metrics": {
+      "Cases passed": 6,
+      "Grounded plans": 100.0,
+      "Constraints met": 100.0
+    }
+  }
+]

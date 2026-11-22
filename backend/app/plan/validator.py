@@ -109,7 +109,7 @@ async def audit_constraints(
     payload = {
         "trip": context_brief(context),
         "constraints": constraints,
-        "plan": plan_text(plan),
+        "plan": plan_text(plan, with_sources=True),
         "cost": {
             "total": plan.cost.total,
             "currency": plan.cost.currency,

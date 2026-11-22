@@ -1,0 +1,152 @@
+{
+  "generated_at": "2026-11-22T18:38:46.827149+00:00",
+  "arms": {
+    "sonnet": {
+      "model": "claude-sonnet-5.5",
+      "correct": 4,
+      "n": 4,
+      "p50_latency_ms": 6721.2,
+      "mean_tokens": 20292,
+      "rows": [
+        {
+          "id": "ed01",
+          "input": "Remove the Ghibli Museum, keep everything else.",
+          "check": "removed",
+          "passed": true,
+          "summary": "Remove the Ghibli Museum from Day 1.",
+          "latency_ms": 6175.2,
+          "tokens": 3645,
+          "error": ""
+        },
+        {
+          "id": "ed02",
+          "input": "Move Senso-ji to day 2 in the morning, keep everything else.",
+          "check": "day_time",
+          "passed": true,
+          "summary": "Move Senso-ji to the morning of day 2 (07:30\u201308:45), ahead of Meiji Jingu.",
+          "latency_ms": 30939.3,
+          "tokens": 69649,
+          "error": ""
+        },
+        {
+          "id": "ed03",
+          "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
+          "check": "start",
+          "passed": true,
+          "summary": "Start Kiyomizu-dera at 15:00 instead of 15:15, and end it at 16:45 to keep the same 1h45 visit.",
+          "latency_ms": 7267.3,
+          "tokens": 4318,
+          "error": ""
+        },
+        {
+          "id": "ed04",
+          "input": "Remove the M+ Museum, keep everything else.",
+          "check": "removed",
+          "passed": true,
+          "summary": "Remove M+ Museum from day 1.",
+          "latency_ms": 2609.1,
+          "tokens": 3556,
+          "error": ""
+        }
+      ]
+    },
+    "flash": {
+      "model": "gemini-3.5-flash-lite",
+      "correct": 3,
+      "n": 4,
+      "p50_latency_ms": 3760.4,
+      "mean_tokens": 2973,
+      "rows": [
+        {
+          "id": "ed01",
+          "input": "Remove the Ghibli Museum, keep everything else.",
+          "check": "removed",
+          "passed": true,
+          "summary": "Remove the Ghibli Museum from Day 1.",
+          "latency_ms": 3517.6,
+          "tokens": 2542,
+          "error": ""
+        },
+        {
+          "id": "ed02",
+          "input": "Move Senso-ji to day 2 in the morning, keep everything else.",
+          "check": "day_time",
+          "passed": false,
+          "summary": "Move Senso-ji to day 2 in the morning and adjust subsequent morning activities",
+          "latency_ms": 4003.3,
+          "tokens": 3710,
+          "error": ""
+        },
+        {
+          "id": "ed03",
+          "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
+          "check": "start",
+          "passed": true,
+          "summary": "Reschedule Kiyomizu-dera to start at 15:00",
+          "latency_ms": 4395.1,
+          "tokens": 3010,
+          "error": ""
+        },
+        {
+          "id": "ed04",
+          "input": "Remove the M+ Museum, keep everything else.",
+          "check": "removed",
+          "passed": true,
+          "summary": "Remove M+ Museum from day 1",
+          "latency_ms": 1331.9,
+          "tokens": 2630,
+          "error": ""
+        }
+      ]
+    },
+    "deepseek": {
+      "model": "deepseek-v4-flash",
+      "correct": 4,
+      "n": 4,
+      "p50_latency_ms": 5271.6,
+      "mean_tokens": 3108.2,
+      "rows": [
+        {
+          "id": "ed01",
+          "input": "Remove the Ghibli Museum, keep everything else.",
+          "check": "removed",
+          "passed": true,
+          "summary": "Remove the Ghibli Museum from day 1.",
+          "latency_ms": 4963.5,
+          "tokens": 2423,
+          "error": ""
+        },
+        {
+          "id": "ed02",
+          "input": "Move Senso-ji to day 2 in the morning, keep everything else.",
+          "check": "day_time",
+          "passed": true,
+          "summary": "Moved Senso-ji to day 2 morning and shifted Meiji Jingu slightly later to fit.",
+          "latency_ms": 10153.7,
+          "tokens": 4557,
+          "error": ""
+        },
+        {
+          "id": "ed03",
+          "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
+          "check": "start",
+          "passed": true,
+          "summary": "Move Kiyomizu-dera to 15:00.",
+          "latency_ms": 5579.6,
+          "tokens": 3057,
+          "error": ""
+        },
+        {
+          "id": "ed04",
+          "input": "Remove the M+ Museum, keep everything else.",
+          "check": "removed",
+          "passed": true,
+          "summary": "Remove M+ Museum from day 1.",
+          "latency_ms": 3977.5,
+          "tokens": 2396,
+          "error": ""
+        }
+      ]
+    }
+  }
+}

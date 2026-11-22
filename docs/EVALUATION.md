@@ -114,3 +114,20 @@ exclusivity, the builder's "only known refs, facts copied from evidence" rule,
 overlap/transfer settlement, cost recomputation, the editor's refusal to touch locked
 items, diff generation, canary guarding, opening-hours precedence, JSON extraction and
 the API lifecycle (create → patch state → revisions, ownership, admin gate).
+
+## Part-model study (v5, 23 Nov 2026)
+
+The per-part model/settings comparison lives in
+[`eval-artifacts/v5-model-study/`](eval-artifacts/v5-model-study/):
+
+- `TEST_PLAN.md` — frozen protocol and all cases.
+- `RESULTS.md` — tables for routing/Jev, planner, editor, verifier, ask and memory.
+- `PART_MODEL_DECISIONS.md` — one decision per part with the trade-off.
+- `REPORT_EVIDENCE.md` — report-ready sentences and claim → code traces.
+- `v5_model_study.xlsx` — formatted workbook with raw per-case sheets;
+  `v5_model_study.xls` is the SpreadsheetML compatibility copy.
+
+Headline: Flash-Lite ties Sonnet on routing (83/84, 98.8%) and passes 12/14 planner cases
+vs 11/14; DeepSeek V4 Flash matches Sonnet on editor (4/4) and verifier (9/10) at a much
+lower token cost. Jev alone is 94.0%; Jev at a 0.8 pre-gate plus Flash fallback is 84/84
+on this set but is a derived next-step result, not a shipped mode.

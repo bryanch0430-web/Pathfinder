@@ -115,6 +115,11 @@ def plan_text(plan: TripPlan | None, *, with_sources: bool = False) -> str:
         hotel = plan.hotels[0]
         price = f" ({hotel.price_per_night.amount:.0f} {hotel.price_per_night.currency}/night)" if hotel.price_per_night else ""
         lines.append(f"Stay: {hotel.name}{price}. {hotel.notes}".strip())
+        if with_sources:
+            if hotel.source_refs:
+                lines.append("    source: " + "; ".join(ref.source or ref.title for ref in hotel.source_refs[:2]))
+            else:
+                lines.append("    source: none")
     if plan.tickets:
         ticket = plan.tickets[0]
         lines.append(f"Travel: {ticket.name}. {ticket.notes}".strip())
