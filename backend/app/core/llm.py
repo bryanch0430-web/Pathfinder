@@ -42,7 +42,7 @@ PURPOSE_MAX_TOKENS = {
     "edit": 2000,
     "verify": 1500,
     "ask": 1400,
-    "intake": 1200,
+    "intake": 3000,
     "memory": 700,
     "search_query": 200,
     "translate": 4000,
