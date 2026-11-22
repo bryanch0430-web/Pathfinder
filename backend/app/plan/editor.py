@@ -157,7 +157,6 @@ async def _ask(
         system=skill("edit", overrides),
         user=json.dumps(payload, ensure_ascii=False, indent=1),
         schema=EditDraft,
-        max_tokens=2000,
     )
 
 

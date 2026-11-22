@@ -24,8 +24,13 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 - **Turn orchestrator** can be the **Analyst LLM** (default) or **Jev** (TypeSafe
   system-one). Jev chooses plan/modify/ask/clarify; the analyst still extracts slots
   and constraints, and the analyst route is kept if Jev is unreachable.
-- Writer temperature/max-tokens now persist (`writer_call` was previously posted but
-  ignored by the backend).
+- Writer temperature now persists (`writer_call` was previously posted but ignored by
+  the backend). The global reply cap is a fallback only; each part has its own
+  effective cap and an optional override.
+- User-facing terms follow COMP7608B: **LLM router**, **planner**, **tool workers**,
+  **runtime harness**, **evaluator**, **human-in-the-loop**. See
+  [AGENT_TERMINOLOGY.md](AGENT_TERMINOLOGY.md) for the full map, classification and
+  the deliberate differences from the proposal (no vector RAG, no autonomous swarm).
 
 ### Grounding and evidence
 

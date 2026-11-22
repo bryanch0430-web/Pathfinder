@@ -10,6 +10,7 @@ type ModelsConfig = {
   temperatures?: Record<string, number>;
   reasoning_by_purpose?: Record<string, string>;
   max_tokens_by_purpose?: Record<string, number>;
+  effective_max_tokens?: Record<string, number>;
 };
 
 type JevConfig = {
@@ -103,7 +104,7 @@ export function ModelsSettings({
                   <Input
                     style={{ width: 130 }}
                     value={maxTokens[part.key] ?? ""}
-                    placeholder="Cap auto"
+                    placeholder={models.effective_max_tokens?.[part.key] ? `Effective ${models.effective_max_tokens[part.key].toLocaleString()}` : "Cap auto"}
                     inputMode="numeric"
                     disabled={!canEdit}
                     onChange={(event) => setMaxTokens((current) => ({ ...current, [part.key]: event.target.value }))}
@@ -180,7 +181,7 @@ export function ModelsSettings({
       </div>
 
       <div className="pf-card pf-eval__panel">
-        <Text size="sm" weight="semibold">Turn orchestrator</Text>
+        <Text size="sm" weight="semibold">Turn router</Text>
         <Text size="xs" tone="tertiary">
           The analyst is the default router. Jev can choose plan / modify / ask / clarify before the
           analyst extracts the details; if Jev is unreachable, the analyst's own route is kept.
@@ -191,8 +192,8 @@ export function ModelsSettings({
             disabled={!canEdit}
             onChange={(event) => setMode(event.target.value === "jev" ? "jev" : "analyst")}
           >
-            <option value="analyst">Analyst LLM (default)</option>
-            <option value="jev">Jev (TypeSafe system-one)</option>
+            <option value="analyst">LLM router (default)</option>
+            <option value="jev">Jev — System 1 router</option>
           </Select>
         </Field>
         {mode === "jev" ? (

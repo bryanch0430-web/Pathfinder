@@ -4918,6 +4918,7 @@ export function SettingsView({
       temperatures?: Record<string, number>;
       reasoning_by_purpose?: Record<string, string>;
       max_tokens_by_purpose?: Record<string, number>;
+      effective_max_tokens?: Record<string, number>;
     };
     writer_model?: string;
     reviewer?: ReviewerConfig;
@@ -5131,14 +5132,6 @@ export function SettingsView({
       </div>
       ) : null}
       {admin ? admin(show) : null}
-      {show("keys", "models by part turn orchestrator jev analyst planner editor verifier ask memory") && config ? (
-        <ModelsSettings
-          models={config.models ?? { default: config.writer.model, purposes: {} }}
-          orchestrator={config.orchestrator ?? { mode: "analyst", jev: { model: "jev-latest", url: "", key_set: false, key_tail: "" } }}
-          canEdit={canEditPolicy}
-          onSave={async (body) => { await onSaveOrchestrator?.(body); }}
-        />
-      ) : null}
       {/* The keys do not depend on the server's configuration either. */}
       {show("keys", `${t("settings.group.keys")} ${t("settings.writer.callBody")} ${t("settings.orch.clearKey")} ${t("settings.orch.temperature")}`) && modelKeys ? (
         <WriterSettings
@@ -5161,6 +5154,14 @@ export function SettingsView({
             await modelKeys.onChoose(null);
             if (serverKeys) await serverKeys.onChoose(null);
           }}
+        />
+      ) : null}
+      {show("keys", "models by part turn router jev analyst planner editor verifier ask memory") && config ? (
+        <ModelsSettings
+          models={config.models ?? { default: config.writer.model, purposes: {} }}
+          orchestrator={config.orchestrator ?? { mode: "analyst", jev: { model: "jev-latest", url: "", key_set: false, key_tail: "" } }}
+          canEdit={canEditPolicy}
+          onSave={async (body) => { await onSaveOrchestrator?.(body); }}
         />
       ) : null}
 

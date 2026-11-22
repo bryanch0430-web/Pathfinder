@@ -242,6 +242,7 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
 DEFAULT_FRESHNESS = {"weather": 6, "tickets": 24, "hotels": 24}
 DEFAULT_THRESHOLDS = {"router": 0.8, "max_repairs": 2, "turn_deadline": 180}
 from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
+from app.core.llm import PURPOSE_MAX_TOKENS
 
 DEFAULT_PATTERNS = {"hkid": HKID, "hk_phone": HK_PHONE, "email": EMAIL, "card": CARD}
 
@@ -290,6 +291,10 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "temperatures": purpose_temperatures,
             "reasoning_by_purpose": purpose_reasoning,
             "max_tokens_by_purpose": purpose_max_tokens,
+            "effective_max_tokens": {
+                purpose: purpose_max_tokens.get(purpose) or PURPOSE_MAX_TOKENS.get(purpose, settings.llm_max_tokens)
+                for purpose in ("understand", "plan", "edit", "verify", "ask", "intake", "memory", "search_query", "translate")
+            },
         },
         "orchestrator": {
             "mode": turn_mode,

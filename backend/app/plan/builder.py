@@ -118,7 +118,6 @@ async def compose(
         system=system,
         user=json.dumps(payload, ensure_ascii=False, indent=1),
         schema=PlanDraft,
-        max_tokens=12000,
     )
     plan = build_plan(
         context=context,

@@ -13,11 +13,11 @@ If a control is not listed here, it is not in the UI.
 | Handoff | Stuck chats (on/off) + failed-turn count (2–8) | **yes** | independent of automatic handoff; counts edits that leave the trip unchanged |
 | Handoff | Handoff message | **yes** | stored with the policy and shown by the Desk |
 | Instructions | Skill overrides | **yes** | per-skill prompt override (stored in kv, falls back to `app/skills/*.md`) |
-| Models | Provider / key / default model / temperature / max tokens | **yes** | active writer and BYOK key; default model |
+| Models | Provider / key / default model / temperature | **yes** | active writer and BYOK key; default model. The default reply cap is no longer shown here. |
 | Models | Per-part model | **yes** | `purpose_models`; blank = default writer |
 | Models | Per-part temperature | **yes** | `purpose_temperatures`, 0–2 |
 | Models | Per-part reasoning effort | **yes** | `purpose_reasoning`; sent as `reasoning_effort` only to GPT-5/o-series |
-| Models | Per-part reply cap | **yes** | `purpose_max_tokens`, 16–32,000; blank = the call's built-in cap |
+| Models | Per-part reply cap | **yes** | `purpose_max_tokens`, 16–32,000. The field shows the effective cap (planner 12,000; editor 2,000; verifier 1,500; ask 1,400; memory 700; understand 4,096). |
 | Models | Turn orchestrator (Analyst / Jev) | **yes** | Jev routes plan/modify/ask/clarify before the analyst; fallback to analyst |
 | Models | Jev endpoint / model / key | **yes** | used only when Jev is the orchestrator; key is stored server-side and shown masked |
 | Thresholds | Router confidence | **yes** | analyst confidence gate |

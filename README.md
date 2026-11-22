@@ -5,12 +5,23 @@ LLM-first core.** The React app in `frontend/` is the v4 interface, unchanged; t
 backend behind `/api` is rebuilt around a typed turn analyst, sourced evidence,
 bounded repair and versioned plans.
 
-**Latest:** the Models tab now configures a model, temperature and reasoning effort
-for each part; the turn orchestrator can be the analyst or Jev; handoff goes to a
-real desk queue with editable explicit-request phrases. See
-[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it now also imports the `main`
-v1.x release notes and maps each one to what v5 kept, changed, or deliberately
-dropped, with the reason.
+**Latest:** the Models tab configures a model, temperature, reasoning effort and
+reply cap for each part; the turn router can be the LLM router or Jev (System 1);
+handoff goes to a real human-in-the-loop desk queue with independent switches. See
+[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it also imports the `main` v1.x
+release notes and maps each one to what v5 kept, changed, or deliberately dropped.
+
+## What kind of agent is this?
+
+In **COMP7608B** terms, Pathfinder v5 is an **LLM-based agentic system**: a
+task-oriented, tool-using **planning agent** running under a bounded **runtime
+harness**. One turn uses **routing**, **prompt chaining**, **parallelization** of
+tool workers, an **evaluator–optimizer** repair loop, **skills** and **memory**, and
+**human-in-the-loop** handoff. It is **not** an autonomous multi-agent swarm, and it
+does **not** use a vector database/RAG for saved trips. The full mapping from course
+terms (context builder, runtime/harness, observation, skill, memory types, HITL,
+evaluation) to v5 code and UI is in
+[docs/AGENT_TERMINOLOGY.md](docs/AGENT_TERMINOLOGY.md).
 
 
 ```

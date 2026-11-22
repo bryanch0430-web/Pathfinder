@@ -725,7 +725,6 @@ async def _ask_turn(
         purpose="ask",
         system=system,
         user=json.dumps(payload, ensure_ascii=False, indent=1),
-        max_tokens=1400,
     ):
         collected.append(chunk)
         await push("token", {"text": chunk})
@@ -752,7 +751,6 @@ async def _search_queries(llm: LLMClient, message: str, plan: TripPlan | None) -
             ),
             user=json.dumps({"question": message, "destination": plan.destination.name if plan else ""}),
             schema=Queries,
-            max_tokens=200,
         )
         return [query for query in result.queries if query.strip()][:2]
     except LLMError:
@@ -1113,7 +1111,6 @@ async def _intake(
             user=user,
             schema=IntakeFacts,
             images=images or None,
-            max_tokens=1200,
         )
     except LLMError:
         facts = None

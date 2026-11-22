@@ -123,7 +123,6 @@ async def audit_constraints(
             system=skill("verify", skill_overrides),
             user=json.dumps(payload, ensure_ascii=False, indent=1),
             schema=VerifyResult,
-            max_tokens=1500,
         )
     except LLMError:
         return None

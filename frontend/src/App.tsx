@@ -1090,6 +1090,7 @@ function HowItWorks() {
             ["users", "welcome.step2", "how.agentsBody"],
             ["route", "how.grounding", "how.groundingBody"],
             ["shield", "how.validation", "how.validationBody"],
+            ["users", "how.harness", "how.harnessBody"],
           ] as const
         ).map(([icon, title, body]) => (
           <div className="pf-row" key={title} style={{ alignItems: "flex-start" }}>

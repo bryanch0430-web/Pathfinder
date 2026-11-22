@@ -101,6 +101,8 @@ def test_models_and_orchestrator_roundtrip(tmp_path):
         assert config["models"]["temperatures"]["plan"] == 0.5
         assert config["models"]["reasoning_by_purpose"]["verify"] == "high"
         assert config["models"]["max_tokens_by_purpose"]["plan"] == 9000
+        assert config["models"]["effective_max_tokens"]["plan"] == 9000
+        assert config["models"]["effective_max_tokens"]["understand"] == 4096
         assert config["orchestrator"]["mode"] == "jev"
         assert config["orchestrator"]["jev"]["model"] == "jev-test"
         assert config["orchestrator"]["jev"]["url"] == "https://jev.test/systemone"
@@ -126,6 +128,7 @@ def test_per_purpose_model_wins_over_the_writer():
     assert tuned_client.temperature_for("plan") == 0.9
     assert tuned_client.reasoning_for("plan") == "high"
     assert client.max_tokens_for("plan", 12000) == 12000
+    assert client.max_tokens_for("plan") == 12000
     assert client.max_tokens_for("understand") == settings.llm_max_tokens
     capped = settings.model_copy(update={"purpose_max_tokens": {"plan": 5000}})
     assert LLMClient(capped).max_tokens_for("plan", 12000) == 5000

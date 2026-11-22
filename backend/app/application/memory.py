@@ -85,7 +85,6 @@ async def derive_memory(
             ),
             user=__import__("json").dumps(payload, ensure_ascii=False),
             schema=MemoryDraft,
-            max_tokens=700,
         )
     except LLMError:
         return None

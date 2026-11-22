@@ -35,6 +35,19 @@ from app.core.trace import TurnTrace
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
+# Built-in reply caps per part. A Models override wins; then an explicit call cap;
+# then this map; then the writer default.
+PURPOSE_MAX_TOKENS = {
+    "plan": 12000,
+    "edit": 2000,
+    "verify": 1500,
+    "ask": 1400,
+    "intake": 1200,
+    "memory": 700,
+    "search_query": 200,
+    "translate": 4000,
+}
+
 
 class LLMError(RuntimeError):
     """The model could not answer: a network failure, a refused request, or unusable output."""
@@ -115,7 +128,7 @@ class LLMClient:
                 pass
         if max_tokens:
             return max_tokens
-        return self.settings.llm_max_tokens
+        return PURPOSE_MAX_TOKENS.get(purpose, self.settings.llm_max_tokens)
 
     def _payload(
         self,
