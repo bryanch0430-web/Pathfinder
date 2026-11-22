@@ -4917,6 +4917,7 @@ export function SettingsView({
       purposes: Record<string, string>;
       temperatures?: Record<string, number>;
       reasoning_by_purpose?: Record<string, string>;
+      max_tokens_by_purpose?: Record<string, number>;
     };
     writer_model?: string;
     reviewer?: ReviewerConfig;

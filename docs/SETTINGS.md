@@ -7,17 +7,17 @@ If a control is not listed here, it is not in the UI.
 |---|---|---|---|
 | General | Developer mode | **yes** | shows the per-turn decision trace |
 | General | Data source (Live providers / Offline atlas) | **yes** | `data_mode` in `/api/admin/runtime`; live uses Google Places, Open-Meteo, SerpAPI, Wikipedia |
-| Handoff | Live-agent handoff | **yes** | when off, no chat goes to the desk and an explicit request is answered by Pathfinder |
-| Handoff | Automatic handoff | **yes** | when off, no frustration/stuck handoff; explicit requests still queue while live-agent handoff is on |
-| Handoff | Frustration threshold (0–1) | **yes** | analyst frustration ≥ threshold, only while the master is on |
-| Handoff | Stuck chats + failed-turn count (2–8) | **yes** | counts edits that leave the trip unchanged; only while the master is on |
-| Handoff | Explicit request phrases | **yes** | message contains a phrase → queue, even when automatic is off (negations ignored) |
+| Handoff | Explicit request phrases (on/off) | **yes** | message contains a phrase → queue; also covers the analyst's own “wants a person” detection; negations ignored |
+| Handoff | Automatic handoff (on/off) | **yes** | frustration-only handoff; independent of the other two switches |
+| Handoff | Frustration threshold (0–1) | **yes** | analyst frustration ≥ threshold, while automatic handoff is on |
+| Handoff | Stuck chats (on/off) + failed-turn count (2–8) | **yes** | independent of automatic handoff; counts edits that leave the trip unchanged |
 | Handoff | Handoff message | **yes** | stored with the policy and shown by the Desk |
 | Instructions | Skill overrides | **yes** | per-skill prompt override (stored in kv, falls back to `app/skills/*.md`) |
 | Models | Provider / key / default model / temperature / max tokens | **yes** | active writer and BYOK key; default model |
 | Models | Per-part model | **yes** | `purpose_models`; blank = default writer |
 | Models | Per-part temperature | **yes** | `purpose_temperatures`, 0–2 |
 | Models | Per-part reasoning effort | **yes** | `purpose_reasoning`; sent as `reasoning_effort` only to GPT-5/o-series |
+| Models | Per-part reply cap | **yes** | `purpose_max_tokens`, 16–32,000; blank = the call's built-in cap |
 | Models | Turn orchestrator (Analyst / Jev) | **yes** | Jev routes plan/modify/ask/clarify before the analyst; fallback to analyst |
 | Models | Jev endpoint / model / key | **yes** | used only when Jev is the orchestrator; key is stored server-side and shown masked |
 | Thresholds | Router confidence | **yes** | analyst confidence gate |

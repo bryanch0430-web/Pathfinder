@@ -61,6 +61,15 @@ async def effective_settings(c: Container):
             except (TypeError, ValueError):
                 continue
         update["purpose_temperatures"] = clean
+    purpose_max_tokens = overrides.get("purpose_max_tokens")
+    if isinstance(purpose_max_tokens, dict):
+        clean_tokens = {}
+        for key, value in purpose_max_tokens.items():
+            try:
+                clean_tokens[str(key)] = max(16, min(32000, int(value)))
+            except (TypeError, ValueError):
+                continue
+        update["purpose_max_tokens"] = clean_tokens
     purpose_reasoning = overrides.get("purpose_reasoning")
     if isinstance(purpose_reasoning, dict):
         update["purpose_reasoning"] = {

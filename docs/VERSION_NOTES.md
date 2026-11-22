@@ -13,8 +13,10 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 ### Models and routing
 
 - **Models tab** (renamed from Writer): the default writer/key card, **per-part
-  model**, **temperature**, and **reasoning effort** for analyst, planner, editor,
-  verifier, ask and memory. Blank means the default writer model.
+  model**, **temperature**, **reasoning effort**, and **reply cap** for analyst,
+  planner, editor, verifier, ask and memory. Blank means the default writer model
+  and the call's built-in cap (planner 12,000; editor 2,000; verifier 1,500; other
+  calls 4,096).
 - Per-part models and tuning share the active provider key, including BYOK. Separate
   keys/providers per part are not supported yet.
 - Reasoning effort is sent as `reasoning_effort` only to OpenAI reasoning models
@@ -59,12 +61,12 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 - The default page now describes the analyst (or optional Jev), evidence agents,
   live/atlas grounding, photos and per-part models/memory; the old “System 1” and
   “four workers” copy is gone.
-- Handoff has a **live-agent on/off** switch (on by default), an **automatic handoff**
-  switch (off by default), an optional frustration threshold, an optional stuck
-  counter (failed edits only — ordinary clarifications no longer count), and an
-  editable **explicit-request phrase list** (default: “live agent”, “real person”,
-  “human agent”, “talk to a person”, 转人工, 真人客服). With live-agent handoff off,
-  an explicit request is answered by Pathfinder and nothing goes to the queue.
+- Handoff has **three independent switches**: explicit request phrases, automatic
+  handoff (frustration), and stuck chats. Each can be on or off without touching the
+  other two. The phrase switch covers both the operator list and the analyst's own
+  “wants a person” detection; the stuck counter counts failed edits only (ordinary
+  clarifications no longer count). When a switch is off, that signal is ignored; when
+  the phrase switch is off, an explicit request is answered by Pathfinder.
 - A handoff goes to the **queue with no agent assigned**; a person presses **Accept**
   in the Desk to take it. Phrase requests work even when automatic handoff is off.
 

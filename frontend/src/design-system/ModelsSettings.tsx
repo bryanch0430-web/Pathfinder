@@ -9,6 +9,7 @@ type ModelsConfig = {
   purposes: Record<string, string>;
   temperatures?: Record<string, number>;
   reasoning_by_purpose?: Record<string, string>;
+  max_tokens_by_purpose?: Record<string, number>;
 };
 
 type JevConfig = {
@@ -53,6 +54,9 @@ export function ModelsSettings({
     Object.fromEntries(Object.entries(models.temperatures ?? {}).map(([key, value]) => [key, String(value)])),
   );
   const [reasoning, setReasoning] = useState<Record<string, string>>({ ...(models.reasoning_by_purpose ?? {}) });
+  const [maxTokens, setMaxTokens] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(models.max_tokens_by_purpose ?? {}).map(([key, value]) => [key, String(value)])),
+  );
   const [mode, setMode] = useState<"analyst" | "jev">(orchestrator.mode === "jev" ? "jev" : "analyst");
   const [jevModel, setJevModel] = useState(orchestrator.jev.model);
   const [jevUrl, setJevUrl] = useState(orchestrator.jev.url);
@@ -96,6 +100,14 @@ export function ModelsSettings({
                     disabled={!canEdit}
                     onChange={(event) => setTemperatures((current) => ({ ...current, [part.key]: event.target.value }))}
                   />
+                  <Input
+                    style={{ width: 130 }}
+                    value={maxTokens[part.key] ?? ""}
+                    placeholder="Cap auto"
+                    inputMode="numeric"
+                    disabled={!canEdit}
+                    onChange={(event) => setMaxTokens((current) => ({ ...current, [part.key]: event.target.value }))}
+                  />
                   <Select
                     style={{ width: 170 }}
                     value={reasoning[part.key] ?? ""}
@@ -127,10 +139,16 @@ export function ModelsSettings({
               for (const [key, value] of Object.entries(reasoning)) {
                 if (value) cleanReasoning[key] = value;
               }
+              const cleanTokens: Record<string, number> = {};
+              for (const [key, value] of Object.entries(maxTokens)) {
+                const number = Number(value);
+                if (value.trim() !== "" && Number.isFinite(number)) cleanTokens[key] = number;
+              }
               void onSave({
                 purpose_models: purposes,
                 purpose_temperatures: cleanTemperatures,
                 purpose_reasoning: cleanReasoning,
+                purpose_max_tokens: cleanTokens,
               });
             }}
           >
@@ -142,15 +160,22 @@ export function ModelsSettings({
               setPurposes({});
               setTemperatures({});
               setReasoning({});
-              void onSave({ purpose_models: {}, purpose_temperatures: {}, purpose_reasoning: {} });
+              setMaxTokens({});
+              void onSave({
+                purpose_models: {},
+                purpose_temperatures: {},
+                purpose_reasoning: {},
+                purpose_max_tokens: {},
+              });
             }}
           >
             Use the default for every part
           </Button>
         </div>
         <Text size="xs" tone="tertiary">
-          Temperature applies to every model. Reasoning effort is sent only to OpenAI reasoning
-          models (GPT-5 / o-series); other providers store it but do not use it.
+          Temperature applies to every model. A blank reply cap uses the call's built-in cap
+          (planner 12,000; editor 2,000; verifier 1,500; others 4,096). Reasoning effort is sent only
+          to OpenAI reasoning models (GPT-5 / o-series); other providers store it but do not use it.
         </Text>
       </div>
 

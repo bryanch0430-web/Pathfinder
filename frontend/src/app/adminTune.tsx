@@ -20,7 +20,7 @@ import { useI18n } from "../lib/i18n";
  */
 export function AdminTune({ show }: { show: (group: "handoff" | "instructions", text: string) => boolean }) {
   const { t } = useI18n();
-  const [liveAgent, setLiveAgent] = useState(true);
+  const [phrasesOn, setPhrasesOn] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [frustration, setFrustration] = useState("0.75");
   const [stuckOn, setStuckOn] = useState(true);
@@ -35,7 +35,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
   useEffect(() => {
     void getEscalation()
       .then((policy) => {
-        setLiveAgent(policy.live_agent !== false);
+        setPhrasesOn(policy.phrases_on !== false);
         setEnabled(Boolean(policy.enabled));
         setFrustration(String(policy.frustration_at ?? 0.75));
         setStuckOn(Boolean(policy.stuck_on));
@@ -77,7 +77,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
     }
     try {
       const saved = await saveEscalation({
-        live_agent: liveAgent,
+        phrases_on: phrasesOn,
         enabled,
         message,
         frustration_at: threshold,
@@ -114,25 +114,14 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
       {show("handoff", "handoff live agent stuck frustration threshold") ? (
         <>
           <Text size="xs" tone="tertiary">
-            Live-agent handoff can be turned off completely. While it is on, an explicit request
-            always reaches the queue; automatic handoff and the stuck counter are separate options.
+            Three independent switches: explicit requests, automatic handoff and stuck chats.
+            Turn any of them off without affecting the other two.
           </Text>
-          <section className="pf-card pf-eval__panel pf-handoff">
-            <Text size="sm" weight="semibold">Live agent</Text>
-            <Text size="xs" tone="tertiary">
-              When this is off, no chat goes to the desk and an explicit request is answered by
-              Pathfinder. Turn it on to allow the queue.
-            </Text>
-            <Switch checked={liveAgent} onChange={setLiveAgent} label="Allow live-agent handoff" />
-            <Button variant="primary" onClick={() => void saveHandoff()}>Save live agent</Button>
-          </section>
-          {liveAgent ? (
-          <>
           <section className="pf-card pf-eval__panel pf-handoff">
             <Text size="sm" weight="semibold">Automatic handoff</Text>
             <Text size="xs" tone="tertiary">
-              When this is on, a high frustration score or a stuck streak can hand the chat to the
-              desk. When it is off, only an explicit request brings a person in.
+              When this is on, a high frustration score can hand the chat to the desk. It does not
+              control explicit phrases or the stuck counter.
             </Text>
             <Switch checked={enabled} onChange={setEnabled} label="Allow automatic handoff" />
             {enabled ? (
@@ -154,30 +143,29 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
             <Text size="sm" weight="semibold">Explicit request phrases</Text>
             <Text size="xs" tone="tertiary">
               When the traveller's message contains one of these phrases, the chat goes to the
-              queue for a person to accept, even while automatic handoff is off. One phrase per line.
+              queue for a person to accept. The analyst's own “wants a person” detection is covered
+              by this switch too. One phrase per line.
             </Text>
-            <Field label="Hand off when the traveller says" wide>
-              <Textarea
-                rows={5}
-                value={phrases}
-                onChange={(event) => setPhrases(event.target.value)}
-                placeholder="live agent, real person, talk to a person"
-              />
-            </Field>
+            <Switch checked={phrasesOn} onChange={setPhrasesOn} label="Allow explicit request phrases" />
+            {phrasesOn ? (
+              <Field label="Hand off when the traveller says" wide>
+                <Textarea
+                  rows={5}
+                  value={phrases}
+                  onChange={(event) => setPhrases(event.target.value)}
+                  placeholder="live agent, real person, talk to a person"
+                />
+              </Field>
+            ) : null}
             <Button variant="primary" onClick={() => void saveHandoff()}>Save phrases</Button>
           </section>
           <section className="pf-card pf-eval__panel pf-handoff">
             <Text size="sm" weight="semibold">Stuck chats</Text>
             <Text size="xs" tone="tertiary">
-              Only runs while automatic handoff is on. Counts edits that leave the itinerary
-              unchanged; a successful plan or edit resets the count.
+              Counts edits that leave the itinerary unchanged; a successful plan or edit resets the
+              count. It works independently of automatic handoff.
             </Text>
-            <Switch
-              checked={stuckOn}
-              onChange={setStuckOn}
-              disabled={!enabled}
-              label="Flag a chat that is stuck"
-            />
+            <Switch checked={stuckOn} onChange={setStuckOn} label="Flag a chat that is stuck" />
             {stuckOn ? (
               <Field label="Failed turns before a chat is stuck" hint="A whole number from 2 to 8." wide>
                 <input
@@ -190,8 +178,6 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
             ) : null}
             <Button variant="primary" onClick={() => void saveHandoff()}>Save this monitor</Button>
           </section>
-          </>
-          ) : null}
         </>
       ) : null}
       {show("instructions", `${t("settings.prompts")} ${t("settings.promptsBody")} persona language router ask planner`) ? (

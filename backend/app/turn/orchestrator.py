@@ -301,8 +301,9 @@ async def _produce(
     handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy, message)
     if handoff_reason == "disabled":
         reply = (
-            "Live-agent handoff is turned off for this trip. I can keep planning or answering "
-            "here; turn it on in Settings -> Handoff if you want a person to join."
+            "Explicit live-agent requests are turned off for this trip. I can keep planning or "
+            "answering here; turn the phrase switch on in Settings -> Handoff if you want a "
+            "person to join."
         )
         await _stream_text(push, reply)
         await _save_assistant(store, session_id, reply, intent="ask", meta={"handoff": "disabled"})
@@ -978,21 +979,18 @@ async def _handoff_reason(
 ) -> str:
     """Why this turn should go to a person, or an empty string."""
     explicit = bool(parsed.wants_human) or _phrase_requests_person(message, policy)
-    if not policy.get("live_agent", True):
-        # The live-agent feature itself is off. An explicit request gets a clear
-        # refusal and no queue; automatic signals are ignored.
-        return "disabled" if explicit else ""
     if explicit:
-        return "asked"
-    if not policy.get("enabled", False):
-        return ""
+        # The phrase switch covers both the operator list and the analyst's own
+        # wants_human detection, so "off" really means no live-agent request.
+        return "asked" if policy.get("phrases_on", True) else "disabled"
     if policy.get("stuck_on", True):
         count = await _stuck_count(store, session_id)
         if count >= int(policy.get("stuck_after") or 3):
             return "stuck"
-    threshold = float(policy.get("frustration_at") or 0.75)
-    if float(parsed.frustration or 0) >= threshold:
-        return "frustration"
+    if policy.get("enabled", False):
+        threshold = float(policy.get("frustration_at") or 0.75)
+        if float(parsed.frustration or 0) >= threshold:
+            return "frustration"
     return ""
 
 
@@ -1020,7 +1018,7 @@ async def _stuck_count(store: Store, session_id: str) -> int:
 
 
 async def _bump_stuck(store: Store, session_id: str, policy: dict[str, Any]) -> int:
-    if not policy.get("enabled", False) or not policy.get("stuck_on", True):
+    if not policy.get("stuck_on", True):
         return 0
     count = await _stuck_count(store, session_id) + 1
     await store.set_kv(f"stuck:{session_id}", count)

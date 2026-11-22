@@ -92,6 +92,7 @@ def test_models_and_orchestrator_roundtrip(tmp_path):
                 "purpose_models": {"plan": "planner-model", "verify": "verifier-model"},
                 "purpose_temperatures": {"plan": 0.5},
                 "purpose_reasoning": {"verify": "high"},
+                "purpose_max_tokens": {"plan": 9000},
                 "orchestrator": {"mode": "jev", "jev": {"model": "jev-test", "url": "https://jev.test/systemone"}},
             },
         )
@@ -99,6 +100,7 @@ def test_models_and_orchestrator_roundtrip(tmp_path):
         assert config["models"]["purposes"]["plan"] == "planner-model"
         assert config["models"]["temperatures"]["plan"] == 0.5
         assert config["models"]["reasoning_by_purpose"]["verify"] == "high"
+        assert config["models"]["max_tokens_by_purpose"]["plan"] == 9000
         assert config["orchestrator"]["mode"] == "jev"
         assert config["orchestrator"]["jev"]["model"] == "jev-test"
         assert config["orchestrator"]["jev"]["url"] == "https://jev.test/systemone"
@@ -123,6 +125,10 @@ def test_per_purpose_model_wins_over_the_writer():
     tuned_client = LLMClient(tuned)
     assert tuned_client.temperature_for("plan") == 0.9
     assert tuned_client.reasoning_for("plan") == "high"
+    assert client.max_tokens_for("plan", 12000) == 12000
+    assert client.max_tokens_for("understand") == settings.llm_max_tokens
+    capped = settings.model_copy(update={"purpose_max_tokens": {"plan": 5000}})
+    assert LLMClient(capped).max_tokens_for("plan", 12000) == 5000
 
 
 def test_human_phrase_hands_off_even_when_automatic_is_off():
@@ -139,7 +145,25 @@ def test_human_phrase_hands_off_even_when_automatic_is_off():
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "can I talk to a live agent?")) == "asked"
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "just saying hi")) == ""
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "I do not want a live agent")) == ""
-    off = {**policy, "live_agent": False}
+    off = {**policy, "phrases_on": False}
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, off, "can I talk to a live agent?")) == "disabled"
     asked = parsed.model_copy(update={"wants_human": True})
     assert asyncio.run(_handoff_reason(Store(), "s", asked, off, "hello")) == "disabled"
+
+
+def test_stuck_and_automatic_are_independent():
+    import asyncio
+    from app.understand.schemas import ParsedIntent
+    from app.turn.orchestrator import _handoff_reason
+
+    class Store:
+        async def get_kv(self, key):
+            return 3
+
+    parsed = ParsedIntent(intent="modify", confidence=1.0)
+    stuck_only = {"phrases_on": True, "enabled": False, "stuck_on": True, "stuck_after": 3, "human_phrases": []}
+    assert asyncio.run(_handoff_reason(Store(), "s", parsed, stuck_only, "change it")) == "stuck"
+
+    no_stuck = {"phrases_on": True, "enabled": True, "stuck_on": False, "stuck_after": 3, "frustration_at": 0.5, "human_phrases": []}
+    angry = parsed.model_copy(update={"frustration": 0.9})
+    assert asyncio.run(_handoff_reason(Store(), "s", angry, no_stuck, "change it")) == "frustration"

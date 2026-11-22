@@ -105,6 +105,18 @@ class LLMClient:
         configured = (self.settings.purpose_reasoning or {}).get(purpose)
         return (configured or self.settings.llm_reasoning or "none").strip().lower()
 
+    def max_tokens_for(self, purpose: str, max_tokens: int | None = None) -> int:
+        """A part's explicit cap, then the call's own cap, then the writer default."""
+        configured = (self.settings.purpose_max_tokens or {}).get(purpose)
+        if configured:
+            try:
+                return max(16, min(32000, int(configured)))
+            except (TypeError, ValueError):
+                pass
+        if max_tokens:
+            return max_tokens
+        return self.settings.llm_max_tokens
+
     def _payload(
         self,
         *,
@@ -189,7 +201,7 @@ class LLMClient:
             messages=[{"role": "user", "content": user}],
             model=chosen,
             temperature=self.temperature_for(purpose, temperature),
-            max_tokens=max_tokens,
+            max_tokens=self.max_tokens_for(purpose, max_tokens),
             json_mode=False,
             stream=False,
             reasoning=self.reasoning_for(purpose),
@@ -228,7 +240,7 @@ class LLMClient:
             messages=[{"role": "user", "content": user}],
             model=chosen,
             temperature=self.temperature_for(purpose, temperature),
-            max_tokens=max_tokens,
+            max_tokens=self.max_tokens_for(purpose, max_tokens),
             json_mode=False,
             stream=True,
             reasoning=self.reasoning_for(purpose),
@@ -320,7 +332,7 @@ class LLMClient:
                 messages=messages,
                 model=chosen,
                 temperature=self.temperature_for(purpose, temperature) if turn == 0 else 0.0,
-                max_tokens=max_tokens,
+                max_tokens=self.max_tokens_for(purpose, max_tokens),
                 json_mode=True,
                 stream=False,
                 reasoning=self.reasoning_for(purpose),

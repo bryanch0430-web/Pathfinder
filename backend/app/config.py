@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     purpose_models: dict[str, str] = Field(default_factory=dict, alias="PURPOSE_MODELS")
     purpose_temperatures: dict[str, float] = Field(default_factory=dict, alias="PURPOSE_TEMPERATURES")
     purpose_reasoning: dict[str, str] = Field(default_factory=dict, alias="PURPOSE_REASONING")
+    purpose_max_tokens: dict[str, int] = Field(default_factory=dict, alias="PURPOSE_MAX_TOKENS")
     llm_reasoning: str = Field(default="none", alias="LLM_REASONING")
     turn_orchestrator: str = Field(default="analyst", alias="TURN_ORCHESTRATOR")
 

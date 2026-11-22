@@ -264,6 +264,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     purpose_models = overrides.get("purpose_models") or {}
     purpose_temperatures = overrides.get("purpose_temperatures") or {}
     purpose_reasoning = overrides.get("purpose_reasoning") or {}
+    purpose_max_tokens = overrides.get("purpose_max_tokens") or {}
     base, _key, model = settings.writer
     return {
         "version": "5.0.0",
@@ -288,6 +289,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "purposes": purpose_models,
             "temperatures": purpose_temperatures,
             "reasoning_by_purpose": purpose_reasoning,
+            "max_tokens_by_purpose": purpose_max_tokens,
         },
         "orchestrator": {
             "mode": turn_mode,

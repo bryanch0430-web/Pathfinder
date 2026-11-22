@@ -28,7 +28,7 @@ DEFAULT_PATTERNS = {
 }
 
 ESCALATION_DEFAULT = {
-    "live_agent": True,
+    "phrases_on": True,
     "enabled": False,
     "message": "A travel designer will join this chat.",
     "frustration_at": 0.75,
@@ -62,6 +62,7 @@ async def save_runtime(request: Request) -> dict[str, Any]:
         "purpose_models",
         "purpose_temperatures",
         "purpose_reasoning",
+        "purpose_max_tokens",
     ):
         if key in body and body[key] is not None:
             stored[key] = body[key]
@@ -73,6 +74,14 @@ async def save_runtime(request: Request) -> dict[str, Any]:
             except (TypeError, ValueError):
                 continue
         stored["purpose_temperatures"] = clean_temperatures
+    if isinstance(body.get("purpose_max_tokens"), dict):
+        clean_tokens = {}
+        for key, value in body["purpose_max_tokens"].items():
+            try:
+                clean_tokens[str(key)] = max(16, min(32000, int(value)))
+            except (TypeError, ValueError):
+                continue
+        stored["purpose_max_tokens"] = clean_tokens
     if isinstance(body.get("purpose_reasoning"), dict):
         stored["purpose_reasoning"] = {
             str(key): str(value).strip().lower()
@@ -198,7 +207,7 @@ async def save_escalation(request: Request) -> dict[str, Any]:
     body = await request.json()
     stored = {
         key: body[key]
-        for key in ("live_agent", "enabled", "message", "frustration_at", "stuck_on", "stuck_after", "human_phrases")
+        for key in ("phrases_on", "enabled", "message", "frustration_at", "stuck_on", "stuck_after", "human_phrases")
         if key in body
     }
     try:

@@ -212,6 +212,7 @@ export function saveRuntime(body: {
   purpose_models?: Record<string, string>;
   purpose_temperatures?: Record<string, number>;
   purpose_reasoning?: Record<string, string>;
+  purpose_max_tokens?: Record<string, number>;
   orchestrator?: { mode: "analyst" | "jev"; jev?: { model: string; url: string; api_key?: string } };
   thresholds?: Record<string, number>;
   freshness_hours?: Record<string, number>;
@@ -934,6 +935,7 @@ export interface MonitorPart {
 
 export interface EscalationPolicy {
   live_agent?: boolean;
+  phrases_on?: boolean;
   enabled: boolean;
   message: string;
   frustration_at: number | null;
@@ -965,6 +967,7 @@ export function getEscalation(): Promise<EscalationPolicy> {
 
 export function saveEscalation(body: {
   live_agent?: boolean;
+  phrases_on?: boolean;
   enabled: boolean;
   message: string;
   frustration_at: number | null;
