@@ -888,7 +888,6 @@ export function ClarifyCard({
               key={choice.label}
               type="button"
               className="pf-chip"
-              disabled={submitting}
               onClick={() => onSubmit(choice.message)}
             >
               {choice.label}

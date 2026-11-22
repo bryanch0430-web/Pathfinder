@@ -82,6 +82,13 @@ what the traveller meant; `choices` for intent-level ambiguity.
 Never clarify just to be safe: if a reasonable default exists (party 1, currency from
 context, hotel style "mid-range"), take it and say so in `assumptions`.
 
+## Frustration
+
+`frustration` is a 0–1 estimate of how unhappy the traveller is right now: 0 for a
+neutral request, 0.4 for mild impatience ("again?", "still no"), 0.8+ for anger,
+swearing at the assistant, or the same complaint repeated. Judge the tone, not
+keywords. It is used only to decide whether to bring a person in.
+
 ## Asking for a person
 
 Set `wants_human: true` when the traveller asks for a human, a real person, a live
@@ -126,11 +133,25 @@ One JSON object only:
   "suggestions": [],
   "start_new_trip": false,
   "wants_human": false,
+  "frustration": 0.0,
   "injection_suspected": false,
   "edit_summary": "one line: what to change, or empty",
+  "research_places": [],
   "search_queries": []
 }
 ```
+
+## Places worth looking up
+
+If the message names a specific place or thing the traveller wants to see — "HKU",
+"the Gundam statue", "the Ghibli Museum", a restaurant someone recommended — put the
+name in `research_places` (1–4 entries). A generic city guide will not necessarily
+contain it, and the pipeline looks those names up before planning.
+
+If the wish is a description rather than a name ("a place with Gundam", "somewhere
+with a big ferris wheel"), put 1–2 web queries in `search_queries` instead (for
+example "Gundam statue Tokyo Odaiba"). These are lookups, not questions to the
+traveller: do not ask for a name you can resolve.
 
 Confidence is your honest probability that the intent and slots are right. Below
 {{threshold}} the turn asks for clarification rather than acting.

@@ -592,6 +592,7 @@ class ChatRequest(Wire):
     developer: bool = False
     review: bool = True
     client_token: str | None = None
+    identity: str = ""
     attachments: list[BufferedAttachment] = Field(default_factory=list)
 
 

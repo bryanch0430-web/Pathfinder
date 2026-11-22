@@ -150,6 +150,29 @@ async def gather(
             },
         )
 
+    async def video_agent() -> None:
+        started = time.perf_counter()
+        await emit("agent", {"agent": "videos", "phase": "start"})
+        try:
+            notes = await providers.videos(f"{city} travel guide", limit=3)
+            bundle.video_notes = notes
+            status = "ok" if notes else "unavailable"
+            summary = f"{len(notes)} video note(s)"
+        except Exception as exc:  # noqa: BLE001
+            status, summary = "failed", "the video source failed"
+            notes = []
+        trace.tool(name="videos", status=status, latency_ms=(time.perf_counter() - started) * 1000, note=summary)
+        await emit(
+            "agent",
+            {
+                "agent": "videos",
+                "phase": "end",
+                "status": status,
+                "elapsed_ms": round((time.perf_counter() - started) * 1000),
+                "summary": summary,
+            },
+        )
+
     async def ticket_agent() -> None:
         started = time.perf_counter()
         await emit("agent", {"agent": "ticket", "phase": "start"})
@@ -178,7 +201,7 @@ async def gather(
             },
         )
 
-    await asyncio.gather(attraction_agent(), hotel_agent(), weather_agent(), ticket_agent())
+    await asyncio.gather(attraction_agent(), hotel_agent(), weather_agent(), ticket_agent(), video_agent())
     bundle.dedupe()
 
     if scenario and scenario.get("fault") == "venue_closure":
@@ -252,7 +275,11 @@ def candidate_pool(bundle: Bundle, *, attractions: int = 16, hotels: int = 5, me
     """The compact list the planner chooses from, capped so the prompt stays small."""
 
     def usable(items: list[Evidence], limit: int) -> list[dict[str, Any]]:
-        return [item.brief() for item in items if item.data_status != "unavailable"][:limit]
+        ordered = sorted(
+            (item for item in items if item.data_status != "unavailable"),
+            key=lambda item: 0 if item.ref.split("-")[0] in {"pl", "x", "wiki"} else 1,
+        )
+        return [item.brief() for item in ordered][:limit]
 
     return {
         "attractions": usable(bundle.of_kind("attraction"), attractions),

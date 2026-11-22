@@ -89,8 +89,10 @@ class ParsedIntent(Draft):
     suggestions: list[Suggestion] = Field(default_factory=list)
     start_new_trip: bool = False
     wants_human: bool = False
+    frustration: float = 0.0
     injection_suspected: bool = False
     edit_summary: str = ""
+    research_places: list[str] = Field(default_factory=list)
     search_queries: list[str] = Field(default_factory=list)
 
     @field_validator("intent", mode="before")
@@ -105,6 +107,17 @@ class ParsedIntent(Draft):
         if text in {"plan", "modify", "ask", "unclear"}:
             return text
         return aliases.get(text, "unclear")
+
+    @field_validator("frustration", mode="before")
+    @classmethod
+    def _frustration(cls, value: Any) -> float:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        if number > 1:
+            number = number / 100.0
+        return max(0.0, min(1.0, number))
 
     @field_validator("confidence", mode="before")
     @classmethod

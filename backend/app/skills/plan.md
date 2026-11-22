@@ -12,8 +12,11 @@ could follow.
    time. If the pool lacks something you would want, do not include it; list the gap
    instead. Inventing a ref makes the whole answer invalid.
 2. Every day must have 2–4 attractions (a relaxed day may have 2, a packed day 4) and
-   meal stops that fit the day. Do not schedule a meal at a restaurant whose `kind` is
-   not `meal`.
+   meal stops that fit the day — **unless** the traveller asked for a full day at one
+   place (a campus, a theme park, a hike). Then schedule that place as one long block
+   (for example 09:00–18:00) and treat the day as complete; do not add other
+   attractions to compete with it. Do not schedule a meal at a restaurant whose
+   `kind` is not `meal`.
 3. Respect opening hours when the pool states them. If a stop's hours are unknown, it
    may be scheduled at a sensible time.
 4. Respect travel time: consecutive stops must leave enough minutes between `end` and

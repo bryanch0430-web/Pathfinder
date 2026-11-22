@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from urllib.parse import quote
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
@@ -31,6 +32,7 @@ from app.domain.models import (
     Disruption,
     GeoPoint,
     HotelStay,
+    ImageRef,
     Money,
     PlanAssessment,
     PlanAlternative,
@@ -355,6 +357,7 @@ def build_plan(
         constraints=constraints,
         disruptions=disruptions,
         reservations=_reservations(hotels, built_days),
+        video_notes=list(bundle.video_notes)[:4],
         data_quality=_data_quality(bundle, gaps),
         assessment=_assessment(plan_confidence=draft.confidence, days=built_days, gaps=gaps, bundle=bundle),
         change_summary="Planned the trip.",
@@ -386,6 +389,8 @@ def _item_from_evidence(evidence: Evidence, stop: Any, position: int) -> PlanIte
     )
     if evidence.kind == "meal" and not item.meal_slot:
         item.meal_slot = _meal_slot_for(start)
+    if item.image is None:
+        item.image = _wiki_image(evidence.name)
     return item
 
 
@@ -496,7 +501,19 @@ def _hotels(context: TripContext, bundle: Bundle, draft: PlanDraft) -> list[Hote
 
 
 def _hotel_from_evidence(evidence: Evidence) -> HotelStay:
-    return HotelStay(id=_hotel_id(evidence.name), notes=evidence.summary[:400], **evidence.to_hotel_kwargs())
+    hotel = HotelStay(id=_hotel_id(evidence.name), notes=evidence.summary[:400], **evidence.to_hotel_kwargs())
+    if hotel.image is None:
+        hotel.image = _wiki_image(evidence.name)
+    return hotel
+
+
+def _wiki_image(name: str) -> ImageRef:
+    """A place picture the browser fetches from the app's Wikipedia image endpoint."""
+    return ImageRef(
+        url=f"/api/images/place?name={quote(name[:120])}",
+        attribution="Wikipedia",
+        source="wikimedia",
+    )
 
 
 def _tickets(context: TripContext, bundle: Bundle, draft: PlanDraft, start: date, end: date) -> list[TicketOption]:
@@ -569,7 +586,7 @@ def _attach_alternatives(days: list[DayPlan], bundle: Bundle) -> None:
                         source_types=list(evidence.source_types),
                         source_summary=evidence.summary,
                         links=list(evidence.links),
-                        image=evidence.image,
+                        image=evidence.image or _wiki_image(evidence.name),
                     )
                 )
             alternatives.sort(

@@ -324,9 +324,19 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
         plan.status = "ready"
         await save_plan(c, plan, "Finalised the trip.")
         from app.api.deps import identity_for
+        from app.application.memory import remember_trip
 
         identity = identity_for(request)
         if identity:
+            # Durable memory comes from the finished plan, not only the destination name.
+            await remember_trip(
+                container=c,
+                identity=identity,
+                plan=plan,
+                context=context,
+                session_id=session_id,
+            )
+            context = await load_context(c, session_id)
             await c.store.save_wishlist(
                 {
                     "id": secrets.token_hex(8),
@@ -348,18 +358,21 @@ async def rate(session_id: str, payload: dict[str, Any], request: Request) -> di
     await require_session(request, session_id)
     feedback_id = await c.store.save_feedback(session_id, bool(payload.get("useful")), payload.get("stars"))
     added: list[str] = []
-    if payload.get("useful") and payload.get("stars") and int(payload["stars"]) >= 4:
+    if payload.get("useful"):
         from app.api.deps import identity_for
+        from app.application.memory import remember_trip
 
         identity = identity_for(request, payload.get("client_token"))
         plan = await load_plan(c, session_id)
+        context = await load_context(c, session_id)
         if identity and plan is not None:
-            profile = await c.store.get_profile(identity) or {"preferences": [], "hard_constraints": []}
-            preferences = profile["preferences"]
-            if plan.destination.name and plan.destination.name not in preferences:
-                preferences.append(plan.destination.name)
-                await c.store.save_profile(identity, preferences, profile["hard_constraints"])
-                added.append(plan.destination.name)
+            added = await remember_trip(
+                container=c,
+                identity=identity,
+                plan=plan,
+                context=context,
+                session_id=session_id,
+            )
     return {"feedback": {"id": feedback_id}, "preferences_added": added}
 
 

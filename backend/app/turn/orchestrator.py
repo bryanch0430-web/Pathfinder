@@ -47,6 +47,7 @@ from app.plan.agents import gather
 from app.plan.builder import Problem, compose, refresh_derived
 from app.plan.editor import diff_plans, propose_edit
 from app.plan.validator import audit_constraints, check_structure, problems_from_verify
+from app.security.pii import Redaction, mask_pii
 from app.understand.pipeline import dates_usable, missing_for_plan, understand
 from app.understand.schemas import IntakeFacts
 
@@ -73,7 +74,7 @@ async def run_turn(deps: Dependencies, request: ChatRequest, *, session_id: str,
     request_id = uuid.uuid4().hex
     trace = TurnTrace(request_id=request_id)
     llm = LLMClient(settings, trace=trace)
-    providers = Providers(settings, trace)
+    providers = Providers(settings, trace, serp_keys=await store.get_kv("serpapi:keys") or [])
     emitted: list[tuple[str, dict[str, Any]]] = []
 
     async def emit(event: str, data: dict[str, Any]) -> None:
@@ -180,11 +181,24 @@ async def _produce(
     settings = deps.settings
     store = deps.store
     trace.flow.append("turn:start")
+    runtime = await store.get_kv("runtime") or {}
+    redaction = Redaction.from_runtime(runtime)
+    # First layer: the model, the stored chat and the trace only ever see the masked text.
+    message = mask_pii(message or "", redaction)
+    request = request.model_copy(update={"message": message})
     await store.touch_session(session_id, planner_note="Reading your message")
     context = await _load_context(store, session_id, settings, request.locale)
+    if request.identity:
+        from app.application.memory import merged_context_memory
+
+        profile = await store.get_profile(request.identity)
+        context = merged_context_memory(context, profile)
+        await store.save_context(session_id, context.model_dump())
     plan = await _load_plan(store, session_id)
     history = await store.recent_messages(session_id, limit=MAX_CONTEXT_TURNS)
-    chat_history = [ChatMessage(**row) for row in history]
+    chat_history = [
+        ChatMessage(**{**row, "content": mask_pii(row.get("content") or "", redaction)}) for row in history
+    ]
 
     user_row = ChatMessage(id=uuid.uuid4().hex, role="user", content=message, created_at=now_iso())
     await store.add_message(session_id, user_row.model_dump())
@@ -209,6 +223,7 @@ async def _produce(
         request=request,
         message=message,
         trace=trace,
+        redaction=redaction,
     )
     if intake_payload is not None:
         await push("intake", intake_payload.model_dump())
@@ -264,15 +279,10 @@ async def _produce(
     if route.intent == "modify" and plan is None:
         route = route.model_copy(update={"intent": "plan", "reason_code": "no_plan_to_edit"})
         await push("route", route.model_dump())
-    if understanding.parsed.wants_human:
-        await store.set_held(session_id, True, "Travel designer queue")
-        reply = (
-            "I have asked a travel designer to join this chat. They will reply here and can "
-            "take over the plan; you can keep typing in the meantime."
-        )
-        await _stream_text(push, reply)
-        await _save_assistant(store, session_id, reply, intent="ask", meta={"handoff": True})
-        await _finish(push, trace, session_id=session_id, intent="ask")
+    policy = await store.get_kv("escalation") or {}
+    handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy)
+    if handoff_reason:
+        await _handoff(push, store, session_id, trace, handoff_reason)
         return
     if context.finalized and route.intent in {"plan", "modify"}:
         await _finish_plain(
@@ -288,11 +298,28 @@ async def _produce(
 
     # -- clarify -------------------------------------------------------
     if route.need_clarification or (route.intent == "plan" and missing_for_plan(context)):
+        if await _bump_stuck(store, session_id, policy) >= int(policy.get("stuck_after") or 3) and policy.get("stuck_on", True):
+            await _handoff(push, store, session_id, trace, "stuck")
+            return
         clarify = understanding.clarify or _fallback_clarify(context, route)
-        reply = clarify.question
+        # The card carries the question and its choices; the chat line stays short so the
+        # same sentence is not printed twice.
+        reply = "I need one detail before I can plan."
         await push("clarify", clarify.model_dump())
         await _stream_text(push, reply)
-        await _save_assistant(store, session_id, reply, intent=route.intent, confidence=route.confidence, meta={"clarify": clarify.model_dump()})
+        await _save_assistant(
+            store,
+            session_id,
+            reply,
+            intent=route.intent,
+            confidence=route.confidence,
+            meta={
+                "clarify": True,
+                "slots": clarify.slots,
+                "place_suggestions": [item.model_dump() for item in clarify.suggestions],
+                "clarify_payload": clarify.model_dump(),
+            },
+        )
         await _finish(push, trace, session_id=session_id, intent=route.intent)
         return
 
@@ -311,6 +338,8 @@ async def _produce(
             skill_overrides=skill_overrides,
             scenario=scenario,
             change_summary="Planned the trip.",
+            research_places=understanding.parsed.research_places,
+            search_queries=understanding.parsed.search_queries,
         )
         return
     if route.intent == "modify" and plan is not None:
@@ -326,6 +355,8 @@ async def _produce(
             push=push,
             skill_overrides=skill_overrides,
             scenario=scenario,
+            research_places=understanding.parsed.research_places,
+            search_queries=understanding.parsed.search_queries,
         )
         return
     await _ask_turn(
@@ -341,6 +372,7 @@ async def _produce(
         skill_overrides=skill_overrides,
         message=message,
         chat_history=chat_history,
+        redaction=redaction,
     )
 
 
@@ -361,6 +393,8 @@ async def _plan_turn(
     skill_overrides: dict[str, str],
     scenario: dict[str, Any] | None,
     change_summary: str,
+    research_places: list[str] | None = None,
+    search_queries: list[str] | None = None,
 ):
     settings = deps.settings
     store = deps.store
@@ -375,6 +409,14 @@ async def _plan_turn(
         scenario=scenario,
     )
     bundle = gathered.bundle
+    await _add_plan_research(
+        providers=providers,
+        context=context,
+        bundle=bundle,
+        names=research_places or [],
+        queries=search_queries or [],
+        trace=trace,
+    )
     await push("progress", {"phase": "gather", "message": f"Found {len(bundle.items)} sourced options.", "progress": 42})
 
     previous_problems: list[Problem] = []
@@ -515,9 +557,12 @@ async def _edit_turn(
     push,
     skill_overrides: dict[str, str],
     scenario: dict[str, Any] | None,
+    research_places: list[str] | None = None,
+    search_queries: list[str] | None = None,
 ):
     settings = deps.settings
     store = deps.store
+    policy = await store.get_kv("escalation") or {}
     await store.touch_session(session_id, planner_note="Changing the plan")
     await push("progress", {"phase": "gather", "message": "Checking options for the change.", "progress": 20})
     gathered = await gather(
@@ -558,9 +603,14 @@ async def _edit_turn(
             skill_overrides=skill_overrides,
             scenario=scenario,
             change_summary=outcome.draft.summary or "Replanned the trip.",
+            research_places=research_places,
+            search_queries=search_queries,
         )
         return
     if not outcome.changed:
+        if await _bump_stuck(store, session_id, policy) >= int(policy.get("stuck_after") or 3) and policy.get("stuck_on", True):
+            await _handoff(push, store, session_id, trace, "stuck")
+            return
         reason = outcome.log[-1] if outcome.log else ""
         reply = reason or "I could not make that change from sourced places, so the plan is unchanged."
         if outcome.research_failed:
@@ -574,6 +624,7 @@ async def _edit_turn(
         return
 
     old_plan = plan
+    await _reset_stuck(store, session_id)
     if not request.review:
         applied = await _persist_plan(
             store, session_id, outcome.context, outcome.plan, old_plan, outcome.draft.summary or "Edited the trip."
@@ -624,6 +675,7 @@ async def _ask_turn(
     skill_overrides: dict[str, str],
     message: str,
     chat_history: list[ChatMessage],
+    redaction: Redaction | None = None,
 ):
     store = deps.store
     queries = await _search_queries(llm, message, plan)
@@ -651,8 +703,9 @@ async def _ask_turn(
     ):
         collected.append(chunk)
         await push("token", {"text": chunk})
-    reply = _guard_output("".join(collected), deps.settings)
+    reply = mask_pii(_guard_output("".join(collected), deps.settings), redaction)
     await _save_assistant(store, session_id, reply, intent="ask", meta={"sources": [row.get("url", "") for row in results[:4]]})
+    await _reset_stuck(store, session_id)
     await _finish(push, trace, session_id=session_id, intent="ask")
 
 
@@ -681,6 +734,53 @@ async def _search_queries(llm: LLMClient, message: str, plan: TripPlan | None) -
 
 
 # -- helpers -----------------------------------------------------------
+
+
+async def _add_plan_research(
+    *,
+    providers: Providers,
+    context: TripContext,
+    bundle: Any,
+    names: list[str],
+    queries: list[str],
+    trace: TurnTrace,
+) -> None:
+    """Look up the named places (and described wishes) a generic guide may not hold."""
+    from app.domain.models import SourceRef, now_iso
+    from app.evidence.models import Evidence
+
+    city = context.destination or ""
+    for name in [item for item in names if item.strip()][:4]:
+        hits = await providers.lookup_place(name, city)
+        if not hits:
+            continue
+        evidence = hits[0]
+        evidence.ref = f"pl-{len(bundle.items) + 1}"
+        bundle.add([evidence], "research")
+        trace.say(f"Looked up {name}: {evidence.name}.")
+    for query in [item for item in queries if item.strip()][:2]:
+        results = await providers.search(query, limit=3)
+        for row in results[:2]:
+            title = str(row.get("title") or "").strip()
+            url = str(row.get("url") or "").strip()
+            if not title or not url:
+                continue
+            clean_title = title.split(" - ")[0].strip() or title
+            bundle.items.append(
+                Evidence(
+                    ref=f"web-{len(bundle.items) + 1}",
+                    kind="attraction",
+                    name=clean_title[:160],
+                    address=city,
+                    summary=str(row.get("snippet") or "")[:400],
+                    source_refs=[SourceRef(title=title[:160], url=url, source="Web", fetched_at=now_iso())],
+                    data_status="stale",
+                    fetched_at=now_iso(),
+                    tags=["web result"],
+                    suggested_minutes=90,
+                )
+            )
+        trace.say(f"Looked up “{query}”: {len(results)} results.")
 
 
 async def _load_context(store: Store, session_id: str, settings: Settings, locale: str) -> TripContext:
@@ -830,6 +930,57 @@ def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> Clari
     )
 
 
+async def _handoff_reason(
+    store: Store, session_id: str, parsed: Any, policy: dict[str, Any]
+) -> str:
+    """Why this turn should go to a person, or an empty string."""
+    if parsed.wants_human:
+        return "asked"
+    if not policy.get("enabled", True):
+        return ""
+    threshold = float(policy.get("frustration_at") or 0.75)
+    if float(parsed.frustration or 0) >= threshold:
+        return "frustration"
+    if policy.get("stuck_on", True):
+        count = await _stuck_count(store, session_id)
+        if count >= int(policy.get("stuck_after") or 3):
+            return "stuck"
+    return ""
+
+
+async def _stuck_count(store: Store, session_id: str) -> int:
+    try:
+        return int(await store.get_kv(f"stuck:{session_id}") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _bump_stuck(store: Store, session_id: str, policy: dict[str, Any]) -> int:
+    if not policy.get("enabled", True) or not policy.get("stuck_on", True):
+        return 0
+    count = await _stuck_count(store, session_id) + 1
+    await store.set_kv(f"stuck:{session_id}", count)
+    return count
+
+
+async def _reset_stuck(store: Store, session_id: str) -> None:
+    await store.delete_kv(f"stuck:{session_id}")
+
+
+async def _handoff(push, store: Store, session_id: str, trace: TurnTrace, reason: str) -> None:
+    await store.set_held(session_id, True, "Travel designer queue")
+    replies = {
+        "asked": "I have asked a travel designer to join this chat. They will reply here and can take over the plan; you can keep typing in the meantime.",
+        "frustration": "I am sorry this is not working for you. I have asked a travel designer to join and take over the plan; they will reply here.",
+        "stuck": "We have been circling the same point, so I have asked a travel designer to join and take over. They will reply here; you can keep typing.",
+    }
+    reply = replies.get(reason, replies["asked"])
+    trace.say(f"Escalated to a person ({reason}).")
+    await _stream_text(push, reply)
+    await _save_assistant(store, session_id, reply, intent="ask", meta={"handoff": True, "handoff_reason": reason})
+    await _finish(push, trace, session_id=session_id, intent="ask")
+
+
 async def _count_threat(store: Store, category: str) -> None:
     counters = await store.get_kv("threats") or {}
     counters[category] = int(counters.get(category, 0)) + 1
@@ -850,6 +1001,7 @@ async def _intake(
     request: ChatRequest,
     message: str,
     trace: TurnTrace,
+    redaction: Redaction | None = None,
 ) -> tuple[IntakePayload | None, IntakeFacts | None, list[str]]:
     attachments = request.attachments or []
     urls = _urls_in(message)

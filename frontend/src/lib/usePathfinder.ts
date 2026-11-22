@@ -82,7 +82,21 @@ function valuesForSuggestions(payload: ClarifyPayload): Record<string, string> {
 function clarifyFromHistory(message: ChatMessage | undefined): ClarifyPayload | null {
   if (!message || message.role === "user") return null;
   const meta = message.meta;
-  if (!meta || meta.clarify !== true) return null;
+  if (!meta) return null;
+  // v5 stores the whole payload; use it so choices survive a refresh.
+  const stored = meta.clarify_payload as ClarifyPayload | undefined;
+  if (stored && Array.isArray(stored.slots)) {
+    return {
+      question: typeof stored.question === "string" ? stored.question : message.content,
+      slots: stored.slots,
+      labels: Array.isArray(stored.labels) ? stored.labels : [],
+      options: stored.options && typeof stored.options === "object" ? stored.options : {},
+      choices: Array.isArray(stored.choices) ? stored.choices : [],
+      suggestions: Array.isArray(stored.suggestions) ? stored.suggestions : [],
+      reason_code: stored.reason_code ?? "clarify",
+    };
+  }
+  if (meta.clarify !== true) return null;
   const slots = Array.isArray(meta.slots) ? meta.slots.filter((slot): slot is string => typeof slot === "string") : [];
   if (!slots.length) return null;
   const suggestions = suggestionsOf(meta.place_suggestions);
@@ -1233,6 +1247,11 @@ export function usePathfinder(locale: string): PathfinderHook {
   generateRef.current = generate;
 
   const submitClarify = useCallback(async (message?: string) => {
+    // A choice can be clicked while the clarify turn is still closing. Wait for it
+    // instead of dropping the click (send() refuses while a turn is running).
+    for (let attempt = 0; attempt < 100 && (shownRef.current.busy || abortRef.current); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     if (message && message.trim()) {
       setClarify(null);
       setClarifyValues({});

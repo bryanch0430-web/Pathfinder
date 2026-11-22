@@ -19,6 +19,7 @@ from app.domain.models import (
     Link,
     Money,
     SourceRef,
+    VideoNote,
     WeatherDay,
     now_iso,
 )
@@ -147,6 +148,7 @@ class Bundle:
     sources_used: set[str] = field(default_factory=set)
     notes: list[str] = field(default_factory=list)
     weather: list["WeatherDay"] = field(default_factory=list)
+    video_notes: list["VideoNote"] = field(default_factory=list)
 
     def add(self, evidence: list[Evidence], section: str) -> None:
         for entry in evidence:

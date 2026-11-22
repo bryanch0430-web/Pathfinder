@@ -14,6 +14,7 @@ evaluation run through the *same* pipeline as production.
 from __future__ import annotations
 
 import asyncio
+import html
 import math
 import random
 from datetime import date, datetime, timedelta
@@ -23,7 +24,7 @@ import httpx
 
 from app.config import Settings
 from app.core.trace import TurnTrace
-from app.domain.models import DataGap, GeoPoint, ImageRef, Money, SourceRef, WeatherDay, now_iso
+from app.domain.models import DataGap, GeoPoint, ImageRef, Money, SourceRef, VideoNote, WeatherDay, now_iso
 from app.evidence import atlas
 from app.evidence.models import Evidence
 
@@ -62,13 +63,21 @@ PRICE_LEVEL = {"PRICE_LEVEL_INEXPENSIVE": "$", "PRICE_LEVEL_MODERATE": "$$", "PR
 
 
 class Providers:
-    def __init__(self, settings: Settings, trace: TurnTrace | None = None, *, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        trace: TurnTrace | None = None,
+        *,
+        client: httpx.AsyncClient | None = None,
+        serp_keys: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.settings = settings
         self.trace = trace
         self._client = client
         self._owns_client = client is None
         self.sandbox = bool(settings.sandbox)
         self._serp_index = 0
+        self.serp_keys = serp_keys or []
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -561,6 +570,75 @@ class Providers:
         except (httpx.HTTPError, ValueError):
             return ""
 
+    # -- community videos ---------------------------------------------
+
+    async def videos(self, query: str, *, limit: int = 3) -> list[VideoNote]:
+        """YouTube (and optionally Bilibili) notes for a destination. Never a fact source."""
+        notes: list[VideoNote] = []
+        if self.settings.enable_notes and self.settings.enable_youtube and self.settings.youtube_api_key:
+            params = {
+                "part": "snippet",
+                "q": query,
+                "type": "video",
+                "maxResults": max(1, min(limit, 5)),
+                "order": "relevance",
+                "videoDuration": "medium",
+                "videoEmbeddable": "true",
+                "relevanceLanguage": "en",
+                "key": self.settings.youtube_api_key,
+            }
+            try:
+                response = await self.client.get(
+                    "https://www.googleapis.com/youtube/v3/search", params=params, timeout=12.0
+                )
+                response.raise_for_status()
+                for item in (response.json().get("items") or [])[:limit]:
+                    snippet = item.get("snippet") or {}
+                    video_id = (item.get("id") or {}).get("videoId")
+                    if not video_id:
+                        continue
+                    notes.append(
+                        VideoNote(
+                            title=html.unescape(str(snippet.get("title") or "Video")),
+                            url=f"https://www.youtube.com/watch?v={video_id}",
+                            source="youtube",
+                            snippet=html.unescape(str(snippet.get("description") or ""))[:400],
+                            video_id=str(video_id),
+                            thumbnail_url=f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                            published_at=snippet.get("publishedAt"),
+                        )
+                    )
+            except (httpx.HTTPError, ValueError):
+                pass
+        if self.settings.enable_notes and self.settings.enable_bilibili:
+            try:
+                response = await self.client.get(
+                    "https://api.bilibili.com/x/web-interface/search/type",
+                    params={"search_type": "video", "keyword": query, "page": 1},
+                    headers={"Referer": "https://www.bilibili.com/"},
+                    timeout=12.0,
+                )
+                response.raise_for_status()
+                for item in ((response.json().get("data") or {}).get("result") or [])[: max(0, limit - len(notes))]:
+                    bvid = item.get("bvid")
+                    if not bvid:
+                        continue
+                    notes.append(
+                        VideoNote(
+                            title=html.unescape(str(item.get("title") or "Video")).replace("<em class=\"keyword\">", "").replace("</em>", ""),
+                            url=f"https://www.bilibili.com/video/{bvid}",
+                            source="bilibili",
+                            snippet=str(item.get("description") or "")[:400],
+                            video_id=str(bvid),
+                            thumbnail_url=("https:" + str(item.get("pic"))) if item.get("pic") else "",
+                        )
+                    )
+            except (httpx.HTTPError, ValueError):
+                pass
+        if self.trace and notes:
+            self.trace.search(provider=notes[0].source, query=query, results=[{"title": note.title, "url": note.url} for note in notes])
+        return notes[:limit]
+
     # -- named place lookup -------------------------------------------
 
     async def lookup_place(self, name: str, city: str = "") -> list[Evidence]:
@@ -660,6 +738,9 @@ class Providers:
     # -- serpapi -------------------------------------------------------
 
     def _serp_key(self) -> str:
+        for row in self.serp_keys:
+            if row.get("status") in {"active", "ready"} and str(row.get("_key") or "").strip():
+                return str(row["_key"]).strip()
         pool = self.settings.serpapi_key_pool
         if pool:
             entries = []

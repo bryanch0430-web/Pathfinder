@@ -26,17 +26,26 @@ def sse_frame(event: str, data: dict) -> str:
 async def effective_settings(c: Container):
     overrides = await c.store.get_kv("runtime") or {}
     writer = overrides.get("writer") or {}
+    thresholds = overrides.get("thresholds") or {}
     model = overrides.get("writer_model") or writer.get("model")
-    if not model:
+    update: dict = {}
+    if model:
+        update["llm_model"] = model
+        update["openai_model"] = model
+        update["llm_temperature"] = writer.get("temperature", c.settings.llm_temperature)
+        update["llm_max_tokens"] = writer.get("max_tokens", c.settings.llm_max_tokens)
+    try:
+        if "router" in thresholds:
+            update["router_threshold"] = max(0.0, min(1.0, float(thresholds["router"])))
+        if "max_repairs" in thresholds:
+            update["max_repairs"] = max(0, min(3, int(thresholds["max_repairs"])))
+        if "turn_deadline" in thresholds:
+            update["turn_deadline_seconds"] = max(30.0, float(thresholds["turn_deadline"]))
+    except (TypeError, ValueError):
+        pass
+    if not update:
         return c.settings
-    return c.settings.model_copy(
-        update={
-            "llm_model": model,
-            "openai_model": model,
-            "llm_temperature": writer.get("temperature", c.settings.llm_temperature),
-            "llm_max_tokens": writer.get("max_tokens", c.settings.llm_max_tokens),
-        }
-    )
+    return c.settings.model_copy(update=update)
 
 
 @router.post("/api/turn/stream")
@@ -44,8 +53,11 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
     c = container(request)
     settings = await effective_settings(c)
     from app.api.llm import effective_writer
+    from app.api.deps import identity_for
 
     settings = await effective_writer(c, settings)
+    # The memory owner is the signed-in user or the guest token; never the body alone.
+    payload = payload.model_copy(update={"identity": identity_for(request, payload.client_token)})
     session_id = payload.session_id or ""
     if not session_id:
         token = (request.headers.get("X-Client-Token") or payload.client_token or "").strip()

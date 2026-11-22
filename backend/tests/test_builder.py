@@ -225,3 +225,16 @@ def test_avoid_transit_day_walks_instead():
     )
     modes = [item.transfer.mode for item in plan.days[0].items if item.transfer]
     assert modes and "transit" not in modes
+
+
+def test_every_stop_gets_a_photo_fallback():
+    context = TripContext(
+        session_id="s1", destination="Kyoto", start_date="2027-04-10", end_date="2027-04-11",
+        days=2, party_size=2, budget=100000, currency="JPY",
+    )
+    plan = build_plan(
+        context=context, bundle=_bundle(), draft=_draft(), disruptions=[], weather_by_date={},
+        start=date(2027, 4, 10), end=date(2027, 4, 11), settings=_settings(),
+    )
+    items = [item for day in plan.days for item in day.items]
+    assert items and all(item.image and item.image.url.startswith("/api/images/place") for item in items)

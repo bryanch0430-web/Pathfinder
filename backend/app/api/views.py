@@ -335,6 +335,18 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             }
         },
         "cities": len(atlas.CITIES),
+        "capabilities": {
+            "writer": True,
+            "byok_keys": True,
+            "thresholds": ["router", "max_repairs", "turn_deadline"],
+            "privacy_masking": True,
+            "serpapi_rotation": True,
+            "freshness_hours": False,
+            "jev": False,
+            "reviewer": False,
+            "gate_arms": False,
+            "model_arms": False,
+        },
     }
 
 
