@@ -769,6 +769,7 @@ export default function App() {
                       onSelectItem={selectItem}
                       updatedIds={pf.changedIds}
                       changedStayIds={pf.changedStayIds}
+                      onApplyLayout={pf.held ? undefined : (items) => pf.applyLayout(items)}
                     />
                   }
                   updatedIds={pf.changedIds}

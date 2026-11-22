@@ -41,6 +41,8 @@ _NEGATED_ESCALATION = re.compile(
     r"(?:talk|speak|get\s+me|escalate|transfer)\b",
     re.IGNORECASE,
 )
+# A link is not a sentence. "trip" inside hk.trip.com is not the word trip.
+_URL = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
 
 
 # Replies that mean the edit changed nothing. A successful one-row edit says
@@ -189,14 +191,45 @@ def line_is_hot(text: str, frustration: int, part: dict[str, Any], *, jev_scored
     return (found is not None and found >= bar) or is_distress(text)
 
 
+def _without_urls(message: str) -> str:
+    return _URL.sub(" ", message or "")
+
+
+def _phrase_hit(text: str, needle: str) -> bool:
+    """A whole phrase, not a piece of a longer word and not a piece of a link.
+
+    A latin word has to be at least four letters. "hell" does not match "hello", and "bad" does not match "badge".
+    """
+    needle = needle.strip()
+    if not needle:
+        return False
+    if needle.isascii() and len(needle) < 4:
+        return False
+    if not needle.isascii():
+        return needle.casefold() in text.casefold()
+    return re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", text, re.IGNORECASE) is not None
+
+
+def _listed_phrase(text: str, words: Any, examples: Any) -> bool:
+    for needle, _score in _scored_rows(words) + _scored_rows(examples):
+        if _phrase_hit(text, needle):
+            return True
+    return False
+
+
 def hand_reason(message: str, frustration: int, hand: dict[str, Any]) -> str | None:
-    """Why this part hands the chat to a person, using only its own lists and engine."""
+    """Why this part hands the chat to a person, using only its own lists and engine.
+
+    Asking for a person is the tight keyword and it stays on when the extra word list is off.
+    The extra list has to be a whole phrase. A link is ignored, so a URL cannot contain the phrase.
+    """
+    spoken = _without_urls(message)
+    if _ASKS_FOR_A_PERSON.search(spoken) and not _NEGATED_ESCALATION.search(spoken):
+        return "asked_for_a_person"
     if not hand.get("enabled", True):
         return None
-    if _ASKS_FOR_A_PERSON.search(message or "") and not _NEGATED_ESCALATION.search(message or ""):
-        return "asked_for_a_person"
     del frustration
-    if best_match(message, hand.get("words"), hand.get("examples")) is None:
+    if not _listed_phrase(spoken, hand.get("words"), hand.get("examples")):
         return None
     return "negative_word"
 
@@ -280,8 +313,8 @@ _QUESTION_FILLER = frozenset(
 )
 
 
-def _question_runs(turns: list[tuple[str, Any, Any, str]]) -> list[int]:
-    """The turn indices of every run of 2+ consecutive assistant questions that share a content word.
+def _question_runs(turns: list[tuple[str, Any, Any, str]], need: int) -> list[int]:
+    """The turn indices of every run of ``need`` consecutive assistant questions that share a content word.
 
     "Which sushi restaurant would you like to add?" asked three times is a loop the plan never leaves,
     however it is rephrased; two different clarifying questions ("Where to?", "When?") share no content
@@ -302,7 +335,7 @@ def _question_runs(turns: list[tuple[str, Any, Any, str]]) -> list[int]:
         )
         if same:
             continue
-        if position - start >= 2:
+        if position - start >= need:
             stuck.extend(asked[j][0] for j in range(start, position))
         start = position
     return stuck
@@ -323,6 +356,8 @@ def is_stuck(
     same question again also counts: the plan did not move, however the question is phrased.
     ``phrases`` and ``examples`` belong to the stuck part. Without them, the built-in reply check is used.
     """
+    from app.application.understanding import is_clarify_answer
+
     need = max(2, int(after))
     turns: list[tuple[str, Any, Any, str]] = []  # user text, user message, assistant message, assistant text
     previous_user = ""
@@ -335,6 +370,9 @@ def is_stuck(
             previous_message = message
             continue
         if role != "assistant" or not previous_user:
+            continue
+        # Filling the dates form is progress. Those lines share "missing details" and must not count as a loop.
+        if is_clarify_answer(previous_user):
             continue
         turns.append((previous_user, previous_message, message, content))
     failed: list[str] = []
@@ -357,7 +395,7 @@ def is_stuck(
         if failed_reply:
             failed.append(user_text)
             counted.add(index)
-    failed.extend(turns[index][0] for index in _question_runs(turns) if index not in counted)
+    failed.extend(turns[index][0] for index in _question_runs(turns, need) if index not in counted)
     if len(failed) < need:
         return False
     sets = [tokens(text) for text in failed[-need:]]

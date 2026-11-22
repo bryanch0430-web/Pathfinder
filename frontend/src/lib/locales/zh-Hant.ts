@@ -385,6 +385,7 @@ export const ZH_HANT: Messages = {
   "map.optionsFor": "{from} → {to}",
   "map.optionsLoading": "正在比較路線…",
   "map.optionsError": "無法比較路線。",
+  "map.optionsHeld": "這份行程現在不能改，時間保持原樣。",
   "map.optionsNote": "選一種方式後，地圖換成該路線，後面的時間跟著相差的分鐘移動。",
   "map.optionWalk": "步行",
   "map.optionCycle": "騎行",

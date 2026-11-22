@@ -191,6 +191,23 @@ def flight_windows(flights: Iterable[dict], dates: Iterable[date]) -> dict[date,
     return windows
 
 
+def landing_date(flights: Iterable[dict]) -> date | None:
+    """The day the first flight lands, or None when it has no arrival time."""
+    rows = list(flights)
+    if not rows:
+        return None
+    arrive = _clock(rows[0].get("arrive_at"))
+    return arrive.date() if arrive is not None else None
+
+
+def days_before_landing(flights: Iterable[dict], dates: Iterable[date]) -> set[date]:
+    """Trip days that are still before the flight lands. Those days are not in the city yet."""
+    landed = landing_date(flights)
+    if landed is None:
+        return set()
+    return {day for day in dates if day < landed}
+
+
 def keep_morning_on_a_short_trip(windows: dict[date, "DayWindow"], dates: Iterable[date]) -> None:
     """A night landing on a one- or two-day trip must not erase the city.
 

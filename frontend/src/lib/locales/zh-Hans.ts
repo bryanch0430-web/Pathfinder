@@ -383,6 +383,7 @@ export const ZH_HANS: Messages = {
   "map.optionsFor": "{from} → {to}",
   "map.optionsLoading": "正在比较路线…",
   "map.optionsError": "无法比较路线。",
+  "map.optionsHeld": "这份行程现在不能改，时间保持原样。",
   "map.optionsNote": "选一种方式后，地图换成该路线，后面的时间跟着相差的分钟移动。",
   "map.optionWalk": "步行",
   "map.optionCycle": "骑行",

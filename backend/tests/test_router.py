@@ -241,6 +241,46 @@ def test_a_question_during_intake_is_answered_before_the_missing_details(setting
     assert jev.calls == 1
 
 
+def test_the_log_names_whether_rules_or_jev_chose_the_path() -> None:
+    from types import SimpleNamespace
+
+    from app.application.orchestrator import _store_path, _why_lines
+    from app.application.router import RULES_FIRST
+
+    rules = RouteDecision(
+        intent=Intent.MODIFY,
+        confidence=0.86,
+        reason_code="change_current_plan",
+        rationale=RULES_FIRST,
+    )
+    overridden = rules.model_copy(update={"intent": Intent.ASK, "reason_code": "not_about_the_trip", "confidence": 0.9})
+    tracer = SimpleNamespace(
+        metadata={
+            "flow_notes": ["Handoff word check matched stuck. The model still answers this message."],
+            "turn_steps": [{"id": "understand", "model": "rules", "note": "no new slot was read."}],
+        },
+        searches=[],
+        generations=[],
+    )
+    _store_path(tracer, rules, overridden)
+    flow = tracer.metadata["flow"]
+    assert tracer.metadata["path"]["chooser"] == "a word check"
+    assert tracer.metadata["path"]["router"] == "word rules (Jev was not asked)"
+    assert tracer.metadata["path"]["changed_by"] == "not_about_the_trip"
+    assert any("Jev was not asked" in line for line in flow)
+    assert any("not about the trip" in line for line in flow)
+    assert any("understand model was not asked" in line for line in flow)
+    assert any("Handoff word check" in line for line in flow)
+    assert _why_lines(tracer)[:4] == flow[:4]
+
+    jev = RouteDecision(intent=Intent.ASK, confidence=0.71, reason_code="jev_ask", rationale="system one decision")
+    second = SimpleNamespace(metadata={}, searches=[], generations=[])
+    _store_path(second, jev, jev)
+    assert second.metadata["path"]["chooser"] == "Jev"
+    assert second.metadata["path"]["changed_by"] == ""
+    assert any("Jev chose ask" in line for line in second.metadata["flow"])
+
+
 def test_an_insult_is_not_about_the_trip_and_a_short_reply_is() -> None:
     assert not_about_the_trip("....fuck you") is True
     assert not_about_the_trip("hello") is True

@@ -293,13 +293,16 @@ function decisionText(meta?: Record<string, unknown>): Record<string, unknown> |
   if (!raw || typeof raw !== "object") return null;
   const decision = raw as {
     why?: string[];
+    flow?: string[];
+    path?: unknown;
     generations?: { purpose?: string; reasoning?: string; output_preview?: string; user_preview?: string }[];
   };
   const why = (decision.why ?? []).some((line) => line.trim());
+  const flow = (decision.flow ?? []).some((line) => line.trim());
   const call = (decision.generations ?? []).some(
     (item) => item.purpose || item.reasoning?.trim() || item.output_preview?.trim() || item.user_preview?.trim(),
   );
-  return why || call ? (decision as Record<string, unknown>) : null;
+  return why || flow || call || decision.path ? (decision as Record<string, unknown>) : null;
 }
 
 export function usePathfinder(locale: string): PathfinderHook {
@@ -1166,10 +1169,12 @@ export function usePathfinder(locale: string): PathfinderHook {
                 const traceData = data as unknown as RunTrace;
                 setTrace(traceData);
                 const traced = traceData as RunTrace & {
-                  steps?: { id?: string; phase?: string; model?: string; status?: string; seconds?: number }[];
+                  steps?: { id?: string; phase?: string; model?: string; status?: string; seconds?: number; note?: string }[];
                 };
                 const decision = {
                   why: traced.why ?? [],
+                  flow: traced.flow ?? [],
+                  path: traced.path ?? null,
                   steps: traced.steps ?? [],
                   generations: (traced.generations ?? []).map((call) => ({
                     purpose: call.purpose,

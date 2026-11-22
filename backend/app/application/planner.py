@@ -49,7 +49,15 @@ from app.application.transfers import (
     transfer_from,
     transfer_sentence,
 )
-from app.application.trip_rules import DayWindow, blocked_dates, flight_windows, keep_morning_on_a_short_trip, travel_windows
+from app.application.trip_rules import (
+    DayWindow,
+    blocked_dates,
+    days_before_landing,
+    flight_windows,
+    keep_morning_on_a_short_trip,
+    landing_date,
+    travel_windows,
+)
 from app.application.trip_rules import must_include as _must_include
 from app.application.validation import _URL
 from app.config import Settings
@@ -322,15 +330,25 @@ class Planner:
             if len(suitable) < len(meals):
                 diet_note = f"Meal stops are limited to the {len(suitable)} {diet} restaurant(s) the sources returned."
             meals = suitable
-        # A blocked day takes no stop; a flight day takes only what fits around it.
-        limits = [0 if day in blocked else _window_limit(windows.get(day), pace) for day in dates]
+        # A blocked day takes no stop. A day before the flight lands is not in the city yet.
+        # A flight day takes only what fits around the flight.
+        landed = landing_date(flights)
+        before_landing = days_before_landing(flights, dates)
+        limits = [
+            0 if day in blocked or day in before_landing else _window_limit(windows.get(day), pace)
+            for day in dates
+        ]
         assignment = self._assign_places(places, day_count, draft, pace=pace, limits=limits, business=business)
         if self.settings.enable_route_matrix and self.matrix is not None and toolbox is not None:
             assignment = await self._matrix_order(assignment, toolbox)
         cap = stops_cap(self.settings, pace, business)
         caps = [cap if limit is None else min(cap, limit) for limit in limits]
         _move_closed_stops(assignment, dates, caps)
-        meal_days = {index: rows for index, rows in assignment.items() if dates[index] not in blocked}
+        meal_days = {
+            index: rows
+            for index, rows in assignment.items()
+            if dates[index] not in blocked and dates[index] not in before_landing
+        }
         hotel = self._choose_hotel(hotels, draft)
         if pick_hotel is not None:
             # An edit that asked for another stay says which: none (nothing better came back) leaves `keep_hotel`.
@@ -439,6 +457,17 @@ class Planner:
             weather = WeatherDay.model_validate(weather_row) if weather_row else None
             day_places = schedules[index]["places"]
             items, left_out = schedules[index]["items"], schedules[index]["left_out"]
+            if day_date in before_landing and landed is not None:
+                days.append(
+                    DayPlan(
+                        date=day_date,
+                        title=f"Before arrival in {context.destination}",
+                        weather=weather,
+                        items=[],
+                        note=f"The flight lands on {landed.isoformat()}, so this day has no stops.",
+                    )
+                )
+                continue
             window = windows.get(day_date)
             title = ""
             if day_date in blocked:

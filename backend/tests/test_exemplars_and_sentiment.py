@@ -179,6 +179,10 @@ def test_each_monitor_uses_its_own_lists() -> None:
     mild = {"enabled": True, "engine": "keywords", "words": [{"text": "slow", "score": 40}], "examples": [], "score": 60}
     sharp = {"enabled": True, "engine": "keywords", "words": [{"text": "slow", "score": 80}], "examples": [], "score": 60}
     assert hand_reason("this is slow", 0, mild) == "negative_word"
+    off = {"enabled": False, "words": [], "examples": []}
+    assert hand_reason("can I talk to a live agent", 0, off) == "asked_for_a_person"
+    assert hand_reason("can you check this url? https://hk.trip.com/moments/detail/tokyo-294-149523579", 0, off) is None
+    assert hand_reason("hello", 0, {"enabled": True, "words": ["hell"], "examples": []}) is None
     assert line_is_hot("this is slow", 0, mild) is False
     assert line_is_hot("this is slow", 0, sharp) is True
     stuck_lines = []

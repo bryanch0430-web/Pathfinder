@@ -385,6 +385,7 @@ export const EN = {
   "map.optionsFor": "{from} → {to}",
   "map.optionsLoading": "Comparing routes…",
   "map.optionsError": "Could not compare routes.",
+  "map.optionsHeld": "This plan cannot be edited right now, so the times stay as they are.",
   "map.optionsNote": "Picking a mode draws that route and moves the later times by the difference.",
   "map.optionWalk": "Walk",
   "map.optionCycle": "Cycle",

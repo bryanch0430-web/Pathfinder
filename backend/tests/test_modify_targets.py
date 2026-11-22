@@ -139,6 +139,12 @@ def test_a_selected_meal_is_not_turned_into_a_hotel_change(settings: Settings) -
     assert AgentName.ATTRACTION in names
 
 
+def test_saying_there_is_no_lunch_does_not_take_the_meals_off() -> None:
+    shape = interpret_plan("can you add lunch on day1, seems no lunch on day1")
+    assert shape.meals != "drop"
+    assert shape.requested is False
+
+
 def test_one_place_a_day_and_no_meals_reshapes_the_plan(settings: Settings) -> None:
     sentence = "ok i want a version of trip plan where, each day, i only visit one place with no meals required"
     shape = interpret_plan(sentence)

@@ -75,8 +75,10 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
-import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg, type MapStep } from "../lib/api";
+import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
 import { dayRoute, dayScope, overviewStops, travelLine } from "../lib/mapScope";
+import { RouteChoiceProvider, useRouteChoices } from "../lib/routeChoices";
+import { shiftLaterStops, writeRouteChoices, type RouteChoice } from "../lib/routeShift";
 import {
   chosenFor,
   daysBySegment,
@@ -514,6 +516,50 @@ function useDeveloperMode() {
   }] as const;
 }
 
+function turnsForLog(messages: ChatMessage[]) {
+  const turns: {
+    user: string;
+    at: string;
+    reply: string;
+    reply_at: string;
+    intent: string;
+    path: DecisionRecord["path"];
+    flow: string[];
+    why: string[];
+    steps: { phase: string; model: string; note: string }[];
+    models: { purpose: string; model: string }[];
+  }[] = [];
+  let user = { content: "", at: "" };
+  for (const item of messages) {
+    if (item.role === "user") {
+      user = { content: item.content, at: item.created_at };
+      continue;
+    }
+    if (item.role !== "assistant") continue;
+    const decision = decisionOf(item.meta);
+    turns.push({
+      user: user.content,
+      at: user.at,
+      reply: item.content,
+      reply_at: item.created_at,
+      intent: item.intent ?? decision?.path?.intent ?? "",
+      path: decision?.path ?? null,
+      flow: decision?.flow ?? [],
+      why: decision?.why ?? [],
+      steps: (decision?.steps ?? []).map((step) => ({
+        phase: step.phase ?? "",
+        model: step.model ?? "",
+        note: step.note ?? "",
+      })),
+      models: (decision?.generations ?? []).map((call) => ({
+        purpose: call.purpose ?? "",
+        model: call.model ?? "",
+      })),
+    });
+  }
+  return turns;
+}
+
 function downloadTurnLog(
   trace: RunTrace | null | undefined,
   live: { id: string; title: string; body: string }[] | undefined,
@@ -523,8 +569,11 @@ function downloadTurnLog(
     downloaded_at: new Date().toISOString(),
     request_id: trace?.request_id ?? "",
     user_message: trace?.message ?? [...messages].reverse().find((item) => item.role === "user")?.content ?? "",
+    turns: turnsForLog(messages),
     messages: messages.map((item) => ({ role: item.role, content: item.content, at: item.created_at })),
     why: trace?.why ?? [],
+    flow: trace?.flow ?? [],
+    path: trace?.path ?? null,
     route: trace?.reason ?? "",
     spans: trace?.spans ?? [],
     generations: trace?.generations ?? [],
@@ -576,6 +625,17 @@ interface DecisionStep {
 
 interface DecisionRecord {
   why?: string[];
+  flow?: string[];
+  path?: {
+    intent?: string;
+    reason?: string;
+    confidence?: number;
+    chooser?: string;
+    router?: string;
+    router_intent?: string;
+    router_reason?: string;
+    changed_by?: string;
+  } | null;
   generations?: DecisionCall[];
   steps?: DecisionStep[];
 }
@@ -643,12 +703,14 @@ function decisionOf(meta?: Record<string, unknown>): DecisionRecord | null {
   if (!raw || typeof raw !== "object") return null;
   const decision = raw as DecisionRecord;
   const why = (decision.why ?? []).filter((line) => line.trim());
+  const flow = (decision.flow ?? []).filter((line) => line.trim());
+  const path = decision.path && typeof decision.path === "object" ? decision.path : null;
   const generations = (decision.generations ?? []).filter(
     (call) => call.purpose || call.model || call.reasoning?.trim() || call.output_preview?.trim() || call.user_preview?.trim(),
   );
   const steps = (decision.steps ?? []).filter((step) => (step.phase ?? "").trim());
-  if (!why.length && !generations.length && !steps.length) return null;
-  return { why, generations, steps };
+  if (!why.length && !flow.length && !path && !generations.length && !steps.length) return null;
+  return { why, flow, path, generations, steps };
 }
 
 function decisionFromLive(
@@ -2505,6 +2567,7 @@ export function TripWorkspace({
     ) : null;
 
   return (
+    <RouteChoiceProvider tripId={plan.trip_id} version={plan.version}>
     <section className="pf-card pf-workspace" aria-label={t("workspace.label")}>
       <div className="pf-view-switch" role="tablist" aria-label={t("workspace.label")}>
         {([
@@ -2803,6 +2866,7 @@ export function TripWorkspace({
         )}
       </div>
     </section>
+    </RouteChoiceProvider>
   );
 }
 
@@ -2929,28 +2993,14 @@ function localClock(zone: string, t: Translate): string {
 
 type LegRef = { fromId: string; toId: string };
 
-type LegChoice = {
-  mode: string;
-  minutes: number;
-  km: number | null;
-  path: [number, number][];
-  steps: MapStep[];
-  source: string;
-};
+type LegChoice = RouteChoice;
 
 const legKey = (fromId: string, toId: string) => `${fromId}|${toId}`;
 
 const sameLeg = (left: LegRef | null, right: LegRef) =>
   left !== null && left.fromId === right.fromId && left.toId === right.toId;
 
-function shiftTime(value: string, delta: number): string {
-  const mins = minutesOf(value);
-  if (mins === null || delta === 0) return value;
-  const next = Math.max(0, Math.min(23 * 60 + 59, mins + delta));
-  return clockText(next);
-}
-
-/** The picked mode replaces that hop. Later stops move by the minute difference. */
+/** The picked mode replaces that hop on the map. The plan clocks are saved separately. */
 function applyLegChoices(
   day: DayPlan | undefined,
   legs: MapLeg[],
@@ -2969,29 +3019,7 @@ function applyLegChoices(
       source: choice.source,
     };
   });
-  if (!day) return { day, legs: nextLegs };
-  const startOf = new Map(day.items.map((item) => [item.id, minutesOf(item.start) ?? 0]));
-  const deltas = legs.flatMap((leg) => {
-    const choice = choices[legKey(leg.from_id, leg.to_id)];
-    if (!choice || leg.minutes === null) return [];
-    const at = startOf.get(leg.to_id);
-    const delta = choice.minutes - leg.minutes;
-    return at === undefined || delta === 0 ? [] : [{ at, delta }];
-  });
-  if (!deltas.length) return { day, legs: nextLegs };
-  return {
-    day: {
-      ...day,
-      items: day.items.map((item) => {
-        const start = minutesOf(item.start);
-        if (start === null) return item;
-        const delta = deltas.filter((row) => row.at <= start).reduce((sum, row) => sum + row.delta, 0);
-        if (!delta) return item;
-        return { ...item, start: shiftTime(item.start, delta), end: shiftTime(item.end, delta) };
-      }),
-    },
-    legs: nextLegs,
-  };
+  return { day, legs: nextLegs };
 }
 
 export function MapPanel({
@@ -3002,6 +3030,7 @@ export function MapPanel({
   onSelectItem,
   updatedIds = [],
   changedStayIds,
+  onApplyLayout,
 }: {
   plan: TripPlan;
   activeDay: string;
@@ -3011,6 +3040,8 @@ export function MapPanel({
   updatedIds?: string[];
   /** The stays (by id) the last change touched. */
   changedStayIds?: ReadonlySet<string>;
+  /** Write the shifted stop times onto the plan. Missing while the plan cannot be edited. */
+  onApplyLayout?: (items: LayoutMove[]) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [showRoute, setShowRoute] = useState(true);
@@ -3026,7 +3057,11 @@ export function MapPanel({
   const [legError, setLegError] = useState<string | null>(null);
   const [hoverLeg, setHoverLeg] = useState<LegRef | null>(null);
   const [pinnedLeg, setPinnedLeg] = useState<LegRef | null>(null);
-  const [choices, setChoices] = useState<Record<string, LegChoice>>({});
+  const [savingRoute, setSavingRoute] = useState(false);
+  const routeChoices = useRouteChoices();
+  const [localChoices, setLocalChoices] = useState<Record<string, LegChoice>>({});
+  const choices = routeChoices?.choices ?? localChoices;
+  const setChoices = routeChoices?.setChoices ?? setLocalChoices;
 
   const openLegOptions = (fromId: string, toId: string) => {
     setPinnedLeg({ fromId, toId });
@@ -3066,10 +3101,9 @@ export function MapPanel({
     };
   }, [plan.session_id, plan.trip_id, plan.version, day?.date]);
   useEffect(() => {
-    setChoices({});
     setPinnedLeg(null);
     setHoverLeg(null);
-  }, [plan.trip_id, plan.version, day?.date]);
+  }, [plan.trip_id, day?.date]);
   const hotel = scope.stay ?? undefined;
   const hotelChanged = Boolean(hotel && changedStayIds?.has(hotel.id));
   const travel = multi && !overview ? travelLine(plan, day?.date ?? plan.dates.start) : null;
@@ -3561,27 +3595,54 @@ export function MapPanel({
             return picked ?? null;
           })()}
           onSelect={(option) => {
-            if (!legTarget || option.minutes === null) return;
+            if (!legTarget || option.minutes === null || savingRoute) return;
             const key = legKey(legTarget.fromId, legTarget.toId);
             const baseline = legs.find((leg) => leg.from_id === legTarget.fromId && leg.to_id === legTarget.toId);
-            const previous = choices[key]?.minutes ?? baseline?.minutes ?? option.minutes;
-            const step = option.minutes - previous;
+            const previousMinutes = choices[key]?.minutes ?? baseline?.minutes ?? option.minutes;
+            const step = option.minutes - previousMinutes;
+            const nextChoice: LegChoice = {
+              mode: option.mode,
+              minutes: option.minutes,
+              km: option.km,
+              path: option.path ?? [],
+              steps: option.steps ?? [],
+              source: option.source,
+            };
+            const previousChoices = choices;
+            const nextChoices = { ...choices, [key]: nextChoice };
+            setChoices(nextChoices);
             const arrival = minutesOf(day?.items.find((item) => item.id === legTarget.toId)?.start);
-            setChoices((current) => ({
-              ...current,
-              [key]: {
-                mode: option.mode,
-                minutes: option.minutes ?? 0,
-                km: option.km,
-                path: option.path ?? [],
-                steps: option.steps ?? [],
-                source: option.source,
-              },
-            }));
-            if (step !== 0 && arrival !== null && clock >= arrival) {
+            const follow = step !== 0 && arrival !== null && clock >= arrival;
+            if (follow) {
               setPlaying(false);
               setClock((value) => Math.min(CLOCK_MAX, Math.max(CLOCK_MIN, value + step)));
             }
+            if (!day) return;
+            const dayNumber = plan.days.findIndex((entry) => entry.date === day.date) + 1;
+            const moves = shiftLaterStops(day.items, legTarget.toId, step, dayNumber);
+            if (!moves.length) {
+              writeRouteChoices(plan.trip_id, plan.version, nextChoices);
+              return;
+            }
+            if (!onApplyLayout) {
+              setChoices(previousChoices);
+              if (follow) setClock((value) => Math.min(CLOCK_MAX, Math.max(CLOCK_MIN, value - step)));
+              setLegError(t("map.optionsHeld"));
+              return;
+            }
+            routeChoices?.markSave();
+            setSavingRoute(true);
+            void onApplyLayout(moves)
+              .then(() => {
+                writeRouteChoices(plan.trip_id, plan.version + 1, nextChoices);
+              })
+              .catch((cause: unknown) => {
+                routeChoices?.cancelSave();
+                setChoices(previousChoices);
+                if (follow) setClock((value) => Math.min(CLOCK_MAX, Math.max(CLOCK_MIN, value - step)));
+                setLegError(cause instanceof ApiError ? cause.message : t("map.optionsError"));
+              })
+              .finally(() => setSavingRoute(false));
           }}
         />
       </Dialog>

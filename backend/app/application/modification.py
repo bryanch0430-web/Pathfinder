@@ -2632,6 +2632,16 @@ _BOUND_NUMBER = re.compile(
 _DIET_WORD = re.compile(r"\b(vegetarian|vegan|halal|kosher)\b", re.IGNORECASE)
 _MEAL_SLOT = re.compile(r"\b(breakfast|lunch|dinner)\b", re.IGNORECASE)
 _ONLY_WORD = re.compile(r"\b(?:only|just)\b", re.IGNORECASE)
+# "no meals required", "without lunch", "skip dinner". "seems no lunch" means the meal is missing.
+_DROP_MEAL = re.compile(
+    r"\b(?:without|skip|drop|remove)\b(?:\s+\w+){0,3}\s+"
+    r"(?:meals?|lunches|dinners|breakfasts|lunch|dinner|breakfast|dining)\b"
+    r"|\b(?:don't|do not)\s+need\b(?:\s+\w+){0,3}\s+"
+    r"(?:meals?|lunch|dinner|breakfast)\b"
+    r"|\bno\s+(?:meals?|lunch|dinner|breakfast)\s+required\b"
+    r"|\bno meals\b",
+    re.IGNORECASE,
+)
 
 
 def _shape_hint(draft: ChangeDraft) -> dict:
@@ -2794,11 +2804,9 @@ def interpret_plan(message: str, hinted: dict | None = None) -> PlanAdjust:
             invalid = raw
         else:
             found.places_per_day = number
-    if re.search(rf"\b{_MEAL_WORD}", lower):
-        drop = bool(re.search(r"\b(no|without|skip|not required|don't need|do not need|drop|remove)\b", lower))
-        if drop:
-            found.requested = True
-            found.meals = "drop"
+    if _DROP_MEAL.search(lower):
+        found.requested = True
+        found.meals = "drop"
     diet = _DIET_WORD.search(lower)
     if diet:
         found.requested = True

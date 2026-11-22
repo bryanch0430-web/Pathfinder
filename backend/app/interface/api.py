@@ -48,7 +48,7 @@ from app.infrastructure.store import PlanConflict
 from app.application.llm_selection import take_key_notice
 from app.application.orchestrator import restore_message_decisions, user_facing_error
 from app.application.prompts import LANGUAGE_RULE, PERSONA_RULE
-from app.application.escalation import agent_reason, is_stuck
+from app.application.escalation import is_stuck
 from app.application.skills import prompt_entries, prompt_file
 from app.application.preferences import derive_preferences
 from app.application.guide_hybrid import retrieve_hybrid
@@ -2001,9 +2001,7 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                 and bool(stuck_part.get("enabled"))
                 and is_stuck(messages, int(stuck_part.get("after") or 3))
             )
-            flagged = None if finished else agent_reason(0, stuck)
-            if flagged and not store.is_held(session["id"]) and not store.returned_chat(session["id"]):
-                store.hold_chat(session["id"], "")
+            # Stuck is only a mark on the card. Opening this page does not take the chat.
             cards.append(
                 {
                     "session_id": session["id"],

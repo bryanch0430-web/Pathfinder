@@ -6,7 +6,7 @@ from datetime import date, datetime
 from app.application.llm_gateway import LLMGateway
 from app.application.orchestrator import _fill_origin_answer, _pending_clarify
 from app.application.prompts import PromptLibrary
-from app.application.trip_rules import flight_windows
+from app.application.trip_rules import days_before_landing, flight_windows, landing_date
 from app.application.understanding import understand
 from app.config import Settings
 from app.domain.models import Message, TripContext
@@ -166,3 +166,12 @@ def test_flight_arrival_opens_the_first_day_and_the_return_closes_the_last() -> 
     )
     assert windows[dates[0]].start == 22 * 60 + 45 + 120
     assert windows[dates[2]].end == 6 * 60 + 35 - 210
+
+
+def test_a_day_before_the_flight_lands_is_not_in_the_city() -> None:
+    dates = [date(2027, 3, 10), date(2027, 3, 11), date(2027, 3, 12)]
+    overnight = [{"arrive_at": "2027-03-11T01:30:00", "return_depart_at": "2027-03-14T18:00:00"}]
+    assert landing_date(overnight) == date(2027, 3, 11)
+    assert days_before_landing(overnight, dates) == {date(2027, 3, 10)}
+    assert days_before_landing([{"arrive_at": "2027-03-10T09:00:00"}], dates) == set()
+    assert days_before_landing([], dates) == set()

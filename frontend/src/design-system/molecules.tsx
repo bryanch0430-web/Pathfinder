@@ -11,9 +11,21 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { isPendingChoice } from "./pendingChoice";
+import {
+  MAX_TRIP_DAYS,
+  amountIn,
+  budgetShown,
+  budgetStored,
+  dayCount,
+  endBounds,
+  endOpensOnStart,
+  keepsPlanAnyway,
+} from "../lib/clarifyInput";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
 import { profileOf } from "../lib/profile";
+import { useRouteChoices } from "../lib/routeChoices";
+import { choiceInto } from "../lib/routeShift";
 import { imageSrc, safeHref } from "../lib/safeHref";
 import { addTags, isImeKey, limitList, splitList } from "../lib/typing";
 import type {
@@ -346,6 +358,16 @@ export function TripContextForm({
   const [preferenceTags, setPreferenceTags] = useState<string[]>(values.preferences ?? []);
   const [prefInput, setPrefInput] = useState("");
   const [constraintText, setConstraintText] = useState((values.hard_constraints ?? []).join(", "));
+  const tripStart = values.start_date ?? "";
+  const tripEnd = values.end_date ?? "";
+  const tripDays = dayCount(tripStart, tripEnd);
+  const tripDateError =
+    tripStart && tripEnd && tripDays !== null && tripDays < 1
+      ? t("clarify.dateOrder")
+      : tripDays !== null && tripDays > MAX_TRIP_DAYS
+        ? t("clarify.dateLong", { count: tripDays })
+        : "";
+  const tripEndLimit = endBounds(tripStart);
 
   useEffect(() => {
     setPreferenceTags(values.preferences ?? []);
@@ -551,11 +573,20 @@ export function TripContextForm({
             onChange={(event) => onChange({ start_date: event.target.value || null })}
           />
         </Field>
-        <Field label={t("form.end")} required htmlFor={`${id}-end`}>
+        <Field label={t("form.end")} required htmlFor={`${id}-end`} error={tripDateError || undefined}>
           <Input
             id={`${id}-end`}
             type="date"
-            value={values.end_date ?? ""}
+            min={tripEndLimit?.min}
+            max={tripEndLimit?.max}
+            value={tripEnd}
+            invalid={Boolean(tripDateError)}
+            onPointerDown={(event) => {
+              if (tripEndLimit && endOpensOnStart(tripStart, event.currentTarget.value)) event.currentTarget.value = tripEndLimit.min;
+            }}
+            onBlur={(event) => {
+              if (event.currentTarget.value !== tripEnd) event.currentTarget.value = tripEnd;
+            }}
             onChange={(event) => onChange({ end_date: event.target.value || null })}
           />
         </Field>
@@ -763,10 +794,14 @@ export function ClarifyCard({
   const badNumber = (slot: string): boolean => {
     const raw = (values[slot] ?? "").trim();
     if (!raw) return false;
+    if (slot === "budget") {
+      if (keepsPlanAnyway(raw)) return false;
+      const amount = amountIn(raw);
+      return amount === null || amount < 0;
+    }
     const amount = Number(raw);
     if (slot === "party_size") return !Number.isFinite(amount) || amount < 1 || amount > 20;
     if (slot === "days") return !Number.isFinite(amount) || amount < 1 || amount > 60;
-    if (slot === "budget") return !Number.isFinite(amount) || amount < 0;
     return false;
   };
   const dateProblem = (slot: string): boolean => {
@@ -809,7 +844,7 @@ export function ClarifyCard({
                 min={slot === "party_size" || slot === "days" ? 1 : slot === "budget" ? 0 : undefined}
                 max={slot === "party_size" ? 20 : slot === "days" ? 60 : undefined}
                 invalid={badNumber(slot)}
-                value={values[slot] ?? ""}
+                value={slot === "budget" ? budgetShown(values[slot] ?? "") : values[slot] ?? ""}
                 onChange={(event) => onChange(slot, event.target.value)}
                 placeholder={slot === "budget" ? "400000" : undefined}
                 title={suggested || undefined}
@@ -821,22 +856,25 @@ export function ClarifyCard({
                       type="button"
                       className="pf-chip"
                       data-active={(values[slot] ?? "").trim() === suggested}
-                      onClick={() => onChange(slot, suggested)}
+                      onClick={() => onChange(slot, slot === "budget" ? budgetStored(suggested) : suggested)}
                     >
                       {t("clarify.usePlace")}
                     </button>
                   ) : null}
-                  {options.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className="pf-chip"
-                      data-active={values[slot] === option}
-                      onClick={() => onChange(slot, option)}
-                    >
-                      {option}
-                    </button>
-                  ))}
+                  {options.map((option) => {
+                    const stored = slot === "budget" ? budgetStored(option) : option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        className="pf-chip"
+                        data-active={values[slot] === stored}
+                        onClick={() => onChange(slot, stored)}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
                 </span>
               ) : null}
             </Field>
@@ -920,19 +958,9 @@ export function DayStrip({
   );
 }
 
-const MAX_TRIP_DAYS = 30;
-
 function dateSpan(value: string): { start: string; end: string } {
   const found = value.match(/\d{4}-\d{2}-\d{2}/g) ?? [];
   return { start: found[0] ?? "", end: found[1] ?? "" };
-}
-
-function dayCount(start: string, end: string): number | null {
-  if (!start || !end) return null;
-  const from = Date.parse(`${start}T12:00:00Z`);
-  const to = Date.parse(`${end}T12:00:00Z`);
-  if (Number.isNaN(from) || Number.isNaN(to)) return null;
-  return Math.round((to - from) / 86_400_000) + 1;
 }
 
 function DateRangeField({
@@ -949,6 +977,7 @@ function DateRangeField({
   const [start, setStart] = useState(span.start);
   const [end, setEnd] = useState(span.end);
   const count = dayCount(start, end);
+  const endLimit = endBounds(start);
   const error =
     start && !end
       ? t("clarify.dateNeedBoth")
@@ -966,7 +995,21 @@ function DateRangeField({
     <Field label={t("clarify.dateStart")} error={error} hint={count !== null && count >= 1 && count <= MAX_TRIP_DAYS ? t("clarify.dateHint", { count }) : undefined} wide>
       <span className="pf-row">
         <Input type="date" value={start} invalid={Boolean(error)} onChange={(event) => write(event.target.value, end)} aria-label={t("clarify.dateStart")} />
-        <Input type="date" value={end} invalid={Boolean(error)} onChange={(event) => write(start, event.target.value)} aria-label={t("clarify.dateEnd")} />
+        <Input
+          type="date"
+          value={end}
+          min={endLimit?.min}
+          max={endLimit?.max}
+          invalid={Boolean(error)}
+          aria-label={t("clarify.dateEnd")}
+          onPointerDown={(event) => {
+            if (endLimit && endOpensOnStart(start, event.currentTarget.value)) event.currentTarget.value = endLimit.min;
+          }}
+          onBlur={(event) => {
+            if (event.currentTarget.value !== end) event.currentTarget.value = end;
+          }}
+          onChange={(event) => write(start, event.target.value)}
+        />
       </span>
       {options.length ? (
         <span className="pf-clarify__options">
@@ -1006,7 +1049,15 @@ export function formatDistance(metres: number, t: Translator): string {
 }
 
 /** The app's own leg from the previous stop; nothing when the plan has none. */
-function transferLine(item: PlanItem, t: Translator): string {
+function transferLine(item: PlanItem, t: Translator, picked?: { mode: string; minutes: number; km: number | null }): string {
+  if (picked && picked.minutes > 0) {
+    const walking = picked.mode === "walk";
+    const time = walking
+      ? t("options.walk", { minutes: Math.round(picked.minutes) })
+      : t("options.travel", { minutes: Math.round(picked.minutes), mode: picked.mode });
+    const distance = typeof picked.km === "number" && picked.km > 0 ? ` · ${formatDistance(picked.km * 1000, t)}` : "";
+    return `${time}${distance} ${t("options.fromPrevious")}`;
+  }
   const leg = item.transfer;
   if (!leg || !Number.isFinite(leg.minutes) || leg.minutes <= 0) return "";
   const walking = leg.mode === "walk" || leg.mode === "walking";
@@ -1076,7 +1127,8 @@ export function ItineraryItem({
   decision?: ReactNode;
 }) {
   const { t } = useI18n();
-  const transferText = transferLine(item, t);
+  const picked = choiceInto(useRouteChoices()?.choices ?? {}, item.id);
+  const transferText = transferLine(item, t, picked);
   const pending = isPendingChoice(item.notes);
   const start = proposedStart || item.start;
   const end = proposedEnd || item.end;

@@ -560,6 +560,17 @@ export interface RunTrace {
     user_preview?: string;
   }[];
   why?: string[];
+  flow?: string[];
+  path?: {
+    intent?: string;
+    reason?: string;
+    confidence?: number;
+    chooser?: string;
+    router?: string;
+    router_intent?: string;
+    router_reason?: string;
+    changed_by?: string;
+  } | null;
   reason?: string;
   message?: string;
   searches?: {

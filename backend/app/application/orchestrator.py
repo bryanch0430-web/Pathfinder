@@ -64,7 +64,9 @@ from app.application.proposals import decision_record, proposal_changes
 from app.application.planning import PlanPath
 from app.application.escalation import is_stuck, keeps_the_planner, queue_reason, should_escalate, stuck_flag
 from app.application.router import (
+    LANGUAGE_RULES,
     MODIFY_VERBS,
+    RULES_FIRST,
     System1Router,
     is_replan_message,
     language_route,
@@ -402,6 +404,11 @@ class TurnService:
             with _early_exit(tracer, developer_token, "blocked"):
                 tracer.metadata["reason"] = "security_blocklist"
                 tracer.metadata["intent"] = "unclear"
+                _store_path(
+                    tracer,
+                    None,
+                    RouteDecision(intent=Intent.UNCLEAR, confidence=1, reason_code="security_blocklist"),
+                )
                 self.store.add_message(
                     Message(session_id=session_id, role="assistant", content=SAFE_REPLY, intent=Intent.UNCLEAR)
                 )
@@ -433,65 +440,42 @@ class TurnService:
         ):
             # An automatic handoff from an earlier failed edit must not block the form or a new trip from a file.
             self.store.release_chat(session_id)
-        if not from_file and not answering_form and not self.store.is_held(session_id) and not operator:
+        if not from_file and not answering_form and not operator:
             policy = self.store.escalation_policy()
             parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
             hand = parts.get("hand") if isinstance(parts.get("hand"), dict) else {}
             stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
             reason = should_escalate(message, 0, policy)
             if not reason:
+                # Three unchanged tries, or the same question three times. A dates form is not that.
                 stuck = is_stuck(
                     self.store.list_messages(session_id, limit=40),
                     int(stuck_part.get("after") or 3),
                 )
                 reason = queue_reason(message, hot=False, stuck=stuck)
-            note_message = str((hand.get("message") if hand else "") or policy.get("message") or "").strip()
-            if reason:
+            named = (self.store.held_agent(session_id) or "").strip()
+            if self.store.is_held(session_id) and not named and not reason:
+                # Nobody took the chat, and this line is not another handoff. The model keeps it.
+                self.store.release_chat(session_id)
+            elif reason and not self.store.is_held(session_id):
+                # Tell the desk once. Do not end the turn: the model still answers this message,
+                # and it keeps answering after a person has the chat.
                 self.store.hold_chat(session_id, "")
-                with _early_exit(tracer, developer_token, "ok"):
-                    tracer.metadata["reason"] = "escalate"
-                    tracer.metadata["intent"] = "ask"
-                    tracer.metadata["escalate"] = reason
-                    note = note_message or "I'll pass this chat to a person. They will reply here."
-                    self.store.add_message(
-                        Message(
-                            session_id=session_id,
-                            role="assistant",
-                            content=note,
-                            intent=Intent.ASK,
-                            meta={"escalated": True, "escalate": reason},
-                        )
-                    )
-                    self._keep_decision(session_id, user_message.created_at, tracer)
-                    yield TurnEvent(event="token", data={"text": note})
-                yield TurnEvent(
-                    event="done",
-                    data={"request_id": request_id, "intent": "ask", "session_id": session_id, "held": True},
+                tracer.metadata.setdefault("flow_notes", []).append(
+                    f"Handoff word check matched {reason}. The model still answers this message."
                 )
-                return
-
-        if self.store.is_held(session_id) and not operator:
-            with _early_exit(tracer, developer_token, "ok"):
-                tracer.metadata["reason"] = "live_agent"
-                tracer.metadata["intent"] = "ask"
-                who = self.store.held_agent(session_id)
-                note = f"{who} has this chat and will reply here." if who else "A person has this chat and will reply here."
+                note_message = str((hand.get("message") if hand else "") or policy.get("message") or "").strip()
+                note = note_message or "I'll pass this chat to a person. They will reply here."
+                tracer.metadata["escalate"] = reason
                 self.store.add_message(
                     Message(
                         session_id=session_id,
                         role="assistant",
                         content=note,
                         intent=Intent.ASK,
-                        meta={"live_agent": bool(who), **({"agent_name": who} if who else {})},
+                        meta={"escalated": True, "escalate": reason},
                     )
                 )
-                self._keep_decision(session_id, user_message.created_at, tracer)
-                yield TurnEvent(event="token", data={"text": note})
-            yield TurnEvent(
-                event="done",
-                data={"request_id": request_id, "intent": "ask", "session_id": session_id, "held": True},
-            )
-            return
 
         # Identity and small-talk questions are static facts about the assistant:
         # answer them here, with no model call, no web search and no latency.
@@ -500,6 +484,11 @@ class TurnService:
             with _early_exit(tracer, developer_token, "ok"):
                 tracer.metadata["reason"] = "identity"
                 tracer.metadata["intent"] = "ask"
+                _store_path(
+                    tracer,
+                    None,
+                    RouteDecision(intent=Intent.ASK, confidence=1, reason_code="identity"),
+                )
                 self.store.add_message(
                     Message(session_id=session_id, role="assistant", content=identity, intent=Intent.ASK)
                 )
@@ -530,6 +519,11 @@ class TurnService:
             with _early_exit(tracer, developer_token, "ok"):
                 tracer.metadata["reason"] = "finalized"
                 tracer.metadata["intent"] = "ask"
+                _store_path(
+                    tracer,
+                    None,
+                    RouteDecision(intent=Intent.ASK, confidence=1, reason_code="finalized"),
+                )
                 self.store.add_message(
                     Message(session_id=session_id, role="assistant", content=frozen, intent=Intent.ASK)
                 )
@@ -556,6 +550,7 @@ class TurnService:
             # the selected stop, the understanding step and any model or tool.
             display = language_route(message, has_plan=plan is not None)
             if display is not None:
+                _store_path(tracer, None, display)
                 intent = display.intent
                 async for event in self._display_turn(
                     decision=display.model_copy(update={"missing_slots": context.missing_slots()}),
@@ -603,6 +598,7 @@ class TurnService:
                 if intake is not None:
                     yield TurnEvent(event="intake", data=intake.event())
                     understood = without_links(message) or message
+                    tracer.metadata.setdefault("flow_notes", []).append(_intake_line(intake))
             place_check = PlaceGrounding()
             confirmed_places: set[str] = set()
             locked_places: dict[str, str] = {}
@@ -643,6 +639,7 @@ class TurnService:
                 context = self._save_changes(as_read, context)
                 # Preferences are written only after the traveller finalises the plan and marks it useful.
 
+            routed: RouteDecision | None = None
             if captured:
                 decision = RouteDecision(
                     intent=Intent.MODIFY,
@@ -665,10 +662,11 @@ class TurnService:
                         plan_summary=plan.summary_for_prompt() if plan else None,
                         history=history,
                     )
+                routed = decision
                 yield _step(
                     "routing",
                     "routing",
-                    route_model,
+                    _route_label(decision, route_model),
                     status="done",
                     seconds=round(time.perf_counter() - route_started, 1),
                 )
@@ -884,6 +882,7 @@ class TurnService:
             intent = decision.intent
             if plan is not None and intent != Intent.PLAN:
                 context = self._put_back_the_place(as_read, context)
+            _store_path(tracer, routed, decision)
             tracer.metadata.update(
                 {
                     "intent": decision.intent.value,
@@ -1090,6 +1089,8 @@ class TurnService:
                             for generation in tracer.generations
                         ],
                         "why": _why_lines(tracer),
+                        "flow": list(tracer.metadata.get("flow") or []),
+                        "path": tracer.metadata.get("path") or None,
                         **(
                             {
                                 "reason": tracer.metadata.get("reason", ""),
@@ -2282,38 +2283,173 @@ def _decision_payload(tracer: Any) -> dict[str, Any]:
                 "user_preview": str(generation.get("user_preview") or "")[:8000],
             }
         )
+    meta = getattr(tracer, "metadata", {}) or {}
     return {
         "why": _why_lines(tracer),
+        "flow": list(meta.get("flow") or []),
+        "path": meta.get("path") or None,
         "generations": generations,
-        "steps": list((getattr(tracer, "metadata", {}) or {}).get("turn_steps") or []),
+        "steps": list(meta.get("turn_steps") or []),
     }
+
+
+_PATH_REASONS = {
+    "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
+    "replan_dates": "The trip details held other dates than the plan, so the trip was moved, not planned again.",
+    "replan_destination": "The trip details named another place than the plan is for, so a new trip was planned.",
+    "scoped_item_action": "A stop was selected, so only that stop could change.",
+    "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
+    "not_about_the_trip": "The message is not about the trip, so it was answered in chat and nothing was edited.",
+    "question_before_intake": "The traveller asked a question while some trip details are still missing, so the question was answered and the trip was not planned.",
+    "security_blocklist": "The message was blocked before any planning.",
+    "identity": "This was a question about the assistant, so no trip was planned.",
+    "finalized": "This plan is final, so nothing was planned or edited.",
+    "edit_needs_fact": "The change needs a fact the plan does not have, so it was asked for and nothing was edited.",
+    "edit_answer": "The message answered the question the previous edit asked, so that edit went ahead.",
+    "plan_from_file": "The message asked to plan from the shared page or file, so this was a new trip.",
+    "route_change": "The message named a city on the route, so the route was edited.",
+    "meal_swap": "A food word check treated this as an edit of a meal.",
+    "item_swap": "A word check treated this as an edit of a stop.",
+    "meal_suggestion": "A food word check kept this as an edit even though the router was unsure.",
+}
+
+
+def _chooser(decision: RouteDecision) -> str:
+    """Who picked this decision: a word check, Jev, or the writer model."""
+    rationale = decision.rationale or ""
+    code = decision.reason_code or ""
+    if rationale == LANGUAGE_RULES or code in {"set_language", "unsupported_language", "refresh", "chinese_input"}:
+        return "a language word check, before any model"
+    if code == "question_before_intake" or "remaining details" in rationale:
+        return "a word check, before Jev"
+    if rationale == RULES_FIRST:
+        return "word rules (Jev was not asked)"
+    if rationale == "rule-based fallback":
+        return "word rules (no model answered)"
+    if code.startswith("below_threshold_"):
+        who = code.removeprefix("below_threshold_")
+        name = "Jev" if who == "jev" else f"the {who} model"
+        return f"{name}, under the confidence bar"
+    if rationale == "system one decision" or code.startswith("jev_"):
+        return "Jev"
+    if code in _PATH_REASONS:
+        return "a word check"
+    if rationale:
+        return "the writer model"
+    return "a word check"
+
+
+def _route_label(decision: RouteDecision, gate_model: str) -> str:
+    """The name shown on the routing step. Rules that skip Jev are not labelled as Jev."""
+    who = _chooser(decision)
+    if who.startswith("word rules") or who.startswith("a word check") or who.startswith("a language"):
+        return "rules"
+    if who.startswith("the writer"):
+        return "writer"
+    return gate_model
+
+
+def _intake_line(intake: Any) -> str:
+    """What the link step did, before the message was routed."""
+    parts: list[str] = []
+    for source in getattr(intake, "sources", []) or []:
+        if getattr(source, "status", "") == "read":
+            parts.append(f"read the {getattr(source, 'kind', 'page')}")
+        else:
+            parts.append(getattr(source, "note", "") or "the link could not be read")
+    places = ", ".join(str(place) for place in (getattr(intake, "places", []) or [])[:6])
+    sentence = "Link intake: " + ("; ".join(parts[:4]) or "nothing was opened")
+    if places:
+        return sentence + f". Places kept as must-see: {places}."
+    return sentence + ". No place name was kept from the page."
+
+
+def _understand_line(meta: dict[str, Any]) -> str:
+    for step in meta.get("turn_steps") or []:
+        if not isinstance(step, dict) or step.get("id") != "understand":
+            continue
+        note = str(step.get("note") or "").strip()
+        model = str(step.get("model") or "rules")
+        if model == "rules":
+            return f"Understand: Python word rules only. The understand model was not asked. {note}".strip()
+        return f"Understand: the model {model} filled what the rules left empty. {note}".strip()
+    return ""
+
+
+def _explain_path(
+    routed: RouteDecision | None, final: RouteDecision, notes: list[str]
+) -> tuple[dict[str, Any], list[str]]:
+    changed = bool(
+        routed is not None and (routed.intent != final.intent or routed.reason_code != final.reason_code)
+    )
+    path = {
+        "intent": final.intent.value,
+        "reason": final.reason_code,
+        "confidence": round(float(final.confidence or 0), 3),
+        "chooser": "a word check" if changed else _chooser(routed or final),
+        "router": _chooser(routed) if routed is not None else "",
+        "router_intent": (routed or final).intent.value,
+        "router_reason": (routed or final).reason_code,
+        "changed_by": final.reason_code if changed else "",
+    }
+    flow = [line for line in notes if line]
+    if routed is None:
+        flow.append(f"Path {final.intent.value}: {_chooser(final)} ({final.reason_code}).")
+        sentence = _PATH_REASONS.get(final.reason_code)
+        if sentence:
+            flow.append(sentence)
+    else:
+        flow.append(
+            f"Router: {_chooser(routed)} chose {routed.intent.value} "
+            f"({routed.reason_code}, confidence {routed.confidence:.2f})."
+        )
+        if changed:
+            sentence = _PATH_REASONS.get(final.reason_code)
+            flow.append(
+                sentence
+                or f"A later word check changed the path to {final.intent.value} ({final.reason_code})."
+            )
+    return path, flow
+
+
+def _store_path(tracer: Any, routed: RouteDecision | None, final: RouteDecision) -> None:
+    """Remember who chose the path, and the checks that ran before it, for the download log."""
+    meta = getattr(tracer, "metadata", None)
+    if not isinstance(meta, dict):
+        return
+    notes = [str(line).strip() for line in meta.get("flow_notes") or [] if str(line).strip()]
+    understand = _understand_line(meta)
+    if understand:
+        notes.append(understand)
+    path, flow = _explain_path(routed, final, notes)
+    meta["path"] = path
+    meta["flow"] = flow
+    meta["intent"] = final.intent.value
+    meta["reason"] = final.reason_code
+    meta["confidence"] = final.confidence
 
 
 def _why_lines(tracer: Any) -> list[str]:
     """A traveller-facing account of the decision. Not the model's private draft."""
-    reason = str(getattr(tracer, "metadata", {}).get("reason") or "")
-    intent = str(getattr(tracer, "metadata", {}).get("intent") or "")
-    scoped = _scope_line(getattr(tracer, "metadata", {}) or {})
-    known = {
-        "plan_shape": "The message asked to reshape the whole plan, so this was an edit, not a new trip.",
-        "replan_dates": "The trip details held other dates than the plan, so the trip was moved, not planned again.",
-        "replan_destination": "The trip details named another place than the plan is for, so a new trip was planned.",
-        "scoped_item_action": "A stop was selected, so only that stop could change.",
-        "scoped_item_question": "The message was a question about the selected stop, so nothing was edited.",
-        "not_about_the_trip": "The message is not about the trip, so it was answered in chat and nothing was edited.",
-        "question_before_intake": "The traveller asked a question while some trip details are still missing, so the question was answered and the trip was not planned.",
-        "security_blocklist": "The message was blocked before any planning.",
-        "identity": "This was a question about the assistant, so no trip was planned.",
-        "edit_needs_fact": "The change needs a fact the plan does not have, so it was asked for and nothing was edited.",
-        "edit_answer": "The message answered the question the previous edit asked, so that edit went ahead.",
-    }
+    meta = getattr(tracer, "metadata", {}) or {}
+    reason = str(meta.get("reason") or "")
+    intent = str(meta.get("intent") or "")
+    scoped = _scope_line(meta)
     lines: list[str] = []
-    if scoped:
+    for line in meta.get("flow") or []:
+        text = str(line).strip()
+        if text and text not in lines:
+            lines.append(text)
+    explained = bool(lines)
+    if scoped and scoped not in lines:
         lines.append(scoped)
-    elif reason in known:
-        lines.append(known[reason])
-    elif intent:
-        lines.append(f"Routed as {intent}" + (f" ({reason})." if reason else "."))
+    if not explained:
+        if scoped:
+            pass
+        elif reason in _PATH_REASONS:
+            lines.append(_PATH_REASONS[reason])
+        elif intent:
+            lines.append(f"Routed as {intent}" + (f" ({reason})." if reason else "."))
     meta = getattr(tracer, "metadata", {}) or {}
     if "related_to_plan" in meta:
         source = str(meta.get("answer_source") or "the conversation")
