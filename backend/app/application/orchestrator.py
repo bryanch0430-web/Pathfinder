@@ -632,8 +632,12 @@ class TurnService:
                     # The traveller accepted this gazetteer hit. Understanding must not replace it with another city
                     # that happens to appear in the address, such as London inside a Westminster street address.
                     setattr(context, slot, name)
-                place_check = await ground_new_places(
-                    as_read, context, self.plan_path.registry.geocoder, confirmed_places
+                place_check = (
+                    PlaceGrounding()
+                    if context.route_overflow
+                    else await ground_new_places(
+                        as_read, context, self.plan_path.registry.geocoder, confirmed_places
+                    )
                 )
                 _note_understand(tracer, as_read, context, place_check, understood)
                 context = self._save_changes(as_read, context)

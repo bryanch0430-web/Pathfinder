@@ -698,6 +698,32 @@ export interface EvalPreview {
   dataset: string;
 }
 
+export interface EvalReferenceRow {
+  id: string;
+  input: string;
+  expected: string;
+}
+
+export interface EvalReferenceGroup {
+  id: string;
+  title: string;
+  count: number;
+  rows: EvalReferenceRow[];
+}
+
+export interface EvalReferenceSet {
+  id: string;
+  kind: "travelplanner" | "regional";
+  title: string;
+  count: number;
+  shapes: number;
+  groups: EvalReferenceGroup[];
+}
+
+export interface EvalReference {
+  sets: EvalReferenceSet[];
+}
+
 export interface EvalDataset {
   id: string;
   name: string;

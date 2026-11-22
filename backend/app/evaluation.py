@@ -7,6 +7,7 @@ The sandbox is labelled as such in the UI and in the report.
 
 from __future__ import annotations
 
+import csv
 import json
 import re
 import time
@@ -68,6 +69,14 @@ from app.infrastructure.store import SQLiteStore
 from app.security import canary_leaked, screen_message
 
 FIXTURES = Path(__file__).resolve().parents[1] / "eval" / "fixtures"
+REGIONAL = Path(__file__).resolve().parents[1] / "eval" / "regional"
+# Sentence sets for browsing. They are not a scored planning suite: a run would plan a thousand trips.
+REGIONAL_SETS = {
+    "regional-hongkong": ("hongkong.jsonl", "Hong Kong sentences"),
+    "regional-taiwan": ("taiwan.jsonl", "Taiwan sentences"),
+    "regional-japan": ("japan.jsonl", "Japan sentences"),
+    "regional-china": ("china.jsonl", "China sentences"),
+}
 DATASETS = {
     "routing": "routing.jsonl",
     "injection": "injection.jsonl",
@@ -107,6 +116,22 @@ class EvalService:
                     split="dev",
                     frozen=True,
                     item_count=len(cases),
+                )
+            )
+        for name, (filename, title) in REGIONAL_SETS.items():
+            path = REGIONAL / filename
+            count = sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()) if path.exists() else 0
+            current = self.store.get_eval_dataset(name)
+            if current and current.item_count == count and not current.frozen:
+                continue
+            self.store.save_eval_dataset(
+                DatasetMeta(
+                    id=name,
+                    name=title,
+                    version="1.0",
+                    split="dev",
+                    frozen=False,
+                    item_count=count,
                 )
             )
 
@@ -531,8 +556,55 @@ class EvalService:
 # ---------------------------------------------------------------------------
 
 
+def _sentence_shape(row: dict) -> str:
+    """The wording with the city, the wish and the numbers taken out, so copies group together."""
+    text = str(row.get("input") or "")
+    wish = str(row.get("wish") or "")
+    if wish:
+        text = text.replace(wish, "{wish}")
+    for city in sorted({str(row.get("origin") or ""), str(row.get("destination") or "")} - {""}, key=len, reverse=True):
+        text = text.replace(city, "{city}")
+    return re.sub(r"\d+", "{n}", text)
+
+
+def regional_preview(dataset_id: str) -> list[dict[str, str]]:
+    """One row per sentence shape, not one row per copy."""
+    filename, _title = REGIONAL_SETS[dataset_id]
+    path = REGIONAL / filename
+    if not path.exists():
+        return []
+    groups: dict[str, list[dict]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        groups.setdefault(_sentence_shape(row), []).append(row)
+    previews: list[dict[str, str]] = []
+    for shape, rows in groups.items():
+        sample = rows[0]
+        wish = sample.get("wish") or ""
+        gold = (
+            f"{sample.get('origin')} → {sample.get('destination')}, "
+            f"{sample.get('days')} days, party {sample.get('party_size')}, {sample.get('budget')} HKD"
+        )
+        if wish:
+            gold += f". Wish, not a city: {wish}"
+        previews.append(
+            {
+                "case_id": f"{len(rows)} sentences",
+                "input": shape,
+                "split": "dev",
+                "expected": f"Example {sample.get('id')}: {sample.get('input')} Gold: {gold}",
+                "dataset": dataset_id,
+            }
+        )
+    return previews
+
+
 def suite_preview(dataset_id: str) -> list[dict[str, str]]:
     """The frozen cases of one suite, without running them."""
+    if dataset_id in REGIONAL_SETS:
+        return regional_preview(dataset_id)
     filename = DATASETS.get(dataset_id)
     if not filename:
         raise KeyError(dataset_id)
@@ -560,6 +632,80 @@ def suite_preview(dataset_id: str) -> list[dict[str, str]]:
             }
         )
     return previews
+
+
+def reference_catalog() -> dict:
+    """Bulk lists for the evaluation page. They are not an experiment and are not scored here."""
+    sets: list[dict] = []
+    travel = Path(__file__).resolve().parents[1] / "data" / "travelplanner"
+    splits = ("train", "validation", "test")
+    travel_groups = []
+    travel_count = 0
+    for split in splits:
+        path = travel / f"travelplanner_{split}.csv"
+        rows = []
+        if path.exists():
+            with path.open(encoding="utf-8") as handle:
+                for index, row in enumerate(csv.DictReader(handle), start=1):
+                    rows.append(
+                        {
+                            "id": f"{split}-{index:04d}",
+                            "input": row["query"].strip(),
+                            "expected": (
+                                f"{row['org'].strip()} → {row['dest'].strip()} · {row['days']} days · "
+                                f"party {row['people_number']} · ${row['budget']}"
+                            ),
+                        }
+                    )
+        travel_count += len(rows)
+        travel_groups.append({"id": split, "title": split, "count": len(rows), "rows": rows})
+    sets.append(
+        {
+            "id": "travelplanner-full",
+            "kind": "travelplanner",
+            "title": "TravelPlanner",
+            "count": travel_count,
+            "shapes": 0,
+            "groups": travel_groups,
+        }
+    )
+    for name, (filename, title) in REGIONAL_SETS.items():
+        path = REGIONAL / filename
+        grouped: dict[str, list[dict]] = {}
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    row = json.loads(line)
+                    grouped.setdefault(_sentence_shape(row), []).append(row)
+        groups = []
+        for index, (shape, rows) in enumerate(grouped.items(), start=1):
+            sample = rows[0]
+            wish = sample.get("wish") or ""
+            expected = (
+                f"{sample.get('origin')} → {sample.get('destination')} · {sample.get('days')} days · "
+                f"party {sample.get('party_size')} · {sample.get('budget')} HKD"
+            )
+            if wish:
+                expected += f" · wish, not a city: {wish}"
+            groups.append(
+                {
+                    "id": f"shape-{index}",
+                    "title": shape,
+                    "count": len(rows),
+                    "rows": [{"id": str(sample.get("id") or ""), "input": str(sample.get("input") or ""), "expected": expected}],
+                }
+            )
+        sets.append(
+            {
+                "id": name,
+                "kind": "regional",
+                "title": title.removesuffix(" sentences"),
+                "count": sum(group["count"] for group in groups),
+                "shapes": len(groups),
+                "groups": groups,
+            }
+        )
+    return {"sets": sets}
 
 
 class SandboxRegistry:

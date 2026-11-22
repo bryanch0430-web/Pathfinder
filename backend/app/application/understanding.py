@@ -310,20 +310,38 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     # party size
     party = None
     patterns = [
-        r"\b(\d{1,2})\s*(?:people|persons?|travellers?|travelers?|adults?|guests?|pax)\b",
-        r"\b(?:party|group)\s+of\s+(\d{1,2})\b",
-        r"\bfor\s+(\d{1,2})\s*(?:people|persons?|travellers?|travelers?)\b",
+        r"\b(\d{1,2})\s*(?:people|persons?|travellers?|travelers?|adults?|guests?|individuals?|pax)\b",
+        r"\b(one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:people|persons?|travellers?|travelers?|adults?|guests?|individuals?)\b",
+        r"\b(?:party|group|team)\s+of\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\b",
+        r"\bfor\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:people|persons?|travellers?|travelers?|individuals?)\b",
+        r"\bfor\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\b(?!\s+(?:day|night|week|month|city|cities)s?\b)",
+        r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+of\s+us\b",
     ]
     for pattern in patterns:
         match = re.search(pattern, lower)
         if match:
-            party = int(match.group(1))
+            token = match.group(1)
+            party = int(token) if token.isdigit() else NUMBER_WORDS.get(token)
             break
     if party is None:
-        if re.search(r"\bsolo\b", lower):
+        if re.search(r"\b(?:solo|alone)\b", lower):
             party = 1
-        elif re.search(r"\bcouple\b", lower):
+        elif re.search(r"\b(?:couple|duo)\b", lower):
             party = 2
+        elif re.search(r"\bsingle[-\s]+person\b|\bsolitary\b|\bindividual\b", lower):
+            party = 1
+        elif re.search(r"\ba\s+pair\b|\bboth of us\b", lower):
+            party = 2
+        elif re.search(r"\bfor me\b|\bhelp me\b|\bi'll\b|\bi will\b|\bi'm\b|\bi am\b", lower) and not re.search(
+            r"\b(?:we|our|us|group)\b", lower
+        ):
+            party = 1
+        elif re.search(r"\b(?:we|our|us)\b", lower):
+            # "We" with no number is the smallest group that word can mean.
+            party = 2
+        elif not re.search(r"\b(?:group|both)\b", lower):
+            # No group is named: one traveller.
+            party = 1
         else:
             family = re.search(r"\bfamily of (one|two|three|four|five|six|\d)\b", lower)
             if family:
@@ -340,7 +358,9 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         days = int(match.group(1))
         if "night" in match.group(0):
             days = max(days, 1)
-    elif re.search(r"\b(?:a|one)\s+week\b", lower):
+    elif re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten)[-\s]+days?\b", lower):
+        days = NUMBER_WORDS[re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten)[-\s]+days?\b", lower).group(1)]
+    elif re.search(r"\b(?:a|one)[-\s]+weeks?\b", lower):
         days = 7
     elif re.search(r"\b(?:two|2)\s+weeks\b", lower):
         days = 14
@@ -384,11 +404,13 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
     # destination / origin. The origin is resolved first: "a Kyoto trip from
     # Hong Kong" must not treat the departure city as the destination.
     previous_destination = context.destination
-    named = _find_place(lower, _PLACE_CUES)
-    origin = _find_origin(text, context.origin, context.destination, named or "")
+    place_text = _drop_wish_clause(text)
+    place_lower = place_text.lower()
+    named = _find_place(place_lower, _PLACE_CUES)
+    origin = _find_origin(place_text, context.origin, context.destination, named or "")
     if origin:
         context.origin = origin
-    destination = _find_place(lower, _PLACE_CUES, origin) if origin else named
+    destination = _find_place(place_lower, _PLACE_CUES, origin) if origin else named
     stops = _find_stops(text)
     if len(stops) >= 2:
         if len(stops) > TRIP_STOPS_MAX:
@@ -407,6 +429,66 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
         destination = None
     if destination:
         context.destination = destination
+    # "departing from Leeds and heading to York" names both ends even when neither city is on the hint list.
+    # A city the hint list already resolved is left as it is.
+    stated_origin, stated_destination = _stated_route(place_text)
+    if (
+        stated_origin
+        and context.origin
+        and stated_origin.casefold().startswith(context.origin.casefold())
+        and len(stated_origin) > len(context.origin)
+    ):
+        # "Sault Ste" was cut at the period inside "Sault Ste. Marie".
+        context.origin = stated_origin
+    if stated_origin and (
+        not context.origin
+        or _route_junk(context.origin)
+        or (
+            "." in stated_origin
+            and "." not in context.origin
+            and stated_origin.casefold().replace(".", "") == context.origin.casefold().replace(".", "")
+        )
+    ):
+        context.origin = stated_origin
+    if (
+        stated_destination
+        and context.destination
+        and not context.origin
+        and context.destination.casefold() != stated_destination.casefold()
+        and re.search(rf"\b(?:in|from)\s+{re.escape(context.destination)}\b", text, re.IGNORECASE)
+    ):
+        # "starts in Daytona and ... cities in Texas": Daytona is where it starts, not where it goes.
+        context.origin = context.destination
+        context.destination = ""
+    if (
+        context.origin
+        and context.destination
+        and context.origin.casefold() != context.destination.casefold()
+        and re.search(
+            rf"\b{re.escape(context.origin)}\s+in\s+{re.escape(context.destination)}\b",
+            text,
+            re.IGNORECASE,
+        )
+    ):
+        # "Charlotte in North Carolina": the second name qualifies the departure city.
+        context.destination = ""
+    same_city = (
+        context.origin
+        and context.destination
+        and (
+            context.destination.casefold().startswith(context.origin.casefold()[: max(len(context.origin.casefold()) - 3, 1)])
+            or context.origin.casefold().startswith(context.destination.casefold())
+        )
+    )
+    if stated_destination and (
+        not context.destination
+        or _route_junk(context.destination)
+        or same_city
+        or (stated_origin and context.destination.casefold() == (context.origin or stated_origin).casefold())
+    ):
+        context.destination = stated_destination
+    context.origin = _without_a_trailing_state(context.origin.strip(" ,?.!;"))
+    context.destination = _without_a_trailing_state(context.destination.strip(" ,?.!;"))
     destination_changed = bool(destination and destination.strip().lower() != previous_destination.strip().lower())
     if destination_changed and context.stops and not stops:
         # Another place is another trip: the cities of the old one do not follow it.
@@ -434,6 +516,21 @@ def _apply_rules(message: str, context: TripContext, today: date) -> None:
                 if old_start and context.days
                 else old_end
             )
+        if context.start_date and not context.end_date:
+            until = re.search(r"\b(?:until|till)\s+the\s+(\d{1,2})(?:st|nd|rd|th)?\b", lower)
+            if until:
+                day = int(until.group(1))
+                try:
+                    end = context.start_date.replace(day=day)
+                except ValueError:
+                    end = None
+                if end and end >= context.start_date:
+                    context.end_date = end
+            end_on = re.search(r"\bend(?:ing|s)? on\b(.{0,40})", lower)
+            if end_on:
+                end_day, _ = _find_dates(end_on.group(1), today)
+                if end_day and end_day >= context.start_date:
+                    context.end_date = end_day
 
     # style and preferences
     if re.search(r"\b(luxur|5[- ]star|five[- ]star)", lower):
@@ -838,7 +935,8 @@ _FROM_PHRASE = re.compile(rf"\bfrom\s+({_NAME_START}[a-z][a-z {_APOSTROPHES}-]{{
 _NAME_ENDS = frozenset(
     "and or but via at by around then after before while because so since if when as until till which that where "
     "to for on in into onto next this with without towards toward near than from only just please thanks instead "
-    "again also too maybe about during over under through now today tomorrow tonight soon not".split()
+    "again also too maybe about during over under through now today tomorrow tonight soon not "
+    "spanning lasting scheduled visiting between ends".split()
 )
 #: Words that do not continue a place name once it has begun: a pronoun, an auxiliary, a determiner, an adverb, a number
 #: or a weekday ("Leeds we are 4 people", "London is out", "Paris direct", "Leeds Friday"). A name may begin with one
@@ -1559,6 +1657,185 @@ def _evidence(text: str, match: re.Match[str], used: int, ends: list[int], known
     return None
 
 
+_HEADING = r"(?:(?:heading|going|heads|headed|head)\s+(?:to|for|towards)|visiting)"
+_ROUTE_SHAPES = (
+    re.compile(
+        rf"\b(?:depart(?:ing|s|ed)?|leav(?:ing|es)|start(?:ing|s)?|beginn(?:ing|s)|commenc(?:es|ing)|journey(?:ing)?|travell?ing|flying|travel)\s+from\s+(.+?)\s+(?:and\s+)?{_HEADING}\s+(.+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\b(?:start(?:ing|s)?|beginn(?:ing|s)|commenc(?:es|ing)|begins|initiating|kicking off)\s+(?:in|from)\s+(.+?)\s*,?\s+(?:and\s+)?(?:{_HEADING}|end(?:ing|s)\s+(?:in|up\s+in)|leads\s+to|(?:concludes|concluding|culminates|culminating)\s+in|arriving\s+at|taking\s+us\s+to|traveling\s+to)\s+(.+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:depart(?:ing|s|ed)?|leav(?:ing|es)|journey(?:ing)?|travell?ing|flying|travel)\s+from\s+(.+?)\s+to\s+(.+)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:trip|itinerary|journey|plan)\s+from\s+(.+?)\s+to\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bfrom\s+(.+?)\s+to\s+(.+)", re.IGNORECASE),
+    re.compile(r"\btowards\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bcities\s+(?:in|across|within)\s+(.+)", re.IGNORECASE),
+    re.compile(rf"\bdeparting\s+(?!from\b)(.+?)\s+(?:and\s+)?{_HEADING}\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bdeparting\s+(?!from\b)(.+?)\s+for\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bdepart\s+(.+?)\s+and\s+head\s+towards\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bfrom\s+(.+?)\s+and\s+arriving\s+at\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bleaving\s+(.+?)\s+for\s+(.+)", re.IGNORECASE),
+    re.compile(r"\ba trip to\s+(.+)", re.IGNORECASE),
+    re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+cities\b"),
+    re.compile(r"\bset for\s+([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3})\b"),
+    re.compile(r"\bset for\s+([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3})\b"),
+    re.compile(r"\bcontinuing to\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bto visit\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bjourney to\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bdeparting\s+(?!from\b)(.+?)\s+and\s+arriving\s+in\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bwith\s+(.+?)\s+as\s+the\s+destination\b", re.IGNORECASE),
+    re.compile(r"\b(?:the|our|their)\s+destination (?:is|being)\s+(.+)", re.IGNORECASE),
+    re.compile(r"\bdestined for\s+(.+)", re.IGNORECASE),
+    re.compile(r"\b([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3})\s+as\s+(?:the|their|our)\s+destination\b"),
+    re.compile(r"\bleads to\s+(.+)", re.IGNORECASE),
+    re.compile(rf"\bleaving\s+(?!from\b)(.+?)\s+(?:and\s+)?{_HEADING}\s+(.+)", re.IGNORECASE),
+)
+_NOT_A_ROUTE_NAME = frozenset(
+    "plan travel itinerary trip crafting moving depart departure heading please budget person people "
+    "day days duration cities different visit visiting create creating help assist draw note "
+    "try those this keep journey expedition adventure accommodation accommodations room rooms "
+    "time airport friday saturday sunday monday tuesday wednesday thursday hotel go "
+    "spanning scheduled devising lasting within specifically around leave leaving develop developing "
+    "experience preferences preference include regards covering starting".split()
+)
+
+
+_ROUTE_TRAIL = frozenset(
+    "aiming planning intending exploring running occurring taking place across continuing going "
+    "traveling travelling covering all interested we'll i'll i'm departing arriving concluding "
+    "trying tasting host parties allow children ourselves drive avoid providing roadmap sample "
+    "bring pets cover commence occurring self-drive self-driving".split()
+)
+
+
+_SINGLE_STATES = frozenset(
+    "alabama alaska arizona arkansas california colorado connecticut delaware florida georgia hawaii idaho "
+    "illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi "
+    "missouri montana nebraska nevada ohio oklahoma oregon pennsylvania tennessee texas utah vermont virginia "
+    "washington wisconsin wyoming dc ohio".split()
+)
+
+
+def _without_a_trailing_state(name: str) -> str:
+    """Drop a trailing state from "Cleveland, Ohio" or "Washington DC". A bare state name stays."""
+    words = name.split()
+    if len(words) >= 2 and words[-1].casefold().strip(".") in _SINGLE_STATES:
+        return " ".join(words[:-1])
+    return name
+
+
+def _route_words(name: str) -> list[str]:
+    return [word.strip(".,?;!'\"") for word in name.casefold().split() if word.strip(".,?;!'\"")]
+
+
+def _route_junk(name: str) -> bool:
+    """A stored name that is a verb or a filler, not a city the sentence's route phrase should keep."""
+    words = _route_words(name)
+    if words == ["head"]:
+        return True
+    return any(word in _NOT_A_ROUTE_NAME or word in _ROUTE_TRAIL for word in words)
+
+
+def _route_place(fragment: str) -> str | None:
+    """A place spelled out after from/to, or None when the words are a date, a verb or filler."""
+    words = _name_words(fragment.strip())[0]
+    while words and words[0].lower() in {"the", "a", "an"}:
+        words = words[1:]
+    if not words or len(words) > 4:
+        return None
+    if not words[0][:1].isupper():
+        return None
+    lowered = [word.lower().strip(".,?;!'\"") for word in words]
+    while lowered and lowered[-1] in _NOT_A_ROUTE_NAME | _ROUTE_TRAIL | {"state"}:
+        words = words[:-1]
+        lowered = lowered[:-1]
+    if not words or lowered[0] in _MONTH_WORDS or lowered[0] in NUMBER_WORDS or lowered[0].isdigit():
+        return None
+    if any(word in _NOT_A_ROUTE_NAME or word in _MONTH_WORDS for word in lowered):
+        return None
+    known = _known_place(" ".join(words))
+    if known:
+        return known
+    cleaned = [word.strip(",?;!") for word in words if word.strip(",?;!")]
+    if not cleaned:
+        return None
+    return " ".join(word[:1].upper() + word[1:] for word in cleaned)
+
+
+def _drop_wish_clause(text: str) -> str:
+    """The sentence without the thing they want to see. That thing is not the city.
+
+    "I want to see sun cakes in Kaohsiung" keeps Kaohsiung. "Built around ramen.
+    Flying from Tokyo to Kanazawa" keeps the flight.
+    """
+    route = re.search(r"\b(?:flying from|departing from|heading to)\b", text, re.IGNORECASE)
+    if route:
+        head = re.sub(
+            r"\b(?:want to see|built around|the whole point is)\s+.*",
+            " ",
+            text[: route.start()],
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        return head + text[route.start() :]
+    cue = re.search(r"\b(?:want to see|built around|the whole point is)\b", text, re.IGNORECASE)
+    if not cue:
+        return text
+    if re.search(r"\bin\s+[A-Z]", text[: cue.start()]):
+        # "7 days in Kanazawa, built around the deer in Nara": Kanazawa was already named.
+        return text[: cue.start()]
+    places = list(re.finditer(r"\s+in\s+[A-Z]", text[cue.end() :]))
+    if not places:
+        return text
+    # "the deer in Nara in Osaka": Nara belongs to the wish, Osaka is the city.
+    cut = cue.end() + places[-1].start()
+    return text[: cue.start()] + " " + text[cut:]
+
+
+def _stated_route(text: str) -> tuple[str | None, str | None]:
+    """The departure and the destination a route sentence states, when it states them."""
+    found_origin = None
+    found_destination = None
+    for pattern in _ROUTE_SHAPES:
+        for match in pattern.finditer(text):
+            before = text[max(0, match.start() - 40) : match.start()]
+            if re.search(r"\b(?:change|swap|move|switch)\b", before, re.IGNORECASE):
+                continue
+            if pattern.groups == 1:
+                origin, destination = None, _route_place(match.group(1))
+            else:
+                origin = _route_place(match.group(1))
+                destination = _route_place(match.group(2))
+            if origin and found_origin is None:
+                found_origin = origin
+            if destination and found_destination is None:
+                found_destination = destination
+            if found_origin and found_destination:
+                return found_origin, found_destination
+    if found_origin is None:
+        for pattern in (
+            re.compile(
+                r"\b(?:start(?:ing|s)?|begin(?:ning|s)?|commenc(?:es|ing))\s+(?:our\s+)?(?:journey\s+)?(?:in|from)\s+(.+)",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\b(?:planning to leave|would be leaving|be leaving|leaving|leave)\s+(.+)", re.IGNORECASE),
+            re.compile(r"\bdeparting\s+(?!from\b)(.+?)(?=\s+and\b|,|\.)", re.IGNORECASE),
+            re.compile(r"\bstarting point in\s+(.+)", re.IGNORECASE),
+            re.compile(r"\btaking off from\s+(.+)", re.IGNORECASE),
+        ):
+            match = pattern.search(text)
+            if match:
+                found_origin = _route_place(match.group(1))
+                if found_origin:
+                    break
+    return found_origin, found_destination
+
+
 def _find_origin(text: str, stored: str = "", destination: str = "", named: str = "") -> str | None:
     """The departure city that `text` names, or None.
 
@@ -1812,6 +2089,19 @@ def _apply_labeled(context: TripContext, labeled: dict[str, str], today: date) -
 
 
 def _find_dates(lower: str, today: date) -> tuple[date | None, date | None]:
+    of_month = list(re.finditer(rf"\b(?:the\s+)?{_DAY}\s+of\s+{_MONTH}{_YEAR}", lower))
+    if len(of_month) >= 2:
+        first, second = of_month[0], of_month[1]
+        span = _date_span(
+            int(first.group(1)),
+            _MONTH_WORDS[first.group(2)],
+            int(second.group(1)),
+            _MONTH_WORDS[second.group(2)],
+            second.group(3) or first.group(3),
+            today,
+        )
+        if span:
+            return span
     relative = _relative_dates(lower, today)
     if relative:
         return relative
@@ -1824,6 +2114,11 @@ def _find_dates(lower: str, today: date) -> tuple[date | None, date | None]:
     written = _written_dates(lower, today)
     if written:
         return written
+    if len(of_month) == 1:
+        only = of_month[0]
+        one = _date_span(int(only.group(1)), _MONTH_WORDS[only.group(2)], None, None, only.group(3), today)
+        if one:
+            return one
 
     month_only = re.search(r"\b(?:in|next|this)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b", lower)
     if month_only:
@@ -1844,7 +2139,10 @@ _YEAR = r"(?:,?\s*(20\d{2})\b)?"
 #: Only these words join two dates into a range, so a date in a later constraint
 #: ("20 November cannot have any plan") is never taken as the trip's end.
 _TO = r"\s*(?:-|–|—|to|until|till|through|and)\s*"
-_DAY_RANGE_MONTH = re.compile(rf"\b{_DAY}{_TO}{_DAY}\s+{_MONTH}{_YEAR}")  # 18 to 23 November 2026
+_DAY_RANGE_MONTH = re.compile(rf"\b{_DAY}{_TO}(?:the\s+)?{_DAY}\s+(?:of\s+)?{_MONTH}{_YEAR}")  # 18 to 23 November, the 3rd to the 9th of March
+_DAY_OF_MONTH_RANGE = re.compile(
+    rf"\b(?:the\s+)?{_DAY}\s+of\s+{_MONTH}{_TO}(?:the\s+)?{_DAY}\s+of\s+{_MONTH}{_YEAR}"
+)  # the 23rd of March to the 29th of March
 _MONTH_DAY_RANGE = re.compile(rf"\b{_MONTH}\s+{_DAY}{_TO}{_DAY}\b{_YEAR}")  # Nov 18-23, 2026
 _DAY_MONTH = re.compile(rf"\b{_DAY}\s+{_MONTH}{_YEAR}")  # 18 November 2026
 _MONTH_DAY = re.compile(rf"\b{_MONTH}\s+{_DAY}\b{_YEAR}")  # November 18, 2026
@@ -1868,6 +2166,17 @@ def _written_dates(lower: str, today: date) -> tuple[date | None, date | None] |
     for match in _DAY_RANGE_MONTH.finditer(lower):
         month = _MONTH_WORDS[match.group(3)]
         span = _date_span(int(match.group(1)), month, int(match.group(2)), month, match.group(4), today)
+        if span:
+            candidates.append((match.start(), 0, *span))
+    for match in _DAY_OF_MONTH_RANGE.finditer(lower):
+        span = _date_span(
+            int(match.group(1)),
+            _MONTH_WORDS[match.group(2)],
+            int(match.group(3)),
+            _MONTH_WORDS[match.group(4)],
+            match.group(5),
+            today,
+        )
         if span:
             candidates.append((match.start(), 0, *span))
     for match in _MONTH_DAY_RANGE.finditer(lower):

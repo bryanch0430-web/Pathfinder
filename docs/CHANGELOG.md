@@ -5,6 +5,17 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.18.0 — 2026-11-22 16:30
+
+More ways of saying a trip are read. A wish is not stored as the city. The clarify card names the end date, and a budget chip fills the box. Evaluation lists the bulk sets for reference only.
+
+- **A wish is not the city.** "I want to see sun cakes in Kaohsiung" stays Kaohsiung. Pandas, cherry blossoms, and "built around ramen" stay a wish.
+- **More ordinary routes are read.** "Departing Charlotte for Akron", "the 24th of March to the 29th of March", and a name that ends in City, such as Panama City.
+- **"From time to time" is still not a departure city.** Neither is "change the trip from Kyoto to Osaka".
+- **The dates form shows Start and End.** The second box is no longer an unlabelled date.
+- **A budget chip fills the number box.** HKD 91,000 shows as 91000. Continue still sends the currency.
+- **Evaluation has a Bulk tests column, marked reference only.** It lists the full TravelPlanner set, 1,225 queries, and 1,000 English sentences each for Hong Kong, Taiwan, Japan, and China. Sentences that share a wording are one row. Those lists are not an experiment.
+
 ## v1.17.0 — 2026-11-22 12:44
 
 A shared itinerary can start a new trip. The dates form says how long the range is before it is sent. A stop the flight removes is no longer called "nothing changed."

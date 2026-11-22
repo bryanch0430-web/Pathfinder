@@ -688,6 +688,10 @@ export async function getEvalSuiteCases(datasetId: string): Promise<{ cases: Eva
   return request(`/api/eval/suites/${encodeURIComponent(datasetId)}/cases`, { headers: adminHeader() });
 }
 
+export async function getEvalReference(): Promise<import("../design-system/types").EvalReference> {
+  return request("/api/eval/reference", { headers: adminHeader() });
+}
+
 export async function getEvalDatasets(): Promise<{ datasets: EvalDataset[] }> {
   return request("/api/eval/suites", { headers: adminHeader() });
 }

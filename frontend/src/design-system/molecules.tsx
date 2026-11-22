@@ -991,25 +991,31 @@ function DateRangeField({
     setEnd(nextEnd);
     onChange(nextStart && nextEnd ? `${nextStart} to ${nextEnd}` : nextStart);
   };
+  const hint = count !== null && count >= 1 && count <= MAX_TRIP_DAYS ? t("clarify.dateHint", { count }) : undefined;
   return (
-    <Field label={t("clarify.dateStart")} error={error} hint={count !== null && count >= 1 && count <= MAX_TRIP_DAYS ? t("clarify.dateHint", { count }) : undefined} wide>
-      <span className="pf-row">
-        <Input type="date" value={start} invalid={Boolean(error)} onChange={(event) => write(event.target.value, end)} aria-label={t("clarify.dateStart")} />
-        <Input
-          type="date"
-          value={end}
-          min={endLimit?.min}
-          max={endLimit?.max}
-          invalid={Boolean(error)}
-          aria-label={t("clarify.dateEnd")}
-          onPointerDown={(event) => {
-            if (endLimit && endOpensOnStart(start, event.currentTarget.value)) event.currentTarget.value = endLimit.min;
-          }}
-          onBlur={(event) => {
-            if (event.currentTarget.value !== end) event.currentTarget.value = end;
-          }}
-          onChange={(event) => write(start, event.target.value)}
-        />
+    <div className="pf-field pf-field--wide">
+      <span className="pf-dates">
+        <label>
+          <span className="pf-field__label">{t("clarify.dateStart")}</span>
+          <Input type="date" value={start} invalid={Boolean(error)} onChange={(event) => write(event.target.value, end)} />
+        </label>
+        <label>
+          <span className="pf-field__label">{t("clarify.dateEnd")}</span>
+          <Input
+            type="date"
+            value={end}
+            min={endLimit?.min}
+            max={endLimit?.max}
+            invalid={Boolean(error)}
+            onPointerDown={(event) => {
+              if (endLimit && endOpensOnStart(start, event.currentTarget.value)) event.currentTarget.value = endLimit.min;
+            }}
+            onBlur={(event) => {
+              if (event.currentTarget.value !== end) event.currentTarget.value = end;
+            }}
+            onChange={(event) => write(start, event.target.value)}
+          />
+        </label>
       </span>
       {options.length ? (
         <span className="pf-clarify__options">
@@ -1020,7 +1026,8 @@ function DateRangeField({
           ))}
         </span>
       ) : null}
-    </Field>
+      {error ? <span className="pf-field__error">{error}</span> : hint ? <span className="pf-field__hint">{hint}</span> : null}
+    </div>
   );
 }
 
