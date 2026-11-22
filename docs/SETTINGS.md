@@ -7,7 +7,8 @@ If a control is not listed here, it is not in the UI.
 |---|---|---|---|
 | General | Developer mode | **yes** | shows the per-turn decision trace |
 | General | Data source (Live providers / Offline atlas) | **yes** | `data_mode` in `/api/admin/runtime`; live uses Google Places, Open-Meteo, SerpAPI, Wikipedia |
-| Handoff | Automatic handoff (master) | **yes** | when off, no frustration/stuck handoff; an explicit request still queues |
+| Handoff | Live-agent handoff | **yes** | when off, no chat goes to the desk and an explicit request is answered by Pathfinder |
+| Handoff | Automatic handoff | **yes** | when off, no frustration/stuck handoff; explicit requests still queue while live-agent handoff is on |
 | Handoff | Frustration threshold (0–1) | **yes** | analyst frustration ≥ threshold, only while the master is on |
 | Handoff | Stuck chats + failed-turn count (2–8) | **yes** | counts edits that leave the trip unchanged; only while the master is on |
 | Handoff | Explicit request phrases | **yes** | message contains a phrase → queue, even when automatic is off (negations ignored) |

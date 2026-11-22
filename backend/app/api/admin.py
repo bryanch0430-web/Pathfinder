@@ -28,6 +28,7 @@ DEFAULT_PATTERNS = {
 }
 
 ESCALATION_DEFAULT = {
+    "live_agent": True,
     "enabled": False,
     "message": "A travel designer will join this chat.",
     "frustration_at": 0.75,
@@ -197,7 +198,7 @@ async def save_escalation(request: Request) -> dict[str, Any]:
     body = await request.json()
     stored = {
         key: body[key]
-        for key in ("enabled", "message", "frustration_at", "stuck_on", "stuck_after", "human_phrases")
+        for key in ("live_agent", "enabled", "message", "frustration_at", "stuck_on", "stuck_after", "human_phrases")
         if key in body
     }
     try:

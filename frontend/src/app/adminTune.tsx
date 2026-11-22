@@ -20,6 +20,7 @@ import { useI18n } from "../lib/i18n";
  */
 export function AdminTune({ show }: { show: (group: "handoff" | "instructions", text: string) => boolean }) {
   const { t } = useI18n();
+  const [liveAgent, setLiveAgent] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [frustration, setFrustration] = useState("0.75");
   const [stuckOn, setStuckOn] = useState(true);
@@ -34,6 +35,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
   useEffect(() => {
     void getEscalation()
       .then((policy) => {
+        setLiveAgent(policy.live_agent !== false);
         setEnabled(Boolean(policy.enabled));
         setFrustration(String(policy.frustration_at ?? 0.75));
         setStuckOn(Boolean(policy.stuck_on));
@@ -75,6 +77,7 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
     }
     try {
       const saved = await saveEscalation({
+        live_agent: liveAgent,
         enabled,
         message,
         frustration_at: threshold,
@@ -111,10 +114,20 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
       {show("handoff", "handoff live agent stuck frustration threshold") ? (
         <>
           <Text size="xs" tone="tertiary">
-            Automatic handoff is the master switch: when it is off, nothing hands the chat to the
-            desk except an explicit request (“live agent”, “real person”). Clarifying questions are
-            no longer counted as being stuck.
+            Live-agent handoff can be turned off completely. While it is on, an explicit request
+            always reaches the queue; automatic handoff and the stuck counter are separate options.
           </Text>
+          <section className="pf-card pf-eval__panel pf-handoff">
+            <Text size="sm" weight="semibold">Live agent</Text>
+            <Text size="xs" tone="tertiary">
+              When this is off, no chat goes to the desk and an explicit request is answered by
+              Pathfinder. Turn it on to allow the queue.
+            </Text>
+            <Switch checked={liveAgent} onChange={setLiveAgent} label="Allow live-agent handoff" />
+            <Button variant="primary" onClick={() => void saveHandoff()}>Save live agent</Button>
+          </section>
+          {liveAgent ? (
+          <>
           <section className="pf-card pf-eval__panel pf-handoff">
             <Text size="sm" weight="semibold">Automatic handoff</Text>
             <Text size="xs" tone="tertiary">
@@ -177,6 +190,8 @@ export function AdminTune({ show }: { show: (group: "handoff" | "instructions", 
             ) : null}
             <Button variant="primary" onClick={() => void saveHandoff()}>Save this monitor</Button>
           </section>
+          </>
+          ) : null}
         </>
       ) : null}
       {show("instructions", `${t("settings.prompts")} ${t("settings.promptsBody")} persona language router ask planner`) ? (

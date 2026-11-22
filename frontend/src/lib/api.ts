@@ -933,6 +933,7 @@ export interface MonitorPart {
 }
 
 export interface EscalationPolicy {
+  live_agent?: boolean;
   enabled: boolean;
   message: string;
   frustration_at: number | null;
@@ -963,6 +964,7 @@ export function getEscalation(): Promise<EscalationPolicy> {
 }
 
 export function saveEscalation(body: {
+  live_agent?: boolean;
   enabled: boolean;
   message: string;
   frustration_at: number | null;

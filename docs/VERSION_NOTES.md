@@ -59,10 +59,12 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 - The default page now describes the analyst (or optional Jev), evidence agents,
   live/atlas grounding, photos and per-part models/memory; the old “System 1” and
   “four workers” copy is gone.
-- Handoff has a **master** switch (off by default), an optional frustration threshold,
-  an optional stuck counter (failed edits only — ordinary clarifications no longer
-  count), and an editable **explicit-request phrase list** (default: “live agent”,
-  “real person”, “human agent”, “talk to a person”, 转人工, 真人客服).
+- Handoff has a **live-agent on/off** switch (on by default), an **automatic handoff**
+  switch (off by default), an optional frustration threshold, an optional stuck
+  counter (failed edits only — ordinary clarifications no longer count), and an
+  editable **explicit-request phrase list** (default: “live agent”, “real person”,
+  “human agent”, “talk to a person”, 转人工, 真人客服). With live-agent handoff off,
+  an explicit request is answered by Pathfinder and nothing goes to the queue.
 - A handoff goes to the **queue with no agent assigned**; a person presses **Accept**
   in the Desk to take it. Phrase requests work even when automatic handoff is off.
 

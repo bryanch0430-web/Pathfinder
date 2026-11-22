@@ -299,6 +299,15 @@ async def _produce(
         return
     policy = await store.get_kv("escalation") or {}
     handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy, message)
+    if handoff_reason == "disabled":
+        reply = (
+            "Live-agent handoff is turned off for this trip. I can keep planning or answering "
+            "here; turn it on in Settings -> Handoff if you want a person to join."
+        )
+        await _stream_text(push, reply)
+        await _save_assistant(store, session_id, reply, intent="ask", meta={"handoff": "disabled"})
+        await _finish(push, trace, session_id=session_id, intent="ask")
+        return
     if handoff_reason:
         await _handoff(push, store, session_id, trace, handoff_reason)
         return
@@ -968,19 +977,12 @@ async def _handoff_reason(
     store: Store, session_id: str, parsed: Any, policy: dict[str, Any], message: str = ""
 ) -> str:
     """Why this turn should go to a person, or an empty string."""
-    if parsed.wants_human:
-        return "asked"
-    lowered = (message or "").lower()
-    for phrase in policy.get("human_phrases") or []:
-        needle = str(phrase).strip().lower()
-        if not needle:
-            continue
-        index = lowered.find(needle)
-        if index < 0:
-            continue
-        before = lowered[max(0, index - 18):index]
-        if any(marker in before for marker in ("no ", "not ", "don't", "dont", "do not", "without")):
-            continue
+    explicit = bool(parsed.wants_human) or _phrase_requests_person(message, policy)
+    if not policy.get("live_agent", True):
+        # The live-agent feature itself is off. An explicit request gets a clear
+        # refusal and no queue; automatic signals are ignored.
+        return "disabled" if explicit else ""
+    if explicit:
         return "asked"
     if not policy.get("enabled", False):
         return ""
@@ -992,6 +994,22 @@ async def _handoff_reason(
     if float(parsed.frustration or 0) >= threshold:
         return "frustration"
     return ""
+
+
+def _phrase_requests_person(message: str, policy: dict[str, Any]) -> bool:
+    lowered = (message or "").lower()
+    for phrase in policy.get("human_phrases") or []:
+        needle = str(phrase).strip().lower()
+        if not needle:
+            continue
+        index = lowered.find(needle)
+        if index < 0:
+            continue
+        before = lowered[max(0, index - 18):index]
+        if any(marker in before for marker in ("no ", "not ", "don't", "dont", "do not", "without")):
+            continue
+        return True
+    return False
 
 
 async def _stuck_count(store: Store, session_id: str) -> int:

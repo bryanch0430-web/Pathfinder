@@ -139,3 +139,7 @@ def test_human_phrase_hands_off_even_when_automatic_is_off():
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "can I talk to a live agent?")) == "asked"
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "just saying hi")) == ""
     assert asyncio.run(_handoff_reason(Store(), "s", parsed, policy, "I do not want a live agent")) == ""
+    off = {**policy, "live_agent": False}
+    assert asyncio.run(_handoff_reason(Store(), "s", parsed, off, "can I talk to a live agent?")) == "disabled"
+    asked = parsed.model_copy(update={"wants_human": True})
+    assert asyncio.run(_handoff_reason(Store(), "s", asked, off, "hello")) == "disabled"
