@@ -265,7 +265,15 @@ def _clarify(
         slots=slots,
         labels=[_label(slot) for slot in slots],
         options=options,
-        choices=[{"label": str(row.get("label", ""))[:60], "message": str(row.get("message", ""))[:200]} for row in parsed.choices[:4] if isinstance(row, dict)],
+        choices=[
+            {
+                "label": str(row.get("label") or row.get("message") or "").strip()[:120],
+                # A chip must always be clickable; an empty message sent nothing at all.
+                "message": str(row.get("message") or row.get("label") or "").strip()[:300],
+            }
+            for row in parsed.choices[:4]
+            if isinstance(row, dict) and str(row.get("label") or row.get("message") or "").strip()
+        ],
         suggestions=[
             {"slot": row.slot, "asked": row.asked, "name": row.name}
             for row in parsed.suggestions[:4]

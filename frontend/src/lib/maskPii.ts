@@ -15,10 +15,21 @@ export type RedactionFlags = {
 
 export const DEFAULT_PATTERNS: RedactionFlags["patterns"] = {
   hkid: "(?<![A-Z0-9])[A-Z]{1,2}(?:\\s*\\d){6}(?!\\d)(?:\\s*\\(?\\s*[0-9A]\\s*\\)?)?",
-  hk_phone: "\\+?\\d[\\d\\s\\-()]{6,}\\d",
+  hk_phone: "(?<!\\d)(?:\\+?852[\\s-]?)?[2-9]\\d{3}[\\s-]?\\d{4}(?!\\d)",
   email: "\\b[\\w.+-]+@[\\w-]+\\.[\\w.-]+\\b",
   card: "\\b\\d[\\d -]{11,21}\\d\\b",
 };
+
+/** A saved pattern that cannot match a real sample would silently disable masking. */
+function usable(source: string | undefined, sample: string, fallback: string): string {
+  const text = (source ?? "").trim();
+  if (!text) return fallback;
+  try {
+    return new RegExp(text).test(sample) ? text : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 const DEFAULTS: RedactionFlags = {
   hkid: true,
@@ -38,10 +49,16 @@ let flags: RedactionFlags = {
 const DATE = /^\d{4}[-\s]\d{1,2}[-\s]\d{1,2}$/;
 
 export function setRedaction(next: Partial<RedactionFlags> | null | undefined): void {
+  const saved = next?.patterns;
   flags = {
     ...DEFAULTS,
     ...(next ?? {}),
-    patterns: { ...DEFAULT_PATTERNS, ...(next?.patterns ?? {}) },
+    patterns: {
+      hkid: usable(saved?.hkid, "Y334 556(9)", DEFAULT_PATTERNS.hkid),
+      hk_phone: usable(saved?.hk_phone, "9123 4567", DEFAULT_PATTERNS.hk_phone),
+      email: usable(saved?.email, "hal@example.com", DEFAULT_PATTERNS.email),
+      card: usable(saved?.card, "4111 1111 1111 1111", DEFAULT_PATTERNS.card),
+    },
   };
 }
 

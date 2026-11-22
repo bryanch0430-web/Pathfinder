@@ -79,6 +79,11 @@ Ask at most one question. Prefer a question that offers concrete choices. Supply
 `options` keyed by slot for small sets; `suggestions` when a place name is probably
 what the traveller meant; `choices` for intent-level ambiguity.
 
+Each choice is an object `{"label": "chip text (≤80 chars)", "message": "the exact
+traveller-voice request sent when clicked"}`. **`message` is required and must never be
+empty** — an empty message makes the chip do nothing. Write the message as the
+traveller would type it ("Start a new trip", "Make the plan cheaper"), not as a label.
+
 Never clarify just to be safe: if a reasonable default exists (party 1, currency from
 context, hotel style "mid-range"), take it and say so in `assumptions`.
 

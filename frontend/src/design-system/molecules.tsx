@@ -1001,7 +1001,7 @@ export function ClarifyCard({
               key={choice.label}
               type="button"
               className="pf-chip"
-              onClick={() => onSubmit(choice.message)}
+              onClick={() => onSubmit(choice.message || choice.label)}
             >
               {choice.label}
             </button>

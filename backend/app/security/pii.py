@@ -40,11 +40,25 @@ class Redaction:
             hk_phone=bool(red.get("hk_phone", True)),
             email=bool(red.get("email", True)),
             card=bool(red.get("card", True)),
-            hkid_pattern=str(red.get("hkid_pattern") or patterns.get("hkid") or ""),
-            hk_phone_pattern=str(red.get("hk_phone_pattern") or patterns.get("hk_phone") or ""),
-            email_pattern=str(red.get("email_pattern") or patterns.get("email") or ""),
-            card_pattern=str(red.get("card_pattern") or patterns.get("card") or ""),
+            # A saved pattern from an older build can be narrower than the real format.
+            # If it cannot match a known sample it would silently switch masking off, so
+            # such a pattern falls back to the built-in one.
+            hkid_pattern=_usable(red.get("hkid_pattern") or patterns.get("hkid"), HKID, "Y334 556(9)"),
+            hk_phone_pattern=_usable(red.get("hk_phone_pattern") or patterns.get("hk_phone"), HK_PHONE, "9123 4567"),
+            email_pattern=_usable(red.get("email_pattern") or patterns.get("email"), EMAIL, "hal@example.com"),
+            card_pattern=_usable(red.get("card_pattern") or patterns.get("card"), CARD, "4111 1111 1111 1111"),
         )
+
+
+def _usable(source: Any, fallback: str, sample: str) -> str:
+    text = str(source or "").strip()
+    if not text:
+        return ""
+    try:
+        pattern = re.compile(text)
+    except re.error:
+        return ""
+    return "" if pattern.search(sample) else ""
 
 
 def _compiled(source: str, fallback: str) -> re.Pattern[str]:
