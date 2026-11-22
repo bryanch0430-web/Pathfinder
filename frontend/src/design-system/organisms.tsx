@@ -55,6 +55,7 @@ import type {
   EvalCaseResult,
   EvalDataset,
   EvalPreview,
+  EvalReference,
   EvalRun,
   EvalRunSummary,
   GuideChunk,
@@ -3903,6 +3904,58 @@ function CaseTrace({ item }: { item: EvalCaseResult }) {
   );
 }
 
+function BulkReference({ reference }: { reference: EvalReference | null }) {
+  const { t } = useI18n();
+  const travel = reference?.sets.find((set) => set.kind === "travelplanner");
+  const splitCount = (id: string) => travel?.groups.find((group) => group.id === id)?.count ?? 0;
+  return (
+    <aside className="pf-card pf-eval__panel pf-eval__bulk">
+      <div className="pf-eval__panel-head">
+        <Text size="sm" weight="semibold">{t("eval.bulkTitle")}</Text>
+        <Badge tone="warning">{t("eval.bulkBadge")}</Badge>
+      </div>
+      <Text size="xs" tone="tertiary">{t("eval.bulkNote")}</Text>
+      {travel ? (
+        <Text size="xs">
+          {t("eval.bulkTravel", {
+            count: travel.count,
+            train: splitCount("train"),
+            validation: splitCount("validation"),
+            test: splitCount("test"),
+          })}
+        </Text>
+      ) : null}
+      {(reference?.sets ?? []).map((set) => (
+        <details key={set.id} className="pf-eval-bulk">
+          <summary>
+            <Text as="span" size="sm" weight="semibold">{set.title}</Text>
+            <Badge tone="neutral">{set.count}</Badge>
+          </summary>
+          {set.kind === "regional" ? (
+            <Text size="xs" tone="tertiary">{t("eval.bulkRegional", { count: set.count, shapes: set.shapes })}</Text>
+          ) : null}
+          {set.groups.map((group) => (
+            <details key={group.id} className="pf-eval-bulk__group">
+              <summary>
+                <Text as="span" size="xs">{set.kind === "regional" ? t("eval.bulkSentences", { count: group.count }) : `${group.title} · ${group.count}`}</Text>
+              </summary>
+              {set.kind === "regional" ? <Text size="xs" tone="secondary">{group.title}</Text> : null}
+              <ul className="pf-eval-bulk__list">
+                {group.rows.map((row) => (
+                  <li key={row.id}>
+                    <Text size="xs">{row.input}</Text>
+                    <Text size="xs" tone="tertiary">{row.expected}</Text>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </details>
+      ))}
+    </aside>
+  );
+}
+
 export function EvalDashboard({
   datasets,
   runs,
@@ -3915,6 +3968,7 @@ export function EvalDashboard({
   opened = {},
   previews = {},
   detail = null,
+  reference = null,
 }: {
   datasets: EvalDataset[];
   runs: EvalRunSummary[];
@@ -3930,8 +3984,11 @@ export function EvalDashboard({
   previews?: Record<string, EvalPreview[]>;
   /** A run the comparison table opened, which may be older than `opened`. */
   detail?: EvalRun | null;
+  /** Bulk lists. They are not scored by Run evaluation. */
+  reference?: EvalReference | null;
 }) {
   const { t } = useI18n();
+  const scoredDatasets = datasets.filter((item) => !item.id.startsWith("regional-"));
   const [dataset, setDataset] = useState(latest?.dataset_id ?? "hongkong");
   const [tag, setTag] = useState("baseline-v1");
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -3946,7 +4003,7 @@ export function EvalDashboard({
   const snapshot = (metricRun?.model_snapshot ?? {}) as { writer?: string; router?: string; judge?: string };
   const series = metricRun ? runs.filter((run) => run.dataset_id === metricRun.dataset_id) : runs;
   const needle = caseQuery.trim().toLowerCase();
-  const groups = datasets
+  const groups = scoredDatasets
     .map((item) => {
       const run = runFor(item.id);
       const scored = (run?.cases ?? []).map((row) => ({
@@ -4024,7 +4081,7 @@ export function EvalDashboard({
           <label className="pf-field">
             <span className="pf-field__label">{t("eval.dataset")}</span>
             <Select value={dataset} onChange={(event) => setDataset(event.target.value)}>
-              {datasets.map((item) => (
+              {scoredDatasets.map((item) => (
                 <option key={item.id} value={item.id}>{item.name} · {t(item.item_count === 1 ? "eval.casesOne" : "eval.cases", { count: item.item_count })}</option>
               ))}
             </Select>
@@ -4075,6 +4132,7 @@ export function EvalDashboard({
         </>
       ) : null}
 
+          <div className="pf-eval__columns">
           <div className="pf-card pf-eval__panel">
             <div className="pf-eval__panel-head">
               <Text size="sm" weight="semibold">{t("eval.casesTitle")}</Text>
@@ -4082,7 +4140,7 @@ export function EvalDashboard({
             </div>
             <div className="pf-row" style={{ gap: 8, flexWrap: "wrap" }}>
               <Button variant={suite === "all" ? "primary" : "secondary"} size="sm" onClick={() => setSuite("all")}>{t("eval.suiteAll")}</Button>
-              {datasets.map((item) => {
+              {scoredDatasets.map((item) => {
                 const run = runFor(item.id);
                 const passed = run ? run.cases.filter((row) => row.passed).length : null;
                 const total = run ? run.cases.length : item.item_count;
@@ -4168,6 +4226,8 @@ export function EvalDashboard({
                 ))}
               </div>
             )}
+          </div>
+          <BulkReference reference={reference} />
           </div>
 
       <Drawer

@@ -225,6 +225,19 @@
   min-width: 0;
 }
 
+.pf-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pf-dates label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .pf-field__label {
   display: flex;
   align-items: center;
@@ -5730,6 +5743,42 @@ button.pf-badge:hover {
   align-items: start;
 }
 
+.pf-eval__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: var(--p30-gap-md);
+  align-items: start;
+}
+
+.pf-eval__bulk {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.pf-eval-bulk,
+.pf-eval-bulk__group {
+  border-top: var(--p30-stroke-thin) solid var(--pf-line);
+  padding-top: 8px;
+}
+
+.pf-eval-bulk summary,
+.pf-eval-bulk__group summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.pf-eval-bulk__list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.pf-eval-bulk__list li {
+  margin: 0 0 8px;
+}
+
 .pf-eval__panel {
   display: flex;
   flex-direction: column;
@@ -6212,7 +6261,8 @@ button.pf-badge:hover {
     max-height: none;
   }
 
-  .pf-eval__grid {
+  .pf-eval__grid,
+  .pf-eval__columns {
     grid-template-columns: 1fr;
   }
 

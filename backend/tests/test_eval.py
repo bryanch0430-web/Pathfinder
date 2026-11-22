@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from app.config import Settings
-from app.evaluation import EvalService, export_markdown
+from app.evaluation import EvalService, export_markdown, suite_preview
 from app.infrastructure.store import SQLiteStore
 
 
@@ -11,8 +11,23 @@ def test_eval_datasets_are_seeded_and_frozen(settings: Settings) -> None:
     service = EvalService(SQLiteStore(settings.database_path), settings)
     datasets = service.store.list_eval_datasets()
     assert {dataset.id for dataset in datasets} >= {"routing", "injection", "hongkong", "japan", "travelplanner"}
-    assert all(dataset.frozen for dataset in datasets)
+    scored = [dataset for dataset in datasets if not dataset.id.startswith("regional-")]
+    preview = [dataset for dataset in datasets if dataset.id.startswith("regional-")]
+    assert all(dataset.frozen for dataset in scored)
+    assert {dataset.id for dataset in preview} == {
+        "regional-hongkong",
+        "regional-taiwan",
+        "regional-japan",
+        "regional-china",
+    }
+    assert all(not dataset.frozen and dataset.item_count == 1000 for dataset in preview)
     assert all(dataset.item_count > 0 for dataset in datasets)
+
+
+def test_regional_sentences_are_grouped_by_shape() -> None:
+    groups = suite_preview("regional-japan")
+    assert len(groups) == 8
+    assert sum(int(group["case_id"].split()[0]) for group in groups) == 1000
 
 
 def test_routing_scorecard_and_report(settings: Settings) -> None:

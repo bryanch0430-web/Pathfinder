@@ -19,6 +19,7 @@ import {
   getEvalExport,
   getEvalRun,
   getEvalRuns,
+  getEvalReference,
   getEvalSuiteCases,
   getInjections,
   getLlmKeys,
@@ -46,7 +47,7 @@ import { loadLocalAdmin, useLocalAdmin } from "../lib/localAdmin";
 import { readStoredValue } from "../lib/storage";
 import { setRedaction } from "../lib/maskPii";
 import { clientToken as ensureClientToken } from "../lib/usePathfinder";
-import type { ClientProfile, EvalDataset, EvalPreview, EvalRun, EvalRunSummary } from "../design-system/types";
+import type { ClientProfile, EvalDataset, EvalPreview, EvalReference, EvalRun, EvalRunSummary } from "../design-system/types";
 
 export function SavedPage() {
   const { t } = useI18n();
@@ -98,6 +99,7 @@ export function EvaluationPage() {
   const [latest, setLatest] = useState<EvalRun | null>(null);
   const [opened, setOpened] = useState<Record<string, EvalRun>>({});
   const [previews, setPreviews] = useState<Record<string, EvalPreview[]>>({});
+  const [reference, setReference] = useState<EvalReference | null>(null);
   const [detail, setDetail] = useState<EvalRun | null>(null);
   const [running, setRunning] = useState(false);
   // Kept as a message key, so that a language switch translates it too.
@@ -116,7 +118,8 @@ export function EvaluationPage() {
       return;
     }
     try {
-      const [datasetData, runData] = await Promise.all([getEvalDatasets(), getEvalRuns()]);
+      const [datasetData, runData, referenceData] = await Promise.all([getEvalDatasets(), getEvalRuns(), getEvalReference()]);
+      setReference(referenceData);
       setDatasets(datasetData.datasets);
       setRuns(runData.runs);
       const newest = new Map<string, string>();
@@ -132,7 +135,7 @@ export function EvaluationPage() {
         ),
         Promise.all(
           datasetData.datasets
-            .filter((dataset) => !newest.has(dataset.id))
+            .filter((dataset) => !newest.has(dataset.id) && !dataset.id.startsWith("regional-"))
             .map(async (dataset) => {
               const loaded = await getEvalSuiteCases(dataset.id);
               return [dataset.id, loaded.cases] as const;
@@ -226,6 +229,7 @@ export function EvaluationPage() {
       opened={opened}
       previews={previews}
       detail={detail}
+      reference={reference}
     />
   );
 }

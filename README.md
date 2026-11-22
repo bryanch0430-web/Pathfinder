@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.18.0 | 2026-11-22 16:30 | A wish stays a wish, the end date is labelled, and a budget chip fills the box |
 | v1.17.0 | 2026-11-22 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out |
 | v1.16.0 | 2026-11-22 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal |
 | v1.15.0 | 2026-11-21 19:35 | An edit waits for a tick, a nickname finds the stop on the plan, and "how long should I stay" is the visit |
@@ -45,6 +46,17 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.18.0 — 22 November 2026, 16:30 HKT
+
+More ways of saying a trip are read. A wish is not stored as the city. The clarify card names the end date, and a budget chip fills the box. Evaluation lists the bulk sets for reference only.
+
+- **A wish is not the city.** "I want to see sun cakes in Kaohsiung" stays Kaohsiung. Pandas, cherry blossoms, and "built around ramen" stay a wish.
+- **More ordinary routes are read.** "Departing Charlotte for Akron", "the 24th of March to the 29th of March", and a name that ends in City, such as Panama City.
+- **"From time to time" is still not a departure city.** Neither is "change the trip from Kyoto to Osaka".
+- **The dates form shows Start and End.** The second box is no longer an unlabelled date.
+- **A budget chip fills the number box.** HKD 91,000 shows as 91000. Continue still sends the currency.
+- **Evaluation has a Bulk tests column, marked reference only.** It lists the full TravelPlanner set, 1,225 queries, and 1,000 English sentences each for Hong Kong, Taiwan, Japan, and China. Sentences that share a wording are one row. Those lists are not an experiment.
 
 ### v1.17.0 — 22 November 2026, 12:44 HKT
 

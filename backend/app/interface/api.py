@@ -1889,6 +1889,12 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             raise HTTPException(status_code=404, detail="Dataset not found")
         return {"cases": cases}
 
+    @app.get("/api/eval/reference", dependencies=[Depends(require_admin)])
+    async def eval_reference() -> dict[str, Any]:
+        from app.evaluation import reference_catalog
+
+        return reference_catalog()
+
     @app.get("/api/eval/suites", dependencies=[Depends(require_admin)])
     async def eval_datasets(request: Request) -> dict[str, Any]:
         c = container(request)

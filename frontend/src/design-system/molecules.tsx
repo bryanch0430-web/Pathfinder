@@ -763,10 +763,10 @@ export function ClarifyCard({
   const badNumber = (slot: string): boolean => {
     const raw = (values[slot] ?? "").trim();
     if (!raw) return false;
-    const amount = Number(raw);
+    const amount = Number(slot === "budget" ? amountDigits(raw) : raw);
     if (slot === "party_size") return !Number.isFinite(amount) || amount < 1 || amount > 20;
     if (slot === "days") return !Number.isFinite(amount) || amount < 1 || amount > 60;
-    if (slot === "budget") return !Number.isFinite(amount) || amount < 0;
+    if (slot === "budget") return !amountDigits(raw) || !Number.isFinite(amount) || amount < 0;
     return false;
   };
   const dateProblem = (slot: string): boolean => {
@@ -809,7 +809,7 @@ export function ClarifyCard({
                 min={slot === "party_size" || slot === "days" ? 1 : slot === "budget" ? 0 : undefined}
                 max={slot === "party_size" ? 20 : slot === "days" ? 60 : undefined}
                 invalid={badNumber(slot)}
-                value={values[slot] ?? ""}
+                value={slot === "budget" ? amountDigits(values[slot] ?? "") : (values[slot] ?? "")}
                 onChange={(event) => onChange(slot, event.target.value)}
                 placeholder={slot === "budget" ? "400000" : undefined}
                 title={suggested || undefined}
@@ -922,6 +922,12 @@ export function DayStrip({
 
 const MAX_TRIP_DAYS = 30;
 
+/** "HKD 91,000" and "Keep HKD 5,000 and plan anyway" both name an amount. A number box can show only the digits. */
+function amountDigits(raw: string): string {
+  const match = raw.replace(/,/g, "").match(/\d+(?:\.\d+)?/);
+  return match ? match[0] : "";
+}
+
 function dateSpan(value: string): { start: string; end: string } {
   const found = value.match(/\d{4}-\d{2}-\d{2}/g) ?? [];
   return { start: found[0] ?? "", end: found[1] ?? "" };
@@ -962,11 +968,18 @@ function DateRangeField({
     setEnd(nextEnd);
     onChange(nextStart && nextEnd ? `${nextStart} to ${nextEnd}` : nextStart);
   };
+  const hint = count !== null && count >= 1 && count <= MAX_TRIP_DAYS ? t("clarify.dateHint", { count }) : undefined;
   return (
-    <Field label={t("clarify.dateStart")} error={error} hint={count !== null && count >= 1 && count <= MAX_TRIP_DAYS ? t("clarify.dateHint", { count }) : undefined} wide>
-      <span className="pf-row">
-        <Input type="date" value={start} invalid={Boolean(error)} onChange={(event) => write(event.target.value, end)} aria-label={t("clarify.dateStart")} />
-        <Input type="date" value={end} invalid={Boolean(error)} onChange={(event) => write(start, event.target.value)} aria-label={t("clarify.dateEnd")} />
+    <div className="pf-field pf-field--wide">
+      <span className="pf-dates">
+        <label>
+          <span className="pf-field__label">{t("clarify.dateStart")}</span>
+          <Input type="date" value={start} invalid={Boolean(error)} onChange={(event) => write(event.target.value, end)} />
+        </label>
+        <label>
+          <span className="pf-field__label">{t("clarify.dateEnd")}</span>
+          <Input type="date" value={end} invalid={Boolean(error)} onChange={(event) => write(start, event.target.value)} />
+        </label>
       </span>
       {options.length ? (
         <span className="pf-clarify__options">
@@ -977,7 +990,8 @@ function DateRangeField({
           ))}
         </span>
       ) : null}
-    </Field>
+      {error ? <span className="pf-field__error">{error}</span> : hint ? <span className="pf-field__hint">{hint}</span> : null}
+    </div>
   );
 }
 
