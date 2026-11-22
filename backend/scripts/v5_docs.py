@@ -183,7 +183,7 @@ recommendations = [
         "reasoning": "none (not supported by these Poe models)",
         "threshold": "0.8 (0.9 when false routes are costlier)",
         "evidence": "83/84 = 98.8% (Wilson 93.6–99.8), p50 4.1 s, 2.9k tokens; Sonnet 98.8% / 6.3 s / 4.6k. Sonnet 0 vs 0.2: identical 83/84.",
-        "tradeoff": "Flash-Lite ties the best accuracy and is faster/cheaper; Sonnet has no accuracy gain here.",
+        "tradeoff": "Flash-Lite ties the best accuracy and is faster/cheaper; Sonnet has no accuracy gain here. DeepSeek V4.1 Flash also scored 98.8% but was the slowest (8.5 s).",
     },
     {
         "part": "Turn router",

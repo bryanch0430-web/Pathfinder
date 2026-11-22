@@ -3,8 +3,8 @@
 Two different things are measured here, and they should not be mixed:
 
 1. **The proposal datasets** (`backend/eval/fixtures/`) — the same frozen cases the
-   v4 report used, run through the real v5 pipeline with sandbox evidence. This is
-   the like-for-like comparison.
+   main-branch report used, run through the real v5 pipeline with sandbox evidence.
+   This is the like-for-like comparison.
 2. **The product's own checks** — unit tests and the live smoke turns.
 
 ## Method
@@ -37,7 +37,7 @@ $env:EVAL_CONCURRENCY = "4"
 
 ## Results (22 November 2026, `claude-sonnet-5.5` via Poe, sandbox evidence)
 
-| Dataset | Cases | v5 | v4 baseline | Delta |
+| Dataset | Cases | v5 | main baseline (v1.18.0) | Delta |
 |---|---:|---:|---:|---:|
 | Routing — intent accuracy | 84 | **98.8 %** (83/84) | 76.2 % (rules layer) | **+22.6** |
 | Injection — containment | 24 (stratified sample) | **100 %** | 98.8 % | +1.2 |
@@ -60,9 +60,9 @@ Routing, per intent (from the r3 run):
 The single routing miss is *"Plan something nice"* with a destination already in context: v5
 reads it as `plan` (then asks for dates), while the frozen label is `unclear`.
 
-For context, the v4 report's **live** intent-router test (Jev / fast model on the same
-84 utterances) scored **92.9 %**. v5's 98.8 % is measured on the same inputs and the
-same labels, with one model call per case and no rules.
+For context, the main-branch report's **live** intent-router test (Jev on the same
+84 utterances) scored **92.9 %** (78/84). v5's 98.8 % is measured on the same inputs
+and the same labels, with one model call per case and no rules.
 
 ### Note on the Hong Kong number
 
@@ -105,7 +105,7 @@ to two compose attempts.
 cd backend
 $env:PYTHONPATH = "."
 .\.venv\Scripts\python.exe -m pytest -q
-# 34 passed
+# 52 test functions in 7 files
 ```
 
 What they cover: calendar arithmetic (including the no-midnight-wrap rule), the wire

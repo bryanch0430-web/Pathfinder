@@ -1,30 +1,39 @@
-# Revamp notes — v4 → v5
+# Revamp notes — main → v5
 
 This is the change log that matters: what the old core did, what replaced it, and
-what is honestly not at parity yet.
+what is honestly not at parity yet. The baseline is the **`main` branch**
+(`Pathfinder`, v1.18.0), measured on the checked-out trees on 23 Nov 2026.
 
 ## Headline
 
-| | v4 (`Pathfinder_V4/backend`) | v5 (`Pathfinder v5/backend`) |
+| | main (v1.18.0) | v5 (`Pathfinder v5/backend`) |
 |---|---:|---:|
-| Python lines | 58,109 | **9,984** |
-| Files using `re.` | **68** | **1** (`api/admin.py`, PII redaction preview) |
-| `re.` occurrences | **547** | **1** |
-| Understanding | rules first (547 regexes + gazetteers), model fallback | **one typed model call** |
+| Python lines (app) | 56,831 | 11,990 |
+| Python files | 148 | 43 |
+| Files using `re.*` | 63 | 2 |
+| `re.*` uses | 861 | 9 |
+| `re.compile` calls | 233 | 4 |
+| FastAPI route handlers | 100 | 98 |
+| Test functions | 2,326 | 52 |
+| Prompt packs | 24 `SKILL.md` (857 lines) | 7 (471 lines) |
+| Understanding | rules first (`understanding.py` 2,479 lines + `router.py` 1,031), model fallback | **one typed model call** |
 | Facts in a plan | mixed rules + model | **copied from evidence by code** |
-| Edit path | rules decide scope, model assists | **typed ops from the model, applied by code** |
+| Edit path | rules (`modification.py` 4,896 lines) | **typed ops (`editor.py` 458 lines), applied by code** |
 | Interface | React + SSE | **the same React + the same SSE events** |
 
-The frontend is a verbatim copy of v4's `frontend/` (only `dist/` was rebuilt). The
-API contract is v4's: the same paths, the same response shapes, the same SSE event
-names and payloads (see `frontend/src/lib/api.ts` and
-`frontend/src/design-system/types.ts`).
+The frontend is carried over, not rewritten: 17 of its 118 main-branch source files
+differ, plus one new Models settings file (574 lines added, 610 removed). The API
+contract is the existing one: v5 serves 98 of main's 100 route handlers; the two
+missing are the SPA catch-all (replaced by a static mount) and the admin trace-span
+reader.
 
 ## What the old core did
 
-v4's turn was a pipeline of situation-specific modules: `understanding.py` (2,483
-lines) pulled slots with regex and gazetteers, `router.py` (966 lines) scored intents
-with rules, and dozens of modules (`trip_rules`, `edit_scope`, `plan_focus`,
+main's turn was a pipeline of situation-specific modules: `understanding.py` (2,479
+lines) pulled slots with regex and gazetteers, `router.py` (1,031 lines) scored
+intents with rules, and `modification.py` (4,896 lines) encoded edit judgement as
+conditions. Across `backend/app`, 63 files use `re.*` (861 uses; 233 `re.compile`
+calls), and dozens of modules (`trip_rules`, `edit_scope`, `plan_focus`,
 `preferences`, `profile_rules`, `persona`, `sentiment`, `language`, …) encoded
 judgements as conditions. It was fast and predictable, and it was the ceiling: a
 phrasing the rules did not anticipate was misread, and every fix added a condition.
@@ -44,7 +53,7 @@ phrasing the rules did not anticipate was misread, and every fix added a conditi
 | Answer | `skills/ask.md` + plan text + retrieved sources |
 | Persist | `core/store.py` (versioned plans, messages, profiles, wishlists) |
 | Stream | `api/turn.py` (same SSE frames, keepalives, one turn per trip) |
-| Evaluate | `eval/` + the frozen v4 fixtures |
+| Evaluate | `eval/` + the frozen main fixtures |
 
 ## Design decisions
 
@@ -76,12 +85,13 @@ phrasing the rules did not anticipate was misread, and every fix added a conditi
    providers for the curated atlas and a deterministic weather/ticket model, so the
    demo, the tests and the evaluation run the same pipeline without network flakiness.
 
-## Deliberate reductions (not at v4 parity yet)
+## Deliberate reductions (not at main parity yet)
 
 These are real gaps, listed so nobody is surprised:
 
-| Area | v4 | v5 today |
+| Area | main | v5 today |
 |---|---|---|
+| Tests | 2,326 test functions | 52 test functions in 7 files |
 | Multi-city | full segments + legs | `stops` is parsed and stored; the composer plans one city per turn |
 | Hotel rooms | SerpAPI room types | `room_types` exists on the model; the endpoint returns what the plan has (often none) |
 | Video notes | YouTube/Bilibili enrichment | toggles exist, no enrichment yet |
@@ -104,14 +114,14 @@ plug into already exist.
   refusal.
 - The model cannot choose tools; code calls providers. There is no booking or
   payment tool.
-- The API keeps v4's ownership model (guest token / signed-in user / local admin).
+- The API keeps main's ownership model (guest token / signed-in user / local admin).
 
 ## Migration notes
 
-- The `.env` keys are compatible with v4's; `Settings.writer` resolves the same
+- The `.env` keys are compatible with main's; `Settings.writer` resolves the same
   three blocks (`OPENAI_*`, `XAI_*`, `LLM_*`). `PATHFINDER_SANDBOX` is new.
 - The database schema is **not** compatible. v5 uses its own `data/pathfinder.db`.
-- The UI is unchanged; run v5 on another port than a running v4 (8100) and point the
-  dev server at it with `VITE_API_TARGET`.
-- The frozen datasets (`backend/eval/fixtures/`) and the v4 numbers they produced are
-  kept so the two implementations can be compared on the same cases.
+- The UI is carried over; run v5 on another port than a running main build (8100) and
+  point the dev server at it with `VITE_API_TARGET`.
+- The frozen datasets (`backend/eval/fixtures/`) and the main-branch numbers they
+  produced are kept so the two implementations can be compared on the same cases.

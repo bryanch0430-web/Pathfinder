@@ -1,6 +1,6 @@
 # v5 part-model study — results
 
-Generated: 2026-11-23T02:57:32 (Asia/Hong_Kong)
+Generated: 2026-11-23T03:17:54 (Asia/Hong_Kong)
 
 ## Executive summary
 
@@ -24,6 +24,7 @@ The full protocol and case catalogue are in `TEST_PLAN.md`; the spreadsheet is `
 | sonnet-0.2 | claude-sonnet-5.5 | 0.2 | 83/84 | 98.8% | 93.6%–99.8% | 6212.6 | 4657.1 |
 | flash-lite-0.0 | gemini-3.5-flash-lite | 0.0 | 83/84 | 98.8% | 93.6%–99.8% | 4108.2 | 2942.7 |
 | jev | jev-latest | None | 79/84 | 94.0% | 86.8%–97.4% | 624.6 | None |
+| deepseek41-0.0 | deepseek-v4.1-flash-1017 | 0.0 | 83/84 | 98.8% | 93.6%–99.8% | 8549.0 | 3319.5 |
 
 ### Confidence gate
 
@@ -45,6 +46,10 @@ The full protocol and case catalogue are in `TEST_PLAN.md`; the spreadsheet is `
 | jev | 0.7 | 75% | 98.4% | 21 |
 | jev | 0.8 | 66% | 100.0% | 29 |
 | jev | 0.9 | 43% | 100.0% | 48 |
+| deepseek41-0.0 | 0.6 | 99% | 98.8% | 1 |
+| deepseek41-0.0 | 0.7 | 99% | 98.8% | 1 |
+| deepseek41-0.0 | 0.8 | 98% | 100.0% | 2 |
+| deepseek41-0.0 | 0.9 | 88% | 100.0% | 10 |
 
 ### Jev pre-gate + LLM fallback
 

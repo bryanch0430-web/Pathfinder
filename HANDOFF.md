@@ -1,8 +1,8 @@
 # Handoff
 
 **Pathfinder v5** lives at `C:\Users\Dies Irae\Desktop\HKU\LLM\Pathfinder v5`.
-Same React UI as v4; a new, LLM-first backend. This note is the shortest path for
-whoever picks it up next.
+The existing React UI (with the v5 settings changes); a new, LLM-first backend. This
+note is the shortest path for whoever picks it up next.
 
 ## Run it
 
@@ -12,8 +12,8 @@ cd "Pathfinder v5"
 .\start.ps1 -Sandbox        # curated evidence, no network
 ```
 
-v4 may still be running on 8100; v5 uses 8101 so both can coexist. The built UI is
-served by the backend; for frontend work:
+An older Pathfinder build may still be running on 8100; v5 uses 8101 so both can
+coexist. The built UI is served by the backend; for frontend work:
 
 ```powershell
 cd frontend
@@ -42,20 +42,20 @@ npm run dev
 
 ## Verified so far
 
-- 51 backend tests pass (`pytest -q`).
-- All 71 request paths the React app uses are served (checked against the OpenAPI
+- 52 backend test functions in `backend/tests` (`pytest -q`).
+- All 70 request paths the React app uses are served (checked against the OpenAPI
   document).
 - End-to-end manual flows: plan → edit tick → accept → version 2; ask; clarify;
   injection refusal; translation (zh-Hant); segments; calendar; share.
 - Evaluation (sandbox, `claude-sonnet-5.5`):
-  - routing **98.8 %** (83/84) vs v4 rules **76.2 %**
+  - routing **98.8 %** (83/84) vs main rules **76.2 %** (v1.18.0)
   - travelplanner **3/3**, constraints **100 %** (parity)
   - injection and the HK/Japan plan sets: see `docs/EVALUATION.md` for the run state
     at handoff time.
 
 ## Deliberate simplifications
 
-Read `docs/REVAMP.md` §"Deliberate reductions" before comparing to v4. The big ones:
+Read `docs/REVAMP.md` §"Deliberate reductions" before comparing to main. The big ones:
 multi-city planning (one city per plan today), hotel room types, video notes,
 HK weather/transit feeds, desk sentiment bands, Langfuse export, AMap.
 

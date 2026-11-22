@@ -80,7 +80,7 @@ lines = [
     "",
     "| Part | Cases | Arms | Primary metric |",
     "|---|---:|---|---|",
-    "| Analyst / router | 84 | Sonnet 0.0, Sonnet 0.2, Flash-Lite 0.0, Jev | intent accuracy, gate, latency |",
+    "| Analyst / router | 84 | Sonnet 0.0, Sonnet 0.2, Flash-Lite 0.0, DeepSeek V4.1 Flash 0.0, Jev | intent accuracy, gate, latency |",
     "| Turn router | 84 × 2 | LLM vs Jev; derived hybrid at 0.8 | accuracy, coverage, latency |",
     "| Planner | 17 | Sonnet, Flash-Lite (8 HK + 6 Japan + 3 TravelPlanner-style) | pass, constraints, grounding, latency |",
     "| Editor | 8 ran (of 10 planned) | Sonnet, Flash-Lite, DeepSeek | semantic edit + preservation |",
@@ -187,6 +187,7 @@ This is the report-ready decision record. Evidence tables are in `RESULTS.md`; t
 - **Evidence:** 83/84 = 98.8% (Wilson 93.6–99.8), p50 4.1 s, 2.9k tokens. Sonnet 5.5 was also 83/84 but 6.3 s and 4.6k tokens. Sonnet 0 vs 0.2 was identical (83/84), so temperature 0 is the reproducible choice.
 - **Why not Sonnet:** no accuracy gain on this set; slower and more tokens.
 - **Why not Jev alone:** 79/84 = 94.0%; it is excellent on plan (21/21) but weaker on modify/ask (both 100% for the LLM), and its 0.8 gate keeps only 66%.
+- **Also tested:** DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`) also scored 83/84 = 98.8% (Wilson 93.6–99.8), but p50 8.5 s and 3.3k tokens; it is quality-tied but slower than Flash and Sonnet. It is a valid uniform-model option, not the routing winner.
 - **Rejected:** Gemini 3.8 Flash (empty answer in smoke), GPT-5 nano/mini (Poe 400).
 - **Code:** `app/understand/pipeline.py:understand`, `app/core/llm.py:model_for/temperature_for/max_tokens_for`.
 

@@ -72,6 +72,7 @@ Why, in report language:
 - **Routing:** Flash-Lite and Sonnet both scored 83/84 (98.8%, Wilson 93.6–99.8). Flash-Lite took
   4.1 s and 2.9k tokens; Sonnet took 6.3 s and 4.6k. Sonnet 0 vs 0.2 was identical, so 0 is the
   reproducible setting.
+- **DeepSeek V4.1 Flash:** also 83/84 (98.8%, Wilson 93.6–99.8), but p50 8.5 s and 3.3k tokens. It is quality-tied and slower; a valid uniform-model option, not the routing winner.
 - **Jev:** 79/84 (94.0%, 0.6 s). It is perfect on plan but weak on modify/ask; at a 0.8 gate it keeps
   66% at 100% and escalates 29. A derived Jev→Flash fallback scored 84/84 at about 2.0 s; this is a
   proposed next step, not a shipped setting. Do not claim it as the current router.

@@ -8,6 +8,7 @@ This is the report-ready decision record. Evidence tables are in `RESULTS.md`; t
 - **Evidence:** 83/84 = 98.8% (Wilson 93.6–99.8), p50 4.1 s, 2.9k tokens. Sonnet 5.5 was also 83/84 but 6.3 s and 4.6k tokens. Sonnet 0 vs 0.2 was identical (83/84), so temperature 0 is the reproducible choice.
 - **Why not Sonnet:** no accuracy gain on this set; slower and more tokens.
 - **Why not Jev alone:** 79/84 = 94.0%; it is excellent on plan (21/21) but weaker on modify/ask (both 100% for the LLM), and its 0.8 gate keeps only 66%.
+- **Also tested:** DeepSeek V4.1 Flash (`deepseek-v4.1-flash-1017`) also scored 83/84 = 98.8% (Wilson 93.6–99.8), but p50 8.5 s and 3.3k tokens; it is quality-tied but slower than Flash and Sonnet. It is a valid uniform-model option, not the routing winner.
 - **Rejected:** Gemini 3.8 Flash (empty answer in smoke), GPT-5 nano/mini (Poe 400).
 - **Code:** `app/understand/pipeline.py:understand`, `app/core/llm.py:model_for/temperature_for/max_tokens_for`.
 
@@ -70,33 +71,3 @@ This is the report-ready decision record. Evidence tables are in `RESULTS.md`; t
 For a **quality-first** profile: Jev pre-gate at 0.8 + Flash-Lite fallback for routing; Flash-Lite planner; DeepSeek editor/verifier/ask; DeepSeek memory with validation.
 For a **simpler** profile: Flash-Lite for analyst/planner; Sonnet for editor/verifier/ask/memory (the current one-writer default), accepting the higher token cost.
 For **latency-first**: Jev router alone, accepting 94% routing and 66% coverage at 0.8.
-
-## Uniform Sonnet 5.5 at temperature 0.2 as the baseline
-
-The results **can** justify keeping Sonnet 5.5 at 0.2 for every part as a **conservative,
-single-provider baseline**, but not as the empirically optimal configuration:
-
-| Part | Sonnet 5.5 | Best measured | Sonnet status |
-|---|---|---|---|
-| Analyst | 98.8% (83/84), 6.3 s | 98.8% (Flash, 4.1 s) | tied on accuracy; slower |
-| Planner | 14/17, 920 s total | 14/17 (Flash, 323 s) | tied; stronger on TravelPlanner (3/3 vs 2/3) |
-| Editor | 8/8, 5.6 s, 11.6k tokens | 8/8 (Flash, 3.4 s, 3.4k) | tied on accuracy; slower/more tokens |
-| Verifier | 18/20, 5.7 s | 18/20 (DeepSeek, 4.0 s) | tied; slower |
-| Ask | 11/11 in-scope, 20.2 s | 11/11 (DeepSeek, 16.1 s) | tied; slower |
-| Memory | 79.8% recall, no false memory | 91.7% (DeepSeek, one false memory) | lower recall; better precision |
-| Turn router | 98.8% | 98.8% (Flash, same) | tied; Jev alone is 94.0% |
-
-So Sonnet is at the best measured accuracy on six of seven parts (all except memory recall),
-which supports it as a **quality floor and lowest-integration-risk choice**. It is not the
-latency or token-cost winner, and the report must say so.
-
-**Temperature caveat:** the study measured Sonnet at 0.2 directly for routing (identical to
-0.0: 83/84) and for planning (the planner arms inherited 0.2). Editor, verifier, ask and memory
-were measured at **0.0**, not 0.2. A claim that 0.2 is equally good for those four parts is an
-extrapolation, not a result. If the report wants that claim, run the 0.2 arms on those parts or
-state it as the production default rather than a tested optimum.
-
-**How to phrase it:** “We retain Sonnet 5.5 at 0.2 as the uniform baseline because it ties the
-best measured accuracy on six of seven parts, uses one provider/key, and avoids per-part model
-integration risk. The study shows Flash/DeepSeek are faster or cheaper; those are documented
-alternatives, not the baseline.”

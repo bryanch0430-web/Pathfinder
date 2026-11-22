@@ -1,7 +1,7 @@
 # Version notes
 
-Running notes for **Pathfinder v5**. The UI is still the v4 React app; the core is
-the rebuilt backend at `backend/`.
+Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
+app; the core is the rebuilt backend at `backend/`.
 
 ## 5.0.0 — 2026-11-23
 
@@ -137,15 +137,16 @@ semver comparison.
 | **v1.14.0** · 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat | Map/hotel start; frustration is a model estimate, not sentiment rules; Desk can take a queued chat | v5 keeps Take over and the map, but automatic handoff is a master switch with a phrase list; false sentiment escalation is not repeated. |
 | **v1.13.0** · 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked | PII first layer (HKID/phone/email/card); flight/arrival constraints; selected-row edit scope | Masking was **lost in the first v5 pass** and restored; the validator now enforces flight boundaries instead of rules. |
 | **v1.12.0** · 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting | Handoff master + frustration + stuck + explicit phrases; Desk Queue → Handling | v5 had made the queue “too strong” by counting clarifications and pre-assigning an agent. It now queues with no agent so a person can **Accept**, and only failed edits count. |
-| v1.11.0 – v1.9.0 | Map confirmation, translation parity, error analysis, routing gates, Desk window, all eval suites | Map confirmations; plan-locale switching; eval dashboard; Desk | The UI/contract is reused; routing gates in v5 are the analyst/Jev choice, not three v4 gates. |
+| v1.11.0 – v1.9.0 | Map confirmation, translation parity, error analysis, routing gates, Desk window, all eval suites | Map confirmations; plan-locale switching; eval dashboard; Desk | The UI/contract is reused; routing gates in v5 are the analyst/Jev choice, not the three main-branch gates. |
 | v1.8.0 – v1.7.0 | Studio canvas UI, multi-city trips, lockable stay/leg/transfer slots, pictures/links/ranks | The React UI, SSE contract, multi-city shapes, locks, photos, source links | Copied as the interface contract; the backend behind it is new. Photos were restored with a Wikipedia → Google Places → neutral-tile resolver. |
 | v1.6.x – v1.0.x | Clarify answers in their slot, flights shape the day, visible legs, honest budgets, EN/简/繁, web search, reviews | Clarify payloads; flight times and day boundaries; leg/transfer model; budget guard; locales; search providers | Product behaviour retained; implementation replaced by the typed core. |
 
 ### What was deliberately not carried over
 
-- **The rules-first router and gazetteers** (547 regexes across 68 files in the old
-  core). They were the ceiling the rebuild exists to remove. v5 has one regex file,
-  for the privacy preview only.
+- **The rules-first router and gazetteers** (861 `re.*` uses and 233 `re.compile`
+  calls across 63 files in the old core). They were the ceiling the rebuild exists to
+  remove. v5 has two regex files — `security/pii.py` and the admin redaction preview
+  — nine uses in all, none of them understanding.
 - **Jev as the default router.** It remains available as an explicit orchestrator
   option; the analyst is the default because it scored 98.8 % on the routing set vs
   92.9 % for the old Jev path.

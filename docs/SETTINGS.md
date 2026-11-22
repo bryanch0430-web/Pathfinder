@@ -1,6 +1,6 @@
 # Settings audit (v5)
 
-The Settings screen keeps the v4 look but only shows controls the v5 runtime reads.
+The Settings screen keeps the existing look but only shows controls the v5 runtime reads.
 If a control is not listed here, it is not in the UI.
 
 | Section | Control | Live in v5? | What it changes |

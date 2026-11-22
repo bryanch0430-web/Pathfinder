@@ -1,13 +1,13 @@
 # Architecture
 
-Pathfinder v5 keeps the v4 **interface** and replaces the **core**. This document is
+Pathfinder v5 keeps the existing **interface** and replaces the **core**. This document is
 the map: what each layer owns, how one turn flows, where the guarantees live, and
 what to change for the common extensions.
 
 ## 1. Layers
 
 ```
-frontend/                 the v4 React app, unchanged
+frontend/                 the carried-over React app
    │  same JSON + SSE contract
 backend/app/api/          FastAPI routers, auth, admin, eval endpoints
 backend/app/turn/         orchestrator: one turn → ordered events

@@ -43,7 +43,7 @@ Eliminate a model whose 95% interval is more than 10 percentage points below the
 
 | Part | Cases | Arms | Primary metric |
 |---|---:|---|---|
-| Analyst / router | 84 | Sonnet 0.0, Sonnet 0.2, Flash-Lite 0.0, Jev | intent accuracy, gate, latency |
+| Analyst / router | 84 | Sonnet 0.0, Sonnet 0.2, Flash-Lite 0.0, DeepSeek V4.1 Flash 0.0, Jev | intent accuracy, gate, latency |
 | Turn router | 84 × 2 | LLM vs Jev; derived hybrid at 0.8 | accuracy, coverage, latency |
 | Planner | 17 | Sonnet, Flash-Lite (8 HK + 6 Japan + 3 TravelPlanner-style) | pass, constraints, grounding, latency |
 | Editor | 8 ran (of 10 planned) | Sonnet, Flash-Lite, DeepSeek | semantic edit + preservation |

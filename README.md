@@ -1,9 +1,9 @@
 # Pathfinder v5
 
-A conversational, state-aware trip planner. **Same UI as Pathfinder v4. A new,
-LLM-first core.** The React app in `frontend/` is the v4 interface, unchanged; the
-backend behind `/api` is rebuilt around a typed turn analyst, sourced evidence,
-bounded repair and versioned plans.
+A conversational, state-aware trip planner. **The Pathfinder interface, with a new,
+LLM-first core.** The React app in `frontend/` is carried over with small settings
+changes; the backend behind `/api` is rebuilt around a typed turn analyst, sourced
+evidence, bounded repair and versioned plans.
 
 **Latest:** the Models tab configures a model, temperature, reasoning effort and
 reply cap for each part; the turn router can be the LLM router or Jev (System 1);
@@ -52,14 +52,16 @@ and evaluation.
 
 ## Why a revamp
 
-v4 works, and it is 57k lines of rules: hundreds of regexes deciding what a traveller
-meant, what a slot is, whether an edit is safe. That core is fast and brittle — it
-caps intent accuracy at what the rules anticipated and makes every new phrasing a
-new rule.
+The `main` branch (v1.18.0) works, and its `backend/app` is 56,831 Python lines:
+2,479 lines of slot extraction in `application/understanding.py`, 1,031 lines of
+intent rules in `application/router.py`, and 861 `re.*` uses (233 `re.compile` calls)
+across 63 files deciding what a traveller meant, what a slot is, whether an edit is
+safe. That core is fast and brittle — it caps intent accuracy at what the rules
+anticipated and makes every new phrasing a new rule.
 
 v5 moves the judgement into a model and keeps the *contract* in code:
 
-| Job | v4 | v5 |
+| Job | main (v1.18.0) | v5 |
 |---|---|---|
 | What does the traveller want? | rules first, model fallback | **one typed model call** (`app/skills/understand.md`) |
 | Slots, dates, constraints | regex + gazetteers | model + calendar arithmetic in code |
@@ -69,9 +71,31 @@ v5 moves the judgement into a model and keeps the *contract* in code:
 | Safety | rules + model | schema + canary fence + grounded facts |
 | Repair | bounded | bounded, with the validator's exact problems fed back |
 
-There is **no regex-based understanding** anywhere in v5. Regex remains only in the
-PII redaction control (a security filter, not intent parsing) and in the parser for
-structured values such as `10:00-23:00` opening hours.
+There is **no regex-based understanding** anywhere in v5: `understand/` has no `re`
+import, and the whole backend uses `re` in just two redaction controls
+(`security/pii.py` and the admin preview endpoint) — 9 uses in 2 files. Structured
+values such as `10:00-23:00` opening hours are parsed with string operations in
+`plan/validator.py`, not regex.
+
+Measured on the checked-out trees (23 Nov 2026):
+
+| Measure | main (v1.18.0) | v5 |
+|---|---:|---:|
+| Python lines in `backend/app` | 56,831 | 11,990 |
+| Python files | 148 | 43 |
+| Files using `re.*` | 63 | 2 |
+| `re.compile` calls | 233 | 4 |
+| FastAPI route handlers | 100 | 98 |
+| Test functions | 2,326 | 52 |
+| Frontend source lines | 39,146 | 39,362 |
+| Prompt packs | 24 `SKILL.md` (857 lines) | 7 (471 lines) |
+
+The 98 v5 handlers are 95 decorated routes plus three dynamic suggestion routes; the
+two missing from v5 are the SPA catch-all (replaced by a static mount) and the admin
+trace-span reader. The frontend differs in 17 of its 118 main-branch source files,
+plus one new Models settings file (574 lines added, 610 removed), mostly the settings
+surface and its copy. The test gap is the honest cost of the rewrite: 52 test
+functions against main's 2,326.
 
 ## Quick start
 
@@ -97,7 +121,7 @@ missing; planning turns answer that the model is not configured.
 
 ```powershell
 cd frontend
-$env:VITE_API_TARGET = "http://127.0.0.1:8101"   # v4's dev server defaults to 8100
+$env:VITE_API_TARGET = "http://127.0.0.1:8101"   # main's dev server defaults to 8100
 npm run dev
 ```
 
@@ -173,7 +197,8 @@ the plan.
 
 Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
 
-The v4 proposal datasets run through the real pipeline with sandbox evidence:
+The proposal datasets (the same frozen cases as `main`) run through the real pipeline
+with sandbox evidence:
 
 ```powershell
 cd backend
@@ -185,16 +210,19 @@ $env:DATABASE_PATH = "data/eval.db"
 
 Headline results so far (22 Nov 2026, `claude-sonnet-5.5`, sandbox evidence):
 
-| Suite | v5 | v4 baseline |
+| Suite | v5 | main baseline (v1.18.0) |
 |---|---:|---:|
-| Routing — intent accuracy (84) | **98.8 %** | 76.2 % (rules) / 92.9 % (live model test) |
+| Routing — intent accuracy (84) | **98.8 %** | 76.2 % rules (64/84) / 92.9 % live Jev (78/84) |
 | TravelPlanner-style (3) | **3/3, constraints 100 %** | 3/3, 100 % |
 
+The `main` numbers are the ones recorded on that branch: the rules layer 64/84
+(76.2 %), the live Jev router 78/84 (92.9 %), injection 83/84 (98.8 %), Hong Kong
+8/8, Japan 6/6 and TravelPlanner 3/3. The full table, including the cases v5 does
+not yet match, is in [docs/EVALUATION.md](docs/EVALUATION.md).
+
 The same suites are in the UI's **Evaluation** tab (operator views), with a run
-report export. Full results and the method are in
-[docs/EVALUATION.md](docs/EVALUATION.md); the architecture is in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what changed against v4 is in
-[docs/REVAMP.md](docs/REVAMP.md).
+report export. The architecture is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
+what changed against `main` is in [docs/REVAMP.md](docs/REVAMP.md).
 
 ## Project layout
 
@@ -202,7 +230,7 @@ report export. Full results and the method are in
 Pathfinder v5/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          FastAPI routers (the v4 wire contract)
+│   │   ├── api/          FastAPI routers (the existing wire contract)
 │   │   ├── core/         store, model gateway, dates, traces, prompts
 │   │   ├── domain/       the wire model (mirrors frontend types)
 │   │   ├── evidence/     providers + curated atlas (12 cities)
@@ -211,10 +239,10 @@ Pathfinder v5/
 │   │   ├── turn/         the orchestrator and its event stream
 │   │   ├── eval/         datasets + runner
 │   │   └── skills/       the prompt packs (edit them, or override at runtime)
-│   ├── eval/fixtures/    the frozen v4 datasets
+│   ├── eval/fixtures/    the frozen main-branch datasets
 │   ├── scripts/          smoke tests, eval runner, debug helpers
 │   └── tests/
-├── frontend/             the v4 React UI, unchanged
+├── frontend/             the carried-over Pathfinder React UI
 ├── docs/
 └── start.ps1 / start.cmd
 ```

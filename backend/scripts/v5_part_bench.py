@@ -37,6 +37,7 @@ ARMS = [
     {"key": "sonnet-0.2", "model": "claude-sonnet-5.5", "temperature": 0.2},
     {"key": "flash-lite-0.0", "model": "gemini-3.5-flash-lite", "temperature": 0.0},
     {"key": "deepseek-0.0", "model": "deepseek-v4-flash", "temperature": 0.0},
+    {"key": "deepseek41-0.0", "model": "deepseek-v4.1-flash-1017", "temperature": 0.0},
 ]
 
 
@@ -228,17 +229,21 @@ async def main() -> None:
             flush=True,
         )
 
-    print("  arm jev …", flush=True)
-    jev_cases = await run_jev(cases, semaphore)
+    if os.environ.get("BENCH_SKIP_JEV") == "1":
+        jev_cases = []
+    else:
+        print("  arm jev …", flush=True)
+        jev_cases = await run_jev(cases, semaphore)
     jev_arm = {"key": "jev", "model": settings.decision_model, "temperature": None}
-    arms["jev"] = jev_cases
-    summary = summarize(jev_cases, jev_arm)
-    print(
-        f"    {summary['correct']}/{summary['n']} = {summary['accuracy']:.1%} "
-        f"({summary['wilson95'][0]:.1%}–{summary['wilson95'][1]:.1%}), "
-        f"p50 {summary['p50_latency_ms']} ms",
-        flush=True,
-    )
+    if jev_cases:
+        arms["jev"] = jev_cases
+        summary = summarize(jev_cases, jev_arm)
+        print(
+            f"    {summary['correct']}/{summary['n']} = {summary['accuracy']:.1%} "
+            f"({summary['wilson95'][0]:.1%}–{summary['wilson95'][1]:.1%}), "
+            f"p50 {summary['p50_latency_ms']} ms",
+            flush=True,
+        )
 
     baseline_key = ARMS[0]["key"]
     baseline = arms.get(baseline_key, [])

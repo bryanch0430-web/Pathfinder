@@ -1,8 +1,8 @@
 # API
 
-v5 serves **v4's wire contract**. The React app was not changed, so the fastest
-correctness check is: every `request(...)` path in `frontend/src/lib/api.ts` has a
-route here. That check is reproducible:
+v5 serves **the existing Pathfinder wire contract**. The React app is carried over, so
+the fastest correctness check is: every `request(...)` path in
+`frontend/src/lib/api.ts` has a route here. That check is reproducible:
 
 ```powershell
 cd backend
@@ -15,7 +15,7 @@ print(len(paths), "documented routes")
 PY
 ```
 
-At the time of writing: 71 distinct frontend request paths, all covered; 86 routes in
+At the time of writing: 70 distinct frontend request paths, all covered; 86 routes in
 the OpenAPI document (the extra ones are operator/eval helpers).
 
 ## Identity
