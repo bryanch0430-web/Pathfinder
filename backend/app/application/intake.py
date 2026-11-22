@@ -239,6 +239,7 @@ def _apply(
     sighted: bool,
     today: date,
     settings: Settings,
+    replace: bool = False,
 ) -> IntakeResult:
     """Fill the form's empty fields from the checked reply. ``sighted``: pictures were read, so a name the
     texts do not hold may come from a picture and is kept."""
@@ -248,7 +249,7 @@ def _apply(
         return bool(text) and (sighted or _key(text) in haystack)
 
     destination = _line(draft.destination, 80)
-    if named(destination) and not context.destination.strip():
+    if named(destination) and (replace or not context.destination.strip()):
         context.destination = destination
         result.filled.append("destination")
     stops = [
@@ -257,7 +258,7 @@ def _apply(
         if isinstance(row, dict)
     ]
     stops = [(city, nights) for city, nights in stops if named(city)]
-    if 2 <= len(stops) <= TRIP_STOPS_MAX and not context.stops:
+    if 2 <= len(stops) <= TRIP_STOPS_MAX and (replace or not context.stops):
         # The cities win over whatever the form held as a destination (a country or region, or a later city).
         replaced = _key(context.destination) not in ("", _key(stops[0][0]))
         context.stops = [
@@ -288,8 +289,12 @@ def _apply(
         if end is not None and start <= end and (end - start).days < settings.max_days:
             context.end_date = end
         result.filled.append("dates")
-    if context.end_date is None and context.days is None and days is not None:
+    if days is not None and (replace or (context.end_date is None and context.days is None)):
         context.days = days
+        if replace:
+            # The open plan's weekend is not the length of the shared itinerary.
+            context.start_date = None
+            context.end_date = None
         result.filled.append("days")
 
     try:
@@ -350,6 +355,7 @@ async def run_intake(
     toolbox: Toolbox,
     settings: Settings,
     today: date | None = None,
+    replace: bool = False,
 ) -> IntakeResult:
     """Read what the message shares and fill ``context``'s empty fields from it (in place)."""
     today = today or date.today()
@@ -432,6 +438,7 @@ async def run_intake(
         sighted=sighted,
         today=today,
         settings=settings,
+        replace=replace,
     )
     result.filled, result.places, result.wishes = (
         applied.filled,
@@ -439,6 +446,14 @@ async def run_intake(
         applied.wishes,
     )
     return result
+
+
+def plans_from_share(message: str) -> bool:
+    """The traveller wants a trip from the file or picture, not a change to the plan already open."""
+    lower = (message or "").lower()
+    shared = re.search(r"\b(file|picture|image|poster|photo|attachment)\b", lower)
+    use = re.search(r"\b(plan|match|follow|based on|like this)\b", lower)
+    return bool(shared and use)
 
 
 def shares_something(
@@ -453,6 +468,7 @@ __all__ = [
     "IntakeSource",
     "LINK_WORDS",
     "find_urls",
+    "plans_from_share",
     "run_intake",
     "shares_something",
     "without_links",

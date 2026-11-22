@@ -804,6 +804,11 @@ def _unknown_name(candidate: str, origin_lower: str) -> str | None:
     lead = _NOT_A_NAME_START | {"plan", "planned", "planning"}
     while words and words[0].lower() in lead:
         words = words[1:]
+    while words and words[-1].lower() in _TRIP_WORDS | {"itinerary", "itineraries", "break"}:
+        words = words[:-1]
+    # "a new trip" is not a city called New. "New York" is more than this one word.
+    if len(words) == 1 and words[0].lower() in {"new", "another", "whole", "sample", "fresh"}:
+        return None
     lowered = [word.lower() for word in words]
     if not words or not _valid_place(" ".join(words)) or " ".join(lowered) == origin_lower:
         return None
@@ -1116,7 +1121,9 @@ class PlaceGrounding:
         return ""
 
 
-def understand_note(before: TripContext, after: TripContext, grounding: PlaceGrounding | None = None) -> str:
+def understand_note(
+    before: TripContext, after: TripContext, grounding: PlaceGrounding | None = None, message: str = ""
+) -> str:
     """One line for the decision log: what this turn read, and what is still missing."""
     bits: list[str] = []
     for key in ("destination", "origin"):
@@ -1131,12 +1138,35 @@ def understand_note(before: TripContext, after: TripContext, grounding: PlaceGro
         for slot, asked, found in grounding.suggestions:
             bits.append(f"confirm {asked} as {found} for {slot}, not stored yet")
     if not bits:
-        bits.append("no new slot was read")
+        edit = _edit_reading(message)
+        bits.append(edit or "no new slot was read")
     missing = after.missing_slots()
     sentence = ". ".join(bit[0].upper() + bit[1:] for bit in bits)
     if missing:
         sentence += ". Still missing " + ", ".join(missing)
     return sentence + "."
+
+
+def _edit_reading(message: str) -> str:
+    """An add or a removal on a trip that already exists. The same script the edit uses."""
+    from app.application.modification import _resolve_script
+
+    script = _resolve_script()
+    if script is None or not message.strip():
+        return ""
+    found = script.resolve(message)
+    query = str(found.get("query") or "").strip()
+    day = found.get("day")
+    part = ""
+    match = re.search(r"\b(morning|afternoon|evening)\b", message, re.IGNORECASE)
+    if match:
+        part = f" in the {match.group(1).lower()}"
+    when = f" on day {day}" if isinstance(day, int) else ""
+    if found.get("add") and query:
+        return f"add {query}{when}{part}"
+    if found.get("remove"):
+        return f"remove a stop{when}"
+    return ""
 
 
 def place_reply(result: PlaceGrounding) -> str:
@@ -1712,6 +1742,11 @@ def _labeled_clarify(message: str) -> dict[str, str]:
     return found
 
 
+def is_clarify_answer(message: str) -> bool:
+    """The form that fills a missing date, city, party or budget. It is not a new request."""
+    return bool(_labeled_clarify(message))
+
+
 def _apply_labeled(context: TripContext, labeled: dict[str, str], today: date) -> None:
     if labeled.get("origin"):
         context.origin = labeled["origin"].strip()
@@ -1733,14 +1768,18 @@ def _apply_labeled(context: TripContext, labeled: dict[str, str], today: date) -
             except ValueError:
                 start = None
         if start:
-            # The card asked for the end, and the answer is one day: keep the start already stored.
-            # Writing that day as the start turned "6 March, ending 14 March" into a one-day trip on the 14th.
-            if end is None and context.start_date and not context.end_date and start >= context.start_date:
+            # One later day lengthens the trip. The start already stored stays. Writing the new
+            # day as the start left the old end behind it, and the range could not be saved.
+            if end is None and context.start_date and start >= context.start_date and (
+                context.end_date is None or start > context.end_date
+            ):
                 context.end_date = start
             else:
                 context.start_date = start
                 if end:
                     context.end_date = end
+                elif context.end_date and context.end_date < context.start_date:
+                    context.end_date = None
     end_text = labeled.get("end date") or labeled.get("end_date")
     if end_text:
         try:
@@ -2113,6 +2152,8 @@ def _normalise_dates(context: TripContext) -> None:
         context.days = sum(stop.nights for stop in context.stops) + 1
     if context.start_date and not context.end_date and context.days:
         context.end_date = context.start_date + timedelta(days=max(context.days - 1, 0))
+    if context.start_date and context.end_date and context.end_date < context.start_date:
+        context.end_date = context.start_date
     if context.start_date and context.end_date:
         context.days = max((context.end_date - context.start_date).days + 1, 1)
     # A start day on its own is not a one-day trip. Nights are still missing, so the

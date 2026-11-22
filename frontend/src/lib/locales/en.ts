@@ -949,6 +949,12 @@ export const EN = {
   "form.generate": "Generate itinerary",
 
   "clarify.slots": "The plan will not start until these are known.",
+  "clarify.dateStart": "Start",
+  "clarify.dateEnd": "End",
+  "clarify.dateHint": "{count} days. A trip can be at most 30.",
+  "clarify.dateNeedBoth": "Enter a start and an end. One date keeps the old start, so the trip can become far too long.",
+  "clarify.dateOrder": "The end has to be on or after the start.",
+  "clarify.dateLong": "That is {count} days. Keep it to 30 or fewer.",
   "clarify.choices": "Pick one, or type your own request below.",
   "clarify.free": "Type what you want to plan or change.",
   "clarify.usePlace": "Use this place",

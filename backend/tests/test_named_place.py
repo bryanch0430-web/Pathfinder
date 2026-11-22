@@ -106,6 +106,8 @@ def test_adding_sakura_is_a_new_stop_and_a_cherry_park_counts() -> None:
     assert asks_for_more_stops(message)
     assert day_number_named(message) == 1
     assert _search_extra(message)["places_query"] == "sakura flower"
+    morning = "add a sakura flower stop on day 2 morning ok?"
+    assert _search_extra(morning)["places_query"] == "sakura flower"
     plan = make_plan(days=2, with_tickets=False)
     plain = _sourced("Yangmingshan National Park", "A mountain park north of Taipei", 25.16, 121.54)
     assert [row["name"] for row in _fresh_places(plan, [plain], message)] == ["Yangmingshan National Park"]

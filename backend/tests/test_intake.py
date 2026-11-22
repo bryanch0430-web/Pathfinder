@@ -508,6 +508,23 @@ def test_a_file_that_is_not_base64_too_large_or_one_too_many_is_refused(
     assert _turn(client, four)[0] == 422
 
 
+def test_plan_like_this_file_replaces_the_open_trip():
+    from app.application.intake import _IntakeDraft, _apply, plans_from_share
+
+    assert plans_from_share("plan a new trip for me like this file did")
+    assert plans_from_share("change it to match the file")
+    assert not plans_from_share("what is this file?")
+    context = TripContext(session_id="s", destination="Kyoto", origin="Hong Kong", days=2)
+    context.start_date = date(2026, 11, 22)
+    context.end_date = date(2026, 11, 23)
+    draft = _IntakeDraft(destination="Osaka", stops=[{"city": "Osaka", "nights": 4}, {"city": "Kyoto", "nights": 3}, {"city": "Tokyo", "nights": 3}], days=10, places=["Dotonbori"])
+    result = _apply(draft, context, haystack="osaka kyoto tokyo dotonbori", sighted=True, today=date(2026, 11, 22), settings=Settings(), replace=True)
+    assert context.destination == "Osaka"
+    assert [stop.city for stop in context.stops] == ["Osaka", "Kyoto", "Tokyo"]
+    assert context.days == 10 and context.start_date is None
+    assert "Dotonbori" in result.places
+
+
 def test_a_request_without_files_keeps_the_small_body_limit(client):
     response = client.post(
         "/api/journeys",

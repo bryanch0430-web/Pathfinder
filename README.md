@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.17.0 | 2026-11-22 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out |
 | v1.16.0 | 2026-11-22 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal |
 | v1.15.0 | 2026-11-21 19:35 | An edit waits for a tick, a nickname finds the stop on the plan, and "how long should I stay" is the visit |
 | v1.14.0 | 2026-11-20 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat |
@@ -44,6 +45,19 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.17.0 — 22 November 2026, 12:44 HKT
+
+A shared itinerary can start a new trip. The dates form says how long the range is before it is sent. A stop the flight removes is no longer called "nothing changed."
+
+- **A found stop says why it is not on the day.** Kyoto National Garden can be found and then removed because you reach the hotel at 12:11. The reply says that, and that a morning stop cannot be added.
+- **An add on a trip you already have is read.** "Add a sakura flower stop on day 2 morning" is that add, that day, and the morning. Morning is not part of the place name.
+- **"A new trip" is not a city called New.** It is no longer matched to Newark.
+- **A file can replace the open trip.** "Plan a new trip like this file" uses the cities and the length in the file. An automatic handoff from an earlier failed edit does not block it.
+- **The dates form has a start and an end.** It shows the number of days. Continue stays off until both dates are set, the end is not before the start, and the range is 30 days or fewer.
+- **One later date lengthens the trip.** 30 November no longer becomes the start while 23 November stays the end. That range used to crash planning.
+- **A details form is not a handoff.** "Here are the missing details — dates: This weekend" answers the question. Earlier failed edits do not hand that answer to a person.
+- **Error analysis reads a miss without the writer.** A wish searched as a name, a stop deleted by the flight, and "ok fix" each get a cause and a fix. If the writer account cannot pay, the page says so and opens writer settings.
 
 ### v1.16.0 — 22 November 2026, 12:00 HKT
 

@@ -88,6 +88,8 @@ def test_lowercase_gundam_is_a_wish_and_not_the_departure_city() -> None:
         PlaceGrounding(suggestions=[("destination", "Japan", "Japan")]),
     )
     assert note.startswith("Destination Japan. Wish must-see: Gundam. Confirm Japan as Japan")
+    edit = understand_note(context, context, message="add a sakura flower stop on day 2 morning ok?")
+    assert edit.startswith("Add sakura flower on day 2 in the morning")
     assert "Still missing" in note
 
 

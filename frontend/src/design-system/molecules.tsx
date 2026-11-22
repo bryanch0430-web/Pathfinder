@@ -769,7 +769,13 @@ export function ClarifyCard({
     if (slot === "budget") return !Number.isFinite(amount) || amount < 0;
     return false;
   };
-  const blocked = payload.slots.some(badNumber);
+  const dateProblem = (slot: string): boolean => {
+    if (slot !== "dates") return false;
+    const span = dateSpan(values[slot] ?? "");
+    const count = dayCount(span.start, span.end);
+    return !span.start || !span.end || count === null || count < 1 || count > MAX_TRIP_DAYS;
+  };
+  const blocked = payload.slots.some(badNumber) || payload.slots.some(dateProblem);
   return (
     <div className="pf-clarify">
       <div className="pf-row">
@@ -785,7 +791,17 @@ export function ClarifyCard({
             slot.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
           const options = payload.options[slot] ?? [];
           const suggested = payload.suggestions?.find((item) => item.slot === slot)?.name ?? "";
-          const isDate = slot.includes("date");
+          if (slot === "dates") {
+            return (
+              <DateRangeField
+                key={slot}
+                value={values[slot] ?? ""}
+                options={payload.options[slot] ?? []}
+                onChange={(next) => onChange(slot, next)}
+              />
+            );
+          }
+          const isDate = slot === "start_date" || slot === "end_date" || slot === "date";
           return (
             <Field key={slot} label={label} wide={slot === "destination"}>
               <Input
@@ -901,6 +917,67 @@ export function DayStrip({
         );
       })}
     </div>
+  );
+}
+
+const MAX_TRIP_DAYS = 30;
+
+function dateSpan(value: string): { start: string; end: string } {
+  const found = value.match(/\d{4}-\d{2}-\d{2}/g) ?? [];
+  return { start: found[0] ?? "", end: found[1] ?? "" };
+}
+
+function dayCount(start: string, end: string): number | null {
+  if (!start || !end) return null;
+  const from = Date.parse(`${start}T12:00:00Z`);
+  const to = Date.parse(`${end}T12:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to)) return null;
+  return Math.round((to - from) / 86_400_000) + 1;
+}
+
+function DateRangeField({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const span = dateSpan(value);
+  const [start, setStart] = useState(span.start);
+  const [end, setEnd] = useState(span.end);
+  const count = dayCount(start, end);
+  const error =
+    start && !end
+      ? t("clarify.dateNeedBoth")
+      : count !== null && count < 1
+        ? t("clarify.dateOrder")
+        : count !== null && count > MAX_TRIP_DAYS
+          ? t("clarify.dateLong", { count })
+          : "";
+  const write = (nextStart: string, nextEnd: string) => {
+    setStart(nextStart);
+    setEnd(nextEnd);
+    onChange(nextStart && nextEnd ? `${nextStart} to ${nextEnd}` : nextStart);
+  };
+  return (
+    <Field label={t("clarify.dateStart")} error={error} hint={count !== null && count >= 1 && count <= MAX_TRIP_DAYS ? t("clarify.dateHint", { count }) : undefined} wide>
+      <span className="pf-row">
+        <Input type="date" value={start} invalid={Boolean(error)} onChange={(event) => write(event.target.value, end)} aria-label={t("clarify.dateStart")} />
+        <Input type="date" value={end} invalid={Boolean(error)} onChange={(event) => write(start, event.target.value)} aria-label={t("clarify.dateEnd")} />
+      </span>
+      {options.length ? (
+        <span className="pf-clarify__options">
+          {options.map((option) => (
+            <button key={option} type="button" className="pf-chip" data-active={value === option} onClick={() => { const next = dateSpan(option); write(next.start, next.end); }}>
+              {option}
+            </button>
+          ))}
+        </span>
+      ) : null}
+    </Field>
   );
 }
 

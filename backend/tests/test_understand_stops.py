@@ -54,6 +54,23 @@ def test_one_later_date_fills_the_end_when_the_start_is_already_set(settings: Se
     assert (updated.start_date, updated.end_date) == (date(2027, 3, 6), date(2027, 3, 14))
 
 
+def test_one_later_date_lengthens_a_trip_that_already_has_an_end(settings: Settings) -> None:
+    gateway = LLMGateway(NullLLM(), PromptLibrary(settings), NoopTracer(), settings)
+    context = TripContext(
+        session_id="s",
+        destination="Osaka",
+        origin="Hong Kong",
+        start_date=date(2026, 11, 21),
+        end_date=date(2026, 11, 23),
+        party_size=4,
+        budget=40000,
+    )
+
+    updated = asyncio.run(understand("Here are the missing details — dates: 2026-11-30.", context, gateway))
+
+    assert (updated.start_date, updated.end_date) == (date(2026, 11, 21), date(2026, 11, 30))
+
+
 def test_one_city_leaves_the_stops_empty(settings: Settings) -> None:
     one = _model(settings, {"destination": "Kyoto", "stops": []}, "A trip to Kyoto")
     lone = _model(settings, {"destination": "Kyoto", "stops": [{"city": "Kyoto", "nights": 3}]}, "A trip to Kyoto")

@@ -5,6 +5,19 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.17.0 — 2026-11-22 12:44
+
+A shared itinerary can start a new trip. The dates form says how long the range is before it is sent. A stop the flight removes is no longer called "nothing changed."
+
+- **A found stop says why it is not on the day.** A morning stop that overlaps the ride from the airport is named, with the time you reach the hotel.
+- **An add on a trip you already have is read.** The day and the morning stay out of the place name.
+- **"A new trip" is not a city called New.**
+- **A file can replace the open trip.** "Plan a new trip like this file" uses the file. An automatic handoff does not block that sentence.
+- **The dates form has a start and an end.** It shows the day count and refuses a range over 30 days, a missing end, or an end before the start.
+- **One later date lengthens the trip** instead of leaving the old end in front of the new start.
+- **A details form is not a handoff.**
+- **Error analysis reads a miss without the writer**, and says when the writer account cannot pay.
+
 ## v1.16.0 — 2026-11-22 12:00
 
 A wish such as "where I can see Gundam" is looked up as a real place. A finalised trip leaves the live desk. A flight shows the chosen fare, and the other fares sit behind it.

@@ -229,6 +229,11 @@ def queue_reason(message: str, *, hot: bool, stuck: bool) -> str | None:
     """Why a hot or stuck line should wait for a person. A plan change is not that reason."""
     if keeps_the_planner(message):
         hot = False
+    from app.application.understanding import is_clarify_answer
+
+    if is_clarify_answer(message):
+        # The traveller is answering the form the app just showed. Earlier failed edits do not apply.
+        return None
     return agent_reason(100 if hot else 0, stuck)
 
 

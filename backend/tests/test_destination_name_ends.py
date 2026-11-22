@@ -32,7 +32,17 @@ def test_the_name_of_a_place_ends_where_it_ends(sentence: str, place: str) -> No
     assert _find_place(sentence, CUES) == place
 
 
-@pytest.mark.parametrize("sentence", ["i want to go to", "i would love to go", "go to now", "in a week"])
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "i want to go to",
+        "i would love to go",
+        "go to now",
+        "in a week",
+        "plan a new trip for me like this file did",
+        "plan a new trip",
+    ],
+)
 def test_a_cue_with_no_place_after_it_names_none(sentence: str) -> None:
     assert _find_place(sentence, CUES) is None
 

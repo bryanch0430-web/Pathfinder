@@ -189,6 +189,12 @@ def test_each_monitor_uses_its_own_lists() -> None:
     assert is_stuck(stuck_lines, 3, phrases=["priced wrong"], examples=[], engine="phrases") is False
 
 
+def test_a_dates_form_is_not_handed_to_a_person() -> None:
+    from app.application.escalation import queue_reason
+
+    assert queue_reason("Here are the missing details — dates: This weekend.", hot=False, stuck=True) is None
+
+
 def test_jev_sentiment_sends_the_word_list_and_the_extra_examples() -> None:
     from app.infrastructure.decision import sentiment_payload
 

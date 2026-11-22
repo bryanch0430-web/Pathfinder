@@ -947,6 +947,12 @@ export const ZH_HANS: Messages = {
   "form.generate": "生成行程",
 
   "clarify.slots": "这些信息确定之前，规划不会开始。",
+  "clarify.dateStart": "开始",
+  "clarify.dateEnd": "结束",
+  "clarify.dateHint": "{count} 天。一趟最多 30 天。",
+  "clarify.dateNeedBoth": "请填写开始和结束。只填一天会沿用原来的开始日，行程会变得很长。",
+  "clarify.dateOrder": "结束日不能早于开始日。",
+  "clarify.dateLong": "这是 {count} 天。请控制在 30 天以内。",
   "clarify.choices": "选一个，或在下方输入你自己的请求。",
   "clarify.free": "输入你想规划或修改的内容。",
   "clarify.usePlace": "使用这个地点",

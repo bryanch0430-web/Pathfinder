@@ -22,7 +22,7 @@ _SCAFFOLD = frozenset(
     from with where when how about ok okay sorry please hey hi so well um can could
     would you i we me my our wanna want wanted needs need somewhere spot spots stop
     stops place places attraction attractions attrction atracton atrction atrraction
-    day days see watch look looking try visit go going get have has it this that them
+    day days morning afternoon evening see watch look looking try visit go going get have has it this that them
     thats that's that's an add include insert put stick slot throw squeeze find me us
     please pls kinda sort thing things good whatever is are be am
     """.split()

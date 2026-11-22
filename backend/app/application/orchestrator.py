@@ -28,7 +28,7 @@ from app.application.route_edit import (
 )
 from app.application.route_plan import route_question
 from app.application.assessment import reassess
-from app.application.intake import Attachment, IntakeResult, run_intake, shares_something, without_links
+from app.application.intake import Attachment, IntakeResult, plans_from_share, run_intake, shares_something, without_links
 from app.application.airport_transfers import sync_session_transfers
 from app.application.country_check import whole_place_question
 from app.application.budget_check import (
@@ -77,7 +77,14 @@ from app.application.router import (
 from app.application.toolbox import Toolbox
 from app.application.turn_graph import review_and_reply
 from app.application.prompt_context import conversation_turns_of
-from app.application.understanding import PlaceGrounding, ground_new_places, place_reply, understand, understand_note
+from app.application.understanding import (
+    PlaceGrounding,
+    ground_new_places,
+    is_clarify_answer,
+    place_reply,
+    understand,
+    understand_note,
+)
 from app.application.validation import is_edit_outcome
 from app.config import Settings
 from app.domain.errors import (
@@ -416,7 +423,17 @@ class TurnService:
             )
             return
 
-        if not self.store.is_held(session_id) and not operator:
+        from_file = plans_from_share(message) and bool(attachments)
+        answering_form = is_clarify_answer(message)
+        if (
+            (from_file or answering_form)
+            and not operator
+            and self.store.is_held(session_id)
+            and not (self.store.held_agent(session_id) or "").strip()
+        ):
+            # An automatic handoff from an earlier failed edit must not block the form or a new trip from a file.
+            self.store.release_chat(session_id)
+        if not from_file and not answering_form and not self.store.is_held(session_id) and not operator:
             policy = self.store.escalation_policy()
             parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
             hand = parts.get("hand") if isinstance(parts.get("hand"), dict) else {}
@@ -578,8 +595,11 @@ class TurnService:
             # A link in the message, or an attached PDF or picture, is read first: what it says about a trip
             # fills the form's empty fields, and the message is then understood and routed without the link.
             understood = message
+            intake = None
             if shares_something(message, attachments, self.settings):
-                intake = await self._intake(message, attachments, context, tracer, request_id)
+                intake = await self._intake(
+                    message, attachments, context, tracer, request_id, replace=plans_from_share(message)
+                )
                 if intake is not None:
                     yield TurnEvent(event="intake", data=intake.event())
                     understood = without_links(message) or message
@@ -619,7 +639,7 @@ class TurnService:
                 place_check = await ground_new_places(
                     as_read, context, self.plan_path.registry.geocoder, confirmed_places
                 )
-                _note_understand(tracer, as_read, context, place_check)
+                _note_understand(tracer, as_read, context, place_check, understood)
                 context = self._save_changes(as_read, context)
                 # Preferences are written only after the traveller finalises the plan and marks it useful.
 
@@ -669,7 +689,19 @@ class TurnService:
             )
             route_change = rule_route_change(message, plan) if plan is not None else None
             split_stay = rule_split_stay(message, plan) if plan is not None and len(plan.segments) > 1 else None
-            if split_stay is not None or (
+            if intake is not None and plans_from_share(message) and (intake.filled or intake.places):
+                missing = context.missing_slots()
+                decision = decision.model_copy(
+                    update={
+                        "intent": Intent.PLAN,
+                        "confidence": max(decision.confidence, 0.95),
+                        "need_clarification": bool(missing),
+                        "reason_code": "missing_" + "_".join(missing[:2]) if missing else "plan_from_file",
+                        "missing_slots": missing,
+                        "affected_parts": [],
+                    }
+                )
+            elif split_stay is not None or (
                 route_change is not None and (len(plan.segments) > 1 or route_change.op == "add")
             ):
                 # "add Osaka", "remove Kyoto", "3 nights in Osaka", "another hotel for the last 2 nights" on a trip:
@@ -1133,7 +1165,13 @@ class TurnService:
             yield TurnEvent(event="token", data={"text": chunk})
 
     async def _intake(
-        self, message: str, attachments: Sequence[Attachment], context: TripContext, tracer, request_id: str
+        self,
+        message: str,
+        attachments: Sequence[Attachment],
+        context: TripContext,
+        tracer,
+        request_id: str,
+        replace: bool = False,
     ) -> IntakeResult | None:
         """Read what the message shares into ``context``. None when the step itself failed (the turn goes on)."""
         toolbox = Toolbox(
@@ -1153,6 +1191,7 @@ class TurnService:
                     reader=getattr(self.plan_path.registry, "documents", None),
                     toolbox=toolbox,
                     settings=self.settings,
+                    replace=replace,
                 )
                 span.attrs.update(
                     {
@@ -2305,7 +2344,7 @@ def _why_lines(tracer: Any) -> list[str]:
     return lines[:20]
 
 
-def _note_understand(tracer: Any, before: Any, after: Any, grounding: PlaceGrounding) -> None:
+def _note_understand(tracer: Any, before: Any, after: Any, grounding: PlaceGrounding, message: str = "") -> None:
     """Record what Understand read, before routing, so the log lists it first."""
     generations = getattr(tracer, "generations", []) or []
     call = next(
@@ -2320,7 +2359,7 @@ def _note_understand(tracer: Any, before: Any, after: Any, grounding: PlaceGroun
             "model": str((call or {}).get("model") or "rules"),
             "status": "done",
             "seconds": round(latency / 1000, 1) if latency else None,
-            "note": understand_note(before, after, grounding),
+            "note": understand_note(before, after, grounding, message),
         }
     )
 
