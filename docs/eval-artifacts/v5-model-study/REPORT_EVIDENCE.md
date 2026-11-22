@@ -63,7 +63,7 @@ Tested on 2026-11-23 through the Poe OpenAI-compatible endpoint, sandbox provide
 | Analyst | Gemini 3.5 Flash-Lite | 0 | 4,096 | none (unsupported) | 0.8 |
 | Turn router | LLM router (Flash); Jev optional | 0 | 4,096 | none | 0.8 |
 | Planner | Gemini 3.5 Flash-Lite | 0.2 | 12,000 | none | — |
-| Editor | DeepSeek V4 Flash | 0 | 2,000 | none | — |
+| Editor | Gemini 3.5 Flash-Lite | 0 | 2,000 | none | — |
 | Verifier | DeepSeek V4 Flash | 0 | 1,500 | none | — |
 | Ask | DeepSeek V4 Flash | 0 | 1,400 | none | — |
 | Memory | DeepSeek V4 Flash, with a no-invention guard | 0 | 700 | none | — |
@@ -75,11 +75,13 @@ Why, in report language:
 - **Jev:** 79/84 (94.0%, 0.6 s). It is perfect on plan but weak on modify/ask; at a 0.8 gate it keeps
   66% at 100% and escalates 29. A derived Jev→Flash fallback scored 84/84 at about 2.0 s; this is a
   proposed next step, not a shipped setting. Do not claim it as the current router.
-- **Planner:** Flash 12/14 (85.7%) vs Sonnet 11/14 (78.6%); HK constraints 85.7% vs 68.8%; Japan
-  6/6 both. HK 176 s vs 417 s. Small n; state that the planner result is the least certain.
-- **Editor:** DeepSeek 4/4 (5.3 s, 3.1k tokens) vs Sonnet 4/4 (6.7 s, 20.3k) vs Flash 3/4.
-- **Verifier:** DeepSeek 9/10, one false pass; Sonnet 9/10, one false pass but slower; Flash 8/10,
-  two false passes. All missed the 10-minute-transfer case — keep deterministic checks.
+- **Planner:** Both 14/17 (82.4%). Flash is much faster (323 s vs 920 s) and has better HK
+  constraints (85.7% vs 68.8%); Sonnet is 3/3 on TravelPlanner vs Flash 2/3. Small n; state that
+  the planner result is the least certain.
+- **Editor:** All three 8/8; Flash 3.4 s, Sonnet 5.6 s, DeepSeek 6.6 s. Flash is fastest; DeepSeek
+  uses fewer tokens but is slower on this set.
+- **Verifier:** DeepSeek and Sonnet 18/20 (2 false passes); Flash 17/20 (3 false passes). All missed
+  transfer arithmetic — keep deterministic checks.
 - **Ask:** DeepSeek 11/11 in-scope (16.1 s), Sonnet 11/11 (20.2 s), Flash 10/11 (14.4 s).
 - **Memory:** DeepSeek recall 91.7% vs 79.8% for both others, but it invented preferences on the
   no-fact case. Use a write-time guard or choose Sonnet for precision.
@@ -121,9 +123,10 @@ report needs a reasoning arm.
 > We evaluated each part separately rather than treating the writer as one undifferentiated model.
 > The routing set (84 labelled utterances) showed Gemini 3.5 Flash-Lite matching Claude Sonnet 5.5
 > at 98.8% (83/84) while cutting median latency from 6.3 s to 4.1 s and tokens from 4.6k to 2.9k.
-> On the 14 planning cases Flash-Lite passed 12 (85.7%) against Sonnet's 11 (78.6%), and on the Hong
-> Kong subset it met 85.7% of constraints against 68.8%. DeepSeek V4 Flash matched Sonnet on the
-> editor (4/4) and verifier (9/10) at much lower token cost. These are screening results on small
+> On the 17 planning cases both passed 14 (82.4%); Flash-Lite was much faster (323 s vs 920 s) and
+> met 85.7% of Hong Kong constraints against 68.8%, while Sonnet was 3/3 on TravelPlanner-style cases
+> against Flash's 2/3. Flash-Lite was fastest on the 8-case editor set (all 8/8); DeepSeek matched
+> Sonnet on the 20-case verifier (18/20) with lower latency. These are screening results on small
 > sets; we report intervals and limitations rather than significance claims.
 
 > The router is deliberately bounded. Jev was faster (0.6 s) but only 94.0% accurate; it is a

@@ -45,14 +45,14 @@ Eliminate a model whose 95% interval is more than 10 percentage points below the
 |---|---:|---|---|
 | Analyst / router | 84 | Sonnet 0.0, Sonnet 0.2, Flash-Lite 0.0, Jev | intent accuracy, gate, latency |
 | Turn router | 84 × 2 | LLM vs Jev; derived hybrid at 0.8 | accuracy, coverage, latency |
-| Planner | 17 | Sonnet, Flash-Lite (17 planned; 14 ran: 8 HK + 6 Japan) | pass, constraints, grounding, latency |
-| Editor | 10 planned; 4 ran | Sonnet, Flash-Lite, DeepSeek | semantic edit + preservation |
-| Verifier | 20 planned; 10 ran | Sonnet, Flash-Lite, DeepSeek | audit accuracy, false pass |
+| Planner | 17 | Sonnet, Flash-Lite (8 HK + 6 Japan + 3 TravelPlanner-style) | pass, constraints, grounding, latency |
+| Editor | 8 ran (of 10 planned) | Sonnet, Flash-Lite, DeepSeek | semantic edit + preservation |
+| Verifier | 20 ran | Sonnet, Flash-Lite, DeepSeek | audit accuracy, false pass |
 | Ask | 12 | Sonnet, Flash-Lite, DeepSeek | rubric accuracy; scope separate |
 | Memory | 8 | Sonnet, Flash-Lite, DeepSeek | preference recall; false memory |
 | Cap stress | 5 parts × 2 caps | Flash-Lite | pass/fail at low vs effective cap |
 
-The planner reduced from 17 to 14 because TravelPlanner-style cases were not part of the approved run environment; the report must say 14, not 17.
+All 17 planner cases ran: 8 Hong Kong, 6 Japan and 3 TravelPlanner-style.
 
 ## 5. Full case catalogue
 
@@ -147,7 +147,7 @@ The planner reduced from 17 to 14 because TravelPlanner-style cases were not par
 
 The routing split includes 21 plan, 21 modify, 21 ask and 21 unclear utterances. IDs and inputs are the frozen `backend/eval/fixtures/routing.jsonl` rows.
 
-### Planner (14 run)
+### Planner (17)
 
 | ID | Dataset | Input | Gold |
 |---|---|---|---|
@@ -165,8 +165,11 @@ The routing split includes 21 plan, 21 modify, 21 ask and 21 unclear utterances.
 | jp04 | Japan | Plan a 2-day Tokyo trip for 2 people starting 2027-09-18, budget 200000 JPY. We must include the Ghibli Museum and Senso-ji. | 2 days, 200000 JPY |
 | jp05 | Japan | Plan a 2-day Osaka trip for 1 person starting 2027-11-20, budget 120000 JPY. I am vegetarian and must include Osaka Castle. | 2 days, 120000 JPY |
 | jp06 | Japan | Plan a 3-day Kyoto trip for 4 people starting 2027-10-02, budget 300000 JPY, must include Kiyomizu-dera. | 3 days, 300000 JPY |
+| tp01 | TravelPlanner-style | Plan a 3-day trip to New York for 2 people, budget 2500 USD, must include the Metropolitan Museum of Art. | 3 days, 2500 USD |
+| tp02 | TravelPlanner-style | Plan a 4-day trip to San Francisco for 1 person, budget 1800 USD. | 4 days, 1800 USD |
+| tp03 | TravelPlanner-style | Plan a 2-day trip to New York for 2 people, budget 1500 USD. We are vegetarian and must visit Central Park. | 2 days, 1500 USD |
 
-### Editor (4)
+### Editor (8)
 
 | ID | Input | Check |
 |---|---|---|
@@ -174,8 +177,12 @@ The routing split includes 21 plan, 21 modify, 21 ask and 21 unclear utterances.
 | ed02 | Move Senso-ji to day 2 in the morning, keep everything else. | day_time |
 | ed03 | Change Kiyomizu-dera to 15:00, keep the rest. | start |
 | ed04 | Remove the M+ Museum, keep everything else. | removed |
+| ed05 | Remove Nishiki Market, keep everything else. | removed |
+| ed06 | Change Kiyomizu-dera to 15:00, keep the rest. | start |
+| ed07 | Remove Ippudo Kyoto, keep everything else. | removed |
+| ed08 | Change Fushimi Inari Taisha to 15:00, keep the rest. | start |
 
-### Verifier (10)
+### Verifier (20)
 
 | ID | Constraint | Injected defect | Gold |
 |---|---|---|---|
@@ -189,6 +196,16 @@ The routing split includes 21 plan, 21 modify, 21 ask and 21 unclear utterances.
 | v08 | Every stay must be confirmed by a source | unsourced_hotel | fail |
 | v09 | All days must fall inside the trip dates | none | pass |
 | v10 | All days must fall inside the trip dates | day_outside | fail |
+| v11 | Keep the total at or under 100000 JPY | budget_exact | pass |
+| v12 | Keep the total at or under 100000 JPY | budget_one_over | fail |
+| v13 | Allow at least 30 minutes between Fushimi Inari and Nishiki Market | transfer_exact | pass |
+| v14 | Allow at least 30 minutes between Fushimi Inari and Nishiki Market | transfer_short | fail |
+| v15 | Include Fushimi Inari Taisha | none | pass |
+| v16 | Include Fushimi Inari Taisha | remove_fushimi | fail |
+| v17 | Every stay must be confirmed by a source | none | pass |
+| v18 | Every stay must be confirmed by a source | unsourced_hotel | fail |
+| v19 | All days must fall inside the trip dates | none | pass |
+| v20 | All days must fall inside the trip dates | day_outside_2 | fail |
 
 ### Ask (12; 11 in-scope + 1 scope)
 

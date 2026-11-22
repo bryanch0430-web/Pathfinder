@@ -24,7 +24,7 @@ cap = load("cap-stress-latest.json")
 hybrid = load("hybrid-router.json")
 
 planner_rows = []
-for filename, label in (("hongkong.json", "Hong Kong"), ("japan.json", "Japan")):
+for filename, label in (("hongkong.json", "Hong Kong"), ("japan.json", "Japan"), ("travelplanner.json", "TravelPlanner-style")):
     for row in json.loads((FIX / filename).read_text(encoding="utf-8")):
         planner_rows.append({"id": row["id"], "dataset": label, "input": row["input"], "gold": f"{row.get('days', '')} days, {row.get('budget', '')} {row.get('currency', '')}"})
 
@@ -82,14 +82,14 @@ lines = [
     "|---|---:|---|---|",
     "| Analyst / router | 84 | Sonnet 0.0, Sonnet 0.2, Flash-Lite 0.0, Jev | intent accuracy, gate, latency |",
     "| Turn router | 84 × 2 | LLM vs Jev; derived hybrid at 0.8 | accuracy, coverage, latency |",
-    "| Planner | 17 | Sonnet, Flash-Lite (17 planned; 14 ran: 8 HK + 6 Japan) | pass, constraints, grounding, latency |",
-    "| Editor | 10 planned; 4 ran | Sonnet, Flash-Lite, DeepSeek | semantic edit + preservation |",
-    "| Verifier | 20 planned; 10 ran | Sonnet, Flash-Lite, DeepSeek | audit accuracy, false pass |",
+    "| Planner | 17 | Sonnet, Flash-Lite (8 HK + 6 Japan + 3 TravelPlanner-style) | pass, constraints, grounding, latency |",
+    "| Editor | 8 ran (of 10 planned) | Sonnet, Flash-Lite, DeepSeek | semantic edit + preservation |",
+    "| Verifier | 20 ran | Sonnet, Flash-Lite, DeepSeek | audit accuracy, false pass |",
     "| Ask | 12 | Sonnet, Flash-Lite, DeepSeek | rubric accuracy; scope separate |",
     "| Memory | 8 | Sonnet, Flash-Lite, DeepSeek | preference recall; false memory |",
     "| Cap stress | 5 parts × 2 caps | Flash-Lite | pass/fail at low vs effective cap |",
     "",
-    "The planner reduced from 17 to 14 because TravelPlanner-style cases were not part of the approved run environment; the report must say 14, not 17.",
+    "All 17 planner cases ran: 8 Hong Kong, 6 Japan and 3 TravelPlanner-style.",
     "",
     "## 5. Full case catalogue",
     "",
@@ -104,7 +104,7 @@ lines += [
     "",
     "The routing split includes 21 plan, 21 modify, 21 ask and 21 unclear utterances. IDs and inputs are the frozen `backend/eval/fixtures/routing.jsonl` rows.",
     "",
-    "### Planner (14 run)",
+    "### Planner (17)",
     "",
     "| ID | Dataset | Input | Gold |",
     "|---|---|---|---|",
@@ -113,7 +113,7 @@ for row in planner_rows:
     lines.append(f"| {row['id']} | {row['dataset']} | {row['input'].replace('|', '/')[:180]} | {row['gold']} |")
 lines += [
     "",
-    "### Editor (4)",
+    "### Editor (8)",
     "",
     "| ID | Input | Check |",
     "|---|---|---|",
@@ -122,7 +122,7 @@ for row in editor_rows:
     lines.append(f"| {row['id']} | {row['input']} | {row['check']} |")
 lines += [
     "",
-    "### Verifier (10)",
+    "### Verifier (20)",
     "",
     "| ID | Constraint | Injected defect | Gold |",
     "|---|---|---|---|",
@@ -201,25 +201,25 @@ This is the report-ready decision record. Evidence tables are in `RESULTS.md`; t
 ## Planner
 
 - **Chosen:** Gemini 3.5 Flash-Lite, temperature 0.2, cap 12,000, no reasoning.
-- **Evidence:** 12/14 = 85.7% vs Sonnet 11/14 = 78.6%; Hong Kong constraints 85.7% vs 68.8%; Japan 6/6 for both. HK 176 s vs 417 s; Japan 73 s vs 213 s.
-- **Trade-off:** n=14, one run; Sonnet had a stronger prior full run, so the planner choice is the least certain. The 12,000 cap is deliberate: planner JSON exceeded a 6,000 cap earlier.
+- **Evidence:** 14/17 each (82.4%). Hong Kong constraints 85.7% vs 68.8%; Japan 6/6 both; TravelPlanner 2/3 vs 3/3. Total 323 s vs 920 s.
+- **Trade-off:** n=17, one run. Flash ties overall and is much faster; Sonnet is stronger on TravelPlanner-style constraints. The 12,000 cap is deliberate: planner JSON exceeded a 6,000 cap earlier.
 - **Why not lower cap:** the plan JSON is the longest output; the cap must cover the day-by-day JSON, not prose.
 - **Code:** `app/plan/builder.py:build_plan`, `app/plan/agents.py`, `app/core/llm.py`.
 
 ## Editor
 
-- **Chosen:** DeepSeek V4 Flash, temperature 0, cap 2,000.
-- **Evidence:** 4/4, p50 5.3 s, 3.1k mean tokens; Sonnet 4/4, 6.7 s, 20.3k; Flash 3/4, 3.8 s.
-- **Trade-off:** n=4; DeepSeek matches Sonnet at much lower token cost and is faster; Flash missed the move edit. This test covers remove, move, time and remove, not add/research edits.
-- **Why not Flash:** the miss was a real semantic failure, not a scoring artefact.
+- **Chosen:** Gemini 3.5 Flash-Lite, temperature 0, cap 2,000.
+- **Evidence:** 8/8 for all three; p50 3.4 s (Flash) vs 5.6 s (Sonnet) and 6.6 s (DeepSeek); mean tokens 3.4k vs 11.6k (Sonnet) and 3.1k (DeepSeek).
+- **Trade-off:** All three pass the eight remove/move/time cases; Flash wins the latency tie-break, while DeepSeek uses slightly fewer tokens but is slower. This test does not cover add/research edits.
+- **Why not DeepSeek:** same accuracy, slower; no quality reason to pay the latency.
 - **Code:** `app/plan/editor.py:propose_edit`, `_apply`.
 
 ## Verifier
 
 - **Chosen:** DeepSeek V4 Flash, temperature 0, cap 1,500.
-- **Evidence:** 9/10, 1 false pass, p50 4.8 s; Sonnet 9/10, 1 false pass, 5.0 s; Flash 8/10, 2 false passes, 3.4 s.
-- **Trade-off:** all arms missed v06 (10-minute transfer against a 30-minute constraint). Model choice cannot fix arithmetic/temporal audit alone; deterministic checks must stay.
-- **Why not Flash:** two false passes vs one; verifier errors are asymmetric (a false pass is worse).
+- **Evidence:** 18/20, 2 false passes, p50 4.0 s; Sonnet 18/20, 2 false passes, 5.7 s; Flash 17/20, 3 false passes, 3.4 s.
+- **Trade-off:** all arms missed transfer arithmetic (v06/v14). Model choice cannot fix arithmetic/temporal audit alone; deterministic checks must stay.
+- **Why not Flash:** three false passes vs two; verifier errors are asymmetric (a false pass is worse).
 - **Code:** `app/plan/validator.py:audit_constraints`; `plan_text(with_sources=True)` now exposes source lines.
 
 ## Ask / quick answers

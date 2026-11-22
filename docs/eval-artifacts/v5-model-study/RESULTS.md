@@ -1,6 +1,6 @@
 # v5 part-model study — results
 
-Generated: 2026-11-23T02:43:47 (Asia/Hong_Kong)
+Generated: 2026-11-23T02:57:32 (Asia/Hong_Kong)
 
 ## Executive summary
 
@@ -9,7 +9,7 @@ Generated: 2026-11-23T02:43:47 (Asia/Hong_Kong)
 | Analyst / understanding | Gemini 3.5 Flash-Lite | 0 | 4,096 | none (not supported by these Poe models) | 0.8 (0.9 when false routes are costlier) |
 | Turn router | LLM router (Flash-Lite) default; Jev as optional fast pre-gate | 0 | 4,096 | none | 0.8 for the LLM; 0.8 for a Jev pre-gate |
 | Planner | Gemini 3.5 Flash-Lite | 0.2 (production setting; not swept) | 12,000 | none | — |
-| Editor | DeepSeek V4 Flash | 0 | 2,000 | none | — |
+| Editor | Gemini 3.5 Flash-Lite | 0 | 2,000 | none | — |
 | Verifier | DeepSeek V4 Flash | 0 | 1,500 | none | — |
 | Ask / quick answers | DeepSeek V4 Flash | 0 | 1,400 | none | — |
 | Memory | DeepSeek V4 Flash with a no-invention check; Sonnet if precision is the priority | 0 | 700 | none | — |
@@ -63,16 +63,18 @@ The hybrid is sequential: Jev answers when confidence ≥ 0.8, otherwise the ana
 | hongkong | flash | gemini-3.5-flash-lite | 6/8 | 85.7 | 100.0 | 175.8 |
 | japan | sonnet | claude-sonnet-5.5 | 6/6 | 100.0 | 100.0 | 213.4 |
 | japan | flash | gemini-3.5-flash-lite | 6/6 | 100.0 | 100.0 | 73.2 |
+| travelplanner | sonnet | claude-sonnet-5.5 | 3/3 | 100.0 | — | 290.2 |
+| travelplanner | flash | gemini-3.5-flash-lite | 2/3 | 83.3 | — | 74.4 |
 
-Sonnet total 11/14 (78.6%); Flash total 12/14 (85.7%). The Hong Kong set is the differentiator; Japan is 6/6 for both.
+Sonnet total 14/17 (82.4%); Flash total 14/17 (82.4%). Flash is much faster; Sonnet is 3/3 on TravelPlanner while Flash is 2/3.
 
 ## 3. Editor
 
 | Arm | Model | Correct | p50 ms | Mean tokens |
 |---|---|---:|---:|---:|
-| sonnet | claude-sonnet-5.5 | 4/4 | 6721.2 | 20292 |
-| flash | gemini-3.5-flash-lite | 3/4 | 3760.4 | 2973 |
-| deepseek | deepseek-v4-flash | 4/4 | 5271.6 | 3108.2 |
+| sonnet | claude-sonnet-5.5 | 8/8 | 5631.1 | 11550.1 |
+| flash | gemini-3.5-flash-lite | 8/8 | 3415.7 | 3362.9 |
+| deepseek | deepseek-v4-flash | 8/8 | 6630.9 | 3081 |
 
 The editor test uses four frozen plans (remove, move, time change, remove) and the same prompts for each arm. It does not include add/research edits.
 
@@ -80,9 +82,9 @@ The editor test uses four frozen plans (remove, move, time change, remove) and t
 
 | Arm | Model | Correct | False pass | False alarm | p50 ms |
 |---|---|---:|---:|---:|---:|
-| sonnet | claude-sonnet-5.5 | 9/10 | 1 | 0 | 5031.8 |
-| flash | gemini-3.5-flash-lite | 8/10 | 2 | 0 | 3421.0 |
-| deepseek | deepseek-v4-flash | 9/10 | 1 | 0 | 4792.4 |
+| sonnet | claude-sonnet-5.5 | 18/20 | 2 | 0 | 5653.4 |
+| flash | gemini-3.5-flash-lite | 17/20 | 3 | 0 | 3392.6 |
+| deepseek | deepseek-v4-flash | 18/20 | 2 | 0 | 4004.0 |
 
 All arms missed v06 (a 10-minute transfer against a 30-minute constraint). The validator now receives source lines (`plan_text(with_sources=True)`) so source constraints can be audited.
 
@@ -120,7 +122,7 @@ The ask and planner low-cap controls were inconclusive because the control turn 
 
 - One run per arm; temperature > 0 was not repeated except the router Sonnet 0.2 arm.
 - GPT-5/o-series could not run on the available Poe endpoint (400 upstream gateway failure); Gemini 3.8 Flash returned an empty smoke answer. DeepSeek's full routing arm timed out under concurrency 4 and is excluded from routing; it ran in editor/verifier/ask/memory.
-- Editor n=4, verifier n=10, ask n=11 in-scope, memory n=8. These are exploratory, not powered for 5-point claims.
+- Editor n=8, verifier n=20, ask n=11 in-scope, memory n=8. These are exploratory, not powered for 5-point claims.
 - Reasoning effort is not sent to Claude/Gemini/DeepSeek by the client; no reasoning arm is possible on this provider.
 - Planner temperature was not swept; 0.2 is the production setting.
 - Ask latency is high (15–20 s) for all models; model choice does not fix the ask path's latency.

@@ -34,6 +34,10 @@ CASES = [
     {"id": "ed02", "plan": "data/bench_japan_sonnet.db", "prefix": "dfaa4f9d", "input": "Move Senso-ji to day 2 in the morning, keep everything else.", "check": "day_time", "target": "Senso-ji"},
     {"id": "ed03", "plan": "data/bench_japan_sonnet.db", "prefix": "2a68bc5c", "input": "Change Kiyomizu-dera to 15:00, keep the rest.", "check": "start", "target": "Kiyomizu", "start": "15:00"},
     {"id": "ed04", "plan": "data/bench_hongkong_sonnet.db", "prefix": "2fbf783a", "input": "Remove the M+ Museum, keep everything else.", "check": "removed", "target": "M+ Museum"},
+    {"id": "ed05", "plan": "data/bench_japan_sonnet.db", "prefix": "2a68bc5c", "input": "Remove Nishiki Market, keep everything else.", "check": "removed", "target": "Nishiki Market"},
+    {"id": "ed06", "plan": "data/bench_japan_sonnet.db", "prefix": "2a68bc5c", "input": "Change Kiyomizu-dera to 15:00, keep the rest.", "check": "start", "target": "Kiyomizu", "start": "15:00"},
+    {"id": "ed07", "plan": "data/bench_japan_sonnet.db", "prefix": "2a68bc5c", "input": "Remove Ippudo Kyoto, keep everything else.", "check": "removed", "target": "Ippudo"},
+    {"id": "ed08", "plan": "data/bench_japan_sonnet.db", "prefix": "2a68bc5c", "input": "Change Fushimi Inari Taisha to 15:00, keep the rest.", "check": "start", "target": "Fushimi", "start": "15:00"},
 ]
 
 

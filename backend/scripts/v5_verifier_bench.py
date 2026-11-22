@@ -40,6 +40,16 @@ CASES = [
     {"id": "v08", "constraint": "Every stay must be confirmed by a source", "mutation": "unsourced_hotel", "gold": "fail"},
     {"id": "v09", "constraint": "All days must fall inside the trip dates", "mutation": "none", "gold": "pass"},
     {"id": "v10", "constraint": "All days must fall inside the trip dates", "mutation": "day_outside", "gold": "fail"},
+    {"id": "v11", "constraint": "Keep the total at or under 100000 JPY", "mutation": "budget_exact", "gold": "pass"},
+    {"id": "v12", "constraint": "Keep the total at or under 100000 JPY", "mutation": "budget_one_over", "gold": "fail"},
+    {"id": "v13", "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market", "mutation": "transfer_exact", "gold": "pass"},
+    {"id": "v14", "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market", "mutation": "transfer_short", "gold": "fail"},
+    {"id": "v15", "constraint": "Include Fushimi Inari Taisha", "mutation": "none", "gold": "pass"},
+    {"id": "v16", "constraint": "Include Fushimi Inari Taisha", "mutation": "remove_fushimi", "gold": "fail"},
+    {"id": "v17", "constraint": "Every stay must be confirmed by a source", "mutation": "none", "gold": "pass"},
+    {"id": "v18", "constraint": "Every stay must be confirmed by a source", "mutation": "unsourced_hotel", "gold": "fail"},
+    {"id": "v19", "constraint": "All days must fall inside the trip dates", "mutation": "none", "gold": "pass"},
+    {"id": "v20", "constraint": "All days must fall inside the trip dates", "mutation": "day_outside_2", "gold": "fail"},
 ]
 
 
@@ -64,6 +74,29 @@ def mutate(plan: TripPlan, mutation: str) -> TripPlan:
             hotel.data_status = "stale"
     elif mutation == "day_outside":
         plan.days[0].date = "2026-12-15"
+    elif mutation == "day_outside_2":
+        plan.days[1].date = "2026-12-20"
+    elif mutation == "budget_exact":
+        plan.cost.total = 100000
+        plan.cost.remaining = 0
+        plan.cost.status = "within"
+    elif mutation == "budget_one_over":
+        plan.cost.total = 100001
+        plan.cost.remaining = -1
+        plan.cost.status = "over"
+    elif mutation == "transfer_exact":
+        for day in plan.days:
+            for item in day.items:
+                if item.transfer and item.transfer.from_item_id == "a1":
+                    item.transfer.minutes = 30
+    elif mutation == "transfer_short":
+        for day in plan.days:
+            for item in day.items:
+                if item.transfer and item.transfer.from_item_id == "a1":
+                    item.transfer.minutes = 29
+    elif mutation == "remove_fushimi":
+        for day in plan.days:
+            day.items = [item for item in day.items if item.name != "Fushimi Inari Taisha"]
     return plan
 
 
