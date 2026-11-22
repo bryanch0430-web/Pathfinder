@@ -145,6 +145,7 @@ class AskPath:
         emit,
         history: list[Any] | None = None,
         scope_item_id: str | None = None,
+        notes: str = "",
     ) -> tuple[str, bool, str]:
         if plan and re.search(
             r"\b(what did you (?:change|update|add|remove)|what (?:has |have )?changed|"
@@ -180,6 +181,8 @@ class AskPath:
         facts = _plan_facts(question, plan, history, scope_item_id) if plan else {}
         # A question about changes already carries the earlier turns as `recent_changes`, with their diffs.
         conversation = "" if "recent_changes" in facts else conversation_block(history or [], question, settings=self.settings)
+        if notes:
+            conversation = f"Looked up:\n{notes}\n\n{conversation}"
         related = _relates_to_plan(question, plan, facts, scope_item_id)
         if not related:
             # The itinerary rows a bare "what" attached are not an answer to a

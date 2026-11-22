@@ -204,13 +204,17 @@ async def understand(
     _normalise_dates(updated)
     _apply_confirmations(message, labeled, context, updated, history=history)
     # "go to Japan to see Gundam" names one place. The same name is not also the departure city
-    # unless the message says the trip leaves from there.
+    # unless the message says the trip leaves from there. A form answer and a date range
+    # ("2026-12-01 to 2026-12-07") are not that sentence.
+    travel = re.sub(r"\b\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}\b", " ", message, flags=re.IGNORECASE)
     if (
-        updated.origin
+        not has_plan
+        and not labeled.get("origin")
+        and updated.origin
         and updated.destination
         and updated.origin.casefold() == updated.destination.casefold()
-        and re.search(r"\b(?:go|see|visit|to)\b", message, re.IGNORECASE)
-        and not re.search(r"\bfrom\b", message, re.IGNORECASE)
+        and re.search(r"\b(?:go|see|visit|to)\b", travel, re.IGNORECASE)
+        and not re.search(r"\bfrom\b", travel, re.IGNORECASE)
     ):
         updated.origin = ""
     return updated
@@ -686,14 +690,20 @@ def _find_place(lower: str, prepositions: list[str], origin: str | None = None) 
         while (match := pattern.search(lower, start)) is not None:
             candidate = _until_name_ends(match.group(1).strip(" ."))
             first_word = candidate.split()[0].lower() if candidate else ""
-            if (
-                _valid_place(candidate)
-                and candidate.lower() != origin_lower
-                and not (prep == "to" and first_word in _VERBS_AFTER_TO)
-                and first_word not in prepositions
-                and first_word not in _NOT_A_CUE_START  # "about money exchange", "about breakfast buffet"
-            ):
-                unknown.append((_side_mention(lower, match.start()), match.start(), candidate.title()))
+            place = (
+                _unknown_name(candidate, origin_lower)
+                if (
+                    _valid_place(candidate)
+                    and candidate.lower() != origin_lower
+                    and not (prep == "to" and first_word in _VERBS_AFTER_TO)
+                    and first_word not in prepositions
+                    and first_word not in _NOT_A_CUE_START  # "about money exchange", "about breakfast buffet"
+                )
+                else None
+            )
+            # "to school", "to the office": a thing you go to, not a city. _unknown_name drops those words.
+            if place:
+                unknown.append((_side_mention(lower, match.start()), match.start(), place))
                 break
             if prep == "to" and first_word in _VERBS_AFTER_TO:
                 # "want to go Phu Quoc": the verb hides the cue. Two or more words after it may name the

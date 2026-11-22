@@ -194,11 +194,13 @@ async def _model_verdict(settings: Any, gateway: Any, state: dict[str, Any], sea
     """
     pages = await _duration_pages(search, state.get("plan"), state.get("message") or "")
     criteria = _skill_body("check-reasonable")
+    thinking = str(state.get("thinking") or "").strip()
     user = (
         (f"Reasonableness skill (apply these criteria):\n{criteria}\n\n" if criteria else "")
         + f"Traveller:\n{state.get('message') or ''}\n\n"
         f"What the edit did:\n{state.get('facts') or ''}\n\n"
         f"Plan now:\n{_schedule(state.get('plan'))}"
+        + (f"\n\nThinking that produced this result:\n{thinking}" if thinking else "")
         + (f"\n\n{pages}" if pages else "")
     )
     raw: dict[str, Any] | None = None
@@ -333,6 +335,47 @@ def _model_of(label: str) -> str:
     return text
 
 
+def send_back(verdict: str, fix: str, issue: str, *, already: bool) -> bool:
+    """A mismatch goes back to the edit once. A short visit is repaired here, not by running the edit again."""
+    return not already and verdict == "retry" and fix != "lengthen" and bool((issue or "").strip())
+
+
+async def check_result(
+    settings: Any,
+    gateway: Any,
+    *,
+    message: str,
+    plan: Any,
+    facts: str,
+    thinking: str = "",
+    search: Any = None,
+    on_step: Callable[[dict[str, Any]], None] | None = None,
+    attempt: int = 1,
+) -> tuple[str, str, str]:
+    """One review of a result. Returns verdict, fix, and issue. A failure is a pass."""
+    started = time.perf_counter()
+    preview = str(getattr(settings, "reviewer_model", "") or "reviewer")
+    step_id = f"review-{attempt}"
+    _emit_step(on_step, id=step_id, phase="review", model=preview, status="running")
+    verdict, fix, issue, label, logged = await _model_verdict(
+        settings,
+        gateway,
+        {"message": message, "plan": plan, "facts": facts, "thinking": thinking},
+        search,
+    )
+    _emit_step(
+        on_step,
+        id=step_id,
+        phase="review",
+        model=_model_of(label) or preview,
+        status="done",
+        seconds=round(time.perf_counter() - started, 1),
+        note=issue or "The result matches the request.",
+    )
+    _log_review(gateway, logged, note="")
+    return verdict, fix, issue
+
+
 def _needs_repair(state: dict[str, Any]) -> bool:
     return (
         state.get("verdict") == "retry"
@@ -401,6 +444,8 @@ async def _review_loop(
     async def phrase() -> None:
         facts = state.get("facts") or ""
         if state.get("phrase_reply") is False:
+            if state.get("verdict") == "retry" and state.get("issue") and state.get("fix") != "lengthen":
+                facts = f"{facts} Review: {state['issue']}".strip()
             state["reply"] = facts.rstrip()
             return
         if state.get("verdict") == "retry" and state.get("issue") and state.get("fix") != "lengthen":
@@ -449,6 +494,7 @@ async def review_and_reply(
     on_step: Callable[[dict[str, Any]], None] | None = None,
     phrase: bool = True,
     permissions: list | None = None,
+    thinking: str = "",
 ) -> str:
     """Check, maybe lengthen once, check again, then phrase. The factual sentence is kept if that fails.
 
@@ -474,6 +520,7 @@ async def review_and_reply(
                 "attempt": 0,
                 "trace": [],
                 "phrase_reply": phrase,
+                "thinking": thinking,
             },
             search,
             on_step,

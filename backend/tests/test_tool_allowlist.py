@@ -79,8 +79,10 @@ def test_db05_each_path_runs_the_tools_on_its_allowlist(path: str) -> None:
 
 
 def test_db05_paths_own_different_tools() -> None:
-    """Proposal DB-05 (p2): the quick-question path cannot book or search hotels; clarify has no tools."""
-    assert PATH_ALLOWLIST["clarify"] == frozenset()
+    """The question path cannot book. Clarify may look something up, and cannot book either."""
+    assert PATH_ALLOWLIST["clarify"] == frozenset(
+        {"geocode", "weather.forecast", "places.search", "web.search", "web.fetch"}
+    )
     assert "hotels.search" not in PATH_ALLOWLIST["ask"]
     assert "flights.search" not in PATH_ALLOWLIST["ask"]
     assert "web.search" in PATH_ALLOWLIST["ask"]

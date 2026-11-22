@@ -1,4 +1,4 @@
-"""Clarification: one specific question, no planning, no tools."""
+"""Clarification: one specific question, no planning. A look-up may run first."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from app.security import fence_user_message, strip_fence_tags, strip_fence_tags_
 
 SLOT_PHRASES = {
     "destination": "where you want to go",
+    "origin": "where you are travelling from",
     "dates": "your travel dates",
     "start_date": "your travel dates",
     "end_date": "your travel dates",
@@ -67,6 +68,7 @@ class Clarifier:
         history: Sequence[Message] = (),
         plan: TripPlan | None = None,
         scope_item_id: str | None = None,
+        notes: str = "",
     ) -> tuple[str, list[str]]:
         from app.application.understanding import figure_warning
 
@@ -99,13 +101,15 @@ class Clarifier:
             if plan is not None and self.gateway.available and (scope_item_id or _names_something_on(plan, message)):
                 # Nothing is missing, the message is unclear and it names a stop, stay, day, city or leg of the plan:
                 # ask about that plan. A message that names nothing on it gets the fixed line, with no model call.
-                question = await self._about_the_plan(message, plan, scope_item_id, decision, history)
+                question = await self._about_the_plan(message, plan, scope_item_id, decision, history, notes)
                 if question:
                     return question, []
             return NO_PLAN_LINE, []
         if self.gateway.available:
+            looked = f"Looked up:\n{notes}\n\n" if notes else ""
             user = (
-                f"Known context: {trip_state(context)}\n"
+                looked
+                + f"Known context: {trip_state(context)}\n"
                 f"Missing slots: {strip_fence_tags_deep(missing)}\n"
                 f"Router reason: {strip_fence_tags(decision.reason_code)}\n\n"
                 + with_conversation(conversation_block(history, message, settings=self.settings))
@@ -115,7 +119,7 @@ class Clarifier:
                 data = await self.gateway.json("clarify", user=user, purpose="clarify")
                 question = str(data.get("question") or "").strip()
                 slots = [str(slot) for slot in data.get("slots") or missing]
-                if question:
+                if question and _covers(question, missing):
                     return question, slots or missing
             except CanaryLeak:
                 raise
@@ -130,6 +134,7 @@ class Clarifier:
         scope_item_id: str | None,
         decision: RouteDecision,
         history: Sequence[Message],
+        notes: str = "",
     ) -> str:
         """One question about the plan (or two or three concrete options) for an unclear message; "" when the writer
         gives none. The plan's names come from the trip form and from place sources: they lose any fence tag, as the
@@ -144,8 +149,10 @@ class Clarifier:
             hotel = plan.find_hotel(scope_item_id) if scope_item_id else None
             if hotel is not None:
                 selected = f"Hotel · {hotel.name}"
+        looked = f"Looked up:\n{notes}\n\n" if notes else ""
         user = (
-            "Nothing is missing from the trip details; the message is unclear. Ask about the current plan.\n"
+            looked
+            + "Nothing is missing from the trip details; the message is unclear. Ask about the current plan.\n"
             f"Current plan:\n{outline}\n"
             f"Selected on the page: {strip_fence_tags(selected) or 'nothing'}\n"
             f"Router reason: {strip_fence_tags(decision.reason_code)}\n\n"
@@ -173,3 +180,24 @@ class Clarifier:
         if len(phrases) == 2:
             return f"Could you tell me {phrases[0]} and {phrases[1]}?"
         return f"Could you tell me {', '.join(phrases[:-1])} and {phrases[-1]}?"
+
+
+_CUES = {
+    "origin": ("from", "origin", "depart", "leaving", "leave"),
+    "destination": ("where", "destination", "city", "visit"),
+    "dates": ("when", "date", "day"),
+    "start_date": ("when", "date", "day"),
+    "end_date": ("when", "date", "day"),
+    "budget": ("budget", "spend", "cost", "money"),
+    "party_size": ("people", "person", "party", "traveller", "traveler"),
+}
+
+
+def _covers(question: str, missing: list[str]) -> bool:
+    """True when the question names every detail that is still empty."""
+    lower = question.lower()
+    for slot in missing:
+        cues = _CUES.get(slot)
+        if cues and not any(re.search(rf"\b{re.escape(cue)}\b", lower) for cue in cues):
+            return False
+    return True

@@ -4,7 +4,7 @@ import asyncio
 from types import SimpleNamespace
 
 from app.application.modification import _separate_overlaps
-from app.application.turn_graph import review_and_reply
+from app.application.turn_graph import check_result, review_and_reply, send_back
 from app.application.validation import validate_plan
 from app.interface.local_admin import local_admin_for
 from tests.plan_samples import make_plan, meal, stop
@@ -306,3 +306,53 @@ def test_the_named_proxy_opens_local_admin() -> None:
         method = "GET"
 
     assert not local_admin_for(_Lan(), _Other())
+
+
+def test_a_mismatch_is_sent_back_once_and_a_short_visit_is_not() -> None:
+    assert send_back("retry", "none", "Asked for a cat cafe, got a sushi restaurant.", already=False)
+    assert not send_back("retry", "lengthen", "Ocean Park is 60 min; this kind of place needs 300", already=False)
+    assert not send_back("retry", "none", "Asked for a cat cafe.", already=True)
+    assert not send_back("pass", "none", "", already=False)
+
+
+def test_the_review_reads_the_request_the_result_and_the_thinking(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    class Result:
+        text = '{"verdict":"retry","fix":"none","issue":"Asked for a cat cafe, got a sushi restaurant."}'
+        model = "deepseek-v4-pro"
+        prompt_tokens = 4
+        completion_tokens = 4
+        latency_ms = 20
+        reasoning = "The request and the added stop do not match."
+
+    class Reviewer:
+        available = True
+        name = "deepseek-v4-pro"
+
+        async def complete(self, **kwargs):
+            seen["user"] = kwargs["user"]
+            return Result()
+
+    monkeypatch.setattr("app.application.plan_review.reviewer_llm", lambda _settings: Reviewer())
+    plan = make_plan(days=1, with_tickets=False, with_stay=False, stops_per_day=0)
+    plan.days[0].items.append(stop("sushi", "すし崇", "10:30", "11:30"))
+    steps: list[dict] = []
+    verdict, fix, issue = asyncio.run(
+        check_result(
+            SimpleNamespace(reviewer_model="deepseek-v4-pro"),
+            _Gateway(),
+            message="can you add cat cafe on day 1",
+            plan=plan,
+            facts="Add すし崇 on Day 1 at 10:30",
+            thinking="modify.extract: place cat cafe, operation add",
+            on_step=steps.append,
+        )
+    )
+    assert (verdict, fix) == ("retry", "none")
+    assert "cat cafe" in issue
+    assert "can you add cat cafe" in seen["user"]
+    assert "Thinking that produced this result" in seen["user"]
+    assert "place cat cafe" in seen["user"]
+    assert "すし崇" in seen["user"]
+    assert [step["status"] for step in steps if step["phase"] == "review"] == ["running", "done"]

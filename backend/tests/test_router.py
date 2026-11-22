@@ -4,14 +4,18 @@ from datetime import date, timedelta
 from app.application.llm_gateway import LLMGateway
 from app.application.prompts import PromptLibrary
 from app.application.router import (
+    FAST_REASONING,
     PLAIN_MODEL,
     REASON_MODEL,
+    RULES_FIRST,
     RuleRouter,
     System1Router,
+    WRITER_AFTER_REASONING,
     gate_cloud_llm,
     gate_mode,
     looks_like_question,
     not_about_the_trip,
+    path_stands,
     question_comes_first,
 )
 from app.config import Settings
@@ -172,6 +176,8 @@ def test_the_cloud_gate_uses_the_poe_model_for_each_arm(settings: Settings) -> N
     assert gate_mode(settings) == "jev"
     settings.router_gate = "fast"
     assert gate_mode(settings) == "reason"
+    settings.router_gate = "plain"
+    assert gate_mode(settings) == "reason"
 
 
 def test_an_arm_key_and_provider_replace_the_shared_poe_key(settings: Settings) -> None:
@@ -204,6 +210,165 @@ def test_a_deepseek_arm_uses_the_server_deepseek_key(settings: Settings) -> None
     settings.gate_plain_api_key = "sk-deepseek-own-key"
     own = gate_cloud_llm(settings, "plain")
     assert own is not None and own._api_key == "sk-deepseek-own-key"
+
+
+class _Answer:
+    def __init__(self, intent: str, code: str) -> None:
+        self.available = True
+        self.name = "reason-test"
+        self.calls = 0
+        self.intent = intent
+        self.code = code
+
+    async def complete(self, **kwargs):
+        self.calls += 1
+        return LLMResult(
+            text=(
+                '{"intent":"' + self.intent + '","confidence":0.91,'
+                '"need_clarification":false,"reason_code":"' + self.code + '"}'
+            ),
+            model=self.name,
+        )
+
+
+class _Down:
+    available = True
+    name = "down"
+
+    async def complete(self, **kwargs):
+        raise RuntimeError("model down")
+
+
+class _Jev:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def route(self, **kwargs):
+        self.calls += 1
+        return RouteDecision(
+            intent=Intent.ASK,
+            confidence=0.95,
+            need_clarification=False,
+            reason_code="jev_ask",
+            rationale="system one decision",
+        )
+
+
+def _router(settings: Settings, jev: _Jev, writer: object | None = None) -> System1Router:
+    return System1Router(
+        gateway=LLMGateway(writer or NullLLM(), PromptLibrary(settings), NoopTracer(), settings),
+        settings=settings,
+        decision_client=jev,
+        use_model=True,
+    )
+
+
+def test_fast_reasoning_chooses_a_clear_change_and_jev_does_not(settings: Settings, monkeypatch) -> None:
+    cloud = _Answer("ask", "reason_ask")
+    monkeypatch.setattr("app.application.router.gate_cloud_llm", lambda _settings, _mode: cloud)
+    jev = _Jev()
+    settings.router_gate = "reason"
+    decision = asyncio.run(
+        _router(settings, jev).route(
+            message="add a cat cafe on day 1",
+            context=context(origin="Osaka"),
+            plan_summary={"trip_id": "t", "destination": "Kyoto"},
+            history=[],
+        )
+    )
+    assert cloud.calls == 1
+    assert jev.calls == 0
+    assert decision.intent == Intent.ASK
+    assert decision.reason_code == "reason_ask"
+    assert decision.rationale == FAST_REASONING
+    assert path_stands(decision)
+
+    settings.router_gate = "jev"
+    asked: list[str] = []
+
+    def refuse(*_args, **_kwargs):
+        asked.append("cloud")
+        raise AssertionError("Jev mode must not call the fast-reasoning model")
+
+    monkeypatch.setattr("app.application.router.gate_cloud_llm", refuse)
+    jev_again = _Jev()
+    ruled = asyncio.run(
+        _router(settings, jev_again).route(
+            message="add a cat cafe on day 1",
+            context=context(origin="Osaka"),
+            plan_summary={"trip_id": "t", "destination": "Kyoto"},
+            history=[],
+        )
+    )
+    assert asked == []
+    assert jev_again.calls == 0
+    assert ruled.intent == Intent.MODIFY
+    assert ruled.rationale == RULES_FIRST
+
+
+def test_fast_reasoning_uses_the_writer_then_the_jev_path(settings: Settings, monkeypatch) -> None:
+    monkeypatch.setattr("app.application.router.gate_cloud_llm", lambda _settings, _mode: _Down())
+    writer = _Answer("modify", "writer_modify")
+    jev = _Jev()
+    settings.router_gate = "reason"
+    saved = asyncio.run(
+        _router(settings, jev, writer).route(
+            message="add a cat cafe on day 1",
+            context=context(origin="Osaka"),
+            plan_summary={"trip_id": "t"},
+            history=[],
+        )
+    )
+    assert writer.calls == 1
+    assert jev.calls == 0
+    assert saved.intent == Intent.MODIFY
+    assert saved.rationale == WRITER_AFTER_REASONING
+    assert path_stands(saved)
+
+    fallen = _Jev()
+    ambiguous = asyncio.run(
+        _router(settings, fallen).route(
+            message="maybe the museum",
+            context=context(origin="Osaka"),
+            plan_summary={"trip_id": "t"},
+            history=[],
+        )
+    )
+    assert fallen.calls == 1
+    assert ambiguous.reason_code == "jev_ask"
+    assert not path_stands(ambiguous)
+
+    clear = _Jev()
+    by_rules = asyncio.run(
+        _router(settings, clear).route(
+            message="add a cat cafe on day 1",
+            context=context(origin="Osaka"),
+            plan_summary={"trip_id": "t"},
+            history=[],
+        )
+    )
+    assert clear.calls == 0
+    assert by_rules.intent == Intent.MODIFY
+    assert by_rules.rationale == RULES_FIRST
+
+
+def test_a_fast_reasoning_plan_still_asks_for_an_empty_slot(settings: Settings, monkeypatch) -> None:
+    cloud = _Answer("plan", "reason_plan")
+    monkeypatch.setattr("app.application.router.gate_cloud_llm", lambda _settings, _mode: cloud)
+    settings.router_gate = "reason"
+    decision = asyncio.run(
+        _router(settings, _Jev()).route(
+            message="plan a trip to Kyoto",
+            context=context(),
+            plan_summary=None,
+            history=[],
+        )
+    )
+    assert decision.intent == Intent.PLAN
+    assert decision.need_clarification is True
+    assert "origin" in decision.missing_slots
+    assert decision.rationale == FAST_REASONING
+    assert path_stands(decision)
 
 
 def test_a_question_during_intake_is_answered_before_the_missing_details(settings: Settings) -> None:

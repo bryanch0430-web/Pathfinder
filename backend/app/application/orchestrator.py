@@ -66,18 +66,24 @@ from app.application.escalation import is_stuck, keeps_the_planner, queue_reason
 from app.application.router import (
     LANGUAGE_RULES,
     MODIFY_VERBS,
+    REASON_MODEL,
+    FAST_REASONING,
     RULES_FIRST,
     System1Router,
+    WRITER_AFTER_REASONING,
+    gate_mode,
     is_replan_message,
     language_route,
     looks_like_question,
     not_about_the_trip,
+    path_stands,
     replans_new_dates,
     replans_new_destination,
     same_destination,
 )
+from app.application.tool_loop import gather
 from app.application.toolbox import Toolbox
-from app.application.turn_graph import review_and_reply
+from app.application.turn_graph import check_result, review_and_reply, send_back
 from app.application.prompt_context import conversation_turns_of
 from app.application.understanding import (
     PlaceGrounding,
@@ -644,7 +650,9 @@ class TurnService:
                 # Preferences are written only after the traveller finalises the plan and marks it useful.
 
             routed: RouteDecision | None = None
-            if captured:
+            mode = gate_mode(self.settings)
+            # A short reply to an open edit question is a word check. Fast reasoning reads the message instead.
+            if captured and mode != "reason":
                 decision = RouteDecision(
                     intent=Intent.MODIFY,
                     confidence=0.95,
@@ -655,8 +663,11 @@ class TurnService:
                     rationale="answer to the question the previous edit asked",
                 )
             else:
-                gate = str(getattr(self.settings, "router_gate", "jev") or "jev")
-                route_model = str(self.settings.decision_model or "jev-latest") if gate == "jev" else gate
+                route_model = (
+                    str(self.settings.decision_model or "jev-latest")
+                    if mode == "jev"
+                    else str(getattr(self.settings, "gate_reason_model", "") or "") or REASON_MODEL
+                )
                 yield _step("routing", "routing", route_model, status="running")
                 route_started = time.perf_counter()
                 with tracer.span("route"):
@@ -689,9 +700,10 @@ class TurnService:
                 and not re.search(MODIFY_VERBS, message.lower())
                 and re.search(r"\b(this|that|it|here|selected)\b", message.lower())
             )
+            stood = path_stands(decision)
             route_change = rule_route_change(message, plan) if plan is not None else None
             split_stay = rule_split_stay(message, plan) if plan is not None and len(plan.segments) > 1 else None
-            if intake is not None and plans_from_share(message) and (intake.filled or intake.places):
+            if not stood and intake is not None and plans_from_share(message) and (intake.filled or intake.places):
                 missing = context.missing_slots()
                 decision = decision.model_copy(
                     update={
@@ -703,9 +715,9 @@ class TurnService:
                         "affected_parts": [],
                     }
                 )
-            elif split_stay is not None or (
+            elif not stood and (split_stay is not None or (
                 route_change is not None and (len(plan.segments) > 1 or route_change.op == "add")
-            ):
+            )):
                 # "add Osaka", "remove Kyoto", "3 nights in Osaka", "another hotel for the last 2 nights" on a trip:
                 # the route or the stays change (the dates stay), whatever else the sentence looks like to a router.
                 decision = decision.model_copy(
@@ -717,7 +729,7 @@ class TurnService:
                         "affected_parts": [],
                     }
                 )
-            elif (
+            elif not stood and (
                 plan is not None
                 and is_replan_message(message)
                 and route_differs(plan, context)
@@ -734,7 +746,7 @@ class TurnService:
                         "affected_parts": [],
                     }
                 )
-            elif plan is not None and replans_new_destination(message, context, plan.summary_for_prompt()):
+            elif not stood and plan is not None and replans_new_destination(message, context, plan.summary_for_prompt()):
                 # "Generate again" from the page, after the traveller named another place in the trip form: that is
                 # a new trip (a plan for one city is not moved to another), whatever a model made of the sentence.
                 # A new trip has its gate: what the form lacks (the departure city, the party, the budget, the dates)
@@ -750,7 +762,7 @@ class TurnService:
                         "affected_parts": [],
                     }
                 )
-            elif plan is not None and replans_new_dates(message, context, plan.summary_for_prompt()):
+            elif not stood and plan is not None and replans_new_dates(message, context, plan.summary_for_prompt()):
                 # "Generate again" from the page, after the traveller put other dates in the trip form: the
                 # trip is moved, whatever a model made of the sentence (a new trip would drop the locked stops).
                 decision = decision.model_copy(
@@ -762,7 +774,7 @@ class TurnService:
                         "affected_parts": ["dates"],
                     }
                 )
-            elif plan is not None and plan_shape(message) and not re.search(
+            elif not stood and plan is not None and plan_shape(message) and not re.search(
                 r"\b(this|that stop|selected)\b", message.lower()
             ):
                 decision = decision.model_copy(
@@ -774,7 +786,7 @@ class TurnService:
                         "affected_parts": ["attraction"],
                     }
                 )
-            elif scoped_action:
+            elif not stood and scoped_action:
                 # The selected stop is a decisive constraint. Terse commands
                 # such as "remove this" should not fall below the confidence
                 # gate and ask which item was meant.
@@ -786,7 +798,7 @@ class TurnService:
                         "reason_code": "scoped_item_action",
                     }
                 )
-            elif scoped_question:
+            elif not stood and scoped_question:
                 decision = decision.model_copy(
                     update={
                         "intent": Intent.ASK,
@@ -796,7 +808,8 @@ class TurnService:
                     }
                 )
             if (
-                not captured
+                not stood
+                and not captured
                 and pending is not None
                 and pending.fact not in HOME_FACTS
                 and decision.reason_code not in {"replan_destination", "replan_dates"}
@@ -815,7 +828,8 @@ class TurnService:
                     }
                 )
             if (
-                plan is not None
+                not stood
+                and plan is not None
                 and not context.missing_slots()
                 and (decision.need_clarification or decision.intent == Intent.UNCLEAR)
                 and not screen.flagged
@@ -836,20 +850,28 @@ class TurnService:
             if failed_place is not None and not (plan is not None and keeps_the_planner(message)):
                 # A name the gazetteer does not know, could not check, or matched a different place, is not planned.
                 # A request to change the current plan ("something else", "I don't want to eat this") is not a new city.
+                # "I go to school by bus" is not a city. A standing "not a trip" decision is not replaced by that guess.
                 status, slot, _name = failed_place
-                found = place_check.suggestion_for(slot) if status == "suggest_place" else ""
-                decision = RouteDecision(
-                    intent=Intent.UNCLEAR,
-                    confidence=0.95,
-                    need_clarification=True,
-                    reason_code=status,
-                    rationale=place_reply(place_check),
-                    missing_slots=[slot],
-                    related_to_plan=plan is not None,
-                    slots={"place_slot": slot, "place_name": found} if found else {},
-                )
+                stray = stood and status == "suggest_place" and decision.reason_code in {
+                    "not_travel_related",
+                    "unrelated_statement",
+                    "not_about_the_trip",
+                }
+                if not stray:
+                    found = place_check.suggestion_for(slot) if status == "suggest_place" else ""
+                    decision = RouteDecision(
+                        intent=Intent.UNCLEAR,
+                        confidence=0.95,
+                        need_clarification=True,
+                        reason_code=status,
+                        rationale=place_reply(place_check),
+                        missing_slots=[slot],
+                        related_to_plan=plan is not None,
+                        slots={"place_slot": slot, "place_name": found} if found else {},
+                    )
             if (
-                plan is not None
+                not stood
+                and plan is not None
                 and keeps_the_planner(message)
                 and decision.intent in {Intent.UNCLEAR, Intent.ASK}
             ):
@@ -867,7 +889,8 @@ class TurnService:
             # "ok other suggestion for dim sum restaruant?": JEV often returns modify at 0.76 and the
             # threshold would clarify forever. A cuisine + suggestion/another is already an edit.
             if (
-                plan is not None
+                not stood
+                and plan is not None
                 and decision.intent == Intent.MODIFY
                 and decision.need_clarification
                 and str(decision.reason_code).startswith("below_threshold")
@@ -956,6 +979,7 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     previous=plan,
+                    message=message,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -1260,7 +1284,34 @@ class TurnService:
         session = self.store.get_session(session_id)
         return session.owner if session else ""
 
-    async def _plan(self, *, context, session_id, tracer, request_id, previous=None) -> AsyncIterator[TurnEvent]:
+    async def _look_up(self, *, path: str, toolbox: Toolbox, message: str, context, plan, tracer, emit) -> str:
+        """The model may call a tool, read the result, and call again. Empty when it does not."""
+
+        def on_step(data: dict[str, Any]) -> None:
+            note_turn_step(data)
+            if emit is not None:
+                emit("step", data)
+
+        try:
+            notes = await gather(
+                self.gateway,
+                toolbox,
+                self.plan_path.registry,
+                message=message,
+                context=context,
+                plan=plan,
+                on_step=on_step,
+            )
+        except Exception:
+            logger.exception("tool look-up failed open")
+            return ""
+        if notes:
+            tracer.metadata.setdefault("flow", []).append(f"Looked up: {notes[:400]}")
+        return notes
+
+    async def _plan(
+        self, *, context, session_id, tracer, request_id, previous=None, message: str = ""
+    ) -> AsyncIterator[TurnEvent]:
         matches = self.memory.recall(context, owner=self._memory_owner(session_id))
         # A new trip for the place the saved plan is for keeps what the traveller protected in it: the stay they
         # accepted and their locked or confirmed stops. A trip to another place has nothing to carry.
@@ -1283,6 +1334,18 @@ class TurnService:
             max_calls=tool_cap_for(self.settings, segment_count(context=context)) or None,
         )
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Planning the trip.", "progress": 5})
+        looked = await self._look_up(
+            path="plan",
+            toolbox=toolbox,
+            message=message or "Plan this trip.",
+            context=context,
+            plan=previous,
+            tracer=tracer,
+            emit=emit,
+        )
+        summaries = self.memory.memory_summaries(matches)
+        if looked:
+            summaries = [*summaries, looked]
         live = bind_live_emit(emit)
         task = asyncio.create_task(
             self.plan_path.run(
@@ -1291,7 +1354,7 @@ class TurnService:
                 toolbox=toolbox,
                 tracer=tracer,
                 emit=emit,
-                memory_summaries=self.memory.memory_summaries(matches),
+                memory_summaries=summaries,
                 version=1,
                 keep_hotel=stay,
             )
@@ -1313,8 +1376,10 @@ class TurnService:
             data={"phase": "review", "message": "Checking whether the draft is reasonable.", "progress": 92},
         )
         draft_permissions: list[dict[str, Any]] = []
-        try:
-            draft_reply = await review_and_reply(
+        draft_queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
+
+        async def _draft_review() -> str:
+            return await review_and_reply(
                 self.settings,
                 self.gateway,
                 message="Review this first draft.",
@@ -1323,12 +1388,22 @@ class TurnService:
                 facts=plan.summary or "Draft plan.",
                 route_model=str(getattr(self.settings, "decision_model", "") or ""),
                 search=_duration_search(self, toolbox),
+                on_step=lambda data: (note_turn_step(data), draft_queue.put_nowait(("step", data))),
                 phrase=False,
                 permissions=draft_permissions,
+                thinking=_thinking_text(tracer),
             )
+
+        draft_task = asyncio.create_task(_draft_review())
+        try:
+            async for event in _drain(draft_queue, draft_task):
+                yield event
+            draft_reply = await draft_task
         except Exception:
             logger.exception("first-draft review failed open")
             draft_reply = plan.summary or ""
+        finally:
+            await _settle(draft_task)
         self.store.save_plan(plan, plan.change_summary or "Initial plan")
         if context.best_order and len(plan.segments) > 1:
             # The cities were put in their best order: the form follows the plan, so a later turn does not put them back.
@@ -1423,6 +1498,7 @@ class TurnService:
         answering: EditQuestion | None = None,
         review: bool = False,
         reply_meta: dict[str, Any] | None = None,
+        review_feedback: str = "",
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
@@ -1439,15 +1515,33 @@ class TurnService:
             max_calls=tool_cap_for(self.settings, segment_count(plan=plan, context=context)) or None,
         )
         writer_name = str(getattr(self.settings, "llm_model", "") or "writer")
+        edit_message = message
+        if review_feedback:
+            edit_message = (
+                f"{message}\n\nA reviewer rejected the previous result: {review_feedback}\n"
+                "Apply the traveller's request again. Do not repeat the rejected result."
+            )
+        edit_id = "editing-again" if review_feedback else "editing"
+        findings = ""
+        if not review_feedback:
+            findings = await self._look_up(
+                path="modify",
+                toolbox=toolbox,
+                message=message,
+                context=context,
+                plan=plan,
+                tracer=tracer,
+                emit=emit,
+            )
         edit_started = time.perf_counter()
-        yield _step("editing", "editing", writer_name, status="running")
+        yield _step(edit_id, "editing", writer_name, status="running")
         yield TurnEvent(event="progress", data={"phase": "start", "message": "Applying the smallest change.", "progress": 5})
         live = bind_live_emit(emit)
         task = asyncio.create_task(
             self.modify_path.run(
                 plan=plan,
                 context=context,
-                message=message,
+                message=edit_message,
                 route_parts=decision.affected_parts,
                 toolbox=toolbox,
                 tracer=tracer,
@@ -1458,6 +1552,7 @@ class TurnService:
                 scope_item_id=scope_item_id,
                 history=history,
                 answering=answering,
+                findings=findings,
             )
         )
         try:
@@ -1468,7 +1563,7 @@ class TurnService:
             await _settle(task)
             reset_live_emit(live)
         yield _step(
-            "editing",
+            edit_id,
             "editing",
             writer_name,
             status="done",
@@ -1558,6 +1653,57 @@ class TurnService:
         record = decision_record(message, summary, pending, held=bool(pending)) if review else None
         if record is not None:
             tracer.metadata["edit_steps"] = record["steps"]
+        rejected = ""
+        if pending:
+            # A proposal used to return here, so the review never saw it. The reviewer reads the request,
+            # the result, and the thinking that produced it. A mismatch is sent back through the edit once.
+            judge_queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
+
+            async def _judge() -> tuple[str, str, str]:
+                return await check_result(
+                    self.settings,
+                    self.gateway,
+                    message=message,
+                    plan=updated,
+                    facts=summary or updated.change_summary or "",
+                    thinking=_thinking_text(tracer),
+                    search=_duration_search(self, toolbox),
+                    on_step=lambda data: (note_turn_step(data), judge_queue.put_nowait(("step", data))),
+                    attempt=2 if review_feedback else 1,
+                )
+
+            judge_task = asyncio.create_task(_judge())
+            try:
+                async for event in _drain(judge_queue, judge_task):
+                    yield event
+                verdict, fix, issue = await judge_task
+            except Exception:
+                logger.exception("edit review failed open")
+                verdict, fix, issue = "pass", "none", ""
+            finally:
+                await _settle(judge_task)
+            note = issue if verdict == "retry" and issue else "The result matches the request."
+            tracer.metadata.setdefault("flow", []).append(f"Review: {note}")
+            if send_back(verdict, fix, issue, already=bool(review_feedback)):
+                async for event in self._modify(
+                    plan=plan,
+                    context=context,
+                    message=message,
+                    decision=decision,
+                    session_id=session_id,
+                    tracer=tracer,
+                    request_id=request_id,
+                    scope_item_id=scope_item_id,
+                    history=history,
+                    answering=answering,
+                    review=review,
+                    reply_meta=reply_meta,
+                    review_feedback=issue,
+                ):
+                    yield event
+                return
+            if verdict == "retry" and issue:
+                rejected = issue
         if pending:
             # The web asked to wait. The edited plan stays in the reply until a change is ticked.
             held = {
@@ -1570,6 +1716,8 @@ class TurnService:
                 if offers
                 else f"{summary} Nothing is written until you accept a change."
             )
+            if rejected:
+                prose = f"{prose} The reviewer does not accept this: {rejected}"
             reply = Message(
                 session_id=session_id,
                 role="assistant",
@@ -1625,6 +1773,7 @@ class TurnService:
                 search=_duration_search(self, toolbox),
                 on_step=lambda data: (note_turn_step(data), review_queue.put_nowait(("step", data))),
                 permissions=edit_permissions,
+                thinking=_thinking_text(tracer),
             )
 
         review_task = asyncio.create_task(_review())
@@ -1736,8 +1885,12 @@ class TurnService:
             request_id=request_id,
             max_calls=tool_cap_for(self.settings, segment_count(plan=plan)) or None,
         )
+        notes = await self._look_up(
+            path="ask", toolbox=toolbox, message=message, context=context, plan=plan, tracer=tracer, emit=None
+        )
         answer, related, source = await self.ask_path.answer(
             question=message,
+            notes=notes,
             plan=plan,
             context=context,
             toolbox=toolbox,
@@ -1777,8 +1930,30 @@ class TurnService:
         suggestions: list[tuple[str, str, str]] | None = None,
     ) -> AsyncIterator[TurnEvent]:
         # With a plan, an unclear message is asked about that plan and the stop selected on it.
+        clarify_box = Toolbox(
+            path="clarify",
+            tracer=tracer,
+            store=self.store,
+            request_id=request_id,
+            max_calls=tool_cap_for(self.settings, segment_count(plan=plan, context=context)) or None,
+        )
+        notes = await self._look_up(
+            path="clarify",
+            toolbox=clarify_box,
+            message=message,
+            context=context,
+            plan=plan,
+            tracer=tracer,
+            emit=None,
+        )
         question, slots = await self.clarifier.ask(
-            message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
+            message=message,
+            context=context,
+            decision=decision,
+            history=history,
+            plan=plan,
+            scope_item_id=scope_item_id,
+            notes=notes,
         )
         meta: dict[str, Any] = {"clarify": True, "slots": slots}
         if plan is not None and not slots:
@@ -2322,6 +2497,10 @@ def _chooser(decision: RouteDecision) -> str:
     """Who picked this decision: a word check, Jev, or the writer model."""
     rationale = decision.rationale or ""
     code = decision.reason_code or ""
+    if rationale == FAST_REASONING:
+        return "the fast reasoning model"
+    if rationale == WRITER_AFTER_REASONING:
+        return "the writer model"
     if rationale == LANGUAGE_RULES or code in {"set_language", "unsupported_language", "refresh", "chinese_input"}:
         return "a language word check, before any model"
     if code == "question_before_intake" or "remaining details" in rationale:
@@ -2433,6 +2612,19 @@ def _store_path(tracer: Any, routed: RouteDecision | None, final: RouteDecision)
     meta["confidence"] = final.confidence
 
 
+def _thinking_text(tracer: Any) -> str:
+    """The writer steps that produced this result, so the reviewer can compare them with the request."""
+    lines: list[str] = []
+    for generation in getattr(tracer, "generations", []) or []:
+        purpose = str(generation.get("purpose") or "")
+        if purpose not in {"modify.extract", "planner", "understand"}:
+            continue
+        body = str(generation.get("reasoning") or "").strip() or str(generation.get("output_preview") or "").strip()
+        if body:
+            lines.append(f"{purpose}: {body[:1200]}")
+    return "\n".join(lines)[:4000]
+
+
 def _why_lines(tracer: Any) -> list[str]:
     """A traveller-facing account of the decision. Not the model's private draft."""
     meta = getattr(tracer, "metadata", {}) or {}
@@ -2444,6 +2636,17 @@ def _why_lines(tracer: Any) -> list[str]:
         text = str(line).strip()
         if text and text not in lines:
             lines.append(text)
+    if meta.get("edit_scope") == "day":
+        # The edit used the day. The router's stop line is not what happened.
+        lines = [
+            line
+            for line in lines
+            if line
+            not in {
+                "A stop was selected, so only that stop could change.",
+                "The message named one stop, so only that stop could change.",
+            }
+        ]
     explained = bool(lines)
     if scoped and scoped not in lines:
         lines.append(scoped)

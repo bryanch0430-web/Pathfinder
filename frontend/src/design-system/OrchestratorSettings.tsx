@@ -73,8 +73,7 @@ function fallbackArm(kind: "plain" | "reason", config: OrchestratorConfig): Gate
 }
 
 /**
- * Jev, or a fast model and a fast reasoning model.
- * Each cloud arm has a provider, a model, a key, and the call settings the request can send.
+ * Jev, or fast reasoning. The form under Fast reasoning sets that model's provider, model, and key.
  */
 export function OrchestratorSettings({
   config,
@@ -91,7 +90,7 @@ export function OrchestratorSettings({
 }) {
   const { t } = useI18n();
   const jev = config.orchestrator?.jev;
-  const [choice, setChoice] = useState<GateChoice>(config.gate === "plain" || config.gate === "reason" ? config.gate : "jev");
+  const [choice, setChoice] = useState<GateChoice>(config.gate === "reason" || config.gate === "plain" ? "reason" : "jev");
   const [jevModel, setJevModel] = useState(jev?.model ?? "");
   const [jevUrl, setJevUrl] = useState(jev?.url ?? "");
   const [jevKey, setJevKey] = useState("");
@@ -99,7 +98,7 @@ export function OrchestratorSettings({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setChoice(config.gate === "plain" || config.gate === "reason" ? config.gate : "jev");
+    setChoice(config.gate === "reason" || config.gate === "plain" ? "reason" : "jev");
     setJevModel(jev?.model ?? "");
     setJevUrl(jev?.url ?? "");
   }, [config.gate, jev?.model, jev?.url]);
@@ -153,13 +152,6 @@ export function OrchestratorSettings({
         </label>
         <label className="pf-stack" style={{ gap: 2 }}>
           <span className="pf-row" style={{ gap: 8 }}>
-            <input type="radio" name="pf-orchestrator" checked={choice === "plain"} disabled={!canEdit || locked} onChange={() => choose("plain")} />
-            <span className="pf-small">{t("settings.gate.plain")}</span>
-          </span>
-          <Text size="xs" tone="tertiary">{t("settings.gate.plainBody")}</Text>
-        </label>
-        <label className="pf-stack" style={{ gap: 2 }}>
-          <span className="pf-row" style={{ gap: 8 }}>
             <input type="radio" name="pf-orchestrator" checked={choice === "reason"} disabled={!canEdit || locked} onChange={() => choose("reason")} />
             <span className="pf-small">{t("settings.gate.reason")}</span>
           </span>
@@ -192,16 +184,6 @@ export function OrchestratorSettings({
           </Button>
         </div>
       ) : null}
-      <Divider />
-      <GateArmForm
-        kind="plain"
-        title={t("settings.gate.plain")}
-        hint={t("settings.gate.plainHint")}
-        arm={fallbackArm("plain", config)}
-        providers={providers}
-        canEdit={canEdit && !locked}
-        onSave={async (body) => { await onSaveSide?.({ plain: body }); }}
-      />
       <Divider />
       <GateArmForm
         kind="reason"

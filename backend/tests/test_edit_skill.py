@@ -2,6 +2,7 @@
 
 from datetime import date
 
+from app.application.validation import is_edit_outcome
 from app.application.modification import (
     ChangeDraft,
     _edit_operation,
@@ -15,7 +16,7 @@ from app.application.modification import (
     _stated_move,
 )
 from app.application.planning import agents_for_new_plan
-from app.domain.models import AgentName, TripContext
+from app.domain.models import AgentName, DataGap, FailureKind, PlanAlternative, TripContext
 from app.application.prompts import PromptLibrary
 from app.application.skills import skill_for_modify
 from app.infrastructure.providers.hotels import _hotel_name_matches, _hotel_query
@@ -81,6 +82,18 @@ def test_moving_a_stop_from_morning_to_afternoon_keeps_the_day() -> None:
     assert park in plan.days[0].items
     # A day move is left to the day path.
     assert _shift_part(plan, "move shinjuku chuo park to day 2", "Shinjuku Chūō Park", None) is None
+
+
+def test_a_return_flight_is_a_ticket_not_a_missing_stop() -> None:
+    plan = make_plan(days=2)
+    stayed = _shift_part(plan, "Move the return flight to the afternoon", "", None)
+    assert stayed is not None and not stayed[0]
+    assert "already in the afternoon" in stayed[1]
+    assert "could not find" not in stayed[1]
+
+    morning = _shift_part(plan, "Move the return flight to the morning", "", None)
+    assert morning is not None and not morning[0]
+    assert "None of the stored quotes" in morning[1]
 
 
 def test_from_day_1_to_day_3_uses_day_3_when_the_model_says_day_1() -> None:
@@ -164,6 +177,40 @@ def test_change_to_a_cheaper_place_is_not_the_name_of_a_place() -> None:
     )
     assert replaced
     assert meal.name == "Morning Bowl"
+
+
+def test_a_cheaper_dinner_uses_the_yen_range_not_a_same_priced_option() -> None:
+    plan = make_plan(days=1, with_tickets=False)
+    meal = next(item for item in plan.days[0].items if item.type.value == "meal")
+    meal.name = "NOBU Tokyo"
+    meal.price_level = "JPY 10000+"
+    meal.alternatives = [PlanAlternative(id="alt_nobu", name="Arigataya", price_level="JPY 10000+")]
+    message = "Drop NOBU Tokyo on day 2 and put a cheaper dinner there"
+    assert _search_extra(message, place="cheaper dinner")["meals_query"] == "budget restaurant"
+    replaced = _replace_target(
+        plan,
+        [],
+        [
+            {
+                "name": "Gyopao Gyoza",
+                "price_level": "PRICE_LEVEL_INEXPENSIVE",
+                "price_range": "JPY 1000-2000",
+            }
+        ],
+        (plan.days[0], meal),
+        message,
+        distance_aware=False,
+        cheaper=True,
+    )
+    assert replaced
+    assert next(item for item in plan.days[0].items if item.id == meal.id).name == "Gyopao Gyoza"
+    assert is_edit_outcome(
+        DataGap(
+            section="attractions",
+            kind=FailureKind.NO_DATA,
+            message="None of the stored quotes leave in the afternoon, so it stayed.",
+        )
+    )
 
 
 def test_a_day_trip_with_no_origin_does_not_search_for_a_hotel_or_a_flight() -> None:

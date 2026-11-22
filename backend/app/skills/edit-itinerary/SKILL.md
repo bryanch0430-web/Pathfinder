@@ -34,6 +34,8 @@ This turn is a change. Read the plan and the earlier turns first: "it", "that" a
 
 ## Output
 
+The JSON is the action. A later sentence scan does not replace `operation`, `place`, or `new_values`.
+
 Return JSON only:
 {"description":"short restatement of the requested change","affected_parts":["hotel"],"target_day":null,"target_item_id":null,
 "new_values":{"places_per_day":1,"meals":"drop"},"is_question":false,"missing_info":null,"question":null,

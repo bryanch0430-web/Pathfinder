@@ -399,8 +399,11 @@ def earlier_turns(history: Sequence[Message], current: str) -> list[Message]:
     rows = replayable(history)
     stored = (current or "").strip()
     shown = mask_pii(stored, marks=True)
-    if rows and rows[-1].role == "user" and rows[-1].content.strip() in {stored, shown}:
-        rows = rows[:-1]
+    if rows and rows[-1].role == "user":
+        last = rows[-1].content.strip()
+        # The fence may be the earlier request plus this short answer: "add my home (Mong Kok)".
+        if last in {stored, shown} or (last and stored.endswith(f"({last})")):
+            rows = rows[:-1]
     return rows
 
 

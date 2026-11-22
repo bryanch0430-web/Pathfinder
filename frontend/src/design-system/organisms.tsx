@@ -960,6 +960,29 @@ function EditDecision({
   );
 }
 
+/** Ticks once a second while a step is still running, so its duration can count up. */
+function useRunningClock(active: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
+function stepDuration(
+  step: { id: string; status: string; seconds?: number },
+  started: Record<string, number>,
+  now: number,
+) {
+  if (step.status === "done" && typeof step.seconds === "number") return `${step.seconds}s`;
+  const at = started[step.id];
+  if (at == null) return "0s";
+  return `${Math.max(0, Math.floor((now - at) / 1000))}s`;
+}
+
 export function ChatPanel({
   messages,
   onSend,
@@ -1121,6 +1144,13 @@ export function ChatPanel({
     }
   };
   const running = Object.values(agents).filter((agent) => agent.status === "running").length;
+  const clocks = useRef<Record<string, number>>({});
+  const timing = busy && steps.some((step) => step.status !== "done");
+  const now = useRunningClock(timing);
+  if (!steps.length) clocks.current = {};
+  for (const step of steps) {
+    if (step.status !== "done" && clocks.current[step.id] == null) clocks.current[step.id] = Date.now();
+  }
   const [developer] = useDeveloperMode();
   return (
     <section className="pf-card pf-chat" aria-label={t("chat.label")}>
@@ -1268,7 +1298,7 @@ export function ChatPanel({
                 <span>{step.phase}</span>
                 <span className="pf-steps__model">{step.model}</span>
                 <span className="pf-steps__time">
-                  {step.status === "done" && typeof step.seconds === "number" ? `${step.seconds}s` : "…"}
+                  {stepDuration(step, clocks.current, now)}
                 </span>
               </li>
             ))}

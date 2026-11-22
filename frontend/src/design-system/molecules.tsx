@@ -20,6 +20,7 @@ import {
   endBounds,
   endOpensOnStart,
   keepsPlanAnyway,
+  phraseDates,
 } from "../lib/clarifyInput";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
@@ -963,6 +964,13 @@ function dateSpan(value: string): { start: string; end: string } {
   return { start: found[0] ?? "", end: found[1] ?? "" };
 }
 
+function chipMatches(option: string, value: string): boolean {
+  const resolved = phraseDates(option);
+  if (!resolved) return value === option;
+  const current = dateSpan(value);
+  return current.start === resolved.start && current.end === resolved.end;
+}
+
 function DateRangeField({
   value,
   options,
@@ -1020,7 +1028,16 @@ function DateRangeField({
       {options.length ? (
         <span className="pf-clarify__options">
           {options.map((option) => (
-            <button key={option} type="button" className="pf-chip" data-active={value === option} onClick={() => { const next = dateSpan(option); write(next.start, next.end); }}>
+            <button
+              key={option}
+              type="button"
+              className="pf-chip"
+              data-active={chipMatches(option, value)}
+              onClick={() => {
+                const next = phraseDates(option) ?? dateSpan(option);
+                if (next.start) write(next.start, next.end);
+              }}
+            >
               {option}
             </button>
           ))}

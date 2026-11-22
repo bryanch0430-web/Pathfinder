@@ -155,12 +155,11 @@ def test_a_message_shares_something_only_with_a_link_or_a_file(settings):
     )
 
 
-def test_the_fetch_tool_is_allowed_on_the_intake_path_only():
+def test_a_link_can_be_read_on_the_paths_that_look_things_up():
     assert PATH_ALLOWLIST["intake"] == frozenset({"web.fetch"})
+    readers = {"intake", "plan", "modify", "ask", "clarify"}
     assert all(
-        "web.fetch" not in tools
-        for path, tools in PATH_ALLOWLIST.items()
-        if path != "intake"
+        ("web.fetch" in tools) == (path in readers) for path, tools in PATH_ALLOWLIST.items()
     )
 
 

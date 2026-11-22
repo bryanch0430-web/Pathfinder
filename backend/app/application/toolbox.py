@@ -39,6 +39,7 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "fx.rates",
             # Reference pages for a section the official sources left empty.
             "web.search",
+            "web.fetch",
             # Hong Kong only: HKO warnings and MTR line status (TC-03).
             "weather.warnings",
             "routes.status",
@@ -60,12 +61,13 @@ PATH_ALLOWLIST: dict[str, frozenset[str]] = {
             "elevation.gain",
             "fx.rates",
             "web.search",
+            "web.fetch",
             "weather.warnings",
             "routes.status",
         }
     ),
-    "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search"}),
-    "clarify": frozenset(),
+    "ask": frozenset({"geocode", "weather.forecast", "routes.leg", "places.search", "web.search", "web.fetch"}),
+    "clarify": frozenset({"geocode", "weather.forecast", "places.search", "web.search", "web.fetch"}),
     # Reading a link the traveller shared: that one fetch, never a search or a booking source.
     "intake": frozenset({"web.fetch"}),
     # Re-fetching an outdated section of a saved plan (Proposal DB-13): each

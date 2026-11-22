@@ -39,6 +39,31 @@ def test_date_fragment_does_not_overwrite_destination(settings: Settings) -> Non
     assert updated.start_date == date(2027, 1, 31)
 
 
+def test_going_to_school_is_not_a_new_city(settings: Settings) -> None:
+    context = TripContext(session_id="s", destination="Tokyo", origin="Hong Kong")
+
+    updated = asyncio.run(
+        understand("I go to school by bus.", context, _gateway(settings), today=date(2026, 11, 22), has_plan=True)
+    )
+
+    assert updated.destination == "Tokyo"
+    assert updated.origin == "Hong Kong"
+    fresh = asyncio.run(understand("I go to school by bus.", TripContext(session_id="s"), _gateway(settings), today=date(2026, 11, 22)))
+    assert fresh.destination == ""
+
+
+def test_a_hong_kong_form_keeps_hong_kong_as_the_departure_city(settings: Settings) -> None:
+    context = TripContext(session_id="s", destination="Hong Kong", currency="HKD")
+    message = "Here are the missing details — origin: Hong Kong; dates: 2026-12-01 to 2026-12-07; budget: 4800."
+
+    updated = asyncio.run(understand(message, context, _gateway(settings), today=date(2026, 11, 22)))
+
+    assert updated.destination == "Hong Kong"
+    assert updated.origin == "Hong Kong"
+    assert (updated.start_date, updated.end_date) == (date(2026, 12, 1), date(2026, 12, 7))
+    assert updated.budget == 4800
+
+
 def test_labeled_clarify_answer_fills_slots_without_rewriting_destination(settings: Settings) -> None:
     context = TripContext(session_id="s", destination="London", party_size=2, currency="HKD")
     message = "Here are the missing details — origin: Hong Kong; dates: In three months; budget: 5,000 HKD."

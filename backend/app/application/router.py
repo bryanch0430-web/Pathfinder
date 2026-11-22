@@ -818,15 +818,14 @@ def _names_a_known_place(lower: str, context: TripContext, plan_summary: dict[st
 #: Cloud models this Poe key can call. GPT-6 Luna and GPT-6.1 Terra are not on the list.
 PLAIN_MODEL = "gemini-3.5-flash-lite"
 REASON_MODEL = "gemini-3.8-flash"
-_GATE_MODES = frozenset({"jev", "plain", "reason"})
 
 
 def gate_mode(settings: Settings) -> str:
-    """``fast`` is the old name for the reasoning arm."""
+    """``fast`` and ``plain`` are old names. Both use the fast-reasoning model."""
     raw = str(getattr(settings, "router_gate", "jev") or "jev").strip().lower()
-    if raw == "fast":
+    if raw in {"fast", "plain"}:
         return "reason"
-    return raw if raw in _GATE_MODES else "jev"
+    return raw if raw in {"jev", "reason"} else "jev"
 
 
 def gate_cloud_llm(settings: Settings, mode: str) -> OpenAICompatibleLLM | AnthropicLLM | None:
@@ -868,24 +867,53 @@ def gate_cloud_llm(settings: Settings, mode: str) -> OpenAICompatibleLLM | Anthr
     )
 
 
+#: The fast-reasoning model chose this path. Later word checks leave it alone.
+FAST_REASONING = "fast reasoning decision"
+#: The writer chose it after that model failed. Later word checks leave it alone.
+WRITER_AFTER_REASONING = "writer model, after fast reasoning failed"
+
+
+def path_stands(decision: RouteDecision) -> bool:
+    """True when Fast reasoning, or the writer that replaced it, already chose the path."""
+    return (decision.rationale or "") in {FAST_REASONING, WRITER_AFTER_REASONING}
+
+
+def _hold_slots(
+    decision: RouteDecision,
+    context: TripContext,
+    plan_summary: dict[str, Any] | None,
+) -> RouteDecision:
+    """Keep the model's path. An empty slot still blocks a new plan, and a change needs a plan."""
+    missing = context.missing_slots()
+    if plan_summary is None and decision.intent == Intent.MODIFY:
+        return decision.model_copy(
+            update={
+                "intent": Intent.UNCLEAR,
+                "need_clarification": True,
+                "reason_code": "no_plan_to_modify",
+                "missing_slots": missing,
+            }
+        )
+    if decision.intent == Intent.PLAN and missing:
+        return decision.model_copy(
+            update={
+                "need_clarification": True,
+                "reason_code": "missing_" + "_".join(missing[:2]),
+                "missing_slots": missing,
+            }
+        )
+    return decision.model_copy(update={"missing_slots": missing})
+
+
 class RouteOrchestrator:
-    """The one routing gate. Regex, Jev and the writer are steps of this, not separate products.
+    """The one routing gate.
 
-    The order is the design:
+    Jev keeps the old order: language rules, then one clear word-rule signal,
+    then Jev, then the writer, then the word-rule guess.
 
-    1. Product rules (display language, refresh, Chinese input). These are
-       invariants, so they never reach a model.
-    2. The regex, only when the line has one unambiguous travel signal. That is
-       selective prediction: the rules abstain on chat, hedges and mixed
-       signals instead of forcing a path (Chow, 1970).
-    3. The chosen gate, for everything the rules abstained on. Jev is the decision
-       model. Plain asks a fast model with reasoning off. Reason asks a fast
-       model with reasoning on.
-    4. The regex guess, if no model answers.
-
-    A line that is not about the trip is still corrected in the turn
-    orchestrator, after an open edit question has had its chance to take a
-    short reply such as "the other one".
+    Fast reasoning skips the route word rules and Jev. The model reads the
+    message and the filled slots and its path stands. If it fails, the writer
+    is asked. If both fail, the Jev order above decides.
     """
 
     def __init__(self, router: System1Router):
@@ -903,6 +931,18 @@ class RouteOrchestrator:
         ruled = router.rules.route(message=message, context=context, plan_summary=plan_summary, history=history)
         if ruled.rationale == LANGUAGE_RULES:
             return ruled
+        mode = gate_mode(router.settings)
+        # Fast reasoning reads the message and the filled slots. Route word rules and Jev wait
+        # until that model and the writer have both failed.
+        if mode == "reason" and router.use_model:
+            chosen = await self._fast_reasoning(
+                message=message,
+                context=context,
+                plan_summary=plan_summary,
+                history=history,
+            )
+            if chosen is not None:
+                return _hold_slots(chosen, context, plan_summary)
         # Intake is still open and the traveller asked something else ("what is Gundam?").
         # Answer that question. Do not spend a gate call restating the missing fields.
         if plan_summary is None and context.missing_slots() and question_comes_first(message):
@@ -920,8 +960,7 @@ class RouteOrchestrator:
         ):
             decided = ruled.model_copy(update={"rationale": RULES_FIRST})
             return _gate(decided, context, plan_summary, router.settings, source="rules")
-        mode = gate_mode(router.settings)
-        if mode == "jev" and router.use_model and router.decision_client is not None:
+        if mode in {"jev", "reason"} and router.use_model and router.decision_client is not None:
             try:
                 decision = await router.decision_client.route(
                     message=message,
@@ -935,8 +974,34 @@ class RouteOrchestrator:
                 raise
             except Exception:
                 pass
-        cloud = gate_cloud_llm(router.settings, mode) if mode in {"plain", "reason"} else None
-        if cloud is not None and router.use_model:
+        # Reason mode already asked the writer inside _fast_reasoning. Asking again would repeat a failure.
+        if mode != "reason" and router.use_model and router.gateway.available:
+            try:
+                decision = await router.llm.route(
+                    message=message,
+                    context=context,
+                    plan_summary=plan_summary,
+                    history=history,
+                )
+                return _gate(decision, context, plan_summary, router.settings, source="model")
+            except CanaryLeak:
+                raise
+            except Exception:
+                pass
+        return _gate(ruled, context, plan_summary, router.settings, source="rules")
+
+    async def _fast_reasoning(
+        self,
+        *,
+        message: str,
+        context: TripContext,
+        plan_summary: dict[str, Any] | None,
+        history: Sequence[Message],
+    ) -> RouteDecision | None:
+        """The fast-reasoning model, then the writer. None when both fail."""
+        router = self.router
+        cloud = gate_cloud_llm(router.settings, "reason")
+        if cloud is not None:
             try:
                 gate = LLMGateway(cloud, router.gateway.prompts, router.gateway.tracer, router.settings)
                 decision = await LLMRouter(gate, router.settings).route(
@@ -945,12 +1010,12 @@ class RouteOrchestrator:
                     plan_summary=plan_summary,
                     history=history,
                 )
-                return _gate(decision, context, plan_summary, router.settings, source=mode)
+                return decision.model_copy(update={"rationale": FAST_REASONING})
             except CanaryLeak:
                 raise
             except Exception:
                 pass
-        if router.use_model and router.gateway.available:
+        if router.gateway.available:
             try:
                 decision = await router.llm.route(
                     message=message,
@@ -958,9 +1023,9 @@ class RouteOrchestrator:
                     plan_summary=plan_summary,
                     history=history,
                 )
-                return _gate(decision, context, plan_summary, router.settings, source=mode if mode != "jev" else "model")
+                return decision.model_copy(update={"rationale": WRITER_AFTER_REASONING})
             except CanaryLeak:
                 raise
             except Exception:
                 pass
-        return _gate(ruled, context, plan_summary, router.settings, source="rules")
+        return None

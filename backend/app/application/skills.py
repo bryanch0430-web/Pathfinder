@@ -57,6 +57,7 @@ _PROMPT_SKILLS = {
     "translate": "translate-plan",
     "reply": "reply-after-edit",
     "turn-review": "turn-review",
+    "tool-round": "look-something-up",
 }
 
 

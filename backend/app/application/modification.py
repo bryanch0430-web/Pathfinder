@@ -197,6 +197,8 @@ class ChangeDraft(BaseModel):
     #: from the edit skill, when the model is sure. Empty means the word lists decide, as before.
     operation: str = ""
     place: str = ""
+    #: The model named the action. Sentence scanners do not replace operation, place, or new_values.
+    from_model: bool = False
 
 
 #: the question for a home the traveller asked to add without saying where it is
@@ -286,6 +288,7 @@ class ModifyPath:
         scope_item_id: str | None = None,
         history: Sequence[Message] = (),
         answering: EditQuestion | None = None,
+        findings: str = "",
     ) -> EditResult:
         """Apply the smallest change the message asks for. ``answering`` is the question an earlier edit asked when the
         message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
@@ -346,10 +349,30 @@ class ModifyPath:
             # the whole of it. The raw answer stays in `answer` for the home and dismissal checks below.
             message = f"{answering.request} ({message.strip()})"
         draft = await self._extract(
-            message, plan, context, route_parts, history=history, scope_item_id=scope_item_id
+            message,
+            plan,
+            context,
+            route_parts,
+            history=history,
+            scope_item_id=scope_item_id,
+            findings=findings,
         )
+        json_shape = PlanAdjust()
+        skill_op = ""
+        if draft.from_model and (draft.question or "").strip() and (draft.missing_info or "").strip():
+            question = draft.question.strip()
+            unchanged = plan.model_copy(deep=True)
+            unchanged.change_summary = question
+            return EditResult(
+                unchanged, [], asks=EditQuestion(question, fact=str(draft.missing_info)[:40], request=message)
+            )
+        if draft.from_model and draft.is_question and not (draft.operation or "").strip():
+            unchanged = plan.model_copy(deep=True)
+            unchanged.change_summary = draft.description or "This reads as a question, so the plan was not changed."
+            return unchanged, []
         added = draft.route_change if draft.route_change is not None and draft.route_change.op == "add" else None
-        added = added or next((c for c in [rule_route_change(message, plan)] if c is not None and c.op == "add"), None)
+        if not draft.from_model:
+            added = added or next((c for c in [rule_route_change(message, plan)] if c is not None and c.op == "add"), None)
         if added is not None:
             # Another city makes it a trip of several: the city is added and the dates stay as they are.
             from app.application.multi_edit import edit_route
@@ -377,29 +400,41 @@ class ModifyPath:
                 )
             return _left_as_it_was(plan)
         noted_home = home
-        more_stops = asks_for_more_stops(message)
-        # "Make it grander": the hotel's class, an upgrade the budget can pay for, never the pace of the days.
-        # The router stays the authority on scope: a router that named other parts than the hotel is not overruled.
-        # A router that named only the attractions for a sentence that names none ("can u make it more grrand") did
-        # not see the hotel in it; a bare "more grand" with attractions named stays the router's call.
-        upscale = (
-            not more_stops
-            and asks_for_a_grander_stay(message)
-            and (
-                not route_parts
-                or bool({"hotel", "budget"} & set(route_parts))
-                or (set(route_parts) <= {"attraction"} and _grander_without_a_stop(message))
+        if draft.from_model:
+            # The JSON names the action. "add" with no place is more stops. A hotel with no place is a grander stay.
+            op = (draft.operation or "").strip().lower()
+            named_place = (draft.place or "").strip()
+            parts = {part.lower() for part in draft.affected_parts}
+            more_stops = op == "add" and not named_place
+            upscale = "hotel" in parts and not named_place and op in {"", "replace"}
+            json_shape = interpret_plan("", _shape_hint(draft))
+            shape = PlanAdjust() if op in _SKILL_OPS else json_shape
+        else:
+            more_stops = asks_for_more_stops(message)
+            # "Make it grander": the hotel's class, an upgrade the budget can pay for, never the pace of the days.
+            # The router stays the authority on scope: a router that named other parts than the hotel is not overruled.
+            # A router that named only the attractions for a sentence that names none ("can u make it more grrand") did
+            # not see the hotel in it; a bare "more grand" with attractions named stays the router's call.
+            upscale = (
+                not more_stops
+                and asks_for_a_grander_stay(message)
+                and (
+                    not route_parts
+                    or bool({"hotel", "budget"} & set(route_parts))
+                    or (set(route_parts) <= {"attraction"} and _grander_without_a_stop(message))
+                )
             )
-        )
-        if (more_stops or upscale or _named_place(message)) and not interpret_plan(message).requested:
-            # "More stops" is an add, "grander" is about the hotel, and a named place ("Shibuya Sky on day 1") is
-            # that place. A pace the writer read into any of them ("3 places a day") is only a cap, which adds
-            # nothing and may even take a stop away.
-            draft.new_values = {
-                key: value for key, value in draft.new_values.items() if key not in {"places_per_day", "min_hours", "earliest"}
-            }
-        shape = interpret_plan(message, _shape_hint(draft))
-        if _is_plan_question(message) and shape.requested:
+            if (more_stops or upscale or _named_place(message)) and not interpret_plan(message).requested:
+                # "More stops" is an add, "grander" is about the hotel, and a named place ("Shibuya Sky on day 1") is
+                # that place. A pace the writer read into any of them ("3 places a day") is only a cap, which adds
+                # nothing and may even take a stop away.
+                draft.new_values = {
+                    key: value
+                    for key, value in draft.new_values.items()
+                    if key not in {"places_per_day", "min_hours", "earliest"}
+                }
+            shape = interpret_plan(message, _shape_hint(draft))
+        if (not draft.from_model) and _is_plan_question(message) and shape.requested:
             # A question is answered from the plan. It does not write.
             unchanged = plan.model_copy(deep=True)
             unchanged.change_summary = answer_plan_question(
@@ -408,7 +443,10 @@ class ModifyPath:
                 budget_question=shape.keep_budget or bool(re.search(r"\bbudget\b", message.lower())),
             )
             return unchanged, []
-        date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
+        if draft.from_model:
+            date_requested = "dates" in {part.lower() for part in draft.affected_parts}
+        else:
+            date_requested = not shape.requested and (is_replan_message(message) or asks_for_new_dates(message))
         if date_requested and not form_is_a_trip:
             raise PlanInvalidError(
                 "The dates in the trip details do not make a trip: the end must not be before the start, and a trip "
@@ -436,7 +474,7 @@ class ModifyPath:
         day_scope: int | None = None
         day_from_selection = False
         if more_stops:
-            named_day = _rule_day(message)
+            named_day = draft.target_day if draft.from_model and draft.target_day else _rule_day(message)
             anchor = _name_mentioned(plan, message) or scope_item_id
             anchored = plan.find_item(anchor) if anchor else None
             if named_day and 1 <= named_day <= len(plan.days):
@@ -446,7 +484,13 @@ class ModifyPath:
                 day_from_selection = anchor == scope_item_id
             draft.target_item_id = None
             draft.is_question = False
-        if scope_item_id and not more_stops and not draft.target_item_id and plan.find_item(scope_item_id):
+        if (
+            not draft.from_model
+            and scope_item_id
+            and not more_stops
+            and not draft.target_item_id
+            and plan.find_item(scope_item_id)
+        ):
             # The console's "About: Day 3 · X" chip is a real context signal.
             # "remove this" / "swap it" must resolve to that stop, and a real
             # imperative with a selected item is a change even if the writer
@@ -517,8 +561,10 @@ class ModifyPath:
             affected.append("hotel")
         if not affected and not form_changes:
             affected = ["dates"] if dates_move else ["attraction"]
-        if re.search(r"\b(hours?|minutes?)\b", message.lower()) and not re.search(
-            r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower()
+        if (
+            not draft.from_model
+            and re.search(r"\b(hours?|minutes?)\b", message.lower())
+            and not re.search(r"\b(cheap|cheaper|money|price|budget|hkd|usd|\$)\b", message.lower())
         ):
             affected = [part for part in affected if part != "budget"]
         if shape.keep_budget:
@@ -534,24 +580,27 @@ class ModifyPath:
             agent_names = {AgentName.ATTRACTION}
         # "even if it is over budget" grants leave to spend; it does not ask for a cheaper trip (router.py).
         # "reduce walking" is a pace, and "keep the budget the same" is an invariant.
-        unconceded = without_concessive_budget(message.lower())
-        if wants_less_walking(unconceded):
-            unconceded = re.sub(r"\breduce\s+walk(?:ing)?\b", " ", unconceded)
-        budget_mode = not shape.keep_budget and (
-            "budget" in affected
-            or bool(
-                re.search(
-                    r"\b(cheap|cheaper|optimis|optimiz|reduce|lower|afford|over budget|make it work)\b",
-                    unconceded,
+        if draft.from_model:
+            budget_mode = (not shape.keep_budget) and "budget" in affected
+        else:
+            unconceded = without_concessive_budget(message.lower())
+            if wants_less_walking(unconceded):
+                unconceded = re.sub(r"\breduce\s+walk(?:ing)?\b", " ", unconceded)
+            budget_mode = not shape.keep_budget and (
+                "budget" in affected
+                or bool(
+                    re.search(
+                        r"\b(cheap|cheaper|optimis|optimiz|reduce|lower|afford|over budget|make it work)\b",
+                        unconceded,
+                    )
                 )
             )
-        )
-        agent_names = lock_scope(
-            agent_names,
-            plan,
-            message,
-            scope_item_id,
-        )
+            agent_names = lock_scope(
+                agent_names,
+                plan,
+                message,
+                scope_item_id,
+            )
         if dates_move:
             agent_names |= PART_AGENTS["dates"]
             if "attraction" not in affected:
@@ -565,7 +614,15 @@ class ModifyPath:
         # More stops are added to a day: the stop selected or named only says which day. An answer to the edit's
         # own question is a fact inside that request, not a pointer at a row: the request decides the scope.
         scope_source = answering.request if answering is not None and answering.request else message
-        referred = None if dates_move or whole_trip or more_stops else resolve_referred(plan, scope_source, scope_item_id)
+        if draft.from_model:
+            item_id = draft.target_item_id
+            referred = (
+                item_id
+                if item_id and (plan.find_item(item_id) or plan.find_hotel(item_id))
+                else None
+            )
+        else:
+            referred = None if dates_move or whole_trip or more_stops else resolve_referred(plan, scope_source, scope_item_id)
         if (
             referred is not None
             and referred == scope_item_id
@@ -734,7 +791,7 @@ class ModifyPath:
             agent_names |= PART_AGENTS["dates"]
         date_range = new_range or plan.dates
         lower_message = message.lower()
-        skill_op, skill_place = _edit_operation(draft, plan, message)
+        skill_op, skill_place = operation_for_edit(draft, plan, message)
         hotel_named = (
             skill_op == "replace"
             and "hotel" in {part.lower() for part in draft.affected_parts}
@@ -758,15 +815,19 @@ class ModifyPath:
         # A sure "move" is not also an add of a place named "day 3".
         # A sure "replace" ("other suggestion for dim sum", "replace X with another Y") must not fall into
         # add because the word "another" looks like a new stop — that path never swaps the target.
-        add_requested = skill_op == "add" or (
-            skill_op not in {"move", "replace"}
-            and (
-                _ADD_REQUEST.search(lower_message) is not None
-                or more_stops
-                or _wants_a_new_stop(message, plan, draft)
+        if draft.from_model:
+            add_requested = skill_op == "add"
+            remove_requested = skill_op == "remove"
+        else:
+            add_requested = skill_op == "add" or (
+                skill_op not in {"move", "replace"}
+                and (
+                    _ADD_REQUEST.search(lower_message) is not None
+                    or more_stops
+                    or _wants_a_new_stop(message, plan, draft)
+                )
             )
-        )
-        remove_requested = skill_op == "remove" or _REMOVE_REQUEST.search(lower_message) is not None
+            remove_requested = skill_op == "remove" or _REMOVE_REQUEST.search(lower_message) is not None
         if skill_place and skill_place.lower() not in lower_message:
             # The hotel chooser only sees this sentence. The skill already resolved "that hotel".
             message = f"{message}\n{skill_place}"
@@ -975,7 +1036,12 @@ class ModifyPath:
                     wish = real_search_phrase(message, named or None)
                     if day_scope is not None:
                         # Said of the day the traveller meant, and true whichever of the two stopped it.
-                        kind = wish or (wanted[0] if wanted else "stop")
+                        # An add with no place name is not a search for the leftover words of the sentence.
+                        kind = (
+                            "verified stop"
+                            if more_stops and not (named or "").strip()
+                            else wish or (wanted[0] if wanted else "stop")
+                        )
                         outcome = (
                             f"I could not find a located {kind} for Day {day_scope} that is not already in the "
                             f"plan, or Day {day_scope} had no free time slot; the itinerary stayed as it was."
@@ -1205,6 +1271,11 @@ class ModifyPath:
                     )
                 )
         updated = tidy_data_gaps(updated)
+        if draft.from_model and json_shape.requested and skill_op:
+            sentence = json_shape.reason or apply_plan_shape(updated, json_shape)
+            if sentence and sentence not in (draft.description or ""):
+                draft.description = f"{draft.description} {sentence}".strip()
+                updated.change_summary = draft.description
 
         diff = diff_plans(old_plan, updated)
         rewritten_days: list[int] = []
@@ -1370,6 +1441,7 @@ class ModifyPath:
         *,
         history: Sequence[Message] = (),
         scope_item_id: str | None = None,
+        findings: str = "",
     ) -> ChangeDraft:
         if self.gateway.available:
             # The whole plan in detail when the message is about no one day (nothing selected, no day
@@ -1383,8 +1455,10 @@ class ModifyPath:
             understood = (
                 f"Stop skill (apply these rules):\n{stop_skill.body}\n\n" if stop_skill is not None else ""
             )
+            looked = f"Looked up:\n{findings}\n\n" if findings else ""
             user = (
                 understood
+                + looked
                 + f"Current plan:\n{plan_context(plan, focus=focus, selected_id=scope_item_id, notes=False)}\n"
                 f"Trip: {trip_slots(context, preferences=True)}\n\n"
                 + (MULTI_CITY_RULES if len(plan.segments) > 1 else "")
@@ -1393,10 +1467,14 @@ class ModifyPath:
             )
             try:
                 data = await self.gateway.json("modify", user=user, purpose="modify.extract")
-                draft = ChangeDraft.model_validate(data)
+                draft = mark_model_draft(ChangeDraft.model_validate(data))
                 if not draft.affected_parts:
                     draft.affected_parts = route_parts
-                _fill_target_day(draft, message)
+                if draft.from_model:
+                    if not draft.target_day:
+                        draft.target_day = _day_from_parts(draft.affected_parts)
+                else:
+                    _fill_target_day(draft, message)
                 return draft
             except CanaryLeak:
                 raise
@@ -1511,6 +1589,13 @@ _WISH_WORDS = frozenset(
         "cheap",
         "cheaper",
         "cheapest",
+        "dinner",
+        "lunch",
+        "breakfast",
+        "meal",
+        "meals",
+        "restaurant",
+        "food",
         "better",
         "nicer",
         "quiet",
@@ -1839,6 +1924,36 @@ def _comparable_price(value: object) -> tuple[str, float] | None:
     return ("amount", float(numbers[0].replace(",", "")))
 
 
+def _money_amount(value: object) -> tuple[str, float] | None:
+    """Currency and the first number in a range ("JPY 1000-2000"). A Google level is not an amount."""
+    text = str(value or "").strip()
+    if not text or _price_level(text) is not None:
+        return None
+    numbers = re.findall(r"\d[\d,]*", text)
+    if not numbers:
+        return None
+    currency = re.match(r"([A-Za-z]{3})\b", text)
+    return ((currency.group(1).upper() if currency else ""), float(numbers[0].replace(",", "")))
+
+
+def _row_money(row: dict) -> tuple[str, float] | None:
+    """The source's yen or dollar range. A Google level is used only when the row has no range."""
+    for key in ("price_range", "price_level"):
+        got = _money_amount(row.get(key))
+        if got is not None:
+            return got
+    return None
+
+
+def _lower_money(current: tuple[str, float] | None, other: tuple[str, float] | None) -> bool:
+    """True when both amounts are in the same currency and the second is lower."""
+    if current is None or other is None:
+        return False
+    if current[0] and other[0] and current[0] != other[0]:
+        return False
+    return other[1] < current[1]
+
+
 def _replace_target(
     plan: TripPlan,
     places: list[dict],
@@ -1865,7 +1980,20 @@ def _replace_target(
         from app.application.choices import swap_option
 
         used = {other.name for _, other in _items_in_order(plan)}
-        option = next((alt for alt in item.alternatives if alt.name and alt.name not in used), None)
+        current = _money_amount(item.price_level) if cheaper else None
+        option = next(
+            (
+                alt
+                for alt in item.alternatives
+                if alt.name
+                and alt.name not in used
+                and (
+                    not cheaper
+                    or _lower_money(current, _money_amount(alt.price_level))
+                )
+            ),
+            None,
+        )
         if option is not None:
             swap_option(plan, day, day.items.index(item), option)
             return True
@@ -1884,18 +2012,14 @@ def _replace_target(
         pool = [row for row in pool if _matches_name(str(row.get("name") or ""), prefer_name)]
     if cheaper and not (prefer_name and not _is_a_wish(prefer_name)):
         # "change to a cheaper place": a lower price a source stated, not the words of the request.
-        current = _comparable_price(item.price_level)
+        current = _money_amount(item.price_level)
         if current is not None:
-            lower = [
-                row
-                for row in pool
-                if (price := _comparable_price(row.get("price_level") or row.get("price_range")))
-                and price[0] == current[0]
-                and price[1] < current[1]
-            ]
+            # "JPY 10000+" against a row whose level is PRICE_LEVEL_INEXPENSIVE and whose
+            # range is "JPY 1000-2000": the range is the price. The level cannot be compared.
+            lower = [row for row in pool if _lower_money(current, _row_money(row))]
             if not lower:
                 return False
-            lower.sort(key=lambda row: _comparable_price(row.get("price_level") or row.get("price_range"))[1])  # type: ignore[index]
+            lower.sort(key=lambda row: _row_money(row)[1])  # type: ignore[index]
             pool = lower
     if not pool:
         return False
@@ -2141,6 +2265,10 @@ def _search_extra(message: str, *, place: str | None = None, hotel: bool = False
     cuisine = _cuisine(message)
     if cuisine:
         extra["meals_query"] = f"{cuisine} restaurant"
+    elif re.search(r"\b(?:dinner|lunch|breakfast|meal|restaurant)\b", message, re.IGNORECASE) and re.search(
+        r"\b(?:cheap|cheaper|cheapest)\b", message, re.IGNORECASE
+    ):
+        extra["meals_query"] = "budget restaurant"
     if hotel and place:
         extra["hotels_query"] = place
     else:
@@ -2397,6 +2525,36 @@ def _stated_move(plan: TripPlan, message: str) -> tuple[str, int] | None:
     if item is None:
         return None
     return item.name, day
+
+
+def operation_for_edit(draft: ChangeDraft, plan: TripPlan, message: str) -> tuple[str, str]:
+    """The action to run. A model that named one is kept. Otherwise the word lists still decide."""
+    if not draft.from_model:
+        return _edit_operation(draft, plan, message)
+    op = (draft.operation or "").strip().lower()
+    if op not in _SKILL_OPS:
+        op = ""
+    place = draft.place.strip() if op else ""
+    if place and _is_a_wish(place):
+        place = ""
+    return op, place
+
+
+def mark_model_draft(draft: ChangeDraft) -> ChangeDraft:
+    """The JSON is the action when the model named an operation, a place, or a pace or meal value.
+
+    A home in new_values is a note, not the action, so the rest of the edit still runs.
+    """
+    values = {key: value for key, value in (draft.new_values or {}).items() if key != "home"}
+    draft.from_model = bool(
+        (draft.operation or "").strip()
+        or (draft.place or "").strip()
+        or values
+        or draft.operations
+        or draft.route_change is not None
+        or (draft.missing_info or "").strip()
+    )
+    return draft
 
 
 def _edit_operation(draft: ChangeDraft, plan: TripPlan, message: str) -> tuple[str, str]:
@@ -4225,6 +4383,71 @@ def _shift_place(message: str) -> str:
     return name
 
 
+def _shift_flight(plan: TripPlan, message: str, target: str) -> tuple[bool, str]:
+    """Move a stored flight quote into morning, afternoon, or evening. A flight is not a day stop."""
+    if target not in _PART_BOUNDS:
+        return False, "I could not tell which part of the day the flight should move to."
+    flights = [ticket for ticket in plan.tickets if ticket.mode == "flight"]
+    if not flights:
+        return False, "There is no flight on this plan, so nothing was moved."
+    back = re.search(r"\b(?:return|back|home)\b", message, re.IGNORECASE) is not None
+    kind = "return flight" if back else "flight"
+
+    def clock(moment: Any) -> str:
+        return f"{moment.hour:02d}:{moment.minute:02d}" if moment is not None else ""
+
+    def minutes(moment: Any) -> int | None:
+        return None if moment is None else moment.hour * 60 + moment.minute
+
+    if back and any(ticket.return_depart_at for ticket in flights):
+        chosen = next((ticket for ticket in flights if ticket.selected and ticket.return_depart_at), None)
+        chosen = chosen or next(ticket for ticket in flights if ticket.return_depart_at)
+        when = chosen.return_depart_at
+        label = " ".join(part for part in (chosen.return_airline, chosen.return_flight_number) if part) or chosen.name
+        now = minutes(when)
+        if now is not None and _part_of(now) == target:
+            return False, f"The {kind} {label} is already in the {target}, at {clock(when)}, so it stayed."
+        return (
+            False,
+            f"The {kind} {label} is on the plan, departing at {clock(when)}. "
+            f"None of the stored quotes leave in the {target}, so it stayed.",
+        )
+
+    end = plan.dates.end if plan.dates else None
+    start = plan.dates.start if plan.dates else None
+    pool = flights
+    if back and end:
+        late = [ticket for ticket in flights if ticket.depart_at and ticket.depart_at.date() == end]
+        pool = late or flights
+    elif not back and start:
+        early = [ticket for ticket in flights if ticket.depart_at and ticket.depart_at.date() == start]
+        pool = early or flights
+    chosen = next((ticket for ticket in pool if ticket.selected), pool[0])
+    when = chosen.depart_at
+    now = minutes(when)
+    if now is not None and _part_of(now) == target:
+        return False, f"The {kind} {chosen.name} is already in the {target}, at {clock(when)}, so it stayed."
+    window_start, window_end = _PART_BOUNDS[target]
+    same = [ticket for ticket in pool if not chosen.leg_id or ticket.leg_id == chosen.leg_id]
+    fit = [
+        ticket
+        for ticket in same
+        if (got := minutes(ticket.depart_at)) is not None and window_start <= got < window_end
+    ]
+    if not fit:
+        shown = f", departing at {clock(when)}" if when is not None else ""
+        return (
+            False,
+            f"The {kind} {chosen.name} is on the plan{shown}. "
+            f"None of the stored quotes leave in the {target}, so it stayed.",
+        )
+    pick = min(fit, key=lambda ticket: minutes(ticket.depart_at) or 0)
+    for ticket in plan.tickets:
+        if ticket.mode == "flight" and (not chosen.leg_id or ticket.leg_id == chosen.leg_id):
+            ticket.selected = ticket.id == pick.id
+    return True, f"The {kind} is now {pick.name}, departing at {clock(pick.depart_at)}."
+
+
 def _shift_part(
     plan: TripPlan, message: str, place: str, item_id: str | None
 ) -> tuple[bool, str] | None:
@@ -4235,6 +4458,10 @@ def _shift_part(
     if match is None:
         return None
     target = (match.group(2) or match.group(3) or "").lower()
+    if re.search(r"\bflights?\b", message, re.IGNORECASE):
+        # A flight is a ticket, not a stop. "Move the return flight to the afternoon" must not
+        # search the day list and then say the flight is missing.
+        return _shift_flight(plan, message, target)
     if target not in _PART_BOUNDS:
         return None
     name = (place or "").strip() or _shift_place(message)
@@ -4323,6 +4550,8 @@ def _part_named(draft: ChangeDraft, message: str) -> str | None:
     raw = str((draft.new_values or {}).get("part") or "").strip().lower()
     if raw in _PART_BOUNDS:
         return raw
+    if draft.from_model:
+        return None
     if draft.target_day is None and day_number_named(message) is None:
         return None
     match = re.search(r"\b(morning|afternoon|evening)\b", message, re.IGNORECASE)

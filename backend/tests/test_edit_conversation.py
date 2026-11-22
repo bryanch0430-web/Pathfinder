@@ -191,6 +191,10 @@ def ids(plan: TripPlan) -> list[list[str]]:
 
 #: what the writer made of "add more stop" in the real session: a pace, which is only a cap
 PACE_DRAFT = {"description": "Add more stops.", "affected_parts": ["attraction"], "new_values": {"places_per_day": 3}, "confidence": 0.6}
+#: the JSON for that request: an add, with no place name. The sentence is not scanned again.
+ADD_MORE = {"description": "Add more stops.", "affected_parts": ["attraction"], "operation": "add", "confidence": 0.9}
+#: the JSON for a grander stay: the hotel, with no place name.
+HOTEL_UPGRADE = {"description": "A grander stay.", "affected_parts": ["hotel"], "operation": "replace", "confidence": 0.9}
 
 
 # -- C1: more stops with a stop selected go on that stop's day ---------------------------------------------------------
@@ -201,7 +205,7 @@ def test_more_stops_with_a_stop_selected_are_added_to_that_stops_day_and_nowhere
     places = DeepPlaces()
 
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", ADD_MORE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
         selected = trip.stop_on(2)
 
@@ -225,7 +229,7 @@ def test_more_stops_with_a_stop_selected_are_added_to_that_stops_day_and_nowhere
 
 def test_an_edit_keeps_the_flight_arrival_check_and_flags_a_stop_before_the_flight_lands(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", ADD_MORE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
         from datetime import datetime, time
 
@@ -251,7 +255,7 @@ def test_an_edit_keeps_the_flight_arrival_check_and_flags_a_stop_before_the_flig
 
 def test_when_nothing_verified_can_be_added_the_reply_says_so_and_names_the_day(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", ADD_MORE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
         selected = trip.stop_on(2)
 
@@ -269,7 +273,7 @@ def test_when_nothing_verified_can_be_added_the_reply_says_so_and_names_the_day(
 
 def test_more_stops_without_a_selection_are_added_and_never_read_as_a_cap(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", {**ADD_MORE, "target_day": 3})
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
 
         events = await trip.turn("add more stops to day 3")
@@ -288,8 +292,12 @@ def test_an_explicit_cap_is_still_a_cap(settings: Settings) -> None:
 
         events = await trip.turn("only two stops each day")
         stored = trip.store.get_plan(trip.session_id)
+        proposal = event_of(events, "proposal")
+        changes = (proposal or {}).get("proposal", {}).get("changes") or []
 
-        assert all(sum(1 for item in day.items if item.type.value == "attraction") <= 2 for day in stored.days), reply_of(events)
+        # Several removals wait for a tick. The plan is unchanged until one is accepted.
+        assert stored.version == trip.plan.version, reply_of(events)
+        assert changes and all(str(change["id"]).startswith("drop-") for change in changes), reply_of(events)
 
     run_trip(settings, scenario)
 
@@ -541,7 +549,7 @@ def test_a_stop_scoped_edit_says_only_that_stop_could_change(settings: Settings)
 
 def test_a_day_scoped_add_says_only_that_day_could_change(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", ADD_MORE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
         selected = trip.stop_on(2)
 
@@ -556,7 +564,7 @@ def test_a_day_scoped_add_says_only_that_day_could_change(settings: Settings) ->
 
 def test_the_modify_result_carries_the_scope_it_used(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", ADD_MORE)
         context = trip.store.get_context(trip.session_id)
         selected = trip.stop_on(2)
 
@@ -632,7 +640,7 @@ class _Upscale(SandboxHotels):
 
 def test_make_it_more_grand_upgrades_the_hotel_within_the_budget_and_keeps_every_stop(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", HOTEL_UPGRADE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
 
         events = await trip.turn("can u make it more grrand")
@@ -647,7 +655,7 @@ def test_make_it_more_grand_upgrades_the_hotel_within_the_budget_and_keeps_every
 
 def test_make_it_more_grand_with_nothing_grander_says_so_and_changes_nothing(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", HOTEL_UPGRADE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95}
         trip.plan.hotels[0].rating = 5.0
         trip.store.save_plan(trip.plan, "Best rated", replace=True)
@@ -808,7 +816,7 @@ def test_i_live_in_osaka_as_the_answer_keeps_the_kyoto_trip(settings: Settings) 
 
 def test_a_model_router_that_names_only_attractions_still_gets_the_grander_hotel(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", HOTEL_UPGRADE)
         context = trip.store.get_context(trip.session_id)
 
         updated, _ = await trip.rig.modify_path.run(
@@ -829,7 +837,7 @@ def test_a_model_router_that_names_only_attractions_still_gets_the_grander_hotel
 
 def test_a_model_routed_turn_with_only_attractions_upgrades_the_hotel(settings: Settings) -> None:
     async def scenario(trip: Trip) -> None:
-        writer(trip.llm, "modify.extract", PACE_DRAFT)
+        writer(trip.llm, "modify.extract", HOTEL_UPGRADE)
         trip.llm.route = {"intent": "modify", "confidence": 0.95, "affected_parts": ["attraction"]}
 
         events = await trip.turn("can u make it more grrand")
