@@ -56,6 +56,9 @@ references; the plan is validated, repaired at most twice, and stored as a versi
   click made while the turn is closing waits for idle instead of doing nothing.
 - Assistant replies render safe Markdown (bold, italic, code, links, bullet and
   numbered lists); user text stays literal.
+- The default page now describes the analyst (or optional Jev), evidence agents,
+  live/atlas grounding, photos and per-part models/memory; the old “System 1” and
+  “four workers” copy is gone.
 - Handoff has a **master** switch (off by default), an optional frustration threshold,
   an optional stuck counter (failed edits only — ordinary clarifications no longer
   count), and an editable **explicit-request phrase list** (default: “live agent”,

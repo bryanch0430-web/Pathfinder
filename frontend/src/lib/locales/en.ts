@@ -205,7 +205,7 @@ export const EN = {
   "chat.clear": "Clear chat",
   "chat.clearConfirm": "Clear this chat? The itinerary and saved memory are kept.",
   "chat.emptyTitle": "Where are we going?",
-  "chat.emptyBody": "Tell me the destination, dates, travellers and budget. I will gather live sources and build the itinerary.",
+  "chat.emptyBody": "Tell me the destination, dates, travellers and budget. I will choose the path, check sourced places, stays, flights and weather, and show every gap.",
 
   "common.retry": "Retry",
 
@@ -359,7 +359,7 @@ export const EN = {
   "workspace.freshness.hotels": "Hotel prices",
   "workspace.freshness.refreshed": "{section} refreshed; the earlier data was fetched {fetched}.",
   "workspace.freshness.outdated": "{section} may be outdated (fetched {fetched}) and could not be refreshed.",
-  "workspace.howAiWorked": "How the AI worked",
+  "workspace.howAiWorked": "How the AI works",
   "workspace.localTime": "Local time {time} · {zone}",
 
   "trace.summary": "{steps} steps · {calls} tool calls",
@@ -832,9 +832,9 @@ export const EN = {
 
   "help.title": "How Pathfinder works",
 
-  "settings.help1": "One message takes one path. A typed System 1 decision chooses plan, modify or ask; anything unclear is clarified instead of guessed.",
-  "settings.help2": "A new plan runs four workers in parallel — attractions, hotels, weather and tickets — under a time budget. The planner may select and order verified candidates, never invent one.",
-  "settings.help3": "An edit reruns only the workers that own the change, preserves locked and confirmed stops, and increments the version. A quick question answers from the current plan first, then at most one allowlisted tool.",
+  "settings.help1": "One message takes one path. A typed analyst decides plan, modify or ask; unclear requests are clarified instead of guessed.",
+  "settings.help2": "A new plan runs evidence agents in parallel — places, stays, weather, flights and videos — under a time budget. The planner may select and order verified candidates, never invent one.",
+  "settings.help3": "An edit becomes typed operations, preserves locked and confirmed stops, and increments the version. A quick question answers from the current plan first, then at most one allowlisted tool.",
   "settings.help4": "Every item carries a source and a freshness status. Missing data stays visibly unavailable.",
 
   "keys.lead": "Your key, the first form below, writes the plans in this account. Shared key, the second form, writes for every traveller who has not added their own. Neither form chooses the path. The Orchestrator tab does that.",
@@ -1246,30 +1246,30 @@ export const EN = {
   "plan.scrap": "Scrap this trip",
 
   "welcome.title": "Start with a trip, not a form",
-  "welcome.body": "Tell the assistant where, when, with whom and for how much. It runs four workers in parallel, keeps every fact traced to a source, and leaves a visible gap when a source is missing.",
-  "welcome.step1": "Typed route",
-  "welcome.step1Body": "plan · modify · ask · clarify",
-  "welcome.step2": "Four workers",
-  "welcome.step2Body": "attractions · hotels · weather · tickets",
-  "welcome.step3": "Grounded",
-  "welcome.step3Body": "source, freshness, no invention",
-  "welcome.step4": "Memory",
-  "welcome.step4Body": "useful trips seed the next plan",
+  "welcome.body": "Tell the analyst where, when, with whom and for how much. It chooses the path, runs the evidence agents in parallel (live providers or the offline atlas), keeps every fact tied to a source and a photo, and shows a gap where data is missing.",
+  "welcome.step1": "Analyst turn",
+  "welcome.step1Body": "plan · modify · ask · clarify · slots",
+  "welcome.step2": "Evidence agents",
+  "welcome.step2Body": "places · stays · weather · flights · videos",
+  "welcome.step3": "Grounded & live",
+  "welcome.step3Body": "source · freshness · photo · atlas fallback",
+  "welcome.step4": "Models & memory",
+  "welcome.step4Body": "per-part models · durable preferences",
 
-  "how.system1": "System 1",
-  "how.system1Body": "Chooses exactly one path and a confidence. Below 0.8 it clarifies.",
-  "how.agentsBody": "The four workers — attractions, hotels, weather and tickets — run in parallel under a time budget.",
+  "how.system1": "Analyst (LLM router)",
+  "how.system1Body": "One typed call reads the message, chooses plan/modify/ask/clarify and extracts the slots. Jev can be selected as the router; the analyst still extracts the details.",
+  "how.agentsBody": "Evidence agents run in parallel — places, stays, weather, flights and videos — live where possible and from the atlas otherwise. A named wish is looked up before planning.",
   "how.grounding": "Grounding",
-  "how.groundingBody": "The planner may only select and order candidate ids with a source.",
+  "how.groundingBody": "The planner may only select and order sourced candidate ids; code copies their prices, hours, photos and links.",
   "how.validation": "Validation",
-  "how.validationBody": "Dates, budget, route continuity and ticket conflicts are checked before return.",
+  "how.validationBody": "Dates, budget, flight boundaries, route continuity and the constraint audit are checked before the plan is saved.",
   "how.noPlan": "No plan yet. The first turn will create v1.",
 
   "help.label": "Help",
   "help.close": "Close help",
-  "help.paths": "One message takes one path. A typed System 1 decision chooses plan, modify or ask; an unclear request is clarified instead of guessed.",
-  "help.agents": "A new plan runs four workers in parallel: attractions, hotels, weather and tickets. The planner may select and order verified candidates, never invent one. Every item keeps a source and a freshness status.",
-  "help.edits": "An edit reruns only the workers that own the change, preserves locked and confirmed stops, and increments the version. A quick question answers from the current plan first, then at most one allowlisted tool.",
+  "help.paths": "One message takes one path. The analyst chooses plan, modify, ask or clarify and extracts the slots; Jev can be chosen as the router. An unclear request is clarified, not guessed.",
+  "help.agents": "A new plan runs evidence agents in parallel: places, stays, weather, flights and videos. The planner may select verified candidates, never invent one. Every item keeps a source, a freshness status and a photo.",
+  "help.edits": "An edit becomes typed operations; locked and confirmed rows stay, the version increments, and the reply names what moved. A quick question answers from the current plan first.",
   "help.languages": "English is the primary language and the plan's original. 简 and 繁 both translate the interface and the plan. 简 uses Simplified Chinese with Mainland wording. 繁 uses Traditional Chinese with Hong Kong wording. The translation is checked against the English; dates, times and prices always come from the English plan. A place shows a Chinese name only when a trusted source has one for that script, followed by the original.",
 };
 
