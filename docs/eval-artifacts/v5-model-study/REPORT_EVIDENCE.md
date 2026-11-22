@@ -135,3 +135,24 @@ report needs a reasoning arm.
 
 > All verifier arms missed the 10-minute-transfer-vs-30-minute constraint, so we keep deterministic
 > arithmetic and transfer checks alongside the LLM evaluator.
+
+## 8. If the report keeps one Sonnet 5.5 writer at 0.2
+
+This is defensible as a **uniform baseline**, not as the optimal configuration:
+
+- Sonnet is at the best measured accuracy on the analyst (98.8%), planner (14/17), editor (8/8),
+  verifier (18/20), ask (11/11) and router (98.8%) tests. It is the only tested model within the
+  best band on all five parts and the router.
+- Memory is the exception: Sonnet recall is 79.8% vs DeepSeek 91.7%, but Sonnet produced no false
+  memory on the no-fact case; DeepSeek produced one. If precision is the priority, Sonnet is
+  defensible; if recall is the priority, use DeepSeek with a write-time guard.
+- The cost of uniformity is measurable: routing 6.3 s / 4.6k tokens vs Flash 4.1 s / 2.9k;
+  planner 920 s vs 323 s; editor 5.6 s / 11.6k vs Flash 3.4 s / 3.4k; ask 20.2 s vs DeepSeek 16.1 s.
+- Temperature 0.2 is directly tested only for routing (identical to 0.0) and planning (the
+  production planner setting). The editor/verifier/ask/memory arms used 0.0. Do not claim a
+  0.2 sweep for those parts.
+
+A report sentence that survives review: “Sonnet 5.5 at 0.2 is our uniform baseline because it
+ties the best accuracy on six of seven parts and minimises integration risk; the per-part study
+shows Flash-Lite and DeepSeek V4 Flash can match it with lower latency or token cost, and those
+remain documented alternatives.”
