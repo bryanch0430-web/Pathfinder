@@ -34,6 +34,9 @@ async def effective_settings(c: Container):
         update["openai_model"] = model
         update["llm_temperature"] = writer.get("temperature", c.settings.llm_temperature)
         update["llm_max_tokens"] = writer.get("max_tokens", c.settings.llm_max_tokens)
+    mode = overrides.get("data_mode")
+    if mode in {"live", "atlas"}:
+        update["sandbox"] = mode == "atlas"
     try:
         if "router" in thresholds:
             update["router_threshold"] = max(0.0, min(1.0, float(thresholds["router"])))

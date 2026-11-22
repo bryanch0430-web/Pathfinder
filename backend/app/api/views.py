@@ -254,11 +254,13 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     redaction = {**DEFAULT_PATTERNS, **(overrides.get("redaction") or {})}
     writer = overrides.get("writer") or {}
     reviewer = overrides.get("reviewer") or {}
+    data_mode = overrides.get("data_mode") or ("atlas" if settings.sandbox else "live")
     base, _key, model = settings.writer
     return {
         "version": "5.0.0",
         "environment": settings.environment,
-        "sandbox": settings.sandbox,
+        "sandbox": data_mode == "atlas",
+        "data_mode": data_mode,
         "gate": overrides.get("gate", "plain"),
         "thresholds": thresholds,
         "freshness_hours": freshness,

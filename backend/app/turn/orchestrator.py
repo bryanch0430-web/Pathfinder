@@ -279,6 +279,12 @@ async def _produce(
     if route.intent == "modify" and plan is None:
         route = route.model_copy(update={"intent": "plan", "reason_code": "no_plan_to_edit"})
         await push("route", route.model_dump())
+    if understanding.parsed.self_harm:
+        reply = _safety_reply()
+        await _stream_text(push, reply)
+        await _save_assistant(store, session_id, reply, intent="ask", meta={"safety": "self_harm"})
+        await _finish(push, trace, session_id=session_id, intent="ask")
+        return
     policy = await store.get_kv("escalation") or {}
     handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy)
     if handoff_reason:
@@ -910,6 +916,24 @@ def _edit_reply(plan: TripPlan, summary: str, log: list[str]) -> str:
     first = summary or "I have prepared that change."
     extra = [line for line in log if line][:2]
     return "\n\n".join([first, *extra])
+
+
+def _safety_reply() -> str:
+    """A human-first answer for a message about self-harm; never a travel reply."""
+    return (
+        "I'm really sorry you're feeling this way. I'm not able to provide emergency help, "
+        "but I want you to reach a person who can, now.\n\n"
+        "In Hong Kong:\n"
+        "- Emergency: 999 (if you are in immediate danger)\n"
+        "- The Samaritan Befrienders Hong Kong: 2389 2222 — 24 hours\n"
+        "- The Samaritans: 2896 0000 — 24 hours, multilingual\n"
+        "- Suicide Prevention Services: 2382 0000 — 24 hours\n"
+        "- Hospital Authority Mental Health 24-hour Hotline: 2466 7350\n\n"
+        "Outside Hong Kong, findahelpline.com lists a free, confidential line for your country.\n\n"
+        "Please call one of them, or tell someone nearby — a friend, family member, or someone at "
+        "your university — that you are having a hard time and need them with you. "
+        "Are you safe right now?"
+    )
 
 
 def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> ClarifyPayload:

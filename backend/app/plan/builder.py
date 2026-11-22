@@ -272,7 +272,7 @@ def build_plan(
                 continue
             if evidence.kind not in {"attraction", "meal"}:
                 continue
-            items.append(_item_from_evidence(evidence, stop, position))
+            items.append(_item_from_evidence(evidence, stop, position, context.destination or ""))
         items.sort(key=lambda item: item.start or "99:99")
         _attach_transfers(items, avoid_transit=(index + 1) in (avoid_transit_days or set()))
         _settle_sequence(items)
@@ -307,9 +307,9 @@ def build_plan(
             )
 
     _ensure_unique_ids(built_days)
-    _attach_alternatives(built_days, bundle)
+    _attach_alternatives(built_days, bundle, context.destination or "")
     hotels = _hotels(context, bundle, draft)
-    hotel_options = [_hotel_from_evidence(item) for item in bundle.of_kind("hotel") if item.data_status != "unavailable"][:4]
+    hotel_options = [_hotel_from_evidence(item, context.destination or "") for item in bundle.of_kind("hotel") if item.data_status != "unavailable"][:4]
     tickets = _tickets(context, bundle, draft, start, end)
     legs = _legs(context, start, end)
     segments = [
@@ -368,7 +368,7 @@ def build_plan(
     return plan
 
 
-def _item_from_evidence(evidence: Evidence, stop: Any, position: int) -> PlanItem:
+def _item_from_evidence(evidence: Evidence, stop: Any, position: int, city: str = "") -> PlanItem:
     start, end = stop.start, stop.end
     if not start:
         start = DEFAULT_SLOTS[min(position, len(DEFAULT_SLOTS) - 1)]
@@ -390,7 +390,7 @@ def _item_from_evidence(evidence: Evidence, stop: Any, position: int) -> PlanIte
     if evidence.kind == "meal" and not item.meal_slot:
         item.meal_slot = _meal_slot_for(start)
     if item.image is None:
-        item.image = _wiki_image(evidence.name)
+        item.image = _wiki_image(evidence.name, city)
     return item
 
 
@@ -490,7 +490,7 @@ def _hotels(context: TripContext, bundle: Bundle, draft: PlanDraft) -> list[Hote
         chosen = max(pool, key=lambda item: (item.rating or 0) + (1 if item.price else 0) * 0.1)
     if chosen is None:
         return []
-    hotel = _hotel_from_evidence(chosen)
+    hotel = _hotel_from_evidence(chosen, context.destination or "")
     nights = max(1, int(context.days or 1) - 1)
     hotel.check_in = context.start_date or ""
     hotel.check_out = context.end_date or ""
@@ -500,17 +500,17 @@ def _hotels(context: TripContext, bundle: Bundle, draft: PlanDraft) -> list[Hote
     return [hotel]
 
 
-def _hotel_from_evidence(evidence: Evidence) -> HotelStay:
+def _hotel_from_evidence(evidence: Evidence, city: str = "") -> HotelStay:
     hotel = HotelStay(id=_hotel_id(evidence.name), notes=evidence.summary[:400], **evidence.to_hotel_kwargs())
     if hotel.image is None:
-        hotel.image = _wiki_image(evidence.name)
+        hotel.image = _wiki_image(evidence.name, city)
     return hotel
 
 
-def _wiki_image(name: str) -> ImageRef:
+def _wiki_image(name: str, city: str = "") -> ImageRef:
     """A place picture the browser fetches from the app's Wikipedia image endpoint."""
     return ImageRef(
-        url=f"/api/images/place?name={quote(name[:120])}",
+        url=f"/api/images/place?name={quote(name[:120])}&city={quote((city or '')[:80])}",
         attribution="Wikipedia",
         source="wikimedia",
     )
@@ -548,7 +548,7 @@ def _duration_of(evidence: Evidence) -> float | None:
     return None
 
 
-def _attach_alternatives(days: list[DayPlan], bundle: Bundle) -> None:
+def _attach_alternatives(days: list[DayPlan], bundle: Bundle, city: str = "") -> None:
     """Give every stop a few sourced alternatives, nearest first, for the UI's swap control."""
     pool = [
         item
@@ -586,7 +586,7 @@ def _attach_alternatives(days: list[DayPlan], bundle: Bundle) -> None:
                         source_types=list(evidence.source_types),
                         source_summary=evidence.summary,
                         links=list(evidence.links),
-                        image=evidence.image or _wiki_image(evidence.name),
+                        image=evidence.image or _wiki_image(evidence.name, city),
                     )
                 )
             alternatives.sort(

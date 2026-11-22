@@ -74,3 +74,11 @@ def test_preference_merge_dedupes():
     merged, added = merge_preferences(["likes museums"], ["Likes museums", "vegetarian", "  "])
     assert merged == ["likes museums", "vegetarian"]
     assert added == ["vegetarian"]
+
+
+def test_safety_reply_has_human_resources():
+    from app.turn.orchestrator import _safety_reply
+
+    text = _safety_reply()
+    assert "999" in text and "2389 2222" in text and "findahelpline.com" in text
+    assert "itinerary" not in text.lower()

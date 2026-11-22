@@ -49,7 +49,7 @@ async def save_runtime(request: Request) -> dict[str, Any]:
     c = container(request)
     body = await request.json()
     stored = await c.store.get_kv("runtime") or {}
-    for key in ("thresholds", "freshness_hours", "writer", "reviewer", "redaction", "gate", "writer_model", "models"):
+    for key in ("thresholds", "freshness_hours", "writer", "reviewer", "redaction", "gate", "writer_model", "models", "data_mode"):
         if key in body and body[key] is not None:
             stored[key] = body[key]
     if isinstance(body.get("poe"), dict):

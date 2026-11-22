@@ -89,6 +89,7 @@ class ParsedIntent(Draft):
     suggestions: list[Suggestion] = Field(default_factory=list)
     start_new_trip: bool = False
     wants_human: bool = False
+    self_harm: bool = False
     frustration: float = 0.0
     injection_suspected: bool = False
     edit_summary: str = ""

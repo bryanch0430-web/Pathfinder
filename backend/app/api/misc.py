@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import html
 import time
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 from app.api.deps import container, identity_for, is_admin
 from app.api.views import runtime_config
@@ -17,6 +18,7 @@ from app.evidence.providers import Providers
 router = APIRouter()
 
 _FX_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_PHOTO_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
 
 FALLBACK_RATES = {
     "HKD": 1.0, "USD": 0.128, "EUR": 0.118, "GBP": 0.101, "JPY": 19.4,
@@ -82,34 +84,91 @@ async def suggest(request: Request, q: str = "") -> dict[str, Any]:
 
 
 @router.get("/api/images/place")
-async def place_image(request: Request, name: str = "", q: str = "") -> RedirectResponse:
+async def place_image(request: Request, name: str = "", q: str = "", city: str = "") -> Response:
+    """Resolve a place picture from Wikipedia, with a city-aware search and a soft fallback.
+
+    Exact-title lookup fails for disambiguated names (Longshan Temple, Elephant Mountain)
+    and for small hotels; a search with the city resolves most of those, and a generated
+    neutral tile replaces the broken-image icon when nothing is found.
+    """
     title = (name or q or "").strip()
     if not title:
         raise HTTPException(status_code=404, detail="No place named.")
+    key = (title.lower(), city.lower())
+    cached = _PHOTO_CACHE.get(key)
+    if cached and time.time() - cached[0] < 86400:
+        return RedirectResponse(cached[1], status_code=302)
+    settings = container(request).settings
+    queries = [{"titles": title}]
+    search = " ".join(part for part in (title, city) if part).strip()
+    if search:
+        queries.append({"generator": "search", "gsrsearch": search, "gsrlimit": 3})
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(
-                "https://en.wikipedia.org/w/api.php",
-                params={
-                    "action": "query",
-                    "prop": "pageimages",
-                    "piprop": "thumbnail",
-                    "pithumbsize": 900,
-                    "titles": title,
-                    "format": "json",
-                    "redirects": 1,
-                },
-                headers={"User-Agent": container(request).settings.wikimedia_user_agent},
-            )
-            response.raise_for_status()
-            pages = ((response.json().get("query") or {}).get("pages")) or {}
-            for page in pages.values():
-                thumb = (page.get("thumbnail") or {}).get("source")
-                if thumb:
-                    return RedirectResponse(thumb, status_code=302)
+            for extra in queries:
+                response = await client.get(
+                    "https://en.wikipedia.org/w/api.php",
+                    params={
+                        "action": "query",
+                        "prop": "pageimages",
+                        "piprop": "thumbnail",
+                        "pithumbsize": 900,
+                        "format": "json",
+                        "redirects": 1,
+                        **extra,
+                    },
+                    headers={"User-Agent": settings.wikimedia_user_agent},
+                )
+                response.raise_for_status()
+                pages = ((response.json().get("query") or {}).get("pages")) or {}
+                ordered = sorted(pages.values(), key=lambda page: page.get("index") or 0)
+                for page in ordered:
+                    thumb = (page.get("thumbnail") or {}).get("source")
+                    if thumb:
+                        _PHOTO_CACHE[key] = (time.time(), thumb)
+                        return RedirectResponse(thumb, status_code=302)
     except (httpx.HTTPError, ValueError):
         pass
-    raise HTTPException(status_code=404, detail="No picture found.")
+    # A named business often has no Wikipedia page but does have a Places photo.
+    key = settings.google_places_api_key
+    if key:
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.post(
+                    "https://places.googleapis.com/v1/places:searchText",
+                    json={"textQuery": " ".join(part for part in (title, city) if part), "maxResultCount": 1},
+                    headers={
+                        "X-Goog-Api-Key": key,
+                        "X-Goog-FieldMask": "places.photos",
+                        "Content-Type": "application/json",
+                    },
+                )
+                response.raise_for_status()
+                places = response.json().get("places") or []
+                photos = (places[0].get("photos") if places else None) or []
+                if photos:
+                    photo_name = photos[0].get("name")
+                    if photo_name:
+                        url = (
+                            f"https://places.googleapis.com/v1/{photo_name}/media"
+                            f"?maxWidthPx=1200&key={key}"
+                        )
+                        _PHOTO_CACHE[key] = (time.time(), url)
+                        return RedirectResponse(url, status_code=302)
+        except (httpx.HTTPError, ValueError, IndexError):
+            pass
+    initials = "".join(word[0] for word in title.split()[:2]).upper() or "?"
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">'
+        '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+        '<stop offset="0" stop-color="#e8f3f5"/><stop offset="1" stop-color="#f6efe6"/></linearGradient></defs>'
+        '<rect width="900" height="560" fill="url(#g)"/>'
+        f'<text x="60" y="300" font-family="system-ui,sans-serif" font-size="120" fill="#0b5c66" opacity="0.35">{html.escape(initials)}</text>'
+        f'<text x="60" y="380" font-family="system-ui,sans-serif" font-size="30" fill="#3d4b55">{html.escape(title[:60])}</text>'
+        '<text x="60" y="430" font-family="system-ui,sans-serif" font-size="22" fill="#6b7a86">No photo found for this place yet.</text>'
+        "</svg>"
+    )
+    return Response(svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/api/handbook")

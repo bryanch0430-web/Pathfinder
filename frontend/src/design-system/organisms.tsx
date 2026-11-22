@@ -4885,6 +4885,7 @@ export function SettingsView({
   canEditPolicy = false,
   onSavePolicy,
   onResetPolicy,
+  onSaveDataMode,
   onSaveGate,
   onSaveRedaction,
   onSaveOrchestrator,
@@ -4900,6 +4901,8 @@ export function SettingsView({
     freshness_hours: Record<string, number>;
     writer: { available: boolean; model: string; base_url?: string; temperature?: number; max_tokens?: number; reasoning?: string };
     gate?: "jev" | "plain" | "reason";
+    data_mode?: "live" | "atlas";
+    sandbox?: boolean;
     poe_ready?: boolean;
     poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
     models?: { plain?: string; reason?: string };
@@ -4925,6 +4928,7 @@ export function SettingsView({
   /** Saves which model chooses the path. */
   onSaveGate?: (gate: "jev" | "plain" | "reason") => Promise<void>;
   onSaveRedaction?: (body: RedactionFlags) => Promise<void>;
+  onSaveDataMode?: (mode: "live" | "atlas") => Promise<void> | void;
   /** Saves one orchestrator model's address and key. */
   onSaveOrchestrator?: (body: {
     jev?: { model: string; url: string; api_key?: string; clear_key?: boolean };
@@ -5079,6 +5083,33 @@ export function SettingsView({
         </div>
         <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
       </div>
+      ) : null}
+      {onSaveDataMode ? (
+        <div className="pf-card pf-eval__panel">
+          <div className="pf-row pf-row--between">
+            <Text size="sm" weight="semibold">Data source</Text>
+            <div className="pf-row" style={{ gap: 6 }}>
+              <Button
+                size="sm"
+                variant={(config?.data_mode ?? "live") === "live" ? "primary" : "ghost"}
+                onClick={() => void onSaveDataMode("live")}
+              >
+                Live providers
+              </Button>
+              <Button
+                size="sm"
+                variant={(config?.data_mode ?? "live") === "atlas" ? "primary" : "ghost"}
+                onClick={() => void onSaveDataMode("atlas")}
+              >
+                Offline atlas
+              </Button>
+            </div>
+          </div>
+          <Text size="xs" tone="tertiary">
+            Live uses Google Places, Open-Meteo, SerpAPI and Wikipedia. The offline atlas is a curated
+            fallback for demos and evaluation; it is smaller but needs no provider quota.
+          </Text>
+        </div>
       ) : null}
       {admin ? admin(show) : null}
       {/* The keys do not depend on the server's configuration either. */}

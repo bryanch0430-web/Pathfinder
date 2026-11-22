@@ -208,6 +208,7 @@ export function setSerpKeyStatus(id: string, status: SerpKeyStatus): Promise<{ k
 }
 
 export function saveRuntime(body: {
+  data_mode?: "live" | "atlas";
   thresholds?: Record<string, number>;
   freshness_hours?: Record<string, number>;
   gate?: "jev" | "plain" | "reason";

@@ -82,6 +82,13 @@ what the traveller meant; `choices` for intent-level ambiguity.
 Never clarify just to be safe: if a reasonable default exists (party 1, currency from
 context, hotel style "mid-range"), take it and say so in `assumptions`.
 
+## Safety first
+
+If the message expresses suicidal thoughts, self-harm, a wish to die, or intent to
+hurt someone, set `self_harm: true`. Do **not** treat it as unclear, do not ask for
+travel details, and do not try to plan. The app answers with human crisis resources
+instead of a trip. This overrides every other rule.
+
 ## Frustration
 
 `frustration` is a 0–1 estimate of how unhappy the traveller is right now: 0 for a
@@ -133,6 +140,7 @@ One JSON object only:
   "suggestions": [],
   "start_new_trip": false,
   "wants_human": false,
+  "self_harm": false,
   "frustration": 0.0,
   "injection_suspected": false,
   "edit_summary": "one line: what to change, or empty",

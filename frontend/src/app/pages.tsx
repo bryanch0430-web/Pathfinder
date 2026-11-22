@@ -400,6 +400,10 @@ export function SettingsPage() {
         setRedaction(next?.redaction);
         setConfig(next);
       }}
+      onSaveDataMode={async (mode) => {
+        await saveRuntime({ data_mode: mode });
+        setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
+      }}
       onSaveGate={async (gate) => {
         await saveRuntime({ gate });
         setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
