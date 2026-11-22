@@ -961,12 +961,13 @@ export function saveEscalation(body: {
   enabled: boolean;
   message: string;
   frustration_at: number | null;
-  examples: string[];
-  match_mode: "examples" | "keywords";
-  use_jev: boolean;
   stuck_on: boolean;
   stuck_after: number;
-  words: string[];
+  /** v4 fields, kept optional so an old client does not break; v5 ignores them. */
+  examples?: string[];
+  match_mode?: "examples" | "keywords";
+  use_jev?: boolean;
+  words?: string[];
   api_key?: string;
   clear_key?: boolean;
   monitors?: { hand: MonitorPart; sentiment: MonitorPart; stuck: MonitorPart };

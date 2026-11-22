@@ -11,9 +11,8 @@ import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove, type Stop
 import { Icon, type IconName } from "./icons";
 import { SituationReading, WriterDiagnosis } from "./writerDiagnosis";
 import { type ModelKeysProps } from "./ModelKeys";
-import { OrchestratorSettings } from "./OrchestratorSettings";
-import { ReviewerSettings, type ReviewerBody, type ReviewerConfig } from "./ReviewerSettings";
 import { WriterSettings } from "./WriterSettings";
+import type { ReviewerBody, ReviewerConfig } from "./ReviewerSettings";
 import { SerpApiRotation } from "./SerpApiRotation";
 import {
   AgentActivity,
@@ -4973,7 +4972,7 @@ export function SettingsView({
   useEffect(() => {
     if (!config) return;
     setDraftThresholds(Object.fromEntries(Object.entries(config.thresholds).map(([key, value]) => [key, String(value)])));
-    setDraftFreshness(Object.fromEntries(Object.entries(config.freshness_hours).map(([key, value]) => [key, String(value)])));
+    setDraftFreshness(Object.fromEntries(Object.entries(config.freshness_hours ?? {}).map(([key, value]) => [key, String(value)])));
   }, [config]);
   const savePolicy = async () => {
     if (!onSavePolicy) return;
@@ -5015,12 +5014,8 @@ export function SettingsView({
   const clusters = (
     [
       ["general", ...(admin ? (["handoff", "instructions"] as const) : [])],
-      [
-        ...(config ? (["orchestrator"] as const) : []),
-        ...(modelKeys ? (["keys"] as const) : []),
-        ...(config ? (["reviewer"] as const) : []),
-      ],
-      ...(config ? [["policy", "redaction", "freshness", "system"] as const] : []),
+      ...(modelKeys ? [["keys"] as const] : []),
+      ...(config ? [["policy", "redaction", "system"] as const] : []),
     ] as SettingsGroup[][]
   ).filter((cluster) => cluster.length > 0);
   return (
@@ -5116,6 +5111,16 @@ export function SettingsView({
           </Text>
         </div>
       ) : null}
+      {show("general", "v5 runtime writer analyst jev reviewer model arms") ? (
+      <div className="pf-card pf-eval__panel">
+        <Text size="sm" weight="semibold">v5 runtime</Text>
+        <Text size="xs" tone="tertiary">
+          One writer model answers every role, and the analyst routes the conversation. Jev, the
+          reviewer and the model arms are not used in this build, so their controls are not shown.
+          Thresholds below are the three the planner reads.
+        </Text>
+      </div>
+      ) : null}
       {admin ? admin(show) : null}
       {/* The keys do not depend on the server's configuration either. */}
       {show("keys", `${t("settings.group.keys")} ${t("settings.writer.callBody")} ${t("settings.orch.clearKey")} ${t("settings.orch.temperature")}`) && modelKeys ? (
@@ -5143,41 +5148,12 @@ export function SettingsView({
       ) : null}
       {config ? (
         <>
-          {show("orchestrator", `${t("settings.orch")} ${t("settings.orchBody")} ${t("settings.orch.poeTitle")} ${t("settings.gate.jev")} ${t("settings.gate.plain")} ${t("settings.gate.reason")}`) ? (
-            <OrchestratorSettings
-              config={config}
-              providers={providers}
-              canEdit={canEditPolicy}
-              onSaveGate={onSaveGate}
-              onSaveSide={onSaveOrchestrator}
-            />
-          ) : null}
-          {show("reviewer", `${t("settings.group.reviewer")} ${t("settings.reviewer.body")} ${t("settings.reviewer.rounds")} ${t("settings.reviewer.modelHint")}`) ? (
-            <ReviewerSettings
-              reviewer={config.reviewer ?? {
-                provider: "poe",
-                model: "",
-                base_url: "",
-                temperature: 0,
-                max_tokens: 4096,
-                reasoning: "none",
-                rounds: Number(config.thresholds.rule_passes ?? 3),
-                key_set: false,
-                key_saved: false,
-                key_tail: "",
-                key_source: "none",
-              }}
-              providers={providers}
-              canEdit={canEditPolicy}
-              onSave={async (body) => { await onSaveOrchestrator?.({ reviewer: body }); }}
-            />
-          ) : null}
           {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {canEditPolicy ? (
               <div className="pf-form-grid">
-                {Object.keys(config.thresholds).filter((key) => key !== "rule_passes").map((key) => (
+                {Object.keys(config.thresholds).filter((key) => ["router", "max_repairs", "turn_deadline"].includes(key)).map((key) => (
                   <Field
                     key={key}
                     wide
@@ -5190,7 +5166,7 @@ export function SettingsView({
                 ))}
               </div>
             ) : (
-              Object.entries(config.thresholds).filter(([key]) => key !== "rule_passes").map(([key, value]) => (
+              Object.entries(config.thresholds).filter(([key]) => ["router", "max_repairs", "turn_deadline"].includes(key)).map(([key, value]) => (
                 <div className="pf-row pf-row--between" key={key}>
                   <span className="pf-small pf-muted">{t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}</span>
                   <span className="pf-mono pf-small">{String(value)}</span>
@@ -5208,41 +5184,6 @@ export function SettingsView({
                 setRedaction(body);
               }}
             />
-          ) : null}
-          {show("freshness", `${t("settings.freshness")} ${t("settings.freshnessBody")} ${t("settings.fresh.weather")} ${t("settings.fresh.tickets")} ${t("settings.fresh.hotels")} ${t("settings.fresh.attractions")}`) ? (
-          <div className="pf-card pf-eval__panel">
-            <Text size="sm" weight="semibold">{t("settings.freshness")}</Text>
-            <Text size="xs" tone="tertiary">{t("settings.freshnessBody")}</Text>
-            {canEditPolicy ? (
-              <div className="pf-form-grid">
-                {Object.keys(config.freshness_hours).map((key) => (
-                  <Field
-                    key={key}
-                    wide
-                    htmlFor={`pf-fresh-${key}`}
-                    label={t(`settings.fresh.${key}` as "settings.fresh.weather")}
-                    hint={t(`settings.freshHint.${key}` as "settings.freshHint.weather")}
-                  >
-                    <Input id={`pf-fresh-${key}`} value={draftFreshness[key] ?? ""} onChange={(event) => setDraftFreshness((current) => ({ ...current, [key]: event.target.value }))} inputMode="numeric" />
-                  </Field>
-                ))}
-              </div>
-            ) : (
-              Object.entries(config.freshness_hours).map(([key, value]) => (
-                <div className="pf-row pf-row--between" key={key}>
-                  <span className="pf-small pf-muted">{t(`settings.fresh.${key}` as "settings.fresh.weather")}</span>
-                  <span className="pf-mono pf-small">{t("settings.hours", { count: value })}</span>
-                </div>
-              ))
-            )}
-            {canEditPolicy ? (
-              <div className="pf-admin-tune__actions">
-                {policyError ? <Text size="xs" tone="tertiary">{policyError}</Text> : null}
-                <Button variant="primary" onClick={() => void savePolicy()}>{t("settings.policySave")}</Button>
-                <Button onClick={() => void onResetPolicy?.()}>{t("settings.policyReset")}</Button>
-              </div>
-            ) : null}
-          </div>
           ) : null}
           {show("system", `${t("settings.providers")} ${t("settings.injections")} ${t("settings.writer")} ${t("settings.serp.title")} ${t("settings.serp.body")}`) ? (
           <>

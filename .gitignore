@@ -21,3 +21,5 @@ frontend/tsconfig.tsbuildinfo
 !.env.example
 *.log
 data/*.txt
+
+backend/.tmp-chrome*/

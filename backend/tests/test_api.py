@@ -67,6 +67,9 @@ def test_admin_routes_need_the_token(tmp_path):
 def test_runtime_shape_for_the_settings_page(tmp_path):
     with _client(tmp_path) as client:
         config = client.get("/api/runtime").json()
-        for key in ("thresholds", "freshness_hours", "writer", "reviewer", "redaction", "providers", "maps"):
+        for key in ("thresholds", "writer", "redaction", "providers", "maps", "capabilities", "data_mode"):
             assert key in config
         assert "temperature" in config["writer"]
+        assert set(config["thresholds"]) == {"router", "max_repairs", "turn_deadline"}
+        assert config["capabilities"]["jev"] is False
+        assert "reviewer" not in config

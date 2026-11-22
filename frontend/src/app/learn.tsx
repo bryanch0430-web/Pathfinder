@@ -189,14 +189,17 @@ function findStop(plan: TripPlan, id: string) {
 
 function clockText(since: string | undefined, now: number): string {
   const start = since ? Date.parse(since) : Number.NaN;
-  const seconds = Number.isNaN(start) ? 0 : Math.max(0, Math.floor((now - start) / 1000));
-  const hh = String(Math.floor(seconds / 3600)).padStart(2, "0");
-  const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
-  return `${hh}:${mm}:${ss}`;
+  if (Number.isNaN(start)) return "";
+  const seconds = Math.max(0, Math.floor((now - start) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  return `${Math.floor(hours / 24)}d`;
 }
 
-function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) {
+function ChatClock({ since }: { since?: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -204,7 +207,6 @@ function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) 
   }, []);
   return (
     <p className="pf-desk__clock" data-role="clock">
-      <span>{sessionId}</span>
       <span>{clockText(since, now)}</span>
     </p>
   );
@@ -598,8 +600,15 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
         }
       }}
     >
-      <strong className="pf-ops__sid">{chat.session_id}</strong>
-      <span className="pf-ops__time">{clockText(chat.created_at || chat.updated_at, now)}</span>
+      <strong
+        className="pf-ops__sid"
+        title={`${chat.destination || chat.name || t("desk.untitled")}${tripWhen(chat) ? ` · ${tripWhen(chat)}` : ""}`}
+      >
+        {chat.destination || chat.name || t("desk.untitled")}
+      </strong>
+      <span className="pf-ops__time">
+        {tripWhen(chat) ? `${tripWhen(chat)} · ${clockText(chat.created_at || chat.updated_at, now)}` : clockText(chat.created_at || chat.updated_at, now)}
+      </span>
       <span className="pf-ops__marks">
         {tagText(Boolean(chat.stuck)) ? (
           <span className="pf-ops__mark" data-mark="stuck">{tagText(Boolean(chat.stuck))}</span>
@@ -730,8 +739,8 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
             <>
               <div className="pf-desk__bar">
                 <div>
-                  <Text size="sm" weight="semibold">{current.session_id}</Text>
-                  <Text size="xs" tone="tertiary">{current.destination || t("desk.untitled")}</Text>
+                  <Text size="sm" weight="semibold">{current.destination || t("desk.untitled")}</Text>
+                  <Text size="xs" tone="tertiary">{tripWhen(current) || current.session_id.slice(0, 8)}</Text>
                 </div>
                 {current.finished ? (
                   <Button
@@ -757,7 +766,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                 )}
               </div>
               <div className="pf-desk__messages" ref={threadRef}>
-                <ChatClock sessionId={current.session_id} since={current.created_at || current.updated_at} />
+                <ChatClock since={current.created_at || current.updated_at} />
                 {messages.length === 0 ? <Text tone="tertiary">{t("desk.empty")}</Text> : null}
                 {messages.map((message) => (
                   <p key={message.id} data-role={message.role} data-live={message.live_agent || undefined}>

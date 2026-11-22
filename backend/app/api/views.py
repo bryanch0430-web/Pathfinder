@@ -240,7 +240,7 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
 
 
 DEFAULT_FRESHNESS = {"weather": 6, "tickets": 24, "hotels": 24}
-DEFAULT_THRESHOLDS = {"router": 0.8, "max_repairs": 2, "turn_deadline": 180, "rule_passes": 3}
+DEFAULT_THRESHOLDS = {"router": 0.8, "max_repairs": 2, "turn_deadline": 180}
 from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
 
 DEFAULT_PATTERNS = {"hkid": HKID, "hk_phone": HK_PHONE, "email": EMAIL, "card": CARD}
@@ -254,7 +254,6 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     freshness = {**DEFAULT_FRESHNESS, **(overrides.get("freshness_hours") or {})}
     redaction = {**DEFAULT_PATTERNS, **(overrides.get("redaction") or {})}
     writer = overrides.get("writer") or {}
-    reviewer = overrides.get("reviewer") or {}
     data_mode = overrides.get("data_mode") or ("atlas" if settings.sandbox else "live")
     base, _key, model = settings.writer
     return {
@@ -262,9 +261,8 @@ async def runtime_config(c: Container) -> dict[str, Any]:
         "environment": settings.environment,
         "sandbox": data_mode == "atlas",
         "data_mode": data_mode,
-        "gate": overrides.get("gate", "plain"),
         "thresholds": thresholds,
-        "freshness_hours": freshness,
+
         "writer": {
             "model": writer.get("model") or writer_model,
             "temperature": writer.get("temperature", settings.llm_temperature),
@@ -274,36 +272,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "base_url": base,
         },
         "writer_model": writer_model,
-        "models": {"plain": model, "reason": model, "reviewer": reviewer.get("model", model)},
-        "arms": {
-            "plain": {
-                "provider": "openai-compatible",
-                "model": model,
-                "base_url": base,
-                "temperature": writer.get("temperature", settings.llm_temperature),
-                "max_tokens": writer.get("max_tokens", settings.llm_max_tokens),
-                "reasoning": writer.get("reasoning", "none"),
-            }
-        },
-        "reviewer": {
-            "provider": reviewer.get("provider", "openai-compatible"),
-            "model": reviewer.get("model", model),
-            "base_url": reviewer.get("base_url", base),
-            "temperature": reviewer.get("temperature", 0.0),
-            "max_tokens": reviewer.get("max_tokens", 1200),
-            "reasoning": settings.reviewer_reasoning,
-            "rounds": int(reviewer.get("rounds", 2)),
-            "key_set": bool(settings.writer[1]),
-        },
         "poe": {"key_set": bool(settings.poe_api_key), "key_tail": _tail(settings.poe_api_key)},
-        "orchestrator": {
-            "jev": {
-                "model": settings.decision_model,
-                "url": settings.decision_api_url,
-                "key_set": bool(settings.decision_api_key),
-                "enabled": settings.decision_enabled,
-            }
-        },
         "redaction": {
             "hkid": bool(redaction.get("hkid", True)),
             "hk_phone": bool(redaction.get("hk_phone", True)),

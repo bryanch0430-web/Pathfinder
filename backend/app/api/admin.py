@@ -158,10 +158,21 @@ async def save_escalation(request: Request) -> dict[str, Any]:
     body = await request.json()
     stored = {
         key: body[key]
-        for key in ("enabled", "message", "frustration_at", "match_mode", "use_jev", "stuck_on", "stuck_after", "words", "examples")
+        for key in ("enabled", "message", "frustration_at", "stuck_on", "stuck_after")
         if key in body
     }
-    await c.store.set_kv("escalation", stored)
+    try:
+        if "frustration_at" in stored and stored["frustration_at"] is not None:
+            value = float(stored["frustration_at"])
+            stored["frustration_at"] = max(0.0, min(1.0, value / 100.0 if value > 1 else value))
+    except (TypeError, ValueError):
+        stored.pop("frustration_at", None)
+    try:
+        if "stuck_after" in stored:
+            stored["stuck_after"] = max(2, min(8, int(stored["stuck_after"])))
+    except (TypeError, ValueError):
+        stored.pop("stuck_after", None)
+    await c.store.set_kv("escalation", {**ESCALATION_DEFAULT, **stored})
     policy = {**ESCALATION_DEFAULT, **stored}
     policy["parts"] = _monitor_parts(policy)
     return policy
