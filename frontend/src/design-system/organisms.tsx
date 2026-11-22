@@ -28,6 +28,7 @@ import {
   failureReason,
   GapList,
   IntakeNotice,
+  MarkdownText,
   MetricCard,
   MiniStat,
   Field,
@@ -1219,7 +1220,11 @@ export function ChatPanel({
                   </>
                 }
               >
-                {message.role === "user" && !fromOperator ? maskTyped(message.content) : message.content}
+                {message.role === "user" && !fromOperator ? (
+                  maskTyped(message.content)
+                ) : (
+                  <MarkdownText text={message.content} />
+                )}
               </ChatBubble>
               {message.role !== "user" && !fromAgent ? (
                 <WhyThisDecision

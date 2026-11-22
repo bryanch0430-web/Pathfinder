@@ -174,6 +174,119 @@ export function SearchField({
   );
 }
 
+const INLINE_MD = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\))/g;
+
+function inlineMd(text: string, key: string): ReactNode[] {
+  return text
+    .split(INLINE_MD)
+    .filter((part) => part !== "")
+    .map((part, index) => {
+      const token = `${key}-${index}`;
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        return <strong key={token}>{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        return <code key={token}>{part.slice(1, -1)}</code>;
+      }
+      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+        return <em key={token}>{part.slice(1, -1)}</em>;
+      }
+      const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (link) {
+        const href = safeHref(link[2]);
+        return href ? (
+          <a key={token} href={href} target="_blank" rel="noreferrer noopener">
+            {link[1]}
+          </a>
+        ) : (
+          part
+        );
+      }
+      return part;
+    });
+}
+
+type MdBlock = { kind: "p" | "ul" | "ol"; items: string[] };
+
+/**
+ * Small, safe Markdown for assistant replies: bold/italic/code, links, and bullet or
+ * numbered lists. It builds React nodes and never injects HTML, so model text cannot
+ * become markup.
+ */
+export function MarkdownText({ text }: { text: string }) {
+  const blocks: MdBlock[] = [];
+  let current: MdBlock | null = null;
+  const flush = () => {
+    if (current) {
+      blocks.push(current);
+      current = null;
+    }
+  };
+  for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      flush();
+      continue;
+    }
+    const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
+    if (bullet) {
+      if (!current || current.kind !== "ul") {
+        flush();
+        current = { kind: "ul", items: [] };
+      }
+      current.items.push(bullet[1]);
+      continue;
+    }
+    const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (ordered) {
+      if (!current || current.kind !== "ol") {
+        flush();
+        current = { kind: "ol", items: [] };
+      }
+      current.items.push(ordered[1]);
+      continue;
+    }
+    const heading = line.match(/^\s*#{1,4}\s+(.*)$/);
+    if (heading) {
+      flush();
+      blocks.push({ kind: "p", items: [`**${heading[1]}**`] });
+      continue;
+    }
+    if (!current || current.kind !== "p") {
+      flush();
+      current = { kind: "p", items: [] };
+    }
+    current.items.push(line);
+  }
+  flush();
+  return (
+    <div className="pf-md">
+      {blocks.map((block, blockIndex) => {
+        if (block.kind === "p") {
+          return (
+            <p key={blockIndex}>
+              {block.items.map((line, lineIndex) => (
+                <Fragment key={lineIndex}>
+                  {lineIndex ? <br /> : null}
+                  {inlineMd(line, `${blockIndex}-${lineIndex}`)}
+                </Fragment>
+              ))}
+            </p>
+          );
+        }
+        const List = block.kind === "ul" ? "ul" : "ol";
+        return (
+          <List key={blockIndex}>
+            {block.items.map((item, itemIndex) => (
+              <li key={itemIndex}>{inlineMd(item, `${blockIndex}-${itemIndex}`)}</li>
+            ))}
+          </List>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ChatBubble({
   role,
   children,
