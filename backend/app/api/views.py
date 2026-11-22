@@ -46,6 +46,10 @@ async def session_view(c: Container, session_id: str, session: dict[str, Any]) -
 async def load_context(c: Container, session_id: str) -> TripContext:
     row = await c.store.load_context(session_id)
     if row:
+        row = dict(row)
+        for key in ("session_id", "destination", "origin", "hotel_style"):
+            if row.get(key) is None:
+                row[key] = ""
         return TripContext(**row)
     return TripContext(session_id=session_id, currency=c.settings.default_currency)
 

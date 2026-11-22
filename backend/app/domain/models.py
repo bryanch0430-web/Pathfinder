@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DataStatus = Literal["ok", "stale", "unavailable"]
 ItemType = Literal["attraction", "hotel", "meal", "transit", "ticket"]
@@ -419,6 +419,28 @@ class TravellerProfile(Wire):
 
 
 class TripContext(Wire):
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_nulls(cls, data: Any) -> Any:
+        """A context written by an older build can hold null strings; never 500 on load."""
+        if not isinstance(data, dict):
+            return data
+        for key in ("session_id", "destination", "origin", "hotel_style"):
+            if key in data and data[key] is None:
+                data[key] = ""
+        if data.get("currency") is None:
+            data["currency"] = "HKD"
+        if data.get("pace") is None:
+            data["pace"] = "balanced"
+        if data.get("language") is None:
+            data["language"] = "en"
+        if data.get("plan_locale") is None:
+            data["plan_locale"] = "en"
+        for key in ("preferences", "hard_constraints", "stops"):
+            if key in data and data[key] is None:
+                data[key] = []
+        return data
+
     session_id: str
     destination: str = ""
     origin: str = ""
