@@ -1,0 +1,566 @@
+{
+  "protocol": {
+    "seed": "pathfinder-one-test-2026-11-20",
+    "freeze": "Operator started the run. Blank accept cells were frozen as the set.",
+    "arena": "https://huggingface.co/spaces/lmarena-ai/chatbot-arena is not a score on these items. Elo was not copied. Every priced model stays in the grid.",
+    "baseline": {
+      "model": "claude-sonnet-5.5",
+      "temperature": 0.0,
+      "reasoning": "omitted"
+    },
+    "delta": 0.05,
+    "temperatures": [
+      0.0,
+      0.2,
+      0.7
+    ],
+    "low_reasoning_models": [
+      "gemini-3.8-flash",
+      "gpt-5-mini"
+    ],
+    "selection_items": 119,
+    "confirmation_items": 111,
+    "selection_calls": 3213
+  },
+  "selection": {
+    "Edit": {
+      "summary": {
+        "gpt-5-nano|0.0|omitted": {
+          "n": 63,
+          "passes": 35,
+          "errors": 0,
+          "accuracy": 0.5555555555555556,
+          "usd_mean": 8.891587301587302e-05,
+          "latency_p50_ms": 4011.0,
+          "excluded": false
+        },
+        "gpt-5-nano|0.2|omitted": {
+          "n": 63,
+          "passes": 37,
+          "errors": 0,
+          "accuracy": 0.5873015873015873,
+          "usd_mean": 8.92142857142857e-05,
+          "latency_p50_ms": 3909.0,
+          "excluded": false
+        },
+        "gpt-5-nano|0.7|omitted": {
+          "n": 63,
+          "passes": 31,
+          "errors": 0,
+          "accuracy": 0.49206349206349204,
+          "usd_mean": 8.811587301587302e-05,
+          "latency_p50_ms": 3906.0,
+          "excluded": false
+        },
+        "gpt-4o-mini|0.0|omitted": {
+          "n": 63,
+          "passes": 46,
+          "errors": 0,
+          "accuracy": 0.7301587301587301,
+          "usd_mean": 0.00019501190476190475,
+          "latency_p50_ms": 4094.0,
+          "excluded": false
+        },
+        "gpt-4o-mini|0.2|omitted": {
+          "n": 63,
+          "passes": 42,
+          "errors": 0,
+          "accuracy": 0.6666666666666666,
+          "usd_mean": 0.00019496428571428573,
+          "latency_p50_ms": 4100.0,
+          "excluded": false
+        },
+        "gpt-4o-mini|0.7|omitted": {
+          "n": 63,
+          "passes": 42,
+          "errors": 0,
+          "accuracy": 0.6666666666666666,
+          "usd_mean": 0.00019491666666666667,
+          "latency_p50_ms": 4123.0,
+          "excluded": false
+        },
+        "deepseek-v4-flash|0.0|omitted": {
+          "n": 63,
+          "passes": 49,
+          "errors": 0,
+          "accuracy": 0.7777777777777778,
+          "usd_mean": 0.0005200155555555556,
+          "latency_p50_ms": 8273.0,
+          "excluded": false
+        },
+        "deepseek-v4-flash|0.2|omitted": {
+          "n": 63,
+          "passes": 52,
+          "errors": 0,
+          "accuracy": 0.8253968253968254,
+          "usd_mean": 0.00047514,
+          "latency_p50_ms": 7858.0,
+          "excluded": false
+        },
+        "deepseek-v4-flash|0.7|omitted": {
+          "n": 63,
+          "passes": 50,
+          "errors": 0,
+          "accuracy": 0.7936507936507936,
+          "usd_mean": 0.0004711333333333333,
+          "latency_p50_ms": 8397.0,
+          "excluded": false
+        },
+        "gemini-3.5-flash-lite|0.0|omitted": {
+          "n": 63,
+          "passes": 45,
+          "errors": 0,
+          "accuracy": 0.7142857142857143,
+          "usd_mean": 0.0006091222222222222,
+          "latency_p50_ms": 3458.0,
+          "excluded": false
+        },
+        "gemini-3.5-flash-lite|0.2|omitted": {
+          "n": 63,
+          "passes": 50,
+          "errors": 0,
+          "accuracy": 0.7936507936507936,
+          "usd_mean": 0.0006150746031746031,
+          "latency_p50_ms": 3399.0,
+          "excluded": false
+        },
+        "gemini-3.5-flash-lite|0.7|omitted": {
+          "n": 63,
+          "passes": 48,
+          "errors": 0,
+          "accuracy": 0.7619047619047619,
+          "usd_mean": 0.0006201936507936509,
+          "latency_p50_ms": 3389.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.0|omitted": {
+          "n": 63,
+          "passes": 56,
+          "errors": 4,
+          "accuracy": 0.8888888888888888,
+          "usd_mean": 0.008564095238095237,
+          "latency_p50_ms": 9941.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.0|low": {
+          "n": 63,
+          "passes": 0,
+          "errors": 63,
+          "accuracy": 0.0,
+          "usd_mean": 0.0,
+          "latency_p50_ms": 321.0,
+          "excluded": true
+        },
+        "gemini-3.8-flash|0.2|omitted": {
+          "n": 63,
+          "passes": 53,
+          "errors": 5,
+          "accuracy": 0.8412698412698413,
+          "usd_mean": 0.008630107142857142,
+          "latency_p50_ms": 10870.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.2|low": {
+          "n": 63,
+          "passes": 0,
+          "errors": 63,
+          "accuracy": 0.0,
+          "usd_mean": 0.0,
+          "latency_p50_ms": 339.0,
+          "excluded": true
+        },
+        "gemini-3.8-flash|0.7|omitted": {
+          "n": 63,
+          "passes": 52,
+          "errors": 8,
+          "accuracy": 0.8253968253968254,
+          "usd_mean": 0.008878500000000001,
+          "latency_p50_ms": 10972.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.7|low": {
+          "n": 63,
+          "passes": 0,
+          "errors": 63,
+          "accuracy": 0.0,
+          "usd_mean": 0.0,
+          "latency_p50_ms": 338.0,
+          "excluded": true
+        },
+        "gpt-5-mini|0.0|omitted": {
+          "n": 63,
+          "passes": 45,
+          "errors": 1,
+          "accuracy": 0.7142857142857143,
+          "usd_mean": 0.00046197619047619044,
+          "latency_p50_ms": 4696.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.0|low": {
+          "n": 63,
+          "passes": 48,
+          "errors": 0,
+          "accuracy": 0.7619047619047619,
+          "usd_mean": 0.0009589285714285714,
+          "latency_p50_ms": 8039.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.2|omitted": {
+          "n": 63,
+          "passes": 47,
+          "errors": 0,
+          "accuracy": 0.746031746031746,
+          "usd_mean": 0.00045623015873015875,
+          "latency_p50_ms": 4370.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.2|low": {
+          "n": 63,
+          "passes": 48,
+          "errors": 0,
+          "accuracy": 0.7619047619047619,
+          "usd_mean": 0.000946484126984127,
+          "latency_p50_ms": 7271.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.7|omitted": {
+          "n": 63,
+          "passes": 47,
+          "errors": 1,
+          "accuracy": 0.746031746031746,
+          "usd_mean": 0.0004599761904761905,
+          "latency_p50_ms": 4448.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.7|low": {
+          "n": 63,
+          "passes": 49,
+          "errors": 0,
+          "accuracy": 0.7777777777777778,
+          "usd_mean": 0.0009537222222222222,
+          "latency_p50_ms": 7288.0,
+          "excluded": false
+        },
+        "claude-sonnet-5.5|0.0|omitted": {
+          "n": 63,
+          "passes": 58,
+          "errors": 0,
+          "accuracy": 0.9206349206349206,
+          "usd_mean": 0.006230984126984127,
+          "latency_p50_ms": 3975.0,
+          "excluded": false
+        },
+        "claude-sonnet-5.5|0.2|omitted": {
+          "n": 63,
+          "passes": 58,
+          "errors": 0,
+          "accuracy": 0.9206349206349206,
+          "usd_mean": 0.006383523809523809,
+          "latency_p50_ms": 4125.0,
+          "excluded": false
+        },
+        "claude-sonnet-5.5|0.7|omitted": {
+          "n": 63,
+          "passes": 58,
+          "errors": 0,
+          "accuracy": 0.9206349206349206,
+          "usd_mean": 0.0062176507936507934,
+          "latency_p50_ms": 3985.0,
+          "excluded": false
+        }
+      },
+      "choice": {
+        "best_accuracy": 0.9206349206349206,
+        "delta": 0.05,
+        "eligible": [
+          "claude-sonnet-5.5|0.7|omitted",
+          "claude-sonnet-5.5|0.0|omitted",
+          "claude-sonnet-5.5|0.2|omitted",
+          "gemini-3.8-flash|0.0|omitted"
+        ],
+        "chosen": "claude-sonnet-5.5|0.7|omitted"
+      }
+    },
+    "Planner": {
+      "summary": {
+        "gpt-5-nano|0.0|omitted": {
+          "n": 56,
+          "passes": 46,
+          "errors": 3,
+          "accuracy": 0.8214285714285714,
+          "usd_mean": 0.00010906964285714287,
+          "latency_p50_ms": 5392.5,
+          "excluded": false
+        },
+        "gpt-5-nano|0.2|omitted": {
+          "n": 56,
+          "passes": 48,
+          "errors": 2,
+          "accuracy": 0.8571428571428571,
+          "usd_mean": 0.00011024821428571429,
+          "latency_p50_ms": 5520.0,
+          "excluded": false
+        },
+        "gpt-5-nano|0.7|omitted": {
+          "n": 56,
+          "passes": 47,
+          "errors": 2,
+          "accuracy": 0.8392857142857143,
+          "usd_mean": 0.00011209821428571429,
+          "latency_p50_ms": 5463.0,
+          "excluded": false
+        },
+        "gpt-4o-mini|0.0|omitted": {
+          "n": 56,
+          "passes": 47,
+          "errors": 0,
+          "accuracy": 0.8392857142857143,
+          "usd_mean": 0.00016769464285714287,
+          "latency_p50_ms": 4966.5,
+          "excluded": false
+        },
+        "gpt-4o-mini|0.2|omitted": {
+          "n": 56,
+          "passes": 47,
+          "errors": 0,
+          "accuracy": 0.8392857142857143,
+          "usd_mean": 0.0001687982142857143,
+          "latency_p50_ms": 5044.0,
+          "excluded": false
+        },
+        "gpt-4o-mini|0.7|omitted": {
+          "n": 56,
+          "passes": 45,
+          "errors": 0,
+          "accuracy": 0.8035714285714286,
+          "usd_mean": 0.00016746964285714285,
+          "latency_p50_ms": 4845.5,
+          "excluded": false
+        },
+        "deepseek-v4-flash|0.0|omitted": {
+          "n": 56,
+          "passes": 44,
+          "errors": 0,
+          "accuracy": 0.7857142857142857,
+          "usd_mean": 0.0002860925,
+          "latency_p50_ms": 6699.0,
+          "excluded": false
+        },
+        "deepseek-v4-flash|0.2|omitted": {
+          "n": 56,
+          "passes": 47,
+          "errors": 0,
+          "accuracy": 0.8392857142857143,
+          "usd_mean": 0.000253895,
+          "latency_p50_ms": 6910.5,
+          "excluded": false
+        },
+        "deepseek-v4-flash|0.7|omitted": {
+          "n": 56,
+          "passes": 44,
+          "errors": 0,
+          "accuracy": 0.7857142857142857,
+          "usd_mean": 0.0002968525,
+          "latency_p50_ms": 8012.5,
+          "excluded": false
+        },
+        "gemini-3.5-flash-lite|0.0|omitted": {
+          "n": 56,
+          "passes": 50,
+          "errors": 1,
+          "accuracy": 0.8928571428571429,
+          "usd_mean": 0.0007142642857142857,
+          "latency_p50_ms": 4413.0,
+          "excluded": false
+        },
+        "gemini-3.5-flash-lite|0.2|omitted": {
+          "n": 56,
+          "passes": 53,
+          "errors": 0,
+          "accuracy": 0.9464285714285714,
+          "usd_mean": 0.0007096660714285715,
+          "latency_p50_ms": 4439.0,
+          "excluded": false
+        },
+        "gemini-3.5-flash-lite|0.7|omitted": {
+          "n": 56,
+          "passes": 51,
+          "errors": 0,
+          "accuracy": 0.9107142857142857,
+          "usd_mean": 0.0007177464285714286,
+          "latency_p50_ms": 4330.5,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.0|omitted": {
+          "n": 56,
+          "passes": 52,
+          "errors": 0,
+          "accuracy": 0.9285714285714286,
+          "usd_mean": 0.004013049107142857,
+          "latency_p50_ms": 9353.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.0|low": {
+          "n": 56,
+          "passes": 0,
+          "errors": 56,
+          "accuracy": 0.0,
+          "usd_mean": 0.0,
+          "latency_p50_ms": 319.0,
+          "excluded": true
+        },
+        "gemini-3.8-flash|0.2|omitted": {
+          "n": 56,
+          "passes": 51,
+          "errors": 0,
+          "accuracy": 0.9107142857142857,
+          "usd_mean": 0.003723696428571428,
+          "latency_p50_ms": 9116.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.2|low": {
+          "n": 56,
+          "passes": 0,
+          "errors": 56,
+          "accuracy": 0.0,
+          "usd_mean": 0.0,
+          "latency_p50_ms": 332.0,
+          "excluded": true
+        },
+        "gemini-3.8-flash|0.7|omitted": {
+          "n": 56,
+          "passes": 51,
+          "errors": 0,
+          "accuracy": 0.9107142857142857,
+          "usd_mean": 0.003917625,
+          "latency_p50_ms": 8770.0,
+          "excluded": false
+        },
+        "gemini-3.8-flash|0.7|low": {
+          "n": 56,
+          "passes": 0,
+          "errors": 56,
+          "accuracy": 0.0,
+          "usd_mean": 0.0,
+          "latency_p50_ms": 330.5,
+          "excluded": true
+        },
+        "gpt-5-mini|0.0|omitted": {
+          "n": 56,
+          "passes": 43,
+          "errors": 0,
+          "accuracy": 0.7678571428571429,
+          "usd_mean": 0.0007059196428571428,
+          "latency_p50_ms": 6819.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.0|low": {
+          "n": 56,
+          "passes": 53,
+          "errors": 0,
+          "accuracy": 0.9464285714285714,
+          "usd_mean": 0.0010443124999999999,
+          "latency_p50_ms": 8946.5,
+          "excluded": false
+        },
+        "gpt-5-mini|0.2|omitted": {
+          "n": 56,
+          "passes": 49,
+          "errors": 0,
+          "accuracy": 0.875,
+          "usd_mean": 0.0007111696428571428,
+          "latency_p50_ms": 6747.0,
+          "excluded": false
+        },
+        "gpt-5-mini|0.2|low": {
+          "n": 56,
+          "passes": 52,
+          "errors": 0,
+          "accuracy": 0.9285714285714286,
+          "usd_mean": 0.0010461696428571427,
+          "latency_p50_ms": 8648.5,
+          "excluded": false
+        },
+        "gpt-5-mini|0.7|omitted": {
+          "n": 56,
+          "passes": 43,
+          "errors": 0,
+          "accuracy": 0.7678571428571429,
+          "usd_mean": 0.0007049553571428571,
+          "latency_p50_ms": 6205.5,
+          "excluded": false
+        },
+        "gpt-5-mini|0.7|low": {
+          "n": 56,
+          "passes": 54,
+          "errors": 0,
+          "accuracy": 0.9642857142857143,
+          "usd_mean": 0.0010648482142857141,
+          "latency_p50_ms": 8152.5,
+          "excluded": false
+        },
+        "claude-sonnet-5.5|0.0|omitted": {
+          "n": 56,
+          "passes": 50,
+          "errors": 0,
+          "accuracy": 0.8928571428571429,
+          "usd_mean": 0.007399357142857143,
+          "latency_p50_ms": 6571.5,
+          "excluded": false
+        },
+        "claude-sonnet-5.5|0.2|omitted": {
+          "n": 56,
+          "passes": 51,
+          "errors": 0,
+          "accuracy": 0.9107142857142857,
+          "usd_mean": 0.0074334642857142854,
+          "latency_p50_ms": 6594.5,
+          "excluded": false
+        },
+        "claude-sonnet-5.5|0.7|omitted": {
+          "n": 56,
+          "passes": 51,
+          "errors": 0,
+          "accuracy": 0.9107142857142857,
+          "usd_mean": 0.007487035714285714,
+          "latency_p50_ms": 6906.5,
+          "excluded": false
+        }
+      },
+      "choice": {
+        "best_accuracy": 0.9642857142857143,
+        "delta": 0.05,
+        "eligible": [
+          "gemini-3.5-flash-lite|0.2|omitted",
+          "gpt-5-mini|0.0|low",
+          "gpt-5-mini|0.2|low",
+          "gpt-5-mini|0.7|low",
+          "gemini-3.8-flash|0.0|omitted"
+        ],
+        "chosen": "gemini-3.5-flash-lite|0.2|omitted"
+      }
+    }
+  },
+  "confirmation": {
+    "Planner": {
+      "baseline": "claude-sonnet-5.5|0.0|omitted",
+      "chosen": "gemini-3.5-flash-lite|0.2|omitted",
+      "items": 54,
+      "baseline_only_correct": 1,
+      "chosen_only_correct": 2,
+      "mcnemar_p": 1.0,
+      "baseline_passes": 52,
+      "chosen_passes": 53
+    },
+    "Edit": {
+      "baseline": "claude-sonnet-5.5|0.0|omitted",
+      "chosen": "claude-sonnet-5.5|0.7|omitted",
+      "items": 57,
+      "baseline_only_correct": 0,
+      "chosen_only_correct": 0,
+      "mcnemar_p": 1.0,
+      "baseline_passes": 55,
+      "chosen_passes": 55
+    }
+  }
+}

@@ -1,0 +1,4245 @@
+{
+  "protocol": {
+    "source": "https://github.com/0xmdinc/jev-medical-bench",
+    "dataset": "routing",
+    "dataset_hash": "6c071da04131b2888bb12bd8323e51ae5499cfc6e07422e7ee9a1e82333fb404",
+    "n": 84,
+    "runs": 1,
+    "concurrency": 4,
+    "thresholds": [
+      0.6,
+      0.8,
+      0.9
+    ],
+    "product_threshold": 0.8,
+    "plan_present": true,
+    "rules_first_in_head_to_head": false
+  },
+  "models": {
+    "jev": "jev-latest",
+    "plain": "gemini-3.5-flash-lite",
+    "reason": "gemini-3.8-flash",
+    "plain_temperature": 0.0,
+    "reason_temperature": 0.2,
+    "plain_reasoning": "none",
+    "reason_reasoning": "low",
+    "active_gate": "jev"
+  },
+  "summary": {
+    "jev": {
+      "n": 84,
+      "correct": 78,
+      "accuracy": 0.9286,
+      "wilson95": [
+        0.8528,
+        0.9669
+      ],
+      "answered": 84,
+      "errors": 0,
+      "by_intent": {
+        "plan": {
+          "n": 21,
+          "correct": 21
+        },
+        "modify": {
+          "n": 21,
+          "correct": 21
+        },
+        "ask": {
+          "n": 21,
+          "correct": 19
+        },
+        "unclear": {
+          "n": 21,
+          "correct": 17
+        }
+      },
+      "latency_p50_ms": 636.0,
+      "latency_p95_ms": 992.8,
+      "prompt_tokens_mean": 587.4,
+      "completion_tokens_mean": 64.2,
+      "auroc": 0.766,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 0.9524,
+          "accuracy_on_kept": 0.9375,
+          "kept": 80,
+          "escalated": 4
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.75,
+          "accuracy_on_kept": 0.9683,
+          "kept": 63,
+          "escalated": 21
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.631,
+          "accuracy_on_kept": 0.9623,
+          "kept": 53,
+          "escalated": 31
+        }
+      ],
+      "confident_expensive_errors": 2,
+      "confusions": [
+        [
+          "unclear→plan",
+          4
+        ],
+        [
+          "ask→unclear",
+          2
+        ]
+      ]
+    },
+    "plain": {
+      "n": 84,
+      "correct": 78,
+      "accuracy": 0.9286,
+      "wilson95": [
+        0.8528,
+        0.9669
+      ],
+      "answered": 84,
+      "errors": 0,
+      "by_intent": {
+        "plan": {
+          "n": 21,
+          "correct": 18
+        },
+        "modify": {
+          "n": 21,
+          "correct": 21
+        },
+        "ask": {
+          "n": 21,
+          "correct": 21
+        },
+        "unclear": {
+          "n": 21,
+          "correct": 18
+        }
+      },
+      "latency_p50_ms": 5023.5,
+      "latency_p95_ms": 5841.3,
+      "prompt_tokens_mean": 688.8,
+      "completion_tokens_mean": 89.0,
+      "auroc": 0.46,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 1.0,
+          "accuracy_on_kept": 0.9286,
+          "kept": 84,
+          "escalated": 0
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 1.0,
+          "accuracy_on_kept": 0.9286,
+          "kept": 84,
+          "escalated": 0
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.9762,
+          "accuracy_on_kept": 0.9268,
+          "kept": 82,
+          "escalated": 2
+        }
+      ],
+      "confident_expensive_errors": 0,
+      "confusions": [
+        [
+          "unclear→ask",
+          3
+        ],
+        [
+          "plan→modify",
+          2
+        ],
+        [
+          "plan→unclear",
+          1
+        ]
+      ]
+    },
+    "reason": {
+      "n": 84,
+      "correct": 40,
+      "accuracy": 0.4762,
+      "wilson95": [
+        0.3728,
+        0.5817
+      ],
+      "answered": 54,
+      "errors": 30,
+      "by_intent": {
+        "plan": {
+          "n": 21,
+          "correct": 6
+        },
+        "modify": {
+          "n": 21,
+          "correct": 0
+        },
+        "ask": {
+          "n": 21,
+          "correct": 19
+        },
+        "unclear": {
+          "n": 21,
+          "correct": 15
+        }
+      },
+      "latency_p50_ms": 8924.0,
+      "latency_p95_ms": 34245.3,
+      "prompt_tokens_mean": 592.4,
+      "completion_tokens_mean": 629.7,
+      "auroc": 0.736,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 0.5833,
+          "accuracy_on_kept": 0.7143,
+          "kept": 49,
+          "escalated": 35
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.5595,
+          "accuracy_on_kept": 0.7234,
+          "kept": 47,
+          "escalated": 37
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.5595,
+          "accuracy_on_kept": 0.7234,
+          "kept": 47,
+          "escalated": 37
+        }
+      ],
+      "confident_expensive_errors": 8,
+      "confusions": [
+        [
+          "plan→none",
+          13
+        ],
+        [
+          "modify→none",
+          13
+        ],
+        [
+          "modify→plan",
+          5
+        ],
+        [
+          "unclear→plan",
+          3
+        ],
+        [
+          "modify→unclear",
+          3
+        ],
+        [
+          "ask→none",
+          2
+        ],
+        [
+          "plan→unclear",
+          2
+        ],
+        [
+          "unclear→none",
+          2
+        ]
+      ]
+    }
+  },
+  "heldout": {
+    "jev": {
+      "n": 25,
+      "correct": 24,
+      "accuracy": 0.96,
+      "wilson95": [
+        0.8046,
+        0.9929
+      ],
+      "answered": 25,
+      "errors": 0,
+      "by_intent": {
+        "plan": {
+          "n": 6,
+          "correct": 6
+        },
+        "modify": {
+          "n": 6,
+          "correct": 6
+        },
+        "ask": {
+          "n": 7,
+          "correct": 6
+        },
+        "unclear": {
+          "n": 6,
+          "correct": 6
+        }
+      },
+      "latency_p50_ms": 628,
+      "latency_p95_ms": 923.0,
+      "prompt_tokens_mean": 586.8,
+      "completion_tokens_mean": 64.3,
+      "auroc": 0.958,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 0.96,
+          "accuracy_on_kept": 0.9583,
+          "kept": 24,
+          "escalated": 1
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.76,
+          "accuracy_on_kept": 1.0,
+          "kept": 19,
+          "escalated": 6
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.64,
+          "accuracy_on_kept": 1.0,
+          "kept": 16,
+          "escalated": 9
+        }
+      ],
+      "confident_expensive_errors": 0,
+      "confusions": [
+        [
+          "ask→unclear",
+          1
+        ]
+      ]
+    },
+    "plain": {
+      "n": 25,
+      "correct": 23,
+      "accuracy": 0.92,
+      "wilson95": [
+        0.7503,
+        0.9778
+      ],
+      "answered": 25,
+      "errors": 0,
+      "by_intent": {
+        "plan": {
+          "n": 6,
+          "correct": 5
+        },
+        "modify": {
+          "n": 6,
+          "correct": 6
+        },
+        "ask": {
+          "n": 7,
+          "correct": 7
+        },
+        "unclear": {
+          "n": 6,
+          "correct": 5
+        }
+      },
+      "latency_p50_ms": 5034,
+      "latency_p95_ms": 5660.2,
+      "prompt_tokens_mean": 688.0,
+      "completion_tokens_mean": 89.2,
+      "auroc": 0.565,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 1.0,
+          "accuracy_on_kept": 0.92,
+          "kept": 25,
+          "escalated": 0
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 1.0,
+          "accuracy_on_kept": 0.92,
+          "kept": 25,
+          "escalated": 0
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.96,
+          "accuracy_on_kept": 0.9167,
+          "kept": 24,
+          "escalated": 1
+        }
+      ],
+      "confident_expensive_errors": 0,
+      "confusions": [
+        [
+          "plan→unclear",
+          1
+        ],
+        [
+          "unclear→ask",
+          1
+        ]
+      ]
+    },
+    "reason": {
+      "n": 25,
+      "correct": 14,
+      "accuracy": 0.56,
+      "wilson95": [
+        0.3707,
+        0.7333
+      ],
+      "answered": 16,
+      "errors": 9,
+      "by_intent": {
+        "plan": {
+          "n": 6,
+          "correct": 2
+        },
+        "modify": {
+          "n": 6,
+          "correct": 0
+        },
+        "ask": {
+          "n": 7,
+          "correct": 7
+        },
+        "unclear": {
+          "n": 6,
+          "correct": 5
+        }
+      },
+      "latency_p50_ms": 8724.0,
+      "latency_p95_ms": 25501.5,
+      "prompt_tokens_mean": 580.0,
+      "completion_tokens_mean": 607.7,
+      "auroc": 0.786,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 0.52,
+          "accuracy_on_kept": 0.8462,
+          "kept": 13,
+          "escalated": 12
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.52,
+          "accuracy_on_kept": 0.8462,
+          "kept": 13,
+          "escalated": 12
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.52,
+          "accuracy_on_kept": 0.8462,
+          "kept": 13,
+          "escalated": 12
+        }
+      ],
+      "confident_expensive_errors": 1,
+      "confusions": [
+        [
+          "modify→none",
+          5
+        ],
+        [
+          "plan→none",
+          3
+        ],
+        [
+          "plan→unclear",
+          1
+        ],
+        [
+          "modify→plan",
+          1
+        ],
+        [
+          "unclear→none",
+          1
+        ]
+      ]
+    }
+  },
+  "dev": {
+    "jev": {
+      "n": 59,
+      "correct": 54,
+      "accuracy": 0.9153,
+      "wilson95": [
+        0.8165,
+        0.9633
+      ],
+      "answered": 59,
+      "errors": 0,
+      "by_intent": {
+        "plan": {
+          "n": 15,
+          "correct": 15
+        },
+        "modify": {
+          "n": 15,
+          "correct": 15
+        },
+        "ask": {
+          "n": 14,
+          "correct": 13
+        },
+        "unclear": {
+          "n": 15,
+          "correct": 11
+        }
+      },
+      "latency_p50_ms": 640,
+      "latency_p95_ms": 1001.6,
+      "prompt_tokens_mean": 587.7,
+      "completion_tokens_mean": 64.2,
+      "auroc": 0.726,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 0.9492,
+          "accuracy_on_kept": 0.9286,
+          "kept": 56,
+          "escalated": 3
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.7458,
+          "accuracy_on_kept": 0.9545,
+          "kept": 44,
+          "escalated": 15
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.6271,
+          "accuracy_on_kept": 0.9459,
+          "kept": 37,
+          "escalated": 22
+        }
+      ],
+      "confident_expensive_errors": 2,
+      "confusions": [
+        [
+          "unclear→plan",
+          4
+        ],
+        [
+          "ask→unclear",
+          1
+        ]
+      ]
+    },
+    "plain": {
+      "n": 59,
+      "correct": 55,
+      "accuracy": 0.9322,
+      "wilson95": [
+        0.8382,
+        0.9733
+      ],
+      "answered": 59,
+      "errors": 0,
+      "by_intent": {
+        "plan": {
+          "n": 15,
+          "correct": 13
+        },
+        "modify": {
+          "n": 15,
+          "correct": 15
+        },
+        "ask": {
+          "n": 14,
+          "correct": 14
+        },
+        "unclear": {
+          "n": 15,
+          "correct": 13
+        }
+      },
+      "latency_p50_ms": 5023,
+      "latency_p95_ms": 5868.2,
+      "prompt_tokens_mean": 689.2,
+      "completion_tokens_mean": 88.9,
+      "auroc": 0.409,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 1.0,
+          "accuracy_on_kept": 0.9322,
+          "kept": 59,
+          "escalated": 0
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 1.0,
+          "accuracy_on_kept": 0.9322,
+          "kept": 59,
+          "escalated": 0
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.9831,
+          "accuracy_on_kept": 0.931,
+          "kept": 58,
+          "escalated": 1
+        }
+      ],
+      "confident_expensive_errors": 0,
+      "confusions": [
+        [
+          "plan→modify",
+          2
+        ],
+        [
+          "unclear→ask",
+          2
+        ]
+      ]
+    },
+    "reason": {
+      "n": 59,
+      "correct": 26,
+      "accuracy": 0.4407,
+      "wilson95": [
+        0.3215,
+        0.5671
+      ],
+      "answered": 38,
+      "errors": 21,
+      "by_intent": {
+        "plan": {
+          "n": 15,
+          "correct": 4
+        },
+        "modify": {
+          "n": 15,
+          "correct": 0
+        },
+        "ask": {
+          "n": 14,
+          "correct": 12
+        },
+        "unclear": {
+          "n": 15,
+          "correct": 10
+        }
+      },
+      "latency_p50_ms": 9082.0,
+      "latency_p95_ms": 36520.0,
+      "prompt_tokens_mean": 597.6,
+      "completion_tokens_mean": 639.1,
+      "auroc": 0.739,
+      "gates": [
+        {
+          "threshold": 0.6,
+          "coverage": 0.6102,
+          "accuracy_on_kept": 0.6667,
+          "kept": 36,
+          "escalated": 23
+        },
+        {
+          "threshold": 0.8,
+          "coverage": 0.5763,
+          "accuracy_on_kept": 0.6765,
+          "kept": 34,
+          "escalated": 25
+        },
+        {
+          "threshold": 0.9,
+          "coverage": 0.5763,
+          "accuracy_on_kept": 0.6765,
+          "kept": 34,
+          "escalated": 25
+        }
+      ],
+      "confident_expensive_errors": 7,
+      "confusions": [
+        [
+          "plan→none",
+          10
+        ],
+        [
+          "modify→none",
+          8
+        ],
+        [
+          "modify→plan",
+          4
+        ],
+        [
+          "unclear→plan",
+          3
+        ],
+        [
+          "modify→unclear",
+          3
+        ],
+        [
+          "ask→none",
+          2
+        ],
+        [
+          "plan→unclear",
+          1
+        ],
+        [
+          "unclear→ask",
+          1
+        ]
+      ]
+    }
+  },
+  "paired": [
+    {
+      "left": "jev",
+      "right": "plain",
+      "left_only_correct": 6,
+      "right_only_correct": 6,
+      "both_correct": 72,
+      "both_wrong": 0,
+      "accuracy_diff_right_minus_left": 0.0,
+      "bootstrap95": [
+        -0.0833,
+        0.0833
+      ],
+      "mcnemar_p": 1.0
+    },
+    {
+      "left": "jev",
+      "right": "reason",
+      "left_only_correct": 40,
+      "right_only_correct": 2,
+      "both_correct": 38,
+      "both_wrong": 4,
+      "accuracy_diff_right_minus_left": -0.4524,
+      "bootstrap95": [
+        -0.5714,
+        -0.3333
+      ],
+      "mcnemar_p": 4.1109160520136356e-10
+    },
+    {
+      "left": "plain",
+      "right": "reason",
+      "left_only_correct": 40,
+      "right_only_correct": 2,
+      "both_correct": 38,
+      "both_wrong": 4,
+      "accuracy_diff_right_minus_left": -0.4524,
+      "bootstrap95": [
+        -0.5714,
+        -0.3333
+      ],
+      "mcnemar_p": 4.1109160520136356e-10
+    }
+  ],
+  "holm": [
+    {
+      "pair": "jev vs reason",
+      "p": 4.1109160520136356e-10,
+      "p_holm": 1.2332748156040907e-09
+    },
+    {
+      "pair": "plain vs reason",
+      "p": 4.1109160520136356e-10,
+      "p_holm": 1.2332748156040907e-09
+    },
+    {
+      "pair": "jev vs plain",
+      "p": 1.0,
+      "p_holm": 1.0
+    }
+  ],
+  "deployed": {
+    "jev": {
+      "accuracy": 0.9524,
+      "wilson95": [
+        0.8839,
+        0.9813
+      ],
+      "correct": 80,
+      "model_calls": 36,
+      "rules_first": 48
+    },
+    "plain": {
+      "accuracy": 0.9643,
+      "wilson95": [
+        0.9002,
+        0.9878
+      ],
+      "correct": 81,
+      "model_calls": 36,
+      "rules_first": 48
+    },
+    "reason": {
+      "accuracy": 0.8095,
+      "wilson95": [
+        0.7128,
+        0.8792
+      ],
+      "correct": 68,
+      "model_calls": 36,
+      "rules_first": 48
+    }
+  },
+  "cases": [
+    {
+      "id": "r01",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.93,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 952,
+          "prompt_tokens": 599,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5589,
+          "prompt_tokens": 701,
+          "completion_tokens": 87,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37191,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r02",
+      "split": "dev",
+      "expected": "plan",
+      "input": "I want to visit Tokyo for a week with my partner",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.91,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 888,
+          "prompt_tokens": 588,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "dates_modified",
+          "latency_ms": 5085,
+          "prompt_tokens": 689,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37673,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r03",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 476,
+          "prompt_tokens": 593,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 10185,
+          "prompt_tokens": 696,
+          "completion_tokens": 84,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.98,
+          "need_clarification": false,
+          "reason_code": "new_trip_plan",
+          "latency_ms": 8884,
+          "prompt_tokens": 696,
+          "completion_tokens": 593,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r04",
+      "split": "dev",
+      "expected": "ask",
+      "input": "What is the weather in Kyoto on 12 April?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.82,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 616,
+          "prompt_tokens": 588,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "weather_inquiry",
+          "latency_ms": 4964,
+          "prompt_tokens": 690,
+          "completion_tokens": 84,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "weather_inquiry",
+          "latency_ms": 7138,
+          "prompt_tokens": 690,
+          "completion_tokens": 312,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r05",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Which hotel did you pick and why?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.88,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 884,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "plan_question",
+          "latency_ms": 4423,
+          "prompt_tokens": 686,
+          "completion_tokens": 82,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "ask_hotel_selection",
+          "latency_ms": 11344,
+          "prompt_tokens": 686,
+          "completion_tokens": 933,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r06",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "How much is the flight?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.63,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 750,
+          "prompt_tokens": 582,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "flight_cost_query",
+          "latency_ms": 3345,
+          "prompt_tokens": 684,
+          "completion_tokens": 85,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "flight_cost_query",
+          "latency_ms": 20152,
+          "prompt_tokens": 1383,
+          "completion_tokens": 1707,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r07",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Swap the hotel for something boutique",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.93,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 470,
+          "prompt_tokens": 583,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "hotel_swap",
+          "latency_ms": 4931,
+          "prompt_tokens": 684,
+          "completion_tokens": 76,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37059,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r08",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Move day 2 to the afternoon and keep the rest",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.92,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 745,
+          "prompt_tokens": 588,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_schedule",
+          "latency_ms": 2793,
+          "prompt_tokens": 689,
+          "completion_tokens": 107,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 31175,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r09",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Make the budget 3000 USD instead",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.83,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 1043,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "budget_change",
+          "latency_ms": 5180,
+          "prompt_tokens": 688,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37942,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r10",
+      "split": "heldout",
+      "expected": "modify",
+      "input": "Add a museum on the last day",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 629,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_attraction",
+          "latency_ms": 5431,
+          "prompt_tokens": 686,
+          "completion_tokens": 90,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37470,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r11",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Hmm",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.96,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 634,
+          "prompt_tokens": 578,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 5148,
+          "prompt_tokens": 679,
+          "completion_tokens": 83,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.1,
+          "need_clarification": true,
+          "reason_code": "ambiguous_input",
+          "latency_ms": 6377,
+          "prompt_tokens": 679,
+          "completion_tokens": 259,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r12",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "What about it?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.64,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 627,
+          "prompt_tokens": 580,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 4673,
+          "prompt_tokens": 682,
+          "completion_tokens": 85,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_query",
+          "latency_ms": 8612,
+          "prompt_tokens": 682,
+          "completion_tokens": 683,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r13",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Plan something nice",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 891,
+          "prompt_tokens": 580,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "missing_details",
+          "latency_ms": 4598,
+          "prompt_tokens": 681,
+          "completion_tokens": 87,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 6496,
+          "prompt_tokens": 681,
+          "completion_tokens": 659,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r14",
+      "split": "dev",
+      "expected": "plan",
+      "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.97,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 749,
+          "prompt_tokens": 604,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5261,
+          "prompt_tokens": 705,
+          "completion_tokens": 104,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 35070,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r15",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Replace the second day's temple with a park",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 615,
+          "prompt_tokens": 586,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_attraction",
+          "latency_ms": 5183,
+          "prompt_tokens": 688,
+          "completion_tokens": 89,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.9,
+          "need_clarification": true,
+          "reason_code": "no_current_plan",
+          "latency_ms": 39156,
+          "prompt_tokens": 2094,
+          "completion_tokens": 3033,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r16",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Is the hotel near the train station?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.63,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 338,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_plan",
+          "latency_ms": 4648,
+          "prompt_tokens": 687,
+          "completion_tokens": 84,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 39065,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r17",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "What time does the flight leave?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.58,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 906,
+          "prompt_tokens": 583,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "flight_time_inquiry",
+          "latency_ms": 4232,
+          "prompt_tokens": 685,
+          "completion_tokens": 78,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "flight_departure_inquiry",
+          "latency_ms": 10253,
+          "prompt_tokens": 685,
+          "completion_tokens": 658,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r18",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Change the dates to the first week of May",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 765,
+          "prompt_tokens": 586,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "mod_dates",
+          "latency_ms": 4786,
+          "prompt_tokens": 687,
+          "completion_tokens": 78,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 36473,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r19",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Surprise me",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.93,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 475,
+          "prompt_tokens": 580,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "missing_destination",
+          "latency_ms": 4887,
+          "prompt_tokens": 682,
+          "completion_tokens": 82,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "new_itinerary_request",
+          "latency_ms": 7733,
+          "prompt_tokens": 682,
+          "completion_tokens": 489,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r20",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Help",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.77,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 473,
+          "prompt_tokens": 578,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 5024,
+          "prompt_tokens": 679,
+          "completion_tokens": 91,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 9794,
+          "prompt_tokens": 679,
+          "completion_tokens": 607,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r21",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.97,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 910,
+          "prompt_tokens": 594,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan",
+          "latency_ms": 4212,
+          "prompt_tokens": 695,
+          "completion_tokens": 75,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 33156,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r22",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.98,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 772,
+          "prompt_tokens": 598,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "restart_plan",
+          "latency_ms": 5023,
+          "prompt_tokens": 701,
+          "completion_tokens": 78,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 34142,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r23",
+      "split": "dev",
+      "expected": "plan",
+      "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 485,
+          "prompt_tokens": 594,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_from_scratch",
+          "latency_ms": 4596,
+          "prompt_tokens": 697,
+          "completion_tokens": 79,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_trip_request",
+          "latency_ms": 9722,
+          "prompt_tokens": 697,
+          "completion_tokens": 768,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r24",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.96,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 489,
+          "prompt_tokens": 595,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_trip_focus",
+          "latency_ms": 4715,
+          "prompt_tokens": 696,
+          "completion_tokens": 91,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.75,
+          "need_clarification": true,
+          "reason_code": "missing_dates",
+          "latency_ms": 8494,
+          "prompt_tokens": 696,
+          "completion_tokens": 699,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r25",
+      "split": "heldout",
+      "expected": "plan",
+      "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.82,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 907,
+          "prompt_tokens": 602,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_itinerary_request",
+          "latency_ms": 2949,
+          "prompt_tokens": 703,
+          "completion_tokens": 119,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37204,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r26",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.91,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 753,
+          "prompt_tokens": 595,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_trip_request",
+          "latency_ms": 5554,
+          "prompt_tokens": 696,
+          "completion_tokens": 94,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37874,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r27",
+      "split": "heldout",
+      "expected": "plan",
+      "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.97,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 612,
+          "prompt_tokens": 594,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5255,
+          "prompt_tokens": 695,
+          "completion_tokens": 79,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 35780,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r28",
+      "split": "dev",
+      "expected": "plan",
+      "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 328,
+          "prompt_tokens": 598,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_trip_request",
+          "latency_ms": 4958,
+          "prompt_tokens": 700,
+          "completion_tokens": 105,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_trip_request",
+          "latency_ms": 9820,
+          "prompt_tokens": 700,
+          "completion_tokens": 859,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r29",
+      "split": "heldout",
+      "expected": "plan",
+      "input": "Help me plan two days in Hong Kong for a school group of 10 students",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.96,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 761,
+          "prompt_tokens": 594,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.85,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5094,
+          "prompt_tokens": 696,
+          "completion_tokens": 87,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan",
+          "latency_ms": 23937,
+          "prompt_tokens": 1407,
+          "completion_tokens": 2020,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r30",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 787,
+          "prompt_tokens": 598,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5960,
+          "prompt_tokens": 698,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 40095,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r31",
+      "split": "heldout",
+      "expected": "plan",
+      "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 787,
+          "prompt_tokens": 602,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan",
+          "latency_ms": 5687,
+          "prompt_tokens": 704,
+          "completion_tokens": 76,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 36383,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r32",
+      "split": "heldout",
+      "expected": "plan",
+      "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.93,
+          "need_clarification": true,
+          "reason_code": "jev_plan",
+          "latency_ms": 509,
+          "prompt_tokens": 593,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_trip_request",
+          "latency_ms": 5279,
+          "prompt_tokens": 695,
+          "completion_tokens": 78,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.9,
+          "need_clarification": true,
+          "reason_code": "missing_dates",
+          "latency_ms": 10991,
+          "prompt_tokens": 695,
+          "completion_tokens": 858,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r33",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 783,
+          "prompt_tokens": 595,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_itinerary_request",
+          "latency_ms": 5279,
+          "prompt_tokens": 699,
+          "completion_tokens": 110,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 31693,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r34",
+      "split": "heldout",
+      "expected": "plan",
+      "input": "Plan me a weekend in Osaka",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 756,
+          "prompt_tokens": 583,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "missing_slots",
+          "latency_ms": 5553,
+          "prompt_tokens": 684,
+          "completion_tokens": 97,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 8304,
+          "prompt_tokens": 684,
+          "completion_tokens": 443,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r35",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Going to Tokyo for 10 days in spring with my wife, we love art and ramen",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.86,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 620,
+          "prompt_tokens": 596,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5417,
+          "prompt_tokens": 697,
+          "completion_tokens": 82,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderNoData",
+          "latency_ms": 28269,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderNoData"
+        }
+      }
+    },
+    {
+      "id": "r36",
+      "split": "dev",
+      "expected": "plan",
+      "input": "Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible",
+      "rules_intent": "plan",
+      "rules_confidence": 0.84,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.97,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 479,
+          "prompt_tokens": 597,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.85,
+          "need_clarification": false,
+          "reason_code": "new_trip_request",
+          "latency_ms": 5145,
+          "prompt_tokens": 699,
+          "completion_tokens": 94,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_trip_plan",
+          "latency_ms": 7954,
+          "prompt_tokens": 699,
+          "completion_tokens": 437,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r37",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Drop the teamLab visit, we've been already",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 904,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "drop_attraction",
+          "latency_ms": 5437,
+          "prompt_tokens": 689,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 35370,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r38",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Can you swap day 1 and day 3?",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 625,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "swap_days",
+          "latency_ms": 5730,
+          "prompt_tokens": 689,
+          "completion_tokens": 109,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.9,
+          "need_clarification": true,
+          "reason_code": "no_current_plan",
+          "latency_ms": 25720,
+          "prompt_tokens": 1393,
+          "completion_tokens": 1997,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r39",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Upgrade the hotel to something with a view of the harbour",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 628,
+          "prompt_tokens": 588,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "hotel_upgrade",
+          "latency_ms": 5861,
+          "prompt_tokens": 690,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 36249,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r40",
+      "split": "heldout",
+      "expected": "modify",
+      "input": "Remove Fushimi Inari, my knees won't handle the climb",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.96,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 490,
+          "prompt_tokens": 591,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "remove_stop",
+          "latency_ms": 5308,
+          "prompt_tokens": 693,
+          "completion_tokens": 84,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 37521,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r41",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Shorten the trip to 3 days and keep the best stops",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.81,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 920,
+          "prompt_tokens": 591,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "shorten_duration",
+          "latency_ms": 5301,
+          "prompt_tokens": 691,
+          "completion_tokens": 103,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "plan_no_existing_plan",
+          "latency_ms": 21912,
+          "prompt_tokens": 1397,
+          "completion_tokens": 1922,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r42",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Add a dim sum lunch on day 2",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 778,
+          "prompt_tokens": 586,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "add_stop",
+          "latency_ms": 5933,
+          "prompt_tokens": 688,
+          "completion_tokens": 88,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "plan_no_existing_itinerary",
+          "latency_ms": 18865,
+          "prompt_tokens": 1391,
+          "completion_tokens": 1565,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r43",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Switch the flight to an evening departure",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.87,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 638,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_flight",
+          "latency_ms": 5313,
+          "prompt_tokens": 685,
+          "completion_tokens": 80,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.9,
+          "need_clarification": true,
+          "reason_code": "no_plan_to_modify",
+          "latency_ms": 22691,
+          "prompt_tokens": 1385,
+          "completion_tokens": 1733,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r44",
+      "split": "dev",
+      "expected": "modify",
+      "input": "I'd rather not walk so much on the second day",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.76,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 361,
+          "prompt_tokens": 588,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_pace_day",
+          "latency_ms": 5386,
+          "prompt_tokens": 690,
+          "completion_tokens": 104,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "plan_new",
+          "latency_ms": 36402,
+          "prompt_tokens": 2100,
+          "completion_tokens": 2809,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r45",
+      "split": "dev",
+      "expected": "modify",
+      "input": "That hotel is too expensive, find one under 150 USD a night",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.92,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 1000,
+          "prompt_tokens": 593,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "hotel_budget_change",
+          "latency_ms": 3295,
+          "prompt_tokens": 694,
+          "completion_tokens": 92,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 32883,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r46",
+      "split": "dev",
+      "expected": "modify",
+      "input": "Put a rest afternoon after the Peak hike",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.77,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 1016,
+          "prompt_tokens": 585,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_schedule",
+          "latency_ms": 4278,
+          "prompt_tokens": 687,
+          "completion_tokens": 86,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "initial_plan_preference",
+          "latency_ms": 33084,
+          "prompt_tokens": 2091,
+          "completion_tokens": 2751,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r47",
+      "split": "heldout",
+      "expected": "modify",
+      "input": "Extend the stay by one night",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 569,
+          "prompt_tokens": 583,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "extend_stay",
+          "latency_ms": 4773,
+          "prompt_tokens": 684,
+          "completion_tokens": 87,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 35387,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r48",
+      "split": "heldout",
+      "expected": "modify",
+      "input": "Make it a slower pace with fewer temples",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.74,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 585,
+          "prompt_tokens": 585,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "pace_temples_change",
+          "latency_ms": 4706,
+          "prompt_tokens": 686,
+          "completion_tokens": 122,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.9,
+          "need_clarification": false,
+          "reason_code": "plan_preferences",
+          "latency_ms": 8469,
+          "prompt_tokens": 686,
+          "completion_tokens": 625,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r49",
+      "split": "heldout",
+      "expected": "modify",
+      "input": "Cancel the day trip to Nara and stay in Osaka instead",
+      "rules_intent": "modify",
+      "rules_confidence": 0.86,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.96,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 803,
+          "prompt_tokens": 589,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_stop",
+          "latency_ms": 5000,
+          "prompt_tokens": 689,
+          "completion_tokens": 87,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 31972,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r50",
+      "split": "dev",
+      "expected": "modify",
+      "input": "What if we did Lantau on day 3 instead of day 1?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.71,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 798,
+          "prompt_tokens": 593,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "day_swap",
+          "latency_ms": 4280,
+          "prompt_tokens": 695,
+          "completion_tokens": 86,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 41044,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r51",
+      "split": "dev",
+      "expected": "ask",
+      "input": "How far is Kiyomizu-dera from the hotel?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.58,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 640,
+          "prompt_tokens": 589,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_plan_distance",
+          "latency_ms": 5063,
+          "prompt_tokens": 690,
+          "completion_tokens": 106,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 39213,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r52",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Is Senso-ji open early in the morning?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.91,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 498,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_attraction",
+          "latency_ms": 4659,
+          "prompt_tokens": 689,
+          "completion_tokens": 93,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "attraction_info_question",
+          "latency_ms": 7623,
+          "prompt_tokens": 689,
+          "completion_tokens": 674,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r53",
+      "split": "dev",
+      "expected": "ask",
+      "input": "What's the total cost so far?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 939,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "cost_inquiry",
+          "latency_ms": 4548,
+          "prompt_tokens": 687,
+          "completion_tokens": 99,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "cost_inquiry",
+          "latency_ms": 8152,
+          "prompt_tokens": 687,
+          "completion_tokens": 360,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r54",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Do I need to book the Peak Tram in advance?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.97,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 645,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "question_about_ticket",
+          "latency_ms": 4343,
+          "prompt_tokens": 690,
+          "completion_tokens": 109,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "attraction_ticket_inquiry",
+          "latency_ms": 7635,
+          "prompt_tokens": 690,
+          "completion_tokens": 288,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r55",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Will it rain on day 3",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.92,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 628,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "weather_inquiry",
+          "latency_ms": 5130,
+          "prompt_tokens": 685,
+          "completion_tokens": 90,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "weather_inquiry",
+          "latency_ms": 7949,
+          "prompt_tokens": 685,
+          "completion_tokens": 461,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r56",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Tell me more about Dotonbori",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.82,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 766,
+          "prompt_tokens": 585,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_attraction",
+          "latency_ms": 4726,
+          "prompt_tokens": 686,
+          "completion_tokens": 92,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "attraction_inquiry",
+          "latency_ms": 8964,
+          "prompt_tokens": 686,
+          "completion_tokens": 606,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r57",
+      "split": "dev",
+      "expected": "ask",
+      "input": "how long is the walk between the two temples on day 2",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.74,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 1223,
+          "prompt_tokens": 590,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "plan_question",
+          "latency_ms": 5235,
+          "prompt_tokens": 691,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.7,
+          "need_clarification": true,
+          "reason_code": "no_current_plan",
+          "latency_ms": 37189,
+          "prompt_tokens": 2103,
+          "completion_tokens": 3060,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r58",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Which day has the most walking?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.66,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 791,
+          "prompt_tokens": 583,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "plan_question",
+          "latency_ms": 4409,
+          "prompt_tokens": 685,
+          "completion_tokens": 80,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "ask_walking_intensity",
+          "latency_ms": 23572,
+          "prompt_tokens": 1385,
+          "completion_tokens": 1990,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r59",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Is the Star Ferry included in the budget?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 511,
+          "prompt_tokens": 585,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_budget_inclusion",
+          "latency_ms": 5201,
+          "prompt_tokens": 688,
+          "completion_tokens": 93,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "budget_inquiry",
+          "latency_ms": 10072,
+          "prompt_tokens": 688,
+          "completion_tokens": 815,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r60",
+      "split": "dev",
+      "expected": "ask",
+      "input": "Can I pay with an Octopus card at the night market?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.91,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 516,
+          "prompt_tokens": 590,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "question_about_payment",
+          "latency_ms": 5197,
+          "prompt_tokens": 691,
+          "completion_tokens": 103,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "travel_inquiry",
+          "latency_ms": 7124,
+          "prompt_tokens": 691,
+          "completion_tokens": 397,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r61",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "Why did you put Osaka Castle on the first morning?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 1058,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_attraction",
+          "latency_ms": 5056,
+          "prompt_tokens": 689,
+          "completion_tokens": 91,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "itinerary_rationale",
+          "latency_ms": 30195,
+          "prompt_tokens": 2097,
+          "completion_tokens": 2819,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r62",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "Are there vegetarian options near Gion?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.91,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 628,
+          "prompt_tokens": 584,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "question_about_food",
+          "latency_ms": 5034,
+          "prompt_tokens": 686,
+          "completion_tokens": 87,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "dining_query",
+          "latency_ms": 8148,
+          "prompt_tokens": 686,
+          "completion_tokens": 419,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r63",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "Remind me what we're doing on the last evening",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.91,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 492,
+          "prompt_tokens": 588,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "plan_question",
+          "latency_ms": 5193,
+          "prompt_tokens": 690,
+          "completion_tokens": 85,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "query_schedule",
+          "latency_ms": 23524,
+          "prompt_tokens": 1395,
+          "completion_tokens": 1835,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r64",
+      "split": "dev",
+      "expected": "ask",
+      "input": "What's the best way to get from the airport to the hotel?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.6,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 624,
+          "prompt_tokens": 590,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "transport_question",
+          "latency_ms": 5196,
+          "prompt_tokens": 693,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.92,
+          "need_clarification": false,
+          "reason_code": "transit_query",
+          "latency_ms": 10285,
+          "prompt_tokens": 693,
+          "completion_tokens": 661,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r65",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "Should we bring umbrellas for the trip?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": true,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.94,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 927,
+          "prompt_tokens": 586,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.99,
+          "need_clarification": false,
+          "reason_code": "weather_question",
+          "latency_ms": 4918,
+          "prompt_tokens": 687,
+          "completion_tokens": 107,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "weather_inquiry",
+          "latency_ms": 7219,
+          "prompt_tokens": 687,
+          "completion_tokens": 584,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r66",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "ok",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.7,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 783,
+          "prompt_tokens": 578,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 2939,
+          "prompt_tokens": 679,
+          "completion_tokens": 88,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.9,
+          "need_clarification": true,
+          "reason_code": "ambiguous_input",
+          "latency_ms": 7893,
+          "prompt_tokens": 679,
+          "completion_tokens": 574,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r67",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "asdfgh",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.93,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 502,
+          "prompt_tokens": 579,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.99,
+          "need_clarification": true,
+          "reason_code": "gibberish_input",
+          "latency_ms": 4347,
+          "prompt_tokens": 681,
+          "completion_tokens": 103,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "gibberish_input",
+          "latency_ms": 6632,
+          "prompt_tokens": 681,
+          "completion_tokens": 446,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r68",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Not sure yet, maybe somewhere warm?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.73,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 469,
+          "prompt_tokens": 584,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "missing_destination",
+          "latency_ms": 5072,
+          "prompt_tokens": 687,
+          "completion_tokens": 84,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.9,
+          "need_clarification": true,
+          "reason_code": "missing_destination",
+          "latency_ms": 9362,
+          "prompt_tokens": 687,
+          "completion_tokens": 646,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r69",
+      "split": "heldout",
+      "expected": "unclear",
+      "input": "I don't know",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.94,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 763,
+          "prompt_tokens": 581,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_response",
+          "latency_ms": 4798,
+          "prompt_tokens": 683,
+          "completion_tokens": 86,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.2,
+          "need_clarification": true,
+          "reason_code": "ambiguous_input",
+          "latency_ms": 8811,
+          "prompt_tokens": 683,
+          "completion_tokens": 809,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r70",
+      "split": "heldout",
+      "expected": "unclear",
+      "input": "The thing we talked about",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.86,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 760,
+          "prompt_tokens": 582,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_reference",
+          "latency_ms": 5231,
+          "prompt_tokens": 683,
+          "completion_tokens": 92,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.1,
+          "need_clarification": true,
+          "reason_code": "ambiguous_reference",
+          "latency_ms": 8965,
+          "prompt_tokens": 683,
+          "completion_tokens": 678,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r71",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Do it",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.6,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 619,
+          "prompt_tokens": 579,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "missing_origin",
+          "latency_ms": 2980,
+          "prompt_tokens": 680,
+          "completion_tokens": 85,
+          "error": ""
+        },
+        "reason": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "create_new_itinerary",
+          "latency_ms": 7798,
+          "prompt_tokens": 680,
+          "completion_tokens": 538,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r72",
+      "split": "heldout",
+      "expected": "unclear",
+      "input": "yes",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.78,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 621,
+          "prompt_tokens": 578,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_response",
+          "latency_ms": 4790,
+          "prompt_tokens": 680,
+          "completion_tokens": 90,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.3,
+          "need_clarification": true,
+          "reason_code": "ambiguous_input",
+          "latency_ms": 8313,
+          "prompt_tokens": 680,
+          "completion_tokens": 428,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r73",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "What's the capital of Australia?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.99,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 911,
+          "prompt_tokens": 583,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 1.0,
+          "need_clarification": false,
+          "reason_code": "general_question",
+          "latency_ms": 4881,
+          "prompt_tokens": 686,
+          "completion_tokens": 73,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "general_knowledge_query",
+          "latency_ms": 6725,
+          "prompt_tokens": 686,
+          "completion_tokens": 477,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r74",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Write me a poem about the sea",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 1.0,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 772,
+          "prompt_tokens": 584,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "unrelated_question",
+          "latency_ms": 4455,
+          "prompt_tokens": 685,
+          "completion_tokens": 85,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "off_topic",
+          "latency_ms": 9200,
+          "prompt_tokens": 685,
+          "completion_tokens": 626,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r75",
+      "split": "heldout",
+      "expected": "unclear",
+      "input": "Somewhere",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.76,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 486,
+          "prompt_tokens": 580,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "missing_destination",
+          "latency_ms": 4817,
+          "prompt_tokens": 679,
+          "completion_tokens": 82,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_destination",
+          "latency_ms": 8637,
+          "prompt_tokens": 679,
+          "completion_tokens": 402,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r76",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Can you?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 488,
+          "prompt_tokens": 579,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 5308,
+          "prompt_tokens": 682,
+          "completion_tokens": 78,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "incomplete_request",
+          "latency_ms": 9687,
+          "prompt_tokens": 682,
+          "completion_tokens": 583,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r77",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Same as last time",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.47,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 900,
+          "prompt_tokens": 581,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_reference",
+          "latency_ms": 4945,
+          "prompt_tokens": 682,
+          "completion_tokens": 89,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.2,
+          "need_clarification": true,
+          "reason_code": "prior_context_missing",
+          "latency_ms": 12303,
+          "prompt_tokens": 682,
+          "completion_tokens": 865,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r78",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Next",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.51,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 615,
+          "prompt_tokens": 578,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_message",
+          "latency_ms": 4927,
+          "prompt_tokens": 679,
+          "completion_tokens": 86,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 35192,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r79",
+      "split": "dev",
+      "expected": "unclear",
+      "input": "Never mind",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.98,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 615,
+          "prompt_tokens": 579,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_cancellation",
+          "latency_ms": 4724,
+          "prompt_tokens": 680,
+          "completion_tokens": 89,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "user_dismissal",
+          "latency_ms": 8872,
+          "prompt_tokens": 680,
+          "completion_tokens": 530,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r80",
+      "split": "heldout",
+      "expected": "unclear",
+      "input": "Thoughts?",
+      "rules_intent": "ask",
+      "rules_confidence": 0.9,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.64,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 472,
+          "prompt_tokens": 580,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "general_inquiry",
+          "latency_ms": 5059,
+          "prompt_tokens": 681,
+          "completion_tokens": 78,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 35640,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r81",
+      "split": "dev",
+      "expected": "plan",
+      "input": "幫我規劃一個五日四夜的京都行程，兩個人，預算三十萬日圓",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "plan",
+          "confidence": 0.97,
+          "need_clarification": false,
+          "reason_code": "jev_plan",
+          "latency_ms": 752,
+          "prompt_tokens": 607,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "plan",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "new_plan_request",
+          "latency_ms": 5080,
+          "prompt_tokens": 699,
+          "completion_tokens": 94,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 34802,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r82",
+      "split": "heldout",
+      "expected": "modify",
+      "input": "把酒店換成近新宿站的",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "jev_modify",
+          "latency_ms": 621,
+          "prompt_tokens": 587,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "modify",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "modify_hotel",
+          "latency_ms": 4922,
+          "prompt_tokens": 686,
+          "completion_tokens": 83,
+          "error": ""
+        },
+        "reason": {
+          "intent": "",
+          "confidence": 0.0,
+          "need_clarification": false,
+          "reason_code": "ProviderError",
+          "latency_ms": 39539,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "error": "ProviderError"
+        }
+      }
+    },
+    {
+      "id": "r83",
+      "split": "heldout",
+      "expected": "ask",
+      "input": "天星小輪最後一班幾點開？",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "ask",
+          "confidence": 0.85,
+          "need_clarification": false,
+          "reason_code": "jev_ask",
+          "latency_ms": 505,
+          "prompt_tokens": 590,
+          "completion_tokens": 64,
+          "error": ""
+        },
+        "plain": {
+          "intent": "ask",
+          "confidence": 1.0,
+          "need_clarification": false,
+          "reason_code": "plan_question",
+          "latency_ms": 5865,
+          "prompt_tokens": 690,
+          "completion_tokens": 81,
+          "error": ""
+        },
+        "reason": {
+          "intent": "ask",
+          "confidence": 0.95,
+          "need_clarification": false,
+          "reason_code": "transit_schedule_query",
+          "latency_ms": 8450,
+          "prompt_tokens": 690,
+          "completion_tokens": 503,
+          "error": ""
+        }
+      }
+    },
+    {
+      "id": "r84",
+      "split": "heldout",
+      "expected": "unclear",
+      "input": "唔知呀",
+      "rules_intent": "unclear",
+      "rules_confidence": 0.45,
+      "rules_first": false,
+      "arms": {
+        "jev": {
+          "intent": "unclear",
+          "confidence": 0.92,
+          "need_clarification": true,
+          "reason_code": "jev_unclear",
+          "latency_ms": 346,
+          "prompt_tokens": 581,
+          "completion_tokens": 65,
+          "error": ""
+        },
+        "plain": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_response",
+          "latency_ms": 4272,
+          "prompt_tokens": 681,
+          "completion_tokens": 100,
+          "error": ""
+        },
+        "reason": {
+          "intent": "unclear",
+          "confidence": 0.95,
+          "need_clarification": true,
+          "reason_code": "ambiguous_input",
+          "latency_ms": 8011,
+          "prompt_tokens": 681,
+          "completion_tokens": 404,
+          "error": ""
+        }
+      }
+    }
+  ]
+}

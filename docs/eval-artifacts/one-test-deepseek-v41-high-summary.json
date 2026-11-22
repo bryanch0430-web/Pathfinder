@@ -1,0 +1,44 @@
+{
+  "model": "deepseek-v4.1-flash-1017",
+  "served_as": "DeepSeek-V4.1-Flash-1017",
+  "reasoning": "high",
+  "thinking": "enabled",
+  "temperature_sent": 0,
+  "temperature_note": "DeepSeek ignores temperature while thinking is enabled.",
+  "list_price_peak_usd_per_million": {
+    "input": 0.3,
+    "output": 1.2
+  },
+  "jobs": {
+    "Edit": {
+      "n": 63,
+      "passes": 56,
+      "errors": 0,
+      "accuracy": 0.8888888888888888,
+      "usd_mean": 0.0007732904761904762,
+      "latency_p50_ms": 4690.0,
+      "excluded": false,
+      "against_sonnet_0.2_omitted": {
+        "items": 63,
+        "sonnet_only_correct": 2,
+        "deepseek_only_correct": 0,
+        "mcnemar_p": 0.5
+      }
+    },
+    "Planner": {
+      "n": 56,
+      "passes": 50,
+      "errors": 0,
+      "accuracy": 0.8928571428571429,
+      "usd_mean": 0.0010378446428571427,
+      "latency_p50_ms": 7429.5,
+      "excluded": false,
+      "against_sonnet_0.2_omitted": {
+        "items": 56,
+        "sonnet_only_correct": 1,
+        "deepseek_only_correct": 0,
+        "mcnemar_p": 1.0
+      }
+    }
+  }
+}

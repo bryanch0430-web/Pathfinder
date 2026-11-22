@@ -1,0 +1,38 @@
+{
+  "dataset": "osunlp/TravelPlanner",
+  "queries": 1225,
+  "reader": "committed understand, rules only, writer not called",
+  "tools": "mock; a call is answered only when its required fields are present",
+  "today": "2022-02-28",
+  "slots_matched": {
+    "destination": 1225,
+    "origin": 1224,
+    "days": 1225,
+    "party": 1225,
+    "budget": 1225
+  },
+  "well_formed_requests": 1225,
+  "calls": {
+    "flight": 1069,
+    "hotel": 1225,
+    "place": 1225
+  },
+  "by_split": {
+    "train": {
+      "queries": 45,
+      "request_ok": 45,
+      "destination": 45
+    },
+    "validation": {
+      "queries": 180,
+      "request_ok": 180,
+      "destination": 180
+    },
+    "test": {
+      "queries": 1000,
+      "request_ok": 1000,
+      "destination": 1000
+    }
+  },
+  "sample_refusals": []
+}

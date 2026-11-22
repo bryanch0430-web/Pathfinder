@@ -1,0 +1,123 @@
+{
+  "temperatures": [
+    0.1,
+    0.4,
+    1.0
+  ],
+  "items": 56,
+  "cells": {
+    "0.1": {
+      "n": 56,
+      "passes": 51,
+      "errors": 0,
+      "accuracy": 0.9107142857142857,
+      "usd_mean": 0.007423642857142857,
+      "latency_p50_ms": 6343.0,
+      "excluded": false,
+      "misses": [
+        {
+          "stratum": "Harder: Order on one day",
+          "item": "16",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: An id that was not returned",
+          "item": "47",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: East pair share a day",
+          "item": "43",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: Four days, no extra day",
+          "item": "49",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: The must-see stays",
+          "item": "46",
+          "reason": "hotel"
+        }
+      ]
+    },
+    "0.4": {
+      "n": 56,
+      "passes": 51,
+      "errors": 0,
+      "accuracy": 0.9107142857142857,
+      "usd_mean": 0.007489714285714286,
+      "latency_p50_ms": 6539.0,
+      "excluded": false,
+      "misses": [
+        {
+          "stratum": "Harder: Order on one day",
+          "item": "16",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: An id that was not returned",
+          "item": "47",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: East pair share a day",
+          "item": "43",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: Four days, no extra day",
+          "item": "49",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: The must-see stays",
+          "item": "46",
+          "reason": "hotel"
+        }
+      ]
+    },
+    "1.0": {
+      "n": 56,
+      "passes": 50,
+      "errors": 0,
+      "accuracy": 0.8928571428571429,
+      "usd_mean": 0.007436142857142857,
+      "latency_p50_ms": 6297.5,
+      "excluded": false,
+      "misses": [
+        {
+          "stratum": "Harder: Order on one day",
+          "item": "16",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "No invented price",
+          "item": "3",
+          "reason": "price"
+        },
+        {
+          "stratum": "Tricky: An id that was not returned",
+          "item": "47",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: East pair share a day",
+          "item": "43",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: Four days, no extra day",
+          "item": "49",
+          "reason": "hotel"
+        },
+        {
+          "stratum": "Tricky: The must-see stays",
+          "item": "46",
+          "reason": "hotel"
+        }
+      ]
+    }
+  }
+}
