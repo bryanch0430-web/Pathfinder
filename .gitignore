@@ -60,6 +60,8 @@ pip-build-tracker-*/
 pip-install-*/
 pip-metadata-*/
 pip-unpack-*/
+# a test that asks for a temporary file without a folder leaves it in backend/
+backend/tmp*
 
 # local uvicorn logs
 backend/uvicorn.*.log

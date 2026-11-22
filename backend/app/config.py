@@ -204,6 +204,12 @@ class Settings(BaseSettings):
     router_threshold: float = 0.8
     #: Earlier messages the router and the writer may read. One message is one line. The maximum is 10.
     conversation_turns: int = 10
+    #: Lightweight turn checkpoints (robustness step 3). After routing, after the specialist agents
+    #: finish and before the turn persists, the live turn is written to the store, so a turn cut off by
+    #: the deadline, a disconnect or a crash can be resumed by re-sending the same message. A checkpoint
+    #: older than the TTL is ignored: a resumed turn must still describe the same trip.
+    enable_turn_checkpoints: bool = True
+    turn_checkpoint_ttl_seconds: int = Field(900, ge=0)
     # Let the deterministic rules decide unambiguous messages without a Jev or
     # writer call (Proposal TC-10). Unsure or flagged messages still use the model.
     router_rules_first: bool = True

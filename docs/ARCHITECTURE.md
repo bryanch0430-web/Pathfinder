@@ -131,6 +131,54 @@ are changed in the trip details.
 4. Answer through the writer with the tool result; deterministic fallback keeps it
    grounded if the writer is offline. The plan is never modified.
 
+### Turn state, checkpoints and recovery
+
+A turn is one typed object, `application/turn_state.py:TurnState`: the message and its hash, the
+trip form, the current plan and the version the turn started from, the `RouteDecision`, the agent
+results, the plan's data gaps, the clarification question, the reply, and an explicit
+`phase` (`routing`, `clarifying`, `planning`, `modifying`, `validating`, `done`, `error`).
+`TurnService` creates it after the history is read and updates it as the turn runs; nothing
+re-derives those pieces from the store mid-turn.
+
+Three points write the state to `turn_checkpoints` in SQLite (`TurnCheckpoint`):
+
+| Point | Phase | What is kept |
+|---|---|---|
+| after routing | `routed` | the decision and the parts it names |
+| after the specialist agents | `agents` | their `AgentResult`s, before the planner merges them |
+| before persisting | `planned` / `ready` | the built (or edited) plan, the phrased reply, any pending proposal |
+
+On the next message the store's newest unexpired checkpoint is read. It is resumed only when it
+describes the same message, against the same plan version (`base_plan_version`), and is inside
+`TURN_CHECKPOINT_TTL_SECONDS` (default 900). A resume does not route again: a `planned`/`ready`
+checkpoint writes what it holds, and an `agents` checkpoint re-composes the plan from the stored
+evidence, so no place, fare or forecast is fetched twice. The write is idempotent (an existing
+version is not saved again, an identical reply is not stored again), and a finished turn deletes
+its checkpoint. A checkpoint for another message, another plan or an old turn is dropped.
+
+The modify path's stages are pure functions in `application/modify_stages.py`, called in order:
+`select_agents_for_parts` (parts → agents), `agents_needed_for_edit` (what this sentence really
+needs), `merge_agent_results` (evidence → gaps, then the weather for the plan's dates),
+`apply_date_or_budget_change` (a moved trip, before any candidate is merged) and
+`preserve_locked_and_confirmed` (a rebuild keeps what the traveller protected).
+
+A disruption is its own path (`application/recovery.py`), classified deterministically rather than
+by a model. A message that names a stop on the plan and says it is closed (not a question, not a
+hypothetical) is a closed-stop recovery: the stop's own agent is asked for alternatives near it, the
+nearest fresh candidate replaces it (or it is removed when none is returned), a `Disruption` records
+what happened, the constraints are checked again, and every other row - then and always - stays as
+it was. A locked or confirmed stop is never moved. A trip moved to new dates with no fare back gets
+a `missing_flights` disruption and a sentence, on top of its data gap, instead of an empty flights
+section. The recovery runs before the writer reads the sentence, so a closure cannot be re-read as
+an ordinary edit. A sentence that also says what to do next ("... please replace it with another
+stop") is not a bare report: it keeps the ordinary edit path, which already records the closure,
+searches the replacement and re-times the day's transfers.
+
+The clarification gate (`application/turn_gate.py`) tightens one escape of the confidence gate: a
+bare answer ("yes", "maybe", "not sure") to a clarify that asked *what to do* is asked about again
+rather than planned from, even when the trip form is complete. The router stays the source of truth
+for every decision that carries a real action.
+
 ## 5. Provider registry
 
 `ProviderRegistry.build(settings)` creates priority-ordered lists:

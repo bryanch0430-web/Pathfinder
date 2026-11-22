@@ -5,6 +5,17 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.19.0 — 2026-11-22 21:20
+
+A turn keeps one typed state and checkpoints it, so a turn cut off can be finished where it stopped. A closed venue is recovered as its own path, and a bare answer after a question is asked about again.
+
+- **A turn is one object.** The message, form, plan, route decision, evidence, gaps and reply live in a `TurnState` with an explicit phase (`routing`, `clarifying`, `planning`, `modifying`, `validating`, `done`, `error`).
+- **A cut-off turn resumes.** Checkpoints after routing, after the specialist agents, and before the plan is written. Re-sending the same message finishes the turn: a plan already built is written, and evidence already gathered is composed from, so no source is asked twice. Another message, another plan version, or an old checkpoint (15 minute TTL) is ignored.
+- **A closed venue is recovered.** "Nijo Castle is closed tomorrow" asks only that stop's agent for an alternative near it, swaps in the nearest verified one at the same time, records a disruption, checks the constraints again, and leaves the rest of the plan alone. A locked or confirmed stop stays with a sentence saying why. A question or a hypothetical is answered, not acted on.
+- **A moved trip with no flight says so.** Its data gap is kept, and the plan gains a sentence and a record instead of an empty flights section.
+- **"Maybe" is not a trip.** A bare answer to a clarify that asked what to do is asked about again, rather than planned from because the details are complete.
+- **The edit path names its stages.** Parts to agents, evidence merge, the date move and the locked-stop rule are pure functions in `application/modify_stages.py`, tested on their own.
+
 ## v1.18.0 — 2026-11-22 16:30
 
 More ways of saying a trip are read. A wish is not stored as the city. The clarify card names the end date, and a budget chip fills the box. Evaluation lists the bulk sets for reference only.

@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.19.0 | 2026-11-22 21:20 | A turn keeps its state and can be finished where it stopped, and a closed venue is recovered |
 | v1.18.0 | 2026-11-22 16:30 | A wish stays a wish, the end date is labelled, and a budget chip fills the box |
 | v1.17.0 | 2026-11-22 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out |
 | v1.16.0 | 2026-11-22 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal |
@@ -46,6 +47,17 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.19.0 — 22 November 2026, 21:20 HKT
+
+A turn now keeps one typed state and checkpoints it, so a turn that was cut off can be finished where it stopped instead of starting over. A venue that is closed is recovered as its own path, and a bare answer after a question is asked about again.
+
+- **A turn is one object.** The message, the form, the plan, the route decision, the agents' evidence, the gaps and the reply live in a `TurnState` with an explicit phase. The turn's own state is what it reports, not pieces re-read from the store halfway through.
+- **A cut-off turn resumes.** Checkpoints are written after routing, after the specialist agents, and before the plan is written. Re-sending the same message finishes that turn: a plan already built is written, and evidence already gathered is composed from, so no place, fare or forecast is fetched twice. A checkpoint for another message, another plan version or an older turn is ignored (the TTL is 15 minutes).
+- **A closed venue is recovered.** "Nijo Castle is closed tomorrow" asks that stop's agent for an alternative near it, puts the nearest verified one in the same time slot, records a disruption, checks the constraints again and leaves every other row alone. A locked or confirmed stop stays, and the reply says why. A question ("what if it is closed?") is still answered, not acted on.
+- **A moved trip with no flight says so.** A trip moved to new dates that comes back with no fare keeps its data gap and gets a sentence and a record, instead of an empty flights section the traveller has to find.
+- **"Maybe" is not a trip.** A bare answer to a question about what to do is asked about again with choices, instead of planning a trip just because the details are complete.
+- **The edit path names its stages.** Which agents an edit needs, how their evidence is merged, what moving the dates does, and what a locked stop protects are separate pure functions with their own tests.
 
 ### v1.18.0 — 22 November 2026, 16:30 HKT
 

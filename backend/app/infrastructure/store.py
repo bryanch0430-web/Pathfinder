@@ -623,6 +623,24 @@ def _migration_5_credential_base_url(conn: sqlite3.Connection, ctx: MigrationCon
         conn.execute("ALTER TABLE llm_credentials ADD COLUMN base_url TEXT NOT NULL DEFAULT ''")
 
 
+def _migration_17_turn_checkpoints(conn: sqlite3.Connection, ctx: MigrationContext) -> None:
+    """One row per turn checkpoint: the live turn, its phase and what it had produced when it was written.
+
+    A turn that is cut off (deadline, disconnect, crash) leaves its last checkpoint here, and the next
+    message for the session can resume it instead of starting over. The row is removed when the turn
+    completes. ``data`` holds the serialised checkpoint; ``expires_at`` makes a stale one cheap to spot.
+    """
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS turn_checkpoints ("
+        "request_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, phase TEXT NOT NULL, "
+        "message_hash TEXT NOT NULL DEFAULT '', base_plan_version INTEGER NOT NULL DEFAULT 0, "
+        "data TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON turn_checkpoints(session_id, created_at DESC)"
+    )
+
+
 #: Ordered schema steps: step N moves a database from user_version N-1 to N.
 #: Append new steps; never edit, reorder or remove a released one.
 MIGRATIONS: list[MigrationStep] = [
@@ -642,6 +660,7 @@ MIGRATIONS: list[MigrationStep] = [
     _migration_14_prompt_suggestions,
     _migration_15_operator_cases,
     _migration_16_case_checks,
+    _migration_17_turn_checkpoints,
 ]
 
 
@@ -1079,6 +1098,77 @@ class SQLiteStore:
         if not row:
             return None
         return TripContext.model_validate_json(row["data"])
+
+    # -- turn checkpoints (robustness step 3) -----------------------------
+    def save_turn_checkpoint(
+        self,
+        *,
+        request_id: str,
+        session_id: str,
+        phase: str,
+        message_hash: str,
+        base_plan_version: int,
+        data: str,
+        expires_at: datetime,
+    ) -> None:
+        """Write the live turn. One row per turn: a later checkpoint of the same turn replaces the earlier one.
+
+        The store keeps this a dumb row: what a checkpoint means, and whether it is still fresh, is decided
+        by ``app.application.turn_state``. ``data`` is that module's serialised ``TurnCheckpoint``.
+        """
+        now = _now()
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO turn_checkpoints "
+                "(request_id, session_id, phase, message_hash, base_plan_version, data, created_at, expires_at) "
+                "VALUES (?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(request_id) DO UPDATE SET phase=excluded.phase, message_hash=excluded.message_hash, "
+                "base_plan_version=excluded.base_plan_version, data=excluded.data, created_at=excluded.created_at, "
+                "expires_at=excluded.expires_at",
+                (
+                    request_id,
+                    session_id,
+                    phase,
+                    message_hash,
+                    int(base_plan_version),
+                    data,
+                    now,
+                    expires_at.isoformat(),
+                ),
+            )
+
+    def latest_turn_checkpoint(self, session_id: str) -> dict[str, Any] | None:
+        """The newest unexpired checkpoint of a session, as the stored row (``data`` still a JSON string)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT request_id, session_id, phase, message_hash, base_plan_version, data, created_at, expires_at "
+                "FROM turn_checkpoints WHERE session_id=? AND expires_at>? ORDER BY created_at DESC LIMIT 1",
+                (session_id, _now()),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def drop_turn_checkpoints(self, session_id: str, *, keep: int = 0) -> None:
+        """Remove a session's checkpoints (the turn completed), keeping the newest ``keep`` rows."""
+        with self._lock, self._connect() as conn:
+            if keep <= 0:
+                conn.execute("DELETE FROM turn_checkpoints WHERE session_id=?", (session_id,))
+                return
+            kept = [
+                str(row["request_id"])
+                for row in conn.execute(
+                    "SELECT request_id FROM turn_checkpoints WHERE session_id=? ORDER BY created_at DESC LIMIT ?",
+                    (session_id, keep),
+                ).fetchall()
+            ]
+            placeholders = ",".join("?" for _ in kept) or "''"
+            conn.execute(
+                f"DELETE FROM turn_checkpoints WHERE session_id=? AND request_id NOT IN ({placeholders})",
+                (session_id, *kept),
+            )
+
+    def drop_turn_checkpoint(self, request_id: str) -> None:
+        with self._lock, self._connect() as conn:
+            conn.execute("DELETE FROM turn_checkpoints WHERE request_id=?", (request_id,))
 
     def attach_decisions_since(self, session_id: str, after: datetime, decision: dict[str, Any]) -> None:
         """Keep this turn's model reasoning on the assistant rows of the turn that started at ``after``.
@@ -1789,6 +1879,8 @@ class SQLiteStore:
             messages = conn.execute("DELETE FROM turns WHERE session_id=?", (session_id,)).rowcount or 0
             plans = conn.execute("DELETE FROM itineraries WHERE session_id=?", (session_id,)).rowcount or 0
             contexts = conn.execute("DELETE FROM journey_state WHERE session_id=?", (session_id,)).rowcount or 0
+            # A checkpoint describes a turn of this trip: it goes with the trip.
+            conn.execute("DELETE FROM turn_checkpoints WHERE session_id=?", (session_id,))
             # A deleted trip must not stay readable through a link shared earlier.
             shares = conn.execute("DELETE FROM share_links WHERE session_id=?", (session_id,)).rowcount or 0
             conn.execute(self._SEARCH_TABLE)

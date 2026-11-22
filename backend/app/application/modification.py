@@ -26,6 +26,17 @@ from app.application.day_rewrite import (
 from app.application.freshness import FLIGHT_CHECKS, _flight_checks, outdated_sections
 from app.application.language import _letter_edits, close_word, cuisine_slot, language_slot
 from app.application.meals import image_of
+from app.application.modify_stages import (
+    AGENT_SECTION,
+    PART_AGENTS,
+    agents_needed_for_edit,
+    apply_date_or_budget_change,
+    apply_weather_results,
+    clean_parts,
+    merge_agent_results,
+    preserve_locked_and_confirmed,
+    select_agents_for_parts,
+)
 from app.application.opening_hours import lines_for, only_other_weekdays, windows_on
 from app.application.plan_focus import date_named, day_number_named, focus_day
 from app.application.planning import PlanPath
@@ -143,22 +154,6 @@ CHAT_DATES_REPLY = (
 )
 #: the reply to an edit that changed nothing and found nothing new to say
 NOTHING_MATCHED = "Nothing in the plan matched that request, so it is unchanged."
-
-AGENT_SECTION: dict[AgentName, str] = {
-    AgentName.ATTRACTION: "attractions",
-    AgentName.HOTEL: "hotels",
-    AgentName.WEATHER: "weather",
-    AgentName.TICKET: "tickets",
-}
-
-PART_AGENTS: dict[str, set[AgentName]] = {
-    "hotel": {AgentName.HOTEL},
-    "budget": {AgentName.HOTEL},
-    "attraction": {AgentName.ATTRACTION},
-    "ticket": {AgentName.TICKET},
-    "weather": {AgentName.WEATHER},
-    "dates": {AgentName.WEATHER, AgentName.HOTEL, AgentName.TICKET},
-}
 
 
 class EditOperation(BaseModel):
@@ -290,6 +285,24 @@ class ModifyPath:
         """Apply the smallest change the message asks for. ``answering`` is the question an earlier edit asked when the
         message is its answer: the edit it completes is read with the answer (the writer reads it in the conversation).
         When a fact the change needs is missing, the result `asks` for it and the plan is unchanged."""
+        # The recovery stage (recovery.recover_closed_stop) comes first, before the writer reads anything: a
+        # sentence that says a stop is closed is one deterministic request, and the rest of the plan must not
+        # be up for re-reading because of it.
+        from app.application.recovery import classify_closed_stop, recover_closed_stop
+
+        closed = classify_closed_stop(plan, message, scope_item_id=scope_item_id)
+        if closed is not None:
+            recovered = await recover_closed_stop(
+                self,
+                plan,
+                closed,
+                context=context,
+                toolbox=toolbox,
+                tracer=tracer,
+                emit=emit,
+            )
+            if recovered is not None:
+                return recovered
         if is_replan_message(message) and route_differs(plan, context):
             # The page's "generate again" after the cities of the form were changed: the route is what changes.
             from app.application.multi_edit import edit_route_from_form
@@ -501,7 +514,9 @@ class ModifyPath:
                 "This message reads as a question, not a change. Ask it as a question and I will answer "
                 "without touching the plan."
             )
-        affected = [part for part in draft.affected_parts if part in PART_AGENTS or part.startswith("day_")]
+        # Stage 1 (modify_stages.select_agents_for_parts): the parts the router and the writer named, and
+        # the parts the form's own message changed, become the agents that own them.
+        affected = clean_parts(draft.affected_parts)
         if route_parts:
             # The router is the authority on scope. The writer may narrow it but
             # must not silently add an agent the router did not name.
@@ -525,13 +540,12 @@ class ModifyPath:
             # Protecting the budget is not a request to reprice the hotel and the flights.
             affected = [part for part in affected if part != "budget"]
         # Weather, hotel and flights rerun for "dates" only when the trip's dates actually move (Proposal DB-09).
-        agent_names: set[AgentName] = set()
-        for part in affected:
-            if part == "dates" and not dates_move:
-                continue
-            agent_names |= PART_AGENTS.get(part, {AgentName.ATTRACTION})
-        if not agent_names and not form_changes:
-            agent_names = {AgentName.ATTRACTION}
+        agent_names = select_agents_for_parts(
+            affected,
+            dates_move=dates_move,
+            form_changes=form_changes,
+            upscale=upscale,
+        )
         # "even if it is over budget" grants leave to spend; it does not ask for a cheaper trip (router.py).
         # "reduce walking" is a pace, and "keep the budget the same" is an invariant.
         unconceded = without_concessive_budget(message.lower())
@@ -771,16 +785,17 @@ class ModifyPath:
             # The hotel chooser only sees this sentence. The skill already resolved "that hotel".
             message = f"{message}\n{skill_place}"
             lower_message = message.lower()
-        # The agents whose data this edit needs (Proposal DB-09). A pace change
-        # works from the plan alone, and taking a stop out needs no new places.
-        needed = set(agent_names)
-        if shape.requested and referred is None:
-            needed = set()
-        elif remove_requested and not add_requested:
-            needed.discard(AgentName.ATTRACTION)
-        if skill_op == "move":
-            # The stop is already on the plan. Searching would look for a new one.
-            needed = set()
+        # Stage 2 (modify_stages.agents_needed_for_edit): the agents whose data this edit needs
+        # (Proposal DB-09). A pace change works from the plan alone, taking a stop out needs no new
+        # places, and a "move" is about a stop already on the plan.
+        needed = agents_needed_for_edit(
+            agent_names,
+            shape_requested=bool(shape.requested),
+            referred=referred,
+            remove_requested=remove_requested,
+            add_requested=add_requested,
+            move_requested=skill_op == "move",
+        )
         fx = getattr(self.plan_path.registry, "fx", None)
         if fx is not None and (budget_mode or needed & {AgentName.HOTEL, AgentName.TICKET}):
             # Rates are needed only when a priced line (stay or flight) can change.
@@ -806,34 +821,16 @@ class ModifyPath:
                     else None,
                 )
 
-        updated = plan.model_copy(deep=True)
-        # A section that is rerun gets a fresh gap verdict. Without this, an old
-        # Wikimedia/weather/ticket gap survives after the condition is gone.
+        # Stage 3 (modify_stages.merge_agent_results): the evidence the rerun agents brought back, merged
+        # into a copy of the plan. A section that was rerun gets a fresh gap verdict - without this, an
+        # old Wikimedia/weather/ticket gap survives after the condition is gone - and what each rerun
+        # agent could not fetch is added once, as it is on a new trip.
         refreshed_sections = {AGENT_SECTION[name] for name in needed}
-        updated.data_quality.gaps = [
-            gap for gap in updated.data_quality.gaps if gap.section not in refreshed_sections
-        ]
-        # What each rerun agent could not fetch belongs on the plan, as it does on a new trip.
-        for result in results.values():
-            for gap in result.failures:
-                if not any(known.section == gap.section and known.message == gap.message for known in updated.data_quality.gaps):
-                    updated.data_quality.gaps.append(gap)
+        updated = merge_agent_results(plan, results, refreshed_sections=refreshed_sections)
         if date_changed and new_range:
-            # What the plan said about its earlier dates (that they were past) is not said of the new ones.
-            updated.data_quality.gaps = [gap for gap in updated.data_quality.gaps if gap.section != "dates"]
-            if new_range.start < date.today():
-                updated.data_quality.gaps.append(_gap("dates", PAST_DATES))
-            updated.dates = new_range
-            for index, day in enumerate(updated.days):
-                day.date = new_range.dates[index]
-                if day.weather is not None and day.weather.date != day.date:
-                    # That forecast is for the old dates. Without a new one the day shows none.
-                    day.weather = None
-            if updated.hotels:
-                updated.first_stay.check_in = new_range.start
-                updated.first_stay.check_out = new_range.end
-            updated.tickets = [ticket for ticket in updated.tickets if _ticket_within(ticket, new_range)]
-            updated.data_quality.gaps += [_gap("attractions", text) for text in _hours_after_a_move(updated)]
+            # Stage 4a (modify_stages.apply_date_or_budget_change): the trip moved. Its forecast, stay and
+            # flights are for other days now; a budget change passes no range and leaves the dates alone.
+            updated = apply_date_or_budget_change(updated, new_range=new_range)
 
         if AgentName.HOTEL in agent_names and (referred is None or plan.find_hotel(referred)):
             hotels = results.get("hotel")
@@ -891,13 +888,8 @@ class ModifyPath:
                     updated.data_quality.gaps.append(_gap("hotels", _no_hotel_message(date_changed, budget_mode or budget_in_form)))
 
         if AgentName.WEATHER in agent_names and referred is None:
-            weather_result = results.get("weather")
-            rows = (weather_result.payload.get("days") if weather_result else []) or []
-            weather_by_date = {row.get("date"): row for row in rows}
-            for day in updated.days:
-                row = weather_by_date.get(day.date.isoformat())
-                if row:
-                    day.weather = WeatherDay.model_validate(row)
+            # Stage 4b: the forecast for the plan's (possibly moved) dates.
+            updated = apply_weather_results(updated, results)
 
         move_offers: list[dict] = []
         shifted = _shift_part(updated, message, skill_place, referred)
@@ -1106,6 +1098,11 @@ class ModifyPath:
                 updated.data_quality.gaps.append(_gap("tickets", FLIGHT_NO_LONGER_FITS))
             elif form_changes and old_plan.tickets and not flights:
                 updated.data_quality.gaps.append(_gap("tickets", FARE_KEPT))
+            # Recovery stage (recovery.note_missing_flight): a trip that moved and came back with no fare
+            # says so on the plan, instead of leaving an empty flights section for the traveller to find.
+            from app.application.recovery import note_missing_flight
+
+            updated = note_missing_flight(updated, date_changed=date_changed, flights=list(flights))
 
         if form_changes:
             # What the traveller put in the trip form is what the plan is for now.
@@ -1343,7 +1340,8 @@ class ModifyPath:
         plan_dates = [day.date for day in rebuilt.days]
         blocked = blocked_dates(rule_texts, plan_dates)
         before = rebuilt.model_copy(deep=True)
-        kept_notes = _carry_protected(old, rebuilt, blocked)
+        # Stage 5 (modify_stages.preserve_locked_and_confirmed): a plan built again keeps what was protected.
+        kept_notes = preserve_locked_and_confirmed(old, rebuilt, blocked)
         rebuilt.data_quality.gaps += [_gap("attractions", text) for text in kept_notes]
         if kept_notes:
             # The stops put back belong to their new days: their transfers, and the checks that read the days.

@@ -103,7 +103,11 @@ class PlanPath:
         change_summary: str = "",
         keep_hotel: HotelStay | None = None,
         pick_hotel: Callable[[list[dict]], dict | None] | None = None,
+        given: dict[str, AgentResult] | None = None,
+        on_results: Callable[[dict[str, AgentResult]], None] | None = None,
     ) -> TripPlan:
+        """Plan one trip. ``given`` and ``on_results`` are for a resumed turn: the evidence is reported
+        as soon as it exists (a checkpoint) and, on a resume, handed back instead of being fetched again."""
         fx = getattr(self.registry, "fx", None)
         if fx is not None:
             try:
@@ -147,6 +151,8 @@ class PlanPath:
             change_summary=change_summary,
             keep_hotel=keep_hotel,
             pick_hotel=pick_hotel,
+            given=given,
+            on_results=on_results,
         )
 
     async def _plan_one(
@@ -181,16 +187,20 @@ class PlanPath:
             names = names - {AgentName(key) for key in given}
         gathering = ", ".join(sorted(name.value for name in names)) or "nothing further"
         emit("progress", {"phase": "agents", "message": f"Gathering {gathering}.", "progress": 15})
-        agent_results = await self.run_agents(
-            context=context,
-            destination=destination,
-            date_range=date_range,
-            toolbox=toolbox,
-            emit=emit,
-            names=names,
-        )
-        if given:
-            agent_results = {**given, **agent_results}
+        if given and not names:
+            # A resumed turn already holds every agent's evidence: composing from it calls no tool again.
+            agent_results = dict(given)
+        else:
+            agent_results = await self.run_agents(
+                context=context,
+                destination=destination,
+                date_range=date_range,
+                toolbox=toolbox,
+                emit=emit,
+                names=names,
+            )
+            if given:
+                agent_results = {**given, **agent_results}
         if on_results is not None:
             on_results(agent_results)
 

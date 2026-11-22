@@ -78,6 +78,13 @@ from app.application.router import (
 )
 from app.application.toolbox import Toolbox
 from app.application.turn_graph import review_and_reply
+from app.application.turn_gate import tighten_after_clarification
+from app.application.turn_state import (
+    RESUMABLE_PHASES,
+    TurnCheckpoint,
+    TurnState,
+    checkpoint_for,
+)
 from app.application.prompt_context import conversation_turns_of
 from app.application.understanding import (
     PlaceGrounding,
@@ -87,7 +94,7 @@ from app.application.understanding import (
     understand,
     understand_note,
 )
-from app.application.validation import is_edit_outcome
+from app.application.validation import diff_plans, is_edit_outcome
 from app.config import Settings
 from app.domain.errors import (
     CallerKeyFailed,
@@ -233,6 +240,140 @@ class TurnService:
         )
         # Reopening a trip must not save a refresh over the work of a turn that is running on it.
         self.freshness.session_busy = self.session_busy
+
+    # -- turn state and checkpoints (robustness steps 1-3) ----------------
+    def _checkpoint(self, state: TurnState, phase: str) -> None:
+        """Write the live turn at one of the checkpoint points. A checkpoint is an aid, never a
+        requirement: a store that cannot take it never fails the turn."""
+        if not bool(getattr(self.settings, "enable_turn_checkpoints", False)):
+            return
+        try:
+            checkpoint = checkpoint_for(
+                state, phase=phase, ttl_seconds=int(getattr(self.settings, "turn_checkpoint_ttl_seconds", 900))
+            )
+            self.store.save_turn_checkpoint(
+                request_id=checkpoint.request_id,
+                session_id=checkpoint.session_id,
+                phase=checkpoint.phase,
+                message_hash=checkpoint.message_hash,
+                base_plan_version=checkpoint.base_plan_version,
+                data=checkpoint.to_json(),
+                expires_at=checkpoint.expires_at,
+            )
+            state.checkpoint_phase = phase
+            state.checkpointed_at = checkpoint.created_at
+        except Exception:
+            logger.exception("turn checkpoint was not kept")
+
+    def _clear_checkpoints(self, session_id: str) -> None:
+        try:
+            self.store.drop_turn_checkpoints(session_id)
+        except Exception:
+            logger.exception("turn checkpoints were not cleared")
+
+    def _load_checkpoint(self, session_id: str) -> TurnCheckpoint | None:
+        if not bool(getattr(self.settings, "enable_turn_checkpoints", False)):
+            return None
+        try:
+            row = self.store.latest_turn_checkpoint(session_id)
+        except Exception:
+            logger.exception("turn checkpoint could not be read")
+            return None
+        if not row:
+            return None
+        try:
+            checkpoint = TurnCheckpoint.from_json(str(row["data"]))
+        except Exception:
+            logger.warning("a stored turn checkpoint could not be read; ignoring it", exc_info=True)
+            self._clear_checkpoints(session_id)
+            return None
+        if checkpoint.phase not in RESUMABLE_PHASES:
+            # A checkpoint from a phase that cannot be finished (only routing was done) is dropped here
+            # rather than left to expire: nothing can resume from it.
+            try:
+                self.store.drop_turn_checkpoint(checkpoint.request_id)
+            except Exception:
+                logger.exception("an unusable turn checkpoint was not dropped")
+            return None
+        return checkpoint
+
+    async def _resume_turn(
+        self,
+        *,
+        checkpoint: TurnCheckpoint,
+        state: TurnState,
+        plan: TripPlan | None,
+        context: TripContext,
+        session_id: str,
+        tracer: Any,
+        request_id: str,
+    ) -> AsyncIterator[TurnEvent]:
+        """Finish a turn from its last checkpoint. Routing is not run again: the checkpoint holds the decision.
+
+        A ``planned`` checkpoint writes the plan the cut-off turn had already built; ``ready`` writes the
+        edit it had already validated and phrased; ``agents`` re-composes the plan from the evidence it
+        had gathered, so no place, fare or forecast is fetched a second time.
+        """
+        decision = checkpoint.decision
+        if decision is None:
+            return
+        _store_path(tracer, decision, decision)
+        tracer.metadata.update(
+            {
+                "intent": decision.intent.value,
+                "confidence": decision.confidence,
+                "reason": decision.reason_code,
+                "resumed": checkpoint.phase,
+                "routes": "no_plan" if plan is None else f"plan_v{plan.version}",
+            }
+        )
+        tracer.metadata.setdefault("flow_notes", []).append(
+            f"Resumed from the {checkpoint.phase} checkpoint; the turn's earlier work was kept."
+        )
+        yield TurnEvent(event="route", data=_route_data(decision, self.settings))
+        yield TurnEvent(
+            event="progress",
+            data={"phase": "resume", "message": "Continuing where the last attempt stopped.", "progress": 60},
+        )
+        state.record_route(decision)
+        if checkpoint.phase == "planned" and checkpoint.plan is not None:
+            state.record_plan(checkpoint.plan)
+            async for event in self._persist_plan(
+                plan=checkpoint.plan,
+                body=checkpoint.reply,
+                permissions=list(checkpoint.pending),
+                context=context,
+                session_id=session_id,
+                replay=True,
+            ):
+                yield event
+        elif checkpoint.phase == "ready" and checkpoint.plan is not None:
+            updated = checkpoint.plan
+            state.record_plan(updated)
+            diff = diff_plans(plan, updated) if plan is not None else []
+            async for event in self._emit_modify_result(
+                updated=updated,
+                diff=diff,
+                prose=checkpoint.reply or updated.change_summary or "",
+                facts=checkpoint.reply or "",
+                record=None,
+                permissions=list(checkpoint.pending),
+                reply_meta={},
+                session_id=session_id,
+                replay=True,
+            ):
+                yield event
+        elif checkpoint.phase == "agents" and checkpoint.agent_results:
+            async for event in self._plan(
+                context=context,
+                session_id=session_id,
+                tracer=tracer,
+                request_id=request_id,
+                previous=plan,
+                state=state,
+                given=dict(checkpoint.agent_results),
+            ):
+                yield event
 
     def _remember_in_background(self, owner: str, context: TripContext) -> None:
         """Session preferences go to the owner's long-term memory off the turn's critical path."""
@@ -545,6 +686,8 @@ class TurnService:
         # The error event of a failed turn. It is sent from the end of this method, not from the handler: nothing
         # is yielded while an exception is being handled, so closing the turn at the error ends it like anywhere else.
         failure: TurnEvent | None = None
+        # The live turn, one typed object (robustness step 1). Created once the history is read, below.
+        state: TurnState | None = None
         try:
             # Display language, refresh and Chinese input are decided first: before
             # the selected stop, the understanding step and any model or tool.
@@ -567,6 +710,39 @@ class TurnService:
             # The stored turns, this one last, read once: the router and every step that acts on the turn see the
             # recent conversation from them (the steps through `conversation_block`, without this message).
             history = self.store.list_messages(session_id, limit=conversation_turns_of(self.settings) + 1)
+            state = TurnState.begin(
+                session_id=session_id,
+                request_id=request_id,
+                message=message,
+                context=context,
+                history=history,
+                plan=plan,
+            )
+            # A recent checkpoint of this same message, against this same plan, is a turn that was cut off
+            # (deadline, disconnect, crash). Finish it instead of doing the work again.
+            checkpoint = self._load_checkpoint(session_id)
+            if (
+                checkpoint is not None
+                and checkpoint.decision is not None
+                and checkpoint.can_finish
+                and checkpoint.finishes(message, plan.version if plan is not None else 0)
+            ):
+                async for event in self._resume_turn(
+                    checkpoint=checkpoint,
+                    state=state,
+                    plan=plan,
+                    context=context,
+                    session_id=session_id,
+                    tracer=tracer,
+                    request_id=request_id,
+                ):
+                    yield event
+                state.finish()
+                self._clear_checkpoints(session_id)
+                return
+            if checkpoint is not None:
+                # A checkpoint for another message, another plan or an old turn says nothing about this one.
+                self._clear_checkpoints(session_id)
             # A short reply to an open clarification fills that slot. "Hong Kong" after
             # "where are you travelling from?" is the origin, not a new destination.
             clarify_slots = _pending_clarify(history)
@@ -883,6 +1059,9 @@ class TurnService:
                         "affected_parts": ["meal"],
                     }
                 )
+            # The clarification gate (robustness step 5): a bare "yes"/"maybe" after a clarify that asked
+            # what to do is asked about again, not planned from. The router stays the authority otherwise.
+            decision = tighten_after_clarification(decision, message=message, history=history)
             intent = decision.intent
             if plan is not None and intent != Intent.PLAN:
                 context = self._put_back_the_place(as_read, context)
@@ -895,6 +1074,10 @@ class TurnService:
                     "routes": "no_plan" if plan is None else f"plan_v{plan.version}",
                 }
             )
+            # Checkpoint point 1: the route decision is made (Jev, the writer or the rules) and recorded.
+            if state is not None:
+                state.record_route(decision)
+                self._checkpoint(state, "routed")
             yield TurnEvent(event="route", data=_route_data(decision, self.settings))
 
             if decision.need_clarification or decision.intent == Intent.UNCLEAR:
@@ -909,6 +1092,7 @@ class TurnService:
                     plan=plan,
                     scope_item_id=scope_item_id,
                     suggestions=place_check.suggestions,
+                    state=state,
                 ):
                     yield event
                 self.store.touch_session(session_id)
@@ -956,6 +1140,7 @@ class TurnService:
                     tracer=tracer,
                     request_id=request_id,
                     previous=plan,
+                    state=state,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -980,6 +1165,7 @@ class TurnService:
                     history=history,
                     answering=answering,
                     review=review,
+                    state=state,
                 )
                 async with aclosing(path) as events:
                     async for event in events:
@@ -1055,6 +1241,14 @@ class TurnService:
             reset_developer_view(developer_token)
             tracer.finish(status=status)
             self._keep_decision(session_id, user_message.created_at, tracer)
+            if state is not None:
+                if status in ("ok", "blocked") and failure is None:
+                    # The turn finished: its checkpoint has nothing left to resume and goes away.
+                    state.finish()
+                    if status == "ok":
+                        self._clear_checkpoints(session_id)
+                elif failure is not None:
+                    state.record_error(str((failure.data or {}).get("message") or status))
             if status not in ("closed", "cancelled"):
                 if failure is not None:
                     yield failure
@@ -1260,7 +1454,21 @@ class TurnService:
         session = self.store.get_session(session_id)
         return session.owner if session else ""
 
-    async def _plan(self, *, context, session_id, tracer, request_id, previous=None) -> AsyncIterator[TurnEvent]:
+    async def _plan(
+        self,
+        *,
+        context,
+        session_id,
+        tracer,
+        request_id,
+        previous=None,
+        state: TurnState | None = None,
+        given: dict[str, Any] | None = None,
+    ) -> AsyncIterator[TurnEvent]:
+        """The plan path. ``given`` is the evidence a resumed turn already holds (a checkpoint): it is
+        merged with what the agents return instead of being fetched again."""
+        if state is not None:
+            state.start("planning")
         matches = self.memory.recall(context, owner=self._memory_owner(session_id))
         # A new trip for the place the saved plan is for keeps what the traveller protected in it: the stay they
         # accepted and their locked or confirmed stops. A trip to another place has nothing to carry.
@@ -1274,6 +1482,13 @@ class TurnService:
 
         def emit(event_name: str, data: dict[str, Any]) -> None:
             queue.put_nowait((event_name, data))
+
+        def on_results(results: dict[str, Any]) -> None:
+            """Checkpoint point 2: the agents have finished, before the planner merges their evidence."""
+            if state is None:
+                return
+            state.record_agents(results)
+            self._checkpoint(state, "agents")
 
         toolbox = Toolbox(
             path="plan",
@@ -1294,6 +1509,8 @@ class TurnService:
                 memory_summaries=self.memory.memory_summaries(matches),
                 version=1,
                 keep_hotel=stay,
+                given=given,
+                on_results=on_results,
             )
         )
         try:
@@ -1329,7 +1546,42 @@ class TurnService:
         except Exception:
             logger.exception("first-draft review failed open")
             draft_reply = plan.summary or ""
-        self.store.save_plan(plan, plan.change_summary or "Initial plan")
+        # Checkpoint point 3: the plan is built, checked and phrased, and the turn is about to persist it.
+        if state is not None:
+            state.record_plan(plan)
+            state.reply = (draft_reply or plan.summary or "").strip()
+            state.pending = list(draft_permissions)
+            state.start("validating")
+            self._checkpoint(state, "planned")
+        async for event in self._persist_plan(
+            plan=plan,
+            body=draft_reply,
+            permissions=draft_permissions,
+            context=context,
+            session_id=session_id,
+        ):
+            yield event
+
+    async def _persist_plan(
+        self,
+        *,
+        plan: TripPlan,
+        body: str | None,
+        permissions: list[dict[str, Any]],
+        context: TripContext,
+        session_id: str,
+        replay: bool = False,
+    ) -> AsyncIterator[TurnEvent]:
+        """Write a finished plan version, its reply and its events. Shared by the plan path and a resume:
+        the turn that was cut off at the "planned" checkpoint calls exactly this, so it writes one plan."""
+        try:
+            self.store.save_plan(plan, plan.change_summary or "Initial plan")
+        except PlanConflict:
+            if not replay:
+                raise
+            # A resumed turn may have been cut off after its own save: the version is already there,
+            # and this turn is finishing the same plan, not racing another turn for it.
+            logger.info("the resumed plan version %s is already stored", plan.version)
         if context.best_order and len(plan.segments) > 1:
             # The cities were put in their best order: the form follows the plan, so a later turn does not put them back.
             stored = self.store.get_context(session_id)
@@ -1337,29 +1589,48 @@ class TurnService:
                 self.store.save_context(stored)
         # What the assessment could not settle is asked with the plan; the answer is an edit like any other.
         question = plan.assessment.question if plan.assessment is not None else ""
-        body = (draft_reply or plan.summary or "").strip()
-        if question:
+        body = (body or plan.summary or "").strip()
+        if question and question not in body:
             body = f"{body}\n\n{question}"
         plan_meta: dict[str, Any] = {}
         if question:
             plan_meta["assessment_question"] = True
-        if draft_permissions:
-            plan_meta["proposal"] = {"changes": draft_permissions, "base_version": plan.version}
-        reply = Message(
-            session_id=session_id,
-            role="assistant",
-            content=body,
-            intent=Intent.PLAN,
-            meta=plan_meta,
-        )
-        self.store.add_message(reply)
-        if draft_permissions:
+        if permissions:
+            plan_meta["proposal"] = {"changes": permissions, "base_version": plan.version}
+        reply = self._already_told(session_id, body) if replay else None
+        if reply is None:
+            reply = Message(
+                session_id=session_id,
+                role="assistant",
+                content=body,
+                intent=Intent.PLAN,
+                meta=plan_meta,
+            )
+            self.store.add_message(reply)
+        if permissions:
             yield TurnEvent(
                 event="proposal",
                 data={"message_id": reply.id, "proposal": plan_meta["proposal"]},
             )
         yield TurnEvent(event="plan", data={"plan": plan.model_dump(mode="json"), "diff": []})
         self.store.touch_session(session_id)
+
+    def _already_told(self, session_id: str, content: str) -> Message | None:
+        """The stored turn that already says this, or None: a resumed turn must not repeat a reply.
+
+        The row itself is returned so a proposal on it still names the message the traveller ticks.
+        """
+        text = (content or "").strip()
+        if not text:
+            return None
+        try:
+            rows = self.store.list_messages(session_id, limit=3)
+        except Exception:
+            return None
+        return next(
+            (row for row in rows if row.role == "assistant" and (row.content or "").strip() == text),
+            None,
+        )
 
     async def edit_from_desk(
         self,
@@ -1423,9 +1694,12 @@ class TurnService:
         answering: EditQuestion | None = None,
         review: bool = False,
         reply_meta: dict[str, Any] | None = None,
+        state: TurnState | None = None,
     ) -> AsyncIterator[TurnEvent]:
         if plan is None:
             raise PlanInvalidError("There is no itinerary to modify yet.")
+        if state is not None:
+            state.start("modifying")
         queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
 
         def emit(event_name: str, data: dict[str, Any]) -> None:
@@ -1634,30 +1908,67 @@ class TurnService:
             prose = await review_task
         finally:
             await _settle(review_task)
+        # Checkpoint point 3: the edit is validated and phrased, and about to be persisted.
+        if state is not None:
+            state.record_plan(updated)
+            state.reply = prose
+            state.pending = list(edit_permissions)
+            state.start("validating")
+            self._checkpoint(state, "ready")
+        async for event in self._emit_modify_result(
+            updated=updated,
+            diff=diff,
+            prose=prose,
+            facts=facts,
+            record=record,
+            permissions=edit_permissions,
+            reply_meta=reply_meta,
+            session_id=session_id,
+        ):
+            yield event
+
+    async def _emit_modify_result(
+        self,
+        *,
+        updated: TripPlan,
+        diff: list[dict[str, Any]],
+        prose: str,
+        facts: str,
+        record: dict[str, Any] | None,
+        permissions: list[dict[str, Any]],
+        reply_meta: dict[str, Any] | None,
+        session_id: str,
+        replay: bool = False,
+    ) -> AsyncIterator[TurnEvent]:
+        """Write the edited plan, its reply and its events. Shared by the modify path and a resume, so a
+        turn that was cut off at the "ready" checkpoint writes one version and one reply."""
         try:
             self.store.save_plan(updated, None, replace=True)
         except Exception:
             logger.exception("saving the reviewed clocks failed")
         flag = stuck_flag(self.store.list_messages(session_id, limit=40), prose)
-        reply = Message(
-            session_id=session_id,
-            role="assistant",
-            content=prose,
-            intent=Intent.MODIFY,
-            meta={
-                "diff": diff,
-                **({"stuck_flag": flag} if flag else {}),
-                **({"log": record} if record is not None else {}),
-                **({"edit_facts": facts} if prose.strip() != facts.strip() else {}),
-                **(
-                    {"proposal": {"changes": edit_permissions, "base_version": updated.version}}
-                    if edit_permissions
-                    else {}
-                ),
-                **(reply_meta or {}),
-            },
-        )
-        self.store.add_message(reply)
+        meta = {
+            "diff": diff,
+            **({"stuck_flag": flag} if flag else {}),
+            **({"log": record} if record is not None else {}),
+            **({"edit_facts": facts} if prose.strip() != facts.strip() else {}),
+            **(
+                {"proposal": {"changes": permissions, "base_version": updated.version}}
+                if permissions
+                else {}
+            ),
+            **(reply_meta or {}),
+        }
+        reply = self._already_told(session_id, prose) if replay else None
+        if reply is None:
+            reply = Message(
+                session_id=session_id,
+                role="assistant",
+                content=prose,
+                intent=Intent.MODIFY,
+                meta=meta,
+            )
+            self.store.add_message(reply)
         if flag >= 3 and not self.store.is_held(session_id):
             policy = self.store.escalation_policy()
             parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
@@ -1679,12 +1990,12 @@ class TurnService:
                 )
                 prose = f"{prose}\n\n{note}"
         yield TurnEvent(event="token", data={"text": prose})
-        if record is not None or edit_permissions:
+        if record is not None or permissions:
             yield TurnEvent(
                 event="proposal",
                 data={
                     "message_id": reply.id,
-                    "proposal": {"changes": edit_permissions, "base_version": updated.version},
+                    "proposal": {"changes": permissions, "base_version": updated.version},
                     **({"log": record} if record is not None else {}),
                 },
             )
@@ -1775,11 +2086,15 @@ class TurnService:
         plan=None,
         scope_item_id: str | None = None,
         suggestions: list[tuple[str, str, str]] | None = None,
+        state: TurnState | None = None,
     ) -> AsyncIterator[TurnEvent]:
         # With a plan, an unclear message is asked about that plan and the stop selected on it.
         question, slots = await self.clarifier.ask(
             message=message, context=context, decision=decision, history=history, plan=plan, scope_item_id=scope_item_id
         )
+        if state is not None:
+            # The clarification gate (robustness step 5): one question, held on the turn, asked before any plan.
+            state.record_clarification(question, slots)
         meta: dict[str, Any] = {"clarify": True, "slots": slots}
         if plan is not None and not slots:
             # The question is about what to change ("Would you like a sushi restaurant near X, Y, or Z?"): the
