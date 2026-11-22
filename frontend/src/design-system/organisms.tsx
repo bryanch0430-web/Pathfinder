@@ -4763,7 +4763,7 @@ export function TravellerProfileCard({
 }
 
 const REDACTION_SAMPLE =
-  "Plan 4 days in Kyoto from Hong Kong for 2 people, leaving 5 December, budget 8000 HKD. My HKID is Y335 776(5). Call me on 9123 4567 or chan@example.com. The card is 4111 1111 1111 1111.";
+  "Plan 4 days in Kyoto from Hong Kong for 2 people, leaving 5 December, budget 8000 HKD. My HKID is Y3447 886(5). Call me on 9123 4567 or chan@example.com. The card is 4111 1111 1111 1111.";
 
 function RedactionSettings({
   saved,

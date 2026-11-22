@@ -50,6 +50,7 @@ def test_pii_is_masked_in_the_first_layer():
     assert "9123 4567" not in masked
     assert "hal@example.com" not in masked
     assert "Y335776" not in masked
+    assert mask_pii("my HKID is Y3447 886(5)") == "my HKID is [HKID]"
     assert "[PHONE]" in masked and "[EMAIL]" in masked and "[HKID]" in masked
 
 

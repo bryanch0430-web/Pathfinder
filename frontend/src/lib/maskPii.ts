@@ -14,7 +14,7 @@ export type RedactionFlags = {
 };
 
 export const DEFAULT_PATTERNS: RedactionFlags["patterns"] = {
-  hkid: "(?<![A-Z0-9])[A-Z]{1,2}(?:\\s*\\d){6}(?!\\d)(?:\\s*\\(?\\s*[0-9A]\\s*\\)?)?",
+  hkid: "(?<![A-Z0-9])[A-Z]{1,2}(?:\\s*\\d){6,7}(?!\\d)(?:\\s*\\(?\\s*[0-9A]\\s*\\)?)?",
   hk_phone: "(?<!\\d)(?:\\+?852[\\s-]?)?[2-9]\\d{3}[\\s-]?\\d{4}(?!\\d)",
   email: "\\b[\\w.+-]+@[\\w-]+\\.[\\w.-]+\\b",
   card: "\\b\\d[\\d -]{11,21}\\d\\b",
@@ -54,7 +54,7 @@ export function setRedaction(next: Partial<RedactionFlags> | null | undefined): 
     ...DEFAULTS,
     ...(next ?? {}),
     patterns: {
-      hkid: usable(saved?.hkid, "Y334 556(9)", DEFAULT_PATTERNS.hkid),
+      hkid: usable(saved?.hkid, "Y3447 886(5)", DEFAULT_PATTERNS.hkid),
       hk_phone: usable(saved?.hk_phone, "9123 4567", DEFAULT_PATTERNS.hk_phone),
       email: usable(saved?.email, "hal@example.com", DEFAULT_PATTERNS.email),
       card: usable(saved?.card, "4111 1111 1111 1111", DEFAULT_PATTERNS.card),

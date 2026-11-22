@@ -18,11 +18,13 @@ from app.plan.builder import refresh_derived
 
 router = APIRouter()
 
+from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
+
 DEFAULT_PATTERNS = {
-    "hkid": {"label": "HKID", "pattern": r"[A-Z]{1,2}\d{6}\(\d\)"},
-    "hk_phone": {"label": "HK phone", "pattern": r"\+852\s?\d{4}\s?\d{4}"},
-    "email": {"label": "Email", "pattern": r"[\w.+-]+@[\w-]+\.[\w.]+"},
-    "card": {"label": "Card number", "pattern": r"\b(?:\d[ -]*?){13,16}\b"},
+    "hkid": {"label": "HKID", "pattern": HKID},
+    "hk_phone": {"label": "HK phone", "pattern": HK_PHONE},
+    "email": {"label": "Email", "pattern": EMAIL},
+    "card": {"label": "Card number", "pattern": CARD},
 }
 
 ESCALATION_DEFAULT = {

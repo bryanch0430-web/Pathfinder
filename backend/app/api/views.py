@@ -241,12 +241,9 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
 
 DEFAULT_FRESHNESS = {"weather": 6, "tickets": 24, "hotels": 24}
 DEFAULT_THRESHOLDS = {"router": 0.8, "max_repairs": 2, "turn_deadline": 180, "rule_passes": 3}
-DEFAULT_PATTERNS = {
-    "hkid": r"[A-Z]{1,2}\d{6}\(\d\)",
-    "hk_phone": r"\+852\s?\d{4}\s?\d{4}",
-    "email": r"[\w.+-]+@[\w-]+\.[\w.]+",
-    "card": r"\b(?:\d[ -]*?){13,16}\b",
-}
+from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
+
+DEFAULT_PATTERNS = {"hkid": HKID, "hk_phone": HK_PHONE, "email": EMAIL, "card": CARD}
 
 
 async def runtime_config(c: Container) -> dict[str, Any]:

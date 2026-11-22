@@ -15,7 +15,7 @@ from typing import Any
 EMAIL = r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"
 HK_PHONE = r"(?<!\d)(?:\+?852[\s-]?)?[2-9]\d{3}[\s-]?\d{4}(?!\d)"
 CARD = r"\b\d[\d -]{11,21}\d\b"
-HKID = r"(?<![A-Z0-9])[A-Z]{1,2}(?:\s*\d){6}(?!\d)(?:\s*\(?\s*[0-9A]\s*\)?)?"
+HKID = r"(?<![A-Z0-9])[A-Z]{1,2}(?:\s*\d){6,7}(?!\d)(?:\s*\(?\s*[0-9A]\s*\)?)?"
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ class Redaction:
             # A saved pattern from an older build can be narrower than the real format.
             # If it cannot match a known sample it would silently switch masking off, so
             # such a pattern falls back to the built-in one.
-            hkid_pattern=_usable(red.get("hkid_pattern") or patterns.get("hkid"), HKID, "Y334 556(9)"),
+            hkid_pattern=_usable(red.get("hkid_pattern") or patterns.get("hkid"), HKID, "Y3447 886(5)"),
             hk_phone_pattern=_usable(red.get("hk_phone_pattern") or patterns.get("hk_phone"), HK_PHONE, "9123 4567"),
             email_pattern=_usable(red.get("email_pattern") or patterns.get("email"), EMAIL, "hal@example.com"),
             card_pattern=_usable(red.get("card_pattern") or patterns.get("card"), CARD, "4111 1111 1111 1111"),
