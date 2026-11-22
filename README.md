@@ -8,7 +8,9 @@ bounded repair and versioned plans.
 **Latest:** the Models tab now configures a model, temperature and reasoning effort
 for each part; the turn orchestrator can be the analyst or Jev; handoff goes to a
 real desk queue with editable explicit-request phrases. See
-[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) for the running version log.
+[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it now also imports the `main`
+v1.x release notes and maps each one to what v5 kept, changed, or deliberately
+dropped, with the reason.
 
 
 ```

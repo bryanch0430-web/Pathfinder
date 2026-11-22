@@ -81,3 +81,78 @@ references; the plan is validated, repaired at most twice, and stored as a versi
   analyst.
 - The full Hong Kong evaluation’s last recorded run was **7/8**; the transfer-realism
   changes for `hk03` are in the code but the full suite was not re-run after them.
+
+## Imported from `main` — the v1.x release notes
+
+`main` is the **pre-revamp line** (v1.0.0 → **v1.18.0**, 22 Nov 2026, 16:30 HKT).
+Its `README.md` and `docs/CHANGELOG.md` are the product requirements the rebuild has
+to preserve. They are not v5 releases; they are the behaviour v5 must not regress.
+
+Full source:
+[main README → Version notes](https://github.com/bryanch0430-web/Pathfinder/blob/main/README.md#version-notes) ·
+[main CHANGELOG](https://github.com/bryanch0430-web/Pathfinder/blob/main/docs/CHANGELOG.md)
+
+v5 keeps its own **5.x** line; the v1.x numbers are the source product line, not a
+semver comparison.
+
+### The latest main note in full — v1.18.0
+
+> More ways of saying a trip are read. A wish is not stored as the city. The clarify
+> card names the end date, and a budget chip fills the box. Evaluation lists the bulk
+> sets for reference only.
+>
+> - **A wish is not the city.** “I want to see sun cakes in Kaohsiung” stays Kaohsiung.
+>   Pandas, cherry blossoms, and “built around ramen” stay a wish.
+> - **More ordinary routes are read.** “Departing Charlotte for Akron”, “the 24th of
+>   March to the 29th of March”, and a name that ends in City, such as Panama City.
+> - **“From time to time” is still not a departure city.** Neither is “change the trip
+>   from Kyoto to Osaka”.
+> - **The dates form shows Start and End.** The second box is no longer an unlabelled
+>   date.
+> - **A budget chip fills the number box.** HKD 91,000 shows as 91000. Continue still
+>   sends the currency.
+> - **Evaluation has a Bulk tests column, marked reference only.** It lists the full
+>   TravelPlanner set, 1,225 queries, and 1,000 English sentences each for Hong Kong,
+>   Taiwan, Japan and China. Sentences that share a wording are one row. Those lists
+>   are not an experiment.
+
+| Main release | Main headline | Leveraged in v5 as | Why v5 changes the mechanism |
+|---|---|---|---|
+| **v1.18.0** · 2026-11-22 16:30 | A wish stays a wish, the end date is labelled, and a budget chip fills the box | A wish becomes `preferences` / `research_places` / `search_queries`, never the destination; the clarify card still names the end date; the budget chip still fills the number box | v5 has one typed analyst call, not the rule/gazetteer stack. The **product rule** (wish ≠ city) is kept; the regex that implemented it is not. |
+| **v1.17.0** · 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out | Intake parses files; date validation rejects missing/reversed ranges; a found-but-removed stop gets a visible `DataGap` reason | LLM intake + Pydantic validation replaces special-case rules; the UI and the visible reason stay. |
+| **v1.16.0** · 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal | “Where I can see Gundam” → named lookup + web fallback; finalised trips are history; other fares fold under options; a repeated failed edit can hand off | v5 uses `research_places` and provider web search, not a street-name regex. The handoff counter now counts **failed edits**, not ordinary clarifications (the v1.16 note’s “third failure” was being over-applied). |
+| **v1.15.0** · 2026-11-21 19:35 | An edit waits for a tick, a nickname finds the stop on the plan, and “how long should I stay” is the visit | Typed edit ops + proposals; full-day rule in the planner; named refs; visit length from evidence | The model proposes the edit; code applies it and protects locked/confirmed rows. The interaction is the same; the rule engine is gone. |
+| **v1.14.0** · 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat | Map/hotel start; frustration is a model estimate, not sentiment rules; Desk can take a queued chat | v5 keeps Take over and the map, but automatic handoff is a master switch with a phrase list; false sentiment escalation is not repeated. |
+| **v1.13.0** · 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked | PII first layer (HKID/phone/email/card); flight/arrival constraints; selected-row edit scope | Masking was **lost in the first v5 pass** and restored; the validator now enforces flight boundaries instead of rules. |
+| **v1.12.0** · 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting | Handoff master + frustration + stuck + explicit phrases; Desk Queue → Handling | v5 had made the queue “too strong” by counting clarifications and pre-assigning an agent. It now queues with no agent so a person can **Accept**, and only failed edits count. |
+| v1.11.0 – v1.9.0 | Map confirmation, translation parity, error analysis, routing gates, Desk window, all eval suites | Map confirmations; plan-locale switching; eval dashboard; Desk | The UI/contract is reused; routing gates in v5 are the analyst/Jev choice, not three v4 gates. |
+| v1.8.0 – v1.7.0 | Studio canvas UI, multi-city trips, lockable stay/leg/transfer slots, pictures/links/ranks | The React UI, SSE contract, multi-city shapes, locks, photos, source links | Copied as the interface contract; the backend behind it is new. Photos were restored with a Wikipedia → Google Places → neutral-tile resolver. |
+| v1.6.x – v1.0.x | Clarify answers in their slot, flights shape the day, visible legs, honest budgets, EN/简/繁, web search, reviews | Clarify payloads; flight times and day boundaries; leg/transfer model; budget guard; locales; search providers | Product behaviour retained; implementation replaced by the typed core. |
+
+### What was deliberately not carried over
+
+- **The rules-first router and gazetteers** (547 regexes across 68 files in the old
+  core). They were the ceiling the rebuild exists to remove. v5 has one regex file,
+  for the privacy preview only.
+- **Jev as the default router.** It remains available as an explicit orchestrator
+  option; the analyst is the default because it scored 98.8 % on the routing set vs
+  92.9 % for the old Jev path.
+- **Reviewer/model arms, freshness windows, keyword intent matching, automatic
+  handoff on arbitrary keywords.** Nothing read them in v5, so their controls were
+  removed. The only keyword list left is the operator’s **explicit-request phrases**,
+  which is a deliberate handoff policy, not understanding.
+- **Unported v1.x edge cases.** The main notes contain many narrow fixes; v5 keeps
+  the product rules but not every rule implementation. The known limits above say
+  where parity is still open.
+
+### Why these changes are necessary
+
+The main notes describe a product that works but is **brittle by construction**: a
+phrasing the rules did not anticipate is misread, and every new phrasing adds a
+condition. v5 keeps the same UI, the same SSE contract and the same product
+promises, but moves understanding to one typed model call, facts to sourced
+evidence, edits to typed operations, and handoff/settings to controls the runtime
+actually reads. The changes above are the price of that core replacement; the
+restorations (PII, videos, photos, settings, handoff queue, flight times) are the
+places where the first pass had regressed against the main notes.
+
