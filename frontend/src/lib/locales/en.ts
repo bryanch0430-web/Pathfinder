@@ -657,7 +657,7 @@ export const EN = {
   "settings.group.handoff": "Handoff",
   "settings.group.instructions": "Instructions",
   "settings.group.profile": "Profile",
-  "settings.group.keys": "Writer",
+  "settings.group.keys": "Models",
   "settings.group.reviewer": "Reviewer",
   "settings.group.gate": "Gate",
   "settings.group.orchestrator": "Orchestrator",

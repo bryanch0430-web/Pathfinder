@@ -255,6 +255,13 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     redaction = {**DEFAULT_PATTERNS, **(overrides.get("redaction") or {})}
     writer = overrides.get("writer") or {}
     data_mode = overrides.get("data_mode") or ("atlas" if settings.sandbox else "live")
+    orchestration = overrides.get("orchestrator") or {}
+    jev_override = orchestration.get("jev") or {}
+    turn_mode = orchestration.get("mode") or settings.turn_orchestrator
+    jev_model = jev_override.get("model") or settings.decision_model
+    jev_url = jev_override.get("url") or settings.decision_api_url
+    jev_key = jev_override.get("api_key") or settings.decision_api_key
+    purpose_models = overrides.get("purpose_models") or {}
     base, _key, model = settings.writer
     return {
         "version": "5.0.0",
@@ -272,6 +279,16 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "base_url": base,
         },
         "writer_model": writer_model,
+        "models": {"default": writer_model, "purposes": purpose_models},
+        "orchestrator": {
+            "mode": turn_mode,
+            "jev": {
+                "model": jev_model,
+                "url": jev_url,
+                "key_set": bool(jev_key),
+                "key_tail": _tail(jev_key),
+            },
+        },
         "poe": {"key_set": bool(settings.poe_api_key), "key_tail": _tail(settings.poe_api_key)},
         "redaction": {
             "hkid": bool(redaction.get("hkid", True)),
@@ -314,7 +331,8 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "privacy_masking": True,
             "serpapi_rotation": True,
             "freshness_hours": False,
-            "jev": False,
+            "jev": True,
+            "purpose_models": True,
             "reviewer": False,
             "gate_arms": False,
             "model_arms": False,

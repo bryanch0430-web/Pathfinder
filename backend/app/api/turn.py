@@ -34,6 +34,24 @@ async def effective_settings(c: Container):
         update["openai_model"] = model
         update["llm_temperature"] = writer.get("temperature", c.settings.llm_temperature)
         update["llm_max_tokens"] = writer.get("max_tokens", c.settings.llm_max_tokens)
+    orchestrator = overrides.get("orchestrator") or {}
+    turn_mode = orchestrator.get("mode")
+    if turn_mode in {"analyst", "jev"}:
+        update["turn_orchestrator"] = turn_mode
+    jev = orchestrator.get("jev") or {}
+    if jev.get("model"):
+        update["decision_model"] = str(jev["model"])
+    if jev.get("url"):
+        update["decision_api_url"] = str(jev["url"])
+    if jev.get("api_key"):
+        update["decision_api_key"] = str(jev["api_key"])
+    purpose_models = overrides.get("purpose_models")
+    if isinstance(purpose_models, dict):
+        update["purpose_models"] = {
+            str(key): str(value).strip()
+            for key, value in purpose_models.items()
+            if str(value).strip()
+        }
     mode = overrides.get("data_mode")
     if mode in {"live", "atlas"}:
         update["sandbox"] = mode == "atlas"

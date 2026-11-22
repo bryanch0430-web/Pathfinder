@@ -102,10 +102,12 @@ async def remember_trip(
     """Derive memory, merge it into the traveller's profile, and return what was new."""
     if not identity:
         return []
+    from app.api.turn import effective_settings
     from app.core.llm import LLMClient
 
     messages = await container.store.recent_messages(session_id, limit=10)
-    llm = LLMClient(container.settings)
+    # Use the runtime model map so the memory part follows the Models tab too.
+    llm = LLMClient(await effective_settings(container))
     try:
         draft = await derive_memory(llm=llm, plan=plan, context=context, messages=[ChatMessage(**row) for row in messages])
     finally:

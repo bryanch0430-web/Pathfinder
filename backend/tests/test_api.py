@@ -71,7 +71,8 @@ def test_runtime_shape_for_the_settings_page(tmp_path):
             assert key in config
         assert "temperature" in config["writer"]
         assert set(config["thresholds"]) == {"router", "max_repairs", "turn_deadline"}
-        assert config["capabilities"]["jev"] is False
+        assert config["capabilities"]["jev"] is True
+        assert config["capabilities"]["purpose_models"] is True
         assert "reviewer" not in config
 
 
@@ -81,3 +82,32 @@ def test_writer_call_settings_persist(tmp_path):
         config = client.get("/api/runtime").json()
         assert config["writer"]["temperature"] == 0.4
         assert config["writer"]["max_tokens"] == 1234
+
+
+def test_models_and_orchestrator_roundtrip(tmp_path):
+    with _client(tmp_path) as client:
+        client.put(
+            "/api/admin/runtime",
+            json={
+                "purpose_models": {"plan": "planner-model", "verify": "verifier-model"},
+                "orchestrator": {"mode": "jev", "jev": {"model": "jev-test", "url": "https://jev.test/systemone"}},
+            },
+        )
+        config = client.get("/api/runtime").json()
+        assert config["models"]["purposes"]["plan"] == "planner-model"
+        assert config["orchestrator"]["mode"] == "jev"
+        assert config["orchestrator"]["jev"]["model"] == "jev-test"
+        assert config["orchestrator"]["jev"]["url"] == "https://jev.test/systemone"
+
+
+def test_per_purpose_model_wins_over_the_writer():
+    from app.config import get_settings
+    from app.core.llm import LLMClient
+
+    settings = get_settings().model_copy(
+        update={"llm_model": "default-model", "openai_model": "default-model", "purpose_models": {"plan": "planner-model"}}
+    )
+    client = LLMClient(settings)
+    assert client.model_for("plan") == "planner-model"
+    assert client.model_for("ask") == "default-model"
+    assert client.model_for("plan", "explicit") == "explicit"

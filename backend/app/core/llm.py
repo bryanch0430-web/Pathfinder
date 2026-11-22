@@ -85,6 +85,11 @@ class LLMClient:
     def available(self) -> bool:
         return bool(self.api_key and self.base_url and self.model)
 
+    def model_for(self, purpose: str, model: str | None = None) -> str:
+        """The model this part uses: an explicit call model, then its configured model, then the writer."""
+        configured = (self.settings.purpose_models or {}).get(purpose, "").strip()
+        return (model or configured or self.model).strip()
+
     def _payload(
         self,
         *,
@@ -157,10 +162,11 @@ class LLMClient:
     ) -> LLMReply:
         if not self.available:
             raise LLMError("no writer model is configured", retryable=False)
+        chosen = self.model_for(purpose, model)
         payload = self._payload(
             system=system,
             messages=[{"role": "user", "content": user}],
-            model=model,
+            model=chosen,
             temperature=temperature,
             max_tokens=max_tokens,
             json_mode=False,
@@ -194,10 +200,11 @@ class LLMClient:
         """Yield text deltas. Falls back to a single-shot call if the endpoint refuses streaming."""
         if not self.available:
             raise LLMError("no writer model is configured", retryable=False)
+        chosen = self.model_for(purpose, model)
         payload = self._payload(
             system=system,
             messages=[{"role": "user", "content": user}],
-            model=model,
+            model=chosen,
             temperature=temperature,
             max_tokens=max_tokens,
             json_mode=False,
@@ -239,7 +246,7 @@ class LLMClient:
             if not chunks:
                 raise
         if not streamed:
-            reply = await self.text(purpose=purpose, system=system, user=user, model=model, temperature=temperature)
+            reply = await self.text(purpose=purpose, system=system, user=user, model=chosen, temperature=temperature)
             chunks.append(reply.text)
             prompt_tokens, completion_tokens = reply.prompt_tokens, reply.completion_tokens
             yield reply.text
@@ -247,7 +254,7 @@ class LLMClient:
             purpose,
             LLMReply(
                 text="".join(chunks),
-                model=model or self.model,
+                model=chosen,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 latency_ms=(time.perf_counter() - started) * 1000,
@@ -273,6 +280,7 @@ class LLMClient:
         """Ask for one JSON object, validate it, and give the model one repair turn."""
         if not self.available:
             raise LLMError("no writer model is configured", retryable=False)
+        chosen = self.model_for(purpose, model)
         messages: list[dict[str, Any]] = []
         if images:
             content: list[dict[str, Any]] = [{"type": "text", "text": user}]
@@ -287,7 +295,7 @@ class LLMClient:
             payload = self._payload(
                 system=system,
                 messages=messages,
-                model=model,
+                model=chosen,
                 temperature=temperature if turn == 0 else 0.0,
                 max_tokens=max_tokens,
                 json_mode=True,

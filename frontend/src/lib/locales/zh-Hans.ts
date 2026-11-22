@@ -655,7 +655,7 @@ export const ZH_HANS: Messages = {
   "settings.group.handoff": "交接",
   "settings.group.instructions": "指令",
   "settings.group.profile": "旅客",
-  "settings.group.keys": "撰写",
+  "settings.group.keys": "模型",
   "settings.group.reviewer": "审阅",
   "settings.group.gate": "分流",
   "settings.group.orchestrator": "编排",

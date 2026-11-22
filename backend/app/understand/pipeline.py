@@ -86,6 +86,27 @@ async def understand(
     updated = merge_slots(context, parsed)
     updated.language = parsed.language or updated.language
     route = _route(parsed, settings, plan)
+    if settings.turn_orchestrator == "jev":
+        from app.understand.jev import jev_route
+
+        decision = await jev_route(
+            settings=settings,
+            context=updated,
+            plan=plan,
+            message=message,
+            history=messages,
+        )
+        if decision and decision.confidence >= settings.router_threshold:
+            # Jev chooses the path; the analyst's slots and constraints are kept.
+            route = route.model_copy(
+                update={
+                    "intent": decision.intent,
+                    "confidence": decision.confidence,
+                    "need_clarification": decision.need_clarification,
+                    "reason_code": decision.reason,
+                    "related_to_plan": bool(plan) and decision.intent in {"ask", "modify"},
+                }
+            )
     clarify = _clarify(parsed, updated, plan, route) if route.need_clarification else None
     return Understanding(parsed=parsed, context=updated, route=route, clarify=clarify)
 

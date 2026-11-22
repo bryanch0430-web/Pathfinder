@@ -12,6 +12,7 @@ import { Icon, type IconName } from "./icons";
 import { SituationReading, WriterDiagnosis } from "./writerDiagnosis";
 import { type ModelKeysProps } from "./ModelKeys";
 import { WriterSettings } from "./WriterSettings";
+import { ModelsSettings } from "./ModelsSettings";
 import type { ReviewerBody, ReviewerConfig } from "./ReviewerSettings";
 import { SerpApiRotation } from "./SerpApiRotation";
 import {
@@ -4909,12 +4910,12 @@ export function SettingsView({
     sandbox?: boolean;
     poe_ready?: boolean;
     poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
-    models?: { plain?: string; reason?: string };
+    models?: { default: string; purposes: Record<string, string> };
     writer_model?: string;
     reviewer?: ReviewerConfig;
     orchestrator?: {
-      jev: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
-      fast: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
+      mode: "analyst" | "jev";
+      jev: { model: string; url: string; key_set: boolean; key_tail: string };
     };
     providers: Record<string, string[] | string>;
     locales: string[];
@@ -5122,6 +5123,14 @@ export function SettingsView({
       </div>
       ) : null}
       {admin ? admin(show) : null}
+      {show("keys", "models by part turn orchestrator jev analyst planner editor verifier ask memory") && config ? (
+        <ModelsSettings
+          models={config.models ?? { default: config.writer.model, purposes: {} }}
+          orchestrator={config.orchestrator ?? { mode: "analyst", jev: { model: "jev-latest", url: "", key_set: false, key_tail: "" } }}
+          canEdit={canEditPolicy}
+          onSave={async (body) => { await onSaveOrchestrator?.(body); }}
+        />
+      ) : null}
       {/* The keys do not depend on the server's configuration either. */}
       {show("keys", `${t("settings.group.keys")} ${t("settings.writer.callBody")} ${t("settings.orch.clearKey")} ${t("settings.orch.temperature")}`) && modelKeys ? (
         <WriterSettings
@@ -5146,6 +5155,7 @@ export function SettingsView({
           }}
         />
       ) : null}
+
       {config ? (
         <>
           {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (

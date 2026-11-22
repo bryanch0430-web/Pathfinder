@@ -657,7 +657,7 @@ export const ZH_HANT: Messages = {
   "settings.group.handoff": "交接",
   "settings.group.instructions": "指令",
   "settings.group.profile": "旅客",
-  "settings.group.keys": "撰寫",
+  "settings.group.keys": "模型",
   "settings.group.reviewer": "審閱",
   "settings.group.gate": "分流",
   "settings.group.orchestrator": "編排",

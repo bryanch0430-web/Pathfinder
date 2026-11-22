@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
     llm_timeout_seconds: float = Field(default=60.0, alias="LLM_TIMEOUT_SECONDS")
+    # Optional per-part models (same provider/key unless a separate key is added).
+    purpose_models: dict[str, str] = Field(default_factory=dict, alias="PURPOSE_MODELS")
+    turn_orchestrator: str = Field(default="analyst", alias="TURN_ORCHESTRATOR")
 
     openai_base_url: str = Field(default="", alias="OPENAI_BASE_URL")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
