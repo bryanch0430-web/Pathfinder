@@ -54,6 +54,9 @@ _FAIL = (
     "itinerary is unchanged",
     "nothing was changed",
     "nothing else was changed",
+    "no itinerary items needed to change",
+    "was not added",
+    "was left out of",
 )
 FAIL_PHRASES = _FAIL
 
@@ -355,3 +358,38 @@ def is_stuck(
     sets = [tokens(text) for text in failed[-need:]]
     shared = set.intersection(*sets) if sets else set()
     return any(len(word) >= 4 for word in shared)
+
+
+def stuck_flag(messages: list[Any], reply: str) -> int:
+    """How many times this failed reply has repeated the same request, counting this one.
+
+    0 when the reply is not a failed edit. 1 is the first failure, 2 the next, and so on.
+    """
+    if not _failed_edit(None, reply):
+        return 0
+    request = ""
+    for message in reversed(messages):
+        if getattr(message, "role", "") == "user":
+            request = str(getattr(message, "content", "") or "")
+            break
+    if not request:
+        return 1
+    count = 1
+    previous = ""
+    pairs: list[tuple[str, str]] = []
+    for message in messages:
+        role = getattr(message, "role", "")
+        content = str(getattr(message, "content", "") or "")
+        if role == "user":
+            previous = content
+        elif role == "assistant" and previous:
+            pairs.append((previous, content))
+    asked = tokens(request)
+    for user_text, content in reversed(pairs):
+        if not _failed_edit(None, content):
+            break
+        shared = tokens(user_text) & asked
+        if not any(len(word) >= 4 for word in shared):
+            break
+        count += 1
+    return count

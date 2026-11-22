@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { TripMap } from "./maps/TripMap";
 import { kmBetween, MODE, modeForDistance, SEGMENT_COLOR, type TravelMode } from "./maps/geo";
 import { CLOCK_MAX, CLOCK_MIN, CLOCK_STEP, clockText, minutesOf } from "./maps/time";
@@ -1143,9 +1143,16 @@ export function ChatPanel({
                   ) : null
                 }
                 meta={
-                  message.meta && typeof message.meta.version === "number" ? (
-                    <span>v{String(message.meta.version)}</span>
-                  ) : null
+                  <>
+                    {message.meta && typeof message.meta.version === "number" ? (
+                      <span>v{String(message.meta.version)}</span>
+                    ) : null}
+                    {message.meta && typeof message.meta.stuck_flag === "number" ? (
+                      <span className="pf-flag" data-flag={message.meta.stuck_flag}>
+                        flag {String(message.meta.stuck_flag)}
+                      </span>
+                    ) : null}
+                  </>
                 }
               >
                 {message.role === "user" && !fromOperator ? maskTyped(message.content) : message.content}
@@ -1669,8 +1676,8 @@ export function TicketCard({
   /** More than one option exists, so the card shows whether it is the one chosen. */
   choosable: boolean;
   onChoose?: () => Promise<void>;
-  /** ``return`` leads with the flight home. The fare is still the round trip. */
-  side?: "both" | "return";
+  /** ``out`` is only the flight there. ``return`` is only the flight home. ``both`` shows the round trip. */
+  side?: "both" | "out" | "return";
 }) {
   const { t } = useI18n();
   const { pending, error, run } = useOptionAction();
@@ -1704,7 +1711,7 @@ export function TicketCard({
             {returnDuration ? ` · ${returnDuration}` : ""}
           </Text>
         ) : null}
-        {side === "both" ? (
+        {side !== "return" ? (
         <Text size="xs" tone="secondary">
           <strong>{t("workspace.outbound")}</strong>
           {` · ${ticket.origin} → ${ticket.destination}`}
@@ -1831,6 +1838,7 @@ export function ChoiceSlot<T extends { id: string }>({
   onReopen,
   booked = false,
   onBooked,
+  fold = false,
 }: {
   title: ReactNode;
   icon: IconName;
@@ -1851,8 +1859,12 @@ export function ChoiceSlot<T extends { id: string }>({
   /** The traveller marked the locked choice as booked: Change is hidden until it is marked not booked. */
   booked?: boolean;
   onBooked?: (booked: boolean) => void;
+  /** Show the chosen option, and the rest behind "N other options", as a meal does. */
+  fold?: boolean;
 }) {
   const { t } = useI18n();
+  const [foldedOpen, setFoldedOpen] = useState(false);
+  const foldedId = useId();
   const groups = tabs && tabs.length > 1 ? tabs : null;
   const holding = groups ? Math.max(0, groups.findIndex((group) => group.options.some((option) => option.id === chosen?.id))) : 0;
   const [picked, setPicked] = useState<string | null>(null);
@@ -1898,6 +1910,40 @@ export function ChoiceSlot<T extends { id: string }>({
         </div>
       </div>
     ) : null;
+  } else if (fold && chosen) {
+    const rest = options.filter((option) => option.id !== chosen.id);
+    body = (
+      <>
+        {renderOption(chosen, "chosen")}
+        <div className="pf-choice__row">
+          {lockButton(chosen)}
+        </div>
+        {rest.length ? (
+          <div className="pf-alts">
+            <button
+              type="button"
+              className="pf-alts__toggle"
+              aria-expanded={foldedOpen}
+              aria-controls={foldedId}
+              onClick={() => setFoldedOpen(!foldedOpen)}
+            >
+              <Icon name={foldedOpen ? "chevronDown" : "chevronRight"} size={12} />
+              {rest.length === 1 ? t("options.otherOne") : t("options.other", { count: rest.length })}
+            </button>
+            {foldedOpen ? (
+              <div className="pf-alts__body" id={foldedId}>
+                {rest.map((option) => (
+                  <div className="pf-alt-card" key={option.id}>
+                    <div className="pf-grow">{renderOption(option, "option")}</div>
+                    {lockButton(option)}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </>
+    );
   } else {
     body = (
       <>
@@ -2070,6 +2116,7 @@ function LegSlot({
   const { t } = useI18n();
   const options = optionsFor(plan, leg.id);
   const chosen = chosenFor(plan, leg.id) ?? null;
+  const flight = options.some((option) => option.mode === "flight") || leg.kind === "outbound" || leg.kind === "return";
   const directions =
     leg.from_place && leg.to_place
       ? `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", origin: leg.from_place, destination: leg.to_place, travelmode: "transit" }).toString()}`
@@ -2101,8 +2148,9 @@ function LegSlot({
         </>
       }
       renderOption={(option) => (
-        <TicketCard ticket={option} selected={false} choosable={false} side={leg.kind === "return" ? "return" : "both"} />
+        <TicketCard ticket={option} selected={false} choosable={false} side={leg.kind === "return" ? "return" : flight ? "out" : "both"} />
       )}
+      fold={flight}
     />
   );
 }
@@ -2647,8 +2695,10 @@ export function TripWorkspace({
             )
           : null}
 
-        {legsOf(plan).map(renderLeg)}
-        {transferLegsOf(plan).map(renderTransfer)}
+        {legsOf(plan).filter((leg) => leg.kind !== "return").map(renderLeg)}
+        {transferLegsOf(plan).filter((leg) => leg.kind === "to_stay").map(renderTransfer)}
+        {legsOf(plan).filter((leg) => leg.kind === "return").map(renderLeg)}
+        {transferLegsOf(plan).filter((leg) => leg.kind !== "to_stay").map(renderTransfer)}
 
           </>
         )}

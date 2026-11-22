@@ -109,6 +109,7 @@ export const ZH_HANT: Messages = {
   "desk.navQueue": "佇列與處理",
   "desk.navAuto": "自動回覆",
   "desk.navHistory": "對話紀錄",
+  "desk.finishedOnly": "這趟行程已定稿。可以查看對話並下載日誌，不能再接手。",
   "desk.accept": "接受",
   "desk.queueLead": "等著人工的對話。在卡片上按接受，就能接手。",
   "desk.autoLead": "規劃器仍在回覆這些對話。",

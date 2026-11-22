@@ -47,6 +47,26 @@ html.is-dark ::selection {
   color: #141413;
 }
 
+/* Stuck and waiting cards keep a light fill. Dark-mode ink would vanish on it. */
+html.is-dark .pf-ops__tile[data-stuck],
+html.is-dark .pf-ops__tile[data-waiting] {
+  color: #1c1c1b;
+}
+
+html.is-dark .pf-ops__tile[data-stuck] strong,
+html.is-dark .pf-ops__tile[data-stuck] .pf-ops__sid,
+html.is-dark .pf-ops__tile[data-stuck] .pf-ops__time,
+html.is-dark .pf-ops__tile[data-waiting] strong,
+html.is-dark .pf-ops__tile[data-waiting] .pf-ops__sid,
+html.is-dark .pf-ops__tile[data-waiting] .pf-ops__time {
+  color: #1c1c1b;
+}
+
+html.is-dark .pf-ops__tile[data-stuck] .pf-ops__mark,
+html.is-dark .pf-ops__tile[data-waiting] .pf-ops__mark {
+  color: #9b2c2c;
+}
+
 /* ------------------------------------------------------------------ type -- */
 
 .pf-heading {

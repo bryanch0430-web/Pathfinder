@@ -656,6 +656,14 @@ export async function getTrending(
   }
 }
 
+/** Open a saved trip as a new planning session. The saved copy stays as it was. */
+export function openSavedTrip(clientToken: string, id: string): Promise<SessionState> {
+  return request(`/api/wishlist/${encodeURIComponent(id)}/open`, {
+    method: "POST",
+    headers: { "X-Client-Token": clientToken },
+  });
+}
+
 /** The caller's own saved trips (guest token, or the signed-in bearer). */
 export async function getSavedTrip(clientToken: string, id: string): Promise<{
   id: string;
@@ -848,6 +856,8 @@ export interface DeskChat extends DeskContact {
   /** live: the page is open, or the trip changed within 24 hours. completed: neither. */
   state: "live" | "completed";
   on_page: boolean;
+  /** A finalised plan. It stays in session history and cannot be taken over. */
+  finished?: boolean;
   held: boolean;
   /** Set once a person has picked the chat up. Empty while it is only waiting in the queue. */
   agent_name?: string;

@@ -23,7 +23,8 @@ _MONTH_NAMES = "|".join(_MONTHS)
 
 def day_number_named(message: str) -> int | None:
     """The day number a message names ("day 2", "2nd day", "second day"), whether or not the trip has it."""
-    lower = message.lower()
+    # "da y 1" and "d ay 1" are still day 1. The letters were split, not a different word.
+    lower = re.sub(r"\bd\s*a\s*y\b", "day", message.lower())
     match = re.search(r"(?<!\d )(?<!\d-)\bday\s*(\d{1,2})\b(?!\s*-?\s*nights?\b)|\b(\d{1,2})(?:st|nd|rd|th)\s+day\b", lower)
     if match:
         return int(match.group(1) or match.group(2))

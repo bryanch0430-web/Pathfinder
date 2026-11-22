@@ -367,10 +367,11 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       || (chat.preview || "").toLowerCase().includes(needle)
     );
   };
-  const queued = chats.filter((chat) => chat.held && !(chat.agent_name || "").trim() && matches(chat));
-  const handling = chats.filter((chat) => chat.held && Boolean((chat.agent_name || "").trim()) && matches(chat));
-  const answering = chats.filter((chat) => !chat.held && chat.state !== "completed" && matches(chat));
-  const records = chats.filter((chat) => !chat.held && chat.state === "completed" && matches(chat));
+  const open = (chat: DeskChat) => !chat.finished && matches(chat);
+  const queued = chats.filter((chat) => open(chat) && chat.held && !(chat.agent_name || "").trim());
+  const handling = chats.filter((chat) => open(chat) && chat.held && Boolean((chat.agent_name || "").trim()));
+  const answering = chats.filter((chat) => open(chat) && !chat.held && chat.state !== "completed");
+  const records = chats.filter((chat) => matches(chat) && (chat.finished || (!chat.held && chat.state === "completed")));
   const setPresence = (next: boolean) => {
     setReady(next);
     try {
@@ -732,7 +733,28 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                   <Text size="sm" weight="semibold">{current.session_id}</Text>
                   <Text size="xs" tone="tertiary">{current.destination || t("desk.untitled")}</Text>
                 </div>
-                <Button variant={held ? "secondary" : "primary"} onClick={take}>{held ? t("desk.release") : t("desk.hold")}</Button>
+                {current.finished ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      const file = {
+                        downloaded_at: new Date().toISOString(),
+                        session_id: current.session_id,
+                        messages,
+                      };
+                      const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+                      const link = document.createElement("a");
+                      link.href = URL.createObjectURL(blob);
+                      link.download = `${current.session_id}-log.json`;
+                      link.click();
+                      URL.revokeObjectURL(link.href);
+                    }}
+                  >
+                    {t("settings.downloadLog")}
+                  </Button>
+                ) : (
+                  <Button variant={held ? "secondary" : "primary"} onClick={take}>{held ? t("desk.release") : t("desk.hold")}</Button>
+                )}
               </div>
               <div className="pf-desk__messages" ref={threadRef}>
                 <ChatClock sessionId={current.session_id} since={current.created_at || current.updated_at} />
@@ -746,7 +768,9 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                   </p>
                 ))}
               </div>
-              {held ? (
+              {current.finished ? (
+                <p className="pf-center__lock">{t("desk.finishedOnly")}</p>
+              ) : held ? (
                 <form
                   className="pf-desk__say"
                   onSubmit={(event) => {

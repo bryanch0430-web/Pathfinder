@@ -62,7 +62,7 @@ from app.application.modification import (
 )
 from app.application.proposals import decision_record, proposal_changes
 from app.application.planning import PlanPath
-from app.application.escalation import is_stuck, keeps_the_planner, queue_reason, should_escalate
+from app.application.escalation import is_stuck, keeps_the_planner, queue_reason, should_escalate, stuck_flag
 from app.application.router import (
     MODIFY_VERBS,
     System1Router,
@@ -423,7 +423,7 @@ class TurnService:
             stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
             reason = should_escalate(message, 0, policy)
             if not reason:
-                stuck = bool(stuck_part.get("enabled")) and is_stuck(
+                stuck = is_stuck(
                     self.store.list_messages(session_id, limit=40),
                     int(stuck_part.get("after") or 3),
                 )
@@ -1575,6 +1575,7 @@ class TurnService:
             self.store.save_plan(updated, None, replace=True)
         except Exception:
             logger.exception("saving the reviewed clocks failed")
+        flag = stuck_flag(self.store.list_messages(session_id, limit=40), prose)
         reply = Message(
             session_id=session_id,
             role="assistant",
@@ -1582,6 +1583,7 @@ class TurnService:
             intent=Intent.MODIFY,
             meta={
                 "diff": diff,
+                **({"stuck_flag": flag} if flag else {}),
                 **({"log": record} if record is not None else {}),
                 **({"edit_facts": facts} if prose.strip() != facts.strip() else {}),
                 **(
@@ -1593,6 +1595,26 @@ class TurnService:
             },
         )
         self.store.add_message(reply)
+        if flag >= 3 and not self.store.is_held(session_id):
+            policy = self.store.escalation_policy()
+            parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
+            stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
+            hand = parts.get("hand") if isinstance(parts.get("hand"), dict) else {}
+            limit = int(stuck_part.get("after") or 3)
+            if flag >= limit:
+                self.store.hold_chat(session_id, "")
+                note = str((hand.get("message") if hand else "") or policy.get("message") or "").strip()
+                note = note or "I'll pass this chat to a person. They will reply here."
+                self.store.add_message(
+                    Message(
+                        session_id=session_id,
+                        role="assistant",
+                        content=note,
+                        intent=Intent.ASK,
+                        meta={"escalated": True, "escalate": "stuck", "stuck_flag": flag},
+                    )
+                )
+                prose = f"{prose}\n\n{note}"
         yield TurnEvent(event="token", data={"text": prose})
         if record is not None or edit_permissions:
             yield TurnEvent(

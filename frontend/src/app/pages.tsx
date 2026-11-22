@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { AdminTune } from "./adminTune";
-import { Dialog } from "../design-system/atoms";
 import {
   EvalDashboard,
   SavedTripsView,
@@ -35,7 +34,7 @@ import {
   type LlmProvider,
   type LlmStatus,
   getProfile,
-  getSavedTrip,
+  openSavedTrip,
   getSavedTrips,
   runEval,
   saveProfilePreferences,
@@ -55,7 +54,6 @@ export function SavedPage() {
   // Kept as a message key, so that a language switch translates it too.
   const [error, setError] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState<Awaited<ReturnType<typeof getSavedTrip>> | null>(null);
   const [opening, setOpening] = useState(false);
 
   useEffect(() => {
@@ -67,8 +65,11 @@ export function SavedPage() {
 
   const show = (id: string) => {
     setOpening(true);
-    getSavedTrip(ensureClientToken(), id)
-      .then((trip) => setOpen(trip))
+    openSavedTrip(ensureClientToken(), id)
+      .then((opened) => {
+        window.dispatchEvent(new CustomEvent("pf-open-saved", { detail: opened }));
+        window.location.hash = "plan";
+      })
       .catch((cause) => setError(failureOf(cause, "errors.savedTrips")))
       .finally(() => setOpening(false));
   };
@@ -83,25 +84,9 @@ export function SavedPage() {
   }
   return (
     <>
+      {opening ? <Banner>{t("saved.loading")}</Banner> : null}
+      {error ? <Banner>{describeFailure(error, t)}</Banner> : null}
       <SavedTripsView trips={trips} onOpen={show} />
-      <Dialog open={Boolean(open) || opening} onClose={() => setOpen(null)} title={open?.destination || t("saved.open")}>
-        {opening && !open ? <p>{t("saved.loading")}</p> : null}
-        {open ? (
-          <div className="pf-stack">
-            <p>{open.summary}</p>
-            {open.days.map((day) => (
-              <section key={day.date}>
-                <strong>{day.title || day.date}</strong>
-                <ul>
-                  {day.items.map((name) => (
-                    <li key={`${day.date}-${name}`}>{name}</li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        ) : null}
-      </Dialog>
     </>
   );
 }

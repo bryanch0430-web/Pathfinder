@@ -329,6 +329,11 @@ class ModifyPath:
         if replanning and form_is_a_trip and new_range == plan.dates and not form_changes:
             # The page's own message needs no writer to be read when the form holds nothing the plan does not.
             return _nothing_differs(plan)
+        from app.application.check_fix import fix_failed_check
+
+        fixed = fix_failed_check(plan, message)
+        if fixed is not None:
+            return EditResult(fixed, [])
         exclusive = exclusive_day_edit(plan, message)
         if exclusive is not None:
             # "Whole day for Ocean Park, no other attractions": one tick per removal and one for the long clock.
@@ -967,19 +972,21 @@ class ModifyPath:
                     wanted = [
                         word for word in _ADD_KEYWORDS if re.search(rf"\b{word}s?\b", message.lower())
                     ]
+                    wish = real_search_phrase(message, named or None)
                     if day_scope is not None:
                         # Said of the day the traveller meant, and true whichever of the two stopped it.
-                        kind = wanted[0] if wanted else "stop"
+                        kind = wish or (wanted[0] if wanted else "stop")
                         outcome = (
-                            f"I could not find another verified {kind} for Day {day_scope} that is not already in the "
+                            f"I could not find a located {kind} for Day {day_scope} that is not already in the "
                             f"plan, or Day {day_scope} had no free time slot; the itinerary stayed as it was."
                         )
                     else:
-                        detail = f"a verified {wanted[0]}" if wanted else "a verified stop"
+                        detail = wish or (f"a verified {wanted[0]}" if wanted else "a verified stop")
                         outcome = (
-                            f"I could not find {detail} from the configured sources, or the day had no free time "
-                            "slot; the itinerary stayed as it was."
+                            f"I could not find a located {detail} from the configured sources, or the day had no free "
+                            "time slot; the itinerary stayed as it was."
                         )
+                    draft.description = outcome
                     updated.data_quality.gaps.append(_gap("attractions", outcome))
             elif remove_requested:
                 removed = _remove_attraction(updated, draft, message)
@@ -1165,6 +1172,18 @@ class ModifyPath:
             source=getattr(self.plan_path.registry, "transfers", None),
             buffer=PACE_BUFFER_MINUTES.get(_pace(context), 5),
         )
+        if (draft.description or "").startswith("Added "):
+            # The transfer pass can take the new stop off again. Do not say it was added if it is gone.
+            body = draft.description.removeprefix("Added ")
+            still_there = any(item.name and item.name in body for day in updated.days for item in day.items)
+            if not still_there:
+                left = [note for note in updated.data_quality.notes if "was left out of" in note]
+                draft.description = (
+                    left[-1]
+                    if left
+                    else "The stop was found, then left out because of the flight, so it is not on the day."
+                )
+                updated.change_summary = draft.description
 
         errors = validate_plan(updated, self.settings)
         if any("overlap" in error for error in errors):
@@ -1189,6 +1208,10 @@ class ModifyPath:
 
         diff = diff_plans(old_plan, updated)
         rewritten_days: list[int] = []
+        # A forecast or a cost that drifted is not the edit. Do not call that a new version.
+        visible = {"added", "removed", "changed", "hotel", "flight", "dates", "stay", "party", "origin", "budget"}
+        if diff and not any(entry.get("kind") in visible for entry in diff):
+            diff = []
         if diff:
             updated.version = plan.version + 1
         else:
@@ -1212,7 +1235,7 @@ class ModifyPath:
             updated.change_summary = news[-1].message if news else NOTHING_MATCHED
             # A clear verb already ran and changed nothing. An open request about a day's
             # shape gets one rewrite of the named days from ids already on the trip.
-            if should_rewrite(
+            if not _new_place_request(message.lower()) and should_rewrite(
                 message=message,
                 draft_confidence=draft.confidence,
                 draft_operation=skill_op,
@@ -1997,6 +2020,120 @@ def _day_anchor(plan: TripPlan, draft: ChangeDraft, message: str) -> GeoPoint | 
     )
 
 
+def _add_skill() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[tuple[str, ...], ...]]:
+    """See-cues, like-cues, add-words, and synonym lines from the add-a-real-place skill."""
+    from app.application.skills import skill_by_name
+
+    skill = skill_by_name("add-a-real-place")
+    see: list[str] = []
+    like: list[str] = []
+    adds: list[str] = []
+    same: list[tuple[str, ...]] = []
+    section = ""
+    if skill is None:
+        return (), (), (), ()
+    for raw in skill.body.splitlines():
+        line = raw.strip()
+        if line.startswith("## "):
+            title = line[3:].casefold()
+            if title.startswith("see"):
+                section = "see"
+            elif title.startswith("like"):
+                section = "like"
+            elif title.startswith("add"):
+                section = "add"
+            elif "same" in title:
+                section = "same"
+            else:
+                section = ""
+            continue
+        if not line.startswith("- "):
+            continue
+        text = line[2:].strip()
+        if section == "same":
+            words = tuple(word.strip().casefold() for word in text.split("|") if word.strip())
+            if words:
+                same.append(words)
+        elif section == "see":
+            see.append(text.casefold())
+        elif section == "like":
+            like.append(text.casefold())
+        elif section == "add":
+            adds.append(text.casefold())
+    return tuple(see), tuple(like), tuple(adds), tuple(same)
+
+
+def _resolve_script():
+    """The add-a-real-place script. Loaded once; the skill file points at this same file."""
+    import sys
+    from importlib.util import module_from_spec, spec_from_file_location
+    from pathlib import Path
+
+    name = "add_a_real_place_resolve"
+    cached = sys.modules.get(name)
+    if cached is not None:
+        return cached
+    script = Path(__file__).resolve().parents[1] / "skills" / "add-a-real-place" / "scripts" / "resolve.py"
+    spec = spec_from_file_location(name, script)
+    if spec is None or spec.loader is None:
+        return None
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _new_place_request(lower: str) -> bool:
+    """An add of a new stop. The script decides; a misspelled 'attraction' still counts."""
+    script = _resolve_script()
+    if script is not None and script.resolve(lower).get("add"):
+        return True
+    return re.search(r"\battr\w{0,3}ct\w*\b", lower) is not None and re.search(r"\badd\b", lower) is not None
+
+
+def real_search_phrase(message: str, place: str | None = None) -> str | None:
+    """The short thing to look up, when the sentence is a wish rather than a place's name.
+
+    "where I can see Gundam" is Gundam. "something like a shopping mall" is a shopping mall.
+    A day number and the words around it are not part of the name.
+    """
+    script = _resolve_script()
+    if script is not None:
+        found = script.resolve(message)
+        if found.get("add") and found.get("query"):
+            return str(found["query"])
+    text = re.sub(r"\bd\s*a\s*y\b", "day", message, flags=re.IGNORECASE)
+    see, like, _, _ = _add_skill()
+    for cue in see:
+        found = re.search(rf"\b{re.escape(cue)}\s+([A-Za-z0-9][A-Za-z0-9'’ -]{{1,40}})", text, re.IGNORECASE)
+        if found:
+            return _clip_search(found.group(1))
+    for cue in like:
+        found = re.search(
+            rf"\b{re.escape(cue)}\s+(?:(?:a|an|the)\s+)?([a-z][a-z'’ -]{{2,40}})",
+            text,
+            re.IGNORECASE,
+        )
+        if found:
+            return _clip_search(found.group(1))
+    given = (place or "").strip()
+    if given and len(given.split()) <= 3 and not re.search(r"\bday\b", given, re.IGNORECASE):
+        return None
+    return None
+
+
+def _clip_search(phrase: str) -> str | None:
+    phrase = re.split(r"\b(?:on|at|in|for|or)\b", phrase, maxsplit=1, flags=re.IGNORECASE)[0]
+    phrase = re.sub(r"^(?:a|an|the)\s+", "", phrase.strip(), flags=re.IGNORECASE)
+    phrase = re.sub(r"\s+", " ", phrase).strip(" .,?!")
+    return phrase or None
+
+
+def wish_lookup(phrase: str) -> str:
+    """The words to send to the place search: the script's phrase, not a synonym list."""
+    return phrase
+
+
 def _search_extra(message: str, *, place: str | None = None, hotel: bool = False) -> dict[str, str] | None:
     if place and _is_a_wish(place):
         place = None
@@ -2007,7 +2144,8 @@ def _search_extra(message: str, *, place: str | None = None, hotel: bool = False
     if hotel and place:
         extra["hotels_query"] = place
     else:
-        places = _activity_query(place, message) or (place or "").strip() or _places_query(message)
+        phrase = real_search_phrase(message, place)
+        places = (wish_lookup(phrase) if phrase else "") or _activity_query(place, message) or (place or "").strip() or _places_query(message)
         if places:
             extra["places_query"] = places
     return extra or None
@@ -3095,7 +3233,7 @@ def asks_for_more_stops(message: str) -> bool:
     lower = message.lower()
     if _NOT_AN_ADD.search(lower):
         return False
-    if _MORE_STOPS.search(lower):
+    if _MORE_STOPS.search(lower) or _new_place_request(lower):
         return True
     return _THIS_DAY.search(lower) is not None and _ADD_REQUEST.search(lower) is not None
 
@@ -3350,9 +3488,29 @@ def _already_planned(plan: TripPlan, row: dict) -> bool:
     )
 
 
+def _row_has_pin(row: dict) -> bool:
+    """True when the source gave a map point, so the row is a place that exists, not a title alone."""
+    geo = row.get("geo") or {}
+    return isinstance(geo, dict) and geo.get("lat") is not None and geo.get("lng") is not None
+
+
+def _text_has_wish(text: str, wish: str) -> bool:
+    words = re.findall(r"[a-z0-9]{4,}", wish.lower())
+    _, _, _, same = _add_skill()
+    extra: list[str] = []
+    for group in same:
+        if any(word in words or word in wish.lower() for word in group):
+            extra.extend(group)
+    folded = text.lower()
+    return any(word in folded for word in (*words, *extra))
+
+
 def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: str | None = None) -> list[dict]:
     """The verified candidates an add may use: not in the plan already, and the place or kind the message names."""
     named = (named or "").strip() or _named_place(message)
+    phrase = real_search_phrase(message, named or None)
+    if phrase and (not named or len(named.split()) > 3 or re.search(r"\bday\b", named, re.IGNORECASE)):
+        named = phrase
     activity = _activity(named)
     if activity is not None:
         named = ""
@@ -3376,6 +3534,12 @@ def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: st
         ):
             continue
         if named and not any(_matches_name(label, named) for label in _row_labels(row)):
+            # A wish ("Gundam", "shopping mall") is not the source's name. A row with a map point
+            # whose own text says that word is still that place.
+            blob = f"{row.get('name', '')} {row.get('description', '')}"
+            if not _row_has_pin(row) or not _text_has_wish(blob, named):
+                continue
+            pool.append(row)
             continue
         text = f"{row.get('name', '')} {row.get('description', '')}".lower()
         if cuisine_kind:
@@ -3394,6 +3558,13 @@ def _fresh_places(plan: TripPlan, places: list[dict], message: str, *, named: st
         # English name). The first hit of that named search is the place. A Latin typo does not take this path.
         for row in places:
             if row.get("name") and row.get("source_refs") and not _already_planned(plan, row):
+                pool.append(row)
+                break
+    if phrase and not pool:
+        # The search already associated the wish with a real place ("sakura" → Yangmingshan). Its name
+        # often does not repeat the wish. The first row with a map point is that place.
+        for row in places:
+            if row.get("name") and row.get("source_refs") and _row_has_pin(row) and not _already_planned(plan, row):
                 pool.append(row)
                 break
     return pool

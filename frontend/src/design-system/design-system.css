@@ -3925,6 +3925,14 @@ button.pf-badge:hover {
   line-height: 1.5;
 }
 
+.pf-flag {
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
 .pf-scope-chip {
   display: inline-flex;
   align-items: center;

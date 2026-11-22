@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.16.0 | 2026-11-22 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal |
 | v1.15.0 | 2026-11-21 19:35 | An edit waits for a tick, a nickname finds the stop on the plan, and "how long should I stay" is the visit |
 | v1.14.0 | 2026-11-20 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat |
 | v1.13.0 | 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked |
@@ -43,6 +44,19 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.16.0 — 22 November 2026, 12:00 HKT
+
+A wish such as "where I can see Gundam" is looked up as a real place. A finalised trip leaves the live desk. A flight shows the chosen fare, and the other fares sit behind it.
+
+- **A wish is a search, not a street name.** "Where I can see Gundam", "something like a shopping mall", and "da y 1" become a short lookup. The first result that has a map point is the stop, even when its name does not repeat the wish.
+- **A stop three minutes early is moved, not deleted.** Reaching the hotel at 14:33 no longer drops a stop that starts at 15:30. It starts at 15:33. A stop that overlaps the taxi is still left out, and the reply says so.
+- **"ok fix" answers the flight question.** A stale flight-arrival warning is cleared when the day already fits. A stop outside the flight is moved into the open part of the day.
+- **The same failed edit is flagged, then handed over.** The first failure is flag 1, the next flag 2, and the third hands the chat to a person.
+- **A finalised trip is history.** It leaves Handling, Queue, and Auto-Answering. It can be read and its log downloaded. It cannot be taken over.
+- **My trips opens on the planning page.** The card stays saved. The opened copy is a new trip you can ask about and refresh.
+- **Flights read like a meal.** The chosen fare stays up. The other fares are under "N other options". The flight out and the taxi to the hotel come before the flight home and the taxi back.
+- **Desk dark mode keeps the session name.** A stuck card stays readable.
 
 ### v1.15.0 — 21 November 2026, 19:35 HKT
 

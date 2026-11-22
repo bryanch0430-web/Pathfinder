@@ -107,6 +107,7 @@ export const ZH_HANS: Messages = {
   "desk.navQueue": "队列与处理",
   "desk.navAuto": "自动回复",
   "desk.navHistory": "会话记录",
+  "desk.finishedOnly": "这趟行程已定稿。可以查看对话并下载日志，不能再接手。",
   "desk.accept": "接受",
   "desk.queueLead": "等着人工的对话。在卡片上按接受，就能接手。",
   "desk.autoLead": "规划器仍在回复这些对话。",

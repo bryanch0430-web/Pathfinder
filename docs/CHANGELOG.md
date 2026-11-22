@@ -5,6 +5,19 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.16.0 — 2026-11-22 12:00
+
+A wish such as "where I can see Gundam" is looked up as a real place. A finalised trip leaves the live desk. A flight shows the chosen fare, and the other fares sit behind it.
+
+- **A wish is a search, not a street name.** "Where I can see Gundam", "something like a shopping mall", and "da y 1" become a short lookup. The first result that has a map point is the stop.
+- **A stop three minutes early is moved, not deleted.** Reaching the hotel at 14:33 no longer drops a stop that starts at 15:30.
+- **"ok fix" answers the flight question.** A stale flight-arrival warning is cleared when the day already fits.
+- **The same failed edit is flagged, then handed over.** Flag 1, flag 2, then the third failure hands the chat to a person.
+- **A finalised trip is history.** It can be read and its log downloaded. It cannot be taken over.
+- **My trips opens on the planning page.** The saved card stays. The opened copy can be asked about and refreshed.
+- **Flights read like a meal.** Other fares sit under "N other options". The way there comes before the way home.
+- **Desk dark mode keeps the session name** on a stuck card.
+
 ## v1.15.0 — 2026-11-21 19:35
 
 An edit is shown first and written only when you accept it. A nickname means the stop already on the plan. A question about how long to stay is about that visit.

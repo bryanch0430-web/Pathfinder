@@ -1666,6 +1666,59 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             "days": days,
         }
 
+    @app.post("/api/wishlist/{saved_id}/open")
+    async def open_saved_trip(saved_id: str, request: Request) -> dict[str, Any]:
+        """Open a saved trip on the planning page, the way an imported file opens: a new session, not a freeze."""
+        from datetime import datetime, timezone
+
+        c = container(request)
+        token, user = session_caller(request, c, request.headers.get("x-client-token", ""))
+        if not token and user is None:
+            raise HTTPException(status_code=401, detail="Sign in or send a client token.")
+        trip = c.store.saved_trip_for_owner(resolve_identity(request, c, token), saved_id)
+        if trip is None or trip.plan is None:
+            raise HTTPException(status_code=404, detail="That saved trip was not found.")
+        await charge_create(request)
+        incoming = trip.plan.model_copy(deep=True)
+        clean_imported_plan(incoming)
+        session = c.store.create_session(token, user.id if user else "")
+        plan = incoming.model_copy(deep=True)
+        plan.session_id = session.id
+        plan.trip_id = new_id("trip")
+        plan.version = 1
+        plan.change_summary = "Opened from My trips"
+        plan.updated_at = datetime.now(timezone.utc)
+        context = TripContext(
+            session_id=session.id,
+            destination=plan.destination.name,
+            origin=plan.origin,
+            start_date=plan.dates.start,
+            end_date=plan.dates.end,
+            days=len(plan.dates.dates) or len(plan.days) or None,
+            party_size=plan.party_size,
+            budget=float(plan.budget.amount) if plan.budget is not None else None,
+            currency=(plan.budget.currency if plan.budget is not None else plan.cost.currency) or settings.default_currency,
+            language=settings.default_locale,
+        )
+        c.store.save_context(context)
+        await sync_session_transfers(plan, registry=c.registry, store=c.store, session_id=session.id)
+        c.store.save_plan(plan, plan.change_summary)
+        plan = tidy_data_gaps(plan, drop_edit_gaps=True)
+        note = Message(
+            session_id=session.id,
+            role="assistant",
+            content="Opened from My trips. The saved copy is unchanged. Ask to change this one, or refresh its data.",
+            intent=Intent.ASK,
+        )
+        c.store.add_message(note)
+        return {
+            "session": session.model_dump(mode="json", exclude={"client_token"}),
+            "context": context.model_dump(mode="json"),
+            "plan": plan.model_dump(mode="json"),
+            "versions": c.store.list_versions(session.id),
+            "messages": [note.model_dump(mode="json")],
+        }
+
     @app.get("/api/wishlist")
     async def saved_trips(
         request: Request,
@@ -1942,11 +1995,13 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
             state, on_page = _desk_liveness(session["updated_at"], seen.get(session["id"]), now)
             parts = policy.get("parts") if isinstance(policy.get("parts"), dict) else {}
             stuck_part = parts.get("stuck") if isinstance(parts.get("stuck"), dict) else {}
-            stuck = bool(stuck_part.get("enabled")) and is_stuck(
-                messages,
-                int(stuck_part.get("after") or 3),
+            finished = _session_finished(store, session["id"])
+            stuck = (
+                not finished
+                and bool(stuck_part.get("enabled"))
+                and is_stuck(messages, int(stuck_part.get("after") or 3))
             )
-            flagged = agent_reason(0, stuck)
+            flagged = None if finished else agent_reason(0, stuck)
             if flagged and not store.is_held(session["id"]) and not store.returned_chat(session["id"]):
                 store.hold_chat(session["id"], "")
             cards.append(
@@ -1954,9 +2009,10 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
                     "session_id": session["id"],
                     "created_at": session.get("created_at") or session["updated_at"],
                     "updated_at": session["updated_at"],
-                    "state": state,
-                    "on_page": on_page,
-                    "held": store.is_held(session["id"]),
+                    "state": "completed" if finished else state,
+                    "on_page": False if finished else on_page,
+                    "finished": finished,
+                    "held": False if finished else store.is_held(session["id"]),
                     "agent_name": store.held_agent(session["id"]),
                     "stuck": stuck,
                     "frustration": 0,
@@ -2008,8 +2064,11 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     @app.post("/api/admin/desk/{session_id}/hold", dependencies=[Depends(require_admin)])
     async def desk_hold(session_id: str, request: Request) -> dict[str, Any]:
+        store = container(request).store
+        if _session_finished(store, session_id):
+            raise HTTPException(status_code=409, detail="This session is finished. It can be read, not taken over.")
         name = operator_name(request)
-        container(request).store.hold_chat(session_id, name)
+        store.hold_chat(session_id, name)
         return {"held": True, "agent_name": name}
 
     @app.post("/api/admin/desk/{session_id}/release", dependencies=[Depends(require_admin)])
@@ -2024,6 +2083,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
 
     @app.post("/api/admin/desk/{session_id}/say", dependencies=[Depends(require_admin)])
     async def desk_say(session_id: str, payload: DeskSay, request: Request) -> dict[str, str]:
+        if _session_finished(container(request).store, session_id):
+            raise HTTPException(status_code=409, detail="This session is finished. It can be read, not taken over.")
         message = Message(
             session_id=session_id,
             role="assistant",
@@ -2040,6 +2101,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         c = container(request)
         if c.store.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Unknown session")
+        if _session_finished(c.store, session_id):
+            raise HTTPException(status_code=409, detail="This session is finished. It can be read, not taken over.")
         if not c.store.is_held(session_id):
             raise HTTPException(status_code=409, detail="Take this chat over first.")
         reply: list[str] = []
@@ -2095,6 +2158,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         from datetime import datetime, timezone
 
         c = container(request)
+        if _session_finished(c.store, session_id):
+            raise HTTPException(status_code=409, detail="This session is finished. It can be read, not taken over.")
         if not c.store.is_held(session_id):
             raise HTTPException(status_code=409, detail="Take this chat over first.")
         if c.turn_service.session_busy(session_id):
@@ -2134,6 +2199,8 @@ small{{color:#8a8173}}</style></head><body><main><small>SHARED PATHFINDER TRIP Â
         c = container(request)
         if c.store.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Unknown session")
+        if _session_finished(c.store, session_id):
+            raise HTTPException(status_code=409, detail="This session is finished. It can be read, not taken over.")
         if not c.store.is_held(session_id):
             raise HTTPException(status_code=409, detail="Take this chat over first.")
         if c.store.get_plan(session_id) is None:
@@ -2633,6 +2700,12 @@ def _parse_stamp(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+def _session_finished(store: Any, session_id: str) -> bool:
+    """A finalised plan is a finished session. The desk may read it, not take it over."""
+    context = store.get_context(session_id)
+    return bool(context is not None and getattr(context, "finalized", False))
 
 
 def _desk_liveness(updated_at: str, seen_at: str | None, now: datetime) -> tuple[str, bool]:

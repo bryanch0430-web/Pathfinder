@@ -109,6 +109,7 @@ export const EN = {
   "desk.navQueue": "Queue & Handling",
   "desk.navAuto": "Auto-Answering",
   "desk.navHistory": "Session history",
+  "desk.finishedOnly": "This plan is finalised. You can read the chat and download the log. It cannot be taken over.",
   "desk.accept": "Accept",
   "desk.queueLead": "Chats waiting for a person. Press Accept on a card to take that chat.",
   "desk.autoLead": "The planner is still answering these.",

@@ -144,6 +144,16 @@ def test_keyword_handoff_uses_negative_words_and_extra_examples() -> None:
         Line("assistant", "Replaced Benjamin Franklin House. Everything else is unchanged."),
     ] * 3
     assert is_stuck(done, 3) is False
+    from app.application.escalation import stuck_flag
+
+    gundam = []
+    reply = "Updated to version 10. No itinerary items needed to change. Everything else is unchanged."
+    assert stuck_flag([], reply) == 0 or stuck_flag([Line("user", "add gundam on day 1")], reply) == 1
+    for number in (1, 2, 3):
+        gundam.append(Line("user", "i mean, add an attraction at day 1 please, it should be somewhere i can see Gundam"))
+        assert stuck_flag(gundam, reply) == number
+        gundam.append(Line("assistant", reply))
+    assert is_stuck(gundam, 3) is True
     assert agent_reason(60, False) == "hot"
     assert agent_reason(15, True) == "stuck"
     assert agent_reason(15, False) is None

@@ -510,6 +510,16 @@ export function usePathfinder(locale: string): PathfinderHook {
     setSessionId(id);
   }, [forgetTripView]);
 
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<SessionState>).detail;
+      if (!detail?.session?.id) return;
+      showTrip(detail.session.id, detail);
+    };
+    window.addEventListener("pf-open-saved", onOpen);
+    return () => window.removeEventListener("pf-open-saved", onOpen);
+  }, [showTrip]);
+
   /** Whether the stored sign-in has ended: another check dropped it already, or the server refuses it now (and it is dropped here). */
   const signInEnded = useCallback(async (): Promise<boolean> => {
     if (!readStoredValue("auth")) return true;

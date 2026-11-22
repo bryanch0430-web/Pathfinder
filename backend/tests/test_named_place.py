@@ -1,6 +1,8 @@
 """A named place is what gets searched and, when no stop is being changed, what gets added."""
 
+from app.application.plan_focus import day_number_named
 from app.application.modification import (
+    asks_for_more_stops,
     ChangeDraft,
     _add_attractions,
     _fresh_places,
@@ -79,6 +81,39 @@ def _sourced(name: str, description: str, lat: float, lng: float) -> dict:
         "geo": {"lat": lat, "lng": lng},
         "source_refs": [{"title": name, "url": "https://example.com/place", "source": "test"}],
     }
+
+
+def test_a_wish_searches_for_a_real_place_and_a_broken_day_is_still_day_1() -> None:
+    mall = "ok so how about just add something at da y 1 that's like a shopping mall or something"
+    gundam = "can you add an attraction on day 1 at Taiwan, where i can see Gundam?"
+    assert day_number_named(mall) == 1
+    assert _search_extra(mall, place=mall[mall.lower().find("something"):])["places_query"] == "shopping mall"
+    assert "Gundam" in _search_extra(gundam)["places_query"]
+    assert "day" not in _search_extra(gundam)["places_query"].lower()
+
+    plan = make_plan(days=2, with_tickets=False)
+    rows = [
+        _sourced("Taipei 101 Mall", "A shopping mall", 25.03, 121.56),
+        _sourced("Night market stall", "Street food", 25.04, 121.50),
+    ]
+    assert [row["name"] for row in _fresh_places(plan, rows, mall, named=mall)] == ["Taipei 101 Mall"]
+    gundam_row = _sourced("Gundam Base Taipei", "Where you can see Gundam", 25.05, 121.57)
+    assert [row["name"] for row in _fresh_places(plan, [gundam_row], gundam)] == ["Gundam Base Taipei"]
+
+
+def test_adding_sakura_is_a_new_stop_and_a_cherry_park_counts() -> None:
+    message = "ok sorry, can you add an attrction at day 1 where i can see sakura flower"
+    assert asks_for_more_stops(message)
+    assert day_number_named(message) == 1
+    assert _search_extra(message)["places_query"] == "sakura flower"
+    plan = make_plan(days=2, with_tickets=False)
+    plain = _sourced("Yangmingshan National Park", "A mountain park north of Taipei", 25.16, 121.54)
+    assert [row["name"] for row in _fresh_places(plan, [plain], message)] == ["Yangmingshan National Park"]
+    rows = [
+        _sourced("Yangmingshan", "Cherry blossoms in spring", 25.16, 121.54),
+        _sourced("ICHIRAN Taipei", "Ramen restaurant", 25.03, 121.56),
+    ]
+    assert [row["name"] for row in _fresh_places(plan, rows, message)] == ["Yangmingshan"]
 
 
 def test_a_harbour_walk_becomes_the_nearest_verified_promenade() -> None:

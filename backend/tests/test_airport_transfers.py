@@ -457,6 +457,40 @@ def test_a_new_flight_into_another_airport_works_the_transfer_out_again_and_says
 # --- the day --------------------------------------------------------------------------------------------------------------
 
 
+def test_a_stop_three_minutes_inside_the_arrival_buffer_is_moved_not_deleted() -> None:
+    from plan_samples import stop
+
+    from app.application.airport_transfers import _place_arrival
+    from app.domain.models import DayPlan, TransportLeg
+
+    day = DayPlan(
+        date=date(2026, 11, 30),
+        title="Day 1",
+        items=[stop("gundam", "The Gundam Base", "15:30", "17:00")],
+    )
+    leg = TransportLeg(
+        id="to_stay",
+        from_place="TPE airport",
+        to_place="Members Hotel",
+        depart_date=date(2026, 11, 30),
+        kind="to_stay",
+    )
+    option = TicketOption(
+        id="taxi",
+        mode="taxi",
+        leg_id="to_stay",
+        name="Taxi",
+        depart_at=datetime(2026, 11, 30, 13, 55),
+        arrive_at=datetime(2026, 11, 30, 14, 33),
+        selected=True,
+    )
+    notes: list[str] = []
+    placed = _place_arrival(day, leg, option, notes)
+    kept = next(item for item in placed.items if item.name == "The Gundam Base")
+    assert kept.start == "15:33"
+    assert notes == []
+
+
 def test_the_transfer_is_a_transit_item_on_the_day_and_stops_it_runs_into_are_removed_with_a_note() -> (
     None
 ):

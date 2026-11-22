@@ -431,16 +431,32 @@ def _place_arrival(
     """The airport-to-stay transfer on its day, and the stops it would run into taken out."""
     start, end = _span(option)
     cutoff = end + ARRIVAL_BUFFER_MINUTES
-    dropped = [
-        item
-        for item in day.items
-        if not (item.locked or item.confirmed)
-        and (
-            _minutes(item.start) < cutoff
-            or (_minutes(item.start) < end and _minutes(item.end) > start)
-        )
-    ]
-    kept = [item for item in day.items if item not in dropped]
+    # A stop that only misses the buffer (15:30 when the hotel is reached at 14:33) is moved to the
+    # buffer, not deleted. A stop that cannot fit after the transfer is the one that is left out.
+    dropped = []
+    kept = []
+    cursor = cutoff
+    for item in sorted(day.items, key=lambda row: _minutes(row.start or "00:00")):
+        if item.locked or item.confirmed or not item.start or not item.end:
+            kept.append(item)
+            continue
+        begins, ends = _minutes(item.start), _minutes(item.end)
+        if begins >= cutoff:
+            cursor = max(cursor, ends)
+            kept.append(item)
+            continue
+        if begins < end:
+            # It overlaps the ride from the airport, so it cannot be a stop on that day.
+            dropped.append(item)
+            continue
+        duration = max(30, ends - begins)
+        if cursor + duration > 22 * 60 + 30:
+            dropped.append(item)
+            continue
+        item.start = _clock(cursor)
+        item.end = _clock(cursor + duration)
+        cursor += duration
+        kept.append(item)
     notes.extend(
         f"{item.name} was left out of {day.date.isoformat()}: you reach your stay at {_clock(end)}."
         for item in dropped
