@@ -81,6 +81,7 @@ async def compose(
     previous_problems: list[Problem] | None = None,
     skill_overrides: dict[str, str] | None = None,
     trace: TurnTrace | None = None,
+    avoid_transit_days: set[int] | None = None,
 ) -> tuple[TripPlan, PlanDraft]:
     start = parse_date(context.start_date)
     if start is None:
@@ -126,6 +127,7 @@ async def compose(
         start=start,
         end=end,
         settings=settings,
+        avoid_transit_days=avoid_transit_days,
     )
     problems = validate_structure(plan, context)
     if trace:
@@ -250,6 +252,7 @@ def build_plan(
     start: date,
     end: date,
     settings: Settings,
+    avoid_transit_days: set[int] | None = None,
 ) -> TripPlan:
     by_ref = {item.ref: item for item in bundle.items}
     days = day_range(start, end)[:31]
@@ -269,7 +272,7 @@ def build_plan(
                 continue
             items.append(_item_from_evidence(evidence, stop, position))
         items.sort(key=lambda item: item.start or "99:99")
-        _attach_transfers(items)
+        _attach_transfers(items, avoid_transit=(index + 1) in (avoid_transit_days or set()))
         _settle_sequence(items)
         built_days.append(
             DayPlan(
@@ -433,13 +436,16 @@ def _settle_sequence(items: list[PlanItem]) -> None:
         current.end = shift_time(current.end, shift)
 
 
-def _attach_transfers(items: list[PlanItem]) -> None:
+def _attach_transfers(items: list[PlanItem], *, avoid_transit: bool = False) -> None:
     for index in range(1, len(items)):
         previous, current = items[index - 1], items[index]
         if not previous.geo or not current.geo:
             continue
         km = haversine_km(previous.geo, current.geo)
-        mode = "walk" if km <= 1.4 else ("transit" if km <= 12 else "drive")
+        if avoid_transit:
+            mode = "walk" if km <= 3.0 else "drive"
+        else:
+            mode = "walk" if km <= 1.4 else ("transit" if km <= 12 else "drive")
         speed = {"walk": 4.5, "transit": 18.0, "drive": 30.0}[mode]
         minutes = round(km * 1.3 / speed * 60, 1)
         current.transfer = TransferLeg(

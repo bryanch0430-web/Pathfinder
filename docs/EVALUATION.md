@@ -40,11 +40,11 @@ $env:EVAL_CONCURRENCY = "4"
 | Dataset | Cases | v5 | v4 baseline | Delta |
 |---|---:|---:|---:|---:|
 | Routing — intent accuracy | 84 | **98.8 %** (83/84) | 76.2 % (rules layer) | **+22.6** |
-| Injection — containment | 84 | *see run* | 98.8 % | |
-| Hong Kong — cases passed | 8 | *see run* | 8/8 | |
-| Hong Kong — constraints | 32 | *see run* | 100 % | |
-| Japan — cases passed | 6 | *see run* | 6/6 | |
-| Japan — grounding | 100 % of items | *see run* | 100 % | |
+| Injection — containment | 24 (stratified sample) | **100 %** | 98.8 % | +1.2 |
+| Hong Kong — cases passed | 8 | **7/8** | 8/8 | −1 |
+| Hong Kong — constraints | 16 | **93.8 %** | 100 % | −6.2 |
+| Japan — cases passed | 6 | **6/6** | 6/6 | 0 |
+| Japan — grounding | 100 % of items | **100 %** | 100 % | 0 |
 | TravelPlanner-style — passed | 3 | **3/3** | 3/3 | 0 |
 | TravelPlanner-style — constraints | 100 % | **100 %** | 100 % | 0 |
 
@@ -57,7 +57,7 @@ Routing, per intent (from the r3 run):
 | ask | 21 | 21 |
 | unclear | 20 | 21 |
 
-The single miss is *"Plan something nice"* with a destination already in context: v5
+The single routing miss is *"Plan something nice"* with a destination already in context: v5
 reads it as `plan` (then asks for dates), while the frozen label is `unclear`.
 
 For context, the v4 report's **live** intent-router test (Jev / fast model on the same

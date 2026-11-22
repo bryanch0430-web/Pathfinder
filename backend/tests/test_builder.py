@@ -211,3 +211,17 @@ def test_budget_guard_takes_the_cheaper_stay_then_trims():
     assert plan.hotels[0].name == "Cheap Stay"
     assert trimmed  # still over, so paid stops were dropped
     assert cost.total <= 20000
+
+
+def test_avoid_transit_day_walks_instead():
+    context = TripContext(
+        session_id="s1", destination="Kyoto", start_date="2027-04-10", end_date="2027-04-11",
+        days=2, party_size=1, budget=100000, currency="JPY",
+    )
+    plan = build_plan(
+        context=context, bundle=_bundle(), draft=_draft(), disruptions=[], weather_by_date={},
+        start=date(2027, 4, 10), end=date(2027, 4, 11), settings=_settings(),
+        avoid_transit_days={1},
+    )
+    modes = [item.transfer.mode for item in plan.days[0].items if item.transfer]
+    assert modes and "transit" not in modes

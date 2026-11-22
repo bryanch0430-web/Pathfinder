@@ -29,6 +29,7 @@ class Gathered:
     bundle: Bundle
     disruptions: list[Disruption] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    avoid_transit_days: set[int] = field(default_factory=set)
 
 
 def _stable_ref(kind: str, name: str) -> str:
@@ -62,6 +63,7 @@ async def gather(
     bundle = Bundle()
     disruptions: list[Disruption] = []
     notes: list[str] = []
+    avoid_transit_days: set[int] = set()
 
     async def attraction_agent() -> None:
         started = time.perf_counter()
@@ -219,18 +221,25 @@ async def gather(
         notes.append(
             f"Transit disruption: {note} Keep day 1 local and allow extra time between stops; prefer walking-distance clusters."
         )
+        day = int((detail or {}).get("day") or 1)
+        avoid_transit_days.add(day)
+        notes.append(f"On day {day}, do not use the MTR: cluster stops and walk or take a taxi.")
         disruptions.append(
             Disruption(
                 id="disruption-1",
                 kind="transit_delay",
                 summary=note,
-                resolution="Day 1 kept local, with extra transfer time allowed.",
+                resolution=f"Day {day} avoids public transport; transfers are walking or taxi.",
                 resolved=True,
             )
         )
 
-    weather = bundle.weather
-    return Gathered(bundle=bundle, disruptions=disruptions, notes=notes)
+    return Gathered(
+        bundle=bundle,
+        disruptions=disruptions,
+        notes=notes,
+        avoid_transit_days=avoid_transit_days,
+    )
 
 
 def _notice_source(title: str) -> Any:

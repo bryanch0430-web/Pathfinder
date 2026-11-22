@@ -402,6 +402,7 @@ async def _plan_turn(
                 previous_problems=previous_problems,
                 skill_overrides=skill_overrides,
                 trace=trace,
+                avoid_transit_days=gathered.avoid_transit_days,
             )
         except LLMError as exc:
             from app.plan.builder import fallback_plan
@@ -457,6 +458,7 @@ async def _plan_turn(
                 previous_problems=previous_problems,
                 skill_overrides=skill_overrides,
                 trace=trace,
+                avoid_transit_days=gathered.avoid_transit_days,
             )
             await audit_constraints(llm=llm, plan=repaired, context=context, trace=trace, skill_overrides=skill_overrides)
             if repaired.item_count() >= plan.item_count() or not problems:
