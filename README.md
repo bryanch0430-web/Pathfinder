@@ -5,6 +5,12 @@ LLM-first core.** The React app in `frontend/` is the v4 interface, unchanged; t
 backend behind `/api` is rebuilt around a typed turn analyst, sourced evidence,
 bounded repair and versioned plans.
 
+**Latest:** the Models tab now configures a model, temperature and reasoning effort
+for each part; the turn orchestrator can be the analyst or Jev; handoff goes to a
+real desk queue with editable explicit-request phrases. See
+[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) for the running version log.
+
+
 ```
 traveller message
    │

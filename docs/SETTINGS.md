@@ -1,37 +1,39 @@
 # Settings audit (v5)
 
-The Settings screen is the v4 screen. This table says what each control actually
-does in v5, so no one tunes a knob that is not connected.
+The Settings screen keeps the v4 look but only shows controls the v5 runtime reads.
+If a control is not listed here, it is not in the UI.
 
 | Section | Control | Live in v5? | What it changes |
 |---|---|---|---|
-| Model keys | provider / key / model, test, choose | **yes** | the writer for every turn (BYOK overrides the env writer) |
-| Writer | model, temperature, max tokens | **yes** | the writer call parameters (stored in `/api/admin/runtime`) |
-| Writer | reasoning | no (passed but the writer endpoint may ignore it) | — |
-| Thresholds | router confidence | **yes** | the analyst confidence gate (`ROUTER_THRESHOLD` default) |
-| Thresholds | max repairs | **yes** | compose attempts on a validation problem |
-| Thresholds | turn deadline | **yes** | per-turn SSE deadline (seconds) |
-| Thresholds | memory similarity, preplan budget, rule passes | no | v4 rule-engine knobs |
-| Privacy | HKID / phone / email / card + patterns | **yes** | first-layer masking of the traveller's text before storage and any model call |
-| SerpAPI rotation | keys, status, add | **yes** | the key used for live search and flights (admin keys first, then `SERPAPI_KEY_POOL`) |
-| Freshness hours | weather / tickets / hotels | no | v5 fetches per turn; no cache to expire |
-| Orchestrator | gate (Jev / plain / reason) | no | v5 has one writer; the analyst is the router |
-| Orchestrator | Jev URL / key / model | no | Jev is not wired (see the Jev note in the report) |
-| Reviewer | model, rounds, reasoning | no | no second-model review call is made |
-| Model arms / `models` | plain / reason / reviewer names | no | one writer model per turn |
-| Escalation | enabled, frustration, stuck, examples | **yes** | handoff to the desk: asking for a person, frustration ≥ threshold, or a stuck streak |
-| Redaction preview | sample text | **yes** | preview only, nothing stored |
-| Admin runtime reset | — | **yes** | drops the overrides above |
+| General | Developer mode | **yes** | shows the per-turn decision trace |
+| General | Data source (Live providers / Offline atlas) | **yes** | `data_mode` in `/api/admin/runtime`; live uses Google Places, Open-Meteo, SerpAPI, Wikipedia |
+| Handoff | Automatic handoff (master) | **yes** | when off, no frustration/stuck handoff; an explicit request still queues |
+| Handoff | Frustration threshold (0–1) | **yes** | analyst frustration ≥ threshold, only while the master is on |
+| Handoff | Stuck chats + failed-turn count (2–8) | **yes** | counts edits that leave the trip unchanged; only while the master is on |
+| Handoff | Explicit request phrases | **yes** | message contains a phrase → queue, even when automatic is off (negations ignored) |
+| Handoff | Handoff message | **yes** | stored with the policy and shown by the Desk |
+| Instructions | Skill overrides | **yes** | per-skill prompt override (stored in kv, falls back to `app/skills/*.md`) |
+| Models | Provider / key / default model / temperature / max tokens | **yes** | active writer and BYOK key; default model |
+| Models | Per-part model | **yes** | `purpose_models`; blank = default writer |
+| Models | Per-part temperature | **yes** | `purpose_temperatures`, 0–2 |
+| Models | Per-part reasoning effort | **yes** | `purpose_reasoning`; sent as `reasoning_effort` only to GPT-5/o-series |
+| Models | Turn orchestrator (Analyst / Jev) | **yes** | Jev routes plan/modify/ask/clarify before the analyst; fallback to analyst |
+| Models | Jev endpoint / model / key | **yes** | used only when Jev is the orchestrator; key is stored server-side and shown masked |
+| Thresholds | Router confidence | **yes** | analyst confidence gate |
+| Thresholds | Max repairs | **yes** | compose attempts on a validation problem |
+| Thresholds | Turn deadline | **yes** | per-turn deadline in seconds |
+| Privacy | HKID / phone / email / card + patterns | **yes** | first-layer masking before storage and model calls; stale patterns fall back to defaults |
+| System | Providers, SerpAPI keys, injection counts | **yes** | SerpAPI rotation uses the active admin key first |
+| Admin runtime reset | — | **yes** | drops all runtime overrides |
 
-`/api/runtime` now reports a `capabilities` object with the same booleans, so a
-future UI can disable the inert controls instead of leaving them looking live.
+`/api/runtime` exposes `capabilities` (`writer`, `byok_keys`, `thresholds`,
+`privacy_masking`, `serpapi_rotation`, `jev`, `purpose_models`) so a future UI can
+keep inert controls disabled.
 
-## Why some v4 controls are not wired
+## Removed from the UI
 
-- **Jev**: a second, less accurate router in front of the analyst (92.9 % vs 98.8 %
-  on the same 84 cases). It remains a deliberate pre-gate option, not a control.
-- **Reviewer / arms / gate**: v5 uses one writer for every role; the v4 arms were
-  model-comparison experiments. Their code paths do not exist, so the controls are
-  shown for layout parity only.
-- **Freshness hours**: there is no cache; each turn fetches what it needs and records
-  the fetch time on the evidence.
+- **Orchestrator / gate / model arms** — v5 has one writer and the analyst routes;
+  Jev is now an explicit orchestrator option, not a hidden gate.
+- **Reviewer** — there is no second-model review call.
+- **Updates / freshness windows** — there is no cache; each turn records fetch time
+  on its evidence.

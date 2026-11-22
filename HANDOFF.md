@@ -27,6 +27,8 @@ npm run dev
 |---|---|
 | The whole turn | `backend/app/turn/orchestrator.py` |
 | Routing / slot understanding | `backend/app/skills/understand.md`, `understand/pipeline.py` |
+| Optional Jev router | `backend/app/understand/jev.py` |
+| Per-part models / orchestrator choice | `backend/app/core/llm.py`, `backend/app/api/turn.py`, `frontend/src/design-system/ModelsSettings.tsx` |
 | Planning prompt | `backend/app/skills/plan.md` |
 | Plan construction + grounding | `backend/app/plan/builder.py` |
 | Validation + constraint audit | `backend/app/plan/validator.py`, `skills/verify.md` |
@@ -35,12 +37,12 @@ npm run dev
 | Wire model (UI contract) | `backend/app/domain/models.py` |
 | API routers | `backend/app/api/*.py` |
 | Evaluation | `backend/app/eval/*`, `backend/eval/fixtures/` |
-| Design notes | `docs/ARCHITECTURE.md`, `docs/REVAMP.md`, `docs/EVALUATION.md` |
+| Design notes | `docs/ARCHITECTURE.md`, `docs/REVAMP.md`, `docs/EVALUATION.md`, `docs/VERSION_NOTES.md` |
 | Interactive architecture diagram | `docs/architecture/pathfinder-v5-architecture.html` |
 
 ## Verified so far
 
-- 35 backend tests pass (`pytest -q`).
+- 51 backend tests pass (`pytest -q`).
 - All 71 request paths the React app uses are served (checked against the OpenAPI
   document).
 - End-to-end manual flows: plan → edit tick → accept → version 2; ask; clarify;
