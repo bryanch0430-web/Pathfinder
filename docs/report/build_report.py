@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 
 from docx import Document
 from docx.enum.section import WD_SECTION
@@ -12,7 +13,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 REPORT_DIR = Path(__file__).resolve().parent
 ASSETS = REPORT_DIR / "assets"
-OUT = REPORT_DIR / "Pathfinder_Final_Report.docx"
+OUT = Path(os.environ.get("REPORT_OUT", str(REPORT_DIR / "Pathfinder_Final_Report.docx")))
 
 NAVY = RGBColor(0x1F, 0x3A, 0x5F)
 GREY = RGBColor(0x44, 0x4A, 0x52)
@@ -459,6 +460,37 @@ table(
 )
 body(
     doc,
+    "The model choices follow four criteria: structured-output reliability, an independent failure mode for "
+    "verification, measured quality on the frozen component suites, and cost/latency. The writer path uses "
+    "Sonnet 5.5 because it has to hold a long typed contract across planning, editing and answering; its "
+    "planner result matches the lower-cost arm (14/17) but it is the safer instruction follower for the whole "
+    "product. The constraint verifier uses DeepSeek Flash because a different model family reduces correlated "
+    "blind spots, its 18/20 verifier score matches the Sonnet arm, and its p50 is lower (2.0 s vs 5.7 s). It "
+    "is not used for arithmetic; the deterministic checks own that.",
+)
+body(
+    doc,
+    "Temperatures are set by the kind of decision, not by a universal default. Routing, editing, verification, "
+    "ask and memory use temperature 0 because their outputs are compared or tested and the task benefits from "
+    "reproducibility. The planner keeps 0.2 in the production profile: it must select and arrange candidates, "
+    "and a little variation can help when several sourced options are plausible. This is a production "
+    "assumption, not a swept optimum; the planner temperature was not systematically tuned. Caps follow the "
+    "same logic: 12,000 tokens for the plan, 2,000 for an edit, 1,500 for the verifier, 1,400 for an ask, 700 "
+    "for memory and 4,096 for the analyst. The lower-cost profile from the study (Flash-Lite for analyst, "
+    "planner and editor; DeepSeek for ask and memory) is exposed in Models by part but is not the shipped "
+    "default because its routing result was less stable on unclear utterances.",
+)
+body(
+    doc,
+    "The remaining settings are deliberately conservative. The whole turn is limited to 300 s (60–900 s "
+    "bounds), the composer is repaired at most twice, ask uses at most two queries with four results each, "
+    "and the two confidence thresholds are separate because a model-reported score is not a calibrated "
+    "probability. Jev is optional and off by default: it is fast (≈0.62 s) and scored 79/84 on routing, but "
+    "that is below the analyst and it is a different signal family. Selecting a model in Models by part is an "
+    "operator decision; it does not change the deterministic rules around it.",
+)
+body(
+    doc,
     "Prompts are markdown skills with a typed output schema. JSON is parsed defensively, validated by "
     "Pydantic, repaired once on a parse or validation error and otherwise failed loudly. The analyst prompt "
     "does not contain a numeric confidence threshold; the policy is applied after the call. The verifier "
@@ -712,20 +744,20 @@ heading(doc, "7  Contributions and attribution", 1)
 body(
     doc,
     "The repository history in the submitted checkout is squashed under one shared GitHub identity, so "
-    "commit-level attribution is not independently recoverable. The table records the team's declared "
-    "workstreams; all members should confirm it before submission. Percentages are deliberately omitted.",
+    "commit-level attribution is not independently recoverable. The member rows are therefore left blank "
+    "for the group to complete before submission; percentages are deliberately omitted.",
 )
 table(
     doc,
     ["Member", "Declared primary workstream", "Secondary contribution"],
     [
-        ["Chan Yuk Ming", "Agent runtime and integration; orchestrator, validation/repair, final integration", "Test design and report review"],
-        ["Lai Helen", "Evaluation design and analysis; fixtures, component study, evidence tables", "Prompt review and result adjudication"],
-        ["Wong Man Kit", "Product interface; Chat/Plan/Trip map, Direct edit, Desk/HITL, accessibility", "Acceptance testing and visual review"],
-        ["Ng Tsan Fung", "Evidence and state; providers, place corpus, SQLite/versioning, privacy", "Deployment and configuration"],
+        ["Chan Yuk Ming", "", ""],
+        ["Lai Helen", "", ""],
+        ["Wong Man Kit", "", ""],
+        ["Ng Tsan Fung", "", ""],
     ],
     widths=[1.15, 2.55, 1.9],
-    cap="Table 6. Declared contribution allocation. The shared repository account prevents independent commit-level verification.",
+    cap="Table 6. Contribution allocation to be completed by the group. The shared repository account prevents independent commit-level verification.",
 )
 body(
     doc,
@@ -741,7 +773,7 @@ body(
     doc,
     "Unfinished or mocked functionality is disclosed rather than hidden: no autonomous booking or payment; "
     "intercity transport has no live price or booking source; the curated corpus covers a limited city set; "
-    "the Judge model is reserved and unused; the hybrid router is an experimental shadow, not shipped; the "
+    "the Judge model is reserved and unused; "
     "vector RAG and Langfuse layers from the proposal were not integrated; the part-model low-cost profile is "
     "tested but not the default; and the full TravelPlanner split, 70/30 custom split and 84-probe injection "
     "suite are not claimed. The report's numbers are therefore screening evidence, not a production "
@@ -850,13 +882,11 @@ table(
         ["Cap stress: verifier, 64 tokens", "unknown (fail)", "A 1,500-token cap is required for the audit"],
         ["Cap stress: memory, 64 tokens", "fail", "A 700-token cap is required for preference extraction"],
         ["Cap stress: ask / planner low caps", "inconclusive", "The control turn clarified; not claimed as causal"],
-        ["Hybrid shadow (retrospective)", "78/84 agreement; 100% accepted accuracy; 6 clarifications", "Not shipped; saved-prediction analysis"],
-        ["Hybrid shadow (live)", "6/10 raw agreement; 7/10 action agreement; 7/10 would clarify", "Small pilot; strict gate over-clarified an ask"],
         ["Acceptance: selected stop", "answer named One Dim Sum after fix", "Live API check, not a UI-only fix"],
         ["Acceptance: current hotel lock", "Ramada stay locks in regression test", "Backend /choose fallback added"],
     ],
     widths=[1.7, 2.0, 2.1],
-    cap="Table A3. Additional reliability, capability and shadow checks retained for completeness.",
+    cap="Table A3. Additional reliability and capability checks retained for completeness.",
 )
 
 heading(doc, "Appendix B  Settings, prompts and search path", 1)
@@ -867,7 +897,7 @@ body(
     "caps of 4,096 (analyst), 12,000 (planner), 2,000 (editor), 1,500 (verifier), 1,400 (ask), 700 (memory). "
     "The plan validator is deterministic; the constraint verifier is the only model audit. The orchestrator "
     "holds a seat, a whole-turn deadline and a repair cap. The optional Jev router is off by default; the "
-    "hybrid Jev/analyst agreement experiment is a shadow result, not a shipped setting.",
+    "optional Jev router is off by default.",
 )
 table(
     doc,
@@ -922,7 +952,6 @@ for item in [
     "No vector database/RAG; memory is a preference profile with similarity retrieval, not embeddings.",
     "No fine-tuning, RLHF or model-side web browsing; the LLM writes queries but code executes search.",
     "Judge model unused; the constraint verifier is a separate model audit, not an LLM judge for the report.",
-    "Hybrid Jev/analyst agreement is an experimental shadow; it is not a shipped router.",
     "TravelPlanner is used as a small frozen subset, not the full 1,225-query benchmark; custom 70/30 split was not executed.",
     "The optional low-cost part-model profile (Flash-Lite/DeepSeek) is tested but not the shipped default.",
     "Component results are one run per case; the only repeated current suite is routing (two runs).",
