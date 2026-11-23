@@ -49,3 +49,16 @@ def test_days_and_hotels_are_typed():
     hotel = HotelStay(id="h1", name="Hotel")
     assert day.items[0].name == "Market"
     assert hotel.price_per_night is None
+
+def test_verifier_records_when_there_are_no_constraints():
+    import asyncio
+
+    from app.core.trace import TurnTrace
+    from app.plan.validator import audit_constraints
+
+    plan = TripPlan(trip_id="t1", session_id="s1")
+    context = TripContext(session_id="s1")
+    trace = TurnTrace(request_id="verify-empty")
+    result = asyncio.run(audit_constraints(llm=None, plan=plan, context=context, trace=trace))
+    assert result is None
+    assert any("no hard constraints" in line for line in trace.why)

@@ -88,6 +88,9 @@ plan; this release gives each uncertain part its own bounded representation.
   passes (v06/v14) and 0 false alarms, matching the earlier DeepSeek arm; the endpoint
   uses `deepseek-flash` because the Poe alias `deepseek-v4-flash` is not available. The writer/analyst/planner stay on the default writer; the verifier
   model can still be overridden under **Models by part**.
+- The “why” trace now says when the constraint audit was skipped because the
+  plan has no hard constraints, or when the verifier endpoint was unavailable. A
+  plan without constraints does not call the verifier by design.
 - Fixed the selected-item context in the ask path: the UI already sent the
   selected stop to the analyst, but the answer payload omitted it. “what is this?”
   now resolves to the selected item and names it in the answer.

@@ -109,6 +109,8 @@ async def audit_constraints(
 ) -> VerifyResult | None:
     constraints = [check.text for check in plan.constraints if check.text]
     if not constraints:
+        if trace:
+            trace.say("Constraint audit: no hard constraints to check.")
         return None
     payload = {
         "trip": context_brief(context),
@@ -128,7 +130,9 @@ async def audit_constraints(
             user=json.dumps(payload, ensure_ascii=False, indent=1),
             schema=VerifyResult,
         )
-    except LLMError:
+    except LLMError as exc:
+        if trace:
+            trace.say(f"Constraint audit unavailable: {str(exc)[:180]}")
         return None
     status_by_text = {row.text.strip().lower(): row for row in result.checks if row.text}
     updated: list[ConstraintCheck] = []
