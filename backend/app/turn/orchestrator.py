@@ -20,7 +20,7 @@ import json
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, AsyncIterator
 
 from app.config import Settings
@@ -837,7 +837,15 @@ async def _ask_turn(
         results.extend(await providers.search(query, limit=4))
     if queries:
         trace.why.append("Looked up: " + "; ".join(queries[:2]))
+    now = datetime.now().astimezone()
     payload = {
+        "now": {
+            "date": now.date().isoformat(),
+            "weekday": now.strftime("%A"),
+            "time": now.strftime("%H:%M"),
+            "timezone": now.tzname() or "local",
+            "iso": now.isoformat(timespec="minutes"),
+        },
         "trip": context_brief(context),
         "plan": plan_text(plan, with_sources=True),
         "recent_turns": dialogue(chat_history),
@@ -874,9 +882,16 @@ async def _search_queries(llm: LLMClient, message: str, plan: TripPlan | None) -
             system=(
                 "Write 0-2 web search queries that would answer the traveller's question about their trip. "
                 "If the question can be answered from the itinerary alone, return an empty list. "
+                "The current date and time are supplied by the runtime; never search for them. "
                 'Reply as JSON: {"queries": ["..."]}'
             ),
-            user=json.dumps({"question": message, "destination": plan.destination.name if plan else ""}),
+            user=json.dumps(
+                {
+                    "question": message,
+                    "destination": plan.destination.name if plan else "",
+                    "now": datetime.now().astimezone().isoformat(timespec="minutes"),
+                }
+            ),
             schema=Queries,
         )
         return [query for query in result.queries if query.strip()][:2]
