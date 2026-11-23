@@ -3,7 +3,7 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
-## 5.1.0 — 2026-11-23 12:45 HKT
+## 5.1.0 — 2026-11-23 14:16 HKT
 
 Complex requests need explicit state, not a longer prompt. A request can combine a
 relative period (“next month”), a length (“2 days”), a budget and currency, flights,
@@ -105,7 +105,7 @@ plan; this release gives each uncertain part its own bounded representation.
 - A multi-city plan is a first safe slice; segment-level refinement, per-city stays and
   intercity sourcing are follow-up work.
 
-## 5.0.0 — 2026-11-23
+## 5.0.0 — 2026-11-23 11:47 HKT
 
 The LLM-first revamp is the first release. One writer model (BYOK-capable) answers
 every role by default; a typed analyst call decides the path; evidence is gathered

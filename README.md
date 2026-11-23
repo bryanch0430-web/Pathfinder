@@ -11,6 +11,35 @@ handoff goes to a real human-in-the-loop desk queue with independent switches. S
 [docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it also imports the `main` v1.x
 release notes and maps each one to what v5 kept, changed, or deliberately dropped.
 
+## Version notes
+
+**v1.0.0 → v1.19.0 — 2026-11-01 to 2026-11-23 12:45 HKT (summarised).**
+The legacy `main` line grew from the renamed, migrated prototype in v1.0.0 into a
+complete product: identity and accounts, web search and reviews, plan / edit / clarify
+turns, maps with transit, ferry and walking comparisons, budgets and currency
+conversion, live flight evidence, PDF and image intake, multi-city routes, lockable
+stays and legs, the studio UI and Export menu, three routing gates, a human-in-the-loop
+desk with three escalation paths, traveller memory and profiles, and privacy masking.
+It was checked with the offline `pytest` suite, frontend typecheck and production
+build, Storybook, CI, the frozen routing / injection / Hong Kong / Japan / TravelPlanner
+/ efficiency / edit-vs-replan evaluation suites, and live smoke turns. The legacy line
+retained known limits (ground transport estimates, incomplete source coverage, and a
+small set of stale test gaps); it is archived and is not rebuilt by v5.
+
+> **New design direction.** After v1.19.0, the v5 redesign was proposed to handle more
+> complex and ambiguous requests, and to give the runtime better context management:
+> typed state, date windows, bounded execution, ordered city segments, sourced
+> evidence, and explicit clarification rather than a longer prompt.
+
+| Version | When (HKT) | Commits | Headline |
+|---|---|---|---|
+| **v5.1.0** | 2026-11-23 14:16 | `4995ec9`…`152fd51` | Complex requests get explicit state: date windows, flight buffers, a whole-turn budget, ordered multi-city segments, a runtime clock, split LLM/Jev confidence settings, and the complete architecture reference |
+| **v5.0.0** | 2026-11-23 11:47 | `fabeb36`…`e72cfff` | LLM-first core behind the unchanged React UI: typed analyst/router, evidence workers, sourced-only planner, deterministic validation, bounded repair, versioned plans, per-part models, optional Jev and a real HITL queue |
+
+The detailed patch notes, including every commit and the part-model study, are in
+[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md). `v5.0.0` is the first v5 release;
+`v5.1.0` is the current line.
+
 ## What kind of agent is this?
 
 In **COMP7608B** terms, Pathfinder v5 is an **LLM-based agentic system**: a
