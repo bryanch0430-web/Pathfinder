@@ -33,7 +33,7 @@ def set_values(ws, header: str, value: str) -> None:
 wb = load_workbook(OUT)
 
 # Pathfinder suites: one frozen evaluation set, no dev/heldout labels.
-for sheet in ("Routing_84", "Planner_17", "Edit_vs_Replan_5"):
+for sheet in ("Routing_84", "Planner_17", "Edit_vs_Replan_5", "Router_Comparison_84"):
     ws = wb[sheet]
     set_header(ws, "Split", "Set")
     set_values(ws, "Set", "v5 evaluation")
@@ -103,6 +103,6 @@ for key, value in [
     ws.cell(r, 2).alignment = Alignment(wrap_text=True, vertical="top")
     r += 1
 
-wb._sheets = [wb["README"], wb["Final_Test_List"], wb["Index"], wb["Changes"], wb["Model_Settings"], wb["Temperature_Ablation"], wb["Router_Comparison_84"], wb["Pricing_Evidence"], wb["All_Cases"], wb["Routing_84"], wb["Planner_17"], wb["Verifier_17"], wb["Editor_8"], wb["Ask_12"], wb["Memory_8"], wb["Efficiency_10"], wb["Edit_vs_Replan_5"], wb["Injection_84"], wb["Cap_Stress"], wb["TravelPlanner_1225"]]
+wb._sheets = [wb["README"], wb["Final_Test_List"], wb["Index"], wb["Changes"], wb["Model_Settings"], wb["Model_Ablation"], wb["Temperature_Ablation"], wb["Reasoning_Ablation"], wb["Router_Comparison_84"], wb["Pricing_Evidence"], wb["All_Cases"], wb["Routing_84"], wb["Planner_17"], wb["Verifier_17"], wb["Editor_8"], wb["Ask_12"], wb["Memory_8"], wb["Efficiency_10"], wb["Edit_vs_Replan_5"], wb["Injection_84"], wb["Cap_Stress"], wb["TravelPlanner_1225"]]
 wb.save(OUT)
 print(f"finalised {OUT}")

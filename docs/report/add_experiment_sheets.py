@@ -117,6 +117,49 @@ pricing_rows = [
 add_sheet(wb, "Pricing_Evidence", ["Model", "Input $/M tokens", "Output $/M tokens", "Est. cost per 3,017-token routing turn", "Est. cost per 1,000 routing turns", "Current / alternative role", "Source", *REVIEW],
           pricing_rows, widths={"Model": 22, "Input $/M tokens": 12, "Output $/M tokens": 12, "Est. cost per 3,017-token routing turn": 22, "Est. cost per 1,000 routing turns": 20, "Current / alternative role": 42, "Source": 28, "Review notes": 35})
 
+
+# ---------------------------------------------------------------- model ablation
+model_ablation_rows = []
+for part, models, suite in [
+    ("understand", ["claude-sonnet-5.5", "gemini-3.5-flash-lite", "deepseek-flash"], "Routing_84"),
+    ("planner", ["claude-sonnet-5.5", "gemini-3.5-flash-lite"], "Planner_17"),
+    ("editor", ["claude-sonnet-5.5", "deepseek-flash", "gemini-3.5-flash-lite"], "Editor_8"),
+    ("ask", ["claude-sonnet-5.5", "deepseek-flash", "gemini-3.5-flash-lite"], "Ask_12"),
+    ("memory", ["claude-sonnet-5.5", "deepseek-flash"], "Memory_8"),
+    ("verify", ["deepseek-flash", "claude-sonnet-5.5"], "Verifier_17"),
+]:
+    for model in models:
+        model_ablation_rows.append([
+            part, model, suite, "same cases; same temperature and cap",
+            "Measure correctness, output tokens, p50 latency and estimated cost.",
+            "Keep the current model unless another arm is better on both correctness and a justified cost/latency trade.",
+            "Pending retest", "", "", "",
+        ])
+add_sheet(wb, "Model_Ablation", ["Part", "Model arm", "Cases", "Control", "Hypothesis / metric", "Decision rule", "Test status", *REVIEW],
+          model_ablation_rows, widths={"Part": 16, "Model arm": 24, "Cases": 16, "Control": 30, "Hypothesis / metric": 55, "Decision rule": 65, "Test status": 18, "Review notes": 35})
+
+# ---------------------------------------------------------------- reasoning ablation
+reasoning_rows = []
+for part, model, suite in [
+    ("writer", "claude-sonnet-5.5", "end-to-end / reply quality"),
+    ("analyst", "claude-sonnet-5.5", "Routing_84"),
+    ("planner", "claude-sonnet-5.5", "Planner_17"),
+    ("editor", "claude-sonnet-5.5", "Editor_8"),
+    ("ask", "claude-sonnet-5.5", "Ask_12"),
+    ("memory", "claude-sonnet-5.5", "Memory_8"),
+    ("verifier", "deepseek-flash", "Verifier_17"),
+]:
+    for setting in ("none", "low / on (if supported)"):
+        reasoning_rows.append([
+            part, model, setting, suite,
+            "Same cases and temperature; inspect whether the endpoint emits reasoning_content.",
+            "Measure correctness, output/reasoning tokens, p50/p95 latency and cost.",
+            "Use reasoning only if it improves correctness enough to justify output tokens and latency; otherwise keep none.",
+            "Pending retest", "", "", "",
+        ])
+add_sheet(wb, "Reasoning_Ablation", ["Part", "Model", "Reasoning setting", "Cases", "Control", "Hypothesis / metric", "Decision rule", "Test status", *REVIEW],
+          reasoning_rows, widths={"Part": 14, "Model": 24, "Reasoning setting": 22, "Cases": 22, "Control": 40, "Hypothesis / metric": 55, "Decision rule": 65, "Test status": 18, "Review notes": 35})
+
 # ---------------------------------------------------------------- index/readme additions
 index = wb["Index"]
 for row in [
@@ -124,6 +167,8 @@ for row in [
     ["Temperature_Ablation", len(temperature_rows), "0.0 vs 0.2 per part/model", "Pending retest", "planned matrix"],
     ["Router_Comparison_84", len(router_rows), "Jev vs Flash-Lite vs Sonnet arms", "Pending retest", "routing.jsonl"],
     ["Pricing_Evidence", len(pricing_rows), "Rates and estimated routing cost", "Reference", "HF llm-pricing-calculator"],
+    ["Model_Ablation", len(model_ablation_rows), "Per-part model-arm comparison", "Pending retest", "planned matrix"],
+    ["Reasoning_Ablation", len(reasoning_rows), "Reasoning none vs low/on where supported", "Pending retest", "planned matrix"],
 ]:
     index.append(row)
 
@@ -133,6 +178,8 @@ extra = [
     ("Temperature", "Every part is planned at 0.0 and 0.2 on the same frozen cases. No temperature result is recorded here."),
     ("Jev", "Router_Comparison_84 lists Jev, Flash-Lite, Sonnet 0.0 and Sonnet 0.2 as separate arms; no agreement or accuracy result is claimed."),
     ("Pricing", "Prices are a snapshot from the HF calculator. They are reference rates, not invoices."),
+    ("Model ablation", "Model_Ablation compares Sonnet, Flash-Lite and DeepSeek on the same part-specific suites; no model result is recorded yet."),
+    ("Reasoning ablation", "Reasoning_Ablation tests none vs low/on only where the endpoint exposes the switch; DeepSeek may emit reasoning_content even when none is requested."),
 ]
 r = ws.max_row + 2
 for key, value in extra:
@@ -141,6 +188,6 @@ for key, value in extra:
     ws.cell(r, 2).alignment = Alignment(wrap_text=True, vertical="top")
     r += 1
 
-wb._sheets = [wb["README"], wb["Index"], wb["Changes"], wb["Model_Settings"], wb["Temperature_Ablation"], wb["Router_Comparison_84"], wb["Pricing_Evidence"], wb["All_Cases"], wb["Routing_84"], wb["Planner_17"], wb["Verifier_17"], wb["Editor_8"], wb["Ask_12"], wb["Memory_8"], wb["Efficiency_10"], wb["Edit_vs_Replan_5"], wb["Injection_84"], wb["Cap_Stress"], wb["TravelPlanner_1225"]]
+wb._sheets = [wb["README"], wb["Index"], wb["Changes"], wb["Model_Settings"], wb["Model_Ablation"], wb["Temperature_Ablation"], wb["Reasoning_Ablation"], wb["Router_Comparison_84"], wb["Pricing_Evidence"], wb["All_Cases"], wb["Routing_84"], wb["Planner_17"], wb["Verifier_17"], wb["Editor_8"], wb["Ask_12"], wb["Memory_8"], wb["Efficiency_10"], wb["Edit_vs_Replan_5"], wb["Injection_84"], wb["Cap_Stress"], wb["TravelPlanner_1225"]]
 wb.save(OUT)
 print(f"updated {OUT}")
