@@ -49,7 +49,11 @@ def segment_ranges(context: TripContext) -> list[SegmentRange]:
     start = parse_date(context.start_date)
     if start is None:
         return []
-    total = max(len(stops), int(context.days or 0))
+    total = int(context.days or 0)
+    if total <= 0:
+        end = parse_date(context.end_date)
+        total = (end - start).days + 1 if end is not None and end >= start else len(stops)
+    total = max(len(stops), total)
     counts = [max(1, int(stop.nights or 0)) for stop in stops]
     if sum(counts) + 1 == total:
         counts[-1] += 1
