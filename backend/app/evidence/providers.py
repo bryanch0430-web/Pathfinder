@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import asyncio
 import html
+import ipaddress
 import math
 import random
+import socket
 from datetime import date, datetime, timedelta
 from typing import Any
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -60,6 +63,54 @@ WMO = {
 PER_HKD = {"HKD": 1.0, "JPY": 19.4, "USD": 0.128, "EUR": 0.118, "GBP": 0.101, "SGD": 0.172, "TWD": 4.1, "THB": 4.5, "KRW": 176.0, "CNY": 0.92}
 
 PRICE_LEVEL = {"PRICE_LEVEL_INEXPENSIVE": "$", "PRICE_LEVEL_MODERATE": "$$", "PRICE_LEVEL_EXPENSIVE": "$$$", "PRICE_LEVEL_VERY_EXPENSIVE": "$$$$"}
+
+
+MAX_PAGE_BYTES = 2_000_000
+MAX_PAGE_REDIRECTS = 3
+
+
+def _ip_is_public(address: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(address.split("%", 1)[0])
+    except ValueError:
+        return False
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+        return False
+    return ip.is_global
+
+
+async def _resolve_host(host: str, port: int) -> list[str]:
+    infos = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
+async def url_is_public(url: str) -> bool:
+    """True only for an http(s) URL on a default port whose host resolves solely to public addresses."""
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        return False
+    if port not in (None, 80, 443):
+        return False
+    try:
+        addresses = await _resolve_host(parts.hostname, port or (443 if parts.scheme == "https" else 80))
+    except (OSError, UnicodeError):
+        return False
+    return bool(addresses) and all(_ip_is_public(address) for address in addresses)
+
+
+def _peer_address(response: httpx.Response) -> str:
+    try:
+        stream = response.extensions.get("network_stream")
+        server = stream.get_extra_info("server_addr") if stream is not None else None
+        return str(server[0]) if server else ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 class Providers:
@@ -651,14 +702,33 @@ class Providers:
             return []
 
     async def page_text(self, url: str) -> str:
-        if not url.startswith("http"):
-            return ""
+        """Readable text of a public web page; "" for anything unsafe or unreachable (SSRF guard)."""
+        current = url
         try:
-            response = await self.client.get(url, follow_redirects=True, timeout=12.0)
-            response.raise_for_status()
-            return _strip_html(response.text)[:6000]
-        except (httpx.HTTPError, ValueError):
+            for _hop in range(MAX_PAGE_REDIRECTS + 1):
+                if not await url_is_public(current):
+                    return ""
+                async with self.client.stream("GET", current, follow_redirects=False, timeout=12.0) as response:
+                    peer = _peer_address(response)
+                    if peer and not _ip_is_public(peer):
+                        return ""
+                    location = response.headers.get("location")
+                    if response.is_redirect and location:
+                        current = urljoin(current, location)
+                        continue
+                    response.raise_for_status()
+                    chunks: list[bytes] = []
+                    size = 0
+                    async for chunk in response.aiter_bytes():
+                        chunks.append(chunk)
+                        size += len(chunk)
+                        if size >= MAX_PAGE_BYTES:
+                            break
+                    raw = b"".join(chunks)[:MAX_PAGE_BYTES]
+                    return _strip_html(raw.decode(response.encoding or "utf-8", errors="replace"))[:6000]
+        except (httpx.HTTPError, ValueError, OSError):
             return ""
+        return ""
 
     # -- community videos ---------------------------------------------
 

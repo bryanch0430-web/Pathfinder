@@ -28,6 +28,50 @@ def turn_budget(settings) -> float:
     return max(MIN_TURN_BUDGET, min(MAX_TURN_BUDGET, float(getattr(settings, "turn_deadline_seconds", 300.0))))
 
 
+MAX_ATTACHMENTS = 6
+MAX_ATTACHMENT_CHARS = 8 * 1024 * 1024  # base64 characters per attachment
+MAX_ATTACHMENT_TOTAL_CHARS = 20 * 1024 * 1024
+_IMAGE_TYPES = ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif")
+
+
+def _is_real_image(data: str) -> bool:
+    """True when the base64 payload starts with a PNG, JPEG, GIF or WebP signature."""
+    import base64
+
+    try:
+        head = base64.b64decode("".join(data[:64].split())[:64], validate=False)
+    except ValueError:
+        return False
+    return (
+        head.startswith(b"\x89PNG\r\n\x1a\n")
+        or head.startswith(b"\xff\xd8\xff")
+        or head[:6] in (b"GIF87a", b"GIF89a")
+        or (head[:4] == b"RIFF" and head[8:12] == b"WEBP")
+    )
+
+
+def check_attachments(attachments: list) -> list:
+    """Enforce the upload caps (413) and neutralise images that are not real images."""
+    if len(attachments) > MAX_ATTACHMENTS:
+        raise HTTPException(status_code=413, detail=f"Attach at most {MAX_ATTACHMENTS} files per message.")
+    total = 0
+    for attachment in attachments:
+        total += len(attachment.data)
+        if len(attachment.data) > MAX_ATTACHMENT_CHARS:
+            raise HTTPException(status_code=413, detail="A file is too large (limit 8 MB per file).")
+    if total > MAX_ATTACHMENT_TOTAL_CHARS:
+        raise HTTPException(status_code=413, detail="The files are too large together (limit 20 MB).")
+    clean = []
+    for attachment in attachments:
+        if attachment.media_type.lower().startswith("image/") and (
+            attachment.media_type.lower() not in _IMAGE_TYPES or not _is_real_image(attachment.data)
+        ):
+            # Unreadable: the intake reports it as a failed source and sends nothing to the vision model.
+            attachment = attachment.model_copy(update={"media_type": "application/x-unreadable", "data": ""})
+        clean.append(attachment)
+    return clean
+
+
 def sse_frame(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
@@ -117,6 +161,7 @@ async def effective_settings(c: Container):
 @router.post("/api/turn/stream")
 async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
     c = container(request)
+    payload = payload.model_copy(update={"attachments": check_attachments(payload.attachments)})
     settings = await effective_settings(c)
     from app.api.llm import effective_writer
     from app.api.deps import identity_for
