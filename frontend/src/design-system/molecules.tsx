@@ -906,7 +906,9 @@ export function ClarifyCard({
   // an empty field is just unanswered and the backend still re-asks anything missing.
   const badNumber = (slot: string): boolean => {
     const raw = (values[slot] ?? "").trim();
-    if (!raw) return false;
+    // A required count is not "answered" by leaving the field blank; the card's
+    // Continue button stays disabled until a whole number is chosen or typed.
+    if (!raw) return slot === "party_size" || slot === "days";
     if (slot === "budget") {
       if (keepsPlanAnyway(raw)) return false;
       const amount = amountIn(raw);
