@@ -130,6 +130,36 @@ def test_models_and_orchestrator_roundtrip(tmp_path):
         assert config["orchestrator"]["jev"]["url"] == "https://jev.test/systemone"
 
 
+def test_verifier_can_use_its_own_deepseek_endpoint():
+    from app.config import Settings
+    from app.core.llm import LLMClient
+
+    settings = Settings(
+        _env_file=None,
+        VERIFIER_API_KEY="test-verifier-key",
+        VERIFIER_MODEL="deepseek-flash",
+    )
+    client = LLMClient(settings)
+    assert client.provider_for("verify") == ("https://api.deepseek.com/v1", "test-verifier-key")
+    assert client.model_for("verify") == "deepseek-flash"
+    assert client.temperature_for("verify") == 0.0
+    assert client.max_tokens_for("verify") == 1500
+
+    no_key = Settings(_env_file=None, VERIFIER_API_KEY="")
+    fallback = LLMClient(no_key)
+    assert fallback.model_for("verify") == no_key.writer[2]
+    assert fallback.provider_for("verify") == (no_key.writer[0], no_key.writer[1])
+
+    override = Settings(
+        _env_file=None,
+        VERIFIER_API_KEY="test-verifier-key",
+        PURPOSE_MODELS={"verify": "claude-sonnet-5.5"},
+    )
+    override_client = LLMClient(override)
+    assert override_client.provider_for("verify") == (override.writer[0], override.writer[1])
+    assert override_client.model_for("verify") == "claude-sonnet-5.5"
+
+
 def test_per_purpose_model_wins_over_the_writer():
     from app.config import get_settings
     from app.core.llm import LLMClient

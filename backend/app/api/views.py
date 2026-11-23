@@ -303,6 +303,13 @@ async def runtime_config(c: Container) -> dict[str, Any]:
                 purpose: purpose_max_tokens.get(purpose) or PURPOSE_MAX_TOKENS.get(purpose, settings.llm_max_tokens)
                 for purpose in ("understand", "plan", "edit", "verify", "ask", "intake", "memory", "search_query", "translate")
             },
+            "verifier": {
+                "model": settings.verifier_model if settings.verifier_api_key else writer_model,
+                "base_url": settings.verifier_base_url if settings.verifier_api_key else base,
+                "key_set": bool(settings.verifier_api_key),
+                "temperature": settings.verifier_temperature,
+                "max_tokens": settings.verifier_max_tokens,
+            },
         },
         "orchestrator": {
             "mode": turn_mode,

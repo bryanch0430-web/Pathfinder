@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     purpose_temperatures: dict[str, float] = Field(default_factory=dict, alias="PURPOSE_TEMPERATURES")
     purpose_reasoning: dict[str, str] = Field(default_factory=dict, alias="PURPOSE_REASONING")
     purpose_max_tokens: dict[str, int] = Field(default_factory=dict, alias="PURPOSE_MAX_TOKENS")
+    # The constraint verifier can use its own endpoint/key. This is deliberately
+    # separate from the writer: a different model is the point of the audit.
+    verifier_base_url: str = Field(default="https://api.deepseek.com/v1", alias="VERIFIER_BASE_URL")
+    verifier_api_key: str = Field(default="", alias="VERIFIER_API_KEY")
+    verifier_model: str = Field(default="deepseek-flash", alias="VERIFIER_MODEL")
+    verifier_temperature: float = Field(default=0.0, alias="VERIFIER_TEMPERATURE")
+    verifier_max_tokens: int = Field(default=1500, alias="VERIFIER_MAX_TOKENS")
+    verifier_timeout_seconds: float = Field(default=60.0, alias="VERIFIER_TIMEOUT_SECONDS")
     llm_reasoning: str = Field(default="none", alias="LLM_REASONING")
     turn_orchestrator: str = Field(default="analyst", alias="TURN_ORCHESTRATOR")
 

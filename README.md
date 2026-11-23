@@ -11,6 +11,12 @@ handoff goes to a real human-in-the-loop desk queue with independent switches. S
 [docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it also imports the `main` v1.x
 release notes and maps each one to what v5 kept, changed, or deliberately dropped.
 
+**Constraint verifier:** by default it uses `deepseek-flash` at
+`https://api.deepseek.com/v1`, temperature 0 and a 1,500-token cap. It has its own
+`VERIFIER_API_KEY` so it is not tied to the writer provider. The Settings **Models by
+part → Constraint verifier** field can override the model; all other parts still share
+the active writer key. With no verifier key it falls back to the default writer.
+
 ## Version notes
 
 **v1.0.0 → v1.19.0 — 2026-11-01 to 2026-11-23 12:45 HKT (summarised).**

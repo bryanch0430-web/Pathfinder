@@ -11,6 +11,13 @@ type ModelsConfig = {
   reasoning_by_purpose?: Record<string, string>;
   max_tokens_by_purpose?: Record<string, number>;
   effective_max_tokens?: Record<string, number>;
+  verifier?: {
+    model: string;
+    base_url: string;
+    key_set: boolean;
+    temperature?: number;
+    max_tokens?: number;
+  };
 };
 
 type JevConfig = {
@@ -73,8 +80,9 @@ export function ModelsSettings({
             <Text size="xs" tone="tertiary">
               Each part can use its own model; leave a field blank to use the default writer
               (<span className="pf-mono">{models.default || "not set"}</span>). Each part can also set
-              its own temperature and reasoning effort; all parts use the active provider key,
-              including a BYOK key.
+              its own temperature and reasoning effort. All parts use the active provider key,
+              including a BYOK key, except the Constraint verifier when its own endpoint/key is
+              configured by the operator.
             </Text>
           </div>
           <Button size="sm" variant="ghost" onClick={() => setOpen((value) => !value)}>
@@ -89,7 +97,7 @@ export function ModelsSettings({
                   <Input
                     style={{ flex: "1 1 240px" }}
                     value={purposes[part.key] ?? ""}
-                    placeholder="Default model"
+                    placeholder={part.key === "verify" && models.verifier?.model ? models.verifier.model : "Default model"}
                     disabled={!canEdit}
                     onChange={(event) => setPurposes((current) => ({ ...current, [part.key]: event.target.value }))}
                   />

@@ -98,16 +98,42 @@ class LLMClient:
     def available(self) -> bool:
         return bool(self.api_key and self.base_url and self.model)
 
+    def _uses_verifier_provider(self, purpose: str) -> bool:
+        if purpose != "verify" or not self.settings.verifier_api_key:
+            return False
+        configured = (self.settings.purpose_models or {}).get("verify", "").strip()
+        # Default and other DeepSeek names use the verifier endpoint; an explicit
+        # model from the writer provider keeps the writer endpoint.
+        return not configured or configured.lower().startswith("deepseek")
+
+    def provider_for(self, purpose: str) -> tuple[str, str]:
+        """Endpoint and key for a part; the verifier may use its own DeepSeek key."""
+        if self._uses_verifier_provider(purpose):
+            return self.settings.verifier_base_url.rstrip("/"), self.settings.verifier_api_key
+        return self.base_url, self.api_key
+
+    def available_for(self, purpose: str) -> bool:
+        base, key = self.provider_for(purpose)
+        return bool(base and key and self.model_for(purpose))
+
     def model_for(self, purpose: str, model: str | None = None) -> str:
-        """The model this part uses: an explicit call model, then its configured model, then the writer."""
+        """The model this part uses: explicit, then configured, then verifier/writer."""
         configured = (self.settings.purpose_models or {}).get(purpose, "").strip()
-        return (model or configured or self.model).strip()
+        if model:
+            return model.strip()
+        if configured:
+            return configured
+        if purpose == "verify" and self._uses_verifier_provider("verify"):
+            return self.settings.verifier_model.strip()
+        return self.model
 
     def temperature_for(self, purpose: str, temperature: float | None = None) -> float:
         if temperature is not None:
             return temperature
         configured = (self.settings.purpose_temperatures or {}).get(purpose)
         if configured is None:
+            if self._uses_verifier_provider(purpose):
+                return max(0.0, min(2.0, float(self.settings.verifier_temperature)))
             return self.settings.llm_temperature
         try:
             return max(0.0, min(2.0, float(configured)))
@@ -126,6 +152,8 @@ class LLMClient:
                 return max(16, min(32000, int(configured)))
             except (TypeError, ValueError):
                 pass
+        if self._uses_verifier_provider(purpose) and not max_tokens:
+            return max(16, min(32000, int(self.settings.verifier_max_tokens)))
         if max_tokens:
             return max_tokens
         return PURPOSE_MAX_TOKENS.get(purpose, self.settings.llm_max_tokens)
@@ -160,13 +188,15 @@ class LLMClient:
 
     async def _post(self, payload: dict[str, Any], *, purpose: str) -> dict[str, Any]:
         """POST once, retrying idempotent failures (429/5xx/timeouts) with jittered backoff."""
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        base, key = self.provider_for(purpose)
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        timeout = self.settings.verifier_timeout_seconds if purpose == "verify" else None
         last: Exception | None = None
         for attempt in range(2):
             started = time.perf_counter()
             try:
                 response = await self.client.post(
-                    f"{self.base_url}/chat/completions", json=payload, headers=headers
+                    f"{base}/chat/completions", json=payload, headers=headers, timeout=timeout
                 )
                 if response.status_code in {429, 500, 502, 503, 504}:
                     raise LLMError(
@@ -206,8 +236,8 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMReply:
-        if not self.available:
-            raise LLMError("no writer model is configured", retryable=False)
+        if not self.available_for(purpose):
+            raise LLMError("no model is configured for this part", retryable=False)
         chosen = self.model_for(purpose, model)
         payload = self._payload(
             system=system,
@@ -245,8 +275,8 @@ class LLMClient:
         max_tokens: int | None = None,
     ) -> AsyncIterator[str]:
         """Yield text deltas. Falls back to a single-shot call if the endpoint refuses streaming."""
-        if not self.available:
-            raise LLMError("no writer model is configured", retryable=False)
+        if not self.available_for(purpose):
+            raise LLMError("no model is configured for this part", retryable=False)
         chosen = self.model_for(purpose, model)
         payload = self._payload(
             system=system,
@@ -258,14 +288,15 @@ class LLMClient:
             stream=True,
             reasoning=self.reasoning_for(purpose),
         )
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        base, key = self.provider_for(purpose)
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
         started = time.perf_counter()
         chunks: list[str] = []
         prompt_tokens = completion_tokens = 0
         streamed = False
         try:
             async with self.client.stream(
-                "POST", f"{self.base_url}/chat/completions", json=payload, headers=headers
+                "POST", f"{base}/chat/completions", json=payload, headers=headers
             ) as response:
                 if response.status_code >= 400:
                     raise LLMError(f"stream failed ({response.status_code})", status=response.status_code)
