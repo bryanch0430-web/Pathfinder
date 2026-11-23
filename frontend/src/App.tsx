@@ -1091,6 +1091,7 @@ function HowItWorks() {
       <Text size="xs" tone="tertiary" weight="semibold" style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
         {t("workspace.howAiWorked")}
       </Text>
+      <Text size="xs" tone="tertiary" style={{ letterSpacing: "0.06em" }}>{t("workspace.courseNote")}</Text>
       <div className="pf-stack pf-stack--md">
         {(
           [

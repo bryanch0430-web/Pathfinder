@@ -19,6 +19,15 @@ router = APIRouter()
 KEEPALIVE = ": keepalive\n\n"
 
 
+MIN_TURN_BUDGET = 60.0
+MAX_TURN_BUDGET = 900.0
+
+
+def turn_budget(settings) -> float:
+    """The whole-turn execution budget; never below 60 s, never above 15 min."""
+    return max(MIN_TURN_BUDGET, min(MAX_TURN_BUDGET, float(getattr(settings, "turn_deadline_seconds", 300.0))))
+
+
 def sse_frame(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
@@ -88,7 +97,7 @@ async def effective_settings(c: Container):
         if "max_repairs" in thresholds:
             update["max_repairs"] = max(0, min(3, int(thresholds["max_repairs"])))
         if "turn_deadline" in thresholds:
-            update["turn_deadline_seconds"] = max(30.0, float(thresholds["turn_deadline"]))
+            update["turn_deadline_seconds"] = max(60.0, min(900.0, float(thresholds["turn_deadline"])))
     except (TypeError, ValueError):
         pass
     if not update:
@@ -139,15 +148,31 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             )
             return
         pending: asyncio.Future | None = None
+        iterator = None
+        loop = asyncio.get_running_loop()
+        # This is the execution budget, not a per-model timeout. It is deliberately
+        # generous (default 300 s) so a complex plan can complete; the harness stops
+        # only when the whole turn has spent its budget.
+        budget = turn_budget(deps.settings)
+        deadline = loop.time() + budget
+        timed_out = False
         try:
             events = run_turn(deps, payload, session_id=session_id, user_message=payload.message)
             iterator = events.__aiter__()
             pending = asyncio.ensure_future(iterator.__anext__())
             while True:
-                done, _ = await asyncio.wait({pending}, timeout=15.0)
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                done, _ = await asyncio.wait({pending}, timeout=min(15.0, remaining))
                 if not done:
+                    if loop.time() >= deadline:
+                        timed_out = True
+                        break
                     # A comment frame keeps proxies and browsers from dropping a quiet plan.
-                    # The pending __anext__ is NOT cancelled: cancelling it would kill the turn.
+                    # The pending __anext__ is NOT cancelled for a keepalive: that would
+                    # kill the turn while it is still working.
                     yield KEEPALIVE
                     continue
                 try:
@@ -156,6 +181,30 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     break
                 pending = asyncio.ensure_future(iterator.__anext__())
                 yield sse_frame(event.event, event.data)
+            if timed_out:
+                # Cancel the work before telling the client; the seat is released in
+                # the finally block, so another turn can start immediately.
+                pending.cancel()
+                try:
+                    await pending
+                except (asyncio.CancelledError, StopAsyncIteration):
+                    pass
+                if iterator is not None:
+                    try:
+                        await iterator.aclose()
+                    except Exception:  # noqa: BLE001 - best-effort cleanup
+                        pass
+                yield sse_frame(
+                    "error",
+                    {
+                        "code": "turn_timeout",
+                        "message": (
+                            f"This turn reached its {int(budget)}-second execution budget. "
+                            "The plan was stopped; send the request again or raise the budget in Settings."
+                        ),
+                        "detail": "turn_deadline_seconds",
+                    },
+                )
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

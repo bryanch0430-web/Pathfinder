@@ -152,6 +152,8 @@ class DayPlan(Wire):
     note: str = ""
     elevation_gain_m: float | None = None
     segment_id: str | None = None
+    # The city for this day in a multi-city plan; empty for a single-city trip.
+    city: str = ""
 
 
 class RoomType(Wire):

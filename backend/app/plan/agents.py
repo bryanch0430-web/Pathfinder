@@ -1,9 +1,9 @@
-"""The specialist agents.
+"""The evidence workers.
 
-Four agents gather evidence concurrently: attractions-and-food, hotels, weather and
-tickets.  Each returns typed evidence or a gap; one source failing never stops the
-others.  They are plain code on purpose — the model's judgement is used for
-*choosing and scheduling*, not for fetching facts.
+Four fixed workers gather evidence concurrently: attractions-and-food, hotels,
+weather and tickets. Each is a tool adapter behind a typed result; one source
+failing never stops the others. They are plain code on purpose — the model's
+judgement is used for *choosing and scheduling*, not for fetching facts.
 """
 
 from __future__ import annotations

@@ -26,7 +26,7 @@ type OrchestratorConfig = {
 };
 
 const PARTS: { key: string; label: string; hint: string }[] = [
-  { key: "understand", label: "Analyst (understanding)", hint: "Reads the message, decides the path and extracts slots." },
+  { key: "understand", label: "Analyst (intent + slots)", hint: "Reads the message, routes the turn and extracts the intake slots." },
   { key: "plan", label: "Planner (composer)", hint: "Chooses the stops, order and timings for a new plan." },
   { key: "edit", label: "Editor", hint: "Turns a change request into typed edit operations." },
   { key: "verify", label: "Verifier", hint: "Audits the draft against the request and the sources." },
@@ -181,10 +181,9 @@ export function ModelsSettings({
       </div>
 
       <div className="pf-card pf-eval__panel">
-        <Text size="sm" weight="semibold">Turn router</Text>
+        <Text size="sm" weight="semibold">Intent routing</Text>
         <Text size="xs" tone="tertiary">
-          The analyst is the default router. Jev can choose plan / modify / ask / clarify before the
-          analyst extracts the details; if Jev is unreachable, the analyst's own route is kept.
+          The analyst is the default intent router. Jev can make the plan / modify / ask / clarify routing decision before the analyst extracts the intake slots; if Jev is unreachable, the analyst's own route is kept.
         </Text>
         <Field label="Who chooses the path?" wide>
           <Select
@@ -192,8 +191,8 @@ export function ModelsSettings({
             disabled={!canEdit}
             onChange={(event) => setMode(event.target.value === "jev" ? "jev" : "analyst")}
           >
-            <option value="analyst">LLM router (default)</option>
-            <option value="jev">Jev — System 1 router</option>
+            <option value="analyst">Intent router (LLM, default)</option>
+            <option value="jev">Jev — System 1 gate</option>
           </Select>
         </Field>
         {mode === "jev" ? (
@@ -221,7 +220,7 @@ export function ModelsSettings({
             </div>
             {!orchestrator.jev.key_set && !jevKey ? (
               <Text size="xs" tone="tertiary">
-                Without a key, Jev is skipped and the analyst routes the turn.
+                Without a key, Jev is skipped and the analyst makes the routing decision.
               </Text>
             ) : null}
           </>

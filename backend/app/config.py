@@ -130,7 +130,7 @@ class Settings(BaseSettings):
     agent_timeout_seconds: float = Field(default=30.0, alias="AGENT_TIMEOUT_SECONDS")
     memory_similarity_cutoff: float = Field(default=0.72, alias="MEMORY_SIMILARITY_CUTOFF")
     search_window_months: int = Field(default=24, alias="SEARCH_WINDOW_MONTHS")
-    turn_deadline_seconds: float = Field(default=180.0, alias="TURN_DEADLINE_SECONDS")
+    turn_deadline_seconds: float = Field(default=300.0, ge=60.0, le=900.0, alias="TURN_DEADLINE_SECONDS")
     sse_keepalive_seconds: float = Field(default=15.0, alias="SSE_KEEPALIVE_SECONDS")
 
     # --- sandbox --------------------------------------------------------

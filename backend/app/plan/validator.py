@@ -31,8 +31,12 @@ WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 
 def check_structure(plan: TripPlan, context: TripContext) -> list[Problem]:
     from app.plan.builder import validate_structure
+    from app.plan.continuity import route_continuity_problems
+    from app.plan.flight_windows import flight_boundary_problems
 
     problems = validate_structure(plan, context)
+    problems.extend(route_continuity_problems(plan, context))
+    problems.extend(flight_boundary_problems(plan, context))
     for index, day in enumerate(plan.days, start=1):
         day_date = parse_date(day.date)
         if day_date is None:

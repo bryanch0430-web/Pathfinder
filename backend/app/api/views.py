@@ -241,7 +241,7 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
 
 
 DEFAULT_FRESHNESS = {"weather": 6, "tickets": 24, "hotels": 24}
-DEFAULT_THRESHOLDS = {"router": 0.8, "max_repairs": 2, "turn_deadline": 180}
+DEFAULT_THRESHOLDS = {"router": 0.8, "max_repairs": 2, "turn_deadline": 300}
 from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
 from app.core.llm import PURPOSE_MAX_TOKENS
 

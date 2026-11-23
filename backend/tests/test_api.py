@@ -336,3 +336,41 @@ def test_useful_starred_trip_enters_trending_and_not_useful_does_not(tmp_path):
         assert trip["stars"] is None
         trending = client.get("/api/popular?q=Kyoto", headers=headers).json()["items"]
         assert not any(item["destination"] == "Kyoto" for item in trending)
+
+
+def test_turn_timeout_is_enforced_and_releases_the_seat(tmp_path, monkeypatch):
+    import asyncio
+
+    from app.api import turn as turn_api
+    from app.turn.orchestrator import TurnEvent
+
+    async def slow_turn(deps, payload, *, session_id, user_message):
+        yield TurnEvent(event="token", data={"text": "working"})
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(turn_api, "run_turn", slow_turn)
+    monkeypatch.setattr(turn_api, "turn_budget", lambda settings: 0.25)
+
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "timeout-tester"}
+        session_id = client.post("/api/journeys", json={}, headers=headers).json()["session"]["id"]
+        with client.stream(
+            "POST",
+            "/api/turn/stream",
+            json={"session_id": session_id, "message": "build a plan"},
+            headers=headers,
+        ) as response:
+            body = "".join(response.iter_text())
+        assert response.status_code == 200
+        assert "turn_timeout" in body
+        assert "working" in body
+
+
+def test_turn_budget_never_uses_a_tiny_limit():
+    from types import SimpleNamespace
+
+    from app.api.turn import turn_budget
+
+    assert turn_budget(SimpleNamespace(turn_deadline_seconds=10)) == 60
+    assert turn_budget(SimpleNamespace(turn_deadline_seconds=300)) == 300
+    assert turn_budget(SimpleNamespace(turn_deadline_seconds=5000)) == 900

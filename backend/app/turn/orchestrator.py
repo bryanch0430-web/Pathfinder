@@ -480,6 +480,39 @@ async def _plan_turn(
 ):
     settings = deps.settings
     store = deps.store
+    if previous is None and not context.imported_itinerary and len(context.stops) > 1:
+        from app.plan.multicity import build_multi_city_plan
+
+        await push("progress", {"phase": "gather", "message": "Planning the city segments.", "progress": 12})
+        multi = None
+        try:
+            multi = await build_multi_city_plan(
+                providers=providers,
+                settings=settings,
+                context=context,
+                trace=trace,
+                emit=push,
+                scenario=scenario,
+            )
+        except Exception as exc:  # noqa: BLE001 - the single-city path is the safe fallback
+            trace.say(f"Multi-city planning did not finish: {exc}")
+        if multi is not None:
+            await push("progress", {"phase": "verify", "message": "Checking the route and flights.", "progress": 84})
+            await audit_constraints(llm=llm, plan=multi, context=context, trace=trace, skill_overrides=skill_overrides)
+            multi = await _persist_plan(store, session_id, context, multi, previous, change_summary)
+            reply = _plan_reply(multi, multi.data_quality.gaps)
+            await _save_assistant(
+                store,
+                session_id,
+                reply,
+                intent="plan",
+                confidence=multi.assessment.confidence if multi.assessment else None,
+                meta={"plan_version": multi.version, "summary": multi.summary, "multi_city": True},
+            )
+            await push("plan", {"plan": multi.model_dump(mode="json"), "diff": diff_plans(previous, multi)})
+            await _stream_text(push, reply)
+            await _finish(push, trace, session_id=session_id, intent="plan", plan=multi)
+            return
     if previous is None and context.imported_itinerary:
         await push("progress", {"phase": "gather", "message": "Reading the imported itinerary.", "progress": 12})
         imported = await build_imported_plan(
