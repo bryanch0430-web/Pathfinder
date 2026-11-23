@@ -1,30 +1,49 @@
 {
   "schemaVersion": 1,
-  "ok": true,
+  "ok": false,
   "command": "finalize",
-  "status": "pass",
+  "status": "fail",
   "type": "architecture",
   "quality": "showcase",
   "specification": {
-    "path": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\architecture-pathfinder-v5-20261122-233500\\candidate.json",
-    "sha256": "38374227a856a9d449214662d9038b9ed20b5718af803d6d726afa30c89e5870",
-    "bytes": 10221
+    "path": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\architecture-pathfinder-v5-story-20261123-143500\\candidate.json",
+    "sha256": "6f413ce2f96456386cbbb3cb13b8fc12311ee9f0859e32b0c49dea781480ccf2",
+    "bytes": 7755
   },
   "artifact": {
     "path": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-architecture.html",
-    "sha256": "cb834d0b35193ef0eacce02df4a53c2f2c70594905e44b527168dab29d640103",
-    "bytes": 872075
+    "sha256": "6aeb38ad6ff42007996a8dcf27469d64bc44a796c4f67efcdd1301d9d8119960",
+    "bytes": 861639
   },
   "gates": {
     "validate": "pass",
     "deliver": "pass",
     "check": "pass",
-    "browser-check": "pass"
+    "browser-check": "fail"
   },
-  "diagnostics": [],
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/evidence-path-conflict",
+      "severity": "error",
+      "message": "browser-check will not replace the existing unowned evidence path \"C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-architecture.browser-check.json\".",
+      "subject": {
+        "artifact": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-architecture.html",
+        "evidencePath": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-architecture.browser-check.json"
+      },
+      "evidence": {
+        "reason": {
+          "code": "ownership-artifact-mismatch"
+        }
+      },
+      "supportedFixes": [
+        "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+      ]
+    }
+  ],
   "diagnosticSummary": {
-    "total": 0,
-    "shown": 0,
+    "total": 1,
+    "shown": 1,
     "truncated": false
   },
   "evidence": {
@@ -43,38 +62,9 @@
     "noticeText": null
   },
   "visualReview": "not-requested",
-  "durationMs": 2681,
+  "durationMs": 1002,
   "browserCheck": {
     "requested": true,
-    "ran": true
-  },
-  "visualReviewRecommendation": {
-    "action": "inspect-route-readability",
-    "signals": {
-      "routesOverSuggestedBends": 1
-    },
-    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
-    "affectedRoutes": {
-      "crossings": [],
-      "detours": [
-        {
-          "relationship": {
-            "id": "validator-orchestrator",
-            "from": "validator",
-            "to": "orchestrator",
-            "label": "plan + problems",
-            "collectionIndex": 11,
-            "artifactIndex": 12
-          },
-          "bends": 4,
-          "stretch": 1.122
-        }
-      ],
-      "truncated": false
-    },
-    "hints": [
-      "validator → orchestrator needs 4 bends: move node validator or orchestrator so they share a row or column with matching centers, or sit diagonally with a clear corner."
-    ],
-    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+    "ran": false
   }
 }

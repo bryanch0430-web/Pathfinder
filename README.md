@@ -74,15 +74,16 @@ with [Archify](https://github.com/tt-a1i/archify):
 
 [docs/architecture/pathfinder-v5-architecture.html](docs/architecture/pathfinder-v5-architecture.html)
 
-It shows the turn path from the React UI through the API, turn orchestrator, analyst,
-composer/editor and validator, the parallel specialist agents, the local SQLite state,
-and the external model and travel providers. Cards cover grounding, state, security
-and evaluation.
+It tells the whole journey in plain language: you ask, Pathfinder reads the request,
+gathers real evidence, builds and checks a plan, and asks a person only when it should.
+Cards cover the short story, the guarantees, and when a human steps in.
 
-The code-level map and each turn path are separate diagrams:
+The other maps are deliberately separate, so each can tell one complete story
+([how to read them](docs/architecture/README.md)):
 
-- [Detailed code architecture](docs/architecture/pathfinder-v5-architecture-detailed.html) — every layer, router, module, provider and store.
-- [Plan turn](docs/architecture/pathfinder-v5-flow-plan.html) · [Modify turn](docs/architecture/pathfinder-v5-flow-modify.html) · [Ask turn](docs/architecture/pathfinder-v5-flow-ask.html) · [Clarify turn](docs/architecture/pathfinder-v5-flow-clarify.html)
+- [Under the hood: how a plan is checked](docs/architecture/pathfinder-v5-architecture-detailed.html) — sources, draft, rules, constraint audit, repair, gaps and versioning.
+- [What data moves through Pathfinder](docs/architecture/pathfinder-v5-dataflow.html) — words, privacy masking, source records, plan versions, memory and replies.
+- [Plan turn](docs/architecture/pathfinder-v5-flow-plan.html) · [Change turn](docs/architecture/pathfinder-v5-flow-modify.html) · [Ask turn](docs/architecture/pathfinder-v5-flow-ask.html) · [Clarify turn](docs/architecture/pathfinder-v5-flow-clarify.html)
 
 ## Why a revamp
 

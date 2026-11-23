@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "receiptId": "dd211931-a216-484a-acc5-514097f9bd65",
+  "receiptId": "edafdf08-4627-43c5-8942-1a0fb0eb6292",
   "status": "current",
   "command": "deliver",
   "type": "workflow",
-  "input": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\workflow-pathfinder-v5-flow-ask-20261123-032500\\candidate.json",
+  "input": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\workflow-pathfinder-v5-story-20261123-143500\\ask.json",
   "output": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-ask.html",
   "specification": {
-    "sha256": "73853447c28db1bd5846c74f2e461a4227a64392c116460014671366f66a6a85",
-    "bytes": 5952
+    "sha256": "db4b5435330dfa771b2bc498f5b67cefab5b98f1e33d33399228c43cb9fc75cd",
+    "bytes": 5371
   },
   "artifact": {
-    "sha256": "f60554c39d7d545d429aa93826528165af1a6cab7f6ab2d81b0b91f428911777",
-    "bytes": 848452
+    "sha256": "6b7f87a391dcd083b2f74aa798e0cc657043c50696abc9aae9f787c6a290fee6",
+    "bytes": 845720
   }
 }

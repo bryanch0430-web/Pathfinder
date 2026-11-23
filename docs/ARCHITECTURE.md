@@ -4,11 +4,15 @@ Pathfinder v5 keeps the existing **interface** and replaces the **core**. This d
 the map: what each layer owns, how one turn flows, where the guarantees live, and
 what to change for the common extensions.
 
-> **Complete companion reference:** the
-> [interactive HTML architecture](architecture/pathfinder-v5-architecture.html#architecture-reference)
-> now includes every intent flow, complex-query guarantee, module, data table, API
-> group, UI surface and known limit (v5.1, 23 November 2026). Use it as the full
-> specification; this Markdown file is the short map.
+> **Companion maps:** start with the
+> [plain-language system story](architecture/pathfinder-v5-architecture.html), then
+> [how a plan is checked](architecture/pathfinder-v5-architecture-detailed.html),
+> [what data moves](architecture/pathfinder-v5-dataflow.html), and the four turn
+> stories: [plan](architecture/pathfinder-v5-flow-plan.html),
+> [change](architecture/pathfinder-v5-flow-modify.html),
+> [ask](architecture/pathfinder-v5-flow-ask.html),
+> [clarify](architecture/pathfinder-v5-flow-clarify.html). This Markdown file is the
+> short technical map; the diagrams carry the whole narrative.
 
 ## 1. Layers
 

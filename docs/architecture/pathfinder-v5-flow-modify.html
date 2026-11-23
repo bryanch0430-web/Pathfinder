@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.2.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>Pathfinder v5 — Modify Turn, Code Path Diagram</title>
+  <title>Changing a plan: the full story Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5194,18 +5194,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="BLUEPRINT / REV 01"
            data-preset-badge-editorial="EDITORIAL / FIELD NOTE">
         <div class="pulse-dot"></div>
-        <h1>Pathfinder v5 — Modify Turn, Code Path</h1>
+        <h1>Changing a plan: the full story</h1>
       </div>
+      <p class="subtitle">You ask for a change. Pathfinder keeps what is locked, proposes only the difference, and saves a new version only when you accept.</p>
     </div>
 
-    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/bryanch0430-web/Pathfinder","revision":"0b74fe25c0048f8a2b98f22012418396939c79ca","shortRevision":"0b74fe2","label":"bryanch0430-web/Pathfinder","href":"https://github.com/bryanch0430-web/Pathfinder/tree/0b74fe25c0048f8a2b98f22012418396939c79ca"},"referenceCount":11,"nodes":{"msg":[{"path":"frontend/src/App.tsx","line":1,"endLine":40,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/frontend/src/App.tsx#L1-L40"}],"stream":[{"path":"backend/app/api/turn.py","line":100,"endLine":179,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/api/turn.py#L100-L179"}],"prepare":[{"path":"backend/app/turn/orchestrator.py","line":170,"endLine":180,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/turn/orchestrator.py#L170-L180"}],"understand":[{"path":"backend/app/understand/pipeline.py","line":39,"endLine":111,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/understand/pipeline.py#L39-L111"}],"gather":[{"path":"backend/app/plan/agents.py","line":40,"endLine":119,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/plan/agents.py#L40-L119"}],"providers":[{"path":"backend/app/evidence/providers.py","line":99,"endLine":169,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/evidence/providers.py#L99-L169"}],"propose":[{"path":"backend/app/plan/editor.py","line":43,"endLine":126,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/plan/editor.py#L43-L126"}],"apply":[{"path":"backend/app/plan/editor.py","line":202,"endLine":298,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/plan/editor.py#L202-L298"}],"proposal":[{"path":"backend/app/turn/orchestrator.py","line":652,"endLine":684,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/turn/orchestrator.py#L652-L684"}],"tick":[{"path":"backend/app/api/journeys.py","line":166,"endLine":199,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/api/journeys.py#L166-L199"}],"persist":[{"path":"backend/app/turn/orchestrator.py","line":827,"endLine":847,"href":"https://github.com/bryanch0430-web/Pathfinder/blob/0b74fe25c0048f8a2b98f22012418396939c79ca/backend/app/turn/orchestrator.py#L827-L847"}]}}</script>
+
     <script id="archify-i18n-data" type="application/json">{"locale":"en","messages":{"viewer.kind.frontend":"Frontend","viewer.kind.backend":"Backend","viewer.kind.database":"Database","viewer.kind.cloud":"Cloud","viewer.kind.security":"Security","viewer.kind.messagebus":"Message bus","viewer.kind.external":"External","viewer.kind.neutral":"Neutral","viewer.kind.node":"Node","viewer.kind.start":"Start","viewer.kind.active":"Active","viewer.kind.waiting":"Waiting","viewer.kind.decision":"Decision","viewer.kind.success":"Success","viewer.kind.failure":"Failure","viewer.toolbar.actions":"Diagram actions","viewer.theme.toggle.title":"Toggle theme (T)","viewer.theme.toggle":"Toggle color theme","viewer.theme.dark":"Dark","viewer.theme.light":"Light","viewer.preset.choose.title":"Choose visual style (S cycles)","viewer.preset.choose":"Choose visual style","viewer.preset.style":"Style","viewer.preset.menu":"Visual style","viewer.preset.identity":"Visual identity","viewer.preset.cycles":"to cycle","viewer.preset.classic":"Classic","viewer.preset.classic.short":"Classic","viewer.preset.classic.hint":"Stable technical default","viewer.preset.flow":"Signal Flow","viewer.preset.flow.short":"Flow","viewer.preset.flow.hint":"Motion-forward presentation","viewer.preset.blueprint":"Blueprint","viewer.preset.blueprint.hint":"Engineering review","viewer.preset.editorial":"Editorial","viewer.preset.editorial.hint":"Publication and launch notes","viewer.preset.badge.signalFlow":"SIGNAL FLOW","viewer.preset.badge.blueprint":"BLUEPRINT / REV 01","viewer.preset.badge.editorial":"EDITORIAL / FIELD NOTE","viewer.preset.badge.editorialPlate":"ARCHIFY / PLATE 04","viewer.preset.current":"Visual style: {style}. Choose visual style","viewer.motion.live":"Live","viewer.motion.still":"Still","viewer.motion.pause":"Pause motion","viewer.motion.resume":"Resume motion","viewer.motion.reduced":"Motion paused by reduced-motion preference","viewer.motion.hidden":"Motion paused while this page is hidden","viewer.motion.yielding":"Pause motion; currently yielding to {owner}","viewer.motion.yielding.title":"Live preview enabled · yielding to {owner}","viewer.owner.route":"Route Probe","viewer.owner.lens":"Semantic Lens","viewer.owner.relationship":"Relationship Preview","viewer.owner.intent":"Intent Trace","viewer.owner.focus":"semantic focus","viewer.owner.legend":"legend preview","viewer.owner.reader":"reader interaction","viewer.present.enter":"Enter presentation stage","viewer.present.enter.title":"Presentation stage (F)","viewer.present.exit":"Exit presentation stage","viewer.present.exit.title":"Exit presentation stage (F or Escape)","viewer.present.present":"Present","viewer.present.exit.label":"Exit","viewer.export.button":"Export","viewer.export.button.title":"Export diagram (E)","viewer.export.diagram":"Export diagram","viewer.export.menu":"Export","viewer.export.subtitle":"Portable, clean outputs","viewer.export.share":"Share","viewer.export.shareCard":"Share Card","viewer.export.routeShareCard":"Route Share Card","viewer.export.reachShareCard":"Reach Share Card","viewer.export.copyDiagram":"Copy diagram","viewer.export.clipboardPng":"PNG to clipboard","viewer.export.raster":"Raster images","viewer.export.image":"Image","viewer.export.lossless":"Lossless image","viewer.export.compact":"Compact image","viewer.export.modern":"Modern image","viewer.export.vectorMotion":"Vector and motion","viewer.export.vectorMotion.heading":"Vector \u0026 motion","viewer.export.editable":"Editable vector","viewer.export.svg.auto":"SVG · Auto","viewer.export.svg.auto.hint":"Matches host theme","viewer.export.svg.light":"SVG · Light","viewer.export.svg.light.hint":"Always light","viewer.export.svg.dark":"SVG · Dark","viewer.export.svg.dark.hint":"Always dark","viewer.export.motion6s":"6s motion","viewer.export.unsupported":"Not supported by this browser","viewer.export.clipboardUnsupported":"Clipboard image write not supported by this browser","viewer.export.clipboardUnsupported.short":"Clipboard image write not supported in this browser.","viewer.export.motionUnavailable":"Motion capture unavailable in this browser","viewer.export.webmUnavailable":"WebM unavailable in this browser","viewer.export.failed":"Export failed: {message}","viewer.export.unknownVariant":"Unknown Share Card variant: {variant}","viewer.export.routeRequired":"Trace a route before exporting a Route Share Card","viewer.export.reachRequired":"Trace authored reach before exporting a Reach Share Card","viewer.export.unknown":"unknown","viewer.export.routeFailed":"Route Share Card export failed: {message}","viewer.export.reachFailed":"Reach Share Card export failed: {message}","viewer.export.copyFailed":"Copy failed: {message}","viewer.export.copiedPng":"Copied PNG to clipboard","viewer.export.downloadedRoute":"Downloaded Route Share Card","viewer.export.downloadedReach":"Downloaded Reach Share Card","viewer.export.downloadedWebm":"Downloaded WebM","viewer.export.recording":"Recording 6 seconds of motion…","viewer.export.card.routeSummary.one":"Path: {source} → {target} · {count} step","viewer.export.card.routeSummary.other":"Path: {source} → {target} · {count} steps","viewer.export.card.reachSummary":"Authored {direction} from {origin} · {nodes} · {links} · max {hops}","viewer.export.card.node.one":"{count} node","viewer.export.card.node.other":"{count} nodes","viewer.export.card.link.one":"{count} link","viewer.export.card.link.other":"{count} links","viewer.export.card.hop.one":"{count} hop","viewer.export.card.hop.other":"{count} hops","viewer.export.card.routeBadge":"ARCHIFY · ROUTE · {hops}","viewer.export.card.reachBadge":"ARCHIFY · {direction} REACH","viewer.export.direction.upstream":"Upstream","viewer.export.direction.downstream":"Downstream","viewer.export.error.canvasUnavailable":"Canvas unavailable for {label}","viewer.export.error.contextUnavailable":"2D canvas context unavailable for {label}","viewer.export.error.toBlobUnavailable":"canvas.toBlob unavailable for {label}","viewer.export.error.toBlobNull":"canvas.toBlob returned no data for {label}","viewer.export.error.variantsCombined":"Share Card variants cannot be combined","viewer.export.error.viewerState":"Share Card export could not remove temporary viewer state","viewer.export.error.routeState":"Route Card export could not preserve the resolved route safely","viewer.export.error.reachState":"Reach Card export could not preserve authored reach safely","viewer.export.error.webmRequirements":"WebM motion export requires a trace animation and browser MediaRecorder support","viewer.export.error.mediaRecorder":"MediaRecorder failed","viewer.export.error.emptyWebm":"MediaRecorder produced an empty WebM","viewer.export.error.webmBackground":"SVG background could not be loaded for WebM export","viewer.guide.title":"Explore this system","viewer.focus.selectedNodes":"{count} selected nodes","viewer.guide.eyebrow":"Diagram guide","viewer.guide.close":"Close diagram guide","viewer.guide.inspecting":"Inspecting compiled semantics","viewer.guide.actions":"Diagram exploration actions","viewer.guide.find":"Find any node","viewer.guide.find.hint":"Search labels, responsibilities, kinds, and stable IDs.","viewer.guide.route":"Trace a route","viewer.guide.route.aria":"Trace a directed route","viewer.guide.route.hint":"Ask how two semantic nodes connect in authored direction.","viewer.guide.map":"See the whole system","viewer.guide.map.hint":"Open Semantic Radar with a live viewport and stable nodes.","viewer.guide.lens":"Compare semantic kinds","viewer.guide.lens.hint":"Count roles, reveal their traffic, and compare direct authored links.","viewer.guide.present":"Enter Presentation Stage","viewer.guide.present.hint":"Give the live diagram the viewport without changing export.","viewer.guide.shortcuts":"Additional keyboard shortcuts","viewer.guide.shortcut.export":"Export","viewer.guide.shortcut.theme":"Theme","viewer.guide.shortcut.style":"Style","viewer.guide.shortcut.reset":"Reset","viewer.guide.shortcut.zoomIn":"Zoom in","viewer.guide.shortcut.zoomOut":"Zoom out","viewer.guide.shortcut.close":"Close","viewer.guide.credit":"Find Archify useful? A star on GitHub helps","viewer.guide.star":"Star","viewer.guide.facts":"{nodes} · {relationships}","viewer.guide.fact.node.one":"{count} semantic node","viewer.guide.fact.node.other":"{count} semantic nodes","viewer.guide.fact.relationship.one":"{count} relationship","viewer.guide.fact.relationship.other":"{count} relationships","viewer.guide.open":"Open diagram guide","viewer.finder.title":"Find a node","viewer.finder.close":"Close node finder","viewer.finder.placeholder":"Search labels or IDs","viewer.finder.search":"Search diagram nodes","viewer.finder.results":"Diagram nodes","viewer.finder.empty":"No matching nodes","viewer.finder.result.focus":"Focus {label}","viewer.finder.result.routeStart":"Choose {label} as route start","viewer.finder.result.routeTarget":"Choose {label} as route destination, {links}","viewer.finder.status.empty":"No matching nodes","viewer.finder.status.count.one":"{count} matching node","viewer.finder.status.count.other":"{count} matching nodes","viewer.finder.noun.nodes":"nodes","viewer.finder.link.one":"{count} link","viewer.finder.link.other":"{count} links","viewer.finder.result.focus.one":"Focus {label}, {count} related connection","viewer.finder.result.focus.other":"Focus {label}, {count} related connections","viewer.finder.status.filtered":"{visible} of {available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"Semantic passport","viewer.passport.metadata":"Node metadata","viewer.passport.evidence":"Verified source evidence","viewer.passport.verified":"Verified source","viewer.passport.verificationScope":"Verified against local Git at the pinned revision. Remote access has not been checked.","viewer.passport.reach":"Authored reach","viewer.passport.reach.trace":"Trace authored reachability","viewer.passport.upstream":"Upstream","viewer.passport.downstream":"Downstream","viewer.passport.upstream.trace":"Trace upstream authored reachability","viewer.passport.downstream.trace":"Trace downstream authored reachability","viewer.passport.close":"Close semantic passport","viewer.passport.move":"Move semantic passport. Drag, use arrow keys, or press Home to reset.","viewer.passport.copy":"Copy link","viewer.passport.copy.focus":"Copy link to focused node","viewer.passport.relations":"Relations","viewer.passport.relations.show":"Show connected relationships","viewer.passport.relations.hide":"Hide connected relationships","viewer.passport.relations.list":"Connected relationships","viewer.passport.copyRelation":"Copy relation","viewer.passport.copyNode":"Copy node","viewer.passport.copyPinned":"Copy link to pinned relationship","viewer.passport.copySource":"Copy link to source node","viewer.passport.copy.focused.success":"Focused node link copied","viewer.passport.copy.pinned.success":"Pinned relationship link copied","viewer.passport.copy.focused.failed":"Could not copy focused node link","viewer.passport.copy.pinned.failed":"Could not copy pinned relationship link","viewer.passport.relationship.none":"No connected relationships","viewer.passport.relationship.count.one":"{count} relation","viewer.passport.relationship.count.other":"{count} relations","viewer.passport.relationship.show.one":"Show {count} connected relationship","viewer.passport.relationship.show.other":"Show {count} connected relationships","viewer.passport.relationship.summary":"{out} outgoing · {in} incoming{loops}","viewer.passport.relationship.loops":" · {count} loop","viewer.passport.relationship.explorer":"Direct relationship explorer","viewer.passport.relationship.help":"Use arrow keys to explore relationships. Press Enter or Space to pin details; Escape clears.","viewer.passport.relationship.loopsBack":"loops back","viewer.passport.relationship.connectsTo":"connects to","viewer.passport.relationship.connectsFrom":"connects from","viewer.passport.relationship.pinned":"Pinned relationship · {from} → {to} · {label}","viewer.passport.relationship.inspect":"Inspect relationship {index} of {total}: {from} to {to}, {label}. Press Enter for details.","viewer.passport.relationship.group.out":"Outgoing","viewer.passport.relationship.group.in":"Incoming","viewer.passport.relationship.group.loop":"Self loops","viewer.passport.relationship.row":"{group}: {relationship}, {neighbor}","viewer.passport.relationship.direction.out":"OUT →","viewer.passport.relationship.direction.in":"← IN","viewer.passport.relationship.direction.loop":"LOOP","viewer.passport.sourceCount.one":"{count} verified source reference","viewer.passport.sourceCount.other":"{count} verified source references","viewer.passport.repository.open":"Open verified repository revision {revision}","viewer.passport.source.open":"Open verified source {path} at revision {revision}","viewer.passport.source.openLink":"Open ↗","viewer.passport.reach.upstream.one":"Trace {count} upstream authored node","viewer.passport.reach.upstream.other":"Trace {count} upstream authored nodes","viewer.passport.reach.downstream.one":"Trace {count} downstream authored node","viewer.passport.reach.downstream.other":"Trace {count} downstream authored nodes","viewer.passport.reach.noUpstream":"No upstream authored nodes","viewer.passport.reach.noDownstream":"No downstream authored nodes","viewer.passport.reach.status":"{direction} · {nodes} nodes · {links} links · max {hops} hops","viewer.route.eyebrow":"Path","viewer.route.start":"Click where the path starts","viewer.route.start.find":"Find start","viewer.route.start.find.aria":"Find a route start","viewer.route.copy":"Copy link","viewer.route.copy.aria":"Copy link to traced route","viewer.route.clear":"Clear","viewer.route.clear.aria":"Clear route probe","viewer.route.traced":"Path","viewer.route.pickTwo":"Click two nodes on the diagram","viewer.route.pickOne":"Click a node on the diagram","viewer.route.controls":"Route journey controls","viewer.route.previous":"Previous route position","viewer.route.play":"Play route journey","viewer.route.pause":"Pause route journey","viewer.route.replay":"Replay route journey","viewer.route.next":"Next route position","viewer.route.journey":"Journey","viewer.route.pause.label":"Pause","viewer.route.replay.label":"Replay","viewer.route.overview":"Overview","viewer.route.overview.aria":"Show complete route overview","viewer.route.instructions":"Click a start, then an end. Paths follow the arrows.","viewer.route.destination":"Where does the path from {label} end?","viewer.route.destination.find":"Find target","viewer.route.destination.find.aria":"Find a reachable route destination","viewer.route.differentDestination":"Choose a different destination","viewer.route.distinct":"Pick two different nodes.","viewer.route.unreachable":"Cannot reach {label} from here","viewer.route.unreachable.detail":"{target} cannot be reached from {source} along the arrows. Pick a highlighted node.","viewer.route.start.instructions":"Next, pick the end. Only nodes you can reach will light up.","viewer.route.copy.success":"Traced route link copied","viewer.route.copy.failed":"Could not copy traced route link","viewer.route.position":"Route position {index} of {total}: {label}","viewer.route.step":"Step {index} of {total} · {phase} · {label}","viewer.route.motionRequired":"Automatic journey requires Live motion","viewer.route.trigger.clear":"Clear traced route","viewer.route.overview.status":"{nodes} · {hops} · shortest path","viewer.route.overview.node.one":"{count} node","viewer.route.overview.node.other":"{count} nodes","viewer.route.overview.hop.one":"{count} step","viewer.route.overview.hop.other":"{count} steps","viewer.route.phase.playing":"Playing","viewer.route.phase.complete":"Complete","viewer.route.phase.inspecting":"Inspecting","viewer.route.destination.count.one":"{count} reachable node is highlighted. Click it.","viewer.route.destination.count.other":"{count} reachable nodes are highlighted. Click one.","viewer.route.noOutgoing":"No arrows lead out of this node. Clear it and pick another start.","viewer.route.result.title":"{source} to {target}","viewer.route.finder.source.title":"Choose route start","viewer.route.finder.source.placeholder":"Search route sources","viewer.route.finder.source.empty":"No matching route sources","viewer.route.finder.source.results":"Nodes that can start a route","viewer.route.finder.source.noun":"route sources","viewer.route.finder.source.badge":"start","viewer.route.finder.target.title":"Destination from {label}","viewer.route.finder.target.placeholder":"Search reachable destinations","viewer.route.finder.target.empty":"No matching reachable destinations","viewer.route.finder.target.results":"Reachable route destinations","viewer.route.finder.target.noun":"reachable destinations","viewer.route.hop.one":"{count} hop","viewer.route.hop.other":"{count} hops","viewer.lens.eyebrow":"Semantic lens","viewer.lens.title":"Compare system roles","viewer.lens.close":"Close semantic lens","viewer.lens.instruction":"Choose up to two semantic kinds. One reveals its real traffic; two compare only direct authored relationships.","viewer.lens.kinds":"Semantic kinds","viewer.lens.choose":"Choose a kind to inspect its nodes and touching relationships.","viewer.lens.copy":"Copy link to semantic lens","viewer.lens.clear":"Clear semantic lens","viewer.lens.open":"Open semantic lens","viewer.lens.openActive":"Open active semantic lens","viewer.lens.legend":"Semantic legend","viewer.lens.legend.inspect.one":"Inspect {label}, {count} node","viewer.lens.legend.inspect.other":"Inspect {label}, {count} nodes","viewer.lens.kind.count.one":"{label}, {count} node","viewer.lens.kind.count.other":"{label}, {count} nodes","viewer.lens.compare.one":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationship","viewer.lens.compare.other":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationships","viewer.lens.single":"{nodes} · {relationships} · connected peers remain visible","viewer.lens.node.one":"{count} {label} node","viewer.lens.node.other":"{count} {label} nodes","viewer.lens.relationship.one":"{count} touching relationship","viewer.lens.relationship.other":"{count} touching relationships","viewer.radar.title":"Semantic radar","viewer.radar.building":"Building overview","viewer.radar.openFull":"Open full semantic radar","viewer.radar.open":"Open radar","viewer.radar.close":"Close semantic radar","viewer.radar.surface":"Diagram overview. Click a node to focus it, or use arrow keys to pan.","viewer.radar.click":"Click node","viewer.radar.drag":"Drag to pan","viewer.radar.space":"Semantic radar needs more MAP space.","viewer.radar.nodes":"Semantic diagram radar nodes","viewer.radar.focus":"Focus {label} from Semantic Radar","viewer.radar.status":"{count} nodes · {viewport}","viewer.radar.fullMap":"{count} nodes · full map","viewer.radar.compacted":"Radar compacted to avoid covering the Semantic Passport or MAP controls.","viewer.radar.cancelWaiting":"Cancel semantic radar waiting for more MAP space","viewer.radar.needsSpace":"Semantic radar needs more visible MAP space","viewer.radar.viewport.full":"full map","viewer.radar.viewport.width":"{percent}% width","viewer.radar.viewport.scale":"{percent}% viewport","viewer.nav.controls":"Diagram view controls","viewer.nav.route":"Trace a directed route","viewer.nav.route.title":"Trace route (R)","viewer.nav.route.short":"ROUTE","viewer.nav.radar":"Open semantic radar","viewer.nav.radar.title":"Semantic radar (M)","viewer.nav.radar.short":"MAP","viewer.nav.lens":"Open semantic lens","viewer.nav.lens.title":"Semantic lens (L)","viewer.nav.lens.short":"LENS","viewer.nav.find":"Find a node","viewer.nav.find.title":"Find a node (/)","viewer.outline.title":"Node index","viewer.rail.show":"Notes \u0026 index","viewer.rail.controls":"Side panel","viewer.rail.collapse":"Collapse side panel","viewer.rail.bottom":"Move panel below the diagram","viewer.rail.right":"Move panel beside the diagram","viewer.nav.guide":"Open diagram guide","viewer.nav.guide.title":"Diagram guide (?)","viewer.nav.zoomOut":"Zoom out","viewer.nav.zoomOut.title":"Zoom out (-)","viewer.nav.reset":"Reset diagram view","viewer.nav.reset.title":"Reset view (0)","viewer.nav.read":"READ","viewer.nav.zoomIn":"Zoom in","viewer.nav.zoomIn.title":"Zoom in (+)","viewer.nav.camera":"{hint}. Reset diagram view","viewer.nav.camera.title":"{semantic}{hint} · reset view (0)","viewer.nav.camera.semantic":"Semantic camera active · ","viewer.nav.level.map":"MAP","viewer.nav.level.read":"READ","viewer.nav.level.full":"FULL","viewer.nav.level.auto":"AUTO","viewer.nav.detail.map":"Zoom in to reveal relationship labels and node context","viewer.nav.detail.read":"Zoom in again to reveal tags and annotations","viewer.nav.detail.full":"Full diagram detail","viewer.intent.summary":"{label}. {out} outgoing, {in} incoming{loops}. {total} connections. Press Enter for details.","viewer.intent.loops":", {count} self loop","viewer.common.copied":"Copied","viewer.common.copyFailed":"Copy failed","viewer.common.copyLink":"Copy link","viewer.common.clear":"Clear","viewer.common.close":"Close"}}</script>
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 992 1347" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
-        <title id="archify-diagram-title">Pathfinder v5 — Modify Turn, Code Path</title>
-        <desc id="archify-diagram-description">A workflow diagram generated by Archify.</desc>
+      <svg viewBox="0 0 1008 1347" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
+        <title id="archify-diagram-title">Changing a plan: the full story</title>
+        <desc id="archify-diagram-description">You ask for a change. Pathfinder keeps what is locked, proposes only the difference, and saves a new version only when you accept.</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -5250,224 +5251,225 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="924" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / React UI</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="948" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / You</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="178" width="924" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="200" class="t-muted" font-size="10" font-weight="600">02 / FastAPI edge</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="178" width="948" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="200" class="t-muted" font-size="10" font-weight="600">02 / Chat edge</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="304" width="924" height="306" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="326" class="t-muted" font-size="10" font-weight="600">03 / Turn control</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="304" width="948" height="306" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="326" class="t-muted" font-size="10" font-weight="600">03 / Pathfinder turn</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="630" width="924" height="307" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="652" class="t-muted" font-size="10" font-weight="600">04 / Edit + validation</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="630" width="948" height="307" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="652" class="t-muted" font-size="10" font-weight="600">04 / Edit + checks</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="957" width="924" height="266" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="979" class="t-muted" font-size="10" font-weight="600">05 / State &amp; evidence</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="957" width="948" height="266" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="979" class="t-muted" font-size="10" font-weight="600">05 / State + evidence</text>
 
         <!-- Phase headers -->
-        <path d="M 85 35 H 281" class="a-default phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
-        <rect x="158.6" y="27" width="48.8" height="16" rx="8" class="c-mask phase-chip"/>
-        <text x="183" y="38.5" class="t-muted" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">Intake</text>
-        <path d="M 325 35 H 598" class="a-emphasis phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
-        <rect x="422.7" y="27" width="77.6" height="16" rx="8" class="c-mask phase-chip"/>
-        <text x="461.5" y="38.5" class="t-backend" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">Read + route</text>
-        <path d="M 642 35 H 910" class="a-dashed phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
-        <rect x="715.6" y="27" width="120.8" height="16" rx="8" class="c-mask phase-chip"/>
-        <text x="776" y="38.5" class="t-messagebus" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">Typed edit · proposal</text>
+        <path d="M 94 35 H 290" class="a-default phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
+        <rect x="172" y="27" width="40" height="16" rx="8" class="c-mask phase-chip"/>
+        <text x="192" y="38.5" class="t-muted" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">Ask</text>
+        <path d="M 334 35 H 610" class="a-emphasis phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
+        <rect x="411.6" y="27" width="120.8" height="16" rx="8" class="c-mask phase-chip"/>
+        <text x="472" y="38.5" class="t-backend" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">Read + prepare change</text>
+        <path d="M 654 35 H 930" class="a-dashed phase-rule" stroke-width="1" stroke-linecap="round" fill="none"/>
+        <rect x="743.6" y="27" width="96.8" height="16" rx="8" class="c-mask phase-chip"/>
+        <text x="792" y="38.5" class="t-messagebus" font-size="8" font-weight="600" text-anchor="middle" letter-spacing=".04em">Propose · accept</text>
 
         <!-- Workflow groups -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-0" x="596" y="668" width="360" height="265" rx="9" class="c-lane" stroke-width="1"/>
-        <text x="606" y="666" class="t-backend" font-size="7" font-weight="600">Review gate</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-0" x="604" y="668" width="376" height="265" rx="9" class="c-lane" stroke-width="1"/>
+        <text x="614" y="666" class="t-backend" font-size="7" font-weight="600">Review gate</text>
 
         <!-- Edge paths -->
-        <path data-edge-from="apply" data-edge-to="persist" data-edge-label="no review" data-edge-key="0" data-edge-id="apply-persist" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="872,764;872,606" d="M 872 764 L 872 606" class="a-dashed" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="apply" data-edge-to="proposal" data-edge-label="review" data-edge-key="1" data-edge-id="apply-proposal" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="872,832;872,864" d="M 872 832 L 872 864" class="a-emphasis" data-animate="edge" style="--step:6" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gather" data-edge-to="propose" data-edge-label="Bundle" data-edge-key="2" data-edge-id="gather-propose" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="680,832;680,864" d="M 680 832 L 680 864" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="gather" data-edge-to="providers" data-edge-label="query" data-edge-key="3" data-edge-id="gather-providers" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="600,805;560,805;560,1151" d="M 600 805 L 568 805 Q 560 805 560 813 L 560 1151" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="msg" data-edge-to="stream" data-edge-key="4" data-edge-id="msg-stream" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="198,120;243,120;243,212" d="M 198 120 L 235 120 Q 243 120 243 128 L 243 212" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="prepare" data-edge-to="understand" data-edge-key="5" data-edge-id="prepare-understand" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="448,472;480,472" d="M 448 472 L 480 472" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="proposal" data-edge-to="tick" data-edge-label="tick" data-edge-key="6" data-edge-id="proposal-tick" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="952,898;973.5,898;973.5,120;947,120" d="M 952 898 L 965.5 898 Q 973.5 898 973.5 890 L 973.5 128 Q 973.5 120 965.5 120 L 947 120" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="propose" data-edge-to="apply" data-edge-label="ops" data-edge-key="7" data-edge-id="propose-apply" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="760,898;776,898;776,798;792,798" d="M 760 898 L 768 898 Q 776 898 776 890 L 776 806 Q 776 798 784 798 L 792 798" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="stream" data-edge-to="prepare" data-edge-key="8" data-edge-id="stream-prepare" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="243,280;243,472;278,472" d="M 243 280 L 243 464 Q 243 472 251 472 L 278 472" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="tick" data-edge-to="persist" data-edge-label="accept" data-edge-key="9" data-edge-id="tick-persist" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="872,154;872,538" d="M 872 154 L 872 538" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="understand" data-edge-to="gather" data-edge-label="modify" data-edge-key="10" data-edge-id="understand-gather" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="640,472;680,472;680,764" d="M 640 472 L 672 472 Q 680 472 680 480 L 680 764" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="apply" data-edge-to="persist" data-edge-label="no review needed" data-edge-key="0" data-edge-id="apply-persist" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="892,764;892,606" d="M 892 764 L 892 606" class="a-dashed" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="apply" data-edge-to="proposal" data-edge-label="review" data-edge-key="1" data-edge-id="apply-proposal" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="892,832;892,864" d="M 892 832 L 892 864" class="a-emphasis" data-animate="edge" style="--step:6" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="gather" data-edge-to="propose" data-edge-label="evidence" data-edge-key="2" data-edge-id="gather-propose" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="692,832;692,864" d="M 692 832 L 692 864" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="gather" data-edge-to="providers" data-edge-label="look up" data-edge-key="3" data-edge-id="gather-providers" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="608,805;572,805;572,1151" d="M 608 805 L 580 805 Q 572 805 572 813 L 572 1151" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="msg" data-edge-to="stream" data-edge-key="4" data-edge-id="msg-stream" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="216,120;252,120;252,212" d="M 216 120 L 244 120 Q 252 120 252 128 L 252 212" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="prepare" data-edge-to="understand" data-edge-key="5" data-edge-id="prepare-understand" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="456,472;488,472" d="M 456 472 L 488 472" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="proposal" data-edge-to="tick" data-edge-label="your choice" data-edge-key="6" data-edge-id="proposal-tick" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="808,898;792,898;792,120;808,120" d="M 808 898 L 800 898 Q 792 898 792 890 L 792 128 Q 792 120 800 120 L 808 120" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="propose" data-edge-to="apply" data-edge-label="operations" data-edge-key="7" data-edge-id="propose-apply" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="692,932;692,953;992,953;992,798;976,798" d="M 692 932 L 692 945 Q 692 953 700 953 L 984 953 Q 992 953 992 945 L 992 806 Q 992 798 984 798 L 976 798" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="stream" data-edge-to="prepare" data-edge-key="8" data-edge-id="stream-prepare" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="252,280;252,472;288,472" d="M 252 280 L 252 464 Q 252 472 260 472 L 288 472" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="tick" data-edge-to="persist" data-edge-label="accept" data-edge-key="9" data-edge-id="tick-persist" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="892,154;892,538" d="M 892 154 L 892 538" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="understand" data-edge-to="gather" data-edge-label="modify" data-edge-key="10" data-edge-id="understand-gather" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="656,472;692,472;692,764" d="M 656 472 L 684 472 Q 692 472 692 480 L 692 764" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Nodes -->
-        <g id="node-msg" data-node-id="msg" data-node-label="Traveller edit" tabindex="0" role="button" aria-label="Focus Traveller edit, “move day 2 later”, React UI › Intake" aria-pressed="false" data-node-kind="external" data-node-sublabel="“move day 2 later”" data-node-context="React UI › Intake">
-          <title>Traveller edit · “move day 2 later” · React UI › Intake</title>
-          <rect x="48" y="94" width="150" height="52" rx="8" class="c-mask"/>
-          <rect x="48" y="94" width="150" height="52" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(54 100) scale(0.6875)">
+        <g id="node-msg" data-node-id="msg" data-node-label="You ask for a change" tabindex="0" role="button" aria-label="Focus You ask for a change, “make day 2 lighter”, You › Ask" aria-pressed="false" data-node-kind="external" data-node-sublabel="“make day 2 lighter”" data-node-tag="one edit" data-node-context="You › Ask">
+          <title>You ask for a change · “make day 2 lighter” · You › Ask · one edit</title>
+          <rect x="48" y="86" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="48" y="86" width="168" height="68" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(54 92) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="123" y="126" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Traveller edit</text>
-          <text data-detail="context" x="123" y="138.3" class="t-muted" font-size="8" text-anchor="middle">“move day 2 later”</text>
+          <text data-node-label="" data-detail-anchor="" x="133" y="107" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">You ask for a change</text>
+          <text data-detail="context" x="132" y="124" class="t-muted" font-size="8" text-anchor="middle">“make day 2 lighter”</text>
+        <text data-detail="fine" x="132" y="142" class="t-external" font-size="7" text-anchor="middle">one edit</text>
         </g>
 
-        <g id="node-tick" data-node-id="tick" data-node-label="Tick to accept" tabindex="0" role="button" aria-label="Focus Tick to accept, accept / reject, React UI › Typed edit · proposal" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="accept / reject" data-node-tag="decide_proposal" data-node-context="React UI › Typed edit · proposal">
-          <title>Tick to accept · accept / reject · React UI › Typed edit · proposal · decide_proposal</title>
-          <rect x="797" y="86" width="150" height="68" rx="8" class="c-mask"/>
-          <rect x="797" y="86" width="150" height="68" rx="8" class="c-frontend" data-animate="node" style="--step:8" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(803 92) scale(0.6875)">
+        <g id="node-tick" data-node-id="tick" data-node-label="You accept or reject" tabindex="0" role="button" aria-label="Focus You accept or reject, one tick decides, You › Propose · accept" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="one tick decides" data-node-tag="your choice" data-node-context="You › Propose · accept">
+          <title>You accept or reject · one tick decides · You › Propose · accept · your choice</title>
+          <rect x="808" y="86" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="808" y="86" width="168" height="68" rx="8" class="c-frontend" data-animate="node" style="--step:8" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(814 92) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="872" y="120.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Tick to accept</text>
-          <text data-detail="context" x="872" y="135.1" class="t-muted" font-size="8" text-anchor="middle">accept / reject</text>
-        <text data-detail="fine" x="872" y="147.9" class="t-frontend" font-size="7" text-anchor="middle">decide_proposal</text>
+          <text data-node-label="" data-detail-anchor="" x="893" y="107" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">You accept or reject</text>
+          <text data-detail="context" x="892" y="124" class="t-muted" font-size="8" text-anchor="middle">one tick decides</text>
+        <text data-detail="fine" x="892" y="142" class="t-frontend" font-size="7" text-anchor="middle">your choice</text>
         </g>
 
-        <g id="node-stream" data-node-id="stream" data-node-label="POST /api/turn/stream" tabindex="0" role="button" aria-label="Focus POST /api/turn/stream, same SSE endpoint, FastAPI edge › Intake" aria-pressed="false" data-node-kind="backend" data-node-sublabel="same SSE endpoint" data-node-tag="review=true" data-node-context="FastAPI edge › Intake">
-          <title>POST /api/turn/stream · same SSE endpoint · FastAPI edge › Intake · review=true</title>
-          <rect x="158" y="212" width="170" height="68" rx="8" class="c-mask"/>
-          <rect x="158" y="212" width="170" height="68" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(164 218) scale(0.6875)">
+        <g id="node-stream" data-node-id="stream" data-node-label="One chat turn" tabindex="0" role="button" aria-label="Focus One chat turn, load the current plan, Chat edge › Ask" aria-pressed="false" data-node-kind="backend" data-node-sublabel="load the current plan" data-node-tag="safe turn" data-node-context="Chat edge › Ask">
+          <title>One chat turn · load the current plan · Chat edge › Ask · safe turn</title>
+          <rect x="168" y="212" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="168" y="212" width="168" height="68" rx="8" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(174 218) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="243" y="246.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">POST /api/turn/stream</text>
-          <text data-detail="context" x="243" y="261.1" class="t-muted" font-size="8" text-anchor="middle">same SSE endpoint</text>
-        <text data-detail="fine" x="243" y="273.9" class="t-backend" font-size="7" text-anchor="middle">review=true</text>
+          <text data-node-label="" data-detail-anchor="" x="252" y="233" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">One chat turn</text>
+          <text data-detail="context" x="252" y="250" class="t-muted" font-size="8" text-anchor="middle">load the current plan</text>
+        <text data-detail="fine" x="252" y="268" class="t-backend" font-size="7" text-anchor="middle">safe turn</text>
         </g>
 
-        <g id="node-prepare" data-node-id="prepare" data-node-label="Prepare turn" tabindex="0" role="button" aria-label="Focus Prepare turn, mask PII · load plan, Turn control › Read + route" aria-pressed="false" data-node-kind="security" data-node-sublabel="mask PII · load plan" data-node-tag="plan must exist" data-node-context="Turn control › Read + route">
-          <title>Prepare turn · mask PII · load plan · Turn control › Read + route · plan must exist</title>
-          <rect x="278" y="438" width="170" height="68" rx="8" class="c-mask"/>
-          <rect x="278" y="438" width="170" height="68" rx="8" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(284 444) scale(0.6875)">
+        <g id="node-prepare" data-node-id="prepare" data-node-label="Prepare" tabindex="0" role="button" aria-label="Focus Prepare, hide personal details · load locks, Pathfinder turn › Read + prepare change" aria-pressed="false" data-node-kind="security" data-node-sublabel="hide personal details · load locks" data-node-tag="protect choices" data-node-context="Pathfinder turn › Read + prepare change">
+          <title>Prepare · hide personal details · load locks · Pathfinder turn › Read + prepare change · protect choices</title>
+          <rect x="288" y="438" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="288" y="438" width="168" height="68" rx="8" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(294 444) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="363" y="459" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Prepare turn</text>
-          <text data-detail="context" x="363" y="476" class="t-muted" font-size="8" text-anchor="middle">mask PII · load plan</text>
-        <text data-detail="fine" x="363" y="494" class="t-security" font-size="7" text-anchor="middle">plan must exist</text>
+          <text data-node-label="" data-detail-anchor="" x="372" y="459" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Prepare</text>
+          <text data-detail="context" x="372" y="476" class="t-muted" font-size="7.8" text-anchor="middle">hide personal details · load locks</text>
+        <text data-detail="fine" x="372" y="494" class="t-security" font-size="7" text-anchor="middle">protect choices</text>
         </g>
 
-        <g id="node-understand" data-node-id="understand" data-node-label="Understand" tabindex="0" role="button" aria-label="Focus Understand, intent=modify, Turn control › Read + route" aria-pressed="false" data-node-kind="backend" data-node-sublabel="intent=modify" data-node-tag="scoped parts" data-node-context="Turn control › Read + route">
-          <title>Understand · intent=modify · Turn control › Read + route · scoped parts</title>
-          <rect x="480" y="438" width="160" height="68" rx="8" class="c-mask"/>
-          <rect x="480" y="438" width="160" height="68" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(486 444) scale(0.6875)">
+        <g id="node-understand" data-node-id="understand" data-node-label="Read the change" tabindex="0" role="button" aria-label="Focus Read the change, what should move, stay or go, Pathfinder turn › Read + prepare change" aria-pressed="false" data-node-kind="backend" data-node-sublabel="what should move, stay or go" data-node-tag="modify" data-node-context="Pathfinder turn › Read + prepare change">
+          <title>Read the change · what should move, stay or go · Pathfinder turn › Read + prepare change · modify</title>
+          <rect x="488" y="438" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="488" y="438" width="168" height="68" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(494 444) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="560" y="459" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Understand</text>
-          <text data-detail="context" x="560" y="476" class="t-muted" font-size="8" text-anchor="middle">intent=modify</text>
-        <text data-detail="fine" x="560" y="494" class="t-backend" font-size="7" text-anchor="middle">scoped parts</text>
+          <text data-node-label="" data-detail-anchor="" x="572" y="459" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Read the change</text>
+          <text data-detail="context" x="572" y="476" class="t-muted" font-size="8" text-anchor="middle">what should move, stay or go</text>
+        <text data-detail="fine" x="572" y="494" class="t-backend" font-size="7" text-anchor="middle">modify</text>
         </g>
 
-        <g id="node-persist" data-node-id="persist" data-node-label="Persist vN" tabindex="0" role="button" aria-label="Focus Persist vN, only on accept, Turn control › Typed edit · proposal" aria-pressed="false" data-node-kind="backend" data-node-sublabel="only on accept" data-node-tag="diff + SSE" data-node-context="Turn control › Typed edit · proposal">
-          <title>Persist vN · only on accept · Turn control › Typed edit · proposal · diff + SSE</title>
-          <rect x="792" y="538" width="160" height="68" rx="8" class="c-mask"/>
-          <rect x="792" y="538" width="160" height="68" rx="8" class="c-backend" data-animate="node" style="--step:9" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(798 544) scale(0.6875)">
+        <g id="node-persist" data-node-id="persist" data-node-label="Save a new version" tabindex="0" role="button" aria-label="Focus Save a new version, only after you accept, Pathfinder turn › Propose · accept" aria-pressed="false" data-node-kind="backend" data-node-sublabel="only after you accept" data-node-tag="history kept" data-node-context="Pathfinder turn › Propose · accept">
+          <title>Save a new version · only after you accept · Pathfinder turn › Propose · accept · history kept</title>
+          <rect x="808" y="538" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="808" y="538" width="168" height="68" rx="8" class="c-backend" data-animate="node" style="--step:9" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(814 544) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="872" y="559" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Persist vN</text>
-          <text data-detail="context" x="872" y="576" class="t-muted" font-size="8" text-anchor="middle">only on accept</text>
-        <text data-detail="fine" x="872" y="594" class="t-backend" font-size="7" text-anchor="middle">diff + SSE</text>
+          <text data-node-label="" data-detail-anchor="" x="892" y="559" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Save a new version</text>
+          <text data-detail="context" x="892" y="576" class="t-muted" font-size="8" text-anchor="middle">only after you accept</text>
+        <text data-detail="fine" x="892" y="594" class="t-backend" font-size="7" text-anchor="middle">history kept</text>
         </g>
 
-        <g id="node-gather" data-node-id="gather" data-node-label="Scoped gather" tabindex="0" role="button" aria-label="Focus Scoped gather, fresh evidence, Edit + validation › Review gate › Typed edit · proposal" aria-pressed="false" data-node-kind="backend" data-node-sublabel="fresh evidence" data-node-tag="same refs" data-node-context="Edit + validation › Review gate › Typed edit · proposal">
-          <title>Scoped gather · fresh evidence · Edit + validation › Review gate › Typed edit · proposal · same refs</title>
-          <rect x="600" y="764" width="160" height="68" rx="8" class="c-mask"/>
-          <rect x="600" y="764" width="160" height="68" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(606 770) scale(0.6875)">
+        <g id="node-gather" data-node-id="gather" data-node-label="Look up only what changed" tabindex="0" role="button" aria-label="Focus Look up only what changed, fresh evidence for the edit, Edit + checks › Review gate › Propose · accept" aria-pressed="false" data-node-kind="backend" data-node-sublabel="fresh evidence for the edit" data-node-tag="small lookup" data-node-context="Edit + checks › Review gate › Propose · accept">
+          <title>Look up only what changed · fresh evidence for the edit · Edit + checks › Review gate › Propose · accept · small lookup</title>
+          <rect x="608" y="764" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="608" y="764" width="168" height="68" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(614 770) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="675.1" y="785" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Scoped gather</text>
-          <text data-detail="context" x="680" y="802" class="t-muted" font-size="8" text-anchor="middle">fresh evidence</text>
-        <text data-detail="fine" x="680" y="820" class="t-backend" font-size="7" text-anchor="middle">same refs</text>
+          <text data-node-label="" data-detail-anchor="" x="692" y="795.8" class="t-primary" font-size="10.6" font-weight="600" text-anchor="middle">Look up only what changed</text>
+          <text data-detail="context" x="692" y="810.6" class="t-muted" font-size="8" text-anchor="middle">fresh evidence for the edit</text>
+        <text data-detail="fine" x="692" y="823.4" class="t-backend" font-size="7" text-anchor="middle">small lookup</text>
         </g>
 
-        <g id="node-propose" data-node-id="propose" data-node-label="Propose edit" tabindex="0" role="button" aria-label="Focus Propose edit, EditDraft · typed ops, Edit + validation › Review gate › Typed edit · proposal" aria-pressed="false" data-node-kind="backend" data-node-sublabel="EditDraft · typed ops" data-node-tag="edit skill" data-node-context="Edit + validation › Review gate › Typed edit · proposal">
-          <title>Propose edit · EditDraft · typed ops · Edit + validation › Review gate › Typed edit · proposal · edit skill</title>
-          <rect x="600" y="864" width="160" height="68" rx="8" class="c-mask"/>
-          <rect x="600" y="864" width="160" height="68" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(606 870) scale(0.6875)">
+        <g id="node-propose" data-node-id="propose" data-node-label="Propose the change" tabindex="0" role="button" aria-label="Focus Propose the change, move, retime, add or replace, Edit + checks › Review gate › Propose · accept" aria-pressed="false" data-node-kind="backend" data-node-sublabel="move, retime, add or replace" data-node-tag="typed operations" data-node-context="Edit + checks › Review gate › Propose · accept">
+          <title>Propose the change · move, retime, add or replace · Edit + checks › Review gate › Propose · accept · typed operations</title>
+          <rect x="608" y="864" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="608" y="864" width="168" height="68" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(614 870) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="678.4" y="885" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Propose edit</text>
-          <text data-detail="context" x="680" y="902" class="t-muted" font-size="8" text-anchor="middle">EditDraft · typed ops</text>
-        <text data-detail="fine" x="680" y="920" class="t-backend" font-size="7" text-anchor="middle">edit skill</text>
+          <text data-node-label="" data-detail-anchor="" x="692" y="885" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Propose the change</text>
+          <text data-detail="context" x="692" y="902" class="t-muted" font-size="8" text-anchor="middle">move, retime, add or replace</text>
+        <text data-detail="fine" x="692" y="920" class="t-backend" font-size="7" text-anchor="middle">typed operations</text>
         </g>
 
-        <g id="node-apply" data-node-id="apply" data-node-label="Apply ops" tabindex="0" role="button" aria-label="Focus Apply ops, locks preserved, Edit + validation › Review gate › Typed edit · proposal" aria-pressed="false" data-node-kind="backend" data-node-sublabel="locks preserved" data-node-tag="_apply" data-node-context="Edit + validation › Review gate › Typed edit · proposal">
-          <title>Apply ops · locks preserved · Edit + validation › Review gate › Typed edit · proposal · _apply</title>
-          <rect x="792" y="764" width="160" height="68" rx="8" class="c-mask"/>
-          <rect x="792" y="764" width="160" height="68" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(798 770) scale(0.6875)">
+        <g id="node-apply" data-node-id="apply" data-node-label="Protect locked items" tabindex="0" role="button" aria-label="Focus Protect locked items, never move what you locked, Edit + checks › Review gate › Propose · accept" aria-pressed="false" data-node-kind="backend" data-node-sublabel="never move what you locked" data-node-tag="respects you" data-node-context="Edit + checks › Review gate › Propose · accept">
+          <title>Protect locked items · never move what you locked · Edit + checks › Review gate › Propose · accept · respects you</title>
+          <rect x="808" y="764" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="808" y="764" width="168" height="68" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(814 770) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="872" y="785" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Apply ops</text>
-          <text data-detail="context" x="872" y="802" class="t-muted" font-size="8" text-anchor="middle">locks preserved</text>
-        <text data-detail="fine" x="872" y="820" class="t-backend" font-size="7" text-anchor="middle">_apply</text>
+          <text data-node-label="" data-detail-anchor="" x="893" y="785" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Protect locked items</text>
+          <text data-detail="context" x="892" y="802" class="t-muted" font-size="8" text-anchor="middle">never move what you locked</text>
+        <text data-detail="fine" x="892" y="820" class="t-backend" font-size="7" text-anchor="middle">respects you</text>
         </g>
 
-        <g id="node-proposal" data-node-id="proposal" data-node-label="Proposal" tabindex="0" role="button" aria-label="Focus Proposal, plan draft + tick, Edit + validation › Review gate › Typed edit · proposal" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="plan draft + tick" data-node-tag="event=proposal" data-node-context="Edit + validation › Review gate › Typed edit · proposal">
-          <title>Proposal · plan draft + tick · Edit + validation › Review gate › Typed edit · proposal · event=proposal</title>
-          <rect x="792" y="864" width="160" height="68" rx="8" class="c-mask"/>
-          <rect x="792" y="864" width="160" height="68" rx="8" class="c-messagebus" data-animate="node" style="--step:7" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(798 870) scale(0.6875)">
+        <g id="node-proposal" data-node-id="proposal" data-node-label="Show a proposal" tabindex="0" role="button" aria-label="Focus Show a proposal, the difference, before it is saved, Edit + checks › Review gate › Propose · accept" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="the difference, before it is saved" data-node-tag="review" data-node-context="Edit + checks › Review gate › Propose · accept">
+          <title>Show a proposal · the difference, before it is saved · Edit + checks › Review gate › Propose · accept · review</title>
+          <rect x="808" y="864" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="808" y="864" width="168" height="68" rx="8" class="c-messagebus" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(814 870) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="872" y="885" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Proposal</text>
-          <text data-detail="context" x="872" y="902" class="t-muted" font-size="8" text-anchor="middle">plan draft + tick</text>
-        <text data-detail="fine" x="872" y="920" class="t-messagebus" font-size="7" text-anchor="middle">event=proposal</text>
+          <text data-node-label="" data-detail-anchor="" x="892" y="885" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Show a proposal</text>
+          <text data-detail="context" x="892" y="902" class="t-muted" font-size="7.8" text-anchor="middle">the difference, before it is saved</text>
+        <text data-detail="fine" x="892" y="920" class="t-messagebus" font-size="7" text-anchor="middle">review</text>
         </g>
 
-        <g id="node-providers" data-node-id="providers" data-node-label="Providers" tabindex="0" role="button" aria-label="Focus Providers, places · flights, State &amp; evidence › Read + route" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="places · flights" data-node-tag="gap, not guess" data-node-context="State &amp; evidence › Read + route">
-          <title>Providers · places · flights · State &amp; evidence › Read + route · gap, not guess</title>
-          <rect x="485" y="1151" width="150" height="68" rx="8" class="c-mask"/>
-          <rect x="485" y="1151" width="150" height="68" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(491 1157) scale(0.6875)">
+        <g id="node-providers" data-node-id="providers" data-node-label="Real sources" tabindex="0" role="button" aria-label="Focus Real sources, places · flights when needed, State + evidence › Read + prepare change" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="places · flights when needed" data-node-tag="source records" data-node-context="State + evidence › Read + prepare change">
+          <title>Real sources · places · flights when needed · State + evidence › Read + prepare change · source records</title>
+          <rect x="488" y="1151" width="168" height="68" rx="8" class="c-mask"/>
+          <rect x="488" y="1151" width="168" height="68" rx="8" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(494 1157) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="560" y="1172" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Providers</text>
-          <text data-detail="context" x="560" y="1189" class="t-muted" font-size="8" text-anchor="middle">places · flights</text>
-        <text data-detail="fine" x="560" y="1207" class="t-cloud" font-size="7" text-anchor="middle">gap, not guess</text>
+          <text data-node-label="" data-detail-anchor="" x="572" y="1172" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Real sources</text>
+          <text data-detail="context" x="572" y="1189" class="t-muted" font-size="8" text-anchor="middle">places · flights when needed</text>
+        <text data-detail="fine" x="572" y="1207" class="t-cloud" font-size="7" text-anchor="middle">source records</text>
         </g>
 
         <!-- Edge labels -->
-        <g data-detail="context" data-edge-from="apply" data-edge-to="persist" data-edge-label="no review" data-edge-key="0" data-edge-id="apply-persist">
-          <rect x="845.4" y="675" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="872" y="685" class="t-edge-dashed" font-size="8" text-anchor="middle">no review</text>
+        <g data-detail="context" data-edge-from="apply" data-edge-to="persist" data-edge-label="no review needed" data-edge-key="0" data-edge-id="apply-persist">
+          <rect x="848.6" y="675" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="892" y="685" class="t-edge-dashed" font-size="8" text-anchor="middle">no review needed</text>
         </g>
         <g data-detail="context" data-edge-from="apply" data-edge-to="proposal" data-edge-label="review" data-edge-key="1" data-edge-id="apply-proposal">
-          <rect x="852.6" y="838" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="872" y="848" class="t-edge-emphasis" font-size="8" text-anchor="middle">review</text>
+          <rect x="872.6" y="838" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="892" y="848" class="t-edge-emphasis" font-size="8" text-anchor="middle">review</text>
         </g>
-        <g data-detail="context" data-edge-from="gather" data-edge-to="propose" data-edge-label="Bundle" data-edge-key="2" data-edge-id="gather-propose">
-          <rect x="660.6" y="838" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="680" y="848" class="t-muted" font-size="8" text-anchor="middle">Bundle</text>
+        <g data-detail="context" data-edge-from="gather" data-edge-to="propose" data-edge-label="evidence" data-edge-key="2" data-edge-id="gather-propose">
+          <rect x="667.8" y="838" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="692" y="848" class="t-muted" font-size="8" text-anchor="middle">evidence</text>
         </g>
-        <g data-detail="context" data-edge-from="gather" data-edge-to="providers" data-edge-label="query" data-edge-key="3" data-edge-id="gather-providers">
-          <rect x="563" y="785" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="580" y="795" class="t-muted" font-size="8" text-anchor="middle">query</text>
+        <g data-detail="context" data-edge-from="gather" data-edge-to="providers" data-edge-label="look up" data-edge-key="3" data-edge-id="gather-providers">
+          <rect x="550.2" y="968" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="572" y="978" class="t-muted" font-size="8" text-anchor="middle">look up</text>
         </g>
 
 
-        <g data-detail="context" data-edge-from="proposal" data-edge-to="tick" data-edge-label="tick" data-edge-key="6" data-edge-id="proposal-tick">
-          <rect x="945.25" y="100" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="960.25" y="110" class="t-muted" font-size="8" text-anchor="middle">tick</text>
+        <g data-detail="context" data-edge-from="proposal" data-edge-to="tick" data-edge-label="your choice" data-edge-key="6" data-edge-id="proposal-tick">
+          <rect x="760.6" y="499" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="792" y="509" class="t-muted" font-size="8" text-anchor="middle">your choice</text>
         </g>
-        <g data-detail="context" data-edge-from="propose" data-edge-to="apply" data-edge-label="ops" data-edge-key="7" data-edge-id="propose-apply">
-          <rect x="761" y="838" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="776" y="848" class="t-edge-emphasis" font-size="8" text-anchor="middle">ops</text>
+        <g data-detail="context" data-edge-from="propose" data-edge-to="apply" data-edge-label="operations" data-edge-key="7" data-edge-id="propose-apply">
+          <rect x="813" y="933" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="842" y="943" class="t-edge-emphasis" font-size="8" text-anchor="middle">operations</text>
         </g>
 
         <g data-detail="context" data-edge-from="tick" data-edge-to="persist" data-edge-label="accept" data-edge-key="9" data-edge-id="tick-persist">
-          <rect x="852.6" y="336" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="872" y="346" class="t-muted" font-size="8" text-anchor="middle">accept</text>
+          <rect x="872.6" y="336" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="892" y="346" class="t-muted" font-size="8" text-anchor="middle">accept</text>
         </g>
         <g data-detail="context" data-edge-from="understand" data-edge-to="gather" data-edge-label="modify" data-edge-key="10" data-edge-id="understand-gather">
-          <rect x="640.6" y="452" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="660" y="462" class="t-edge-emphasis" font-size="8" text-anchor="middle">modify</text>
+          <rect x="654.6" y="452" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="674" y="462" class="t-edge-emphasis" font-size="8" text-anchor="middle">modify</text>
         </g>
 
         <!-- Legend -->
@@ -5677,37 +5679,37 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="cards">
       <div class="card">
         <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>What the edit may touch</h3>
+          <div class="card-dot cyan"></div>
+          <h3>What you experience</h3>
         </div>
         <ul>
-          <li>propose_edit asks purpose=edit for an EditDraft: move, retime, add, replace, swap_hotel, set_field, remove.</li>
-          <li>A locked or confirmed item is never moved or removed; untouched items keep their data.</li>
-          <li>A named place with no source triggers lookup_place(); if it still fails, the reply offers “add it anyway” as an unconfirmed stop.</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot violet"></div>
-          <h3>When it becomes a replan</h3>
-        </div>
-        <ul>
-          <li>scope=whole or rebuild_reason returns rebuild=True and the orchestrator calls _plan_turn.</li>
-          <li>A date or destination change is also a rebuild; the whole itinerary is recomposed.</li>
-          <li>Every normal edit returns a proposal; only decide_proposal(accept) writes the next version.</li>
+          <li>You see the proposed change and can accept or reject it.</li>
+          <li>A locked stay, flight or stop is never moved by the edit.</li>
+          <li>The reply names what changed and what was left alone.</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot rose"></div>
+          <h3>When it becomes a rebuild</h3>
+        </div>
+        <ul>
+          <li>A date or destination change is too large for a local edit.</li>
+          <li>Pathfinder then rebuilds the whole plan instead of pretending it is a small change.</li>
+          <li>The new plan still keeps the locks it can.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
           <h3>Failure and handoff</h3>
         </div>
         <ul>
-          <li>No changed item bumps the stuck counter; at 3 failed edits the chat can hand off to the Desk.</li>
-          <li>One bad op is logged and skipped; the other ops still apply.</li>
-          <li>diff_plans() produces the visible changed/added/removed list.</li>
+          <li>No changed item is counted as a stuck edit.</li>
+          <li>A failed edit is explained, not silently applied.</li>
+          <li>Repeated failures can hand the chat to a person at the Desk.</li>
         </ul>
       </div>
     </div>

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "6d18cbac-763c-46a3-a326-757527eb895a",
+  "status": "current",
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\dataflow-pathfinder-v5-story-20261123-143500\\candidate.json",
+  "output": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-dataflow.html",
+  "specification": {
+    "sha256": "e9cb073dfef6c34c1ab6a63b5f2051b2284ea85dad1cc978e9f09267566bb0d6",
+    "bytes": 6376
+  },
+  "artifact": {
+    "sha256": "fa369bf646bf6ba5826f32b03c5f0ca1ca4fad6d9d0bdf5071e0bdedbcbd3f86",
+    "bytes": 850595
+  }
+}

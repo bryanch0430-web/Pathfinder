@@ -85,6 +85,11 @@ plan; this release gives each uncertain part its own bounded representation.
 - The architecture reference now includes an ordered step map, a separate
   escalation/HITL branch, a reserved Judge-model marker, and the distinction between
   reported intent confidence and calibrated probability.
+- Architecture maps are rewritten as plain-language stories: a journey overview, a
+  plan-checking map, a data-flow map, and four turn stories. The set is indexed in
+  `docs/architecture/README.md`; the previous code-first map is replaced by the
+  readable checking story.
+
 - Retrospective dual-router shadow: 78/84 agreement, 100% accuracy on the 78 agreed
   cases, six clarifications, and the analyst's only error inside the disagreement set.
   This is a saved-prediction analysis, not a live concurrent shadow; see

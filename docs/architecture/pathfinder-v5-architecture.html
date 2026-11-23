@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 3.2.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>Pathfinder v5 — System Architecture Diagram</title>
+  <title>How Pathfinder plans a trip Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -3840,18 +3840,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       transform: translateX(-50%) translateY(0);
     }
 
-  
-  .arch-ref__steps { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0.35rem; margin: 0.8rem 0 1rem; }
-  .arch-ref__step { position: relative; min-height: 90px; padding: 0.55rem 0.55rem 0.5rem; border: 1px solid var(--ar-border); border-radius: 7px; background: color-mix(in srgb, var(--ar-card) 62%, transparent); }
-  .arch-ref__step:not(:last-child)::after { content: "→"; position: absolute; right: -0.38rem; top: 50%; transform: translateY(-50%); color: var(--ar-accent); font-size: 0.8rem; z-index: 1; }
-  .arch-ref__step b { display: block; color: var(--ar-accent); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
-  .arch-ref__step strong { display: block; margin-top: 0.2rem; font-size: 0.8rem; line-height: 1.25; }
-  .arch-ref__step p { margin: 0.3rem 0 0; font-size: 0.68rem; line-height: 1.4; }
-  .arch-ref__escalation { border-left-color: var(--security-stroke, #fb7185); background: color-mix(in srgb, var(--security-stroke, #fb7185) 7%, transparent); }
-  @media (max-width: 1000px) { .arch-ref__steps { grid-template-columns: repeat(4, minmax(0, 1fr)); } .arch-ref__step::after { display: none; } }
-  @media (max-width: 560px) { .arch-ref__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
-  @media (max-width: 720px) {
+    @media (max-width: 720px) {
       body { padding: 1rem; }
       .toolbar .preset-menu,
       .toolbar .export-menu {
@@ -5096,7 +5085,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   </style>
 <script type="application/json" id="archify-software-notices">"NOTICE\nArchify\nCopyright (c) 2026 tt-a1i (Archify)\nCopyright (c) 2025 Cocoon AI\n\nArchify is distributed under the Apache License, Version 2.0 (LICENSE),\nexcept where a file, package manifest, or third-party notice specifies otherwise.\nThe separately versioned DeepSeek Harness adapter remains MIT; its bundled\nSkill retains the license of the immutable source selected in release.json.\n\nCode and contributions received under the MIT License through pre-transition\ncommit 25cf37080fc8b1dbe758a4efc3935b55f3327083 remain available under their\noriginal terms. Previously published releases keep their existing licenses. The complete historical MIT\ncopyright and permission notice is preserved in LICENSE-MIT. This transition\ndoes not revoke existing MIT grants or assert a new patent grant on behalf\nof historical contributors.\n\nArchify originated from Cocoon-AI/architecture-diagram-generator:\nhttps://github.com/Cocoon-AI/architecture-diagram-generator\n\nThird-party components retain their own licenses; see THIRD_PARTY_NOTICES.md\nand the license files beside those components. Names and logos do not imply\nofficial endorsement, and the software license grants no general trademark\npermission.\n\nThese software licenses cover Archify's embedded runtime and templates, not\nownership of a user's authored content, business data, or source repository.\n\nLICENSE\n\n                                 Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n      other entities that control, are controlled by, or are under common\n      control with that entity. For the purposes of this definition,\n      \"control\" means (i) the power, direct or indirect, to cause the\n      direction or management of such entity, whether by contract or\n      otherwise, or (ii) ownership of fifty percent (50%) or more of the\n      outstanding shares, or (iii) beneficial ownership of such entity.\n\n      \"You\" (or \"Your\") shall mean an individual or Legal Entity\n      exercising permissions granted by this License.\n\n      \"Source\" form shall mean the preferred form for making modifications,\n      including but not limited to software source code, documentation\n      source, and configuration files.\n\n      \"Object\" form shall mean any form resulting from mechanical\n      transformation or translation of a Source form, including but\n      not limited to compiled object code, generated documentation,\n      and conversions to other media types.\n\n      \"Work\" shall mean the work of authorship, whether in Source or\n      Object form, made available under the License, as indicated by a\n      copyright notice that is included in or attached to the work\n      (an example is provided in the Appendix below).\n\n      \"Derivative Works\" shall mean any work, whether in Source or Object\n      form, that is based on (or derived from) the Work and for which the\n      editorial revisions, annotations, elaborations, or other modifications\n      represent, as a whole, an original work of authorship. For the purposes\n      of this License, Derivative Works shall not include works that remain\n      separable from, or merely link (or bind by name) to the interfaces of,\n      the Work and Derivative Works thereof.\n\n      \"Contribution\" shall mean any work of authorship, including\n      the original version of the Work and any modifications or additions\n      to that Work or Derivative Works thereof, that is intentionally\n      submitted to Licensor for inclusion in the Work by the copyright owner\n      or by an individual or Legal Entity authorized to submit on behalf of\n      the copyright owner. For the purposes of this definition, \"submitted\"\n      means any form of electronic, verbal, or written communication sent\n      to the Licensor or its representatives, including but not limited to\n      communication on electronic mailing lists, source code control systems,\n      and issue tracking systems that are managed by, or on behalf of, the\n      Licensor for the purpose of discussing and improving the Work, but\n      excluding communication that is conspicuously marked or otherwise\n      designated in writing by the copyright owner as \"Not a Contribution.\"\n\n      \"Contributor\" shall mean Licensor and any individual or Legal Entity\n      on behalf of whom a Contribution has been received by Licensor and\n      subsequently incorporated within the Work.\n\n   2. Grant of Copyright License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      copyright license to reproduce, prepare Derivative Works of,\n      publicly display, publicly perform, sublicense, and distribute the\n      Work and such Derivative Works in Source or Object form.\n\n   3. Grant of Patent License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      (except as stated in this section) patent license to make, have made,\n      use, offer to sell, sell, import, and otherwise transfer the Work,\n      where such license applies only to those patent claims licensable\n      by such Contributor that are necessarily infringed by their\n      Contribution(s) alone or by combination of their Contribution(s)\n      with the Work to which such Contribution(s) was submitted. If You\n      institute patent litigation against any entity (including a\n      cross-claim or counterclaim in a lawsuit) alleging that the Work\n      or a Contribution incorporated within the Work constitutes direct\n      or contributory patent infringement, then any patent licenses\n      granted to You under this License for that Work shall terminate\n      as of the date such litigation is filed.\n\n   4. Redistribution. You may reproduce and distribute copies of the\n      Work or Derivative Works thereof in any medium, with or without\n      modifications, and in Source or Object form, provided that You\n      meet the following conditions:\n\n      (a) You must give any other recipients of the Work or\n          Derivative Works a copy of this License; and\n\n      (b) You must cause any modified files to carry prominent notices\n          stating that You changed the files; and\n\n      (c) You must retain, in the Source form of any Derivative Works\n          that You distribute, all copyright, patent, trademark, and\n          attribution notices from the Source form of the Work,\n          excluding those notices that do not pertain to any part of\n          the Derivative Works; and\n\n      (d) If the Work includes a \"NOTICE\" text file as part of its\n          distribution, then any Derivative Works that You distribute must\n          include a readable copy of the attribution notices contained\n          within such NOTICE file, excluding those notices that do not\n          pertain to any part of the Derivative Works, in at least one\n          of the following places: within a NOTICE text file distributed\n          as part of the Derivative Works; within the Source form or\n          documentation, if provided along with the Derivative Works; or,\n          within a display generated by the Derivative Works, if and\n          wherever such third-party notices normally appear. The contents\n          of the NOTICE file are for informational purposes only and\n          do not modify the License. You may add Your own attribution\n          notices within Derivative Works that You distribute, alongside\n          or as an addendum to the NOTICE text from the Work, provided\n          that such additional attribution notices cannot be construed\n          as modifying the License.\n\n      You may add Your own copyright statement to Your modifications and\n      may provide additional or different license terms and conditions\n      for use, reproduction, or distribution of Your modifications, or\n      for any such Derivative Works as a whole, provided Your use,\n      reproduction, and distribution of the Work otherwise complies with\n      the conditions stated in this License.\n\n   5. Submission of Contributions. Unless You explicitly state otherwise,\n      any Contribution intentionally submitted for inclusion in the Work\n      by You to the Licensor shall be under the terms and conditions of\n      this License, without any additional terms or conditions.\n      Notwithstanding the above, nothing herein shall supersede or modify\n      the terms of any separate license agreement you may have executed\n      with Licensor regarding such Contributions.\n\n   6. Trademarks. This License does not grant permission to use the trade\n      names, trademarks, service marks, or product names of the Licensor,\n      except as required for reasonable and customary use in describing the\n      origin of the Work and reproducing the content of the NOTICE file.\n\n   7. Disclaimer of Warranty. Unless required by applicable law or\n      agreed to in writing, Licensor provides the Work (and each\n      Contributor provides its Contributions) on an \"AS IS\" BASIS,\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n      implied, including, without limitation, any warranties or conditions\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n      PARTICULAR PURPOSE. You are solely responsible for determining the\n      appropriateness of using or redistributing the Work and assume any\n      risks associated with Your exercise of permissions under this License.\n\n   8. Limitation of Liability. In no event and under no legal theory,\n      whether in tort (including negligence), contract, or otherwise,\n      unless required by applicable law (such as deliberate and grossly\n      negligent acts) or agreed to in writing, shall any Contributor be\n      liable to You for damages, including any direct, indirect, special,\n      incidental, or consequential damages of any character arising as a\n      result of this License or out of the use or inability to use the\n      Work (including but not limited to damages for loss of goodwill,\n      work stoppage, computer failure or malfunction, or any and all\n      other commercial damages or losses), even if such Contributor\n      has been advised of the possibility of such damages.\n\n   9. Accepting Warranty or Additional Liability. While redistributing\n      the Work or Derivative Works thereof, You may choose to offer,\n      and charge a fee for, acceptance of support, warranty, indemnity,\n      or other liability obligations and/or rights consistent with this\n      License. However, in accepting such obligations, You may act only\n      on Your own behalf and on Your sole responsibility, not on behalf\n      of any other Contributor, and only if You agree to indemnify,\n      defend, and hold each Contributor harmless for any liability\n      incurred by, or claims asserted against, such Contributor by reason\n      of your accepting any such warranty or additional liability.\n\n   END OF TERMS AND CONDITIONS\n\n   APPENDIX: How to apply the Apache License to your work.\n\n      To apply the Apache License to your work, attach the following\n      boilerplate notice, with the fields enclosed by brackets \"[]\"\n      replaced with your own identifying information. (Don't include\n      the brackets!)  The text should be enclosed in the appropriate\n      comment syntax for the file format. We also recommend that a\n      file or class name and description of purpose be included on the\n      same \"printed page\" as the copyright notice for easier\n      identification within third-party archives.\n\n   Copyright [yyyy] [name of copyright owner]\n\n   Licensed under the Apache License, Version 2.0 (the \"License\");\n   you may not use this file except in compliance with the License.\n   You may obtain a copy of the License at\n\n       http://www.apache.org/licenses/LICENSE-2.0\n\n   Unless required by applicable law or agreed to in writing, software\n   distributed under the License is distributed on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n   See the License for the specific language governing permissions and\n   limitations under the License.\n\nLICENSE-MIT\nMIT License\n\nCopyright (c) 2026 tt-a1i (Archify)\nCopyright (c) 2025 Cocoon AI\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n\nTHIRD_PARTY_NOTICES.md\n# Third-party notices\n\nArchify includes optional vector data for third-party brand marks. These marks\nare provided only to identify technologies and services in user-authored\ndiagrams. Their inclusion does not imply sponsorship, endorsement, partnership,\nor affiliation with Archify.\n\nArchify's license and historical MIT grants are described in LICENSE, NOTICE,\nand LICENSE-MIT. The software license does not\nreplace the copyright licenses, trademark policies, or brand guidelines that\napply to third-party marks. Users are responsible for confirming that their\nparticular use is permitted.\n\n## Simple Icons\n\nMost of the built-in vector paths and their metadata were generated from\n[Simple Icons 16.28.0](https://github.com/simple-icons/simple-icons/tree/16.28.0).\nSimple Icons makes its collection work available under\n[CC0 1.0 Universal](https://github.com/simple-icons/simple-icons/blob/16.28.0/LICENSE.md).\n\nAs Simple Icons explains in its\n[disclaimer](https://github.com/simple-icons/simple-icons/blob/16.28.0/DISCLAIMER.md),\nCC0 for the collection does not mean that every underlying icon is CC0. License\nand brand-guideline metadata may be incomplete or change over time. The absence\nof an individual license entry is not a grant of permission.\n\nArchify embeds the selected icons as vector-path data and may render them in a\nuser-selected color. The following individual licenses were recorded in the\npinned Simple Icons 16.28.0 metadata:\n\n| Mark | Recorded source | Recorded license | Archify treatment |\n|---|---|---|---|\n| Angular | [Angular press kit](https://angular.dev/press-kit) | [`CC-BY-4.0`](https://creativecommons.org/licenses/by/4.0/) | Embedded as vector-path data; color may be changed by the authored diagram. |\n| Apache Airflow | [Apache logos](https://apache.org/logos) | [`Apache-2.0`](https://www.apache.org/licenses/LICENSE-2.0) | Embedded as vector-path data; Apache trademarks remain subject to the [ASF trademark policy](https://www.apache.org/foundation/marks/). |\n| Apache Kafka | [Apache logos](https://apache.org/logos) | [`Apache-2.0`](https://www.apache.org/licenses/LICENSE-2.0) | Embedded as vector-path data; Apache trademarks remain subject to the [ASF trademark policy](https://www.apache.org/foundation/marks/). |\n| .NET | [.NET brand repository](https://github.com/dotnet/brand/blob/c7d0f51b8ec59531332d05fb27a5b758a7a3d689/logo/dotnet-logo.svg) | [`CC0-1.0`](https://creativecommons.org/publicdomain/zero/1.0/) | Embedded as vector-path data; color may be changed by the authored diagram. |\n| JavaScript | [JS community logo](https://github.com/voodootikigod/logo.js/blob/1544bdeed6d618a6cfe4f0650d04ab8d9cfa76d9/js.svg) | [`MIT`](https://github.com/voodootikigod/logo.js/blob/1544bdeed6d618a6cfe4f0650d04ab8d9cfa76d9/LICENSE) | Embedded as vector-path data; color may be changed by the authored diagram. |\n| Jenkins | [Jenkins artwork source](https://get.jenkins.io/art/) | [`CC-BY-SA-3.0`](https://creativecommons.org/licenses/by-sa/3.0/) | Embedded as vector-path data; color may be changed by the authored diagram. Jenkins retains its trademark rights. |\n| Rust | [Rust project](https://www.rust-lang.org) | [`CC-BY-SA-4.0`](https://creativecommons.org/licenses/by-sa/4.0/) | Embedded as vector-path data; color may be changed by the authored diagram. See the [Rust media guide](https://www.rust-lang.org/policies/media-guide). |\n| Vue.js | [Vue logo source](https://github.com/vuejs/art/blob/a1c78b74569b70a25300925b4eacfefcc143b8f6/logo.svg) | [`CC-BY-NC-SA-4.0`](https://creativecommons.org/licenses/by-nc-sa/4.0/) | Embedded as vector-path data; color may be changed by the authored diagram. The non-commercial and share-alike conditions remain applicable; see the [Vue artwork terms](https://github.com/vuejs/art/blob/a1c78b74569b70a25300925b4eacfefcc143b8f6/README.md). |\n\nThe source, guideline, and known license fields for every packaged mark are\npreserved in `renderers/shared/generated-brand-marks.mjs`.\n\n## OpenAI mark\n\nThe OpenAI vector path is recorded from the\n[OpenAI brand guidelines](https://openai.com/brand/), not from Simple Icons.\nUse remains subject to those current guidelines and any applicable trademark\nrights. Its inclusion does not state or imply endorsement by OpenAI.\n\n## JetBrains Mono\n\nDelivered Archify viewer artifacts embed the JetBrains Mono variable font\nsubsets served by Google Fonts. For characters covered by these subsets, font\nselection does not depend on a network request or a locally installed copy.\nUncovered characters (including CJK) still use the system fallback stack;\nbrowser and operating-system rasterization can differ.\nJetBrains Mono is maintained at\n[github.com/JetBrains/JetBrainsMono](https://github.com/JetBrains/JetBrainsMono)\nand is distributed under the SIL Open Font License 1.1. The complete license\ntext is preserved in `assets/JetBrainsMono-OFL.txt` in the packaged Skill and\nin the font CSS carried by standalone HTML and SVG exports.\n\n## Pele\n\nThe explainer renders Mermaid chart fences with an unmodified subset of\n[Pele 1.3.0](https://github.com/obsidianmd/pele), copyright (c) 2026 kepano,\ndistributed under the MIT License. The subset and its license text are in\n`explainer/vendor/pele/` in the packaged Skill. Charts are rendered to static\nSVG when a page is built; delivered pages contain no Pele code.\n\n## No additional rights granted\n\nBrand names, logos, and trademarks remain the property of their respective\nowners. This notice records provenance and known terms; it does not grant rights\nthat Archify does not hold, and it does not state that every packaged mark has\nbeen cleared for every commercial, promotional, or redistributive use."</script>
 </head>
-<body id="top">
+<body>
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
        Motion appears only for trace-enabled artifacts and has no shortcut;
        Keyboard: T toggles theme, S cycles style, F toggles the stage, E opens export. -->
@@ -5205,9 +5194,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="BLUEPRINT / REV 01"
            data-preset-badge-editorial="EDITORIAL / FIELD NOTE">
         <div class="pulse-dot"></div>
-        <h1>Pathfinder v5 — System Architecture</h1>
+        <h1>How Pathfinder plans a trip</h1>
       </div>
-      <p class="subtitle">v5.1 · 23 November 2026 · compact system map + <a href="#architecture-reference">complete architecture reference ↓</a></p>
+      <p class="subtitle">The whole journey, in plain language: you ask, Pathfinder gathers real evidence, checks the plan, and asks a person only when it should.</p>
     </div>
 
 
@@ -5215,9 +5204,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 1280 782" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
-        <title id="archify-diagram-title">Pathfinder v5 — System Architecture</title>
-        <desc id="archify-diagram-description">An architecture diagram generated by Archify.</desc>
+      <svg viewBox="0 0 1290 619" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
+        <title id="archify-diagram-title">How Pathfinder plans a trip</title>
+        <desc id="archify-diagram-description">The whole journey, in plain language: you ask, Pathfinder gathers real evidence, checks the plan, and asks a person only when it should.</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -5262,426 +5251,336 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Browser" x="190" y="291" width="170" height="114" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Outside sources" x="1040" y="80" width="210" height="122" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Turn fence: schema · canary · code-owned tools" x="388" y="288" width="424" height="122" rx="8" class="c-security-group" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Your browser" x="10" y="265" width="410" height="124" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="External model providers" x="1070" y="66" width="170" height="192" rx="12" class="c-region" stroke-width="1"/>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="3" data-composition-frame-label="External travel data" x="850" y="466" width="220" height="140" rx="12" class="c-region" stroke-width="1"/>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="4" data-composition-frame-label="Local state" x="410" y="596" width="400" height="118" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Human support" x="190" y="75" width="230" height="124" rx="12" class="c-region" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
-          <path data-graph-role="automatic-crossover-underlay" d="M 160 350 L 200 350" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="traveller" data-edge-to="ui" data-edge-key="0" data-edge-id="traveller-ui" data-composition-points="160,350;200,350" data-composition-crossover="halo" data-composition-independent="true" d="M 160 350 L 200 350" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 180 333 L 220 333" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="traveller" data-edge-to="ui" data-edge-label="asks" data-edge-key="0" data-edge-id="ask" data-composition-points="180,333;220,333" data-composition-crossover="halo" data-composition-independent="true" d="M 180 333 L 220 333" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:1">
-          <path data-graph-role="automatic-crossover-underlay" d="M 350 357 L 400 357" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="ui" data-edge-to="api" data-edge-label="JSON" data-edge-key="1" data-edge-id="ui-api" data-composition-points="350,357;400,357" data-composition-crossover="halo" data-composition-independent="true" d="M 350 357 L 400 357" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 320.05 295 L 320.05 279 Q 320.05 271 328.05 271 L 398 271 Q 406 271 406 279 L 406 314.9 Q 406 322.9 414 322.9 L 430 322.9" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="ui" data-edge-to="api" data-edge-label="one turn" data-edge-key="1" data-edge-id="send" data-composition-points="320.05,295;320.05,271;406,271;406,322.9;430,322.9" data-composition-crossover="halo" data-composition-independent="true" d="M 320.05 295 L 320.05 279 Q 320.05 271 328.05 271 L 398 271 Q 406 271 406 279 L 406 314.9 Q 406 322.9 414 322.9 L 430 322.9" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:2">
-          <path data-graph-role="automatic-crossover-underlay" d="M 466 389 L 466 405 Q 466 413 458 413 L 283 413 Q 275 413 275 405 L 275 385" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="api" data-edge-to="ui" data-edge-label="SSE events" data-edge-key="2" data-edge-id="api-sse" data-composition-points="466,389;466,413;275,413;275,385" data-composition-crossover="halo" data-composition-independent="true" d="M 466 389 L 466 405 Q 466 413 458 413 L 283 413 Q 275 413 275 405 L 275 385" class="a-dashed" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 600 323.95 L 616 323.95 Q 624 323.95 624 315.95 L 624 274 Q 624 266 632 266 L 701 266 Q 709 266 709 274 L 709 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="orchestrator" data-edge-label="prepare + budget" data-edge-key="2" data-edge-id="prepare" data-composition-points="600,323.95;624,323.95;624,266;709,266;709,290" data-composition-crossover="halo" data-composition-independent="true" d="M 600 323.95 L 616 323.95 Q 624 323.95 624 315.95 L 624 274 Q 624 266 632 266 L 701 266 Q 709 266 709 274 L 709 290" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:3">
-          <path data-graph-role="automatic-crossover-underlay" d="M 560 352 L 620 352" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="api" data-edge-to="orchestrator" data-edge-label="turn" data-edge-key="3" data-edge-id="api-orchestrator" data-composition-points="560,352;620,352" data-composition-crossover="halo" data-composition-independent="true" d="M 560 352 L 620 352" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 723 290 L 723 180" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read this request" data-edge-key="3" data-edge-id="read" data-composition-points="723,290;723,180" data-composition-crossover="halo" data-composition-independent="true" d="M 723 290 L 723 180" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:4">
-          <path data-graph-role="automatic-crossover-underlay" d="M 710 312 L 710 220" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read" data-edge-key="4" data-edge-id="orchestrator-analyst" data-composition-points="710,312;710,220" data-composition-crossover="halo" data-composition-independent="true" d="M 710 312 L 710 220" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 737 180 L 737 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="analyst" data-edge-to="orchestrator" data-edge-label="intent + details" data-edge-key="4" data-edge-id="route" data-composition-points="737,180;737,290" data-composition-crossover="halo" data-composition-independent="true" d="M 737 180 L 737 290" class="a-dashed" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
-          <path data-graph-role="automatic-crossover-underlay" d="M 800 328 L 868 328 Q 876 328 876 320 L 876 298" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="composer" data-edge-label="plan" data-edge-key="5" data-edge-id="orchestrator-composer" data-composition-points="800,328;876,328;876,298" data-composition-crossover="halo" data-composition-independent="true" d="M 800 328 L 868 328 Q 876 328 876 320 L 876 298" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 820 331 L 832 331 Q 840 331 840 323 L 840 151 Q 840 143 848 143 L 860 143" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="workers" data-edge-label="what to look up" data-edge-key="5" data-edge-id="gather" data-composition-points="820,331;840,331;840,143;860,143" data-composition-crossover="halo" data-composition-independent="true" d="M 820 331 L 832 331 Q 840 331 840 323 L 840 151 Q 840 143 848 143 L 860 143" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:6">
-          <path data-graph-role="automatic-crossover-underlay" d="M 731 390 L 731 426 Q 731 434 739 434 L 860 434" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="editor" data-edge-label="edit" data-edge-key="6" data-edge-id="orchestrator-editor" data-composition-points="731,390;731,434;860,434" data-composition-crossover="halo" data-composition-independent="true" d="M 731 390 L 731 426 Q 731 434 739 434 L 860 434" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 182 L 1145 198 Q 1145 206 1137 206 L 972 206 Q 964 206 964 198 L 964 181" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="providers" data-edge-to="workers" data-edge-label="source records" data-edge-key="6" data-edge-id="sources" data-composition-points="1145,182;1145,206;964,206;964,181" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 182 L 1145 198 Q 1145 206 1137 206 L 972 206 Q 964 206 964 198 L 964 181" class="a-dashed" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:7">
-          <path data-graph-role="automatic-crossover-underlay" d="M 800 185 L 860 185" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="analyst" data-edge-to="gateway" data-edge-label="call" data-edge-key="7" data-edge-id="analyst-gateway" data-composition-points="800,185;860,185" data-composition-crossover="halo" data-composition-independent="true" d="M 800 185 L 860 185" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 950 181 L 950 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="workers" data-edge-to="planner" data-edge-label="sourced candidates" data-edge-key="7" data-edge-id="evidence" data-composition-points="950,181;950,290" data-composition-crossover="halo" data-composition-independent="true" d="M 950 181 L 950 290" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:8">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1020 166 L 1090 166 Q 1096 166 1096 160 L 1096 154" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="gateway" data-edge-to="writer" data-edge-label="chat" data-edge-key="8" data-edge-id="gateway-writer" data-composition-points="1020,166;1096,166;1096,154" data-composition-crossover="halo" data-composition-independent="true" d="M 1020 166 L 1090 166 Q 1096 166 1096 160 L 1096 154" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 950 368 L 950 386 Q 950 394 958 394 L 1123 394 Q 1131 394 1131 386 L 1131 370" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="planner" data-edge-to="checks" data-edge-label="draft plan" data-edge-key="8" data-edge-id="draft" data-composition-points="950,368;950,394;1131,394;1131,370" data-composition-crossover="halo" data-composition-independent="true" d="M 950 368 L 950 386 Q 950 394 958 394 L 1123 394 Q 1131 394 1131 386 L 1131 370" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:9">
-          <path data-graph-role="automatic-crossover-underlay" d="M 994 298 L 994 323 Q 994 331 1002 331 L 1060 331" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="composer" data-edge-to="validator" data-edge-label="draft" data-edge-key="9" data-edge-id="composer-validator" data-composition-points="994,298;994,331;1060,331" data-composition-crossover="halo" data-composition-independent="true" d="M 994 298 L 994 323 Q 994 331 1002 331 L 1060 331" class="a-emphasis" data-animate="edge" style="--step:9" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 288 L 1145 272 Q 1145 264 1137 264 L 972 264 Q 964 264 964 272 L 964 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="checks" data-edge-to="planner" data-edge-label="fix it, up to twice" data-edge-key="9" data-edge-id="repair" data-composition-points="1145,288;1145,264;964,264;964,290" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 288 L 1145 272 Q 1145 264 1137 264 L 972 264 Q 964 264 964 272 L 964 290" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:10">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1010 416 L 1068 416 Q 1076 416 1076 408 L 1076 383" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="editor" data-edge-to="validator" data-edge-label="ops" data-edge-key="10" data-edge-id="editor-validator" data-composition-points="1010,416;1076,416;1076,383" data-composition-crossover="halo" data-composition-independent="true" d="M 1010 416 L 1068 416 Q 1076 416 1076 408 L 1076 383" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 370 L 1145 455" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="checks" data-edge-to="store" data-edge-label="pass → save a version" data-edge-key="10" data-edge-id="save" data-composition-points="1145,370;1145,455" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 370 L 1145 455" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:11">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1060 349 L 1044 349 Q 1036 349 1036 357 L 1036 359 Q 1036 367 1028 367 L 832 367 Q 824 367 824 359 L 824 359 Q 824 351 816 351 L 800 351" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="validator" data-edge-to="orchestrator" data-edge-label="plan + problems" data-edge-key="11" data-edge-id="validator-orchestrator" data-composition-points="1060,349;1036,349;1036,367;824,367;824,351;800,351" data-composition-crossover="halo" data-composition-independent="true" d="M 1060 349 L 1044 349 Q 1036 349 1036 357 L 1036 359 Q 1036 367 1028 367 L 832 367 Q 824 367 824 359 L 824 359 Q 824 351 816 351 L 800 351" class="a-emphasis" data-animate="edge" style="--step:11" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 527 L 1145 543 Q 1145 551 1137 551 L 632 551 Q 624 551 624 543 L 624 347 Q 624 339 616 339 L 600 339" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="store" data-edge-to="api" data-edge-label="new plan version" data-edge-key="11" data-edge-id="version" data-composition-points="1145,527;1145,551;624,551;624,339;600,339" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 527 L 1145 543 Q 1145 551 1137 551 L 632 551 Q 624 551 624 543 L 624 347 Q 624 339 616 339 L 600 339" class="a-emphasis" data-animate="edge" style="--step:11" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:12">
-          <path data-graph-role="automatic-crossover-underlay" d="M 717 390 L 717 470" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="agents" data-edge-label="gather" data-edge-key="12" data-edge-id="orchestrator-agents" data-composition-points="717,390;717,470" data-composition-crossover="halo" data-composition-independent="true" d="M 717 390 L 717 470" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 430 339 L 414 339 Q 406 339 406 347 L 406 385 Q 406 393 398 393 L 313 393 Q 305 393 305 385 L 305 369" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="ui" data-edge-label="progress + answer" data-edge-key="12" data-edge-id="stream" data-composition-points="430,339;406,339;406,393;305,393;305,369" data-composition-crossover="halo" data-composition-independent="true" d="M 430 339 L 414 339 Q 406 339 406 347 L 406 385 Q 406 393 398 393 L 313 393 Q 305 393 305 385 L 305 369" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:13">
-          <path data-graph-role="automatic-crossover-underlay" d="M 800 508 L 860 508" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="agents" data-edge-to="providers" data-edge-label="query" data-edge-key="13" data-edge-id="agents-providers" data-composition-points="800,508;860,508" data-composition-crossover="halo" data-composition-independent="true" d="M 800 508 L 860 508" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 730 455 L 730 372" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="memory" data-edge-to="orchestrator" data-edge-label="your preferences" data-edge-key="13" data-edge-id="memory-read" data-composition-points="730,455;730,372" data-composition-crossover="halo" data-composition-independent="true" d="M 730 455 L 730 372" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:14">
-          <path data-graph-role="automatic-crossover-underlay" d="M 710 546 L 710 620" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="agents" data-edge-to="atlas" data-edge-label="offline fallback" data-edge-key="14" data-edge-id="agents-atlas" data-composition-points="710,546;710,620" data-composition-crossover="halo" data-composition-independent="true" d="M 710 546 L 710 620" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 640 324 L 624 324 Q 616 324 616 316 L 616 150 Q 616 142 608 142 L 390 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="desk" data-edge-label="a person is needed" data-edge-key="14" data-edge-id="handoff" data-composition-points="640,324;616,324;616,142;390,142" data-composition-crossover="halo" data-composition-independent="true" d="M 640 324 L 624 324 Q 616 324 616 316 L 616 150 Q 616 142 608 142 L 390 142" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:15">
-          <path data-graph-role="automatic-crossover-underlay" d="M 620 374 L 582 374 Q 574 374 574 382 L 574 620" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="store" data-edge-label="persist" data-edge-key="15" data-edge-id="orchestrator-store" data-composition-points="620,374;574,374;574,620" data-composition-crossover="halo" data-composition-independent="true" d="M 620 374 L 582 374 Q 574 374 574 382 L 574 620" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:16">
-          <path data-graph-role="automatic-crossover-underlay" d="M 480 389 L 480 620" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="api" data-edge-to="store" data-edge-label="state" data-edge-key="16" data-edge-id="api-store" data-composition-points="480,389;480,620" data-composition-crossover="halo" data-composition-independent="true" d="M 480 389 L 480 620" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:17">
-          <path data-graph-role="automatic-crossover-underlay" d="M 340 652 L 420 652" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="eval" data-edge-to="store" data-edge-label="runs" data-edge-key="17" data-edge-id="eval-store" data-composition-points="340,652;420,652" data-composition-crossover="halo" data-composition-independent="true" d="M 340 652 L 420 652" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:18">
-          <path data-graph-role="automatic-crossover-underlay" d="M 170 652 L 200 652" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="fixtures" data-edge-to="eval" data-edge-key="18" data-edge-id="fixtures-eval" data-composition-points="170,652;200,652" data-composition-crossover="halo" data-composition-independent="true" d="M 170 652 L 200 652" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 305 179 L 305 295" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="desk" data-edge-to="ui" data-edge-label="operator joins" data-edge-key="15" data-edge-id="human" data-composition-points="305,179;305,295" data-composition-crossover="halo" data-composition-independent="true" d="M 305 179 L 305 295" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         </g>
 
         <!-- Components -->
-        <g id="node-traveller" data-node-id="traveller" data-node-label="Traveller" tabindex="0" role="button" aria-label="Focus Traveller, browser chat, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="browser chat" data-node-context="Architecture component">
-          <title>Traveller · browser chat · Architecture component</title>
-          <rect x="40" y="318" width="120" height="64" rx="8" class="c-mask"/>
-          <rect x="40" y="318" width="120" height="64" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-external" transform="translate(46 324) scale(0.6875)">
+        <g id="node-traveller" data-node-id="traveller" data-node-label="You" tabindex="0" role="button" aria-label="Focus You, ask for a trip in chat, Your browser" aria-pressed="false" data-node-kind="external" data-node-sublabel="ask for a trip in chat" data-node-context="Your browser">
+          <title>You · ask for a trip in chat · Your browser</title>
+          <rect x="40" y="300" width="140" height="66" rx="8" class="c-mask"/>
+          <rect x="40" y="300" width="140" height="66" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-external" transform="translate(46 306) scale(0.6875)">
             <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="100" y="348" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Traveller</text>
-        <text data-detail="context" x="100" y="364" class="t-muted" font-size="9" text-anchor="middle">browser chat</text>
+          <text data-node-label="" data-detail-anchor="" x="110" y="331" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">You</text>
+        <text data-detail="context" x="110" y="347" class="t-muted" font-size="9" text-anchor="middle">ask for a trip in chat</text>
         </g>
 
-        <g id="node-ui" data-node-id="ui" data-node-label="React UI" tabindex="0" role="button" aria-label="Focus React UI, Pathfinder v5 UI, Browser" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Pathfinder v5 UI" data-node-tag="Vite build" data-node-context="Browser">
-          <title>React UI · Pathfinder v5 UI · Browser · Vite build</title>
-          <rect x="200" y="315" width="150" height="70" rx="8" class="c-mask"/>
-          <rect x="200" y="315" width="150" height="70" rx="8" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(206 321) scale(0.6875)">
+        <g id="node-ui" data-node-id="ui" data-node-label="Trip workspace" tabindex="0" role="button" aria-label="Focus Trip workspace, chat · plan · map, Your browser" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="chat · plan · map" data-node-tag="the page you use" data-node-context="Your browser">
+          <title>Trip workspace · chat · plan · map · Your browser · the page you use</title>
+          <rect x="220" y="295" width="170" height="74" rx="8" class="c-mask"/>
+          <rect x="220" y="295" width="170" height="74" rx="8" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(226 301) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="275" y="348" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">React UI</text>
-        <text data-detail="context" x="275" y="364" class="t-muted" font-size="9" text-anchor="middle">Pathfinder v5 UI</text>
-        <text data-detail="fine" x="275" y="377" class="t-frontend" font-size="7" text-anchor="middle">Vite build</text>
+          <text data-node-label="" data-detail-anchor="" x="305" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Trip workspace</text>
+        <text data-detail="context" x="305" y="346" class="t-muted" font-size="9" text-anchor="middle">chat · plan · map</text>
+        <text data-detail="fine" x="305" y="361" class="t-frontend" font-size="7" text-anchor="middle">the page you use</text>
         </g>
 
-        <g id="node-api" data-node-id="api" data-node-label="FastAPI API" tabindex="0" role="button" aria-label="Focus FastAPI API, routers · SSE stream, Turn fence: schema · canary · code-owned tools" aria-pressed="false" data-node-kind="backend" data-node-sublabel="routers · SSE stream" data-node-tag="REST + SSE" data-node-context="Turn fence: schema · canary · code-owned tools">
-          <title>FastAPI API · routers · SSE stream · Turn fence: schema · canary · code-owned tools · REST + SSE</title>
-          <rect x="400" y="315" width="160" height="74" rx="8" class="c-mask"/>
-          <rect x="400" y="315" width="160" height="74" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(406 321) scale(0.6875)">
+        <g id="node-api" data-node-id="api" data-node-label="Request desk" tabindex="0" role="button" aria-label="Focus Request desk, receives one turn, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="receives one turn" data-node-tag="streams progress live" data-node-context="Architecture component">
+          <title>Request desk · receives one turn · Architecture component · streams progress live</title>
+          <rect x="430" y="295" width="170" height="74" rx="8" class="c-mask"/>
+          <rect x="430" y="295" width="170" height="74" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(436 301) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="480" y="350" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">FastAPI API</text>
-        <text data-detail="context" x="480" y="366" class="t-muted" font-size="9" text-anchor="middle">routers · SSE stream</text>
-        <text data-detail="fine" x="480" y="381" class="t-backend" font-size="7" text-anchor="middle">REST + SSE</text>
+          <text data-node-label="" data-detail-anchor="" x="515" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Request desk</text>
+        <text data-detail="context" x="515" y="346" class="t-muted" font-size="9" text-anchor="middle">receives one turn</text>
+        <text data-detail="fine" x="515" y="361" class="t-backend" font-size="7" text-anchor="middle">streams progress live</text>
         </g>
 
-        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Turn orchestrator" tabindex="0" role="button" aria-label="Focus Turn orchestrator, one turn, one path, Turn fence: schema · canary · code-owned tools" aria-pressed="false" data-node-kind="backend" data-node-sublabel="one turn, one path" data-node-tag="plan · modify · ask · clarify" data-node-context="Turn fence: schema · canary · code-owned tools">
-          <title>Turn orchestrator · one turn, one path · Turn fence: schema · canary · code-owned tools · plan · modify · ask · clarify</title>
-          <rect x="620" y="312" width="180" height="78" rx="8" class="c-mask"/>
-          <rect x="620" y="312" width="180" height="78" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(626 318) scale(0.6875)">
+        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Turn manager" tabindex="0" role="button" aria-label="Focus Turn manager, one request, one path, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="one request, one path" data-node-tag="budget + safety" data-node-context="Architecture component">
+          <title>Turn manager · one request, one path · Architecture component · budget + safety</title>
+          <rect x="640" y="290" width="180" height="82" rx="8" class="c-mask"/>
+          <rect x="640" y="290" width="180" height="82" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(646 296) scale(0.6875)">
             <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="710" y="349" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Turn orchestrator</text>
-        <text data-detail="context" x="710" y="365" class="t-muted" font-size="9" text-anchor="middle">one turn, one path</text>
-        <text data-detail="fine" x="710" y="382" class="t-backend" font-size="7" text-anchor="middle">plan · modify · ask · clarify</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Turn manager</text>
+        <text data-detail="context" x="730" y="345" class="t-muted" font-size="9" text-anchor="middle">one request, one path</text>
+        <text data-detail="fine" x="730" y="364" class="t-backend" font-size="7" text-anchor="middle">budget + safety</text>
         </g>
 
-        <g id="node-analyst" data-node-id="analyst" data-node-label="Intent router" tabindex="0" role="button" aria-label="Focus Intent router, intent · slots · constraints, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="intent · slots · constraints" data-node-tag="typed schema" data-node-context="Architecture component">
-          <title>Intent router · intent · slots · constraints · Architecture component · typed schema</title>
-          <rect x="620" y="150" width="180" height="70" rx="8" class="c-mask"/>
-          <rect x="620" y="150" width="180" height="70" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-backend" transform="translate(626 156) scale(0.6875)">
+        <g id="node-analyst" data-node-id="analyst" data-node-label="Request reader" tabindex="0" role="button" aria-label="Focus Request reader, what do you want?, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="what do you want?" data-node-tag="intent + details" data-node-context="Architecture component">
+          <title>Request reader · what do you want? · Architecture component · intent + details</title>
+          <rect x="640" y="110" width="180" height="70" rx="8" class="c-mask"/>
+          <rect x="640" y="110" width="180" height="70" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-backend" transform="translate(646 116) scale(0.6875)">
             <path d="M8 2.2 13.8 8 8 13.8 2.2 8Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="710" y="183" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Intent router</text>
-        <text data-detail="context" x="710" y="199" class="t-muted" font-size="9" text-anchor="middle">intent · slots · constraints</text>
-        <text data-detail="fine" x="710" y="212" class="t-backend" font-size="7" text-anchor="middle">typed schema</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="143" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Request reader</text>
+        <text data-detail="context" x="730" y="159" class="t-muted" font-size="9" text-anchor="middle">what do you want?</text>
+        <text data-detail="fine" x="730" y="172" class="t-backend" font-size="7" text-anchor="middle">intent + details</text>
         </g>
 
-        <g id="node-gateway" data-node-id="gateway" data-node-label="Model gateway" tabindex="0" role="button" aria-label="Focus Model gateway, JSON contract · one repair, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="JSON contract · one repair" data-node-tag="every call traced" data-node-context="Architecture component">
-          <title>Model gateway · JSON contract · one repair · Architecture component · every call traced</title>
-          <rect x="860" y="150" width="160" height="70" rx="8" class="c-mask"/>
-          <rect x="860" y="150" width="160" height="70" rx="8" class="c-backend" data-animate="node" style="--step:8" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 156) scale(0.6875)">
+        <g id="node-workers" data-node-id="workers" data-node-label="Research team" tabindex="0" role="button" aria-label="Focus Research team, places · stays · weather · flights, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="places · stays · weather · flights" data-node-tag="flights · videos" data-node-context="Architecture component">
+          <title>Research team · places · stays · weather · flights · Architecture component · flights · videos</title>
+          <rect x="860" y="105" width="180" height="76" rx="8" class="c-mask"/>
+          <rect x="860" y="105" width="180" height="76" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 111) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="940" y="183" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Model gateway</text>
-        <text data-detail="context" x="940" y="199" class="t-muted" font-size="9" text-anchor="middle">JSON contract · one repair</text>
-        <text data-detail="fine" x="940" y="212" class="t-backend" font-size="7" text-anchor="middle">every call traced</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="141" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Research team</text>
+        <text data-detail="context" x="950" y="157" class="t-muted" font-size="8.4" text-anchor="middle">places · stays · weather · flights</text>
+        <text data-detail="fine" x="950" y="173" class="t-backend" font-size="7" text-anchor="middle">flights · videos</text>
         </g>
 
-        <g id="node-writer" data-node-id="writer" data-node-label="Writer model" tabindex="0" role="button" aria-label="Focus Writer model, Poe · claude-sonnet-5.5, External model providers" aria-pressed="false" data-node-kind="external" data-node-sublabel="Poe · claude-sonnet-5.5" data-node-tag="OpenAI-compatible" data-node-context="External model providers">
-          <title>Writer model · Poe · claude-sonnet-5.5 · External model providers · OpenAI-compatible</title>
-          <rect x="1080" y="90" width="150" height="64" rx="8" class="c-mask"/>
-          <rect x="1080" y="90" width="150" height="64" rx="8" class="c-external" data-animate="node" style="--step:9" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1086 96) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1155" y="120" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Writer model</text>
-        <text data-detail="context" x="1155" y="136" class="t-muted" font-size="9" text-anchor="middle">Poe · claude-sonnet-5.5</text>
-        <text data-detail="fine" x="1155" y="146" class="t-external" font-size="7" text-anchor="middle">OpenAI-compatible</text>
-        </g>
-
-        <g id="node-judge" data-node-id="judge" data-node-label="Judge model (reserved)" tabindex="0" role="button" aria-label="Focus Judge model (reserved), DeepSeek, External model providers" aria-pressed="false" data-node-kind="external" data-node-sublabel="DeepSeek" data-node-tag="unused" data-node-context="External model providers">
-          <title>Judge model (reserved) · DeepSeek · not called in v5</title>
-          <rect x="1080" y="180" width="150" height="58" rx="8" class="c-mask"/>
-          <rect x="1080" y="180" width="150" height="58" rx="8" class="c-external" data-animate="node" style="--step:7" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1086 186) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1155" y="207" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Judge model (reserved)</text>
-        <text data-detail="context" x="1155" y="223" class="t-muted" font-size="9" text-anchor="middle">DeepSeek</text>
-        <text data-detail="fine" x="1155" y="230" class="t-external" font-size="7" text-anchor="middle">optional</text>
-        </g>
-
-        <g id="node-composer" data-node-id="composer" data-node-label="Composer" tabindex="0" role="button" aria-label="Focus Composer, selects sourced refs, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="selects sourced refs" data-node-tag="plan skill" data-node-context="Architecture component">
-          <title>Planner · selects sourced refs · Architecture component · plan skill</title>
-          <rect x="860" y="230" width="150" height="68" rx="8" class="c-mask"/>
-          <rect x="860" y="230" width="150" height="68" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 236) scale(0.6875)">
+        <g id="node-planner" data-node-id="planner" data-node-label="Plan builder" tabindex="0" role="button" aria-label="Focus Plan builder, only uses sourced facts, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="only uses sourced facts" data-node-tag="no invented addresses" data-node-context="Architecture component">
+          <title>Plan builder · only uses sourced facts · Architecture component · no invented addresses</title>
+          <rect x="860" y="290" width="180" height="78" rx="8" class="c-mask"/>
+          <rect x="860" y="290" width="180" height="78" rx="8" class="c-backend" data-animate="node" style="--step:8" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 296) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="935" y="262" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Planner</text>
-        <text data-detail="context" x="935" y="278" class="t-muted" font-size="9" text-anchor="middle">selects sourced refs</text>
-        <text data-detail="fine" x="935" y="290" class="t-backend" font-size="7" text-anchor="middle">plan skill</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan builder</text>
+        <text data-detail="context" x="950" y="343" class="t-muted" font-size="9" text-anchor="middle">only uses sourced facts</text>
+        <text data-detail="fine" x="950" y="360" class="t-backend" font-size="7" text-anchor="middle">no invented addresses</text>
         </g>
 
-        <g id="node-editor" data-node-id="editor" data-node-label="Editor" tabindex="0" role="button" aria-label="Focus Editor, typed operations, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="typed operations" data-node-tag="edit skill" data-node-context="Architecture component">
-          <title>Editor · typed operations · Architecture component · edit skill</title>
-          <rect x="860" y="400" width="150" height="68" rx="8" class="c-mask"/>
-          <rect x="860" y="400" width="150" height="68" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 406) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="935" y="432" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Editor</text>
-        <text data-detail="context" x="935" y="448" class="t-muted" font-size="9" text-anchor="middle">typed operations</text>
-        <text data-detail="fine" x="935" y="460" class="t-backend" font-size="7" text-anchor="middle">edit skill</text>
-        </g>
-
-        <g id="node-validator" data-node-id="validator" data-node-label="Validation" tabindex="0" role="button" aria-label="Focus Validation, structure · flight · continuity, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="structure · flight · continuity" data-node-tag="repair ≤ max_repairs" data-node-context="Architecture component">
-          <title>Validation · structure + flight + continuity · Architecture component · repair ≤ max_repairs</title>
-          <rect x="1060" y="315" width="150" height="68" rx="8" class="c-mask"/>
-          <rect x="1060" y="315" width="150" height="68" rx="8" class="c-backend" data-animate="node" style="--step:10" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-backend" transform="translate(1066 321) scale(0.6875)">
+        <g id="node-checks" data-node-id="checks" data-node-label="Checks" tabindex="0" role="button" aria-label="Focus Checks, hours · travel time · budget, Architecture component" aria-pressed="false" data-node-kind="security" data-node-sublabel="hours · travel time · budget" data-node-tag="repair up to twice" data-node-context="Architecture component">
+          <title>Checks · hours · travel time · budget · Architecture component · repair up to twice</title>
+          <rect x="1070" y="288" width="150" height="82" rx="8" class="c-mask"/>
+          <rect x="1070" y="288" width="150" height="82" rx="8" class="c-security" data-animate="node" style="--step:9" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1076 294) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1135" y="347" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Validation</text>
-        <text data-detail="context" x="1135" y="363" class="t-muted" font-size="8.4" text-anchor="middle">structure · flight · continuity</text>
-        <text data-detail="fine" x="1135" y="375" class="t-backend" font-size="7" text-anchor="middle">repair ≤ max_repairs</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Checks</text>
+        <text data-detail="context" x="1145" y="343" class="t-muted" font-size="8.4" text-anchor="middle">hours · travel time · budget</text>
+        <text data-detail="fine" x="1145" y="362" class="t-security" font-size="7" text-anchor="middle">repair up to twice</text>
         </g>
 
-        <g id="node-agents" data-node-id="agents" data-node-label="Evidence workers" tabindex="0" role="button" aria-label="Focus Evidence workers, places · stays · weather · tickets · videos, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="places · stays · weather · tickets · videos" data-node-tag="run in parallel" data-node-context="Architecture component">
-          <title>Evidence workers · places · stays · weather · tickets · videos · Architecture component · run in parallel</title>
-          <rect x="620" y="470" width="180" height="76" rx="8" class="c-mask"/>
-          <rect x="620" y="470" width="180" height="76" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-backend" transform="translate(626 476) scale(0.6875)">
-            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
-            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
-            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
-            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
+        <g id="node-store" data-node-id="store" data-node-label="Saved plan" tabindex="0" role="button" aria-label="Focus Saved plan, every version kept, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="every version kept" data-node-tag="your history" data-node-context="Architecture component">
+          <title>Saved plan · every version kept · Architecture component · your history</title>
+          <rect x="1070" y="455" width="150" height="72" rx="8" class="c-mask"/>
+          <rect x="1070" y="455" width="150" height="72" rx="8" class="c-database" data-animate="node" style="--step:11" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1076 461) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="710" y="506" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Evidence workers</text>
-        <text data-detail="context" x="710" y="522" class="t-muted" font-size="7.1" text-anchor="middle">places · stays · weather · tickets · videos</text>
-        <text data-detail="fine" x="710" y="538" class="t-backend" font-size="7" text-anchor="middle">run in parallel</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Saved plan</text>
+        <text data-detail="context" x="1145" y="505" class="t-muted" font-size="9" text-anchor="middle">every version kept</text>
+        <text data-detail="fine" x="1145" y="519" class="t-database" font-size="7" text-anchor="middle">your history</text>
         </g>
 
-        <g id="node-providers" data-node-id="providers" data-node-label="Travel providers" tabindex="0" role="button" aria-label="Focus Travel providers, Places · weather · routes · flights · search, External travel data" aria-pressed="false" data-node-kind="external" data-node-sublabel="Places · weather · routes · flights · search" data-node-tag="live, sourced" data-node-context="External travel data">
-          <title>Travel providers · Places · weather · routes · flights · search · External travel data · live, sourced</title>
-          <rect x="860" y="490" width="200" height="96" rx="8" class="c-mask"/>
-          <rect x="860" y="490" width="200" height="96" rx="8" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-external" transform="translate(866 496) scale(0.6875)">
+        <g id="node-memory" data-node-id="memory" data-node-label="Travel memory" tabindex="0" role="button" aria-label="Focus Travel memory, preferences · feedback, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="preferences · feedback" data-node-tag="you can clear it" data-node-context="Architecture component">
+          <title>Travel memory · preferences · feedback · Architecture component · you can clear it</title>
+          <rect x="640" y="455" width="180" height="72" rx="8" class="c-mask"/>
+          <rect x="640" y="455" width="180" height="72" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(646 461) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="730" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Travel memory</text>
+        <text data-detail="context" x="730" y="505" class="t-muted" font-size="9" text-anchor="middle">preferences · feedback</text>
+        <text data-detail="fine" x="730" y="519" class="t-database" font-size="7" text-anchor="middle">you can clear it</text>
+        </g>
+
+        <g id="node-desk" data-node-id="desk" data-node-label="Human desk" tabindex="0" role="button" aria-label="Focus Human desk, a person can take over, Human support" aria-pressed="false" data-node-kind="security" data-node-sublabel="a person can take over" data-node-tag="hold · notes · release" data-node-context="Human support">
+          <title>Human desk · a person can take over · Human support · hold · notes · release</title>
+          <rect x="220" y="105" width="170" height="74" rx="8" class="c-mask"/>
+          <rect x="220" y="105" width="170" height="74" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-security" transform="translate(226 111) scale(0.6875)">
+            <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="305" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Human desk</text>
+        <text data-detail="context" x="305" y="156" class="t-muted" font-size="9" text-anchor="middle">a person can take over</text>
+        <text data-detail="fine" x="305" y="171" class="t-security" font-size="7" text-anchor="middle">hold · notes · release</text>
+        </g>
+
+        <g id="node-providers" data-node-id="providers" data-node-label="Real-world sources" tabindex="0" role="button" aria-label="Focus Real-world sources, places · weather · flights, Outside sources" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="places · weather · flights" data-node-tag="live or offline corpus" data-node-context="Outside sources">
+          <title>Real-world sources · places · weather · flights · Outside sources · live or offline corpus</title>
+          <rect x="1070" y="110" width="150" height="72" rx="8" class="c-mask"/>
+          <rect x="1070" y="110" width="150" height="72" rx="8" class="c-cloud" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1076 116) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="960" y="536" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Travel providers</text>
-        <text data-detail="context" x="960" y="552" class="t-muted" font-size="7.2" text-anchor="middle">Places · weather · routes · flights · search</text>
-        <text data-detail="fine" x="960" y="578" class="t-external" font-size="7" text-anchor="middle">live, sourced</text>
-        </g>
-
-        <g id="node-atlas" data-node-id="atlas" data-node-label="Curated place corpus" tabindex="0" role="button" aria-label="Focus Curated place corpus, 12 cities + US, offline evidence" aria-pressed="false" data-node-kind="database" data-node-sublabel="12 cities + US" data-node-tag="offline + eval" data-node-context="Offline evidence">
-          <title>Curated place corpus · 12 cities + US · offline evidence · offline + eval</title>
-          <rect x="620" y="620" width="180" height="64" rx="8" class="c-mask"/>
-          <rect x="620" y="620" width="180" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(626 626) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="710" y="650" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Curated place corpus</text>
-        <text data-detail="context" x="710" y="666" class="t-muted" font-size="9" text-anchor="middle">12 cities + US</text>
-        <text data-detail="fine" x="710" y="676" class="t-database" font-size="7" text-anchor="middle">offline + eval</text>
-        </g>
-
-        <g id="node-store" data-node-id="store" data-node-label="SQLite (WAL)" tabindex="0" role="button" aria-label="Focus SQLite (WAL), sessions · contexts · messages, Local state" aria-pressed="false" data-node-kind="database" data-node-sublabel="sessions · contexts · messages" data-node-tag="versioned plans" data-node-context="Local state">
-          <title>SQLite (WAL) · sessions · contexts · messages · Local state · versioned plans</title>
-          <rect x="420" y="620" width="170" height="74" rx="8" class="c-mask"/>
-          <rect x="420" y="620" width="170" height="74" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(426 626) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="505" y="655" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SQLite (WAL)</text>
-        <text data-detail="context" x="505" y="671" class="t-muted" font-size="9" text-anchor="middle">sessions · contexts · messages</text>
-        <text data-detail="fine" x="505" y="686" class="t-database" font-size="7" text-anchor="middle">versioned plans</text>
-        </g>
-
-        <g id="node-fixtures" data-node-id="fixtures" data-node-label="Frozen fixtures" tabindex="0" role="button" aria-label="Focus Frozen fixtures, 7 suites · 84 routing cases, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="7 suites · 84 routing cases" data-node-tag="v4 baseline" data-node-context="Architecture component">
-          <title>Frozen fixtures · 7 suites · 84 routing cases · Architecture component · v4 baseline</title>
-          <rect x="40" y="620" width="130" height="64" rx="8" class="c-mask"/>
-          <rect x="40" y="620" width="130" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(46 626) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="105" y="650" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Frozen fixtures</text>
-        <text data-detail="context" x="105" y="666" class="t-muted" font-size="7.5" text-anchor="middle">7 suites · 84 routing cases</text>
-        <text data-detail="fine" x="105" y="676" class="t-database" font-size="7" text-anchor="middle">v4 baseline</text>
-        </g>
-
-        <g id="node-eval" data-node-id="eval" data-node-label="Eval runner" tabindex="0" role="button" aria-label="Focus Eval runner, real pipeline, scored, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="real pipeline, scored" data-node-tag="sandbox evidence" data-node-context="Architecture component">
-          <title>Eval runner · real pipeline, scored · Architecture component · sandbox evidence</title>
-          <rect x="200" y="620" width="140" height="64" rx="8" class="c-mask"/>
-          <rect x="200" y="620" width="140" height="64" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="flag" class="semantic-sigil s-backend" transform="translate(206 626) scale(0.6875)">
-            <path d="M3 14V2h10l-2 3 2 3H3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="270" y="650" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Eval runner</text>
-        <text data-detail="context" x="270" y="666" class="t-muted" font-size="9" text-anchor="middle">real pipeline, scored</text>
-        <text data-detail="fine" x="270" y="676" class="t-backend" font-size="7" text-anchor="middle">sandbox evidence</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="144" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Real-world sources</text>
+        <text data-detail="context" x="1145" y="160" class="t-muted" font-size="9" text-anchor="middle">places · weather · flights</text>
+        <text data-detail="fine" x="1145" y="174" class="t-cloud" font-size="7" text-anchor="middle">live or offline corpus</text>
         </g>
 
         <!-- Connection labels -->
-
-        <g data-detail="context" data-edge-from="ui" data-edge-to="api" data-edge-label="JSON" data-edge-key="1" data-edge-id="ui-api">
-          <rect x="360" y="337" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="375" y="347" class="t-edge-default" font-size="8" text-anchor="middle">JSON</text>
+        <g data-detail="context" data-edge-from="traveller" data-edge-to="ui" data-edge-label="asks" data-edge-key="0" data-edge-id="ask">
+          <rect x="185" y="313" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="200" y="323" class="t-edge-emphasis" font-size="8" text-anchor="middle">asks</text>
         </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="ui" data-edge-label="SSE events" data-edge-key="2" data-edge-id="api-sse">
-          <rect x="341.5" y="393" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="370.5" y="403" class="t-edge-dashed" font-size="8" text-anchor="middle">SSE events</text>
+        <g data-detail="context" data-edge-from="ui" data-edge-to="api" data-edge-label="one turn" data-edge-key="1" data-edge-id="send">
+          <rect x="338.825" y="251" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="363.025" y="261" class="t-edge-emphasis" font-size="8" text-anchor="middle">one turn</text>
         </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="orchestrator" data-edge-label="turn" data-edge-key="3" data-edge-id="api-orchestrator">
-          <rect x="575" y="332" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="590" y="342" class="t-edge-default" font-size="8" text-anchor="middle">turn</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="orchestrator" data-edge-label="prepare + budget" data-edge-key="2" data-edge-id="prepare">
+          <rect x="523.2" y="273.4875" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="566.6" y="283.4875" class="t-edge-default" font-size="8" text-anchor="middle">prepare + budget</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read" data-edge-key="4" data-edge-id="orchestrator-analyst">
-          <rect x="695" y="292" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="710" y="302" class="t-edge-default" font-size="8" text-anchor="middle">read</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read this request" data-edge-key="3" data-edge-id="read">
+          <rect x="625.4000000000001" y="186.75" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="671.2" y="196.75" class="t-edge-default" font-size="8" text-anchor="middle">read this request</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="composer" data-edge-label="plan" data-edge-key="5" data-edge-id="orchestrator-composer">
-          <rect x="823" y="308" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="838" y="318" class="t-edge-default" font-size="8" text-anchor="middle">plan</text>
+        <g data-detail="context" data-edge-from="analyst" data-edge-to="orchestrator" data-edge-label="intent + details" data-edge-key="4" data-edge-id="route">
+          <rect x="743" y="200.5" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="786.4" y="210.5" class="t-edge-dashed" font-size="8" text-anchor="middle">intent + details</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="editor" data-edge-label="edit" data-edge-key="6" data-edge-id="orchestrator-editor">
-          <rect x="780.5" y="414" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="795.5" y="424" class="t-edge-default" font-size="8" text-anchor="middle">edit</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="workers" data-edge-label="what to look up" data-edge-key="5" data-edge-id="gather">
+          <rect x="799" y="217" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="840" y="227" class="t-edge-default" font-size="8" text-anchor="middle">what to look up</text>
         </g>
-        <g data-detail="context" data-edge-from="analyst" data-edge-to="gateway" data-edge-label="call" data-edge-key="7" data-edge-id="analyst-gateway">
-          <rect x="815" y="165" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="830" y="175" class="t-edge-default" font-size="8" text-anchor="middle">call</text>
+        <g data-detail="context" data-edge-from="providers" data-edge-to="workers" data-edge-label="source records" data-edge-key="6" data-edge-id="sources">
+          <rect x="1015.9" y="186" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="1054.5" y="196" class="t-edge-dashed" font-size="8" text-anchor="middle">source records</text>
         </g>
-        <g data-detail="context" data-edge-from="gateway" data-edge-to="writer" data-edge-label="chat" data-edge-key="8" data-edge-id="gateway-writer">
-          <rect x="1043" y="146" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="1058" y="156" class="t-edge-default" font-size="8" text-anchor="middle">chat</text>
+        <g data-detail="context" data-edge-from="workers" data-edge-to="planner" data-edge-label="sourced candidates" data-edge-key="7" data-edge-id="evidence">
+          <rect x="847.5999999999999" y="255.75" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="895.8" y="265.75" class="t-edge-default" font-size="8" text-anchor="middle">sourced candidates</text>
         </g>
-        <g data-detail="context" data-edge-from="composer" data-edge-to="validator" data-edge-label="draft" data-edge-key="9" data-edge-id="composer-validator">
-          <rect x="1010" y="311" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="1027" y="321" class="t-edge-emphasis" font-size="8" text-anchor="middle">draft</text>
+        <g data-detail="context" data-edge-from="planner" data-edge-to="checks" data-edge-label="draft plan" data-edge-key="8" data-edge-id="draft">
+          <rect x="1011.5" y="374" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="1040.5" y="384" class="t-edge-default" font-size="8" text-anchor="middle">draft plan</text>
         </g>
-        <g data-detail="context" data-edge-from="editor" data-edge-to="validator" data-edge-label="ops" data-edge-key="10" data-edge-id="editor-validator">
-          <rect x="1028" y="396" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="1043" y="406" class="t-edge-default" font-size="8" text-anchor="middle">ops</text>
+        <g data-detail="context" data-edge-from="checks" data-edge-to="planner" data-edge-label="fix it, up to twice" data-edge-key="9" data-edge-id="repair">
+          <rect x="1003.9" y="244" width="101.2" height="14" rx="3" class="c-mask"/>
+          <text x="1054.5" y="254" class="t-edge-dashed" font-size="8" text-anchor="middle">fix it, up to twice</text>
         </g>
-        <g data-detail="context" data-edge-from="validator" data-edge-to="orchestrator" data-edge-label="plan + problems" data-edge-key="11" data-edge-id="validator-orchestrator">
-          <rect x="889" y="347" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="930" y="357" class="t-edge-emphasis" font-size="8" text-anchor="middle">plan + problems</text>
+        <g data-detail="context" data-edge-from="checks" data-edge-to="store" data-edge-label="pass → save a version" data-edge-key="10" data-edge-id="save">
+          <rect x="1028.1999999999998" y="405.5" width="110.8" height="14" rx="3" class="c-mask"/>
+          <text x="1083.6" y="415.5" class="t-edge-default" font-size="8" text-anchor="middle">pass → save a version</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="agents" data-edge-label="gather" data-edge-key="12" data-edge-id="orchestrator-agents">
-          <rect x="672.2" y="423" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="691.6" y="433" class="t-edge-default" font-size="8" text-anchor="middle">gather</text>
+        <g data-detail="context" data-edge-from="store" data-edge-to="api" data-edge-label="new plan version" data-edge-key="11" data-edge-id="version">
+          <rect x="841.1" y="531" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="884.5" y="541" class="t-edge-emphasis" font-size="8" text-anchor="middle">new plan version</text>
         </g>
-        <g data-detail="context" data-edge-from="agents" data-edge-to="providers" data-edge-label="query" data-edge-key="13" data-edge-id="agents-providers">
-          <rect x="813" y="488" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="830" y="498" class="t-edge-default" font-size="8" text-anchor="middle">query</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="ui" data-edge-label="progress + answer" data-edge-key="12" data-edge-id="stream">
+          <rect x="308.4" y="372.5" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="354.2" y="382.5" class="t-edge-emphasis" font-size="8" text-anchor="middle">progress + answer</text>
         </g>
-        <g data-detail="context" data-edge-from="agents" data-edge-to="atlas" data-edge-label="offline fallback" data-edge-key="14" data-edge-id="agents-atlas">
-          <rect x="660.4000000000001" y="576" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="682.2" y="586" class="t-edge-default" font-size="8" text-anchor="middle">sandbox</text>
+        <g data-detail="context" data-edge-from="memory" data-edge-to="orchestrator" data-edge-label="your preferences" data-edge-key="13" data-edge-id="memory-read">
+          <rect x="686.6" y="435" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="730" y="445" class="t-edge-dashed" font-size="8" text-anchor="middle">your preferences</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="store" data-edge-label="persist" data-edge-key="15" data-edge-id="orchestrator-store">
-          <rect x="552.2" y="477" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="574" y="487" class="t-edge-default" font-size="8" text-anchor="middle">persist</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="desk" data-edge-label="a person is needed" data-edge-key="14" data-edge-id="handoff">
+          <rect x="567.8" y="213" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="616" y="223" class="t-edge-default" font-size="8" text-anchor="middle">a person is needed</text>
         </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="store" data-edge-label="state" data-edge-key="16" data-edge-id="api-store">
-          <rect x="440" y="497.5" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="457" y="507.5" class="t-edge-default" font-size="8" text-anchor="middle">state</text>
+        <g data-detail="context" data-edge-from="desk" data-edge-to="ui" data-edge-label="operator joins" data-edge-key="15" data-edge-id="human">
+          <rect x="221.79999999999998" y="230" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="260.4" y="240" class="t-edge-security" font-size="8" text-anchor="middle">operator joins</text>
         </g>
-        <g data-detail="context" data-edge-from="eval" data-edge-to="store" data-edge-label="runs" data-edge-key="17" data-edge-id="eval-store">
-          <rect x="365" y="632" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="380" y="642" class="t-edge-default" font-size="8" text-anchor="middle">runs</text>
-        </g>
-
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Browser">
-          <rect data-graph-role="structural-frame-label-mask" x="194" y="295" width="47.8" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="198" y="308" class="t-cloud" font-size="9" font-weight="600">Browser</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="Outside sources">
+          <rect data-graph-role="structural-frame-label-mask" x="1044" y="90" width="91" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="1048" y="103" class="t-cloud" font-size="9" font-weight="600">Outside sources</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="Turn fence: schema · canary · code-owned tools">
-          <rect data-graph-role="structural-frame-label-mask" x="392" y="292" width="258.4" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="396" y="305" class="t-security" font-size="9" font-weight="600">Turn fence: schema · canary · code-owned tools</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Your browser">
+          <rect data-graph-role="structural-frame-label-mask" x="14" y="275" width="74.8" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="18" y="288" class="t-cloud" font-size="9" font-weight="600">Your browser</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="External model providers">
-          <rect data-graph-role="structural-frame-label-mask" x="1074" y="70" width="139.6" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="1078" y="83" class="t-cloud" font-size="9" font-weight="600">External model providers</text>
-        </g>
-
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="region" data-composition-frame-label="External travel data">
-          <rect data-graph-role="structural-frame-label-mask" x="854" y="470" width="118" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="858" y="483" class="t-cloud" font-size="9" font-weight="600">External travel data</text>
-        </g>
-
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="4" data-composition-frame-kind="region" data-composition-frame-label="Local state">
-          <rect data-graph-role="structural-frame-label-mask" x="488" y="600" width="69.4" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="492" y="613" class="t-cloud" font-size="9" font-weight="600">Local state</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Human support">
+          <rect data-graph-role="structural-frame-label-mask" x="194" y="85" width="80.2" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="198" y="98" class="t-cloud" font-size="9" font-weight="600">Human support</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="40" y="746" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="766" data-legend-width="93">
-            <rect x="40" y="757" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
-            <text x="62" y="766" class="t-muted" font-size="10" font-weight="500">Frontend</text>
+          <text x="40" y="583" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="603" data-legend-width="93">
+            <rect x="40" y="594" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="603" class="t-muted" font-size="10" font-weight="500">Frontend</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="155" data-legend-baseline="766" data-legend-width="87">
-            <rect x="155" y="757" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
-            <text x="177" y="766" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="155" data-legend-baseline="603" data-legend-width="87">
+            <rect x="155" y="594" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="177" y="603" class="t-muted" font-size="10" font-weight="500">Backend</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="264" data-legend-baseline="766" data-legend-width="93">
-            <rect x="264" y="757" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
-            <text x="286" y="766" class="t-muted" font-size="10" font-weight="500">Database</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="264" data-legend-baseline="603" data-legend-width="93">
+            <rect x="264" y="594" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="286" y="603" class="t-muted" font-size="10" font-weight="500">Database</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="379" data-legend-baseline="766" data-legend-width="93">
-            <rect x="379" y="757" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
-            <text x="401" y="766" class="t-muted" font-size="10" font-weight="500">External</text>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="379" data-legend-baseline="603" data-legend-width="74">
+            <rect x="379" y="594" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="401" y="603" class="t-muted" font-size="10" font-weight="500">Cloud</text>
+          </g>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="475" data-legend-baseline="603" data-legend-width="93">
+            <rect x="475" y="594" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="497" y="603" class="t-muted" font-size="10" font-weight="500">Security</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="590" data-legend-baseline="603" data-legend-width="93">
+            <rect x="590" y="594" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="612" y="603" class="t-muted" font-size="10" font-weight="500">External</text>
           </g>
         </g>
       </svg>
@@ -5863,52 +5762,39 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="cards">
       <div class="card">
         <div class="card-header">
-          <div class="card-dot emerald"></div>
-          <h3>Grounding by construction</h3>
+          <div class="card-dot cyan"></div>
+          <h3>The short story</h3>
         </div>
         <ul>
-          <li>The composer names evidence refs; code copies name, address, price, hours and sources.</li>
-          <li>A named place outside the curated place corpus is looked up (Google Places live, Wikipedia offline) before it is added.</li>
-          <li>If no source exists and the traveller insists, the stop is added marked unconfirmed, with a visible gap.</li>
-          <li>A deterministic budget guard trims paid stops rather than letting the total overrun.</li>
+          <li>You ask in normal language.</li>
+          <li>Pathfinder reads the request, looks up real places and times, and builds a plan.</li>
+          <li>It checks the plan, then saves a version and shows it to you.</li>
+          <li>If a detail is missing or two readings are possible, it asks instead of guessing.</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>State and edits</h3>
+          <div class="card-dot emerald"></div>
+          <h3>Why you can trust the plan</h3>
         </div>
         <ul>
-          <li>Plans are append-only versions; restore copies an old version forward.</li>
-          <li>An edit returns typed ops and a proposal; the plan changes only when a tick is accepted.</li>
-          <li>Locked and confirmed stops are never moved or removed by an edit.</li>
+          <li>Every stop and stay points back to a source.</li>
+          <li>Code decides dates, travel time, opening hours and totals; the model does not do the arithmetic.</li>
+          <li>A failed check goes back for repair, not silently into the plan.</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot rose"></div>
-          <h3>Security and trust</h3>
+          <h3>When a human steps in</h3>
         </div>
         <ul>
-          <li>The traveller message is untrusted data in every prompt; injection is recorded as a threat.</li>
-          <li>A canary is checked on every model output; a leak becomes a refusal.</li>
-          <li>Code chooses which provider runs: no booking or payment tool exists.</li>
-          <li>Session access: owner token, signed-in user, or local admin.</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>Evaluation</h3>
-        </div>
-        <ul>
-          <li>The 7 frozen v4 suites run through the same orchestrator with sandbox evidence.</li>
-          <li>Scoring is deterministic: intent match, constraint audit, source coverage, disruption outcome.</li>
-          <li>Runs and scores persist to SQLite and export from the Evaluation tab.</li>
-          <li>In-turn checks are <strong>Validation</strong> plus the constraint verifier; Evaluation is the offline harness. See the full reference below the diagram.</li>
+          <li>You ask for a person, sound stuck, or the same problem repeats.</li>
+          <li>The chat moves to the Desk with its history.</li>
+          <li>An operator can hold, note, take over or release it.</li>
+          <li>The finished chat then moves to Session history.</li>
         </ul>
       </div>
     </div>
@@ -5922,432 +5808,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </aside>
 
   </div>
-
-<style>
-  .arch-ref {
-    --ar-ink: var(--text);
-    --ar-muted: var(--text-muted);
-    --ar-border: var(--panel-border);
-    --ar-card: var(--panel);
-    --ar-accent: var(--arrow-emphasis, #34d399);
-    max-width: var(--archify-reader-width, 1440px);
-    margin: 2.5rem auto 3rem;
-    padding: 2rem;
-    color: var(--ar-ink);
-    background: var(--ar-card);
-    border: 1px solid var(--ar-border);
-    border-radius: 16px;
-    font-size: 14px;
-    line-height: 1.65;
-  }
-  .arch-ref * { box-sizing: border-box; }
-  .arch-ref a { color: var(--ar-accent); text-underline-offset: 2px; }
-  .arch-ref code {
-    padding: 0.08rem 0.32rem;
-    border: 1px solid var(--ar-border);
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--ar-card) 55%, transparent);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.86em;
-  }
-  .arch-ref__eyebrow {
-    margin: 0 0 0.5rem;
-    color: var(--ar-accent);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
-  }
-  .arch-ref h2 {
-    margin: 0 0 0.6rem;
-    font-size: clamp(1.6rem, 3vw, 2.4rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-  }
-  .arch-ref h3 {
-    margin: 2.2rem 0 0.75rem;
-    padding-top: 1.1rem;
-    border-top: 1px solid var(--ar-border);
-    font-size: 1.18rem;
-    line-height: 1.25;
-  }
-  .arch-ref h4 { margin: 1rem 0 0.35rem; font-size: 0.98rem; }
-  .arch-ref p { margin: 0.45rem 0 0.8rem; color: var(--ar-muted); }
-  .arch-ref strong { color: var(--ar-ink); }
-  .arch-ref__lead { max-width: 78ch; font-size: 1.02rem; }
-  .arch-ref__meta { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1rem; }
-  .arch-ref__pill {
-    padding: 0.22rem 0.55rem;
-    border: 1px solid var(--ar-border);
-    border-radius: 999px;
-    color: var(--ar-muted);
-    font-size: 0.72rem;
-  }
-  .arch-ref__toc {
-    display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem;
-    margin: 1.25rem 0 0; padding: 0.8rem 1rem;
-    border: 1px solid var(--ar-border); border-radius: 9px;
-    font-size: 0.78rem;
-  }
-  .arch-ref__toc a { color: var(--ar-muted); text-decoration: none; }
-  .arch-ref__toc a:hover { color: var(--ar-accent); text-decoration: underline; }
-  .arch-ref__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.7rem; margin: 0.7rem 0 1rem; }
-  .arch-ref__card { padding: 0.75rem 0.85rem; border: 1px solid var(--ar-border); border-radius: 8px; background: color-mix(in srgb, var(--ar-card) 62%, transparent); }
-  .arch-ref__card h4 { margin: 0 0 0.25rem; }
-  .arch-ref__card p { margin: 0; font-size: 0.86rem; }
-  .arch-ref table { width: 100%; margin: 0.65rem 0 1rem; border-collapse: collapse; font-size: 0.82rem; }
-  .arch-ref th, .arch-ref td { padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--ar-border); text-align: left; vertical-align: top; }
-  .arch-ref th { color: var(--ar-ink); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
-  .arch-ref td { color: var(--ar-muted); }
-  .arch-ref td:first-child { color: var(--ar-ink); white-space: nowrap; }
-  .arch-ref ol, .arch-ref ul { margin: 0.4rem 0 0.9rem 1.15rem; color: var(--ar-muted); }
-  .arch-ref li { margin: 0.25rem 0; }
-  .arch-ref__flow { margin: 0.7rem 0 1.1rem; padding: 0.8rem 1rem; border-left: 3px solid var(--ar-accent); background: color-mix(in srgb, var(--ar-accent) 7%, transparent); border-radius: 0 8px 8px 0; }
-  .arch-ref__flow h4 { margin-top: 0; }
-  .arch-ref__flow p:last-child { margin-bottom: 0; }
-  .arch-ref__note { margin: 1rem 0; padding: 0.75rem 0.9rem; border: 1px solid var(--ar-border); border-radius: 8px; color: var(--ar-muted); font-size: 0.86rem; }
-  .arch-ref__note strong { color: var(--ar-ink); }
-  .arch-ref__split { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
-  .arch-ref__small { font-size: 0.8rem; }
-  .arch-ref__back { display: inline-block; margin-top: 0.5rem; font-size: 0.78rem; }
-  @media (max-width: 720px) {
-    .arch-ref { margin: 1rem 0; padding: 1rem; border-radius: 0; }
-    .arch-ref th, .arch-ref td { padding: 0.4rem 0.35rem; }
-    .arch-ref td:first-child { white-space: normal; }
-  }
-  html[data-embed="true"] .arch-ref, html[data-present="true"] .arch-ref { display: none !important; }
-  @media print {
-    .arch-ref { max-width: none; margin: 0; padding: 0; border: 0; break-before: page; }
-    .arch-ref h3 { break-after: avoid; }
-    .arch-ref table, .arch-ref__flow, .arch-ref__card { break-inside: avoid; }
-  }
-</style>
-
-<section class="arch-ref" id="architecture-reference" aria-labelledby="arch-ref-title">
-  <p class="arch-ref__eyebrow">Pathfinder v5.1 · complete architecture reference</p>
-  <h2 id="arch-ref-title">Every flow, every boundary, every surface</h2>
-  <p class="arch-ref__lead">
-    The diagram above is the compact system map. This reference is the complete
-    specification: the runtime flows, all four intent paths, the data model, the
-    API, grounding, verification, memory and feedback, security, UI surfaces,
-    configuration and the limits that remain. It describes the rebuilt v5 core,
-    not the archived v1.x line.
-  </p>
-  <div class="arch-ref__meta">
-    <span class="arch-ref__pill">Updated 23 November 2026 · 12:45 HKT</span>
-    <span class="arch-ref__pill">Backend: FastAPI · Pydantic v2 · SQLite WAL</span>
-    <span class="arch-ref__pill">Frontend: React 18 · Vite · SSE</span>
-    <span class="arch-ref__pill">Single-city, multi-city and imported plans</span>
-  </div>
-  <nav class="arch-ref__toc" aria-label="Architecture reference contents">
-    <a href="#ref-system">System</a>
-    <a href="#ref-request">Request lifecycle</a>
-    <a href="#ref-flows">Intent flows</a>
-    <a href="#ref-steps">Step map</a>
-    <a href="#ref-complex">Complex queries</a>
-    <a href="#ref-modules">Modules</a>
-    <a href="#ref-data">Data</a>
-    <a href="#ref-api">API</a>
-    <a href="#ref-evidence">Evidence</a>
-    <a href="#ref-verification">Verification</a>
-    <a href="#ref-memory">Memory & feedback</a>
-    <a href="#ref-security">Security</a>
-    <a href="#ref-ui">UI surfaces</a>
-    <a href="#ref-config">Config & trace</a>
-    <a href="#ref-limits">Limits</a>
-  </nav>
-
-  <h3 id="ref-system">1. System in one page</h3>
-  <p>
-    Pathfinder is a <strong>bounded task-oriented planning agent</strong>. It is not a
-    free-running autonomous swarm: one traveller message opens one bounded turn,
-    one intent is chosen, code owns the tools and the state, and a plan is persisted
-    only after validation. The model proposes; the runtime, validator and user keep
-    control.
-  </p>
-  <div class="arch-ref__grid">
-    <div class="arch-ref__card"><h4>Browser</h4><p>React chat, plan workspace, map, direct edit, drawers, feedback, profile, settings and Desk. Talks REST + SSE only.</p></div>
-    <div class="arch-ref__card"><h4>Runtime</h4><p><code>api/turn.py</code> owns the seat, keepalive, execution budget, cancellation and SSE framing. <code>turn/orchestrator.py</code> owns the turn pipeline.</p></div>
-    <div class="arch-ref__card"><h4>Model gateway</h4><p>One OpenAI-compatible client with per-purpose model, temperature, reasoning and token caps. Every generation and tool call is traced.</p></div>
-    <div class="arch-ref__card"><h4>Evidence layer</h4><p>Fixed evidence workers call live providers or the curated place corpus. The planner can only select sourced candidate refs; code copies their facts.</p></div>
-    <div class="arch-ref__card"><h4>Plan store</h4><p>SQLite WAL: sessions, contexts, append-only plan versions, messages, profiles, wishlist, feedback, eval runs and runtime config.</p></div>
-    <div class="arch-ref__card"><h4>Verification</h4><p>Deterministic validator first (dates, hours, overlap, transfers, budget, flight windows, route continuity); then the model constraint verifier for meaning.</p></div>
-  </div>
-
-  <h3 id="ref-request">2. Request lifecycle</h3>
-  <div class="arch-ref__flow">
-    <h4>One turn through the harness</h4>
-    <ol>
-      <li><strong>Admission.</strong> <code>POST /api/turn/stream</code> resolves the session owner, claims the single seat, and computes the whole-turn execution budget.</li>
-      <li><strong>Context.</strong> Load <code>TripContext</code>, current plan, recent messages, profile and merged durable memory. Apply PII masking before storage/model calls.</li>
-      <li><strong>Intent routing.</strong> The analyst returns a typed <code>ParsedIntent</code>: intent, confidence, slots, assumptions, missing slots and question. Jev may replace the route only when its confidence clears the acceptance threshold.</li>
-      <li><strong>Route gate.</strong> <code>plan</code>, <code>modify</code>, <code>ask</code> or <code>clarify</code>. A finalised plan blocks further plan/modify turns.</li>
-      <li><strong>Work.</strong> Plan gathers evidence in parallel then composes; modify asks the editor for typed operations and a proposal; ask reads the plan/sources; clarify asks only for genuinely missing information.</li>
-      <li><strong>Validation.</strong> Structure, hours, transfers, budget, flight windows and route continuity are checked. Failures return to the planner within <code>max_repairs</code>.</li>
-      <li><strong>Persistence and stream.</strong> The plan version is saved, the reply is streamed token by token, a <code>plan</code>/<code>done</code> event closes the turn, and the seat is released.</li>
-    </ol>
-    <p>If the budget expires, the pending work is cancelled and the stream emits <code>turn_timeout</code>. If the client disconnects, the turn is cancelled. In every case the seat is released in <code>finally</code>.</p>
-  </div>
-
-  <h3 id="ref-flows">3. Intent flows</h3>
-  <table>
-    <thead><tr><th>Flow</th><th>Trigger</th><th>Path</th><th>Writes</th><th>User-visible result</th></tr></thead>
-    <tbody>
-      <tr><td><strong>Plan</strong></td><td>New trip or a re-plan of an existing one</td><td>understand → context → gather (places, stays, weather, tickets, videos) → planner → validator → repair loop → constraint verifier → persist</td><td>Context, new plan version, assistant message</td><td>Day-by-day plan with sources, prices, photos, gaps and a confidence trace</td></tr>
-      <tr><td><strong>Modify</strong></td><td>Add, move, replace, remove or relabel something on the open plan</td><td>understand → editor typed operations → proposed change → user accepts</td><td>Plan version and version history</td><td>A proposal first; the plan changes only on tick. Locked/confirmed rows are protected.</td></tr>
-      <tr><td><strong>Ask</strong></td><td>A question about the current trip or a general travel fact</td><td>understand → plan/context → optional source lookup → answer</td><td>Assistant message only</td><td>Direct answer with source, or an honest “not confirmed”. The current clock comes from the runtime, never a search snippet.</td></tr>
-      <tr><td><strong>Clarify</strong></td><td>A required slot is missing or ambiguous</td><td>understand → merge known slots → ask only the missing slot(s)</td><td>Assistant message with a clarify payload</td><td>Date, length, travellers or destination fields; a month remains a window, never an invented day.</td></tr>
-    </tbody>
-  </table>
-
-  <h4>Clarify and the date window</h4>
-  <p>
-    “Next month” produces <code>date_window: "December 2026"</code> but leaves
-    <code>start_date</code> null. If “2 days” was given, the length is kept and the
-    card asks only for the start date. The exact day is never silently selected.
-    This is the difference between an uncertain input and a guessed input.
-  </p>
-
-  <h3 id="ref-steps">3a. Ordered step map and escalation</h3>
-  <p>The compact SVG is a dependency map, not a sequence. This is the ordered turn sequence and the two ways a complex request can leave the straight path.</p>
-  <div class="arch-ref__steps" aria-label="Ordered turn steps">
-    <div class="arch-ref__step"><b>01</b><strong>Admit</strong><p>Owner check, seat claim, execution budget.</p></div>
-    <div class="arch-ref__step"><b>02</b><strong>Context</strong><p>Plan, profile, memory, PII masking.</p></div>
-    <div class="arch-ref__step"><b>03</b><strong>Intent route</strong><p>Plan · modify · ask · clarify; slots.</p></div>
-    <div class="arch-ref__step"><b>04</b><strong>Work</strong><p>Evidence workers or editor operations.</p></div>
-    <div class="arch-ref__step"><b>05</b><strong>Validate</strong><p>Structure, hours, flights, route continuity.</p></div>
-    <div class="arch-ref__step"><b>06</b><strong>Verify</strong><p>Constraint audit and bounded repair.</p></div>
-    <div class="arch-ref__step"><b>07</b><strong>Persist</strong><p>Version, message, trace.</p></div>
-    <div class="arch-ref__step"><b>08</b><strong>Respond</strong><p>SSE tokens, plan event, seat release.</p></div>
-  </div>
-  <div class="arch-ref__branch">
-    <div class="arch-ref__flow">
-      <h4>Clarify / repair loops</h4>
-      <p><strong>Clarify</strong> returns to Context after the traveller fills the missing slot; the length is kept and a month stays a window. <strong>Repair</strong> returns a failed plan to the planner within <code>max_repairs</code>; a final failure is surfaced as a gap or failed check, not silently shipped.</p>
-    </div>
-    <div class="arch-ref__flow arch-ref__escalation">
-      <h4>Escalation / human-in-the-loop</h4>
-      <ol>
-        <li><strong>Explicit request:</strong> the traveller asks for a person; the operator phrase policy can disable this branch.</li>
-        <li><strong>Frustration:</strong> an enabled sentiment threshold is crossed.</li>
-        <li><strong>Stuck:</strong> repeated failed turns cross the stuck threshold.</li>
-      </ol>
-      <p>The turn saves a handoff message and moves to the <strong>Desk</strong>. An operator can hold, take over, leave a note, speak as the operator, run the planner in the desk, or release. Finished chats move to <strong>Session history</strong> and are not taken over.</p>
-    </div>
-  </div>
-
-  <div class="arch-ref__note">
-    <strong>Router confidence:</strong> the analyst’s confidence is a
-    model-reported score (0–1), not a calibrated probability. The LLM router and Jev
-    each have a separate threshold; each is a selective-prediction operating point and
-    neither is a probability claim. Calibration, ECE/Brier, AUROC and
-    risk–coverage evaluation are documented in
-    <code>docs/EVALUATION.md</code>.
-  </div>
-
-  <h3 id="ref-complex">4. Complex-query guarantees</h3>
-  <p>Complex requests are handled by giving each source of uncertainty explicit state, rather than asking one longer prompt to resolve everything.</p>
-  <table>
-    <thead><tr><th>Uncertainty</th><th>Representation</th><th>Boundary or check</th></tr></thead>
-    <tbody>
-      <tr><td>Relative date</td><td><code>TripContext.start_date</code> + <code>RoutePayload.date_window</code> + clarifications</td><td>No invented day; clarify only the missing start date; length preserved.</td></tr>
-      <tr><td>Whole-turn runtime</td><td><code>turn_deadline_seconds</code> (300 s default, 60–900)</td><td>Hard stop, cancellation, <code>turn_timeout</code>, seat release; keepalives do not reset the budget.</td></tr>
-      <tr><td>Flight boundary</td><td><code>plan/flight_windows.py</code></td><td>90-minute arrival buffer, 120-minute departure buffer; problems enter bounded repair.</td></tr>
-      <tr><td>Multiple cities</td><td><code>context.stops</code>, <code>plan/multicity.py</code>, <code>TripSegment</code></td><td>City-by-city composition; ordered segments; consecutive days; city order; intercity transport is a visible booking gap.</td></tr>
-      <tr><td>Locked choices</td><td><code>leg.locked</code>, <code>hotel.locked</code>, <code>PlanItem.locked</code></td><td>Direct edit is read-only for them; return locking uses the visible slot (<code>leg-back</code>), not the ticket’s provider <code>leg_id</code>.</td></tr>
-      <tr><td>Stale facts</td><td><code>source_refs</code>, <code>data_status</code>, <code>freshness</code>, <code>DataGap</code></td><td>Sources are named; stale or missing data is shown rather than upgraded to fact.</td></tr>
-      <tr><td>Memory</td><td>profile preferences</td><td>Near-duplicate paraphrases collapse; cap 20; manual saves dedupe too.</td></tr>
-    </tbody>
-  </table>
-
-  <h3 id="ref-modules">5. Modules and exact names</h3>
-  <table>
-    <thead><tr><th>Name</th><th>Entry point</th><th>Responsibility</th></tr></thead>
-    <tbody>
-      <tr><td><strong>Intent router / analyst</strong></td><td><code>understand/pipeline.py: understand</code></td><td>Choose plan/modify/ask/clarify, extract intake slots, assumptions and missing slots. Confidence is model-reported, then normalised to 0–1.</td></tr>
-      <tr><td><strong>Context builder</strong></td><td><code>orchestrator._load_context</code>, <code>core/prompts.py</code></td><td>Merge stored context, profile, memory, recent messages and plan outline.</td></tr>
-      <tr><td><strong>Evidence workers</strong></td><td><code>plan/agents.py: gather</code></td><td>Fixed tool adapters: places, stays, weather, tickets and videos; returns typed evidence or gaps.</td></tr>
-      <tr><td><strong>Planner / composer</strong></td><td><code>plan/builder.py: compose</code></td><td>Select and order sourced candidate refs; code copies facts and builds days, hotel, tickets, cost.</td></tr>
-      <tr><td><strong>Editor</strong></td><td><code>plan/editor.py: propose_edit</code></td><td>Turn a change request into typed operations and a proposal; protect locked and confirmed rows.</td></tr>
-      <tr><td><strong>Validator</strong></td><td><code>plan/validator.py: check_structure</code></td><td>Structure, overlap, opening hours, transfers, budget, flight windows and route continuity.</td></tr>
-      <tr><td><strong>Constraint verifier</strong></td><td><code>plan/validator.py: audit_constraints</code>, <code>skills/verify.md</code></td><td>Model audit of the traveller’s hard constraints against the plan and sources.</td></tr>
-      <tr><td><strong>Repair loop</strong></td><td><code>orchestrator._plan_turn</code></td><td>Send failed checks back to the planner up to <code>max_repairs</code>.</td></tr>
-      <tr><td><strong>Runtime harness</strong></td><td><code>api/turn.py</code>, <code>turn/orchestrator.py</code></td><td>Seat, deadline, cancellation, SSE, retries, handoff and trace.</td></tr>
-      <tr><td><strong>Memory</strong></td><td><code>application/memory.py</code></td><td>Extract durable preferences after a useful rating; merge, dedupe, cap and persist.</td></tr>
-      <tr><td><strong>Evaluator</strong></td><td><code>eval/runner.py: run_dataset</code></td><td>Offline evaluation harness. Not the in-turn validator.</td></tr>
-      <tr><td><strong>Desk / HITL</strong></td><td><code>api/admin.py</code>, <code>frontend/src/app/learn.tsx</code></td><td>Queue, handling, history, hold/release, notes, operator messages and studio edits.</td></tr>
-    </tbody>
-  </table>
-  <div class="arch-ref__note">
-    <strong>Naming convention:</strong> <em>validator</em> is deterministic code;
-    <em>constraint verifier</em> is the model audit; <em>evaluator</em> is the
-    offline benchmark. The front page therefore says <strong>Verification</strong>,
-    not Evaluation.
-  </div>
-  <div class="arch-ref__note">
-    <strong>Judge model:</strong> <code>core/llm.py</code> exposes a
-    <code>judge()</code> client for a second model, but <strong>no v5 runtime,
-    evaluator or validator path calls it</strong>. The evaluator is deterministic, and
-    the diagram labels the node “reserved” so it is not mistaken for a live step.
-  </div>
-
-  <h3 id="ref-data">6. Data model</h3>
-  <div class="arch-ref__split">
-    <div>
-      <h4>Conversation and state</h4>
-      <ul>
-        <li><code>sessions</code> — owner token/user, held/agent, note, planner state.</li>
-        <li><code>contexts</code> — <code>TripContext</code> JSON: destination, origin, dates, days, party, budget/currency, preferences, stops, finalisation.</li>
-        <li><code>messages</code> — role, content, intent, confidence, meta (clarify, proposal, sources, live-agent).</li>
-        <li><code>plans</code> — append-only versions; body is a full <code>TripPlan</code>.</li>
-        <li><code>seats</code> — one active turn per session, with a turn id.</li>
-      </ul>
-    </div>
-    <div>
-      <h4>Product state</h4>
-      <ul>
-        <li><code>profiles</code> — durable preferences and hard constraints, capped at 20.</li>
-        <li><code>wishlist</code> — saved/finalised trip, stars, useful/not-useful state.</li>
-        <li><code>feedback</code> — useful, stars, timestamp; drives My Trips and Trending.</li>
-        <li><code>eval_runs</code> — deterministic scores and exported artefacts.</li>
-        <li><code>kv</code> — runtime settings, keys and lightweight caches.</li>
-      </ul>
-    </div>
-  </div>
-  <h4>TripPlan shape</h4>
-  <p>
-    <code>TripPlan</code> carries <code>destination</code>, <code>origin</code>,
-    <code>dates</code>, <code>days</code> (each with <code>items</code>,
-    <code>weather</code>, <code>segment_id</code>, optional <code>city</code>),
-    <code>hotels</code>, <code>hotel_options</code>, <code>tickets</code>,
-    <code>segments</code>, <code>legs</code>, <code>cost</code>,
-    <code>constraints</code>, <code>reservations</code>,
-    <code>video_notes</code>, <code>data_quality</code>,
-    <code>assessment</code> and version metadata.
-    A <code>PlanItem</code> stores its own <code>source_refs</code>,
-    <code>data_status</code>, price, hours, links, image, alternatives and transfer.
-  </p>
-
-  <h3 id="ref-api">7. API surface</h3>
-  <table>
-    <thead><tr><th>Group</th><th>Endpoints</th><th>Purpose</th></tr></thead>
-    <tbody>
-      <tr><td>Health/runtime</td><td><code>/api/ready</code>, <code>/api/runtime</code></td><td>Version, mode and operator configuration.</td></tr>
-      <tr><td>Trips</td><td><code>/api/journeys</code>, <code>/api/journeys/{id}</code></td><td>Create, load, context, plan, versions and messages.</td></tr>
-      <tr><td>Turn</td><td><code>POST /api/turn/stream</code></td><td>SSE: progress, route, context, agent, plan, proposal, clarify, token, done, error.</td></tr>
-      <tr><td>Plan actions</td><td><code>/plan/choose</code>, <code>/lock</code>, <code>/booked</code>, <code>/layout</code>, <code>/versions/{v}/restore</code></td><td>Choose/lock/book options, direct-edit layout and restore.</td></tr>
-      <tr><td>Close loop</td><td><code>/finalise</code>, <code>/rating</code>, <code>/api/wishlist</code>, <code>/api/popular</code></td><td>Freeze a trip, useful/not-useful, stars, My Trips and Trending.</td></tr>
-      <tr><td>Grounding</td><td><code>/api/images/place</code>, <code>/api/places</code>, <code>/api/videos</code>, <code>/api/guides</code></td><td>Photos, named places, videos and guide notes.</td></tr>
-      <tr><td>Travel state</td><td><code>/segments</code>, <code>/translation</code>, <code>/wallet</code>, <code>/exchange</code></td><td>Map legs, plan translation, costs and FX.</td></tr>
-      <tr><td>Identity</td><td><code>/api/auth/*</code>, <code>/api/traveller</code>, <code>/api/recall/clear</code></td><td>Guest/user identity, profile, durable memory and deletion.</td></tr>
-      <tr><td>Operator</td><td><code>/api/admin/*</code>, <code>/api/llm/*</code>, <code>/api/eval/*</code></td><td>Desk, models/keys, prompts, redaction, eval datasets and runs.</td></tr>
-    </tbody>
-  </table>
-
-  <h3 id="ref-evidence">8. Evidence and grounding</h3>
-  <ul>
-    <li><strong>Providers:</strong> Google Places, Open-Meteo, OSRM, SerpAPI, Wikipedia, YouTube (with SerpAPI fallback when quota is exhausted), optional Bilibili, and the curated place corpus.</li>
-    <li><strong>No invented facts:</strong> the planner may only name candidate refs; code copies name, address, coordinates, price, opening hours, links, photo and source refs.</li>
-    <li><strong>Named wishes:</strong> a place named in the request is looked up before planning; a described wish becomes a web search, never a destination.</li>
-    <li><strong>Honesty:</strong> missing prices, stale sources and unavailable stops remain visible as gaps or status flags. The budget guard trims paid stops rather than hiding an overrun.</li>
-    <li><strong>Photos:</strong> city-aware Wikipedia first, then Google Places, then a neutral generated tile; attribution is retained.</li>
-    <li><strong>Flight evidence:</strong> outbound and return clocks shape the first and last day; flight windows are checked with buffers.</li>
-  </ul>
-  <div class="arch-ref__note">
-    <strong>Naming:</strong> <em>sandbox</em> is the runtime mode
-    (<code>PATHFINDER_SANDBOX=1</code>); the data source it uses is the
-    <strong>curated place corpus</strong> of 12 cities plus US entries. The compact diagram
-    previously called the node “Sandbox atlas”, which mixed the mode and the dataset;
-    it is now “Curated place corpus”.
-  </div>
-
-  <h3 id="ref-verification">9. Verification, repair and evaluation</h3>
-  <div class="arch-ref__split">
-    <div>
-      <h4>In-turn validation</h4>
-      <ul>
-        <li>Dates, day continuity, overlap, transfer feasibility and opening hours.</li>
-        <li>Budget and cost coherence.</li>
-        <li>Flight arrival/departure windows.</li>
-        <li>Multi-city segment order, city order and day assignment.</li>
-      </ul>
-    </div>
-    <div>
-      <h4>Constraint verifier</h4>
-      <ul>
-        <li>LLM audit of the traveller’s hard constraints against the plan and sources.</li>
-        <li>Returns pass/fail/unknown with short evidence.</li>
-        <li>Failures enter the same bounded repair loop; they are surfaced if repair cannot fix them.</li>
-      </ul>
-    </div>
-  </div>
-  <p>
-    <strong>Evaluation</strong> is separate: frozen datasets run through the real
-    orchestrator with sandbox evidence, scored deterministically for intent,
-    structure, grounding, constraints and disruption outcome. Evaluation writes
-    <code>eval_runs</code>; it never changes a traveller plan.
-  </p>
-
-  <h3 id="ref-memory">10. Memory, finalise and the feedback loop</h3>
-  <ol>
-    <li><strong>Finalise</strong> freezes the route, saves one pending trip in My Trips and asks useful/not useful. It does not create a star rating by itself.</li>
-    <li><strong>Useful</strong> saves the verdict and asks for 1–5 stars. A starred useful trip appears in Trending; useful without stars does not.</li>
-    <li><strong>Not useful</strong> keeps the trip in My Trips, clears stars and excludes it from Trending.</li>
-    <li><strong>Memory</strong> extracts durable preferences after a useful rating in the background. Near-duplicate paraphrases are collapsed, the list is capped at 20, and exact duplicates are removed on manual saves too.</li>
-    <li><strong>Desk</strong> can hold a chat, take it over, leave a note, speak as the operator, release it, or use the planner inside the desk. Finalised chats move to Session history.</li>
-  </ol>
-
-  <h3 id="ref-security">11. Security and privacy</h3>
-  <ul>
-    <li><strong>PII first:</strong> HKID, HK phone, email and Luhn-valid card numbers are masked before storage and before model calls.</li>
-    <li><strong>Untrusted input:</strong> traveller text and retrieved sources are data, not instructions. Injection attempts are recorded as threat events.</li>
-    <li><strong>Canary:</strong> model output is checked for the canary token; a leak becomes a refusal.</li>
-    <li><strong>Code-owned actions:</strong> the model cannot book, pay or choose a provider. Evidence providers are fixed adapters.</li>
-    <li><strong>Access:</strong> a session belongs to its client token or signed-in user; a local admin can inspect with an explicit admin token.</li>
-    <li><strong>Secrets:</strong> provider keys and runtime settings live in storage/config, are never emitted in the plan or trace UI, and are redacted in logs.</li>
-  </ul>
-
-  <h3 id="ref-ui">12. UI surfaces and front-end architecture</h3>
-  <div class="arch-ref__grid">
-    <div class="arch-ref__card"><h4>Chat</h4><p>Streamed replies, progress, agents, clarify card, proposal cards, attachments, source links, stop scope, Markdown.</p></div>
-    <div class="arch-ref__card"><h4>Plan workspace</h4><p>Trip map, detail view, direct edit; day strip, stops, hotel/leg choice slots, budget, constraints, gaps, versions, export.</p></div>
-    <div class="arch-ref__card"><h4>Drawers</h4><p>Profile, budget optimiser, exchange, sketch, videos, trending, library and settings; on-demand rather than permanent chrome.</p></div>
-    <div class="arch-ref__card"><h4>Direct edit</h4><p>Drag/drop stops on a time grid, apply or undo, protected fixed stops, and read-only locked stays/flights.</p></div>
-    <div class="arch-ref__card"><h4>Desk</h4><p>Queue, handling and session history; operator hold, note, message, studio trip edit and finalised-history rules.</p></div>
-    <div class="arch-ref__card"><h4>Settings</h4><p>General, Handoff, Instructions, Models (intent router, per-role models), Thresholds, Redaction, System; human-readable labels and hints.</p></div>
-  </div>
-
-  <h3 id="ref-config">13. Configuration and observability</h3>
-  <ul>
-    <li><strong>Models:</strong> purpose-specific model, temperature, reasoning and max tokens; one active provider key, with BYOK for the writer.</li>
-    <li><strong>Routing:</strong> analyst or Jev; the two confidence thresholds are separate — <code>ANALYST_CONFIDENCE_THRESHOLD</code> for low-confidence edit clarification and <code>JEV_CONFIDENCE_THRESHOLD</code> for Jev acceptance. They are not comparable and are tuned from observed behaviour.</li>
-    <li><strong>Runtime:</strong> <code>TURN_DEADLINE_SECONDS</code> default 300, bounded 60–900; <code>MAX_REPAIRS</code>; seat and SSE keepalive; data mode live/corpus.</li>
-    <li><strong>Trace:</strong> every turn records <code>why</code>, <code>flow</code>, path, spans, generations, searches, tools and live agent state; downloadable from the UI.</li>
-    <li><strong>Logs:</strong> structured server errors and redacted meta; no model prompt containing unmasked PII is persisted.</li>
-  </ul>
-
-  <h3 id="ref-limits">14. Limits and roadmap</h3>
-  <table>
-    <thead><tr><th>Area</th><th>Current limit</th><th>Roadmap</th></tr></thead>
-    <tbody>
-      <tr><td>Multi-city</td><td>City-by-city first slice; intercity transport is a gap, not a sourced option.</td><td>Intercity flight/train sourcing, per-segment stays and refinement.</td></tr>
-      <tr><td>Tool policy</td><td>No per-path allowlist because the model does not choose tools; workers are fixed code.</td><td>Add a single call gateway and allowlist only when tool choice becomes model-driven.</td></tr>
-      <tr><td>Flight windows</td><td>Single-city selected tickets; multi-city intercity flights await sourcing.</td><td>Per-segment flight windows and connection buffers.</td></tr>
-      <tr><td>Evaluation</td><td>Offline suites use sandbox evidence; full live-provider regression is not automatic.</td><td>Re-run the full eval suite after provider changes.</td></tr>
-      <tr><td>Naming</td><td>Validator, constraint verifier and evaluator are distinct; legacy internal IDs remain for compatibility.</td><td>Keep UI terms and trace labels aligned with the glossary.</td></tr>
-    </tbody>
-  </table>
-
-  <div class="arch-ref__note">
-    <strong>Source of truth:</strong> code and tests in
-    <code>backend/app</code> and <code>backend/tests</code>; the compact diagram
-    above; <code>docs/GLOSSARY.md</code> for names; <code>docs/VERSION_NOTES.md</code>
-    for release history. This reference is documentation, not a second
-    implementation.
-  </div>
-  <a class="arch-ref__back" href="#top">Back to top ↑</a>
-</section>
-
 
   <script>
     var Archify = {};
