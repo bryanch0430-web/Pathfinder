@@ -321,7 +321,7 @@ async def hotel_rooms(session_id: str, hotel_id: str, request: Request) -> dict[
 
 
 @router.post("/api/journeys/{session_id}/finalise")
-async def finalise(session_id: str, request: Request) -> dict[str, Any]:
+async def finalise(session_id: str, request: Request, background: BackgroundTasks) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
     context = await load_context(c, session_id)
@@ -339,15 +339,8 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
 
         identity = identity_for(request)
         if identity:
-            # Durable memory comes from the finished plan, not only the destination name.
-            await remember_trip(
-                container=c,
-                identity=identity,
-                plan=plan,
-                context=context,
-                session_id=session_id,
-            )
-            context = await load_context(c, session_id)
+            # Save the trip immediately. Memory extraction is a model call and
+            # belongs in the background; it must not make Finalise feel frozen.
             await c.store.save_wishlist(
                 {
                     # One stable row per trip, so a retry updates instead of duplicating.
@@ -360,6 +353,14 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
                     "body": plan.model_dump(mode="json"),
                     "created_at": now_iso(),
                 }
+            )
+            background.add_task(
+                remember_trip,
+                container=c,
+                identity=identity,
+                plan=plan,
+                context=context,
+                session_id=session_id,
             )
     return {"context": context.model_dump()}
 
