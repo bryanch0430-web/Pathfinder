@@ -9,6 +9,9 @@ context on every later turn, so the analyst and the planner both see them.
 
 from __future__ import annotations
 
+import re
+import unicodedata
+from difflib import SequenceMatcher
 from typing import Any, Literal
 
 from app.domain.models import ChatMessage, TripContext, TripPlan, TravellerProfile
@@ -23,21 +26,56 @@ class MemoryDraft(Draft):
     step_free: bool | None = None
 
 
+_STOPWORDS = {
+    "a", "al", "and", "como", "con", "de", "del", "el", "en", "es", "for", "i",
+    "la", "las", "le", "les", "lo", "los", "me", "mi", "mis", "my", "o", "of",
+    "para", "pero", "por", "que", "se", "son", "su", "sus", "the", "to", "un",
+    "una", "with", "y", "yo", "gusta", "gustan", "prefiero", "prefiere",
+    "disfruto", "atraen", "atrae", "encanta", "encantan", "like", "likes",
+    "prefer", "prefers", "enjoy", "enjoys", "love", "loves", "would",
+}
+
+
+def _tokens(text: str) -> set[str]:
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    words = re.findall(r"[a-z0-9]+", plain)
+    return {word for word in words if len(word) > 2 and word not in _STOPWORDS}
+
+
+def _near_duplicate(left: str, right: str) -> bool:
+    """Catch paraphrases, not just exact repeats.
+
+    Memory extraction is deliberately allowed to rephrase a preference; over a
+    few trips that produced near-identical hotel/pace sentences. Token overlap
+    handles those while keeping genuinely different interests apart.
+    """
+    a, b = _tokens(left), _tokens(right)
+    if not a or not b:
+        return left.strip().lower() == right.strip().lower()
+    shared = len(a & b)
+    containment = shared / min(len(a), len(b))
+    union = len(a | b)
+    jaccard = shared / union if union else 0.0
+    if len(a) >= 3 and len(b) >= 3 and containment >= 0.66 and jaccard >= 0.42:
+        return True
+    return SequenceMatcher(None, " ".join(sorted(a)), " ".join(sorted(b))).ratio() >= 0.82
+
+
 def merge_preferences(existing: list[str], incoming: list[str]) -> tuple[list[str], list[str]]:
-    merged = list(existing)
-    seen = {item.strip().lower() for item in merged}
+    """Merge without exact or paraphrased duplicates, capped at what the UI shows."""
+    merged: list[str] = []
     added: list[str] = []
-    for value in incoming:
-        text = " ".join(str(value).split()).strip()
-        if not text or len(text) > 160:
-            continue
-        key = text.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(text)
-        added.append(text)
-    return merged[:24], added
+    for source, values in (("existing", existing), ("incoming", incoming)):
+        for value in values:
+            text = " ".join(str(value).split()).strip()
+            if not text or len(text) > 160:
+                continue
+            if any(_near_duplicate(text, kept) for kept in merged):
+                continue
+            merged.append(text)
+            if source == "incoming":
+                added.append(text)
+    return merged[:20], added
 
 
 async def derive_memory(

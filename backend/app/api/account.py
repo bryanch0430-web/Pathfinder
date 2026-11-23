@@ -134,7 +134,9 @@ async def patch_traveller(request: Request) -> dict[str, Any]:
     identity = identity_for(request, body.get("client_token"))
     if not identity:
         raise HTTPException(status_code=400, detail="A traveller token is needed.")
-    preferences = [str(value)[:80] for value in (body.get("preferences") or [])][:24]
+    from app.application.memory import merge_preferences
+
+    preferences, _added = merge_preferences([], [str(value)[:80] for value in (body.get("preferences") or [])])
     profile = await c.store.get_profile(identity) or {"hard_constraints": []}
     saved = await c.store.save_profile(identity, preferences, profile.get("hard_constraints", []))
     return {

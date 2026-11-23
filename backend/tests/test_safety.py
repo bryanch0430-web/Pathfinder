@@ -77,6 +77,23 @@ def test_preference_merge_dedupes():
     assert added == ["vegetarian"]
 
 
+def test_preference_merge_collapses_paraphrased_travel_memory():
+    from app.application.memory import merge_preferences
+
+    existing = [
+        "Me atraen los paisajes que parecen de Marte, como el desierto y la roca roja.",
+        "Me gusta alojarme en un hotel céntrico y emblemático, cerca de lo más importante.",
+    ]
+    incoming = [
+        "Me atraen los paisajes que parecen de otro planeta, como los desiertos de roca roja.",
+        "Prefiero alojarme en un hotel céntrico y emblemático.",
+        "Prefiero un ritmo equilibrado, con unas 3 atracciones al día.",
+    ]
+    merged, added = merge_preferences(existing, incoming)
+    assert len(merged) == 3
+    assert added == ["Prefiero un ritmo equilibrado, con unas 3 atracciones al día."]
+
+
 def test_safety_reply_has_human_resources():
     from app.turn.orchestrator import _safety_reply
 
