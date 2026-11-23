@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -282,6 +283,19 @@ def _desk_contact(context) -> dict[str, Any]:
     }
 
 
+def _desk_recent(value: str | None, hours: int = 24) -> bool:
+    """A session is live while it changed in the last day; older idle chats belong in history."""
+    if not value:
+        return False
+    try:
+        stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - stamp < timedelta(hours=hours)
+    except (TypeError, ValueError):
+        return False
+
+
 @router.get("/api/admin/desk")
 async def desk_list(request: Request) -> dict[str, Any]:
     require_admin(request)
@@ -295,6 +309,8 @@ async def desk_list(request: Request) -> dict[str, Any]:
         context = await load_context(c, session["id"])
         plan = await load_plan(c, session["id"])
         finished = bool(context.finalized) or (plan is not None and plan.status == "ready")
+        recent = _desk_recent(session.get("updated_at"))
+        state = "live" if recent and not finished else "completed"
         last = messages[-1]
         chats.append(
             {
@@ -302,7 +318,7 @@ async def desk_list(request: Request) -> dict[str, Any]:
                 "session_id": session["id"],
                 "created_at": session["created_at"],
                 "updated_at": session["updated_at"],
-                "state": "completed" if finished else "live",
+                "state": state,
                 "on_page": False,
                 "finished": finished,
                 "held": bool(session.get("held")),

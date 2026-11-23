@@ -296,3 +296,13 @@ def test_feedback_is_returned_with_the_session(tmp_path):
         state = client.get(f"/api/journeys/{session_id}", headers=headers).json()
         assert state["feedback"]["useful"] is False
         assert state["feedback"]["stars"] is None
+
+
+def test_desk_state_uses_recent_activity():
+    from datetime import datetime, timedelta, timezone
+
+    from app.api.admin import _desk_recent
+
+    now = datetime.now(timezone.utc)
+    assert _desk_recent(now.isoformat()) is True
+    assert _desk_recent((now - timedelta(hours=30)).isoformat()) is False
