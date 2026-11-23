@@ -1,149 +1,10 @@
 {
-  "generated_at": "2026-11-22T18:17:41.538673+00:00",
+  "generated_at": "2026-11-23T07:53:21.573953+00:00",
   "dataset": "routing",
   "dataset_version": "2026-11-05",
   "n": 84,
   "protocol": "one run per arm; missing/error counts as wrong; same frozen utterances; Wilson 95%; exact McNemar vs sonnet-0.0",
   "summaries": {
-    "sonnet-0.0": {
-      "arm": {
-        "key": "sonnet-0.0",
-        "model": "claude-sonnet-5.5",
-        "temperature": 0.0
-      },
-      "n": 84,
-      "correct": 83,
-      "accuracy": 0.9881,
-      "wilson95": [
-        0.9356,
-        0.9979
-      ],
-      "by_intent": {
-        "ask": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "modify": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "plan": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "unclear": {
-          "n": 21,
-          "correct": 20,
-          "accuracy": 0.9524
-        }
-      },
-      "p50_latency_ms": 6302.8,
-      "p95_latency_ms": 10733.7,
-      "mean_tokens": 4634.3,
-      "mean_confidence": 0.874,
-      "gates": [
-        {
-          "cutoff": 0.6,
-          "coverage": 0.988,
-          "accuracy_on_kept": 0.988,
-          "escalated": 1
-        },
-        {
-          "cutoff": 0.7,
-          "coverage": 0.964,
-          "accuracy_on_kept": 0.988,
-          "escalated": 3
-        },
-        {
-          "cutoff": 0.8,
-          "coverage": 0.964,
-          "accuracy_on_kept": 0.988,
-          "escalated": 3
-        },
-        {
-          "cutoff": 0.9,
-          "coverage": 0.488,
-          "accuracy_on_kept": 1.0,
-          "escalated": 43
-        }
-      ],
-      "vs_baseline": null
-    },
-    "sonnet-0.2": {
-      "arm": {
-        "key": "sonnet-0.2",
-        "model": "claude-sonnet-5.5",
-        "temperature": 0.2
-      },
-      "n": 84,
-      "correct": 83,
-      "accuracy": 0.9881,
-      "wilson95": [
-        0.9356,
-        0.9979
-      ],
-      "by_intent": {
-        "ask": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "modify": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "plan": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "unclear": {
-          "n": 21,
-          "correct": 20,
-          "accuracy": 0.9524
-        }
-      },
-      "p50_latency_ms": 6212.6,
-      "p95_latency_ms": 10965.1,
-      "mean_tokens": 4657.1,
-      "mean_confidence": 0.879,
-      "gates": [
-        {
-          "cutoff": 0.6,
-          "coverage": 1.0,
-          "accuracy_on_kept": 0.988,
-          "escalated": 0
-        },
-        {
-          "cutoff": 0.7,
-          "coverage": 0.976,
-          "accuracy_on_kept": 0.988,
-          "escalated": 2
-        },
-        {
-          "cutoff": 0.8,
-          "coverage": 0.964,
-          "accuracy_on_kept": 0.988,
-          "escalated": 3
-        },
-        {
-          "cutoff": 0.9,
-          "coverage": 0.512,
-          "accuracy_on_kept": 1.0,
-          "escalated": 41
-        }
-      ],
-      "vs_baseline": {
-        "baseline": "sonnet-0.0",
-        "only_baseline": 0,
-        "only_arm": 0,
-        "mcnemar_p": 1.0
-      }
-    },
     "flash-lite-0.0": {
       "arm": {
         "key": "flash-lite-0.0",
@@ -151,11 +12,11 @@
         "temperature": 0.0
       },
       "n": 84,
-      "correct": 83,
-      "accuracy": 0.9881,
+      "correct": 82,
+      "accuracy": 0.9762,
       "wilson95": [
-        0.9356,
-        0.9979
+        0.9173,
+        0.9934
       ],
       "by_intent": {
         "ask": {
@@ -174,2036 +35,45 @@
           "accuracy": 1.0
         },
         "unclear": {
-          "n": 21,
-          "correct": 20,
-          "accuracy": 0.9524
-        }
-      },
-      "p50_latency_ms": 4108.2,
-      "p95_latency_ms": 4622.6,
-      "mean_tokens": 2942.7,
-      "mean_confidence": 0.9,
-      "gates": [
-        {
-          "cutoff": 0.6,
-          "coverage": 0.905,
-          "accuracy_on_kept": 0.987,
-          "escalated": 8
-        },
-        {
-          "cutoff": 0.7,
-          "coverage": 0.905,
-          "accuracy_on_kept": 0.987,
-          "escalated": 8
-        },
-        {
-          "cutoff": 0.8,
-          "coverage": 0.905,
-          "accuracy_on_kept": 0.987,
-          "escalated": 8
-        },
-        {
-          "cutoff": 0.9,
-          "coverage": 0.893,
-          "accuracy_on_kept": 1.0,
-          "escalated": 9
-        }
-      ],
-      "vs_baseline": {
-        "baseline": "sonnet-0.0",
-        "only_baseline": 1,
-        "only_arm": 1,
-        "mcnemar_p": 1.0
-      }
-    },
-    "jev": {
-      "arm": {
-        "key": "jev",
-        "model": "jev-latest",
-        "temperature": null
-      },
-      "n": 84,
-      "correct": 79,
-      "accuracy": 0.9405,
-      "wilson95": [
-        0.8681,
-        0.9743
-      ],
-      "by_intent": {
-        "ask": {
           "n": 21,
           "correct": 19,
           "accuracy": 0.9048
-        },
-        "modify": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "plan": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "unclear": {
-          "n": 21,
-          "correct": 18,
-          "accuracy": 0.8571
         }
       },
-      "p50_latency_ms": 624.6,
-      "p95_latency_ms": 910.7,
-      "mean_tokens": null,
-      "mean_confidence": 0.825,
+      "p50_latency_ms": 3985.1,
+      "p95_latency_ms": 4432.5,
+      "mean_tokens": 3017.2,
+      "mean_confidence": 0.948,
       "gates": [
         {
           "cutoff": 0.6,
-          "coverage": 0.893,
-          "accuracy_on_kept": 0.96,
-          "escalated": 9
+          "coverage": 0.976,
+          "accuracy_on_kept": 0.976,
+          "escalated": 2
         },
         {
           "cutoff": 0.7,
-          "coverage": 0.75,
-          "accuracy_on_kept": 0.984,
-          "escalated": 21
-        },
-        {
-          "cutoff": 0.8,
-          "coverage": 0.655,
-          "accuracy_on_kept": 1.0,
-          "escalated": 29
-        },
-        {
-          "cutoff": 0.9,
-          "coverage": 0.429,
-          "accuracy_on_kept": 1.0,
-          "escalated": 48
-        }
-      ],
-      "vs_baseline": null
-    },
-    "deepseek41-0.0": {
-      "arm": {
-        "key": "deepseek41-0.0",
-        "model": "deepseek-v4.1-flash-1017",
-        "temperature": 0.0
-      },
-      "n": 84,
-      "correct": 83,
-      "accuracy": 0.9881,
-      "wilson95": [
-        0.9356,
-        0.9979
-      ],
-      "by_intent": {
-        "ask": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "modify": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "plan": {
-          "n": 21,
-          "correct": 21,
-          "accuracy": 1.0
-        },
-        "unclear": {
-          "n": 21,
-          "correct": 20,
-          "accuracy": 0.9524
-        }
-      },
-      "p50_latency_ms": 8549.0,
-      "p95_latency_ms": 17374.2,
-      "mean_tokens": 3319.5,
-      "mean_confidence": 0.914,
-      "gates": [
-        {
-          "cutoff": 0.6,
-          "coverage": 0.988,
-          "accuracy_on_kept": 0.988,
-          "escalated": 1
-        },
-        {
-          "cutoff": 0.7,
-          "coverage": 0.988,
-          "accuracy_on_kept": 0.988,
-          "escalated": 1
+          "coverage": 0.976,
+          "accuracy_on_kept": 0.976,
+          "escalated": 2
         },
         {
           "cutoff": 0.8,
           "coverage": 0.976,
-          "accuracy_on_kept": 1.0,
+          "accuracy_on_kept": 0.976,
           "escalated": 2
         },
         {
           "cutoff": 0.9,
-          "coverage": 0.881,
-          "accuracy_on_kept": 1.0,
-          "escalated": 10
+          "coverage": 0.929,
+          "accuracy_on_kept": 0.987,
+          "escalated": 6
         }
       ],
       "vs_baseline": null
     }
   },
   "cases": {
-    "sonnet-0.0": [
-      {
-        "id": "r01",
-        "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8983.0,
-        "tokens": 4585,
-        "error": ""
-      },
-      {
-        "id": "r02",
-        "input": "I want to visit Tokyo for a week with my partner",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6449.0,
-        "tokens": 4307,
-        "error": ""
-      },
-      {
-        "id": "r03",
-        "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6178.7,
-        "tokens": 4283,
-        "error": ""
-      },
-      {
-        "id": "r04",
-        "input": "What is the weather in Kyoto on 12 April?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 5921.1,
-        "tokens": 4486,
-        "error": ""
-      },
-      {
-        "id": "r05",
-        "input": "Which hotel did you pick and why?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6214.6,
-        "tokens": 4236,
-        "error": ""
-      },
-      {
-        "id": "r06",
-        "input": "How much is the flight?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 5950.2,
-        "tokens": 4229,
-        "error": ""
-      },
-      {
-        "id": "r07",
-        "input": "Swap the hotel for something boutique",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 5944.4,
-        "tokens": 4291,
-        "error": ""
-      },
-      {
-        "id": "r08",
-        "input": "Move day 2 to the afternoon and keep the rest",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6462.2,
-        "tokens": 4301,
-        "error": ""
-      },
-      {
-        "id": "r09",
-        "input": "Make the budget 3000 USD instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 6391.6,
-        "tokens": 4267,
-        "error": ""
-      },
-      {
-        "id": "r10",
-        "input": "Add a museum on the last day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.82,
-        "latency_ms": 4304.7,
-        "tokens": 4276,
-        "error": ""
-      },
-      {
-        "id": "r11",
-        "input": "Hmm",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6396.0,
-        "tokens": 4288,
-        "error": ""
-      },
-      {
-        "id": "r12",
-        "input": "What about it?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6251.5,
-        "tokens": 4294,
-        "error": ""
-      },
-      {
-        "id": "r13",
-        "input": "Plan something nice",
-        "expected": "unclear",
-        "predicted": "plan",
-        "correct": false,
-        "confidence": 0.85,
-        "latency_ms": 9772.2,
-        "tokens": 4831,
-        "error": ""
-      },
-      {
-        "id": "r14",
-        "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 8145.4,
-        "tokens": 4537,
-        "error": ""
-      },
-      {
-        "id": "r15",
-        "input": "Replace the second day's temple with a park",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5818.2,
-        "tokens": 4261,
-        "error": ""
-      },
-      {
-        "id": "r16",
-        "input": "Is the hotel near the train station?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5516.7,
-        "tokens": 4227,
-        "error": ""
-      },
-      {
-        "id": "r17",
-        "input": "What time does the flight leave?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5709.6,
-        "tokens": 4214,
-        "error": ""
-      },
-      {
-        "id": "r18",
-        "input": "Change the dates to the first week of May",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 7457.4,
-        "tokens": 4485,
-        "error": ""
-      },
-      {
-        "id": "r19",
-        "input": "Surprise me",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.6,
-        "latency_ms": 13863.3,
-        "tokens": 9817,
-        "error": ""
-      },
-      {
-        "id": "r20",
-        "input": "Help",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4953.8,
-        "tokens": 4361,
-        "error": ""
-      },
-      {
-        "id": "r21",
-        "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6462.8,
-        "tokens": 4305,
-        "error": ""
-      },
-      {
-        "id": "r22",
-        "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6223.5,
-        "tokens": 4332,
-        "error": ""
-      },
-      {
-        "id": "r23",
-        "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 7939.5,
-        "tokens": 4578,
-        "error": ""
-      },
-      {
-        "id": "r24",
-        "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 11112.7,
-        "tokens": 4935,
-        "error": ""
-      },
-      {
-        "id": "r25",
-        "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8710.3,
-        "tokens": 4696,
-        "error": ""
-      },
-      {
-        "id": "r26",
-        "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8444.4,
-        "tokens": 4595,
-        "error": ""
-      },
-      {
-        "id": "r27",
-        "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 8777.6,
-        "tokens": 4953,
-        "error": ""
-      },
-      {
-        "id": "r28",
-        "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 10733.7,
-        "tokens": 4949,
-        "error": ""
-      },
-      {
-        "id": "r29",
-        "input": "Help me plan two days in Hong Kong for a school group of 10 students",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6276.6,
-        "tokens": 4311,
-        "error": ""
-      },
-      {
-        "id": "r30",
-        "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 11200.7,
-        "tokens": 9553,
-        "error": ""
-      },
-      {
-        "id": "r31",
-        "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8218.3,
-        "tokens": 4610,
-        "error": ""
-      },
-      {
-        "id": "r32",
-        "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8045.5,
-        "tokens": 4585,
-        "error": ""
-      },
-      {
-        "id": "r33",
-        "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7202.6,
-        "tokens": 4342,
-        "error": ""
-      },
-      {
-        "id": "r34",
-        "input": "Plan me a weekend in Osaka",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8153.8,
-        "tokens": 4611,
-        "error": ""
-      },
-      {
-        "id": "r35",
-        "input": "Going to Tokyo for 10 days in spring with my wife, we love art and ramen",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 5487.7,
-        "tokens": 4499,
-        "error": ""
-      },
-      {
-        "id": "r36",
-        "input": "Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7603.0,
-        "tokens": 4582,
-        "error": ""
-      },
-      {
-        "id": "r37",
-        "input": "Drop the teamLab visit, we've been already",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 8434.3,
-        "tokens": 4535,
-        "error": ""
-      },
-      {
-        "id": "r38",
-        "input": "Can you swap day 1 and day 3?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5691.1,
-        "tokens": 4255,
-        "error": ""
-      },
-      {
-        "id": "r39",
-        "input": "Upgrade the hotel to something with a view of the harbour",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6767.4,
-        "tokens": 4332,
-        "error": ""
-      },
-      {
-        "id": "r40",
-        "input": "Remove Fushimi Inari, my knees won't handle the climb",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6756.6,
-        "tokens": 4366,
-        "error": ""
-      },
-      {
-        "id": "r41",
-        "input": "Shorten the trip to 3 days and keep the best stops",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6163.7,
-        "tokens": 4299,
-        "error": ""
-      },
-      {
-        "id": "r42",
-        "input": "Add a dim sum lunch on day 2",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6215.7,
-        "tokens": 4308,
-        "error": ""
-      },
-      {
-        "id": "r43",
-        "input": "Switch the flight to an evening departure",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6039.1,
-        "tokens": 4282,
-        "error": ""
-      },
-      {
-        "id": "r44",
-        "input": "I'd rather not walk so much on the second day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6329.9,
-        "tokens": 4506,
-        "error": ""
-      },
-      {
-        "id": "r45",
-        "input": "That hotel is too expensive, find one under 150 USD a night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 11463.6,
-        "tokens": 4605,
-        "error": ""
-      },
-      {
-        "id": "r46",
-        "input": "Put a rest afternoon after the Peak hike",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 7706.8,
-        "tokens": 4553,
-        "error": ""
-      },
-      {
-        "id": "r47",
-        "input": "Extend the stay by one night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6129.5,
-        "tokens": 4298,
-        "error": ""
-      },
-      {
-        "id": "r48",
-        "input": "Make it a slower pace with fewer temples",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 7554.4,
-        "tokens": 4513,
-        "error": ""
-      },
-      {
-        "id": "r49",
-        "input": "Cancel the day trip to Nara and stay in Osaka instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6258.1,
-        "tokens": 4289,
-        "error": ""
-      },
-      {
-        "id": "r50",
-        "input": "What if we did Lantau on day 3 instead of day 1?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.82,
-        "latency_ms": 8984.9,
-        "tokens": 4670,
-        "error": ""
-      },
-      {
-        "id": "r51",
-        "input": "How far is Kiyomizu-dera from the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5570.4,
-        "tokens": 4158,
-        "error": ""
-      },
-      {
-        "id": "r52",
-        "input": "Is Senso-ji open early in the morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6291.8,
-        "tokens": 4337,
-        "error": ""
-      },
-      {
-        "id": "r53",
-        "input": "What's the total cost so far?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 5614.7,
-        "tokens": 4220,
-        "error": ""
-      },
-      {
-        "id": "r54",
-        "input": "Do I need to book the Peak Tram in advance?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6574.6,
-        "tokens": 4330,
-        "error": ""
-      },
-      {
-        "id": "r55",
-        "input": "Will it rain on day 3",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 7490.4,
-        "tokens": 4478,
-        "error": ""
-      },
-      {
-        "id": "r56",
-        "input": "Tell me more about Dotonbori",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6315.3,
-        "tokens": 4356,
-        "error": ""
-      },
-      {
-        "id": "r57",
-        "input": "how long is the walk between the two temples on day 2",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 3635.9,
-        "tokens": 4229,
-        "error": ""
-      },
-      {
-        "id": "r58",
-        "input": "Which day has the most walking?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5487.2,
-        "tokens": 4218,
-        "error": ""
-      },
-      {
-        "id": "r59",
-        "input": "Is the Star Ferry included in the budget?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6195.9,
-        "tokens": 4247,
-        "error": ""
-      },
-      {
-        "id": "r60",
-        "input": "Can I pay with an Octopus card at the night market?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6001.7,
-        "tokens": 4256,
-        "error": ""
-      },
-      {
-        "id": "r61",
-        "input": "Why did you put Osaka Castle on the first morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5716.8,
-        "tokens": 4251,
-        "error": ""
-      },
-      {
-        "id": "r62",
-        "input": "Are there vegetarian options near Gion?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 5872.9,
-        "tokens": 4272,
-        "error": ""
-      },
-      {
-        "id": "r63",
-        "input": "Remind me what we're doing on the last evening",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6332.8,
-        "tokens": 4353,
-        "error": ""
-      },
-      {
-        "id": "r64",
-        "input": "What's the best way to get from the airport to the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5533.8,
-        "tokens": 4133,
-        "error": ""
-      },
-      {
-        "id": "r65",
-        "input": "Should we bring umbrellas for the trip?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5678.7,
-        "tokens": 4238,
-        "error": ""
-      },
-      {
-        "id": "r66",
-        "input": "ok",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6483.7,
-        "tokens": 4328,
-        "error": ""
-      },
-      {
-        "id": "r67",
-        "input": "asdfgh",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6176.5,
-        "tokens": 4279,
-        "error": ""
-      },
-      {
-        "id": "r68",
-        "input": "Not sure yet, maybe somewhere warm?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.6,
-        "latency_ms": 6900.7,
-        "tokens": 4689,
-        "error": ""
-      },
-      {
-        "id": "r69",
-        "input": "I don't know",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6777.0,
-        "tokens": 4374,
-        "error": ""
-      },
-      {
-        "id": "r70",
-        "input": "The thing we talked about",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5996.3,
-        "tokens": 4312,
-        "error": ""
-      },
-      {
-        "id": "r71",
-        "input": "Do it",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.4,
-        "latency_ms": 14398.9,
-        "tokens": 14055,
-        "error": ""
-      },
-      {
-        "id": "r72",
-        "input": "yes",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4429.2,
-        "tokens": 4284,
-        "error": ""
-      },
-      {
-        "id": "r73",
-        "input": "What's the capital of Australia?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6073.2,
-        "tokens": 4304,
-        "error": ""
-      },
-      {
-        "id": "r74",
-        "input": "Write me a poem about the sea",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6313.8,
-        "tokens": 4302,
-        "error": ""
-      },
-      {
-        "id": "r75",
-        "input": "Somewhere",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 4318.4,
-        "tokens": 4334,
-        "error": ""
-      },
-      {
-        "id": "r76",
-        "input": "Can you?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6001.5,
-        "tokens": 4278,
-        "error": ""
-      },
-      {
-        "id": "r77",
-        "input": "Same as last time",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4880.8,
-        "tokens": 4323,
-        "error": ""
-      },
-      {
-        "id": "r78",
-        "input": "Next",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 4804.4,
-        "tokens": 4190,
-        "error": ""
-      },
-      {
-        "id": "r79",
-        "input": "Never mind",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 3697.1,
-        "tokens": 4233,
-        "error": ""
-      },
-      {
-        "id": "r80",
-        "input": "Thoughts?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6240.6,
-        "tokens": 4324,
-        "error": ""
-      },
-      {
-        "id": "r81",
-        "input": "\u5e6b\u6211\u898f\u5283\u4e00\u500b\u4e94\u65e5\u56db\u591c\u7684\u4eac\u90fd\u884c\u7a0b\uff0c\u5169\u500b\u4eba\uff0c\u9810\u7b97\u4e09\u5341\u842c\u65e5\u5713",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 8153.3,
-        "tokens": 4545,
-        "error": ""
-      },
-      {
-        "id": "r82",
-        "input": "\u628a\u9152\u5e97\u63db\u6210\u8fd1\u65b0\u5bbf\u7ad9\u7684",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5814.7,
-        "tokens": 4306,
-        "error": ""
-      },
-      {
-        "id": "r83",
-        "input": "\u5929\u661f\u5c0f\u8f2a\u6700\u5f8c\u4e00\u73ed\u5e7e\u9ede\u958b\uff1f",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8083.6,
-        "tokens": 4568,
-        "error": ""
-      },
-      {
-        "id": "r84",
-        "input": "\u5514\u77e5\u5440",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 7166.1,
-        "tokens": 4357,
-        "error": ""
-      }
-    ],
-    "sonnet-0.2": [
-      {
-        "id": "r01",
-        "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 8107.2,
-        "tokens": 4549,
-        "error": ""
-      },
-      {
-        "id": "r02",
-        "input": "I want to visit Tokyo for a week with my partner",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 4264.3,
-        "tokens": 4276,
-        "error": ""
-      },
-      {
-        "id": "r03",
-        "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6182.7,
-        "tokens": 4298,
-        "error": ""
-      },
-      {
-        "id": "r04",
-        "input": "What is the weather in Kyoto on 12 April?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8206.3,
-        "tokens": 4529,
-        "error": ""
-      },
-      {
-        "id": "r05",
-        "input": "Which hotel did you pick and why?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5540.9,
-        "tokens": 4229,
-        "error": ""
-      },
-      {
-        "id": "r06",
-        "input": "How much is the flight?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 3614.9,
-        "tokens": 4221,
-        "error": ""
-      },
-      {
-        "id": "r07",
-        "input": "Swap the hotel for something boutique",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 6023.8,
-        "tokens": 4284,
-        "error": ""
-      },
-      {
-        "id": "r08",
-        "input": "Move day 2 to the afternoon and keep the rest",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 4227.1,
-        "tokens": 4288,
-        "error": ""
-      },
-      {
-        "id": "r09",
-        "input": "Make the budget 3000 USD instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5745.3,
-        "tokens": 4299,
-        "error": ""
-      },
-      {
-        "id": "r10",
-        "input": "Add a museum on the last day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5907.2,
-        "tokens": 4266,
-        "error": ""
-      },
-      {
-        "id": "r11",
-        "input": "Hmm",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6420.2,
-        "tokens": 4287,
-        "error": ""
-      },
-      {
-        "id": "r12",
-        "input": "What about it?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6196.5,
-        "tokens": 4300,
-        "error": ""
-      },
-      {
-        "id": "r13",
-        "input": "Plan something nice",
-        "expected": "unclear",
-        "predicted": "plan",
-        "correct": false,
-        "confidence": 0.82,
-        "latency_ms": 15964.6,
-        "tokens": 9827,
-        "error": ""
-      },
-      {
-        "id": "r14",
-        "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6239.2,
-        "tokens": 4576,
-        "error": ""
-      },
-      {
-        "id": "r15",
-        "input": "Replace the second day's temple with a park",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5567.8,
-        "tokens": 4500,
-        "error": ""
-      },
-      {
-        "id": "r16",
-        "input": "Is the hotel near the train station?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5433.2,
-        "tokens": 4231,
-        "error": ""
-      },
-      {
-        "id": "r17",
-        "input": "What time does the flight leave?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5538.9,
-        "tokens": 4223,
-        "error": ""
-      },
-      {
-        "id": "r18",
-        "input": "Change the dates to the first week of May",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5519.7,
-        "tokens": 4571,
-        "error": ""
-      },
-      {
-        "id": "r19",
-        "input": "Surprise me",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.6,
-        "latency_ms": 16016.2,
-        "tokens": 9862,
-        "error": ""
-      },
-      {
-        "id": "r20",
-        "input": "Help",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5959.1,
-        "tokens": 4281,
-        "error": ""
-      },
-      {
-        "id": "r21",
-        "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 11867.0,
-        "tokens": 5024,
-        "error": ""
-      },
-      {
-        "id": "r22",
-        "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6339.5,
-        "tokens": 4355,
-        "error": ""
-      },
-      {
-        "id": "r23",
-        "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6856.9,
-        "tokens": 4452,
-        "error": ""
-      },
-      {
-        "id": "r24",
-        "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 10965.1,
-        "tokens": 4888,
-        "error": ""
-      },
-      {
-        "id": "r25",
-        "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 9912.2,
-        "tokens": 4796,
-        "error": ""
-      },
-      {
-        "id": "r26",
-        "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8539.8,
-        "tokens": 4649,
-        "error": ""
-      },
-      {
-        "id": "r27",
-        "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.6,
-        "latency_ms": 10947.1,
-        "tokens": 4965,
-        "error": ""
-      },
-      {
-        "id": "r28",
-        "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8268.8,
-        "tokens": 4659,
-        "error": ""
-      },
-      {
-        "id": "r29",
-        "input": "Help me plan two days in Hong Kong for a school group of 10 students",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 4122.6,
-        "tokens": 4304,
-        "error": ""
-      },
-      {
-        "id": "r30",
-        "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 14715.2,
-        "tokens": 9908,
-        "error": ""
-      },
-      {
-        "id": "r31",
-        "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6116.7,
-        "tokens": 4543,
-        "error": ""
-      },
-      {
-        "id": "r32",
-        "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6073.7,
-        "tokens": 4618,
-        "error": ""
-      },
-      {
-        "id": "r33",
-        "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6930.3,
-        "tokens": 4350,
-        "error": ""
-      },
-      {
-        "id": "r34",
-        "input": "Plan me a weekend in Osaka",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 7948.3,
-        "tokens": 4543,
-        "error": ""
-      },
-      {
-        "id": "r35",
-        "input": "Going to Tokyo for 10 days in spring with my wife, we love art and ramen",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 7346.0,
-        "tokens": 4501,
-        "error": ""
-      },
-      {
-        "id": "r36",
-        "input": "Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 9212.2,
-        "tokens": 4557,
-        "error": ""
-      },
-      {
-        "id": "r37",
-        "input": "Drop the teamLab visit, we've been already",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 7034.1,
-        "tokens": 4458,
-        "error": ""
-      },
-      {
-        "id": "r38",
-        "input": "Can you swap day 1 and day 3?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5554.1,
-        "tokens": 4256,
-        "error": ""
-      },
-      {
-        "id": "r39",
-        "input": "Upgrade the hotel to something with a view of the harbour",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 4543.4,
-        "tokens": 4360,
-        "error": ""
-      },
-      {
-        "id": "r40",
-        "input": "Remove Fushimi Inari, my knees won't handle the climb",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 9009.4,
-        "tokens": 4678,
-        "error": ""
-      },
-      {
-        "id": "r41",
-        "input": "Shorten the trip to 3 days and keep the best stops",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 7336.4,
-        "tokens": 4481,
-        "error": ""
-      },
-      {
-        "id": "r42",
-        "input": "Add a dim sum lunch on day 2",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 7477.7,
-        "tokens": 4327,
-        "error": ""
-      },
-      {
-        "id": "r43",
-        "input": "Switch the flight to an evening departure",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6228.8,
-        "tokens": 4299,
-        "error": ""
-      },
-      {
-        "id": "r44",
-        "input": "I'd rather not walk so much on the second day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 7177.2,
-        "tokens": 4576,
-        "error": ""
-      },
-      {
-        "id": "r45",
-        "input": "That hotel is too expensive, find one under 150 USD a night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 8542.7,
-        "tokens": 4658,
-        "error": ""
-      },
-      {
-        "id": "r46",
-        "input": "Put a rest afternoon after the Peak hike",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 8936.8,
-        "tokens": 4684,
-        "error": ""
-      },
-      {
-        "id": "r47",
-        "input": "Extend the stay by one night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 14416.1,
-        "tokens": 9597,
-        "error": ""
-      },
-      {
-        "id": "r48",
-        "input": "Make it a slower pace with fewer temples",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 8158.1,
-        "tokens": 4585,
-        "error": ""
-      },
-      {
-        "id": "r49",
-        "input": "Cancel the day trip to Nara and stay in Osaka instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6163.0,
-        "tokens": 4305,
-        "error": ""
-      },
-      {
-        "id": "r50",
-        "input": "What if we did Lantau on day 3 instead of day 1?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.82,
-        "latency_ms": 7246.7,
-        "tokens": 4675,
-        "error": ""
-      },
-      {
-        "id": "r51",
-        "input": "How far is Kiyomizu-dera from the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5710.4,
-        "tokens": 4278,
-        "error": ""
-      },
-      {
-        "id": "r52",
-        "input": "Is Senso-ji open early in the morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7008.2,
-        "tokens": 4424,
-        "error": ""
-      },
-      {
-        "id": "r53",
-        "input": "What's the total cost so far?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5341.2,
-        "tokens": 4182,
-        "error": ""
-      },
-      {
-        "id": "r54",
-        "input": "Do I need to book the Peak Tram in advance?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6123.4,
-        "tokens": 4152,
-        "error": ""
-      },
-      {
-        "id": "r55",
-        "input": "Will it rain on day 3",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 6723.4,
-        "tokens": 4408,
-        "error": ""
-      },
-      {
-        "id": "r56",
-        "input": "Tell me more about Dotonbori",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6146.8,
-        "tokens": 4293,
-        "error": ""
-      },
-      {
-        "id": "r57",
-        "input": "how long is the walk between the two temples on day 2",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5553.5,
-        "tokens": 4225,
-        "error": ""
-      },
-      {
-        "id": "r58",
-        "input": "Which day has the most walking?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 5699.3,
-        "tokens": 4231,
-        "error": ""
-      },
-      {
-        "id": "r59",
-        "input": "Is the Star Ferry included in the budget?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5887.6,
-        "tokens": 4252,
-        "error": ""
-      },
-      {
-        "id": "r60",
-        "input": "Can I pay with an Octopus card at the night market?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5798.6,
-        "tokens": 4258,
-        "error": ""
-      },
-      {
-        "id": "r61",
-        "input": "Why did you put Osaka Castle on the first morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 5696.1,
-        "tokens": 4254,
-        "error": ""
-      },
-      {
-        "id": "r62",
-        "input": "Are there vegetarian options near Gion?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 3791.7,
-        "tokens": 4238,
-        "error": ""
-      },
-      {
-        "id": "r63",
-        "input": "Remind me what we're doing on the last evening",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 5893.3,
-        "tokens": 4299,
-        "error": ""
-      },
-      {
-        "id": "r64",
-        "input": "What's the best way to get from the airport to the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 3960.6,
-        "tokens": 4276,
-        "error": ""
-      },
-      {
-        "id": "r65",
-        "input": "Should we bring umbrellas for the trip?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 5962.7,
-        "tokens": 4248,
-        "error": ""
-      },
-      {
-        "id": "r66",
-        "input": "ok",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6495.6,
-        "tokens": 4278,
-        "error": ""
-      },
-      {
-        "id": "r67",
-        "input": "asdfgh",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6255.3,
-        "tokens": 4317,
-        "error": ""
-      },
-      {
-        "id": "r68",
-        "input": "Not sure yet, maybe somewhere warm?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.7,
-        "latency_ms": 9191.5,
-        "tokens": 4276,
-        "error": ""
-      },
-      {
-        "id": "r69",
-        "input": "I don't know",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6455.4,
-        "tokens": 4393,
-        "error": ""
-      },
-      {
-        "id": "r70",
-        "input": "The thing we talked about",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6115.4,
-        "tokens": 4322,
-        "error": ""
-      },
-      {
-        "id": "r71",
-        "input": "Do it",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6356.2,
-        "tokens": 4365,
-        "error": ""
-      },
-      {
-        "id": "r72",
-        "input": "yes",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5882.2,
-        "tokens": 4273,
-        "error": ""
-      },
-      {
-        "id": "r73",
-        "input": "What's the capital of Australia?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6393.0,
-        "tokens": 4307,
-        "error": ""
-      },
-      {
-        "id": "r74",
-        "input": "Write me a poem about the sea",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6170.2,
-        "tokens": 4307,
-        "error": ""
-      },
-      {
-        "id": "r75",
-        "input": "Somewhere",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6123.6,
-        "tokens": 4288,
-        "error": ""
-      },
-      {
-        "id": "r76",
-        "input": "Can you?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6013.2,
-        "tokens": 4273,
-        "error": ""
-      },
-      {
-        "id": "r77",
-        "input": "Same as last time",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 6229.0,
-        "tokens": 4286,
-        "error": ""
-      },
-      {
-        "id": "r78",
-        "input": "Next",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5866.3,
-        "tokens": 4266,
-        "error": ""
-      },
-      {
-        "id": "r79",
-        "input": "Never mind",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6070.0,
-        "tokens": 4237,
-        "error": ""
-      },
-      {
-        "id": "r80",
-        "input": "Thoughts?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6107.0,
-        "tokens": 4303,
-        "error": ""
-      },
-      {
-        "id": "r81",
-        "input": "\u5e6b\u6211\u898f\u5283\u4e00\u500b\u4e94\u65e5\u56db\u591c\u7684\u4eac\u90fd\u884c\u7a0b\uff0c\u5169\u500b\u4eba\uff0c\u9810\u7b97\u4e09\u5341\u842c\u65e5\u5713",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 8097.9,
-        "tokens": 4574,
-        "error": ""
-      },
-      {
-        "id": "r82",
-        "input": "\u628a\u9152\u5e97\u63db\u6210\u8fd1\u65b0\u5bbf\u7ad9\u7684",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 6140.6,
-        "tokens": 4313,
-        "error": ""
-      },
-      {
-        "id": "r83",
-        "input": "\u5929\u661f\u5c0f\u8f2a\u6700\u5f8c\u4e00\u73ed\u5e7e\u9ede\u958b\uff1f",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7994.0,
-        "tokens": 4536,
-        "error": ""
-      },
-      {
-        "id": "r84",
-        "input": "\u5514\u77e5\u5440",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6597.8,
-        "tokens": 4318,
-        "error": ""
-      }
-    ],
     "flash-lite-0.0": [
       {
         "id": "r01",
@@ -2212,8 +82,8 @@
         "predicted": "plan",
         "correct": true,
         "confidence": 1.0,
-        "latency_ms": 4832.9,
-        "tokens": 2913,
+        "latency_ms": 2559.2,
+        "tokens": 2960,
         "error": ""
       },
       {
@@ -2222,2213 +92,361 @@
         "expected": "plan",
         "predicted": "plan",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4558.3,
-        "tokens": 2849,
-        "error": ""
-      },
-      {
-        "id": "r03",
-        "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
         "confidence": 1.0,
-        "latency_ms": 4086.9,
-        "tokens": 2816,
-        "error": ""
-      },
-      {
-        "id": "r04",
-        "input": "What is the weather in Kyoto on 12 April?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4109.6,
-        "tokens": 2828,
-        "error": ""
-      },
-      {
-        "id": "r05",
-        "input": "Which hotel did you pick and why?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 2206.5,
-        "tokens": 2811,
-        "error": ""
-      },
-      {
-        "id": "r06",
-        "input": "How much is the flight?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 1905.2,
-        "tokens": 2802,
-        "error": ""
-      },
-      {
-        "id": "r07",
-        "input": "Swap the hotel for something boutique",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4264.5,
-        "tokens": 2813,
-        "error": ""
-      },
-      {
-        "id": "r08",
-        "input": "Move day 2 to the afternoon and keep the rest",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 2201.7,
-        "tokens": 2821,
-        "error": ""
-      },
-      {
-        "id": "r09",
-        "input": "Make the budget 3000 USD instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4112.9,
-        "tokens": 2814,
-        "error": ""
-      },
-      {
-        "id": "r10",
-        "input": "Add a museum on the last day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3787.0,
-        "tokens": 2852,
-        "error": ""
-      },
-      {
-        "id": "r11",
-        "input": "Hmm",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4342.7,
-        "tokens": 2940,
-        "error": ""
-      },
-      {
-        "id": "r12",
-        "input": "What about it?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.5,
-        "latency_ms": 4228.2,
-        "tokens": 2874,
-        "error": ""
-      },
-      {
-        "id": "r13",
-        "input": "Plan something nice",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.4,
-        "latency_ms": 4316.0,
-        "tokens": 2909,
-        "error": ""
-      },
-      {
-        "id": "r14",
-        "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4299.9,
-        "tokens": 2883,
-        "error": ""
-      },
-      {
-        "id": "r15",
-        "input": "Replace the second day's temple with a park",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3871.8,
-        "tokens": 2825,
-        "error": ""
-      },
-      {
-        "id": "r16",
-        "input": "Is the hotel near the train station?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3997.8,
-        "tokens": 2813,
-        "error": ""
-      },
-      {
-        "id": "r17",
-        "input": "What time does the flight leave?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3918.9,
-        "tokens": 2804,
-        "error": ""
-      },
-      {
-        "id": "r18",
-        "input": "Change the dates to the first week of May",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4281.1,
-        "tokens": 2878,
-        "error": ""
-      },
-      {
-        "id": "r19",
-        "input": "Surprise me",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4527.8,
-        "tokens": 2961,
-        "error": ""
-      },
-      {
-        "id": "r20",
-        "input": "Help",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4622.6,
-        "tokens": 2917,
-        "error": ""
-      },
-      {
-        "id": "r21",
-        "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 1.0,
-        "latency_ms": 4164.9,
-        "tokens": 2912,
-        "error": ""
-      },
-      {
-        "id": "r22",
-        "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 3847.1,
-        "tokens": 2820,
-        "error": ""
-      },
-      {
-        "id": "r23",
-        "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4152.4,
-        "tokens": 2844,
-        "error": ""
-      },
-      {
-        "id": "r24",
-        "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3993.3,
-        "tokens": 2874,
-        "error": ""
-      },
-      {
-        "id": "r25",
-        "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4077.1,
-        "tokens": 2902,
-        "error": ""
-      },
-      {
-        "id": "r26",
-        "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 2291.6,
-        "tokens": 2872,
-        "error": ""
-      },
-      {
-        "id": "r27",
-        "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4184.7,
-        "tokens": 2881,
-        "error": ""
-      },
-      {
-        "id": "r28",
-        "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6003.4,
-        "tokens": 6382,
-        "error": ""
-      },
-      {
-        "id": "r29",
-        "input": "Help me plan two days in Hong Kong for a school group of 10 students",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4132.6,
-        "tokens": 2863,
-        "error": ""
-      },
-      {
-        "id": "r30",
-        "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 8779.5,
-        "tokens": 6452,
-        "error": ""
-      },
-      {
-        "id": "r31",
-        "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4215.4,
-        "tokens": 2893,
-        "error": ""
-      },
-      {
-        "id": "r32",
-        "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4291.2,
-        "tokens": 2833,
-        "error": ""
-      },
-      {
-        "id": "r33",
-        "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 2441.3,
-        "tokens": 2840,
-        "error": ""
-      },
-      {
-        "id": "r34",
-        "input": "Plan me a weekend in Osaka",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 2484.7,
-        "tokens": 2823,
-        "error": ""
-      },
-      {
-        "id": "r35",
-        "input": "Going to Tokyo for 10 days in spring with my wife, we love art and ramen",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4231.5,
-        "tokens": 2880,
-        "error": ""
-      },
-      {
-        "id": "r36",
-        "input": "Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 2167.4,
-        "tokens": 2863,
-        "error": ""
-      },
-      {
-        "id": "r37",
-        "input": "Drop the teamLab visit, we've been already",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3963.0,
-        "tokens": 2835,
-        "error": ""
-      },
-      {
-        "id": "r38",
-        "input": "Can you swap day 1 and day 3?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 2479.1,
-        "tokens": 2825,
-        "error": ""
-      },
-      {
-        "id": "r39",
-        "input": "Upgrade the hotel to something with a view of the harbour",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4099.9,
-        "tokens": 2865,
-        "error": ""
-      },
-      {
-        "id": "r40",
-        "input": "Remove Fushimi Inari, my knees won't handle the climb",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 2317.0,
-        "tokens": 2884,
-        "error": ""
-      },
-      {
-        "id": "r41",
-        "input": "Shorten the trip to 3 days and keep the best stops",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4138.1,
-        "tokens": 2859,
-        "error": ""
-      },
-      {
-        "id": "r42",
-        "input": "Add a dim sum lunch on day 2",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4176.7,
-        "tokens": 2852,
-        "error": ""
-      },
-      {
-        "id": "r43",
-        "input": "Switch the flight to an evening departure",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4173.9,
-        "tokens": 2813,
-        "error": ""
-      },
-      {
-        "id": "r44",
-        "input": "I'd rather not walk so much on the second day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4070.9,
-        "tokens": 2857,
-        "error": ""
-      },
-      {
-        "id": "r45",
-        "input": "That hotel is too expensive, find one under 150 USD a night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4187.7,
-        "tokens": 2876,
-        "error": ""
-      },
-      {
-        "id": "r46",
-        "input": "Put a rest afternoon after the Peak hike",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4028.6,
-        "tokens": 2826,
-        "error": ""
-      },
-      {
-        "id": "r47",
-        "input": "Extend the stay by one night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4266.2,
-        "tokens": 2829,
-        "error": ""
-      },
-      {
-        "id": "r48",
-        "input": "Make it a slower pace with fewer temples",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4269.7,
-        "tokens": 2856,
-        "error": ""
-      },
-      {
-        "id": "r49",
-        "input": "Cancel the day trip to Nara and stay in Osaka instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 1995.5,
-        "tokens": 2837,
-        "error": ""
-      },
-      {
-        "id": "r50",
-        "input": "What if we did Lantau on day 3 instead of day 1?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4094.8,
-        "tokens": 2847,
-        "error": ""
-      },
-      {
-        "id": "r51",
-        "input": "How far is Kiyomizu-dera from the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4111.9,
-        "tokens": 2826,
-        "error": ""
-      },
-      {
-        "id": "r52",
-        "input": "Is Senso-ji open early in the morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 1.0,
-        "latency_ms": 5119.4,
-        "tokens": 2823,
-        "error": ""
-      },
-      {
-        "id": "r53",
-        "input": "What's the total cost so far?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3933.9,
-        "tokens": 2798,
-        "error": ""
-      },
-      {
-        "id": "r54",
-        "input": "Do I need to book the Peak Tram in advance?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 1.0,
-        "latency_ms": 4818.4,
-        "tokens": 2796,
-        "error": ""
-      },
-      {
-        "id": "r55",
-        "input": "Will it rain on day 3",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3934.0,
-        "tokens": 2814,
-        "error": ""
-      },
-      {
-        "id": "r56",
-        "input": "Tell me more about Dotonbori",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4010.9,
-        "tokens": 2827,
-        "error": ""
-      },
-      {
-        "id": "r57",
-        "input": "how long is the walk between the two temples on day 2",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4008.6,
-        "tokens": 2825,
-        "error": ""
-      },
-      {
-        "id": "r58",
-        "input": "Which day has the most walking?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 2609.2,
-        "tokens": 2813,
-        "error": ""
-      },
-      {
-        "id": "r59",
-        "input": "Is the Star Ferry included in the budget?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4106.9,
-        "tokens": 2825,
-        "error": ""
-      },
-      {
-        "id": "r60",
-        "input": "Can I pay with an Octopus card at the night market?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4059.0,
-        "tokens": 2809,
-        "error": ""
-      },
-      {
-        "id": "r61",
-        "input": "Why did you put Osaka Castle on the first morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 3934.2,
-        "tokens": 2825,
-        "error": ""
-      },
-      {
-        "id": "r62",
-        "input": "Are there vegetarian options near Gion?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4005.0,
-        "tokens": 2846,
-        "error": ""
-      },
-      {
-        "id": "r63",
-        "input": "Remind me what we're doing on the last evening",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3997.5,
-        "tokens": 2810,
-        "error": ""
-      },
-      {
-        "id": "r64",
-        "input": "What's the best way to get from the airport to the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4359.2,
-        "tokens": 2866,
-        "error": ""
-      },
-      {
-        "id": "r65",
-        "input": "Should we bring umbrellas for the trip?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 4056.7,
-        "tokens": 2814,
-        "error": ""
-      },
-      {
-        "id": "r66",
-        "input": "ok",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4358.3,
-        "tokens": 2907,
-        "error": ""
-      },
-      {
-        "id": "r67",
-        "input": "asdfgh",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3982.5,
-        "tokens": 2880,
-        "error": ""
-      },
-      {
-        "id": "r68",
-        "input": "Not sure yet, maybe somewhere warm?",
-        "expected": "unclear",
-        "predicted": "plan",
-        "correct": false,
-        "confidence": 0.85,
-        "latency_ms": 4066.0,
-        "tokens": 2912,
-        "error": ""
-      },
-      {
-        "id": "r69",
-        "input": "I don't know",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4310.8,
-        "tokens": 2959,
-        "error": ""
-      },
-      {
-        "id": "r70",
-        "input": "The thing we talked about",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.3,
-        "latency_ms": 4057.9,
-        "tokens": 2815,
-        "error": ""
-      },
-      {
-        "id": "r71",
-        "input": "Do it",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.3,
-        "latency_ms": 4194.9,
-        "tokens": 2907,
-        "error": ""
-      },
-      {
-        "id": "r72",
-        "input": "yes",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.2,
-        "latency_ms": 2279.3,
-        "tokens": 2909,
-        "error": ""
-      },
-      {
-        "id": "r73",
-        "input": "What's the capital of Australia?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4356.1,
-        "tokens": 2884,
-        "error": ""
-      },
-      {
-        "id": "r74",
-        "input": "Write me a poem about the sea",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4332.9,
-        "tokens": 2900,
-        "error": ""
-      },
-      {
-        "id": "r75",
-        "input": "Somewhere",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4280.7,
-        "tokens": 2907,
-        "error": ""
-      },
-      {
-        "id": "r76",
-        "input": "Can you?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4302.8,
-        "tokens": 2917,
-        "error": ""
-      },
-      {
-        "id": "r77",
-        "input": "Same as last time",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.4,
-        "latency_ms": 4299.1,
+        "latency_ms": 4296.5,
         "tokens": 2918,
         "error": ""
       },
       {
-        "id": "r78",
-        "input": "Next",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.4,
-        "latency_ms": 4265.5,
-        "tokens": 2876,
-        "error": ""
-      },
-      {
-        "id": "r79",
-        "input": "Never mind",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4170.9,
-        "tokens": 2891,
-        "error": ""
-      },
-      {
-        "id": "r80",
-        "input": "Thoughts?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.5,
-        "latency_ms": 4195.0,
-        "tokens": 2902,
-        "error": ""
-      },
-      {
-        "id": "r81",
-        "input": "\u5e6b\u6211\u898f\u5283\u4e00\u500b\u4e94\u65e5\u56db\u591c\u7684\u4eac\u90fd\u884c\u7a0b\uff0c\u5169\u500b\u4eba\uff0c\u9810\u7b97\u4e09\u5341\u842c\u65e5\u5713",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 2647.5,
-        "tokens": 2877,
-        "error": ""
-      },
-      {
-        "id": "r82",
-        "input": "\u628a\u9152\u5e97\u63db\u6210\u8fd1\u65b0\u5bbf\u7ad9\u7684",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4077.6,
-        "tokens": 2851,
-        "error": ""
-      },
-      {
-        "id": "r83",
-        "input": "\u5929\u661f\u5c0f\u8f2a\u6700\u5f8c\u4e00\u73ed\u5e7e\u9ede\u958b\uff1f",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3991.5,
-        "tokens": 2833,
-        "error": ""
-      },
-      {
-        "id": "r84",
-        "input": "\u5514\u77e5\u5440",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 4024.0,
-        "tokens": 2909,
-        "error": ""
-      }
-    ],
-    "jev": [
-      {
-        "id": "r01",
-        "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.74,
-        "latency_ms": 768.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r02",
-        "input": "I want to visit Tokyo for a week with my partner",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.54,
-        "latency_ms": 713.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
         "id": "r03",
         "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
         "expected": "plan",
         "predicted": "plan",
         "correct": true,
-        "confidence": 0.8,
-        "latency_ms": 582.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r04",
-        "input": "What is the weather in Kyoto on 12 April?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.57,
-        "latency_ms": 451.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r05",
-        "input": "Which hotel did you pick and why?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 709.2,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r06",
-        "input": "How much is the flight?",
-        "expected": "ask",
-        "predicted": "unclear",
-        "correct": false,
-        "confidence": 0.63,
-        "latency_ms": 707.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r07",
-        "input": "Swap the hotel for something boutique",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 576.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r08",
-        "input": "Move day 2 to the afternoon and keep the rest",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 443.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r09",
-        "input": "Make the budget 3000 USD instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 701.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r10",
-        "input": "Add a museum on the last day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 702.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r11",
-        "input": "Hmm",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.94,
-        "latency_ms": 574.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r12",
-        "input": "What about it?",
-        "expected": "unclear",
-        "predicted": "ask",
-        "correct": false,
-        "confidence": 0.73,
-        "latency_ms": 442.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r13",
-        "input": "Plan something nice",
-        "expected": "unclear",
-        "predicted": "plan",
-        "correct": false,
-        "confidence": 0.51,
-        "latency_ms": 847.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r14",
-        "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.56,
-        "latency_ms": 999.2,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r15",
-        "input": "Replace the second day's temple with a park",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 443.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r16",
-        "input": "Is the hotel near the train station?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 446.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r17",
-        "input": "What time does the flight leave?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.81,
-        "latency_ms": 899.7,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r18",
-        "input": "Change the dates to the first week of May",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.96,
-        "latency_ms": 765.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r19",
-        "input": "Surprise me",
-        "expected": "unclear",
-        "predicted": "plan",
-        "correct": false,
-        "confidence": 0.54,
-        "latency_ms": 463.7,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r20",
-        "input": "Help",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.83,
-        "latency_ms": 476.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r21",
-        "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 897.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r22",
-        "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 740.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r23",
-        "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.56,
-        "latency_ms": 465.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r24",
-        "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.68,
-        "latency_ms": 459.2,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r25",
-        "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.67,
-        "latency_ms": 867.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r26",
-        "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.7,
-        "latency_ms": 593.7,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r27",
-        "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.67,
-        "latency_ms": 599.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r28",
-        "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.89,
-        "latency_ms": 451.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r29",
-        "input": "Help me plan two days in Hong Kong for a school group of 10 students",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.75,
-        "latency_ms": 873.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r30",
-        "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.82,
-        "latency_ms": 737.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r31",
-        "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.57,
-        "latency_ms": 458.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r32",
-        "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.91,
-        "latency_ms": 462.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r33",
-        "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.81,
-        "latency_ms": 744.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r34",
-        "input": "Plan me a weekend in Osaka",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.71,
-        "latency_ms": 901.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r35",
-        "input": "Going to Tokyo for 10 days in spring with my wife, we love art and ramen",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.5,
-        "latency_ms": 603.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r36",
-        "input": "Arrange a 3-day Kyoto trip for a wheelchair user and a carer, step-free where possible",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.67,
-        "latency_ms": 630.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r37",
-        "input": "Drop the teamLab visit, we've been already",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 819.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r38",
-        "input": "Can you swap day 1 and day 3?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 974.2,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r39",
-        "input": "Upgrade the hotel to something with a view of the harbour",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 676.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r40",
-        "input": "Remove Fushimi Inari, my knees won't handle the climb",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 622.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r41",
-        "input": "Shorten the trip to 3 days and keep the best stops",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 905.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r42",
-        "input": "Add a dim sum lunch on day 2",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 608.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r43",
-        "input": "Switch the flight to an evening departure",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 611.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r44",
-        "input": "I'd rather not walk so much on the second day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.94,
-        "latency_ms": 471.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r45",
-        "input": "That hotel is too expensive, find one under 150 USD a night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 732.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r46",
-        "input": "Put a rest afternoon after the Peak hike",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 752.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r47",
-        "input": "Extend the stay by one night",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 618.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r48",
-        "input": "Make it a slower pace with fewer temples",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 476.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r49",
-        "input": "Cancel the day trip to Nara and stay in Osaka instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 943.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r50",
-        "input": "What if we did Lantau on day 3 instead of day 1?",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.85,
-        "latency_ms": 642.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r51",
-        "input": "How far is Kiyomizu-dera from the hotel?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.72,
-        "latency_ms": 616.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r52",
-        "input": "Is Senso-ji open early in the morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.84,
-        "latency_ms": 465.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r53",
-        "input": "What's the total cost so far?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.96,
-        "latency_ms": 904.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r54",
-        "input": "Do I need to book the Peak Tram in advance?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 761.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r55",
-        "input": "Will it rain on day 3",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.63,
-        "latency_ms": 619.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r56",
-        "input": "Tell me more about Dotonbori",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.64,
-        "latency_ms": 326.2,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r57",
-        "input": "how long is the walk between the two temples on day 2",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 868.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r58",
-        "input": "Which day has the most walking?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.87,
-        "latency_ms": 593.0,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r59",
-        "input": "Is the Star Ferry included in the budget?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 593.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r60",
-        "input": "Can I pay with an Octopus card at the night market?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.76,
-        "latency_ms": 450.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r61",
-        "input": "Why did you put Osaka Castle on the first morning?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 910.7,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r62",
-        "input": "Are there vegetarian options near Gion?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.81,
-        "latency_ms": 1051.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r63",
-        "input": "Remind me what we're doing on the last evening",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.98,
-        "latency_ms": 774.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r64",
-        "input": "What's the best way to get from the airport to the hotel?",
-        "expected": "ask",
-        "predicted": "unclear",
-        "correct": false,
-        "confidence": 0.69,
-        "latency_ms": 331.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r65",
-        "input": "Should we bring umbrellas for the trip?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.62,
-        "latency_ms": 1063.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r66",
-        "input": "ok",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.91,
-        "latency_ms": 626.7,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r67",
-        "input": "asdfgh",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 785.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r68",
-        "input": "Not sure yet, maybe somewhere warm?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.81,
-        "latency_ms": 490.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r69",
-        "input": "I don't know",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 751.4,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r70",
-        "input": "The thing we talked about",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.87,
-        "latency_ms": 747.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r71",
-        "input": "Do it",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.54,
-        "latency_ms": 597.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r72",
-        "input": "yes",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.84,
-        "latency_ms": 730.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r73",
-        "input": "What's the capital of Australia?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
         "confidence": 1.0,
-        "latency_ms": 866.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r74",
-        "input": "Write me a poem about the sea",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 1.0,
-        "latency_ms": 593.5,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r75",
-        "input": "Somewhere",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 598.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r76",
-        "input": "Can you?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 450.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r77",
-        "input": "Same as last time",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.83,
-        "latency_ms": 890.1,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r78",
-        "input": "Next",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.67,
-        "latency_ms": 753.7,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r79",
-        "input": "Never mind",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.96,
-        "latency_ms": 456.2,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r80",
-        "input": "Thoughts?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.62,
-        "latency_ms": 472.3,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r81",
-        "input": "\u5e6b\u6211\u898f\u5283\u4e00\u500b\u4e94\u65e5\u56db\u591c\u7684\u4eac\u90fd\u884c\u7a0b\uff0c\u5169\u500b\u4eba\uff0c\u9810\u7b97\u4e09\u5341\u842c\u65e5\u5713",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.79,
-        "latency_ms": 755.6,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r82",
-        "input": "\u628a\u9152\u5e97\u63db\u6210\u8fd1\u65b0\u5bbf\u7ad9\u7684",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.99,
-        "latency_ms": 591.8,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r83",
-        "input": "\u5929\u661f\u5c0f\u8f2a\u6700\u5f8c\u4e00\u73ed\u5e7e\u9ede\u958b\uff1f",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.66,
-        "latency_ms": 451.9,
-        "tokens": null,
-        "error": ""
-      },
-      {
-        "id": "r84",
-        "input": "\u5514\u77e5\u5440",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.94,
-        "latency_ms": 324.7,
-        "tokens": null,
-        "error": ""
-      }
-    ],
-    "deepseek41-0.0": [
-      {
-        "id": "r01",
-        "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 9459.1,
-        "tokens": 3055,
-        "error": ""
-      },
-      {
-        "id": "r02",
-        "input": "I want to visit Tokyo for a week with my partner",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.94,
-        "latency_ms": 17420.7,
-        "tokens": 7014,
-        "error": ""
-      },
-      {
-        "id": "r03",
-        "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.96,
-        "latency_ms": 5944.6,
-        "tokens": 2887,
-        "error": ""
-      },
-      {
-        "id": "r04",
-        "input": "What is the weather in Kyoto on 12 April?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 8782.7,
-        "tokens": 2984,
-        "error": ""
-      },
-      {
-        "id": "r05",
-        "input": "Which hotel did you pick and why?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7101.2,
-        "tokens": 2768,
-        "error": ""
-      },
-      {
-        "id": "r06",
-        "input": "How much is the flight?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7619.1,
-        "tokens": 2839,
-        "error": ""
-      },
-      {
-        "id": "r07",
-        "input": "Swap the hotel for something boutique",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 6616.8,
-        "tokens": 2785,
-        "error": ""
-      },
-      {
-        "id": "r08",
-        "input": "Move day 2 to the afternoon and keep the rest",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6631.2,
-        "tokens": 2875,
-        "error": ""
-      },
-      {
-        "id": "r09",
-        "input": "Make the budget 3000 USD instead",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 3002.7,
-        "tokens": 2817,
-        "error": ""
-      },
-      {
-        "id": "r10",
-        "input": "Add a museum on the last day",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 10171.3,
-        "tokens": 3128,
-        "error": ""
-      },
-      {
-        "id": "r11",
-        "input": "Hmm",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6060.2,
-        "tokens": 2938,
-        "error": ""
-      },
-      {
-        "id": "r12",
-        "input": "What about it?",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8102.4,
-        "tokens": 2990,
-        "error": ""
-      },
-      {
-        "id": "r13",
-        "input": "Plan something nice",
-        "expected": "unclear",
-        "predicted": "plan",
-        "correct": false,
-        "confidence": 0.72,
-        "latency_ms": 19671.8,
-        "tokens": 6874,
-        "error": ""
-      },
-      {
-        "id": "r14",
-        "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 9266.6,
-        "tokens": 3026,
-        "error": ""
-      },
-      {
-        "id": "r15",
-        "input": "Replace the second day's temple with a park",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 7088.4,
-        "tokens": 2971,
-        "error": ""
-      },
-      {
-        "id": "r16",
-        "input": "Is the hotel near the train station?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6829.0,
-        "tokens": 2764,
-        "error": ""
-      },
-      {
-        "id": "r17",
-        "input": "What time does the flight leave?",
-        "expected": "ask",
-        "predicted": "ask",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 6404.6,
-        "tokens": 2801,
-        "error": ""
-      },
-      {
-        "id": "r18",
-        "input": "Change the dates to the first week of May",
-        "expected": "modify",
-        "predicted": "modify",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 8962.8,
-        "tokens": 3011,
-        "error": ""
-      },
-      {
-        "id": "r19",
-        "input": "Surprise me",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 17766.1,
-        "tokens": 6801,
-        "error": ""
-      },
-      {
-        "id": "r20",
-        "input": "Help",
-        "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 7753.8,
-        "tokens": 2896,
-        "error": ""
-      },
-      {
-        "id": "r21",
-        "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 9316.1,
-        "tokens": 3077,
-        "error": ""
-      },
-      {
-        "id": "r22",
-        "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.96,
-        "latency_ms": 5967.8,
-        "tokens": 3025,
-        "error": ""
-      },
-      {
-        "id": "r23",
-        "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8335.5,
-        "tokens": 2937,
-        "error": ""
-      },
-      {
-        "id": "r24",
-        "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.8,
-        "latency_ms": 20481.3,
-        "tokens": 7173,
-        "error": ""
-      },
-      {
-        "id": "r25",
-        "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 10751.4,
-        "tokens": 3263,
-        "error": ""
-      },
-      {
-        "id": "r26",
-        "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 17374.2,
-        "tokens": 3694,
-        "error": ""
-      },
-      {
-        "id": "r27",
-        "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 13970.9,
-        "tokens": 3535,
-        "error": ""
-      },
-      {
-        "id": "r28",
-        "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 15422.7,
-        "tokens": 3642,
-        "error": ""
-      },
-      {
-        "id": "r29",
-        "input": "Help me plan two days in Hong Kong for a school group of 10 students",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 4322.0,
-        "tokens": 2995,
-        "error": ""
-      },
-      {
-        "id": "r30",
-        "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 12435.0,
-        "tokens": 6584,
-        "error": ""
-      },
-      {
-        "id": "r31",
-        "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 11747.1,
-        "tokens": 3259,
-        "error": ""
-      },
-      {
-        "id": "r32",
-        "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 13703.3,
-        "tokens": 3372,
-        "error": ""
-      },
-      {
-        "id": "r33",
-        "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
-        "expected": "plan",
-        "predicted": "plan",
-        "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 8335.9,
+        "latency_ms": 4168.4,
         "tokens": 2892,
         "error": ""
       },
       {
+        "id": "r04",
+        "input": "What is the weather in Kyoto on 12 April?",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 1844.6,
+        "tokens": 2900,
+        "error": ""
+      },
+      {
+        "id": "r05",
+        "input": "Which hotel did you pick and why?",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 2060.6,
+        "tokens": 2893,
+        "error": ""
+      },
+      {
+        "id": "r06",
+        "input": "How much is the flight?",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 3905.5,
+        "tokens": 2884,
+        "error": ""
+      },
+      {
+        "id": "r07",
+        "input": "Swap the hotel for something boutique",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "confidence": 0.99,
+        "latency_ms": 2306.5,
+        "tokens": 2892,
+        "error": ""
+      },
+      {
+        "id": "r08",
+        "input": "Move day 2 to the afternoon and keep the rest",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 4106.8,
+        "tokens": 2900,
+        "error": ""
+      },
+      {
+        "id": "r09",
+        "input": "Make the budget 3000 USD instead",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 1731.2,
+        "tokens": 2890,
+        "error": ""
+      },
+      {
+        "id": "r10",
+        "input": "Add a museum on the last day",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 3834.3,
+        "tokens": 2910,
+        "error": ""
+      },
+      {
+        "id": "r11",
+        "input": "Hmm",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 2310.7,
+        "tokens": 2968,
+        "error": ""
+      },
+      {
+        "id": "r12",
+        "input": "What about it?",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "confidence": 0.85,
+        "latency_ms": 4396.3,
+        "tokens": 2967,
+        "error": ""
+      },
+      {
+        "id": "r13",
+        "input": "Plan something nice",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 2297.8,
+        "tokens": 3009,
+        "error": ""
+      },
+      {
+        "id": "r14",
+        "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 4246.0,
+        "tokens": 2937,
+        "error": ""
+      },
+      {
+        "id": "r15",
+        "input": "Replace the second day's temple with a park",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 2726.7,
+        "tokens": 2922,
+        "error": ""
+      },
+      {
+        "id": "r16",
+        "input": "Is the hotel near the train station?",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 4023.9,
+        "tokens": 2893,
+        "error": ""
+      },
+      {
+        "id": "r17",
+        "input": "What time does the flight leave?",
+        "expected": "ask",
+        "predicted": "ask",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 4053.4,
+        "tokens": 2894,
+        "error": ""
+      },
+      {
+        "id": "r18",
+        "input": "Change the dates to the first week of May",
+        "expected": "modify",
+        "predicted": "modify",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 4287.9,
+        "tokens": 2973,
+        "error": ""
+      },
+      {
+        "id": "r19",
+        "input": "Surprise me",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 4410.0,
+        "tokens": 2987,
+        "error": ""
+      },
+      {
+        "id": "r20",
+        "input": "Help",
+        "expected": "unclear",
+        "predicted": "unclear",
+        "correct": true,
+        "confidence": 0.95,
+        "latency_ms": 2784.8,
+        "tokens": 2986,
+        "error": ""
+      },
+      {
+        "id": "r21",
+        "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 4432.5,
+        "tokens": 2954,
+        "error": ""
+      },
+      {
+        "id": "r22",
+        "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 2024.0,
+        "tokens": 2928,
+        "error": ""
+      },
+      {
+        "id": "r23",
+        "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 0.99,
+        "latency_ms": 4062.0,
+        "tokens": 2943,
+        "error": ""
+      },
+      {
+        "id": "r24",
+        "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 0.98,
+        "latency_ms": 2009.0,
+        "tokens": 2999,
+        "error": ""
+      },
+      {
+        "id": "r25",
+        "input": "Create a different itinerary for Kyoto in cherry blossom season, 5 days, budget 300000 JPY",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 0.99,
+        "latency_ms": 2045.3,
+        "tokens": 2970,
+        "error": ""
+      },
+      {
+        "id": "r26",
+        "input": "Book us a honeymoon in Kyoto, 7 nights, ryokan stays, no budget limit",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 4174.8,
+        "tokens": 2932,
+        "error": ""
+      },
+      {
+        "id": "r27",
+        "input": "I need a business trip itinerary for Tokyo, Monday to Thursday, near Shinjuku",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 0.98,
+        "latency_ms": 4174.8,
+        "tokens": 2952,
+        "error": ""
+      },
+      {
+        "id": "r28",
+        "input": "New trip please: Tokyo to Hong Kong for 5 days over Christmas, 2 adults and a toddler",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 0.98,
+        "latency_ms": 4071.9,
+        "tokens": 6427,
+        "error": ""
+      },
+      {
+        "id": "r29",
+        "input": "Help me plan two days in Hong Kong for a school group of 10 students",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 2054.9,
+        "tokens": 2918,
+        "error": ""
+      },
+      {
+        "id": "r30",
+        "input": "Make a plan for Osaka and Nara, 4 days, leaving from Hong Kong on 3 March",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 6330.4,
+        "tokens": 6425,
+        "error": ""
+      },
+      {
+        "id": "r31",
+        "input": "I'd love to see Tokyo in autumn - 5 days, two people, around 3000 USD in total",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 1757.9,
+        "tokens": 2909,
+        "error": ""
+      },
+      {
+        "id": "r32",
+        "input": "Let's plan another trip, this time to Kyoto for three nights with my parents",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 4068.6,
+        "tokens": 2966,
+        "error": ""
+      },
+      {
+        "id": "r33",
+        "input": "Can you put together a 4-day Hong Kong itinerary for a couple on a tight budget?",
+        "expected": "plan",
+        "predicted": "plan",
+        "correct": true,
+        "confidence": 1.0,
+        "latency_ms": 4263.7,
+        "tokens": 2923,
+        "error": ""
+      },
+      {
         "id": "r34",
         "input": "Plan me a weekend in Osaka",
         "expected": "plan",
         "predicted": "plan",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 9587.0,
-        "tokens": 3039,
+        "confidence": 1.0,
+        "latency_ms": 2077.8,
+        "tokens": 2906,
         "error": ""
       },
       {
@@ -4437,9 +455,9 @@
         "expected": "plan",
         "predicted": "plan",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 10015.2,
-        "tokens": 3006,
+        "confidence": 0.98,
+        "latency_ms": 1927.7,
+        "tokens": 2941,
         "error": ""
       },
       {
@@ -4448,9 +466,9 @@
         "expected": "plan",
         "predicted": "plan",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 12555.3,
-        "tokens": 3131,
+        "confidence": 1.0,
+        "latency_ms": 4138.5,
+        "tokens": 2950,
         "error": ""
       },
       {
@@ -4459,9 +477,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8890.0,
-        "tokens": 2867,
+        "confidence": 0.99,
+        "latency_ms": 4087.1,
+        "tokens": 2903,
         "error": ""
       },
       {
@@ -4470,9 +488,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7439.9,
-        "tokens": 2823,
+        "confidence": 0.99,
+        "latency_ms": 4102.2,
+        "tokens": 2898,
         "error": ""
       },
       {
@@ -4481,9 +499,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 8536.9,
-        "tokens": 2896,
+        "confidence": 0.98,
+        "latency_ms": 3983.1,
+        "tokens": 2913,
         "error": ""
       },
       {
@@ -4492,9 +510,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 9282.5,
-        "tokens": 2968,
+        "confidence": 1.0,
+        "latency_ms": 2186.5,
+        "tokens": 2941,
         "error": ""
       },
       {
@@ -4503,9 +521,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 8446.5,
-        "tokens": 2897,
+        "confidence": 0.95,
+        "latency_ms": 4129.8,
+        "tokens": 2932,
         "error": ""
       },
       {
@@ -4514,9 +532,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.94,
-        "latency_ms": 8391.7,
-        "tokens": 2993,
+        "confidence": 0.98,
+        "latency_ms": 4134.2,
+        "tokens": 2917,
         "error": ""
       },
       {
@@ -4525,9 +543,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7001.1,
-        "tokens": 2799,
+        "confidence": 0.95,
+        "latency_ms": 2204.8,
+        "tokens": 2892,
         "error": ""
       },
       {
@@ -4536,9 +554,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 9803.4,
-        "tokens": 2972,
+        "confidence": 0.95,
+        "latency_ms": 2169.0,
+        "tokens": 2916,
         "error": ""
       },
       {
@@ -4547,9 +565,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 11109.6,
-        "tokens": 3142,
+        "confidence": 0.95,
+        "latency_ms": 4183.6,
+        "tokens": 2935,
         "error": ""
       },
       {
@@ -4558,9 +576,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 9043.8,
-        "tokens": 2956,
+        "confidence": 0.95,
+        "latency_ms": 2039.7,
+        "tokens": 2950,
         "error": ""
       },
       {
@@ -4569,9 +587,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 9500.0,
-        "tokens": 2968,
+        "confidence": 0.95,
+        "latency_ms": 4021.6,
+        "tokens": 2881,
         "error": ""
       },
       {
@@ -4580,9 +598,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 5885.6,
-        "tokens": 2840,
+        "confidence": 0.95,
+        "latency_ms": 4238.0,
+        "tokens": 2927,
         "error": ""
       },
       {
@@ -4591,9 +609,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7341.6,
-        "tokens": 2876,
+        "confidence": 0.95,
+        "latency_ms": 2186.6,
+        "tokens": 2916,
         "error": ""
       },
       {
@@ -4602,9 +620,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.88,
-        "latency_ms": 9141.5,
-        "tokens": 3022,
+        "confidence": 0.95,
+        "latency_ms": 4087.1,
+        "tokens": 2913,
         "error": ""
       },
       {
@@ -4613,9 +631,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7607.5,
-        "tokens": 2827,
+        "confidence": 1.0,
+        "latency_ms": 4054.4,
+        "tokens": 2903,
         "error": ""
       },
       {
@@ -4624,9 +642,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7073.1,
-        "tokens": 2770,
+        "confidence": 1.0,
+        "latency_ms": 2307.3,
+        "tokens": 2925,
         "error": ""
       },
       {
@@ -4635,9 +653,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8715.6,
-        "tokens": 2857,
+        "confidence": 1.0,
+        "latency_ms": 3764.8,
+        "tokens": 2882,
         "error": ""
       },
       {
@@ -4646,9 +664,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7016.5,
-        "tokens": 2808,
+        "confidence": 1.0,
+        "latency_ms": 2156.5,
+        "tokens": 2918,
         "error": ""
       },
       {
@@ -4657,9 +675,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 8235.6,
-        "tokens": 2824,
+        "confidence": 1.0,
+        "latency_ms": 4013.2,
+        "tokens": 2890,
         "error": ""
       },
       {
@@ -4668,9 +686,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 4941.8,
-        "tokens": 2778,
+        "confidence": 1.0,
+        "latency_ms": 4059.7,
+        "tokens": 2898,
         "error": ""
       },
       {
@@ -4679,9 +697,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 16052.6,
-        "tokens": 2840,
+        "confidence": 0.95,
+        "latency_ms": 4033.7,
+        "tokens": 2907,
         "error": ""
       },
       {
@@ -4690,9 +708,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7347.2,
-        "tokens": 2831,
+        "confidence": 0.99,
+        "latency_ms": 2407.4,
+        "tokens": 2881,
         "error": ""
       },
       {
@@ -4701,9 +719,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7708.5,
-        "tokens": 2817,
+        "confidence": 0.99,
+        "latency_ms": 4173.8,
+        "tokens": 2905,
         "error": ""
       },
       {
@@ -4712,9 +730,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 7286.0,
-        "tokens": 2841,
+        "confidence": 0.99,
+        "latency_ms": 4099.2,
+        "tokens": 2897,
         "error": ""
       },
       {
@@ -4723,9 +741,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7972.7,
-        "tokens": 2789,
+        "confidence": 1.0,
+        "latency_ms": 1972.4,
+        "tokens": 2906,
         "error": ""
       },
       {
@@ -4734,9 +752,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7659.6,
-        "tokens": 2870,
+        "confidence": 1.0,
+        "latency_ms": 2085.5,
+        "tokens": 2923,
         "error": ""
       },
       {
@@ -4745,9 +763,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8692.1,
-        "tokens": 2838,
+        "confidence": 0.95,
+        "latency_ms": 3987.1,
+        "tokens": 2887,
         "error": ""
       },
       {
@@ -4756,9 +774,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 5487.6,
-        "tokens": 2874,
+        "confidence": 0.95,
+        "latency_ms": 1997.1,
+        "tokens": 2910,
         "error": ""
       },
       {
@@ -4767,9 +785,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 7700.7,
-        "tokens": 2791,
+        "confidence": 0.99,
+        "latency_ms": 4095.6,
+        "tokens": 2889,
         "error": ""
       },
       {
@@ -4778,9 +796,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 6259.7,
-        "tokens": 2910,
+        "confidence": 0.95,
+        "latency_ms": 2399.8,
+        "tokens": 3006,
         "error": ""
       },
       {
@@ -4789,20 +807,20 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.95,
-        "latency_ms": 8298.9,
-        "tokens": 2849,
+        "confidence": 0.9,
+        "latency_ms": 2072.8,
+        "tokens": 3001,
         "error": ""
       },
       {
         "id": "r68",
         "input": "Not sure yet, maybe somewhere warm?",
         "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 16161.7,
-        "tokens": 6566,
+        "predicted": "plan",
+        "correct": false,
+        "confidence": 0.85,
+        "latency_ms": 2450.5,
+        "tokens": 3038,
         "error": ""
       },
       {
@@ -4812,8 +830,8 @@
         "predicted": "unclear",
         "correct": true,
         "confidence": 0.9,
-        "latency_ms": 18531.1,
-        "tokens": 6538,
+        "latency_ms": 4374.9,
+        "tokens": 3010,
         "error": ""
       },
       {
@@ -4822,9 +840,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 7802.2,
-        "tokens": 2867,
+        "confidence": 0.2,
+        "latency_ms": 4130.3,
+        "tokens": 2893,
         "error": ""
       },
       {
@@ -4833,9 +851,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 16443.4,
-        "tokens": 6280,
+        "confidence": 0.8,
+        "latency_ms": 5053.0,
+        "tokens": 3055,
         "error": ""
       },
       {
@@ -4844,9 +862,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 5637.8,
-        "tokens": 2891,
+        "confidence": 0.95,
+        "latency_ms": 4146.3,
+        "tokens": 2911,
         "error": ""
       },
       {
@@ -4855,9 +873,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8561.1,
-        "tokens": 2954,
+        "confidence": 0.95,
+        "latency_ms": 2374.1,
+        "tokens": 2974,
         "error": ""
       },
       {
@@ -4866,9 +884,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 8693.5,
-        "tokens": 2893,
+        "confidence": 0.99,
+        "latency_ms": 2266.0,
+        "tokens": 2968,
         "error": ""
       },
       {
@@ -4877,9 +895,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 10166.0,
-        "tokens": 3044,
+        "confidence": 0.95,
+        "latency_ms": 4761.6,
+        "tokens": 3002,
         "error": ""
       },
       {
@@ -4888,9 +906,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 8084.3,
-        "tokens": 2873,
+        "confidence": 0.95,
+        "latency_ms": 2370.2,
+        "tokens": 2977,
         "error": ""
       },
       {
@@ -4899,9 +917,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.86,
-        "latency_ms": 11691.9,
-        "tokens": 3143,
+        "confidence": 0.3,
+        "latency_ms": 2370.9,
+        "tokens": 2997,
         "error": ""
       },
       {
@@ -4910,9 +928,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 9011.7,
-        "tokens": 2864,
+        "confidence": 0.85,
+        "latency_ms": 4307.5,
+        "tokens": 2987,
         "error": ""
       },
       {
@@ -4921,20 +939,20 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.55,
-        "latency_ms": 9206.8,
-        "tokens": 3039,
+        "confidence": 0.9,
+        "latency_ms": 4602.7,
+        "tokens": 2968,
         "error": ""
       },
       {
         "id": "r80",
         "input": "Thoughts?",
         "expected": "unclear",
-        "predicted": "unclear",
-        "correct": true,
+        "predicted": "ask",
+        "correct": false,
         "confidence": 0.9,
-        "latency_ms": 7669.8,
-        "tokens": 2977,
+        "latency_ms": 3856.8,
+        "tokens": 2883,
         "error": ""
       },
       {
@@ -4943,9 +961,9 @@
         "expected": "plan",
         "predicted": "plan",
         "correct": true,
-        "confidence": 0.97,
-        "latency_ms": 11254.0,
-        "tokens": 3048,
+        "confidence": 1.0,
+        "latency_ms": 2571.3,
+        "tokens": 2923,
         "error": ""
       },
       {
@@ -4954,9 +972,9 @@
         "expected": "modify",
         "predicted": "modify",
         "correct": true,
-        "confidence": 0.93,
-        "latency_ms": 9925.1,
-        "tokens": 2967,
+        "confidence": 0.95,
+        "latency_ms": 1807.4,
+        "tokens": 2912,
         "error": ""
       },
       {
@@ -4965,9 +983,9 @@
         "expected": "ask",
         "predicted": "ask",
         "correct": true,
-        "confidence": 0.92,
-        "latency_ms": 8067.6,
-        "tokens": 2869,
+        "confidence": 0.99,
+        "latency_ms": 2111.2,
+        "tokens": 2915,
         "error": ""
       },
       {
@@ -4976,9 +994,9 @@
         "expected": "unclear",
         "predicted": "unclear",
         "correct": true,
-        "confidence": 0.9,
-        "latency_ms": 10453.7,
-        "tokens": 3041,
+        "confidence": 0.95,
+        "latency_ms": 4873.6,
+        "tokens": 3049,
         "error": ""
       }
     ]
