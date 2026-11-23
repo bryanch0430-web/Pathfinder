@@ -252,6 +252,25 @@ body(
 )
 body(
     doc,
+    "We treat the following as the core user scenarios rather than as feature slogans. A first-time traveller "
+    "has a destination, a month and a budget, but not a complete dates or a shortlist of places; the system "
+    "must resolve that ambiguity without inventing a day. A returning traveller has a saved plan and wants a "
+    "small change—move one stop, replace one hotel, reduce a day—without losing the rest of the plan. A "
+    "traveller in the middle of a trip asks a short question and expects an answer grounded in the plan, not "
+    "a new itinerary. A traveller who is confused or frustrated should reach a person without repeating the "
+    "whole story. These scenarios drive the plan/modify/ask/clarify split and the acceptance tests in "
+    "Section 4.",
+)
+body(
+    doc,
+    "The scope boundary is equally important. The system plans and explains; it does not book, pay or make "
+    "an external reservation. It stores trip state locally; it does not promise a multi-tenant production "
+    "service. It uses live sources when credentials exist and a curated corpus otherwise, and it labels the "
+    "difference. Those limits are stated in the interface and in the final report rather than being hidden "
+    "behind a demo path.",
+)
+body(
+    doc,
     "The core objective did not change, but several implementation choices did. Table 1 records the "
     "planned/delivered comparison. The most consequential change is that the long-term memory uses the "
     "application store and a preference profile, not the proposed vector database with a reranker. The "
@@ -318,6 +337,15 @@ body(
     "and every model call is traced. This is a narrower claim than the proposal's 'agentic system', but it "
     "is the claim the implementation and the evidence support.",
 )
+body(
+    doc,
+    "This choice has a testability consequence. Every route is a finite sequence with named states, so a "
+    "failure can be assigned to routing, evidence, composition, validation, verification, persistence or "
+    "transport. A general agent loop would make the same trace possible only after the fact. The cost is "
+    "that the model cannot invent a new tool or a new route at runtime; the scope of autonomous behaviour is "
+    "deliberately narrow. For a course project, and for a travel product where an invented booking is worse "
+    "than a missing one, that is the right trade.",
+)
 
 # 3 Implementation
 heading(doc, "3  Design and implementation", 1)
@@ -334,12 +362,38 @@ numbered(doc, "ask: answer from the plan first; issue at most two bounded web qu
 numbered(doc, "clarify: ask only for the missing or ambiguous slot, keep the known details, and do no research or plan write.")
 body(
     doc,
-    "Figure 1 is the delivered journey map. Figure 2 is the data-flow view: it separates the words and files "
+    "Appendix A contains the delivered journey map (Figure A1) and the data-flow view (Figure A2): it separates the words and files "
     "that enter, the privacy mask and trip context, the source records, the plan version and the reply. The "
     "figures are explanatory abstractions of the code paths in Appendix C, not screenshots of a user session.",
 )
-figure(doc, "fig-architecture.png", width=5.5, cap="Figure 1. The delivered turn path. The model is called at the Understand, Evidence and Composer boundaries; the orchestrator owns routing, budget, validation, persistence and handoff.")
-figure(doc, "fig-dataflow.png", width=5.2, cap="Figure 2. Data flow. Personal details are masked before model calls; source records carry provenance and freshness; only validated plan versions reach the UI.")
+body(
+    doc,
+    "A concrete plan turn shows the division of labour. For “Plan a five-day Kyoto trip for two people in "
+    "April, budget 4,000 USD”, the analyst returns plan intent with destination, length and month; the date "
+    "normaliser keeps the start date unset because April is a window; the request is routed to clarification "
+    "for the start date rather than producing a fabricated 1 April itinerary. If the traveller then supplies "
+    "10–14 April, the evidence workers return places, stays, weather and flights; the composer selects only "
+    "the candidate refs; the validator checks day and flight boundaries; the constraint verifier audits any "
+    "hard constraints; the plan is saved as a version and streamed to the Plan and Trip map surfaces.",
+)
+body(
+    doc,
+    "A modify turn is deliberately different. “Make day 2 lighter and move the museum to the afternoon” is "
+    "read as a modification of an existing plan. The edit model returns typed operations, not a new "
+    "itinerary; code applies the operations while refusing to touch locked or confirmed items; the result is "
+    "shown as a proposal with a tick. A date or destination change is too large for that path and triggers a "
+    "rebuild instead. This distinction matters: a model that rewrites the whole plan for every sentence can "
+    "silently discard a choice the traveller has already accepted.",
+)
+body(
+    doc,
+    "An ask turn has no plan write at all. The question is answered from the plan and its sources first; "
+    "only if the plan lacks the fact does the code issue a small, capped web search. A question about a "
+    "selected stop passes that selection explicitly, so “what is this?” resolves to the selected item rather "
+    "than to an inference from the last sentence. A clarify turn is the fourth route: it asks for the missing "
+    "destination, date or length, keeps every known slot, and does no research. The four routes are the "
+    "reason the product can be cheap for small interactions and careful for expensive ones.",
+)
 
 heading(doc, "3.2  State, grounding and tools", 2)
 body(
@@ -359,6 +413,25 @@ body(
     "weather, flights and videos), run concurrently, and share a per-turn deadline. Web search is a code "
     "adapter, not a model tool: SerpAPI Google results are tried first, Wikipedia second, and DeepSeek Search "
     "only as a final fallback when both return nothing. The model writes the query; it does not browse.",
+)
+body(
+    doc,
+    "The state model is intentionally split between what the traveller asked for and what the system built. "
+    "TripContext carries the request state and is updated by slot merges; TripPlan carries the rendered "
+    "itinerary and is append-only. The split prevents a common failure in which a planning model's prose "
+    "becomes the source of truth. A context update can change a date while the current plan is still the old "
+    "version; the next turn compares both and decides whether it is a local edit or a rebuild. A plan version "
+    "also carries a change summary and an assessment, so restoring an old version is a first-class action, "
+    "not an undo hack.",
+)
+body(
+    doc,
+    "Evidence has a deliberately small schema: a ref, a name, a kind, a location, the facts returned, "
+    "source references, a freshness timestamp and a status. The planner receives a bundle of candidates and "
+    "a list of gaps. It cannot query a provider itself; it can only choose from the bundle. If a named place "
+    "is not in the bundle, the turn performs a separate lookup and either adds a sourced record or returns a "
+    "visible gap. This is why the grounding rate in the planner study is 100% for accepted items: the "
+    "composition step cannot bypass the evidence layer.",
 )
 body(
     doc,
@@ -393,6 +466,25 @@ body(
     "constraint. The ask prompt treats retrieved snippets as data and schema-invalid replies as failures, "
     "not as a reason to invent facts.",
 )
+body(
+    doc,
+    "The model portfolio is a deployment decision, not a claim that one model is generally best. The writer "
+    "default is Sonnet because the full product needs reliable instruction following and structured output; "
+    "the verifier uses DeepSeek because it is a different family and can be isolated behind its own key. The "
+    "component study also evaluated Flash-Lite as a lower-latency alternative for the analyst/planner/editor "
+    "and DeepSeek for ask/memory. Those settings are exposed in the Models-by-part UI, but the submitted "
+    "default keeps the writer path on Sonnet and enables only the verifier split. This is a deliberate "
+    "conservative choice for a final demo: the cheaper profile is an option, not an unverified claim.",
+)
+body(
+    doc,
+    "Prompts are treated as code with contracts. Each skill states the permitted output schema, the "
+    "untrusted-data boundary and the failure behaviour. The understanding prompt does not receive a numeric "
+    "threshold; the verifier prompt receives the plan as written and must return a row per constraint; the "
+    "ask prompt is told to use the runtime clock for current dates and to say when a retrieved fact is not "
+    "confirmed. A malformed JSON answer gets one repair attempt; if it still fails, the turn fails visibly "
+    "or falls back to a sourced plan, never to an invented fact.",
+)
 
 heading(doc, "3.4  Safety and human oversight", 2)
 body(
@@ -404,6 +496,15 @@ body(
     "stuck edits; an operator can take over, leave a note, run the workflow, release a draft or hand back. "
     "Finalisation freezes the plan and moves the chat to history. There is no autonomous booking, payment or "
     "external write in the current design.",
+)
+body(
+    doc,
+    "The human path is not a generic “contact us” link. A handoff writes a durable message, marks the session "
+    "held, and places it in the Desk queue; the operator sees the trip, the chat, the preferences and the "
+    "last plan. Taking over suppresses automatic replies; handing back restores the planner. A finalised trip "
+    "is frozen and moves to history, so an operator cannot accidentally revive a completed booking record. "
+    "The design follows the handbook's rule that an agent should return to a human when the task leaves its "
+    "authority, not merely when it is uncertain.",
 )
 
 # 4 Reliability
@@ -449,6 +550,26 @@ body(
     "the only durable writes are local SQLite versions and preference memory. The main residual risk is "
     "therefore a stale or incomplete external fact, which is surfaced as a gap rather than retried forever.",
 )
+body(
+    doc,
+    "We classify failures by where they can be detected. Input ambiguity is detected before evidence work and "
+    "resolved by a clarify card. Evidence failure is detected per worker and becomes a gap. Structural "
+    "failure is detected by deterministic rules and is repairable. Constraint failure is detected by the "
+    "verifier, but arithmetic and time comparisons remain in code because the model study showed the verifier "
+    "does not reliably subtract minutes. Transport failure is detected by the runtime budget, which produces a "
+    "terminal stream event and releases the seat. State failure is detected by version and seat checks. This "
+    "taxonomy is more useful than a single success rate because it tells the operator where to intervene.",
+)
+body(
+    doc,
+    "Repeated external actions are intentionally limited. Search calls are capped, provider calls have "
+    "timeouts and retries, and the only durable side effect is a local plan version. There is no booking "
+    "retry that could duplicate a reservation. The main residual operational risk is therefore not a repeated "
+    "purchase but a stale or partial evidence set; the UI marks that as a gap and the validator records the "
+    "affected item. If the project were extended to booking, the handbook's idempotency rule—one stable key "
+    "per run/step/tool/argument, an in-flight record and a recovery lookup—would be mandatory before any "
+    "external write.",
+)
 
 # 5 NFR
 heading(doc, "5  Non-functional requirements", 1)
@@ -482,6 +603,23 @@ body(
     "ask path is deliberately bounded rather than a general web agent: it will say that it cannot confirm a "
     "fact instead of guessing.",
 )
+body(
+    doc,
+    "The non-functional targets were chosen to be observable rather than aspirational. A routing turn is "
+    "expected to complete in a few seconds on the tested provider; an ask turn is expected to stay under "
+    "roughly twenty seconds; a full plan is allowed to take minutes because it performs several provider "
+    "calls, but it is bounded by the 300 s turn deadline. The verifier is expected to be a short second pass. "
+    "These are not service-level objectives: the study host, provider load and network path vary. We report "
+    "the observed median and the cap rather than a single “fast” claim.",
+)
+body(
+    doc,
+    "Privacy is treated as a first-layer transformation, not a policy sentence. HKID, Hong Kong phone "
+    "numbers, email addresses and Luhn-valid cards are masked before storage and before a model call; dates "
+    "and prices are deliberately left unchanged because masking them would break planning. A canary token "
+    "turns prompt leakage into a string test. The residual risk is free-form sensitive text that does not "
+    "match a known pattern; that is disclosed rather than claimed solved.",
+)
 
 # 6 Evaluation
 heading(doc, "6  Evaluation", 1)
@@ -507,8 +645,6 @@ table(
     widths=[1.1, 1.45, 1.65, 1.7],
     cap="Table 5. Component evidence. Routing is the only suite re-run twice after the prompt change; the other frozen suites are reported as component study results, not as a single end-to-end run.",
 )
-figure(doc, "fig-results.png", width=5.2, cap="Figure 3. Component pass rates on different case sets. Routing uses the mean of two current 84-case runs; planner/editor/verifier/ask use the frozen component suites.")
-figure(doc, "fig-verifier.png", width=5.2, cap="Figure 4. Verifier outcome on 20 frozen cases. Both errors are false passes on transfer arithmetic (10 min and 29 min against a 30 min constraint), not false alarms.")
 
 body(
     doc,
@@ -540,6 +676,35 @@ body(
     "Representative failure cases are retained in the appendix: v06/v14 (verifier false passes), the "
     "unclear routing cases r68/r71/r80, the q11 off-topic ask case, and the two acceptance bugs. The manual "
     "adjudication of q01/q05 in the ask suite is disclosed in the appendix; no model judged its own answer.",
+)
+body(
+    doc,
+    "The evaluation protocol is deliberately narrow. Each suite freezes its inputs and expected outcome "
+    "before the run; a missing or errored case counts as wrong; the same prompt and model settings are used "
+    "for every case in an arm. Routing is paired against the frozen Sonnet run, but the other suites are not "
+    "powered for a claim of general model superiority. The planner suite covers Hong Kong, Japan and a small "
+    "TravelPlanner subset; it is not the full 1,225-query benchmark. The editor suite covers remove, move and "
+    "time changes but not add/research edits. These boundaries are part of the result, not footnotes.",
+)
+body(
+    doc,
+    "The metrics are chosen to separate failure modes. Routing uses exact intent accuracy and a Wilson "
+    "interval. Planning uses pass/fail against the injected constraint, plus a grounding rate for accepted "
+    "items. The verifier reports correct/false-pass/false-alarm because a false pass is worse than a false "
+    "alarm in a travel constraint. Ask uses exact in-scope success with a human adjudication for two rubric "
+    "cases. Memory reports recall on the no-fact cases and flags any invented preference. Component latency "
+    "and token counts are reported separately; no dollar cost is claimed because provider pricing was not "
+    "fixed in the environment.",
+)
+body(
+    doc,
+    "Error analysis is equally important as the aggregate. The routing misses are all unclear utterances; "
+    "the model chooses a concrete path when the safer action is to ask. The verifier misses are both "
+    "arithmetic: a ten-minute and a twenty-nine-minute transfer accepted against a thirty-minute rule. The "
+    "ask suite's off-topic case was clarified by every model; that is a scope-handling issue, not an "
+    "in-scope answer. The planner misses are concentrated in Hong Kong and the small TravelPlanner subset. "
+    "These patterns are more actionable than a single percentage because they map to a specific code or "
+    "prompt change.",
 )
 
 # 7 Contributions
@@ -581,6 +746,15 @@ body(
     "tested but not the default; and the full TravelPlanner split, 70/30 custom split and 84-probe injection "
     "suite are not claimed. The report's numbers are therefore screening evidence, not a production "
     "certification.",
+)
+body(
+    doc,
+    "The contribution statement is deliberately modest. The team built and integrated the system; the "
+    "proposal's research ambitions were narrowed to what could be tested. No member claims a production "
+    "deployment, a full benchmark result or an autonomous booking capability. The report is written so that "
+    "a reader can reproduce the claims from the commit, the test fixtures and the recorded settings; where "
+    "that is not possible—provider availability, the full injection suite, the 70/30 split—the gap is named "
+    "rather than smoothed over.",
 )
 
 # 8 Conclusion
@@ -629,7 +803,11 @@ for ref in refs:
 
 # Appendix
 doc.add_page_break()
-heading(doc, "Appendix A  Test protocol and raw results", 1)
+heading(doc, "Appendix A  Figures, test protocol and raw results", 1)
+figure(doc, "fig-architecture.png", width=5.3, cap="Figure A1. The delivered turn path. The model is called at the Understand, Evidence and Composer boundaries; the orchestrator owns routing, budget, validation, persistence and handoff.")
+figure(doc, "fig-dataflow.png", width=5.0, cap="Figure A2. Data flow. Personal details are masked before model calls; source records carry provenance and freshness; only validated plan versions reach the UI.")
+figure(doc, "fig-results.png", width=5.2, cap="Figure A3. Component pass rates on different case sets. Routing uses the mean of two current 84-case runs; planner/editor/verifier/ask use the frozen component suites.")
+figure(doc, "fig-verifier.png", width=5.2, cap="Figure A4. Verifier outcome on 20 frozen cases. Both errors are false passes on transfer arithmetic (10 min and 29 min against a 30 min constraint), not false alarms.")
 body(
     doc,
     "All tests were run on the submitted branch with the repository virtual environment; no network is "
