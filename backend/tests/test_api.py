@@ -466,3 +466,43 @@ def test_locking_a_return_flight_locks_the_return_leg(tmp_path):
         legs = {row["id"]: row for row in response.json()["plan"]["legs"]}
         assert legs["leg-back"]["locked"] is True
         assert legs["leg-out"]["locked"] is False
+
+
+def test_locking_the_current_hotel_works_without_a_duplicate_option(tmp_path):
+    from app.domain.models import DateRange, Destination, HotelStay, TripPlan
+
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "hotel-lock-tester"}
+        session_id = client.post("/api/journeys", json={}, headers=headers).json()["session"]["id"]
+        ramada = HotelStay(
+            id="ho-ramada",
+            name="Ramada Hong Kong Harbour View",
+            check_in="2027-03-05",
+            check_out="2027-03-07",
+        )
+        plan = TripPlan(
+            trip_id="trip-hotel",
+            session_id=session_id,
+            destination=Destination(name="Hong Kong"),
+            dates=DateRange(start="2027-03-05", end="2027-03-07"),
+            hotels=[ramada],
+            hotel_options=[],
+        )
+        db = sqlite3.connect(tmp_path / "api.db")
+        db.execute(
+            "INSERT INTO plans (session_id, version, body, change_summary, created_at, item_count, destination, days) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (session_id, 1, plan.model_dump_json(), "", "2026-11-23T00:00:00+00:00", 0, "Hong Kong", 3),
+        )
+        db.commit()
+        db.close()
+
+        response = client.post(
+            f"/api/journeys/{session_id}/plan/choose",
+            json={"kind": "hotel", "target_id": "ho-ramada", "option_id": "ho-ramada", "lock": True},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        hotels = response.json()["plan"]["hotels"]
+        assert hotels[0]["id"] == "ho-ramada"
+        assert hotels[0]["locked"] is True

@@ -851,6 +851,13 @@ async def _ask_turn(
         "recent_turns": dialogue(chat_history),
         "sources": retrieved(results),
         "cost": plan.cost.model_dump() if plan else None,
+        # The UI's selected stop is context, not just a hint for the router.
+        # Without this the ask model cannot resolve "this" / "that one".
+        "selected_stop": (
+            {"id": request.scope_item_id, "label": request.scope_label}
+            if request.scope_item_id or request.scope_label
+            else None
+        ),
         "question": message,
     }
     system = skill("ask", skill_overrides)

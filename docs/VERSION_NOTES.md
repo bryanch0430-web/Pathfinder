@@ -88,6 +88,12 @@ plan; this release gives each uncertain part its own bounded representation.
   passes (v06/v14) and 0 false alarms, matching the earlier DeepSeek arm; the endpoint
   uses `deepseek-flash` because the Poe alias `deepseek-v4-flash` is not available. The writer/analyst/planner stay on the default writer; the verifier
   model can still be overridden under **Models by part**.
+- Fixed the selected-item context in the ask path: the UI already sent the
+  selected stop to the analyst, but the answer payload omitted it. “what is this?”
+  now resolves to the selected item and names it in the answer.
+- Fixed locking the **current** hotel. The choose endpoint only searched the
+  alternative hotel list; it now accepts the stay already on the plan and preserves
+  the other hotels on a multi-city trip.
 - The architecture reference now includes an ordered step map, a separate
   escalation/HITL branch, a reserved Judge-model marker, and the distinction between
   reported intent confidence and calibrated probability.

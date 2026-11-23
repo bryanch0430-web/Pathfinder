@@ -239,14 +239,26 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
         item.locked = bool(payload.lock)
         changed = True
     elif payload.kind == "hotel":
+        current = next((row for row in plan.hotels if row.id == payload.target_id), None)
         chosen = next((row for row in plan.hotel_options if row.id == payload.option_id), None)
+        # The current stay is also a lockable option: it need not appear again in
+        # the alternative list. This is the common "Lock in" path for a hotel.
+        if chosen is None:
+            chosen = current
         if chosen is None:
             raise HTTPException(status_code=404, detail="That stay is not listed.")
         chosen = chosen.model_copy(deep=True)
         chosen.locked = bool(payload.lock)
-        chosen.check_in = plan.hotels[0].check_in if plan.hotels else plan.dates.start
-        chosen.check_out = plan.hotels[0].check_out if plan.hotels else plan.dates.end
-        plan.hotels = [chosen]
+        if current is not None:
+            chosen.check_in = current.check_in
+            chosen.check_out = current.check_out
+            # Keep the other city's stays; replacing the whole list would drop
+            # them on a multi-city trip.
+            plan.hotels = [chosen if row.id == current.id else row for row in plan.hotels]
+        else:
+            chosen.check_in = plan.hotels[0].check_in if plan.hotels else plan.dates.start
+            chosen.check_out = plan.hotels[0].check_out if plan.hotels else plan.dates.end
+            plan.hotels = [chosen]
         changed = True
     elif payload.kind in {"flight", "transport"}:
         chosen = next((row for row in plan.tickets if row.id == payload.option_id), None)
