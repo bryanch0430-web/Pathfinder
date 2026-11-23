@@ -589,7 +589,46 @@ class Providers:
         results = await self._wikipedia_search(query, limit)
         if self.trace:
             self.trace.search(provider="Wikipedia", query=query, results=results)
+        if results:
+            return results
+        # Final fallback: DeepSeek's own search API, used only when both
+        # SerpAPI and Wikipedia return nothing. It is not an LLM browsing call.
+        results = await self._deepseek_search(query, limit)
+        if self.trace:
+            self.trace.search(provider="DeepSeek Search", query=query, results=results)
         return results
+
+    async def _deepseek_search(self, query: str, limit: int) -> list[dict[str, Any]]:
+        key = (self.settings.deepseek_search_api_key or self.settings.verifier_api_key or "").strip()
+        if not key:
+            return []
+        base = (self.settings.deepseek_search_base_url or "https://api.deepseek.com").rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        try:
+            response = await self.client.post(
+                f"{base}/v1/tools/search",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={"query": query[:128], "count": max(1, min(limit, 50)), "need_content": False},
+                timeout=20.0,
+            )
+            response.raise_for_status()
+            rows = (response.json() or {}).get("results") or []
+        except (httpx.HTTPError, ValueError):
+            return []
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            url = str(row.get("url") or "")
+            if not url:
+                continue
+            results.append(
+                {
+                    "title": str(row.get("title") or url),
+                    "url": url,
+                    "snippet": str(row.get("summary") or row.get("snippet") or "")[:500],
+                }
+            )
+        return results[:limit]
 
     async def _wikipedia_search(self, query: str, limit: int) -> list[dict[str, Any]]:
         try:

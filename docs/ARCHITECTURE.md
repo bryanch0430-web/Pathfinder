@@ -94,8 +94,9 @@ facts the provider returned.
 | Open-Meteo | daily forecast | seasonal sandbox forecast |
 | OSRM | walking/driving routes and geometry | straight-line estimate |
 | SerpAPI Google Flights | live fares | distance-based estimate, labelled |
-| SerpAPI Google | web results for answers/edits | Wikipedia |
-| Wikipedia | search, page text, images | — |
+| SerpAPI Google | web results for answers/edits | Wikipedia, then DeepSeek Search |
+| Wikipedia | search, page text, images | DeepSeek Search |
+| DeepSeek Search | final web-search fallback when SerpAPI and Wikipedia return nothing | no result → “unknown” |
 | Wikipedia | named-place lookup when the place corpus lacks a place | — |
 | Curated place corpus (12 cities) | sandbox + offline fallback | — |
 

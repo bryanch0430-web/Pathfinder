@@ -201,8 +201,10 @@ The important keys:
 | writer | `LLM_*`, `OPENAI_*`, `XAI_*`, `POE_*` | every model call: understanding, planning, edits, answers, translation |
 | places | `GOOGLE_PLACES_API_KEY`, `GOOGLE_MAPS_API_KEY` | attractions, hotels, restaurants, autocomplete, photos |
 | travel | `SERPAPI_KEY`, `SERPAPI_KEY_POOL` | live flight fares, web search |
+| search | `DEEPSEEK_SEARCH_API_KEY` | final web-search fallback after SerpAPI and Wikipedia |
+| verifier | `VERIFIER_*` | constraint audit on its own DeepSeek endpoint |
 | weather | none | Open-Meteo forecast |
-| judge | `JUDGE_*` | optional second model for evaluation |
+| judge | `JUDGE_*` | reserved; not called by the v5 runtime or evaluator |
 | security | `CANARY_TOKEN`, `ADMIN_TOKEN`, `LOCAL_ADMIN` | injection fence, operator views |
 | sandbox | `PATHFINDER_SANDBOX=1` | curated evidence, no network |
 

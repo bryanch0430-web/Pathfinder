@@ -82,6 +82,10 @@ plan; this release gives each uncertain part its own bounded representation.
   diagram (`backend/app/evidence/place_corpus.py`). “Sandbox” is the runtime mode,
   not the dataset; `data_mode` is `live` or `corpus`, while the legacy `atlas`
   runtime value is still accepted for existing configurations.
+- Web search now has a third, final fallback: **DeepSeek Search**
+  (`DEEPSEEK_SEARCH_API_KEY`, `/v1/tools/search`) runs only when SerpAPI and
+  Wikipedia both return nothing. The model still only writes the query; code runs
+  the search. The verifier and search key can be the same DeepSeek credential.
 - The constraint verifier defaults to **DeepSeek `deepseek-flash`** on its own
   `VERIFIER_API_KEY` endpoint, with the tested verifier settings: temperature 0 and a
   1,500-token cap. A re-run on the 20 frozen cases scored **18/20** with 2 false

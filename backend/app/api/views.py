@@ -338,7 +338,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "weather": ["Open-Meteo"],
             "routes": ["OSRM", "estimate"],
             "flights": ["Google Flights (SerpAPI)", "estimate"],
-            "search": ["SerpAPI", "Wikipedia"],
+            "search": ["SerpAPI", "Wikipedia", "DeepSeek Search"],
             "judge": ["DeepSeek"] if settings.judge_api_key else [],
         },
         "features": {
