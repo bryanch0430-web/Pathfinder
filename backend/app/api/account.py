@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hmac
 import secrets
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -24,6 +26,41 @@ from app.domain.models import ChatMessage, TripContext
 router = APIRouter()
 
 
+MAX_SIGNIN_FAILURES = 10
+SIGNIN_WINDOW_SECONDS = 600.0
+
+
+async def _json_object(request: Request, *, empty_ok: bool = False) -> dict[str, Any]:
+    """The JSON object body, or a clean 400 (never a 500) when it is missing or malformed."""
+    raw = await request.body()
+    if empty_ok and not raw.strip():
+        return {}
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="The request body must be a JSON object.") from None
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="The request body must be a JSON object.")
+    return body
+
+
+def _claimable(session: dict[str, Any], user_id: str, guest: str) -> bool:
+    """A trip can be claimed by `user_id` only if no other account owns it and the guest token matches."""
+    owner_user = session.get("user_id") or ""
+    if owner_user:
+        return owner_user == user_id
+    owner_token = session.get("client_token") or ""
+    return not owner_token or hmac.compare_digest(owner_token, guest)
+
+
+def _failures(request: Request, key: str) -> list[float]:
+    store = request.app.state.__dict__.setdefault("signin_failures", {})
+    now = time.monotonic()
+    recent = [t for t in store.get(key, []) if now - t < SIGNIN_WINDOW_SECONDS]
+    store[key] = recent
+    return recent
+
+
 def _auth_payload(settings, user: dict[str, Any]) -> dict[str, Any]:
     token = issue_token(settings, user["id"])
     return {"token": token, "token_type": "bearer", "profile_token": token, "user": user_public(user)}
@@ -32,7 +69,7 @@ def _auth_payload(settings, user: dict[str, Any]) -> dict[str, Any]:
 @router.post("/api/account/signup")
 async def signup(request: Request) -> dict[str, Any]:
     c = container(request)
-    body = await request.json()
+    body = await _json_object(request)
     email = str(body.get("email", "")).strip().lower()
     password = str(body.get("password", ""))
     if "@" not in email or len(password) < 6:
@@ -41,11 +78,10 @@ async def signup(request: Request) -> dict[str, Any]:
         user = await c.store.create_user(email, password_hash(password), str(body.get("display_name", "")).strip())
     except ValueError:
         raise HTTPException(status_code=409, detail="An account with that email already exists.") from None
-    session_id = body.get("session_id")
+    session_id = str(body.get("session_id") or "")
     if session_id:
         session = await c.store.get_session(session_id)
-        guest = str(body.get("client_token", ""))
-        if session and (not session.get("client_token") or session.get("client_token") == guest):
+        if session and _claimable(session, user["id"], str(body.get("client_token") or "")):
             await c.store.claim_session(session_id, user["id"])
     return _auth_payload(c.settings, user)
 
@@ -53,17 +89,20 @@ async def signup(request: Request) -> dict[str, Any]:
 @router.post("/api/account/signin")
 async def signin(request: Request) -> dict[str, Any]:
     c = container(request)
-    body = await request.json()
+    body = await _json_object(request)
     email = str(body.get("email", "")).strip().lower()
     password = str(body.get("password", ""))
+    if len(_failures(request, email)) >= MAX_SIGNIN_FAILURES:
+        raise HTTPException(status_code=429, detail="Too many failed sign-ins. Try again in a few minutes.")
     user = await c.store.get_user_by_email(email)
     if user is None or not password_ok(password, user["password_hash"]):
+        _failures(request, email).append(time.monotonic())
         raise HTTPException(status_code=401, detail="That email and password do not match an account.")
-    session_id = body.get("session_id")
+    request.app.state.__dict__.setdefault("signin_failures", {}).pop(email, None)
+    session_id = str(body.get("session_id") or "")
     if session_id:
         session = await c.store.get_session(session_id)
-        guest = str(body.get("client_token", ""))
-        if session and (not session.get("client_token") or session.get("client_token") == guest):
+        if session and _claimable(session, user["id"], str(body.get("client_token") or "")):
             await c.store.claim_session(session_id, user["id"])
     return _auth_payload(c.settings, user)
 
@@ -86,13 +125,13 @@ async def attach(request: Request) -> dict[str, Any]:
     user_id = bearer_user(request)
     if not user_id:
         raise HTTPException(status_code=401, detail="Sign in first.")
-    body = await request.json()
-    session_id = str(body.get("session_id", ""))
-    guest = str(body.get("client_token", ""))
+    body = await _json_object(request)
+    session_id = str(body.get("session_id") or "")
+    guest = str(body.get("client_token") or "")
     session = await c.store.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="That trip no longer exists.")
-    if session.get("client_token") and session["client_token"] != guest:
+    if not _claimable(session, user_id, guest):
         raise HTTPException(status_code=403, detail="That trip belongs to another traveller.")
     await c.store.claim_session(session_id, user_id)
     return {"claimed": True}
@@ -113,14 +152,26 @@ async def traveller(request: Request, client_token: str = "") -> dict[str, Any]:
             "updated_at": None,
         }
     profile = await c.store.get_profile(identity) or {"preferences": [], "hard_constraints": [], "updated_at": None}
+    return await _traveller_view(c, request, identity, client_token, profile)
+
+
+async def _traveller_view(c, request: Request, identity: str, client_token: str, profile: dict[str, Any]) -> dict[str, Any]:
+    """The traveller profile shape shared by GET and PATCH."""
     wishlist = await c.store.list_wishlist(identity)
     sessions = await c.store.list_sessions(200)
+    token = presented_token(request, client_token)
+    user_id = bearer_user(request)
+    mine = [
+        row
+        for row in sessions
+        if (token and (row.get("client_token") or "") == token) or (user_id and row.get("user_id") == user_id)
+    ]
     destinations = sorted({row.get("destination", "") for row in wishlist if row.get("destination")})
     return {
         "client_token": client_token or presented_token(request),
         "preferences": profile["preferences"],
         "hard_constraints": profile["hard_constraints"],
-        "sessions": len([row for row in sessions if (row.get("client_token") or "") == presented_token(request)]),
+        "sessions": len(mine),
         "saved_trips": len(wishlist),
         "destinations": destinations,
         "updated_at": profile.get("updated_at"),
@@ -130,33 +181,29 @@ async def traveller(request: Request, client_token: str = "") -> dict[str, Any]:
 @router.patch("/api/traveller")
 async def patch_traveller(request: Request) -> dict[str, Any]:
     c = container(request)
-    body = await request.json()
-    identity = identity_for(request, body.get("client_token"))
+    body = await _json_object(request)
+    client_token = str(body.get("client_token") or "")
+    identity = identity_for(request, client_token)
     if not identity:
         raise HTTPException(status_code=400, detail="A traveller token is needed.")
     from app.application.memory import merge_preferences
 
-    preferences, _added = merge_preferences([], [str(value)[:80] for value in (body.get("preferences") or [])])
+    raw = body.get("preferences") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        raise HTTPException(status_code=422, detail="preferences must be a list of short phrases.")
+    preferences, _added = merge_preferences([], [str(value)[:80] for value in raw])
     profile = await c.store.get_profile(identity) or {"hard_constraints": []}
     saved = await c.store.save_profile(identity, preferences, profile.get("hard_constraints", []))
-    return {
-        "profile": {
-            "client_token": body.get("client_token", ""),
-            "preferences": saved["preferences"],
-            "hard_constraints": saved["hard_constraints"],
-            "sessions": 0,
-            "saved_trips": len(await c.store.list_wishlist(identity)),
-            "destinations": [],
-            "updated_at": saved["updated_at"],
-        }
-    }
+    return {"profile": await _traveller_view(c, request, identity, client_token, saved)}
 
 
 @router.post("/api/recall/clear")
 async def clear_memory(request: Request) -> dict[str, Any]:
     c = container(request)
-    body = await request.json()
-    identity = identity_for(request, body.get("client_token"))
+    body = await _json_object(request, empty_ok=True)
+    identity = identity_for(request, str(body.get("client_token") or ""))
     if not identity:
         return {"cleared": False, "saved_trips": 0, "preferences": 0}
     wishlist = await c.store.list_wishlist(identity)
@@ -236,6 +283,8 @@ async def open_wishlist(saved_id: str, request: Request) -> dict[str, Any]:
     row = await c.store.get_wishlist(saved_id)
     if row is None:
         raise HTTPException(status_code=404, detail="That saved trip is not there.")
+    if row.get("identity") and row["identity"] != identity_for(request):
+        raise HTTPException(status_code=403, detail="That saved trip belongs to another traveller.")
     plan = _body(row)
     token = presented_token(request)
     user_id = bearer_user(request)
