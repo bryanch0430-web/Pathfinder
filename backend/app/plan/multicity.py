@@ -24,14 +24,17 @@ from app.domain.models import (
     DataQuality,
     DateRange,
     Destination,
+    TicketOption,
     TransportLeg,
     TripContext,
     TripPlan,
     TripSegment,
 )
+from app.evidence.models import Bundle
 from app.evidence.providers import Providers
 from app.plan.agents import gather
-from app.plan.builder import compose, fallback_plan
+from app.plan.builder import _cost, _same_city, _tickets, a_or_an, compose, fallback_plan
+from app.understand.schemas import PlanDraft
 
 
 @dataclass
@@ -81,8 +84,22 @@ def segment_ranges(context: TripContext) -> list[SegmentRange]:
     return ranges
 
 
-def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripContext) -> TripPlan:
+def _merge(
+    plans: list[TripPlan],
+    ranges: list[SegmentRange],
+    context: TripContext,
+    flights: list[TicketOption] | None = None,
+) -> TripPlan:
     first = plans[0]
+    # Each city's hotel runs from its first day to the next city's first day, so the
+    # requested nights hold and the stays touch; the last stay ends on the final day.
+    # Each segment is costed on those nights; the trip's flights are added once below.
+    for index, (plan, span) in enumerate(zip(plans, ranges)):
+        check_out = ranges[index + 1].start if index + 1 < len(ranges) else span.end
+        for hotel in plan.hotels:
+            hotel.check_in = span.start.isoformat()
+            hotel.check_out = check_out.isoformat()
+        plan.cost = _cost(context, plan.days, plan.hotels, [], max(1, (check_out - span.start).days))
     days = []
     seen_ids: set[str] = set()
     for index, (plan, span) in enumerate(zip(plans, ranges), start=1):
@@ -102,11 +119,10 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
     hotel_options = [hotel for plan in plans for hotel in plan.hotel_options]
     tickets = []
     ticket_ids: set[str] = set()
-    for plan in plans:
-        for ticket in plan.tickets:
-            if ticket.id not in ticket_ids:
-                ticket_ids.add(ticket.id)
-                tickets.append(ticket)
+    for ticket in [*(flights or []), *(item for plan in plans for item in plan.tickets)]:
+        if ticket.id not in ticket_ids:
+            ticket_ids.add(ticket.id)
+            tickets.append(ticket)
 
     segments = [
         TripSegment(
@@ -121,7 +137,20 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
         )
         for index, span in enumerate(ranges, start=1)
     ]
-    legs = [
+    origin = (context.origin or "").strip()
+    legs: list[TransportLeg] = []
+    if origin and not _same_city(origin, ranges[0].city):
+        legs.append(
+            TransportLeg(
+                id="leg-out",
+                from_place=origin,
+                to_place=ranges[0].city,
+                depart_date=ranges[0].start.isoformat(),
+                kind="outbound",
+                segment_id="seg-1",
+            )
+        )
+    legs += [
         TransportLeg(
             id=f"leg-between-{index}",
             from_place=ranges[index - 1].city,
@@ -132,6 +161,18 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
         )
         for index in range(1, len(ranges))
     ]
+    if origin and not _same_city(origin, ranges[-1].city):
+        legs.append(
+            TransportLeg(
+                id="leg-back",
+                from_place=ranges[-1].city,
+                to_place=origin,
+                depart_date=ranges[-1].end.isoformat(),
+                kind="return",
+                segment_id=f"seg-{len(ranges)}",
+            )
+        )
+    between = [leg for leg in legs if leg.kind == "between"]
 
     constraints: list[ConstraintCheck] = []
     seen_constraints: set[str] = set()
@@ -143,6 +184,21 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
                 constraints.append(check)
 
     cost_lines: list[CostLine] = []
+    chosen = next((ticket for ticket in tickets if ticket.selected and ticket.price), None)
+    if chosen is None:
+        chosen = next((ticket for ticket in tickets if ticket.price), None)
+    if chosen is not None and chosen.price is not None and chosen.price.amount:
+        cost_lines.append(
+            CostLine(
+                label="Travel",
+                amount=round(chosen.price.amount, 2),
+                kind="flight",
+                note=(
+                    f"One return flight for the party: {origin or 'home'} to {ranges[0].city}, "
+                    f"priced as a round trip and used for the way home from {ranges[-1].city}."
+                ),
+            )
+        )
     for plan in plans:
         cost_lines.extend(plan.cost.lines)
     total = round(sum(line.amount for line in cost_lines), 2)
@@ -155,11 +211,20 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
         remaining=round((budget - total), 2) if budget is not None else None,
         status="over" if budget is not None and total > budget else ("within" if budget is not None else "unknown"),
     )
+    left_out = [
+        label
+        for label, kind in (("hotel prices", "hotel"), ("meal prices", "meal"), ("admission prices", "ticket"))
+        if not any(line.kind == kind for line in cost_lines)
+    ]
+    if between:
+        left_out.insert(0, "intercity transport")
+    if left_out:
+        cost.notes.append("Not in the total (no price available): " + ", ".join(left_out) + ".")
 
     gaps: list[DataGap] = []
     for plan in plans:
         gaps.extend(plan.data_quality.gaps)
-    if legs:
+    if between:
         gaps.append(
             DataGap(
                 section="transport",
@@ -167,7 +232,7 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
                 message=(
                     "Intercity transport is not booked or priced in this draft. "
                     "Book "
-                    + " and ".join(f"{leg.from_place} → {leg.to_place}" for leg in legs)
+                    + " and ".join(f"{leg.from_place} → {leg.to_place}" for leg in between)
                     + " separately."
                 ),
                 retryable=True,
@@ -198,7 +263,7 @@ def _merge(plans: list[TripPlan], ranges: list[SegmentRange], context: TripConte
         party_size=int(context.party_size or 2),
         budget=first.budget,
         summary=(
-            f"A {len(days)}-day route: {route}. Each city is planned in order; "
+            f"{a_or_an(len(days))} {len(days)}-day route: {route}. Each city is planned in order; "
             "intercity transport is left as a booking gap."
         ),
         days=days,
@@ -245,6 +310,9 @@ async def build_multi_city_plan(
             sub = context.model_copy(deep=True)
             sub.destination = span.city
             sub.stops = []
+            # A segment is one stop on the route, not a trip home: no flights are searched
+            # or described for it. The trip's own flights are searched once, below.
+            sub.origin = ""
             sub.start_date = span.start.isoformat()
             sub.end_date = span.end.isoformat()
             sub.days = span.days
@@ -255,6 +323,7 @@ async def build_multi_city_plan(
                 trace=trace,
                 emit=emit,
                 scenario=scenario,
+                with_tickets=False,
             )
             try:
                 plan, _draft = await compose(
@@ -284,4 +353,34 @@ async def build_multi_city_plan(
                 await asyncio.sleep(0)
     finally:
         await llm.aclose()
-    return _merge(plans, ranges, context)
+    return _merge(plans, ranges, context, flights=await _trip_flights(providers, context, ranges, scenario))
+
+
+async def _trip_flights(
+    providers: Providers, context: TripContext, ranges: list[SegmentRange], scenario: dict | None
+) -> list[TicketOption]:
+    """One flight search for the whole trip: from the origin to the first city, back from the last."""
+    if not (context.origin or "").strip():
+        return []
+    first, last = ranges[0], ranges[-1]
+    try:
+        rides = await providers.tickets(
+            context.origin,
+            first.city,
+            first.start,
+            last.end,
+            int(context.party_size or 1),
+            currency=context.currency,
+            scenario=scenario,
+        )
+    except Exception:  # noqa: BLE001 - a missing fare leaves the trip unpriced, not unplanned
+        return []
+    bundle = Bundle()
+    bundle.items.extend(rides)
+    ticket_context = context.model_copy(deep=True)
+    ticket_context.destination = first.city
+    tickets = _tickets(ticket_context, bundle, PlanDraft(), first.start, last.end)
+    for ticket in tickets:
+        ticket.return_origin = ticket.return_origin or last.city
+        ticket.return_destination = ticket.return_destination or context.origin
+    return tickets

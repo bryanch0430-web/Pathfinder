@@ -136,6 +136,12 @@ async def compose(
     return plan, draft
 
 
+def a_or_an(number: int) -> str:
+    """"A" or "An" for the number as it is spoken: an 8-day, an 11-day, a 7-day trip."""
+    digits = str(abs(int(number)))
+    return "An" if digits[0] == "8" or digits in ("11", "18") else "A"
+
+
 def _ensure_unique_ids(days: list[DayPlan]) -> None:
     """The same place may appear twice (two dinners at one restaurant); ids must not collide."""
     seen: set[str] = set()
@@ -1000,7 +1006,7 @@ def fallback_plan(
             meal_index += 1
         choices.append(DayChoice(date=day_date.isoformat(), title="Exploring", stops=stops))
     draft = PlanDraft(
-        summary=f"A {len(days)}-day plan for {context.destination}, built from the best-sourced options.",
+        summary=f"{a_or_an(len(days))} {len(days)}-day plan for {context.destination}, built from the best-sourced options.",
         days=choices,
         hotel_ref=hotels[0].ref if hotels else None,
         ticket_refs=[],

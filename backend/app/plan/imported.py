@@ -20,7 +20,7 @@ from app.core.trace import TurnTrace
 from app.domain.models import ImportedItinerary, ImportedStop, TripContext
 from app.evidence.models import Bundle
 from app.evidence.providers import Providers
-from app.plan.builder import build_plan, validate_structure
+from app.plan.builder import a_or_an, build_plan, validate_structure
 from app.understand.schemas import DayChoice, PlanDraft, StopChoice
 
 GENERIC = {
@@ -216,7 +216,7 @@ async def build_imported_plan(
         )
 
     draft = PlanDraft(
-        summary=itinerary.summary or f"A {len(draft_days)}-day itinerary imported from the image.",
+        summary=itinerary.summary or f"{a_or_an(len(draft_days))} {len(draft_days)}-day itinerary imported from the image.",
         days=draft_days,
         hotel_ref=hotel_evidence.ref if hotel_evidence else None,
         ticket_refs=[],

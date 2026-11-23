@@ -45,6 +45,7 @@ async def gather(
     trace: TurnTrace,
     emit: Emit,
     scenario: dict[str, Any] | None = None,
+    with_tickets: bool = True,
 ) -> Gathered:
     destination = context.destination or ""
     if not destination:
@@ -177,6 +178,8 @@ async def gather(
         )
 
     async def ticket_agent() -> None:
+        if not with_tickets:
+            return
         started = time.perf_counter()
         await emit("agent", {"agent": "ticket", "phase": "start"})
         try:
