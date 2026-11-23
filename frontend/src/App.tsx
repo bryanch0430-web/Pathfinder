@@ -749,7 +749,7 @@ export default function App() {
                   selectedItemId={pf.selectedItem?.id ?? null}
                   onSelectItem={selectItem}
                   finalized={Boolean(pf.context.finalized)}
-                  onFinalise={() => void pf.finalise()}
+                  onFinalise={() => pf.finalise()}
                   onUseful={() => void pf.feedback(true, null)}
                   onNotUseful={() => void pf.feedback(false)}
                   onStars={(stars) => void pf.feedback(true, stars)}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 
 from app.core.store import Store
 
@@ -90,3 +91,26 @@ def test_seat_is_exclusive(tmp_path):
     assert second is False
     assert holder == "turn-1"
     assert third is True
+
+
+def test_store_init_keeps_one_saved_trip_per_session(tmp_path):
+    path = tmp_path / "test.db"
+    store = Store(path)
+    store.init()
+    db = sqlite3.connect(path)
+    for index in range(3):
+        db.execute(
+            "INSERT INTO wishlist (id, session_id, identity, destination, summary, stars, body, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (f"w{index}", "same-session", "guest:same", "Kyoto", "A trip", 5, "{}", f"2026-01-0{index + 1}T00:00:00Z"),
+        )
+    db.commit()
+    db.close()
+
+    # A restart runs the dedupe migration; only the newest row remains.
+    store.init()
+    db = sqlite3.connect(path)
+    rows = db.execute("SELECT id FROM wishlist WHERE session_id='same-session' AND identity='guest:same'").fetchall()
+    db.close()
+    assert len(rows) == 1
+    assert rows[0][0] == "w2"

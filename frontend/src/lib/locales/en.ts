@@ -1136,6 +1136,7 @@ export const EN = {
   "place.clear": "Clear selection",
 
   "feedback.finalise": "Finalise plan",
+  "feedback.finalising": "Finalising…",
   "feedback.frozen": "This plan is final. Start a new plan to change it, or open it from My trips.",
   "feedback.markedUseful": "Saved to my trips",
   "feedback.markedNotUseful": "Marked as not useful",

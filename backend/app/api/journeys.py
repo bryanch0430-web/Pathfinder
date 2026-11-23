@@ -325,6 +325,9 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
     context = await load_context(c, session_id)
+    # Finalise is idempotent: a double-click must not create a second saved trip.
+    if context.finalized:
+        return {"context": context.model_dump()}
     context.finalized = True
     await c.store.save_context(session_id, context.model_dump())
     plan = await load_plan(c, session_id)
@@ -347,7 +350,8 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
             context = await load_context(c, session_id)
             await c.store.save_wishlist(
                 {
-                    "id": secrets.token_hex(8),
+                    # One stable row per trip, so a retry updates instead of duplicating.
+                    "id": f"wish-{session_id}"[:36],
                     "session_id": session_id,
                     "identity": identity,
                     "destination": plan.destination.name,

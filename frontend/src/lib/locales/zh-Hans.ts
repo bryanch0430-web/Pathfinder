@@ -1134,6 +1134,7 @@ export const ZH_HANS: Messages = {
   "place.clear": "清除选择",
 
   "feedback.finalise": "完成行程",
+  "feedback.finalising": "正在完成…",
   "feedback.frozen": "这份行程已完成。要改内容请开一份新行程，或到我的行程查看。",
   "feedback.markedUseful": "已保存到我的行程",
   "feedback.markedNotUseful": "已标记为没用",

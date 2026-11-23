@@ -1877,16 +1877,26 @@ export function PlanFeedback({
   verdict: "useful" | "not_useful" | null;
   stars?: number | null;
   added?: string[];
-  onFinalise?: () => void;
+  onFinalise?: () => void | Promise<void>;
   onUseful: (stars?: number) => void;
   onNotUseful: () => void;
 }) {
   const { t } = useI18n();
+  const [finalising, setFinalising] = useState(false);
   if (!finalized) {
     return (
       <div className="pf-plan-feedback">
-        <button type="button" className="pf-plan-feedback__button pf-plan-feedback__finalise" onClick={onFinalise}>
-          {t("feedback.finalise")}
+        <button
+          type="button"
+          className="pf-plan-feedback__button pf-plan-feedback__finalise"
+          disabled={finalising}
+          onClick={() => {
+            if (finalising) return;
+            setFinalising(true);
+            void Promise.resolve(onFinalise?.()).finally(() => setFinalising(false));
+          }}
+        >
+          {finalising ? t("feedback.finalising") : t("feedback.finalise")}
         </button>
       </div>
     );

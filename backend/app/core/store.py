@@ -147,6 +147,12 @@ class Store:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self._lock, self._connect() as conn:
             conn.executescript(SCHEMA)
+            # A repeated Finalise used to insert a fresh random-id row each time.
+            # Keep one saved trip per session/identity; the newest row wins.
+            conn.execute(
+                "DELETE FROM wishlist WHERE rowid NOT IN "
+                "(SELECT MAX(rowid) FROM wishlist GROUP BY session_id, identity)"
+            )
         self._ready = True
 
     async def _run(self, fn, *args, **kwargs):
