@@ -369,6 +369,8 @@ export interface TrendingPlace {
   destination: string;
   plans: number;
   likes: number;
+  /** Mean 1–5 star rating across the useful trips in this destination. */
+  average_stars?: number | null;
   days: number;
   year: number | null;
   places: string[];

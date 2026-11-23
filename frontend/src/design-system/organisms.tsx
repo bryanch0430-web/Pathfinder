@@ -3739,7 +3739,14 @@ export function TrendingRail({
             <article className="pf-trending__card" key={`${item.destination}-${item.year ?? ""}`}>
               <div className="pf-row pf-row--between">
                 <strong>{item.destination}</strong>
-                <Badge tone="brand">{t(item.plans === 1 ? "trending.plansOne" : "trending.plans", { count: item.plans })}</Badge>
+                <div className="pf-row" style={{ gap: 6 }}>
+                  {typeof item.average_stars === "number" ? (
+                    <span title={t("trending.averageStars", { stars: item.average_stars.toFixed(1) })}>
+                      <Badge tone="warning">{`★ ${item.average_stars.toFixed(1)}`}</Badge>
+                    </span>
+                  ) : null}
+                  <Badge tone="brand">{t(item.plans === 1 ? "trending.plansOne" : "trending.plans", { count: item.plans })}</Badge>
+                </div>
               </div>
               <span className="pf-trending__meta">
                 {t(item.days === 1 ? "workspace.daysOne" : "workspace.days", { count: item.days })}{item.year ? ` · ${item.year}` : ""}

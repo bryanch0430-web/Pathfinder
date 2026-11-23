@@ -427,6 +427,7 @@ export const EN = {
   "common.tryAgain": "Try again",
 
   "trending.empty": "No public plans yet. Generate an itinerary and mark it useful to seed the rail.",
+  "trending.averageStars": "{stars} out of 5 average stars",
   "trending.plansOne": "{count} plan",
   "trending.plans": "{count} plans",
   "trending.matches": "Matches your",

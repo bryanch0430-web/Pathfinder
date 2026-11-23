@@ -427,6 +427,7 @@ export const ZH_HANT: Messages = {
   "common.tryAgain": "再試一次",
 
   "trending.empty": "還沒有公開行程。產生一份行程並標記為有用，這裡就會出現內容。",
+  "trending.averageStars": "平均 {stars} 星（滿分 5 星）",
   "trending.plansOne": "{count} 份行程",
   "trending.plans": "{count} 份行程",
   "trending.matches": "符合你的",

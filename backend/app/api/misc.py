@@ -282,10 +282,15 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
             continue
         entry = grouped.setdefault(
             name,
-            {"destination": name, "plans": 0, "likes": 0, "days": 0, "year": None, "places": [], "summary": ""},
+            {"destination": name, "plans": 0, "likes": 0, "average_stars": None, "days": 0, "year": None, "places": [], "summary": ""},
         )
         entry["plans"] += 1
-        entry["likes"] += int(row.get("stars") or 0)
+        stars = int(row.get("stars") or 0)
+        entry["likes"] += stars
+        # The average is computed on the server from the same useful+starred
+        # rows that feed the rail; the client never divides a partial list.
+        entry.setdefault("_stars_total", 0)
+        entry["_stars_total"] += stars
         try:
             body = __import__("json").loads(row.get("body") or "{}")
         except ValueError:
@@ -293,7 +298,11 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
         entry["days"] = max(entry["days"], len(body.get("days") or []))
         entry["places"] = (entry["places"] + [item.get("name") for day in (body.get("days") or []) for item in day.get("items", [])])[:6]
         entry["summary"] = entry["summary"] or (body.get("summary") or "")[:200]
-    items = list(grouped.values())
+    items = []
+    for entry in grouped.values():
+        total = int(entry.pop("_stars_total", 0))
+        entry["average_stars"] = round(total / entry["plans"], 1) if entry["plans"] else None
+        items.append(entry)
     if q:
         items = [item for item in items if q.lower() in item["destination"].lower()]
     # Only show an atlas idea when this traveller has no saved trips at all.

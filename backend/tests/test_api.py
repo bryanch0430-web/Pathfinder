@@ -327,7 +327,8 @@ def test_useful_starred_trip_enters_trending_and_not_useful_does_not(tmp_path):
         assert trip["useful"] is True
         assert trip["stars"] == 4
         trending = client.get("/api/popular?q=Kyoto", headers=headers).json()["items"]
-        assert any(item["destination"] == "Kyoto" for item in trending)
+        kyoto = next(item for item in trending if item["destination"] == "Kyoto")
+        assert kyoto["average_stars"] == 4.0
 
         client.post(f"/api/journeys/{session_id}/rating", json={"useful": False, "stars": None}, headers=headers)
         trip = client.get("/api/wishlist", headers=headers).json()["trips"][0]
