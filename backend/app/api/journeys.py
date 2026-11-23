@@ -102,6 +102,7 @@ async def patch_state(session_id: str, payload: dict[str, Any], request: Request
                 if not code:
                     raise HTTPException(status_code=400, detail="Use a three-letter currency code such as TWD, JPY or USD.")
                 merged[field] = code
+                merged["currency_set"] = True
                 continue
             merged[field] = payload[field]
     if isinstance(payload.get("profile"), dict):

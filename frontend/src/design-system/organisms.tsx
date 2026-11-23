@@ -78,6 +78,7 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
+import { readableLabel } from "../lib/readableLabel";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
 import { dayRoute, dayScope, overviewStops, travelLine } from "../lib/mapScope";
 import { RouteChoiceProvider, useRouteChoices } from "../lib/routeChoices";
@@ -1606,7 +1607,7 @@ function HotelOptionCard({
       {amenities.length ? (
         <div className="pf-option-card__chips">
           {shownAmenities.map((amenity) => (
-            <Badge key={amenity} tone="neutral">{amenity}</Badge>
+            <Badge key={amenity} tone="neutral">{readableLabel(amenity)}</Badge>
           ))}
           {amenities.length > AMENITIES_SHOWN ? (
             <button
@@ -2809,7 +2810,9 @@ export function TripWorkspace({
               <div className="pf-stack">
                 {plan.reservations.map((reservation) => (
                   <div className="pf-row" key={reservation.id} style={{ alignItems: "flex-start" }}>
-                    <Badge tone={reservation.status === "to_book" ? "warning" : "neutral"} dot>{reservation.status}</Badge>
+                    <Badge tone={reservation.status === "to_book" ? "warning" : "neutral"} dot>
+                      {t(`workspace.reservation.${reservation.status}` as MessageKey)}
+                    </Badge>
                     <div className="pf-stack" style={{ gap: 1 }}>
                       <Text size="sm" weight="semibold">{reservation.name}</Text>
                       <Text size="xs" tone="tertiary">{reservation.reason}</Text>

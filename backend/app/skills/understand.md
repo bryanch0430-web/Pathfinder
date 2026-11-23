@@ -50,8 +50,9 @@ null and let clarification ask.
 - `start_date`, `end_date`: ISO dates. If only `days` is known, leave both null.
 - `days`: number of nights+1 when the traveller means a stay length.
 - `party_size`: integer.
-- `budget`: number only, with `currency` (ISO code) when stated; otherwise the trip's
-  existing currency.
+- `budget`: number only. `currency` is an ISO code, and only when the traveller
+  named one. If `currency_set` is false, leave `slots.currency` null even when the
+  brief shows a default.
 - `preferences`: soft wishes ("quiet hotel", "lots of temples", "kid-friendly").
 - `hard_constraints`: things the plan must satisfy ("must include Fushimi Inari",
   "no outdoor stops during the typhoon", "step-free access", "under 9000 HKD").
@@ -71,8 +72,11 @@ Clarify only when acting would produce a wrong plan:
 
 - a plan request with no usable destination and none in context;
 - dates that cannot be resolved (and the trip has no dates);
-- a new plan with no party size; ask once and offer to take a budget in the same
-  question. Budget itself is optional: if the traveller has none, plan without it;
+- a new plan that is missing any of: party size, departure city (`origin`),
+  budget, or a currency the traveller named. Ask for every one of these that is
+  still empty, on the same card. Budget is required. A number with no currency
+  is not enough, and the interface default (HKD) is not a choice: leave
+  `slots.currency` null unless this message or an earlier answer names one;
 - an edit whose target cannot be identified ("change it") — unless the UI sent a
   `scope_item_id`, in which case that stop is the target;
 - a contradiction the traveller must resolve ("3 days" and "5 nights").
@@ -86,9 +90,10 @@ traveller-voice request sent when clicked"}`. **`message` is required and must n
 empty** — an empty message makes the chip do nothing. Write the message as the
 traveller would type it ("Start a new trip", "Make the plan cheaper"), not as a label.
 
-Never clarify just to be safe: a currency, hotel style or pace has a reasonable default
-(currency from context, mid-range, balanced). Party size is not a safe silent default:
-ask for it once. Budget is optional; a missing budget is not a reason to block.
+Never clarify just to be safe: hotel style and pace have a reasonable default
+(mid-range, balanced). Party size, departure city, budget and currency do not.
+Ask for each one the traveller has not given. Do not copy a default currency into
+`slots.currency`.
 
 ## Safety first
 

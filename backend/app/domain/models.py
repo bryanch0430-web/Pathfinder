@@ -482,6 +482,8 @@ class TripContext(Wire):
                 data[key] = ""
         if data.get("currency") is None:
             data["currency"] = "HKD"
+        if data.get("currency_set") is None:
+            data["currency_set"] = False
         if data.get("pace") is None:
             data["pace"] = "balanced"
         if data.get("language") is None:
@@ -502,6 +504,8 @@ class TripContext(Wire):
     party_size: int | None = None
     budget: float | None = None
     currency: str = "HKD"
+    # False until the traveller names a currency. The HKD default is not a choice.
+    currency_set: bool = False
     hotel_style: str = ""
     pace: str = "balanced"
     profile: TravellerProfile | None = None

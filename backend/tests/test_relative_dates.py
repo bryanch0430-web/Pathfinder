@@ -19,6 +19,8 @@ def test_known_length_is_not_asked_again_and_month_is_kept():
         origin="Hong Kong",
         days=2,
         party_size=1,
+        budget=12000,
+        currency_set=True,
         start_date=None,
         end_date=None,
     )
@@ -29,11 +31,33 @@ def test_known_length_is_not_asked_again_and_month_is_kept():
     assert "2-day" in clarify.question
 
 
+def test_missing_origin_budget_and_currency_are_asked_together():
+    context = TripContext(
+        session_id="dates-test",
+        destination="Hong Kong",
+        start_date="2027-03-12",
+        days=3,
+        party_size=2,
+    )
+    clarify = _fallback_clarify(context, RoutePayload(intent="plan"))
+    assert clarify.slots == ["origin", "budget", "currency"]
+    assert clarify.question == "I need these before I can plan."
+
+
 def test_date_question_does_not_add_a_currency_field():
     from app.understand.pipeline import _clarify
     from app.understand.schemas import ParsedIntent
 
-    context = TripContext(session_id="dates-test", destination="Taipei", days=2, party_size=1, currency="TWD")
+    context = TripContext(
+        session_id="dates-test",
+        destination="Taipei",
+        origin="Hong Kong",
+        days=2,
+        party_size=1,
+        budget=12000,
+        currency="TWD",
+        currency_set=True,
+    )
     parsed = ParsedIntent(
         intent="plan",
         confidence=0.9,

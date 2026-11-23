@@ -347,6 +347,9 @@ export const ZH_HANT: Messages = {
   "workspace.cost": "費用",
   "workspace.constraints": "條件檢查",
   "workspace.reservations": "需要預訂的項目",
+  "workspace.reservation.to_book": "待預訂",
+  "workspace.reservation.optional": "可選",
+  "workspace.reservation.booked": "已預訂",
   "workspace.noReservations": "回傳的來源沒有要求任何預訂。",
   "workspace.disruptions": "突發狀況",
   "workspace.resolved": "已解決",
@@ -964,6 +967,7 @@ export const ZH_HANT: Messages = {
   "form.save": "儲存資料",
   "form.clear": "清空資料",
   "form.generate": "產生行程",
+  "form.required": "開始規劃前需要填寫這項。",
 
   "clarify.slots": "這些資料確定之前，規劃不會開始。",
   "clarify.dateStart": "開始",

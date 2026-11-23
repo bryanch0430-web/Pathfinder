@@ -3,6 +3,35 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.1.2 — 2026-11-23 23:55 HKT
+
+A new plan now waits for the departure city, a budget, and a currency the traveller
+actually named. Labels that were leaking internal keys are written for people.
+
+### Planning gate
+
+- **Origin, budget, and currency are required** alongside destination, start date,
+  length, and party size. Hotel style and pace stay optional.
+- The silent HKD default does not count. `currency_set` stays false until the
+  traveller names a code, or saves one from the trip form.
+- One clarify card lists every missing required field. The chat line says "a few
+  details" when there is more than one.
+- The welcome examples now include an exact start date, not "March", "April", or
+  "next month".
+
+### What the traveller sees
+
+- Reservation status reads **To book**, **Optional**, or **Booked** instead of
+  `to_book`.
+- Google place-type chips read as words: `buffet_restaurant` becomes "Buffet
+  restaurant". Names already written for a person, such as "Free Wi-Fi", are unchanged.
+
+### Memory
+
+- Preferences saved after a useful trip are **English sentences**. Place names or
+  older chips in another language are not copied. Chips already stored in Chinese
+  stay until **Clear memory**.
+
 ## 5.1.1 — 2026-11-23 15:43 HKT
 
 Point release for the selected-item context, current-stay locking, verifier

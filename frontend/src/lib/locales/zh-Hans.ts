@@ -345,6 +345,9 @@ export const ZH_HANS: Messages = {
   "workspace.cost": "费用",
   "workspace.constraints": "约束检查",
   "workspace.reservations": "需要预订的项目",
+  "workspace.reservation.to_book": "待预订",
+  "workspace.reservation.optional": "可选",
+  "workspace.reservation.booked": "已预订",
   "workspace.noReservations": "返回的来源未要求任何预订。",
   "workspace.disruptions": "突发情况",
   "workspace.resolved": "已解决",
@@ -962,6 +965,7 @@ export const ZH_HANS: Messages = {
   "form.save": "保存信息",
   "form.clear": "清空信息",
   "form.generate": "生成行程",
+  "form.required": "开始规划前需要填写这项。",
 
   "clarify.slots": "这些信息确定之前，规划不会开始。",
   "clarify.dateStart": "开始",

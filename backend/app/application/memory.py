@@ -116,7 +116,9 @@ async def derive_memory(
                 "traveller's own words, extract only DURABLE preferences that should shape future trips: "
                 "interests, pace, dietary needs, accessibility, hotel style, dislikes, travelling style. "
                 "Do not store dates, prices, bookings, names of companions, or anything that changes per trip. "
-                "Write each preference as a short sentence in the traveller's language, at most 6. "
+                "Write each preference as a short English sentence, at most 6. Always English, even when "
+                "the traveller wrote in another language, the place names are not English, or older saved "
+                "preferences are in another language. Rewrite the fact; do not copy those sentences. "
                 "Also fill the profile fields when the evidence is clear, else null. "
                 'Reply as JSON: {"preferences": ["..."], "pace": "relaxed|balanced|packed|null", '
                 '"with_children": true|false|null, "purpose": "leisure|business|null", "step_free": true|false|null}'

@@ -386,7 +386,8 @@ async def _produce(
         clarify = understanding.clarify or _fallback_clarify(context, route)
         # The card carries the question and its choices; the chat line stays short so the
         # same sentence is not printed twice.
-        reply = "I need one detail before I can plan."
+        asked = [slot for slot in clarify.slots if slot != "scope"]
+        reply = "I need one detail before I can plan." if len(asked) <= 1 else "I need a few details before I can plan."
         await push("clarify", clarify.model_dump())
         await _stream_text(push, reply)
         await _save_assistant(
@@ -1117,37 +1118,13 @@ def _currency_statement(message: str) -> bool:
 
 
 def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> ClarifyPayload:
-    from app.understand.pipeline import missing_for_plan
+    from app.understand.pipeline import _label, required_clarify
 
-    missing = missing_for_plan(context)
-    if "destination" in missing:
-        question, slots = "Where would you like to go, and roughly when?", ["destination", "start_date"]
-    elif "start_date" in missing and "days" in missing:
-        window = route.date_window if route else ""
-        question, slots = (
-            f"Which date in {window} should I start, and how many days?" if window else "Which dates should I plan for? A start date and a length is enough.",
-            ["start_date", "days"],
-        )
-    elif "start_date" in missing:
-        window = route.date_window if route else ""
-        question, slots = (
-            f"I have the {context.days}-day length. Which date in {window} should I start?" if window else f"I have the {context.days}-day length. What start date should I use?",
-            ["start_date"],
-        )
-    elif "days" in missing:
-        question, slots = "How many days should the trip be?", ["days"]
-    elif "party_size" in missing:
-        question, slots = (
-            "How many people are travelling? If you have a budget in mind, include it; "
-            "otherwise I will plan without a fixed budget.",
-            ["party_size", "budget"],
-        )
-    else:
-        question, slots = "Could you say a little more about what you would like?", ["scope"]
+    question, slots = required_clarify(context, route)
     return ClarifyPayload(
         question=question,
         slots=slots,
-        labels=[slot.replace("_", " ").title() for slot in slots],
+        labels=[_label(slot) for slot in slots],
         options={},
         choices=[],
         suggestions=[],

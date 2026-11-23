@@ -347,6 +347,9 @@ export const EN = {
   "workspace.cost": "Cost",
   "workspace.constraints": "Constraint checks",
   "workspace.reservations": "Reservations to make",
+  "workspace.reservation.to_book": "To book",
+  "workspace.reservation.optional": "Optional",
+  "workspace.reservation.booked": "Booked",
   "workspace.noReservations": "No reservations are required by the returned sources.",
   "workspace.disruptions": "Disruptions",
   "workspace.resolved": "resolved",
@@ -964,6 +967,7 @@ export const EN = {
   "form.save": "Save details",
   "form.clear": "Clear details",
   "form.generate": "Generate itinerary",
+  "form.required": "This is needed before a plan can start.",
 
   "clarify.slots": "The plan will not start until these are known.",
   "clarify.dateStart": "Start",

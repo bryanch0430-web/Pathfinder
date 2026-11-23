@@ -260,13 +260,16 @@ def test_clear_memory_removes_preferences_and_saved_trips(tmp_path):
         assert again.json() == {"cleared": True, "saved_trips": 0, "preferences": 0}
 
 
-def test_a_new_plan_asks_for_party_size_but_not_budget():
+def test_a_new_plan_requires_party_origin_budget_and_currency():
     context = TripContext(
         session_id="party-check", destination="Japan", start_date="2026-11-30", days=10, currency="HKD"
     )
-    assert missing_for_plan(context) == ["party_size"]
+    assert missing_for_plan(context) == ["party_size", "origin", "budget", "currency"]
 
     context.party_size = 2
+    context.origin = "Hong Kong"
+    context.budget = 9000
+    context.currency_set = True
     assert missing_for_plan(context) == []
 
 

@@ -1050,9 +1050,9 @@ function WelcomePanel({
       <div className="pf-welcome__examples">
         {/* Sent to the planner as the traveller's request, so they stay in English. */}
         {[
-          "Plan a 3-day trip to Hong Kong from Singapore for 2 people in March, budget 9,000 HKD.",
-          "Plan a 4-day Kyoto trip from Hong Kong for 2 in April, budget 400,000 JPY. I want Fushimi Inari and a slow pace.",
-          "Plan a 2-day Taipei trip from Hong Kong for 1 person next month, budget 12,000 TWD.",
+          "Plan a 3-day trip to Hong Kong from Singapore for 2 people starting 12 March 2027, budget 9,000 HKD.",
+          "Plan a 4-day Kyoto trip from Hong Kong for 2 people starting 20 April 2027, budget 400,000 JPY. I want Fushimi Inari and a slow pace.",
+          "Plan a 2-day Taipei trip from Hong Kong for 1 person starting 4 December 2026, budget 12,000 TWD.",
         ].map((example) => (
           <button key={example} type="button" className="pf-example" disabled={disabled} onClick={() => onExample(example)}>
             <Icon name="sparkles" size={14} />

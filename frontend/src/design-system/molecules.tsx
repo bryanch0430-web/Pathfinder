@@ -19,11 +19,11 @@ import {
   dayCount,
   endBounds,
   endOpensOnStart,
-  keepsPlanAnyway,
 } from "../lib/clarifyInput";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
 import { currencyCodes, currencyOptionLabel } from "../lib/currency";
+import { readableLabel } from "../lib/readableLabel";
 import { profileOf } from "../lib/profile";
 import { useRouteChoices } from "../lib/routeChoices";
 import { choiceInto } from "../lib/routeShift";
@@ -474,6 +474,7 @@ export function TripContextForm({
   const [preferenceTags, setPreferenceTags] = useState<string[]>(values.preferences ?? []);
   const [prefInput, setPrefInput] = useState("");
   const [constraintText, setConstraintText] = useState((values.hard_constraints ?? []).join(", "));
+  const [showRequired, setShowRequired] = useState(false);
   const tripStart = values.start_date ?? "";
   const tripEnd = values.end_date ?? "";
   const tripDays = dayCount(tripStart, tripEnd);
@@ -575,6 +576,13 @@ export function TripContextForm({
       }}
       onSubmit={(event) => {
         event.preventDefault();
+        const originMissing = !(values.origin ?? "").trim();
+        const budgetMissing = values.budget == null || Number(values.budget) <= 0;
+        const currencyMissing = !/^[A-Za-z]{3}$/.test((values.currency ?? "").trim());
+        if (originMissing || budgetMissing || currencyMissing) {
+          setShowRequired(true);
+          return;
+        }
         addPendingPreference();
         onSubmit();
       }}
@@ -664,10 +672,11 @@ export function TripContextForm({
             ) : null}
           </div>
         </div>
-        <Field label={t("form.from")} required htmlFor={`${id}-origin`}>
+        <Field label={t("form.from")} required htmlFor={`${id}-origin`} error={showRequired && !(values.origin ?? "").trim() ? t("form.required") : undefined}>
           <Input
             id={`${id}-origin`}
             value={values.origin ?? ""}
+            invalid={showRequired && !(values.origin ?? "").trim()}
             onChange={(event) => onChange({ origin: event.target.value })}
             placeholder=""
             autoComplete="off"
@@ -716,7 +725,17 @@ export function TripContextForm({
             onChange={(event) => onChange({ party_size: event.target.value ? Number(event.target.value) : null })}
           />
         </Field>
-        <Field label={t("form.budget")} required wide htmlFor={`${id}-budget`}>
+        <Field
+          label={t("form.budget")}
+          required
+          wide
+          htmlFor={`${id}-budget`}
+          error={
+            showRequired && (values.budget == null || Number(values.budget) <= 0 || !/^[A-Za-z]{3}$/.test((values.currency ?? "").trim()))
+              ? t("form.required")
+              : undefined
+          }
+        >
           <div className="pf-budget-input">
             <Input
               id={`${id}-budget`}
@@ -724,6 +743,7 @@ export function TripContextForm({
               min={0}
               step="any"
               value={values.budget ?? ""}
+              invalid={showRequired && (values.budget == null || Number(values.budget) <= 0)}
               onChange={(event) => onChange({ budget: event.target.value ? Number(event.target.value) : null })}
               placeholder=""
             />
@@ -732,6 +752,7 @@ export function TripContextForm({
               aria-label={t("form.currency")}
               list={`${id}-currency-list`}
               value={values.currency ?? "HKD"}
+              invalid={showRequired && !/^[A-Za-z]{3}$/.test((values.currency ?? "").trim())}
               placeholder={t("form.currencySearch")}
               onChange={(event) => onChange({ currency: event.target.value.toUpperCase().slice(0, 3) })}
             />
@@ -918,11 +939,10 @@ export function ClarifyCard({
     const raw = (values[slot] ?? "").trim();
     // A required count is not "answered" by leaving the field blank; the card's
     // Continue button stays disabled until a whole number is chosen or typed.
-    if (!raw) return slot === "party_size" || slot === "days";
+    if (!raw) return slot === "party_size" || slot === "days" || slot === "origin" || slot === "destination" || slot === "budget";
     if (slot === "budget") {
-      if (keepsPlanAnyway(raw)) return false;
       const amount = amountIn(raw);
-      return amount === null || amount < 0;
+      return amount === null || amount <= 0;
     }
     const amount = Number(raw);
     if (slot === "party_size") return !Number.isInteger(amount) || amount < 1 || amount > 20;
@@ -1250,7 +1270,7 @@ export function PlaceFacts({ place }: { place: Partial<PlaceFactFields> }) {
     parts.push(`\u2605 ${place.rating.toFixed(1)}${reviews}`);
   }
   if (place.price_level) parts.push(place.price_level);
-  if (place.cuisine) parts.push(place.cuisine);
+  if (place.cuisine) parts.push(readableLabel(place.cuisine));
   // Reservations are shown only when the source said yes; unknown and "no" show nothing.
   if (place.reservable === true) parts.push(t("options.reservable"));
   if (!parts.length) return null;
