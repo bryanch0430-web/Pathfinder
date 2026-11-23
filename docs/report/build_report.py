@@ -747,6 +747,16 @@ body(
 )
 body(
     doc,
+    "A related data gap is flight geography. The flight adapter needs an IATA airport or city identifier; the "
+    "project does not have a complete nearest-airport lookup or geocoder. A country-level request such as "
+    "China to Australia cannot be searched by Google Flights as a country, so the app falls back to a named, "
+    "best-effort estimated ticket rather than a live fare; some tickets will therefore be unavailable. Special "
+    "handling exists for a limited set of city keys, including Hong Kong, Singapore, Tokyo, Kyoto, Osaka, "
+    "Sydney, Shanghai, Beijing, Shenzhen, Guangzhou, New York, San Francisco, London and Paris. A production "
+    "deployment would add an airport resolver and expose the fallback as an estimate or DataGap.",
+)
+body(
+    doc,
     "The team has taken several measures. Evidence has a typed schema with source references and a freshness "
     "timestamp; the composer may copy only values that are present in that schema; missing facts become a "
     "visible DataGap in the plan and the reply; and the deterministic validator keeps arithmetic, dates and "
