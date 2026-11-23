@@ -374,3 +374,49 @@ def test_turn_budget_never_uses_a_tiny_limit():
     assert turn_budget(SimpleNamespace(turn_deadline_seconds=10)) == 60
     assert turn_budget(SimpleNamespace(turn_deadline_seconds=300)) == 300
     assert turn_budget(SimpleNamespace(turn_deadline_seconds=5000)) == 900
+
+
+def test_locking_a_return_flight_locks_the_return_leg(tmp_path):
+    from app.domain.models import (
+        DateRange,
+        Destination,
+        TicketOption,
+        TransportLeg,
+        TripPlan,
+    )
+
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "return-lock-tester"}
+        session_id = client.post("/api/journeys", json={}, headers=headers).json()["session"]["id"]
+        plan = TripPlan(
+            trip_id="trip-return",
+            session_id=session_id,
+            destination=Destination(name="Taipei"),
+            dates=DateRange(start="2026-12-03", end="2026-12-04"),
+            legs=[
+                TransportLeg(id="leg-out", from_place="Hong Kong", to_place="Taipei", kind="outbound"),
+                TransportLeg(id="leg-back", from_place="Taipei", to_place="Hong Kong", kind="return"),
+            ],
+            tickets=[
+                TicketOption(id="tk-out", mode="flight", name="Outbound", leg_id="leg-out", depart_at="2026-12-03T09:00", arrive_at="2026-12-03T11:00", selected=True),
+                TicketOption(id="tk-back", mode="flight", name="Return", leg_id="leg-out", return_depart_at="2026-12-04T21:15", return_arrive_at="2026-12-04T23:25"),
+            ],
+        )
+        db = sqlite3.connect(tmp_path / "api.db")
+        db.execute(
+            "INSERT INTO plans (session_id, version, body, change_summary, created_at, item_count, destination, days) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (session_id, 1, plan.model_dump_json(), "", "2026-11-23T00:00:00+00:00", 0, "Taipei", 2),
+        )
+        db.commit()
+        db.close()
+
+        response = client.post(
+            f"/api/journeys/{session_id}/plan/choose",
+            json={"kind": "transport", "target_id": "leg-back", "option_id": "tk-back", "lock": True},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        legs = {row["id"]: row for row in response.json()["plan"]["legs"]}
+        assert legs["leg-back"]["locked"] is True
+        assert legs["leg-out"]["locked"] is False

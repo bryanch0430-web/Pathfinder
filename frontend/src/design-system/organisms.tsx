@@ -1770,8 +1770,11 @@ export function TicketCard({
       <span className="pf-ticket-card__thumb"><Icon name={icon} size={20} /></span>
       <div className="pf-stack pf-grow" style={{ gap: 2 }}>
         <Text size="sm" weight="semibold">
-          {side === "return" && ticket.return_airline
-            ? `${ticket.return_airline} ${ticket.return_flight_number ?? ""}`.trim()
+          {side === "return"
+            ? [
+                ticket.return_airline || ticket.operator || t("workspace.return"),
+                ticket.return_flight_number,
+              ].filter(Boolean).join(" ").trim()
             : ticket.name}
           {side !== "return" && operator ? <span className="pf-muted pf-small"> · {operator}</span> : null}
         </Text>

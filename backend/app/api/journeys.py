@@ -254,7 +254,12 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
             raise HTTPException(status_code=404, detail="That travel option is not listed.")
         for ticket in plan.tickets:
             ticket.selected = ticket.id == chosen.id
-        leg = next((row for row in plan.legs if row.id == (chosen.leg_id or "leg-out")), None)
+        # The UI locks the slot it is showing (leg-back), not the ticket's
+        # source leg. Return options can share the outbound leg_id in the
+        # provider payload; use target_id first so locking the return works.
+        leg = next((row for row in plan.legs if row.id == payload.target_id), None)
+        if leg is None:
+            leg = next((row for row in plan.legs if row.id == (chosen.leg_id or "leg-out")), None)
         if leg is not None:
             leg.locked = bool(payload.lock)
         changed = True
