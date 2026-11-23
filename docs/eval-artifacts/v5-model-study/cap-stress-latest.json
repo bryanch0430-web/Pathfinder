@@ -2,17 +2,17 @@
   "analyst": {
     "low": {
       "ok": true,
-      "detail": "unclear",
+      "detail": "plan",
       "tokens": 0,
       "cap": 64,
-      "seconds": 6.9
+      "seconds": 4.1
     },
     "effective": {
       "ok": true,
-      "detail": "plan",
+      "detail": "unclear",
       "tokens": 0,
       "cap": 4096,
-      "seconds": 2.1
+      "seconds": 0.5
     }
   },
   "ask": {
@@ -20,17 +20,17 @@
       "ok": false,
       "detail": "I need one detail before I can plan.",
       "tokens": null,
-      "latency_ms": 6809,
+      "latency_ms": 493,
       "cap": 64,
-      "seconds": 6.8
+      "seconds": 0.5
     },
     "effective": {
       "ok": false,
       "detail": "I need one detail before I can plan.",
       "tokens": null,
-      "latency_ms": 6145,
+      "latency_ms": 471,
       "cap": 1400,
-      "seconds": 6.2
+      "seconds": 0.5
     }
   },
   "verifier": {
@@ -39,14 +39,14 @@
       "detail": "unknown",
       "tokens": null,
       "cap": 64,
-      "seconds": 6.4
+      "seconds": 0.5
     },
     "effective": {
-      "ok": true,
-      "detail": "pass",
+      "ok": false,
+      "detail": "unknown",
       "tokens": null,
       "cap": 1500,
-      "seconds": 3.3
+      "seconds": 0.5
     }
   },
   "memory": {
@@ -55,14 +55,14 @@
       "detail": "",
       "tokens": null,
       "cap": 64,
-      "seconds": 4.4
+      "seconds": 0.5
     },
     "effective": {
-      "ok": true,
-      "detail": "I love visiting temples and gardens.; I prefer a slow pace with a long lunch.; I dislike early starts.",
+      "ok": false,
+      "detail": "",
       "tokens": null,
       "cap": 700,
-      "seconds": 3.2
+      "seconds": 0.4
     }
   },
   "planner": {
@@ -70,17 +70,17 @@
       "ok": false,
       "detail": "0 days",
       "tokens": null,
-      "latency_ms": 5871,
+      "latency_ms": 480,
       "cap": 128,
-      "seconds": 5.9
+      "seconds": 0.5
     },
     "effective": {
       "ok": false,
       "detail": "0 days",
       "tokens": null,
-      "latency_ms": 5881,
+      "latency_ms": 564,
       "cap": 12000,
-      "seconds": 5.9
+      "seconds": 0.6
     }
   }
 }

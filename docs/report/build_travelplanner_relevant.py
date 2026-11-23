@@ -149,7 +149,7 @@ def main() -> None:
         ("Interpretation", "This is a structured-field audit, not independent human annotation. It checks whether the operational filter behaves as intended; it is not a substitute for human gold labels."),
         ("Full filter", "No unsupported local hard constraint. This yields 423 structurally relevant cases."),
         ("Why these rules", "v5 can plan multi-city first slices and parties above four (the pipeline caps at 40; the UI lists up to 20). It does not guarantee restaurant cuisine, house rules, room type or no-flight constraints, so those remain excluded."),
-        ("Tier A", "Core single-city, 1-4 travellers, no local constraint: 147 cases; 19 are corpus-ready (New York or San Francisco)."),
+        ("Tier A", "Core single-city, 1-4 travellers, no local constraint: 147 cases; 7 are corpus-ready (New York or San Francisco). Tier B adds 12 corpus-ready cases."),
         ("Tier B", "Supported but secondary focus: multi-city and/or more than four travellers; 276 cases. They carry more transport/coverage risk and should not be treated as equally mature Tier A cases."),
         ("Recommended order", "Run Tier A first; then Tier B only after the multi-city/transport path and provider coverage are confirmed. Do not report all 423 as one equally valid benchmark."),
         ("Date caveat", "TravelPlanner dates are 2022. These are static-planning cases, not live booking or forecast tests; dates are retained as official provenance."),
@@ -176,7 +176,7 @@ def main() -> None:
         ["Full relevance rate", f"{len(relevant)/len(df):.1%}"],
         ["Tier A: core single-city", int(df.tier.str.startswith("A").sum())],
         ["Tier B: supported but secondary", int(df.tier.str.startswith("B").sum())],
-        ["Tier A corpus-ready", int(relevant.corpus_ready.sum())],
+        ["Tier A corpus-ready", int((df.tier.str.startswith("A") & df.corpus_ready).sum())],
         ["Excluded: local hard constraint", int((~df.relevant).sum())],
     ], widths={"Item": 40, "Value": 20})
 
