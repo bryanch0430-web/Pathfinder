@@ -1254,7 +1254,7 @@ export const EN = {
   "plan.scrap": "Scrap this trip",
 
   "welcome.title": "Start with intent, not a form",
-  "welcome.body": "Tell the intent router where, when, with whom and for how much. It routes the turn to plan, modify, ask or clarify and extracts the intake slots. Evidence workers run through live tool adapters or the atlas fallback, every fact stays tied to its source and freshness, and a gap is shown where data is missing.",
+  "welcome.body": "Tell Pathfinder where you want to go and how you like to travel. It gathers the evidence and marks what is still missing.",
   "welcome.step1": "Intent routing",
   "welcome.step1Body": "plan · modify · ask · clarify · intake slots",
   "welcome.step2": "Evidence workers",

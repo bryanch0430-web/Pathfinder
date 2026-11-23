@@ -1254,7 +1254,7 @@ export const ZH_HANT: Messages = {
   "plan.scrap": "捨棄這份行程",
 
   "welcome.title": "先說意圖，不必先填表",
-  "welcome.body": "告訴意圖路由器去哪裡、何時、和誰、預算多少。它把這一輪路由到規劃、修改、提問或釐清，並提取收集欄位。證據工作者透過即時工具轉接器或離線圖集並行取證，每條事實都保留來源與新鮮度，缺資料就顯示缺口。",
+  "welcome.body": "告訴 Pathfinder 你想去哪裡、喜歡怎樣旅行。它負責收集證據，並標出仍缺的資訊。",
   "welcome.step1": "意圖路由",
   "welcome.step1Body": "規劃 · 修改 · 提問 · 釐清 · 收集欄位",
   "welcome.step2": "證據工作者",

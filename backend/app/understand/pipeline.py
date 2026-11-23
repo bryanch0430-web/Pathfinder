@@ -14,7 +14,7 @@ from typing import Any
 
 from app.config import Settings
 from app.core.currencies import normalise_currency
-from app.core.dates import finish_dates, parse_date
+from app.core.dates import finish_dates, parse_date, resolve_relative_start
 from app.core.llm import LLMClient, LLMError
 from app.core.prompts import context_brief, dialogue, plan_outline, skill
 from app.domain.models import ChatMessage, ClarifyPayload, RoutePayload, TripContext, TripPlan
@@ -85,6 +85,21 @@ async def understand(
             missing_slots=["scope"],
         )
     updated = merge_slots(context, parsed)
+    # The analyst is good at meaning but often leaves "next month" as an
+    # assumption rather than a date. Fill only a provisional start date when
+    # the traveller named a period and gave no day; the assumption is recorded.
+    if not updated.start_date:
+        relative_start, relative_note = resolve_relative_start(message, today.date())
+        if relative_start is not None:
+            updated.start_date = relative_start.isoformat()
+            if relative_note:
+                parsed.assumptions.append(relative_note)
+            start, end, days = finish_dates(
+                start=updated.start_date,
+                end=updated.end_date,
+                days=updated.days if updated.days else None,
+            )
+            updated.start_date, updated.end_date, updated.days = start, end, days
     updated.language = parsed.language or updated.language
     route = _route(parsed, settings, plan)
     if settings.turn_orchestrator == "jev":
@@ -269,6 +284,17 @@ def _clarify(
     route: RoutePayload,
 ) -> ClarifyPayload:
     slots = list(parsed.missing_slots)[:4]
+    known = {
+        "destination": bool(context.destination),
+        "start_date": bool(context.start_date),
+        "days": bool(context.days or context.end_date),
+        "party_size": bool(context.party_size),
+    }
+    # Never ask again for a slot the context already has. The analyst can list a
+    # slot it left empty while the merge filled it from the sentence ("2 days").
+    slots = [slot for slot in slots if not known.get(slot, False)]
+    if not slots:
+        slots = missing_for_plan(context)[:4]
     question = (parsed.question or "").strip()
     options = {key: [str(value)[:80] for value in values[:6]] for key, values in parsed.options.items() if values}
     # Travellers are whole people; a model-generated range ("3-4") or "5+" cannot be
@@ -294,18 +320,26 @@ def _clarify(
         ]
         options["currency"] = list(dict.fromkeys(code for code in choices if code))[:6]
     if not question:
-        if not context.destination:
+        missing = missing_for_plan(context)
+        if "destination" in missing:
             question = "Where would you like to go, and roughly when?"
-            slots = slots or ["destination", "start_date"]
-        elif not context.start_date and not context.days:
+            slots = ["destination", "start_date"]
+        elif "start_date" in missing and "days" in missing:
             question = "Which dates should I plan for? A start date and a length is enough."
-            slots = slots or ["start_date", "days"]
-        elif plan is None:
-            question = "I can plan that — just tell me the destination and dates."
-            slots = slots or ["destination", "start_date"]
+            slots = ["start_date", "days"]
+        elif "start_date" in missing:
+            length = context.days or 0
+            question = f"I have the {length}-day length. What start date should I use?"
+            slots = ["start_date"]
+        elif "days" in missing:
+            question = "How many days should the trip be?"
+            slots = ["days"]
+        elif "party_size" in missing:
+            question = "How many people are travelling?"
+            slots = ["party_size"]
         else:
             question = "Could you say a little more about what you want to change?"
-            slots = slots or ["scope"]
+            slots = ["scope"]
     return ClarifyPayload(
         question=question[:400],
         slots=slots,

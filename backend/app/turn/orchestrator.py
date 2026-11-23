@@ -1095,11 +1095,18 @@ def _currency_statement(message: str) -> bool:
 
 
 def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> ClarifyPayload:
-    if not context.destination:
+    from app.understand.pipeline import missing_for_plan
+
+    missing = missing_for_plan(context)
+    if "destination" in missing:
         question, slots = "Where would you like to go, and roughly when?", ["destination", "start_date"]
-    elif not dates_usable(context):
+    elif "start_date" in missing and "days" in missing:
         question, slots = "Which dates should I plan for? A start date and a length is enough.", ["start_date", "days"]
-    elif not context.party_size:
+    elif "start_date" in missing:
+        question, slots = f"I have the {context.days}-day length. What start date should I use?", ["start_date"]
+    elif "days" in missing:
+        question, slots = "How many days should the trip be?", ["days"]
+    elif "party_size" in missing:
         question, slots = (
             "How many people are travelling? If you have a budget in mind, include it; "
             "otherwise I will plan without a fixed budget.",

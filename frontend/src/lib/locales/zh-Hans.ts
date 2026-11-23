@@ -1252,7 +1252,7 @@ export const ZH_HANS: Messages = {
   "plan.scrap": "放弃此行程",
 
   "welcome.title": "先说意图，不必先填表",
-  "welcome.body": "告诉意图路由器去哪里、何时、和谁、预算多少。它把这一轮路由到规划、修改、提问或澄清，并提取收集槽位。证据工作者通过实时工具适配器或离线图集并行取证，每条事实都保留来源与新鲜度，缺数据就显示缺口。",
+  "welcome.body": "告诉 Pathfinder 你想去哪里、喜欢怎样旅行。它负责收集证据，并标出仍缺的信息。",
   "welcome.step1": "意图路由",
   "welcome.step1Body": "规划 · 修改 · 提问 · 澄清 · 收集槽位",
   "welcome.step2": "证据工作者",

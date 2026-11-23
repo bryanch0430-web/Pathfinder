@@ -57,7 +57,9 @@
 }
 
 .pf-welcome__body {
-  max-width: 56ch;
+  max-width: 58ch;
+  line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .pf-welcome__examples {
