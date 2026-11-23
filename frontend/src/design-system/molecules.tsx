@@ -907,7 +907,11 @@ export function ClarifyCard({
   const { t } = useI18n();
   const id = useId();
   const choices = payload.choices ?? [];
-  const slotsOnly = payload.slots.length > 0;
+  // Older stored clarify cards were made before the backend added the currency
+  // field. If the question itself asks about a currency, show the field anyway.
+  const asksCurrency = /currency|(HKD|TWD|JPY|USD|EUR|GBP)/i.test(payload.question);
+  const slots = asksCurrency && !payload.slots.includes("currency") ? [...payload.slots, "currency"] : payload.slots;
+  const slotsOnly = slots.length > 0;
   // A number the trip could not take (a party of -2) flags its field and holds Continue;
   // an empty field is just unanswered and the backend still re-asks anything missing.
   const badNumber = (slot: string): boolean => {
@@ -935,7 +939,7 @@ export function ClarifyCard({
     if (slot !== "currency") return false;
     return !/^[A-Z]{3}$/.test((values[slot] ?? "").trim().toUpperCase());
   };
-  const blocked = payload.slots.some(badNumber) || payload.slots.some(dateProblem) || payload.slots.some(badCurrency);
+  const blocked = slots.some(badNumber) || slots.some(dateProblem) || slots.some(badCurrency);
   return (
     <div className="pf-clarify">
       <div className="pf-row">
