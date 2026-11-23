@@ -166,7 +166,14 @@ class Providers:
         deduped: dict[str, Evidence] = {}
         for item in found:
             deduped.setdefault(item.name.strip().lower(), item)
-        return list(deduped.values())[:limit]
+        # A named interest ("Tokyo Disneyland") can return a place in another
+        # city. Do not put a Tokyo address into an Osaka plan.
+        city_key = city.split(",")[0].strip().lower()
+        in_city = [
+            item for item in deduped.values()
+            if not city_key or not item.address or city_key in item.address.lower()
+        ]
+        return in_city[:limit]
 
     @staticmethod
     def _filter_interests(entries: list[Evidence], interests: list[str] | None) -> list[Evidence]:

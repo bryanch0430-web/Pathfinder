@@ -38,6 +38,7 @@ def _bundle() -> Bundle:
             _evidence("at-1", "attraction", "Temple One"),
             _evidence("at-2", "attraction", "Temple Two", lat=35.02, lng=135.02),
             _evidence("me-1", "meal", "Noodle Shop"),
+            _evidence("at-3", "attraction", "Temple Three", lat=35.04, lng=135.04),
             _evidence("ho-1", "hotel", "Station Hotel"),
         ],
         "test",
@@ -84,7 +85,8 @@ def test_builder_uses_only_known_refs():
     )
     names = [item.name for day in plan.days for item in day.items]
     assert "Temple One" in names and "Noodle Shop" in names
-    assert len(names) == 4  # the unknown ref is dropped
+    assert len(names) == 3  # unknown ref dropped; the repeated Temple One is one visit
+    assert len(names) == len(set(names))
     assert all(item.source_refs for day in plan.days for item in day.items)
     assert plan.hotels and plan.hotels[0].name == "Station Hotel"
     assert plan.cost.currency == "JPY"
@@ -105,7 +107,7 @@ def test_builder_settles_overlaps_and_transfers():
                     StopChoice(ref="at-2", start="09:30", end="10:30"),  # overlaps and is far away
                 ],
             ),
-            DayChoice(date="2027-04-11", stops=[StopChoice(ref="at-1", start="09:00", end="10:00")]),
+            DayChoice(date="2027-04-11", stops=[StopChoice(ref="at-3", start="09:00", end="10:00")]),
         ],
         hotel_ref="ho-1",
     )

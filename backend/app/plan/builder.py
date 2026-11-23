@@ -259,6 +259,10 @@ def build_plan(
     days = day_range(start, end)[:31]
     draft_days = list(draft.days)
     built_days: list[DayPlan] = []
+    # A stop is one place on one trip. The planner may repeat a ref across days
+    # (the image/poster import produced USJ twice), but a repeated attraction is
+    # not a second visit — it creates overlaps and absurd times. Keep the first.
+    used_refs: set[str] = set()
 
     for index, day_date in enumerate(days):
         choice = next((row for row in draft_days if row.date == day_date.isoformat()), None)
@@ -271,6 +275,9 @@ def build_plan(
                 continue
             if evidence.kind not in {"attraction", "meal"}:
                 continue
+            if evidence.ref in used_refs:
+                continue
+            used_refs.add(evidence.ref)
             items.append(_item_from_evidence(evidence, stop, position, context.destination or ""))
         items.sort(key=lambda item: item.start or "99:99")
         _attach_transfers(items, avoid_transit=(index + 1) in (avoid_transit_days or set()))
@@ -955,20 +962,19 @@ def fallback_plan(
         reverse=True,
     )
     days = day_range(start, end)[:31]
-    per_day = 2 if (context.profile and context.profile.pace == "relaxed") else 3
+    per_day = 2
     attraction_index = 0
     meal_index = 0
     choices: list[DayChoice] = []
-    for index, day_date in enumerate(days):
+    for day_date in days:
         stops: list[StopChoice] = []
-        if index == 0 and attractions:
-            stops.append(StopChoice(ref=attractions[0].ref, start="14:00", end="16:00"))
-            attraction_index = 1
+        # A fallback itinerary must not repeat the same attraction to fill days.
+        # Take the next unique candidates; an exhausted pool leaves a visible gap.
         for slot in range(per_day):
-            if not attractions:
+            if attraction_index >= len(attractions):
                 break
-            chosen = attractions[attraction_index % len(attractions)]
-            start_time = ["09:30", "13:30", "16:00"][slot]
+            chosen = attractions[attraction_index]
+            start_time = ["09:30", "13:30"][slot]
             length = chosen.suggested_minutes or 90
             stops.append(
                 StopChoice(
@@ -980,9 +986,9 @@ def fallback_plan(
             )
             attraction_index += 1
         for meal_slot, meal_time in (("lunch", "12:15"), ("dinner", "19:00")):
-            if not meals:
+            if meal_index >= len(meals):
                 break
-            chosen_meal = meals[meal_index % len(meals)]
+            chosen_meal = meals[meal_index]
             stops.append(
                 StopChoice(
                     ref=chosen_meal.ref,
