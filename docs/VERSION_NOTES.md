@@ -179,7 +179,7 @@ Full source:
 v5 keeps its own **5.x** line; the v1.x numbers are the source product line, not a
 semver comparison.
 
-### The latest main note in full — v1.18.0
+### The latest legacy main note in full — v1.18.0
 
 > More ways of saying a trip are read. A wish is not stored as the city. The clarify
 > card names the end date, and a budget chip fills the box. Evaluation lists the bulk
@@ -202,6 +202,7 @@ semver comparison.
 
 | Main release | Main headline | Leveraged in v5 as | Why v5 changes the mechanism |
 |---|---|---|---|
+| **v1.19.0** · 2026-11-23 12:45 | Complex requests get a bounded path: date windows, flight windows, city segments and an execution budget | 5.1.0: date window, flight boundaries, multi-city segments, execution budget, clock answer | v5 gives each uncertain part explicit state instead of asking one generated plan to carry all of it; intercity transport is a gap. |
 | **v1.18.0** · 2026-11-22 16:30 | A wish stays a wish, the end date is labelled, and a budget chip fills the box | A wish becomes `preferences` / `research_places` / `search_queries`, never the destination; the clarify card still names the end date; the budget chip still fills the number box | v5 has one typed analyst call, not the rule/gazetteer stack. The **product rule** (wish ≠ city) is kept; the regex that implemented it is not. |
 | **v1.17.0** · 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out | Intake parses files; date validation rejects missing/reversed ranges; a found-but-removed stop gets a visible `DataGap` reason | LLM intake + Pydantic validation replaces special-case rules; the UI and the visible reason stay. |
 | **v1.16.0** · 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal | “Where I can see Gundam” → named lookup + web fallback; finalised trips are history; other fares fold under options; a repeated failed edit can hand off | v5 uses `research_places` and provider web search, not a street-name regex. The handoff counter now counts **failed edits**, not ordinary clarifications (the v1.16 note’s “third failure” was being over-applied). |
