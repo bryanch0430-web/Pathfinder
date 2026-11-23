@@ -168,3 +168,34 @@ the cost of six clarifications — but n=84, one run per case, no live shadow, a
 overlapping uncertainty intervals. It is a hypothesis for live instrumentation, not
 evidence for a default change.
 
+
+## 10. Live dual-router shadow (23 Nov 2026)
+
+Ten live cases: six normal, four deliberately underspecified (`sakura`, `Gundam`,
+`somewhere warm`, `plan a trip`). Analyst and Jev were called in parallel; the analyst
+stayed the real route and Jev was only logged. Artefacts:
+`shadow-live-latest.json` and `shadow-live-latest.md`; runner:
+`backend/scripts/v5_shadow_live.py`.
+
+| Measure | Result |
+|---|---:|
+| Raw intent agreement | 6/10 (60.0%) |
+| Action agreement | 7/10 |
+| Would clarify | 7/10 |
+| Mean analyst latency | 8,649 ms |
+| Mean Jev latency | 330 ms |
+| Mean parallel wall time | 8,649 ms |
+
+- All four ambiguous cases led both routers to **clarify**; they disagreed on the raw
+  label (`plan` + question vs `unclear`) but agreed on the action.
+- Two normal requests without a start date were both labelled `plan`; the analyst
+  correctly clarified for the date, Jev did not.
+- The normal **ask** case was a failure of a strict agreement gate: analyst `ask`,
+  Jev `clarify`; the gate would over-clarify a valid question.
+- Dated normal plans and the edit were accepted by both.
+- Jev confidence was lower on ambiguous cases; raw confidence alone did not decide
+  the action.
+
+**Interpretation:** a strict agreement gate is not ready. The next policy should keep
+the analyst's missing-slot/clarify decision primary, log Jev as a second opinion, and
+collect repeated live shadow runs before any gating change.

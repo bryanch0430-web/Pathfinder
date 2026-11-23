@@ -84,6 +84,11 @@ plan; this release gives each uncertain part its own bounded representation.
   cases, six clarifications, and the analyst's only error inside the disagreement set.
   This is a saved-prediction analysis, not a live concurrent shadow; see
   `docs/eval-artifacts/v5-model-study/shadow-router.md`.
+- Live dual-router shadow (10 cases, 6 normal + 4 ambiguous): raw intent agreement
+  6/10, action agreement 7/10, would clarify 7/10. All ambiguous cases converged on
+  clarification; a strict agreement gate over-clarified the normal ask case. Not
+  shipped; repeated shadow runs are the next step. See
+  `docs/eval-artifacts/v5-model-study/shadow-live-latest.md`.
 - `docs/ARCHITECTURE.md` points to that complete reference and keeps the short layer
   map.
 

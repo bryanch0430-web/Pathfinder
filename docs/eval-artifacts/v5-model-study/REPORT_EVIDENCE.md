@@ -111,6 +111,9 @@ report needs a reasoning arm.
 - Dual-router retrospective shadow: `docs/eval-artifacts/v5-model-study/shadow-router.json`
   and `shadow-router.md`; agreement 78/84, 100% on agreed cases, six clarifications,
   no live concurrent run.
+- Dual-router live shadow: `docs/eval-artifacts/v5-model-study/shadow-live-latest.json`;
+  n=10, raw intent agreement 6/10, action agreement 7/10, would clarify 7/10, Jev
+  ~330 ms vs analyst ~8.65 s; strict agreement gate over-clarified the ask case.
 - Routing: `docs/eval-artifacts/v5-model-study/routing-merged.json`, cases with `trace_id`
   `bench-<arm>-<case>`.
 - Planner: `datasets-latest.json`; eval DB `backend/data/bench_<dataset>_<arm>.db`; each row has the
