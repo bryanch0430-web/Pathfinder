@@ -357,7 +357,6 @@ export const ZH_HANS: Messages = {
   "workspace.freshness.hotels": "酒店价格",
   "workspace.freshness.refreshed": "{section}已刷新；之前的数据获取于 {fetched}。",
   "workspace.freshness.outdated": "{section}可能已过时（获取于 {fetched}），暂时无法刷新。",
-  "workspace.courseNote": "COMP7608B · 智能体系统结构",
   "workspace.howAiWorked": "智能体运行结构",
   "workspace.localTime": "当地时间 {time} · {zone}",
 

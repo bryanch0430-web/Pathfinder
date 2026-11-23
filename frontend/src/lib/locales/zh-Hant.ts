@@ -359,7 +359,6 @@ export const ZH_HANT: Messages = {
   "workspace.freshness.hotels": "酒店價格",
   "workspace.freshness.refreshed": "{section}已更新；先前的資料取得於 {fetched}。",
   "workspace.freshness.outdated": "{section}可能已過時（取得於 {fetched}），暫時無法更新。",
-  "workspace.courseNote": "COMP7608B · 智能體系統結構",
   "workspace.howAiWorked": "智能體運行結構",
   "workspace.localTime": "當地時間 {time} · {zone}",
 

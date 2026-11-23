@@ -359,7 +359,6 @@ export const EN = {
   "workspace.freshness.hotels": "Hotel prices",
   "workspace.freshness.refreshed": "{section} refreshed; the earlier data was fetched {fetched}.",
   "workspace.freshness.outdated": "{section} may be outdated (fetched {fetched}) and could not be refreshed.",
-  "workspace.courseNote": "COMP7608B · Agentic system anatomy",
   "workspace.howAiWorked": "Agent anatomy",
   "workspace.localTime": "Local time {time} · {zone}",
 
