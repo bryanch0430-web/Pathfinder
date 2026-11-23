@@ -62,6 +62,8 @@ def _usable(stop: ImportedStop) -> bool:
         return False
     if any(lowered.startswith(prefix) for prefix in ("check-in", "check in", "check-out", "check out")):
         return False
+    if any(phrase in lowered for phrase in ("buy sell", "buy & sell", "ticketing counter", "ticket counter", "bus ticket")):
+        return False
     return True
 
 
