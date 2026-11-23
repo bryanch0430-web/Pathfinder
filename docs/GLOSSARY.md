@@ -74,3 +74,12 @@ Naming convention: UI verbs are nouns of responsibility — **Intent routing**,
 **Evaluation**. Code role names keep the agent suffix (`router`, `planner`,
 `editor`, `validator`, `verifier`, `evaluator`), but `validator`, `verifier` and
 `evaluator` are not synonyms.
+
+
+## Curated place corpus
+
+The offline evidence source is the **curated place corpus**
+(`backend/app/evidence/place_corpus.py`), not an “atlas”. “Sandbox” is the runtime
+mode that prevents live provider calls; the corpus is the data it uses. The corpus
+contains real, source-labelled places for 12 cities plus US entries and is returned
+as fallback evidence with a stale status when live data is unavailable.

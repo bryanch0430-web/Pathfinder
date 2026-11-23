@@ -13,7 +13,7 @@ from fastapi.responses import RedirectResponse, Response
 from app.api.deps import container, identity_for, is_admin
 from app.api.views import runtime_config
 from app.core.currencies import normalise_currency
-from app.evidence import atlas
+from app.evidence import place_corpus as corpus
 from app.evidence.providers import Providers
 
 router = APIRouter()
@@ -85,8 +85,8 @@ async def suggest(request: Request, q: str = "") -> dict[str, Any]:
             pass
     lowered = query.lower()
     items = [
-        {"label": meta["name"], "place_id": f"atlas:{name}"}
-        for name, meta in atlas.CITIES.items()
+        {"label": meta["name"], "place_id": f"corpus:{name}"}
+        for name, meta in corpus.CITIES.items()
         if lowered in name or lowered in meta["name"].lower()
     ]
     return {"items": items[:8]}
@@ -184,11 +184,11 @@ async def place_image(request: Request, name: str = "", q: str = "", city: str =
 async def handbook(request: Request, destination: str = "", q: str = "", limit: int = 3) -> dict[str, Any]:
     c = container(request)
     city = (destination or "").strip()
-    meta = atlas.city_meta(city) or {}
-    key = atlas._key(city)
+    meta = corpus.city_meta(city) or {}
+    key = corpus._key(city)
     chunks: list[dict[str, Any]] = []
     if key:
-        for index, item in enumerate([*atlas.attractions(key), *atlas.hotels(key), *atlas.meals(key)]):
+        for index, item in enumerate([*corpus.attractions(key), *corpus.hotels(key), *corpus.meals(key)]):
             text = f"{item.name}. {item.summary}".strip()
             if q and q.lower() not in text.lower() and not any(word in text.lower() for word in q.lower().split()):
                 continue
@@ -206,12 +206,12 @@ async def handbook(request: Request, destination: str = "", q: str = "", limit: 
                     "last_verified": "2026-11-01",
                     "stale": False,
                     "content_hash": item.ref,
-                    "corpus_version": "atlas-1",
-                    "retrieval": {"mode": "atlas", "reranked": False},
+                    "corpus_version": "place-corpus-1",
+                    "retrieval": {"mode": "place_corpus", "reranked": False},
                 }
             )
     note = "Curated destination notes." if chunks else "No handbook notes for that destination yet."
-    return {"items": chunks[: max(1, min(limit, 8))], "note": note, "retrieval": {"mode": "atlas", "reranked": False}}
+    return {"items": chunks[: max(1, min(limit, 8))], "note": note, "retrieval": {"mode": "place_corpus", "reranked": False}}
 
 
 @router.get("/api/wallet")
@@ -305,10 +305,10 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
         items.append(entry)
     if q:
         items = [item for item in items if q.lower() in item["destination"].lower()]
-    # Only show an atlas idea when this traveller has no saved trips at all.
+    # Only show a place-corpus idea when this traveller has no saved trips at all.
     # A not-useful trip must not come back as a generic "trending" destination.
     if not items and q and not saved_rows:
-        meta = atlas.city_meta(q)
+        meta = corpus.city_meta(q)
         if meta:
             items = [
                 {
@@ -317,8 +317,8 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
                     "likes": 0,
                     "days": 0,
                     "year": None,
-                    "places": [item.name for item in atlas.attractions(atlas._key(q))][:5],
-                    "summary": "Popular places from the Pathfinder atlas.",
+                    "places": [item.name for item in corpus.attractions(corpus._key(q))][:5],
+                    "summary": "Popular places from the Pathfinder curated place corpus.",
                     "match": [q],
                 }
             ]
@@ -329,11 +329,11 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
             "note": (
                 "Built from the traveller's useful, starred trips."
                 if rows
-                else ("No useful starred trips yet." if saved_rows else "No saved trips yet; showing atlas ideas.")
+                else ("No useful starred trips yet." if saved_rows else "No saved trips yet; showing curated place-corpus ideas.")
             ),
             "filter": "personal" if identity else "none",
             "dropped": dropped,
-            "mode": "wishlist" if rows else ("filtered" if saved_rows else "atlas"),
+            "mode": "wishlist" if rows else ("filtered" if saved_rows else "place_corpus"),
             "candidates": len(rows),
         },
     }

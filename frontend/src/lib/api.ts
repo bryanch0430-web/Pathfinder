@@ -210,7 +210,7 @@ export function setSerpKeyStatus(id: string, status: SerpKeyStatus): Promise<{ k
 }
 
 export function saveRuntime(body: {
-  data_mode?: "live" | "atlas";
+  data_mode?: "live" | "corpus";
   purpose_models?: Record<string, string>;
   purpose_temperatures?: Record<string, number>;
   purpose_reasoning?: Record<string, string>;

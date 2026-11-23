@@ -5504,15 +5504,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="960" y="578" class="t-external" font-size="7" text-anchor="middle">live, sourced</text>
         </g>
 
-        <g id="node-atlas" data-node-id="atlas" data-node-label="Curated atlas" tabindex="0" role="button" aria-label="Focus Curated atlas, 12 cities + US, offline evidence" aria-pressed="false" data-node-kind="database" data-node-sublabel="12 cities + US" data-node-tag="offline + eval" data-node-context="Offline evidence">
-          <title>Curated atlas · 12 cities + US · offline evidence · offline + eval</title>
+        <g id="node-atlas" data-node-id="atlas" data-node-label="Curated place corpus" tabindex="0" role="button" aria-label="Focus Curated place corpus, 12 cities + US, offline evidence" aria-pressed="false" data-node-kind="database" data-node-sublabel="12 cities + US" data-node-tag="offline + eval" data-node-context="Offline evidence">
+          <title>Curated place corpus · 12 cities + US · offline evidence · offline + eval</title>
           <rect x="620" y="620" width="180" height="64" rx="8" class="c-mask"/>
           <rect x="620" y="620" width="180" height="64" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(626 626) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="710" y="650" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Curated atlas</text>
+          <text data-node-label="" data-detail-anchor="" x="710" y="650" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Curated place corpus</text>
         <text data-detail="context" x="710" y="666" class="t-muted" font-size="9" text-anchor="middle">12 cities + US</text>
         <text data-detail="fine" x="710" y="676" class="t-database" font-size="7" text-anchor="middle">offline + eval</text>
         </g>
@@ -5857,7 +5857,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>The composer names evidence refs; code copies name, address, price, hours and sources.</li>
-          <li>A named place outside the atlas is looked up (Google Places live, Wikipedia offline) before it is added.</li>
+          <li>A named place outside the curated place corpus is looked up (Google Places live, Wikipedia offline) before it is added.</li>
           <li>If no source exists and the traveller insists, the stop is added marked unconfirmed, with a visible gap.</li>
           <li>A deterministic budget guard trims paid stops rather than letting the total overrun.</li>
         </ul>
@@ -6057,7 +6057,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="arch-ref__card"><h4>Browser</h4><p>React chat, plan workspace, map, direct edit, drawers, feedback, profile, settings and Desk. Talks REST + SSE only.</p></div>
     <div class="arch-ref__card"><h4>Runtime</h4><p><code>api/turn.py</code> owns the seat, keepalive, execution budget, cancellation and SSE framing. <code>turn/orchestrator.py</code> owns the turn pipeline.</p></div>
     <div class="arch-ref__card"><h4>Model gateway</h4><p>One OpenAI-compatible client with per-purpose model, temperature, reasoning and token caps. Every generation and tool call is traced.</p></div>
-    <div class="arch-ref__card"><h4>Evidence layer</h4><p>Fixed evidence workers call live providers or the atlas. The planner can only select sourced candidate refs; code copies their facts.</p></div>
+    <div class="arch-ref__card"><h4>Evidence layer</h4><p>Fixed evidence workers call live providers or the curated place corpus. The planner can only select sourced candidate refs; code copies their facts.</p></div>
     <div class="arch-ref__card"><h4>Plan store</h4><p>SQLite WAL: sessions, contexts, append-only plan versions, messages, profiles, wishlist, feedback, eval runs and runtime config.</p></div>
     <div class="arch-ref__card"><h4>Verification</h4><p>Deterministic validator first (dates, hours, overlap, transfers, budget, flight windows, route continuity); then the model constraint verifier for meaning.</p></div>
   </div>
@@ -6191,7 +6191,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
   <h3 id="ref-evidence">8. Evidence and grounding</h3>
   <ul>
-    <li><strong>Providers:</strong> Google Places, Open-Meteo, OSRM, SerpAPI, Wikipedia, YouTube (with SerpAPI fallback when quota is exhausted), optional Bilibili, and the curated atlas.</li>
+    <li><strong>Providers:</strong> Google Places, Open-Meteo, OSRM, SerpAPI, Wikipedia, YouTube (with SerpAPI fallback when quota is exhausted), optional Bilibili, and the curated place corpus.</li>
     <li><strong>No invented facts:</strong> the planner may only name candidate refs; code copies name, address, coordinates, price, opening hours, links, photo and source refs.</li>
     <li><strong>Named wishes:</strong> a place named in the request is looked up before planning; a described wish becomes a web search, never a destination.</li>
     <li><strong>Honesty:</strong> missing prices, stale sources and unavailable stops remain visible as gaps or status flags. The budget guard trims paid stops rather than hiding an overrun.</li>
@@ -6201,9 +6201,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   <div class="arch-ref__note">
     <strong>Naming:</strong> <em>sandbox</em> is the runtime mode
     (<code>PATHFINDER_SANDBOX=1</code>); the data source it uses is the
-    <strong>curated atlas</strong> of 12 cities plus US entries. The compact diagram
+    <strong>curated place corpus</strong> of 12 cities plus US entries. The compact diagram
     previously called the node “Sandbox atlas”, which mixed the mode and the dataset;
-    it is now “Curated atlas”.
+    it is now “Curated place corpus”.
   </div>
 
   <h3 id="ref-verification">9. Verification, repair and evaluation</h3>
@@ -6266,7 +6266,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   <ul>
     <li><strong>Models:</strong> purpose-specific model, temperature, reasoning and max tokens; one active provider key, with BYOK for the writer.</li>
     <li><strong>Routing:</strong> analyst or Jev; <code>router_threshold</code> is shared but has different jobs — Jev acceptance and low-confidence edit clarification. The Settings hint says so.</li>
-    <li><strong>Runtime:</strong> <code>TURN_DEADLINE_SECONDS</code> default 300, bounded 60–900; <code>MAX_REPAIRS</code>; seat and SSE keepalive; data mode live/atlas.</li>
+    <li><strong>Runtime:</strong> <code>TURN_DEADLINE_SECONDS</code> default 300, bounded 60–900; <code>MAX_REPAIRS</code>; seat and SSE keepalive; data mode live/corpus.</li>
     <li><strong>Trace:</strong> every turn records <code>why</code>, <code>flow</code>, path, spans, generations, searches, tools and live agent state; downloadable from the UI.</li>
     <li><strong>Logs:</strong> structured server errors and redacted meta; no model prompt containing unmasked PII is persisted.</li>
   </ul>

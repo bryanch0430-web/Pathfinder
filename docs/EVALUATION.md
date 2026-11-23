@@ -82,7 +82,7 @@ The first run exposed two real bugs, both fixed:
 - the verifier marked the budget `unknown` whenever the flight fare was a labelled
   estimate; the skill now counts the plan's own total, estimates included;
 - the New York pool had no vegetarian option, so the vegetarian constraint could not
-  be met; the atlas now carries vegetarian candidates and the plan skill treats
+  be met; the curated place corpus now carries vegetarian candidates and the plan skill treats
   dietary constraints as hard, choosing cheaper candidates when the total exceeds
   the budget.
 

@@ -82,7 +82,7 @@ phrasing the rules did not anticipate was misread, and every fix added a conditi
    freshness and retryability), not a silent guess.
 
 7. **Sandbox is a first-class mode.** `PATHFINDER_SANDBOX=1` swaps all travel
-   providers for the curated atlas and a deterministic weather/ticket model, so the
+   providers for the curated place corpus and a deterministic weather/ticket model, so the
    demo, the tests and the evaluation run the same pipeline without network flakiness.
 
 ## Deliberate reductions (not at main parity yet)
@@ -99,7 +99,7 @@ These are real gaps, listed so nobody is surprised:
 | HK-specific feeds | HKO warnings, MTR next train | disruption is modelled, but not wired to those feeds |
 | Sentiment / escalation | scored per line, desk bands | desk shows calm defaults; escalation policy is stored and rendered |
 | Desk automation | briefs, run, edit, undo, layout | implemented in a reduced form (see `api/admin.py`) |
-| RAG corpus | embedded guide chunks + rerank | curated atlas notes + live web search |
+| RAG corpus | embedded guide chunks + rerank | curated place corpus notes + live web search |
 | Langfuse | OTLP export | config accepted; no exporter yet |
 | Jev System 1 | optional fast router | config accepted; off by default, the analyst is the router |
 | AMap | geocode/search provider | not ported |

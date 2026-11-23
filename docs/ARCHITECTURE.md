@@ -19,7 +19,7 @@ backend/app/api/          FastAPI routers, auth, admin, eval endpoints
 backend/app/turn/         orchestrator: one turn → ordered events
 backend/app/understand/   intent router/analyst: typed intent, intake slots, clarify
 backend/app/plan/         evidence workers, planner, editor, validation, continuity, multi-city
-backend/app/evidence/     providers + curated atlas + Evidence model
+backend/app/evidence/     providers + curated place corpus + Evidence model
 backend/app/domain/       the wire model (mirrors frontend/src/design-system/types.ts)
 backend/app/core/         store, model gateway, dates, prompts, traces
 backend/app/eval/         offline evaluator: datasets + runner
@@ -78,14 +78,14 @@ facts the provider returned.
 
 | Source | Used for | Fallback |
 |---|---|---|
-| Google Places (New) | attractions, hotels, restaurants, autocomplete, photos | atlas, `stale` |
+| Google Places (New) | attractions, hotels, restaurants, autocomplete, photos | place corpus, `stale` |
 | Open-Meteo | daily forecast | seasonal sandbox forecast |
 | OSRM | walking/driving routes and geometry | straight-line estimate |
 | SerpAPI Google Flights | live fares | distance-based estimate, labelled |
 | SerpAPI Google | web results for answers/edits | Wikipedia |
 | Wikipedia | search, page text, images | — |
-| Wikipedia | named-place lookup when the atlas lacks a place | — |
-| Curated atlas (12 cities) | sandbox + offline fallback | — |
+| Wikipedia | named-place lookup when the place corpus lacks a place | — |
+| Curated place corpus (12 cities) | sandbox + offline fallback | — |
 
 Agents (`app/plan/agents.py`) run concurrently, cap what they return, mark closed
 venues, and record a `DataGap` for every source that failed or returned nothing. One

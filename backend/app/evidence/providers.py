@@ -6,7 +6,7 @@ concurrently and never let one failing source stop the others: a failed call
 becomes a ``DataGap`` that the plan shows, which is the product rule ("mark
 unavailable, do not fill with parametric knowledge").
 
-``PATHFINDER_SANDBOX=1`` swaps every network call for the curated atlas and a
+``PATHFINDER_SANDBOX=1`` swaps every network call for the curated place corpus and a
 deterministic weather/ticket model.  That makes offline demos and reproducible
 evaluation run through the *same* pipeline as production.
 """
@@ -25,7 +25,7 @@ import httpx
 from app.config import Settings
 from app.core.trace import TurnTrace
 from app.domain.models import DataGap, GeoPoint, ImageRef, Money, SourceRef, VideoNote, WeatherDay, now_iso
-from app.evidence import atlas
+from app.evidence import place_corpus as corpus
 from app.evidence.models import Evidence
 
 IATA = {
@@ -98,8 +98,8 @@ class Providers:
     # -- destination ---------------------------------------------------
 
     async def locate(self, destination: str) -> dict[str, Any]:
-        """The city's centre, country and timezone, from the atlas or Google."""
-        meta = atlas.city_meta(destination)
+        """The city's centre, country and timezone, from the place corpus or Google."""
+        meta = corpus.city_meta(destination)
         if meta:
             return {
                 "name": meta["name"],
@@ -126,7 +126,7 @@ class Providers:
 
     async def hotels(self, city: str, *, limit: int = 6, style: str = "") -> list[Evidence]:
         if self.sandbox or not self.settings.google_places_api_key:
-            entries = atlas.hotels(city, stale=not self.sandbox)
+            entries = corpus.hotels(city, stale=not self.sandbox)
             return entries[:limit]
         query = f"hotels in {city}" + (f" {style}" if style else "")
         found = await self._google_place(query, max_results=limit, kinds=("lodging",))
@@ -134,7 +134,7 @@ class Providers:
 
     async def meals(self, city: str, *, limit: int = 8) -> list[Evidence]:
         if self.sandbox or not self.settings.google_places_api_key:
-            entries = atlas.meals(city, stale=not self.sandbox)
+            entries = corpus.meals(city, stale=not self.sandbox)
             return entries[:limit]
         queries = [f"best local restaurants in {city}", f"famous food in {city}"]
         batches = await asyncio.gather(
@@ -151,7 +151,7 @@ class Providers:
         self, city: str, kind: str, *, limit: int, interests: list[str] | None = None
     ) -> list[Evidence]:
         if self.sandbox or not self.settings.google_places_api_key:
-            entries = atlas.attractions(city, stale=not self.sandbox)
+            entries = corpus.attractions(city, stale=not self.sandbox)
             return self._filter_interests(entries, interests)[:limit]
         queries = [f"top attractions in {city}", f"must see sights in {city}"]
         if interests:
@@ -363,7 +363,7 @@ class Providers:
         return out
 
     def _seasonal_weather(self, city: str, day: date, day_number: int, typhoon_day: int | None = None) -> WeatherDay:
-        meta = atlas.city_meta(city) or {}
+        meta = corpus.city_meta(city) or {}
         lat = float(meta.get("lat", 22.3))
         # A smooth seasonal curve from latitude: hot near the equator, cold at high latitude.
         base = 30.0 - abs(lat) * 0.42
@@ -736,7 +736,7 @@ class Providers:
     # -- named place lookup -------------------------------------------
 
     async def lookup_place(self, name: str, city: str = "") -> list[Evidence]:
-        """Look up a place the traveller named, even when it is not in the atlas.
+        """Look up a place the traveller named, even when it is not in the place corpus.
 
         Live mode asks Google Places for the exact name. Every mode then falls back to
         Wikipedia, which gives coordinates and a citable summary. The record is marked
@@ -793,7 +793,7 @@ class Providers:
                 continue
             coordinates = (page.get("coordinates") or [{}])[0]
             lat, lng = coordinates.get("lat"), coordinates.get("lon")
-            meta = atlas.city_meta(city)
+            meta = corpus.city_meta(city)
             if meta and lat is not None and lng is not None:
                 if haversine_km(GeoPoint(lat=float(lat), lng=float(lng)), GeoPoint(lat=meta["lat"], lng=meta["lng"])) > 120:
                     continue

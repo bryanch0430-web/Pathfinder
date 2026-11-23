@@ -1,6 +1,6 @@
-"""US city evidence for the sandbox atlas (New York, San Francisco).
+"""US city evidence for the curated place corpus (New York, San Francisco).
 
-Kept in its own module so the main atlas stays readable; ``atlas`` merges these
+Kept in its own module so the main place corpus stays readable; ``place_corpus`` merges these
 dicts at import time.
 """
 

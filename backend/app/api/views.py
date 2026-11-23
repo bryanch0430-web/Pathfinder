@@ -17,7 +17,7 @@ from app.domain.models import (
     VersionEntry,
     now_iso,
 )
-from app.evidence import atlas
+from app.evidence import place_corpus as corpus
 from app.evidence.providers import haversine_km
 
 MODE_SPEED = {"walk": 4.5, "cycle": 14.0, "transit": 18.0, "drive": 32.0}
@@ -256,7 +256,9 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     freshness = {**DEFAULT_FRESHNESS, **(overrides.get("freshness_hours") or {})}
     redaction = {**DEFAULT_PATTERNS, **(overrides.get("redaction") or {})}
     writer = overrides.get("writer") or {}
-    data_mode = overrides.get("data_mode") or ("atlas" if settings.sandbox else "live")
+    data_mode = overrides.get("data_mode") or ("corpus" if settings.sandbox else "live")
+    if data_mode == "atlas":
+        data_mode = "corpus"
     orchestration = overrides.get("orchestrator") or {}
     jev_override = orchestration.get("jev") or {}
     turn_mode = orchestration.get("mode") or settings.turn_orchestrator
@@ -271,7 +273,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     return {
         "version": "5.0.0",
         "environment": settings.environment,
-        "sandbox": data_mode == "atlas",
+        "sandbox": data_mode == "corpus",
         "data_mode": data_mode,
         "thresholds": thresholds,
 
@@ -340,7 +342,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
                 "enabled": bool(settings.google_maps_api_key or settings.google_places_api_key),
             }
         },
-        "cities": len(atlas.CITIES),
+        "cities": len(corpus.CITIES),
         "capabilities": {
             "writer": True,
             "byok_keys": True,

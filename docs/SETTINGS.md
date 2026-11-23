@@ -6,7 +6,7 @@ If a control is not listed here, it is not in the UI.
 | Section | Control | Live in v5? | What it changes |
 |---|---|---|---|
 | General | Developer mode | **yes** | shows the per-turn decision trace |
-| General | Data source (Live providers / Offline atlas) | **yes** | `data_mode` in `/api/admin/runtime`; live uses Google Places, Open-Meteo, SerpAPI, Wikipedia |
+| General | Data source (Live providers / Curated place corpus) | **yes** | `data_mode` (`live` or `corpus`) in `/api/admin/runtime`; live uses Google Places, Open-Meteo, SerpAPI, Wikipedia |
 | Handoff | Explicit request phrases (on/off) | **yes** | message contains a phrase → queue; also covers the analyst's own “wants a person” detection; negations ignored |
 | Handoff | Automatic handoff (on/off) | **yes** | frustration-only handoff; independent of the other two switches |
 | Handoff | Frustration threshold (0–1) | **yes** | analyst frustration ≥ threshold, while automatic handoff is on |

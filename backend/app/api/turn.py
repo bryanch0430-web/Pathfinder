@@ -89,8 +89,9 @@ async def effective_settings(c: Container):
     if writer.get("reasoning"):
         update["llm_reasoning"] = str(writer["reasoning"])
     mode = overrides.get("data_mode")
-    if mode in {"live", "atlas"}:
-        update["sandbox"] = mode == "atlas"
+    if mode in {"live", "corpus", "atlas"}:
+        # "atlas" is the legacy persisted value; normalize it to corpus.
+        update["sandbox"] = mode in {"corpus", "atlas"}
     try:
         if "router" in thresholds:
             update["router_threshold"] = max(0.0, min(1.0, float(thresholds["router"])))

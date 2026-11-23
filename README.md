@@ -115,7 +115,7 @@ copy .env.example .env      # then add a writer key (Poe, OpenAI, xAI, …)
 The same process serves the API and the built UI (`frontend/dist`). Useful flags:
 
 ```powershell
-.\start.ps1 -Sandbox        # every provider answers from the curated atlas: offline demo + evaluation
+.\start.ps1 -Sandbox        # every provider answers from the curated place corpus: offline demo + evaluation
 .\start.ps1 -Port 8102
 ```
 
@@ -181,7 +181,7 @@ structurally:
    choose refs,
 3. code builds each `PlanItem` from the chosen evidence, so a hallucinated place,
    price or address cannot reach the plan,
-4. a place the traveller names but the atlas lacks is looked up by name (Google
+4. a place the traveller names but the curated place corpus lacks is looked up by name (Google
    Places live, Wikipedia offline) before the edit model decides;
 5. if no source exists and the traveller still insists, the stop can be added as
    **user-provided and unconfirmed** — no invented address, hours or price, marked
@@ -246,7 +246,7 @@ Pathfinder v5/
 │   │   ├── api/          FastAPI routers (the existing wire contract)
 │   │   ├── core/         store, model gateway, dates, traces, prompts
 │   │   ├── domain/       the wire model (mirrors frontend types)
-│   │   ├── evidence/     providers + curated atlas (12 cities)
+│   │   ├── evidence/     providers + curated place corpus (12 cities)
 │   │   ├── plan/         agents, composer, validator, editor
 │   │   ├── understand/   turn analyst schema + merge
 │   │   ├── turn/         the orchestrator and its event stream
@@ -275,10 +275,10 @@ SSE framing. A live smoke turn is `scripts/smoke_turn.py`.
 ## Known limits
 
 - Live evidence needs provider keys; without them the app falls back to the curated
-  atlas and marks it (`data_status: stale`) and says so in the plan's gaps.
+  curated place corpus and marks it (`data_status: stale`) and says so in the plan's gaps.
 - The weather forecast covers 16 days; further out the plan shows "no forecast yet"
   rather than an invented one.
-- The curated atlas covers 12 cities; other destinations need Google Places.
+- The curated place corpus covers 12 cities; other destinations need Google Places.
 - The editor is a model: a vague instruction can produce a broader change than
   expected, which is why every edit comes back as a tick to accept or reject.
 - BYOK keys are stored in the local SQLite file and masked in every response. This

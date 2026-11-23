@@ -301,9 +301,9 @@ def build_plan(
     )
     if bundle.items:
         # The destination's own centre comes from the first sourced place's city meta.
-        from app.evidence import atlas
+        from app.evidence import place_corpus as corpus
 
-        meta = atlas.city_meta(context.destination or "")
+        meta = corpus.city_meta(context.destination or "")
         if meta:
             destination = Destination(
                 name=meta["name"],

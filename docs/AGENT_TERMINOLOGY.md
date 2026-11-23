@@ -101,9 +101,9 @@ planner, tools, memory and evaluation.
 | Evidence agents | **Tool workers** |
 | Verifier / validator | **Evaluator** (or “verifier” when naming the check) |
 | Turn orchestrator (settings) | **Turn router** |
-| Atlas | **Offline evidence corpus** (keep “atlas” only as the file name) |
+| Curated place corpus | **Curated place corpus** (module `place_corpus`) |
 | Travel designer queue | **Human-in-the-loop Desk queue** (UI may keep “Desk”) |
 | System 1 (for the analyst) | **Jev / System 1 router** only |
 
-Internal module names (`understand`, `agents`, `composer`, `validator`, `atlas`)
+Internal module names (`understand`, `agents`, `composer`, `validator`, `place_corpus`)
 can stay; the public copy and docs should use the course terms above.

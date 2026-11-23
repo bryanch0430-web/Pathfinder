@@ -48,7 +48,7 @@ edit operation selection, and whether to clarify/hand off — not open-ended too
   videos and optional Bilibili. Each result becomes `Evidence` with `source_refs` and
   `data_status`; missing data becomes a `DataGap`.
 - **Data:** live providers in production; the study runs the real pipeline with sandbox evidence
-  (`PATHFINDER_SANDBOX=1`) and the offline atlas as the deterministic fallback. No vector database.
+  (`PATHFINDER_SANDBOX=1`) and the curated place corpus as the deterministic fallback. No vector database.
 - **State:** working state is `TripContext` + `TripPlan` + recent `ChatMessage`s; durable memory is
   the traveller preference profile; `TurnTrace` records generations, tools, spans and the route.
 - **Schema:** prompts return typed Pydantic objects (`Understanding`, `EditDraft`, `VerifyResult`,

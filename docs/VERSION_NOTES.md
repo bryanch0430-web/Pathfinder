@@ -88,7 +88,7 @@ plan; this release gives each uncertain part its own bounded representation.
 
 The LLM-first revamp is the first release. One writer model (BYOK-capable) answers
 every role by default; a typed analyst call decides the path; evidence is gathered
-from live providers or the offline atlas; the composer can only choose sourced
+from live providers or the curated place corpus; the composer can only choose sourced
 references; the plan is validated, repaired at most twice, and stored as a version.
 
 ### Models and routing
@@ -118,11 +118,11 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 - Named-place lookup: Google Places live, Wikipedia offline, acronym matching
   (`HKU`), city/disambiguation guards, and web-search fallback for described wishes
   (“a place with Gundam”).
-- Atlas entries for Hong Kong Disneyland, HKU, Tian Tan Buddha, Ghibli Museum,
+- Place-corpus entries for Hong Kong Disneyland, HKU, Tian Tan Buddha, Ghibli Museum,
   Unicorn Gundam, and vegan venues in Tokyo/Osaka.
 - Flight evidence now carries outbound and return times; plans start day 1 after
   landing and end the last day before the return flight.
-- **Live providers are the default** (`PATHFINDER_SANDBOX=0`). The curated atlas is
+- **Live providers are the default** (`PATHFINDER_SANDBOX=0`). The curated place corpus is
   an operator option under **Settings → General → Data source**, and remains the
   fallback when a live provider fails.
 - Every stop and stay gets a photo. The image endpoint uses city-aware Wikipedia
@@ -145,7 +145,7 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 - Assistant replies render safe Markdown (bold, italic, code, links, bullet and
   numbered lists); user text stays literal.
 - The default page now describes the analyst (or optional Jev), evidence agents,
-  live/atlas grounding, photos and per-part models/memory; the old “System 1” and
+  live/place-corpus grounding, photos and per-part models/memory; the old “System 1” and
   “four workers” copy is gone.
 - Handoff has **three independent switches**: explicit request phrases, automatic
   handoff (frustration), and stuck chats. Each can be on or off without touching the

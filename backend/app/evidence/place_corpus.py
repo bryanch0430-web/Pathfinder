@@ -1,8 +1,8 @@
-"""A curated, source-labelled atlas of real places.
+"""A curated, source-labelled place corpus of real places.
 
 Two jobs:
 
-* **Sandbox evidence** for offline demos, reproducible evaluation and tests, so the
+* **Offline/sandbox evidence** for offline demos, reproducible evaluation and tests, so the
   same pipeline runs without spending quota or depending on a provider being up.
 * **Fallback evidence** when a live provider is unavailable: the record is returned
   with ``data_status="stale"`` and a gap explains that live data was not reached.
@@ -296,10 +296,10 @@ def known_cities() -> list[str]:
 
 # -- additional cities ---------------------------------------------------
 
-from app.evidence.atlas_us import ATTRACTIONS as _US_ATTRACTIONS  # noqa: E402
-from app.evidence.atlas_us import CITIES as _US_CITIES  # noqa: E402
-from app.evidence.atlas_us import HOTELS as _US_HOTELS  # noqa: E402
-from app.evidence.atlas_us import MEALS as _US_MEALS  # noqa: E402
+from app.evidence.place_corpus_us import ATTRACTIONS as _US_ATTRACTIONS  # noqa: E402
+from app.evidence.place_corpus_us import CITIES as _US_CITIES  # noqa: E402
+from app.evidence.place_corpus_us import HOTELS as _US_HOTELS  # noqa: E402
+from app.evidence.place_corpus_us import MEALS as _US_MEALS  # noqa: E402
 
 CITIES.update(_US_CITIES)
 _ATTRACTIONS.update(_US_ATTRACTIONS)

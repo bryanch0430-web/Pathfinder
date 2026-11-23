@@ -4945,7 +4945,7 @@ export function SettingsView({
     freshness_hours: Record<string, number>;
     writer: { available: boolean; model: string; base_url?: string; temperature?: number; max_tokens?: number; reasoning?: string };
     gate?: "jev" | "plain" | "reason";
-    data_mode?: "live" | "atlas";
+    data_mode?: "live" | "corpus";
     sandbox?: boolean;
     poe_ready?: boolean;
     poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
@@ -4981,7 +4981,7 @@ export function SettingsView({
   /** Saves which model chooses the path. */
   onSaveGate?: (gate: "jev" | "plain" | "reason") => Promise<void>;
   onSaveRedaction?: (body: RedactionFlags) => Promise<void>;
-  onSaveDataMode?: (mode: "live" | "atlas") => Promise<void> | void;
+  onSaveDataMode?: (mode: "live" | "corpus") => Promise<void> | void;
   /** Saves one orchestrator model's address and key. */
   onSaveOrchestrator?: (body: {
     jev?: { model: string; url: string; api_key?: string; clear_key?: boolean };
@@ -5133,7 +5133,7 @@ export function SettingsView({
         <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
       </div>
       ) : null}
-      {onSaveDataMode && show("general", "data source live providers offline atlas") ? (
+      {onSaveDataMode && show("general", "data source live providers offline curated place corpus") ? (
         <div className="pf-card pf-eval__panel">
           <div className="pf-row pf-row--between">
             <Text size="sm" weight="semibold">Data source</Text>
@@ -5147,15 +5147,15 @@ export function SettingsView({
               </Button>
               <Button
                 size="sm"
-                variant={(config?.data_mode ?? "live") === "atlas" ? "primary" : "ghost"}
-                onClick={() => void onSaveDataMode("atlas")}
+                variant={(config?.data_mode ?? "live") === "corpus" ? "primary" : "ghost"}
+                onClick={() => void onSaveDataMode("corpus")}
               >
-                Offline atlas
+                Curated place corpus
               </Button>
             </div>
           </div>
           <Text size="xs" tone="tertiary">
-            Live uses Google Places, Open-Meteo, SerpAPI and Wikipedia. The offline atlas is a curated
+            Live uses Google Places, Open-Meteo, SerpAPI and Wikipedia. The curated place corpus is a source-labelled
             fallback for demos and evaluation; it is smaller but needs no provider quota.
           </Text>
         </div>
