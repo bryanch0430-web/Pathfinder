@@ -438,6 +438,7 @@ export const ZH_HANS: Messages = {
 
   "saved.eyebrow": "记忆",
   "saved.title": "我的行程",
+  "saved.awaitingRating": "等待评分",
   "saved.delete": "删除",
   "saved.deleting": "正在删除…",
   "saved.deleteConfirm": "删除这个已保存的行程？原始规划会话不会受影响。",
@@ -1143,6 +1144,7 @@ export const ZH_HANS: Messages = {
   "feedback.markedNotUseful": "已标记为没用",
   "feedback.notUseful": "没用",
   "feedback.rate": "为此行程评分",
+  "feedback.ratePrompt": "有用——请选择 1–5 星。",
   "feedback.question": "这份行程有多有用？",
   "feedback.star": "{count} 星",
   "feedback.stars": "{count} 星",

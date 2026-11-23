@@ -306,3 +306,32 @@ def test_desk_state_uses_recent_activity():
     now = datetime.now(timezone.utc)
     assert _desk_recent(now.isoformat()) is True
     assert _desk_recent((now - timedelta(hours=30)).isoformat()) is False
+
+
+def test_useful_starred_trip_enters_trending_and_not_useful_does_not(tmp_path):
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "rating-tester"}
+        session_id = client.post("/api/journeys", json={}, headers=headers).json()["session"]["id"]
+        db = sqlite3.connect(tmp_path / "api.db")
+        db.execute(
+            "INSERT INTO wishlist (id, session_id, identity, destination, summary, stars, useful, body, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            ("wish-rating", session_id, "guest:rating-tester", "Kyoto", "A saved trip", None, None, json.dumps({}), "2026-11-23T00:00:00+00:00"),
+        )
+        db.commit()
+        db.close()
+
+        rated = client.post(f"/api/journeys/{session_id}/rating", json={"useful": True, "stars": 4}, headers=headers)
+        assert rated.status_code == 200
+        trip = client.get("/api/wishlist", headers=headers).json()["trips"][0]
+        assert trip["useful"] is True
+        assert trip["stars"] == 4
+        trending = client.get("/api/popular?q=Kyoto", headers=headers).json()["items"]
+        assert any(item["destination"] == "Kyoto" for item in trending)
+
+        client.post(f"/api/journeys/{session_id}/rating", json={"useful": False, "stars": None}, headers=headers)
+        trip = client.get("/api/wishlist", headers=headers).json()["trips"][0]
+        assert trip["useful"] is False
+        assert trip["stars"] is None
+        trending = client.get("/api/popular?q=Kyoto", headers=headers).json()["items"]
+        assert not any(item["destination"] == "Kyoto" for item in trending)

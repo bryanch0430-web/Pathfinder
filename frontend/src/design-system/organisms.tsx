@@ -3809,7 +3809,7 @@ export function SavedTripsView({
   onDelete,
   deleting,
 }: {
-  trips: { id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
+  trips: { id: string; destination: string; rating: number; stars: number | null; useful?: boolean | null; summary: string; created_at: string; days: number | null }[];
   onOpen?: (id: string) => void;
   onDelete?: (id: string) => void;
   deleting?: string | null;
@@ -3837,12 +3837,18 @@ export function SavedTripsView({
               <button type="button" className="pf-card pf-saved-card" onClick={() => onOpen?.(trip.id)}>
                 <div className="pf-row pf-row--between">
                   <Heading level={4}>{trip.destination}</Heading>
-                  <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
+                  {trip.useful === false ? (
+                    <Badge tone="danger" dot>{t("feedback.markedNotUseful")}</Badge>
+                  ) : trip.useful === true ? (
+                    <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
+                  ) : (
+                    <Badge tone="neutral" dot>{t("saved.awaitingRating")}</Badge>
+                  )}
                 </div>
                 <Text size="sm" tone="secondary">{trip.summary}</Text>
                 <div className="pf-row pf-row--between">
                   <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
-                  {trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
+                  {trip.useful === true && trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
                 </div>
               </button>
               {onDelete ? (

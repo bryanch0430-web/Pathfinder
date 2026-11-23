@@ -440,6 +440,7 @@ export const ZH_HANT: Messages = {
 
   "saved.eyebrow": "記憶",
   "saved.title": "我的行程",
+  "saved.awaitingRating": "等待評分",
   "saved.delete": "刪除",
   "saved.deleting": "正在刪除…",
   "saved.deleteConfirm": "刪除這個已儲存的行程？原始規劃工作階段不會受影響。",
@@ -1145,6 +1146,7 @@ export const ZH_HANT: Messages = {
   "feedback.markedNotUseful": "已標記為沒用",
   "feedback.notUseful": "沒用",
   "feedback.rate": "為這份行程評分",
+  "feedback.ratePrompt": "有用——請選擇 1–5 星。",
   "feedback.question": "這份行程有多有用？",
   "feedback.star": "{count} 星",
   "feedback.stars": "{count} 星",

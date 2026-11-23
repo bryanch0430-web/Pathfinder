@@ -1901,13 +1901,34 @@ export function PlanFeedback({
       </div>
     );
   }
+  const starRow = (
+    <span className="pf-row">
+      {[1, 2, 3, 4, 5].map((value) => (
+        <button
+          key={value}
+          type="button"
+          className="pf-plan-feedback__button"
+          aria-label={t("feedback.stars", { count: value })}
+          onClick={() => onUseful(value)}
+        >
+          <Icon name="star" size={12} />
+          {value}
+        </button>
+      ))}
+    </span>
+  );
   return (
     <div className="pf-plan-feedback">
-      {verdict === "useful" ? (
+      {verdict === "useful" && stars ? (
         <button type="button" className="pf-plan-feedback__saved" data-saved="true">
           <Icon name="check" size={13} />
-          {t("feedback.markedUseful")}
+          {t("feedback.markedUseful")} · {t("feedback.saved", { stars })}
         </button>
+      ) : verdict === "useful" ? (
+        <>
+          <span className="pf-day__date">{t("feedback.ratePrompt")}</span>
+          {starRow}
+        </>
       ) : verdict === "not_useful" ? (
         <span className="pf-plan-feedback__not">{t("feedback.markedNotUseful")}</span>
       ) : (
@@ -1919,26 +1940,9 @@ export function PlanFeedback({
           <button type="button" className="pf-plan-feedback__button" onClick={onNotUseful}>
             {t("feedback.notUseful")}
           </button>
-          <span className="pf-row">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                className="pf-plan-feedback__button"
-                aria-label={t("feedback.stars", { count: value })}
-                onClick={() => onUseful(value)}
-              >
-                <Icon name="star" size={12} />
-                {value}
-              </button>
-            ))}
-          </span>
         </>
       )}
-      {verdict === "useful" && stars ? (
-        <span className="pf-plan-feedback__added">{t("feedback.saved", { stars })}</span>
-      ) : null}
-      {verdict === "useful" && added.length ? (
+      {verdict === "useful" && stars && added.length ? (
         <span className="pf-plan-feedback__added">+ {added.slice(0, 3).join(", ")}</span>
       ) : null}
       {verdict ? <span className="pf-muted">{t("feedback.frozen")}</span> : null}

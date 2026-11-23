@@ -321,7 +321,7 @@ async def hotel_rooms(session_id: str, hotel_id: str, request: Request) -> dict[
 
 
 @router.post("/api/journeys/{session_id}/finalise")
-async def finalise(session_id: str, request: Request, background: BackgroundTasks) -> dict[str, Any]:
+async def finalise(session_id: str, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
     context = await load_context(c, session_id)
@@ -335,12 +335,11 @@ async def finalise(session_id: str, request: Request, background: BackgroundTask
         plan.status = "ready"
         await save_plan(c, plan, "Finalised the trip.")
         from app.api.deps import identity_for
-        from app.application.memory import remember_trip
 
         identity = identity_for(request)
         if identity:
-            # Save the trip immediately. Memory extraction is a model call and
-            # belongs in the background; it must not make Finalise feel frozen.
+            # The trip is saved now, but it is not useful yet. The Useful /
+            # Not-useful choice and the 1–5 stars arrive from the rating step.
             await c.store.save_wishlist(
                 {
                     # One stable row per trip, so a retry updates instead of duplicating.
@@ -349,18 +348,11 @@ async def finalise(session_id: str, request: Request, background: BackgroundTask
                     "identity": identity,
                     "destination": plan.destination.name,
                     "summary": plan.summary,
-                    "stars": 5,
+                    "stars": None,
+                    "useful": None,
                     "body": plan.model_dump(mode="json"),
                     "created_at": now_iso(),
                 }
-            )
-            background.add_task(
-                remember_trip,
-                container=c,
-                identity=identity,
-                plan=plan,
-                context=context,
-                session_id=session_id,
             )
     return {"context": context.model_dump()}
 
@@ -374,12 +366,26 @@ async def rate(
 ) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
-    feedback_id = await c.store.save_feedback(session_id, bool(payload.get("useful")), payload.get("stars"))
-    if payload.get("useful"):
-        from app.api.deps import identity_for
-        from app.application.memory import remember_trip
+    useful = bool(payload.get("useful"))
+    raw_stars = payload.get("stars")
+    stars: int | None = None
+    if useful and raw_stars is not None:
+        try:
+            value = int(raw_stars)
+        except (TypeError, ValueError):
+            value = 0
+        if 1 <= value <= 5:
+            stars = value
+    feedback_id = await c.store.save_feedback(session_id, useful, stars)
+    from app.api.deps import identity_for
+    from app.application.memory import remember_trip
 
-        identity = identity_for(request, payload.get("client_token"))
+    identity = identity_for(request, payload.get("client_token"))
+    if identity:
+        # My Trips carries the same verdict; only a useful, starred trip enters
+        # the trending pool.
+        await c.store.update_wishlist_feedback(session_id, identity, useful, stars)
+    if useful:
         plan = await load_plan(c, session_id)
         context = await load_context(c, session_id)
         if identity and plan is not None:

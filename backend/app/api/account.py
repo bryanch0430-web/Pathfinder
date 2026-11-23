@@ -180,6 +180,7 @@ async def list_wishlist(request: Request) -> dict[str, Any]:
                 "destination": row.get("destination", ""),
                 "rating": row.get("stars") or 0,
                 "stars": row.get("stars"),
+                "useful": None if row.get("useful") is None else bool(row.get("useful")),
                 "summary": row.get("summary", ""),
                 "created_at": row.get("created_at", ""),
                 "days": len(body.get("days") or []),

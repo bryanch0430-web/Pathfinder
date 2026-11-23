@@ -440,6 +440,7 @@ export const EN = {
 
   "saved.eyebrow": "Memory",
   "saved.title": "My trips",
+  "saved.awaitingRating": "Awaiting rating",
   "saved.delete": "Delete",
   "saved.deleting": "Deleting…",
   "saved.deleteConfirm": "Delete this saved trip? The original planning session is not affected.",
@@ -1145,6 +1146,7 @@ export const EN = {
   "feedback.markedNotUseful": "Marked as not useful",
   "feedback.notUseful": "Not useful",
   "feedback.rate": "Rate this plan",
+  "feedback.ratePrompt": "Useful — now pick 1–5 stars.",
   "feedback.question": "How useful was this plan?",
   "feedback.star": "{count} star",
   "feedback.stars": "{count} stars",

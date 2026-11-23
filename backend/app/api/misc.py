@@ -263,7 +263,16 @@ async def convert(request: Request, amount: float = 1.0, base: str = "HKD", to: 
 async def popular(request: Request, q: str = "", destination: str = "", limit: int = 8) -> dict[str, Any]:
     c = container(request)
     identity = identity_for(request)
-    rows = await c.store.list_wishlist(identity) if identity else []
+    saved_rows = await c.store.list_wishlist(identity) if identity else []
+    # Trending is earned by a positive verdict and a 1–5 star rating. Pending or
+    # "not useful" saved trips stay in My Trips but never enter this pool.
+    rows = [
+        row for row in saved_rows
+        if row.get("useful") is not None
+        and bool(row.get("useful"))
+        and isinstance(row.get("stars"), int)
+        and 1 <= int(row["stars"]) <= 5
+    ]
     grouped: dict[str, dict[str, Any]] = {}
     for row in rows:
         name = (row.get("destination") or "").strip()
@@ -287,7 +296,9 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
     items = list(grouped.values())
     if q:
         items = [item for item in items if q.lower() in item["destination"].lower()]
-    if not items and q:
+    # Only show an atlas idea when this traveller has no saved trips at all.
+    # A not-useful trip must not come back as a generic "trending" destination.
+    if not items and q and not saved_rows:
         meta = atlas.city_meta(q)
         if meta:
             items = [
@@ -302,14 +313,18 @@ async def popular(request: Request, q: str = "", destination: str = "", limit: i
                     "match": [q],
                 }
             ]
-    dropped = [] if items else [{"destination": destination or q, "reason": "no saved trips yet"}]
+    dropped = [] if items else [{"destination": destination or q, "reason": "no useful starred trips yet"}]
     return {
         "items": items[: max(1, limit)],
         "trace": {
-            "note": "Built from the traveller's saved trips." if rows else "No saved trips yet; showing atlas ideas.",
+            "note": (
+                "Built from the traveller's useful, starred trips."
+                if rows
+                else ("No useful starred trips yet." if saved_rows else "No saved trips yet; showing atlas ideas.")
+            ),
             "filter": "personal" if identity else "none",
             "dropped": dropped,
-            "mode": "wishlist" if rows else "atlas",
+            "mode": "wishlist" if rows else ("filtered" if saved_rows else "atlas"),
             "candidates": len(rows),
         },
     }

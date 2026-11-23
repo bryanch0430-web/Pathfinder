@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS wishlist (
     destination TEXT NOT NULL DEFAULT '',
     summary TEXT NOT NULL DEFAULT '',
     stars INTEGER,
+    useful INTEGER,
     body TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
@@ -153,6 +154,11 @@ class Store:
                 "DELETE FROM wishlist WHERE rowid NOT IN "
                 "(SELECT MAX(rowid) FROM wishlist GROUP BY session_id, identity)"
             )
+            # Older databases predate the explicit useful/not-useful state.
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(wishlist)")}
+            if "useful" not in columns:
+                conn.execute("ALTER TABLE wishlist ADD COLUMN useful INTEGER")
+                conn.execute("UPDATE wishlist SET useful=1 WHERE useful IS NULL AND stars IS NOT NULL")
         self._ready = True
 
     async def _run(self, fn, *args, **kwargs):
@@ -447,8 +453,8 @@ class Store:
     async def save_wishlist(self, entry: dict[str, Any]) -> None:
         def op(conn):
             conn.execute(
-                "INSERT OR REPLACE INTO wishlist (id, session_id, identity, destination, summary, stars, body, created_at) "
-                "VALUES (?,?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO wishlist (id, session_id, identity, destination, summary, stars, useful, body, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
                 (
                     entry["id"],
                     entry["session_id"],
@@ -456,12 +462,24 @@ class Store:
                     entry.get("destination", ""),
                     entry.get("summary", ""),
                     entry.get("stars"),
+                    entry.get("useful"),
                     json.dumps(entry["body"], ensure_ascii=False),
                     entry.get("created_at") or _now(),
                 ),
             )
 
         await self._run(op)
+
+    async def update_wishlist_feedback(
+        self, session_id: str, identity: str, useful: bool, stars: int | None
+    ) -> int:
+        def op(conn):
+            return conn.execute(
+                "UPDATE wishlist SET useful=?, stars=? WHERE session_id=? AND identity=?",
+                (1 if useful else 0, stars if useful else None, session_id, identity),
+            ).rowcount
+
+        return await self._run(op)
 
     async def list_wishlist(self, identity: str) -> list[dict[str, Any]]:
         def op(conn):

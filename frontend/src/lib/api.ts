@@ -694,7 +694,7 @@ export async function getSavedTrip(clientToken: string, id: string): Promise<{
 }
 
 export async function getSavedTrips(clientToken: string): Promise<{
-  trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
+  trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; useful?: boolean | null; summary: string; created_at: string; days: number | null }[];
 }> {
   return request("/api/wishlist", { headers: { "X-Client-Token": clientToken } });
 }

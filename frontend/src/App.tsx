@@ -271,6 +271,13 @@ export default function App() {
     void loadTrending();
   }, [loadTrending]);
 
+  // A useful+starred trip enters the personal trending pool; a not-useful one
+  // leaves it. Refresh as soon as the verdict changes.
+  useEffect(() => {
+    if (!pf.feedbackVerdict) return;
+    void loadTrending();
+  }, [pf.feedbackVerdict, pf.feedbackStars, loadTrending]);
+
   useEffect(() => {
     void getFx("HKD")
       .then(setFx)
