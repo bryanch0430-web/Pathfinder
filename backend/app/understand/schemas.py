@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.domain.models import ImportedItinerary
+
 Intent = Literal["plan", "modify", "ask", "unclear"]
 MealSlot = Literal["breakfast", "lunch", "dinner", "snack"]
 
@@ -277,6 +279,7 @@ class IntakeFacts(Draft):
     hard_constraints: list[str] = Field(default_factory=list)
     places: list[str] = Field(default_factory=list)
     notes: list[IntakeNote] = Field(default_factory=list)
+    itinerary: ImportedItinerary | None = None
 
     @field_validator("start_date", "end_date", mode="before")
     @classmethod

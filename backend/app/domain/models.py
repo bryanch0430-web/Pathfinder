@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 DataStatus = Literal["ok", "stale", "unavailable"]
 ItemType = Literal["attraction", "hotel", "meal", "transit", "ticket"]
@@ -268,6 +268,54 @@ class TripStop(Wire):
     nights: int | None = None
 
 
+class ImportedStop(Wire):
+    """A named stop read from a traveller's itinerary image or document."""
+
+    name: str
+    city: str = ""
+    kind: Literal["attraction", "meal", "hotel", "ticket"] = "attraction"
+    start: str = ""
+    end: str = ""
+    note: str = ""
+
+
+class ImportedDay(Wire):
+    day: int | None = None
+    date: str | None = None
+    city: str = ""
+    title: str = ""
+    stops: list[ImportedStop] = Field(default_factory=list)
+
+    @field_validator("stops", mode="before")
+    @classmethod
+    def _stops(cls, value: Any) -> Any:
+        # A vision model occasionally returns bare names instead of objects.
+        if isinstance(value, list):
+            return [{"name": item} if isinstance(item, str) else item for item in value if item]
+        return value
+
+
+class ImportedItinerary(Wire):
+    """The day-by-day structure the intake model reads from an uploaded itinerary.
+
+    It is deliberately separate from ``TripPlan``: an import is a source, not a
+    verified plan. The importer looks each named stop up and leaves a gap when it
+    cannot be sourced.
+    """
+
+    summary: str = ""
+    days: list[ImportedDay] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
+    hotels: list[ImportedStop] = Field(default_factory=list)
+
+    @field_validator("hotels", mode="before")
+    @classmethod
+    def _hotels(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return [{"name": item, "kind": "hotel"} if isinstance(item, str) else item for item in value if item]
+        return value
+
+
 class CostLine(Wire):
     label: str
     amount: float = 0
@@ -460,6 +508,7 @@ class TripContext(Wire):
     plan_locale: PlanLocale = "en"
     stops: list[TripStop] = Field(default_factory=list)
     one_way: bool = False
+    imported_itinerary: ImportedItinerary | None = None
 
 
 class ChatMessage(Wire):

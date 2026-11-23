@@ -46,6 +46,7 @@ from app.evidence.providers import Providers
 from app.plan.agents import gather
 from app.plan.builder import Problem, compose, refresh_derived
 from app.plan.editor import diff_plans, propose_edit
+from app.plan.imported import build_imported_plan
 from app.plan.validator import audit_constraints, check_structure, problems_from_verify
 from app.security.pii import Redaction, mask_pii
 from app.understand.pipeline import dates_usable, missing_for_plan, understand
@@ -288,6 +289,20 @@ async def _produce(
     if understanding.parsed.injection_suspected:
         await _count_threat(store, "instruction_override")
         trace.say("The message tried to give the assistant new instructions; it was treated as data.")
+    # An uploaded day-by-day itinerary is a plan request even when the short
+    # message says only "this". The analyst cannot see the image itself, so it
+    # may call the message a missing referent; the imported structure decides.
+    if context.imported_itinerary and plan is None and route.intent == "unclear":
+        route = route.model_copy(
+            update={
+                "intent": "plan",
+                "confidence": max(route.confidence, 0.8),
+                "need_clarification": False,
+                "reason_code": "imported_itinerary",
+            }
+        )
+        trace.why.append("The attached itinerary is the reference for 'this'; planning from it.")
+        await push("route", route.model_dump())
     if route.intent == "modify" and plan is None:
         route = route.model_copy(update={"intent": "plan", "reason_code": "no_plan_to_edit"})
         await push("route", route.model_dump())
@@ -424,6 +439,44 @@ async def _plan_turn(
 ):
     settings = deps.settings
     store = deps.store
+    if previous is None and context.imported_itinerary:
+        await push("progress", {"phase": "gather", "message": "Reading the imported itinerary.", "progress": 12})
+        imported = await build_imported_plan(
+            providers=providers,
+            settings=settings,
+            context=context,
+            itinerary=context.imported_itinerary,
+            trace=trace,
+        )
+        # The import is a one-turn seed. Clear it either way so a failed lookup
+        # cannot keep re-triggering the importer on every later plan request.
+        context.imported_itinerary = None
+        await store.save_context(session_id, context.model_dump())
+        if imported is not None:
+            await push(
+                "progress",
+                {
+                    "phase": "verify",
+                    "message": f"Checking {imported.sourced} imported stops against their sources.",
+                    "progress": 84,
+                },
+            )
+            plan = imported.plan
+            await audit_constraints(llm=llm, plan=plan, context=context, trace=trace, skill_overrides=skill_overrides)
+            plan = await _persist_plan(store, session_id, context, plan, previous, change_summary)
+            reply = _plan_reply(plan, imported.bundle.gaps)
+            await _save_assistant(
+                store,
+                session_id,
+                reply,
+                intent="plan",
+                confidence=plan.assessment.confidence if plan.assessment else None,
+                meta={"plan_version": plan.version, "summary": plan.summary, "imported": True},
+            )
+            await push("plan", {"plan": plan.model_dump(mode="json"), "diff": diff_plans(previous, plan)})
+            await _stream_text(push, reply)
+            await _finish(push, trace, session_id=session_id, intent="plan", plan=plan)
+            return
     await store.touch_session(session_id, planner_note="Finding places")
     await push("progress", {"phase": "gather", "message": "Finding places, weather and travel.", "progress": 14})
     gathered = await gather(
@@ -1141,6 +1194,10 @@ def _apply_intake(context: TripContext, facts: IntakeFacts | None) -> TripContex
         updated.preferences = list(dict.fromkeys([*updated.preferences, *facts.preferences]))[:16]
     if facts.hard_constraints:
         updated.hard_constraints = list(dict.fromkeys([*updated.hard_constraints, *facts.hard_constraints]))[:16]
+    if facts.itinerary and facts.itinerary.days:
+        # Keep the image's day-by-day structure. Planning uses it only on a new
+        # plan; the normal single-city path remains the fallback if lookups fail.
+        updated.imported_itinerary = facts.itinerary
     return updated
 
 
