@@ -111,6 +111,9 @@ report needs a reasoning arm.
 - Dual-router retrospective shadow: `docs/eval-artifacts/v5-model-study/shadow-router.json`
   and `shadow-router.md`; agreement 78/84, 100% on agreed cases, six clarifications,
   no live concurrent run.
+- Current verifier re-run: `docs/eval-artifacts/v5-model-study/verifier-current.json`
+  — `deepseek-flash`, 18/20, 2 false passes (v06/v14), 0 false alarms, p50 1,958 ms;
+  same scores as the earlier DeepSeek arm.
 - Dual-router live shadow: `docs/eval-artifacts/v5-model-study/shadow-live-latest.json`;
   n=10, raw intent agreement 6/10, action agreement 7/10, would clarify 7/10, Jev
   ~330 ms vs analyst ~8.65 s; strict agreement gate over-clarified the ask case.

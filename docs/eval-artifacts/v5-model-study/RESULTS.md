@@ -199,3 +199,22 @@ stayed the real route and Jev was only logged. Artefacts:
 **Interpretation:** a strict agreement gate is not ready. The next policy should keep
 the analyst's missing-slot/clarify decision primary, log Jev as a second opinion, and
 collect repeated live shadow runs before any gating change.
+
+## 4a. Current verifier re-run (23 Nov 2026, 15:05 HKT)
+
+The shipped verifier was re-run against the same 20 frozen cases, using the
+DeepSeek endpoint and the tested settings: temperature 0, cap 1,500.
+
+| Model | Correct | False passes | False alarms | p50 |
+|---|---:|---:|---:|---:|
+| `deepseek-flash` (current default) | **18/20** | 2 | 0 | **1,958 ms** |
+
+The two false passes are the same transfer-arithmetic cases as the earlier study:
+**v06** (10-minute transfer vs 30-minute constraint) and **v14** (29 vs 30 minutes).
+That confirms the earlier conclusion: model choice does not replace deterministic
+transport arithmetic checks.
+
+The earlier study used the Poe alias `deepseek-v4-flash`; this endpoint lists
+`deepseek-flash` instead. The scores match the earlier DeepSeek arm (18/20, 2 false
+passes), while the median is faster. Raw artefacts: `verifier-current.json`,
+`verifier-current.md`; runner: `backend/scripts/v5_verifier_current.py`.

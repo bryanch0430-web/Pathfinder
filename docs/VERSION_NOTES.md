@@ -84,7 +84,9 @@ plan; this release gives each uncertain part its own bounded representation.
   runtime value is still accepted for existing configurations.
 - The constraint verifier defaults to **DeepSeek `deepseek-flash`** on its own
   `VERIFIER_API_KEY` endpoint, with the tested verifier settings: temperature 0 and a
-  1,500-token cap. The writer/analyst/planner stay on the default writer; the verifier
+  1,500-token cap. A re-run on the 20 frozen cases scored **18/20** with 2 false
+  passes (v06/v14) and 0 false alarms, matching the earlier DeepSeek arm; the endpoint
+  uses `deepseek-flash` because the Poe alias `deepseek-v4-flash` is not available. The writer/analyst/planner stay on the default writer; the verifier
   model can still be overridden under **Models by part**.
 - The architecture reference now includes an ordered step map, a separate
   escalation/HITL branch, a reserved Judge-model marker, and the distinction between
