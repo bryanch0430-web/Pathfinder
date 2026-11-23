@@ -5204,7 +5204,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 1290 619" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
+      <svg viewBox="0 0 1290 595" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
         <title id="archify-diagram-title">How Pathfinder plans a trip</title>
         <desc id="archify-diagram-description">The whole journey, in plain language: you ask, Pathfinder gathers real evidence, checks the plan, and asks a person only when it should.</desc>
         <!-- Definitions -->
@@ -5253,91 +5253,87 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Boundaries (behind everything) -->
         <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Outside sources" x="1040" y="80" width="210" height="122" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Pathfinder app" x="10" y="265" width="410" height="124" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Browser" x="10" y="265" width="410" height="124" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Desk" x="190" y="75" width="230" height="124" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Human support" x="190" y="75" width="230" height="124" rx="12" class="c-region" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
           <path data-graph-role="automatic-crossover-underlay" d="M 180 333 L 220 333" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="traveller" data-edge-to="ui" data-edge-label="asks" data-edge-key="0" data-edge-id="ask" data-composition-points="180,333;220,333" data-composition-crossover="halo" data-composition-independent="true" d="M 180 333 L 220 333" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-edge-from="traveller" data-edge-to="ui" data-edge-label="message" data-edge-key="0" data-edge-id="ask" data-composition-points="180,333;220,333" data-composition-crossover="halo" data-composition-independent="true" d="M 180 333 L 220 333" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:1">
-          <path data-graph-role="automatic-crossover-underlay" d="M 320.05 295 L 320.05 279 Q 320.05 271 328.05 271 L 398 271 Q 406 271 406 279 L 406 314.9 Q 406 322.9 414 322.9 L 430 322.9" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="ui" data-edge-to="api" data-edge-label="one turn" data-edge-key="1" data-edge-id="send" data-composition-points="320.05,295;320.05,271;406,271;406,322.9;430,322.9" data-composition-crossover="halo" data-composition-independent="true" d="M 320.05 295 L 320.05 279 Q 320.05 271 328.05 271 L 398 271 Q 406 271 406 279 L 406 314.9 Q 406 322.9 414 322.9 L 430 322.9" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 390 339 L 640 339" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="ui" data-edge-to="orchestrator" data-edge-label="one turn" data-edge-key="1" data-edge-id="turn" data-composition-points="390,339;640,339" data-composition-crossover="halo" data-composition-independent="true" d="M 390 339 L 640 339" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:2">
-          <path data-graph-role="automatic-crossover-underlay" d="M 600 323.95 L 616 323.95 Q 624 323.95 624 315.95 L 624 274 Q 624 266 632 266 L 701 266 Q 709 266 709 274 L 709 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="api" data-edge-to="orchestrator" data-edge-label="prepare + budget" data-edge-key="2" data-edge-id="prepare" data-composition-points="600,323.95;624,323.95;624,266;709,266;709,290" data-composition-crossover="halo" data-composition-independent="true" d="M 600 323.95 L 616 323.95 Q 624 323.95 624 315.95 L 624 274 Q 624 266 632 266 L 701 266 Q 709 266 709 274 L 709 290" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 723 290 L 723 180" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read this message" data-edge-key="2" data-edge-id="read" data-composition-points="723,290;723,180" data-composition-crossover="halo" data-composition-independent="true" d="M 723 290 L 723 180" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:3">
-          <path data-graph-role="automatic-crossover-underlay" d="M 723 290 L 723 180" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read this request" data-edge-key="3" data-edge-id="read" data-composition-points="723,290;723,180" data-composition-crossover="halo" data-composition-independent="true" d="M 723 290 L 723 180" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 737 180 L 737 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="analyst" data-edge-to="orchestrator" data-edge-label="intent + slots" data-edge-key="3" data-edge-id="route" data-composition-points="737,180;737,290" data-composition-crossover="halo" data-composition-independent="true" d="M 737 180 L 737 290" class="a-dashed" data-animate="edge" style="--step:3" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:4">
-          <path data-graph-role="automatic-crossover-underlay" d="M 737 180 L 737 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="analyst" data-edge-to="orchestrator" data-edge-label="intent + details" data-edge-key="4" data-edge-id="route" data-composition-points="737,180;737,290" data-composition-crossover="halo" data-composition-independent="true" d="M 737 180 L 737 290" class="a-dashed" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 820 322.95 L 832 322.95 Q 840 322.95 840 314.95 L 840 151 Q 840 143 848 143 L 860 143" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="workers" data-edge-label="what to look up" data-edge-key="4" data-edge-id="gather" data-composition-points="820,322.95;840,322.95;840,143;860,143" data-composition-crossover="halo" data-composition-independent="true" d="M 820 322.95 L 832 322.95 Q 840 322.95 840 314.95 L 840 151 Q 840 143 848 143 L 860 143" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
-          <path data-graph-role="automatic-crossover-underlay" d="M 820 331 L 832 331 Q 840 331 840 323 L 840 151 Q 840 143 848 143 L 860 143" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="workers" data-edge-label="what to look up" data-edge-key="5" data-edge-id="gather" data-composition-points="820,331;840,331;840,143;860,143" data-composition-crossover="halo" data-composition-independent="true" d="M 820 331 L 832 331 Q 840 331 840 323 L 840 151 Q 840 143 848 143 L 860 143" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 182 L 1145 198 Q 1145 206 1137 206 L 972 206 Q 964 206 964 198 L 964 181" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="providers" data-edge-to="workers" data-edge-label="source records" data-edge-key="5" data-edge-id="sources" data-composition-points="1145,182;1145,206;964,206;964,181" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 182 L 1145 198 Q 1145 206 1137 206 L 972 206 Q 964 206 964 198 L 964 181" class="a-dashed" data-animate="edge" style="--step:5" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:6">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1145 182 L 1145 198 Q 1145 206 1137 206 L 972 206 Q 964 206 964 198 L 964 181" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="providers" data-edge-to="workers" data-edge-label="source records" data-edge-key="6" data-edge-id="sources" data-composition-points="1145,182;1145,206;964,206;964,181" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 182 L 1145 198 Q 1145 206 1137 206 L 972 206 Q 964 206 964 198 L 964 181" class="a-dashed" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 950 181 L 950 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="workers" data-edge-to="planner" data-edge-label="sourced candidates" data-edge-key="6" data-edge-id="evidence" data-composition-points="950,181;950,290" data-composition-crossover="halo" data-composition-independent="true" d="M 950 181 L 950 290" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:7">
-          <path data-graph-role="automatic-crossover-underlay" d="M 950 181 L 950 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="workers" data-edge-to="planner" data-edge-label="sourced candidates" data-edge-key="7" data-edge-id="evidence" data-composition-points="950,181;950,290" data-composition-crossover="halo" data-composition-independent="true" d="M 950 181 L 950 290" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 950 368 L 950 386 Q 950 394 958 394 L 1123 394 Q 1131 394 1131 386 L 1131 370" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="planner" data-edge-to="checks" data-edge-label="draft plan" data-edge-key="7" data-edge-id="draft" data-composition-points="950,368;950,394;1131,394;1131,370" data-composition-crossover="halo" data-composition-independent="true" d="M 950 368 L 950 386 Q 950 394 958 394 L 1123 394 Q 1131 394 1131 386 L 1131 370" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:8">
-          <path data-graph-role="automatic-crossover-underlay" d="M 950 368 L 950 386 Q 950 394 958 394 L 1123 394 Q 1131 394 1131 386 L 1131 370" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="planner" data-edge-to="checks" data-edge-label="draft plan" data-edge-key="8" data-edge-id="draft" data-composition-points="950,368;950,394;1131,394;1131,370" data-composition-crossover="halo" data-composition-independent="true" d="M 950 368 L 950 386 Q 950 394 958 394 L 1123 394 Q 1131 394 1131 386 L 1131 370" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 288 L 1145 272 Q 1145 264 1137 264 L 972 264 Q 964 264 964 272 L 964 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="checks" data-edge-to="planner" data-edge-label="fix it, up to twice" data-edge-key="8" data-edge-id="repair" data-composition-points="1145,288;1145,264;964,264;964,290" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 288 L 1145 272 Q 1145 264 1137 264 L 972 264 Q 964 264 964 272 L 964 290" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:9">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1145 288 L 1145 272 Q 1145 264 1137 264 L 972 264 Q 964 264 964 272 L 964 290" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="checks" data-edge-to="planner" data-edge-label="fix it, up to twice" data-edge-key="9" data-edge-id="repair" data-composition-points="1145,288;1145,264;964,264;964,290" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 288 L 1145 272 Q 1145 264 1137 264 L 972 264 Q 964 264 964 272 L 964 290" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1145 370 L 1145 455" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="checks" data-edge-to="store" data-edge-label="pass → save a version" data-edge-key="9" data-edge-id="save" data-composition-points="1145,370;1145,455" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 370 L 1145 455" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:10">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1145 370 L 1145 455" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="checks" data-edge-to="store" data-edge-label="pass → save a version" data-edge-key="10" data-edge-id="save" data-composition-points="1145,370;1145,455" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 370 L 1145 455" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1070 491 L 852 491 Q 844 491 844 483 L 844 346 Q 844 338 836 338 L 820 338" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="store" data-edge-to="orchestrator" data-edge-label="saved version" data-edge-key="10" data-edge-id="saved" data-composition-points="1070,491;844,491;844,338;820,338" data-composition-crossover="halo" data-composition-independent="true" d="M 1070 491 L 852 491 Q 844 491 844 483 L 844 346 Q 844 338 836 338 L 820 338" class="a-emphasis" data-animate="edge" style="--step:10" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:11">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1145 527 L 1145 543 Q 1145 551 1137 551 L 632 551 Q 624 551 624 543 L 624 347 Q 624 339 616 339 L 600 339" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="store" data-edge-to="api" data-edge-label="new plan version" data-edge-key="11" data-edge-id="version" data-composition-points="1145,527;1145,551;624,551;624,339;600,339" data-composition-crossover="halo" data-composition-independent="true" d="M 1145 527 L 1145 543 Q 1145 551 1137 551 L 632 551 Q 624 551 624 543 L 624 347 Q 624 339 616 339 L 600 339" class="a-emphasis" data-animate="edge" style="--step:11" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 714.95 372 L 714.95 388 Q 714.95 396 706.95 396 L 313 396 Q 305 396 305 388 L 305 369" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="ui" data-edge-label="streamed reply" data-edge-key="11" data-edge-id="reply" data-composition-points="714.95,372;714.95,396;305,396;305,369" data-composition-crossover="halo" data-composition-independent="true" d="M 714.95 372 L 714.95 388 Q 714.95 396 706.95 396 L 313 396 Q 305 396 305 388 L 305 369" class="a-emphasis" data-animate="edge" style="--step:11" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:12">
-          <path data-graph-role="automatic-crossover-underlay" d="M 430 339 L 414 339 Q 406 339 406 347 L 406 385 Q 406 393 398 393 L 313 393 Q 305 393 305 385 L 305 369" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="api" data-edge-to="ui" data-edge-label="progress + answer" data-edge-key="12" data-edge-id="stream" data-composition-points="430,339;406,339;406,393;305,393;305,369" data-composition-crossover="halo" data-composition-independent="true" d="M 430 339 L 414 339 Q 406 339 406 347 L 406 385 Q 406 393 398 393 L 313 393 Q 305 393 305 385 L 305 369" class="a-emphasis" data-animate="edge" style="--step:12" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 730 455 L 730 372" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="memory" data-edge-to="orchestrator" data-edge-label="preferences" data-edge-key="12" data-edge-id="memory-read" data-composition-points="730,455;730,372" data-composition-crossover="halo" data-composition-independent="true" d="M 730 455 L 730 372" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:13">
-          <path data-graph-role="automatic-crossover-underlay" d="M 730 455 L 730 372" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="memory" data-edge-to="orchestrator" data-edge-label="your preferences" data-edge-key="13" data-edge-id="memory-read" data-composition-points="730,455;730,372" data-composition-crossover="halo" data-composition-independent="true" d="M 730 455 L 730 372" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 640 317 L 523 317 Q 515 317 515 309 L 515 150 Q 515 142 507 142 L 390 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="orchestrator" data-edge-to="desk" data-edge-label="a person is needed" data-edge-key="13" data-edge-id="handoff" data-composition-points="640,317;515,317;515,142;390,142" data-composition-crossover="halo" data-composition-independent="true" d="M 640 317 L 523 317 Q 515 317 515 309 L 515 150 Q 515 142 507 142 L 390 142" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:14">
-          <path data-graph-role="automatic-crossover-underlay" d="M 640 324 L 624 324 Q 616 324 616 316 L 616 150 Q 616 142 608 142 L 390 142" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="orchestrator" data-edge-to="desk" data-edge-label="a person is needed" data-edge-key="14" data-edge-id="handoff" data-composition-points="640,324;616,324;616,142;390,142" data-composition-crossover="halo" data-composition-independent="true" d="M 640 324 L 624 324 Q 616 324 616 316 L 616 150 Q 616 142 608 142 L 390 142" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        </g>
-        <g data-graph-role="automatic-crossover" style="--step:15">
           <path data-graph-role="automatic-crossover-underlay" d="M 305 179 L 305 295" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="desk" data-edge-to="ui" data-edge-label="operator joins" data-edge-key="15" data-edge-id="human" data-composition-points="305,179;305,295" data-composition-crossover="halo" data-composition-independent="true" d="M 305 179 L 305 295" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+          <path data-edge-from="desk" data-edge-to="ui" data-edge-label="operator joins" data-edge-key="14" data-edge-id="human" data-composition-points="305,179;305,295" data-composition-crossover="halo" data-composition-independent="true" d="M 305 179 L 305 295" class="a-security" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         </g>
 
         <!-- Components -->
-        <g id="node-traveller" data-node-id="traveller" data-node-label="Traveller" tabindex="0" role="button" aria-label="Focus Traveller, ask for a trip in chat, Pathfinder app" aria-pressed="false" data-node-kind="external" data-node-sublabel="ask for a trip in chat" data-node-tag="the traveller" data-node-context="Pathfinder app">
-          <title>Traveller · ask for a trip in chat · Pathfinder app · the traveller</title>
+        <g id="node-traveller" data-node-id="traveller" data-node-label="Traveller" tabindex="0" role="button" aria-label="Focus Traveller, asks in chat, Browser" aria-pressed="false" data-node-kind="external" data-node-sublabel="asks in chat" data-node-tag="the user" data-node-context="Browser">
+          <title>Traveller · asks in chat · Browser · the user</title>
           <rect x="40" y="300" width="140" height="66" rx="8" class="c-mask"/>
           <rect x="40" y="300" width="140" height="66" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-external" transform="translate(46 306) scale(0.6875)">
             <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="110" y="331" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Traveller</text>
-        <text data-detail="context" x="110" y="347" class="t-muted" font-size="9" text-anchor="middle">ask for a trip in chat</text>
-        <text data-detail="fine" x="110" y="358" class="t-external" font-size="7" text-anchor="middle">the traveller</text>
+        <text data-detail="context" x="110" y="347" class="t-muted" font-size="9" text-anchor="middle">asks in chat</text>
+        <text data-detail="fine" x="110" y="358" class="t-external" font-size="7" text-anchor="middle">the user</text>
         </g>
 
-        <g id="node-ui" data-node-id="ui" data-node-label="Plan" tabindex="0" role="button" aria-label="Focus Plan, Chat · Plan · Trip map, Pathfinder app" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Chat · Plan · Trip map" data-node-tag="the page you use" data-node-context="Pathfinder app">
-          <title>Plan · Chat · Plan · Trip map · Pathfinder app · the page you use</title>
+        <g id="node-ui" data-node-id="ui" data-node-label="Plan" tabindex="0" role="button" aria-label="Focus Plan, Chat · Plan · Trip map, Browser" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Chat · Plan · Trip map" data-node-tag="frontend/" data-node-context="Browser">
+          <title>Plan · Chat · Plan · Trip map · Browser · frontend/</title>
           <rect x="220" y="295" width="170" height="74" rx="8" class="c-mask"/>
           <rect x="220" y="295" width="170" height="74" rx="8" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(226 301) scale(0.6875)">
@@ -5348,194 +5344,178 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           </g>
           <text data-node-label="" data-detail-anchor="" x="305" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan</text>
         <text data-detail="context" x="305" y="346" class="t-muted" font-size="9" text-anchor="middle">Chat · Plan · Trip map</text>
-        <text data-detail="fine" x="305" y="361" class="t-frontend" font-size="7" text-anchor="middle">the page you use</text>
+        <text data-detail="fine" x="305" y="361" class="t-frontend" font-size="7" text-anchor="middle">frontend/</text>
         </g>
 
-        <g id="node-api" data-node-id="api" data-node-label="Pathfinder server" tabindex="0" role="button" aria-label="Focus Pathfinder server, receives each message, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="receives each message" data-node-tag="live progress" data-node-context="Architecture component">
-          <title>Pathfinder server · receives each message · Architecture component · live progress</title>
-          <rect x="430" y="295" width="170" height="74" rx="8" class="c-mask"/>
-          <rect x="430" y="295" width="170" height="74" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(436 301) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="515" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Pathfinder server</text>
-        <text data-detail="context" x="515" y="346" class="t-muted" font-size="9" text-anchor="middle">receives each message</text>
-        <text data-detail="fine" x="515" y="361" class="t-backend" font-size="7" text-anchor="middle">live progress</text>
-        </g>
-
-        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Pathfinder" tabindex="0" role="button" aria-label="Focus Pathfinder, one path per message, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="one path per message" data-node-tag="plan · change · question" data-node-context="Architecture component">
-          <title>Pathfinder · one path per message · Architecture component · plan · change · question</title>
+        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Turn orchestrator" tabindex="0" role="button" aria-label="Focus Turn orchestrator, one turn, one path, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="one turn, one path" data-node-tag="turn/orchestrator.py" data-node-context="Architecture component">
+          <title>Turn orchestrator · one turn, one path · Architecture component · turn/orchestrator.py</title>
           <rect x="640" y="290" width="180" height="82" rx="8" class="c-mask"/>
-          <rect x="640" y="290" width="180" height="82" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <rect x="640" y="290" width="180" height="82" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(646 296) scale(0.6875)">
             <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="730" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Pathfinder</text>
-        <text data-detail="context" x="730" y="345" class="t-muted" font-size="9" text-anchor="middle">one path per message</text>
-        <text data-detail="fine" x="730" y="364" class="t-backend" font-size="7" text-anchor="middle">plan · change · question</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Turn orchestrator</text>
+        <text data-detail="context" x="730" y="345" class="t-muted" font-size="9" text-anchor="middle">one turn, one path</text>
+        <text data-detail="fine" x="730" y="364" class="t-backend" font-size="7" text-anchor="middle">turn/orchestrator.py</text>
         </g>
 
-        <g id="node-analyst" data-node-id="analyst" data-node-label="Understanding" tabindex="0" role="button" aria-label="Focus Understanding, Pathfinder is understanding your message, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Pathfinder is understanding your message" data-node-tag="what do you want?" data-node-context="Architecture component">
-          <title>Understanding · Pathfinder is understanding your message · Architecture component · what do you want?</title>
+        <g id="node-analyst" data-node-id="analyst" data-node-label="Understand" tabindex="0" role="button" aria-label="Focus Understand, analyst call → intent + slots, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="analyst call → intent + slots" data-node-tag="understand/pipeline.py" data-node-context="Architecture component">
+          <title>Understand · analyst call → intent + slots · Architecture component · understand/pipeline.py</title>
           <rect x="640" y="110" width="180" height="70" rx="8" class="c-mask"/>
-          <rect x="640" y="110" width="180" height="70" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <rect x="640" y="110" width="180" height="70" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-backend" transform="translate(646 116) scale(0.6875)">
             <path d="M8 2.2 13.8 8 8 13.8 2.2 8Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="730" y="143" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Understanding</text>
-        <text data-detail="context" x="730" y="159" class="t-muted" font-size="7.1" text-anchor="middle">Pathfinder is understanding your message</text>
-        <text data-detail="fine" x="730" y="172" class="t-backend" font-size="7" text-anchor="middle">what do you want?</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="143" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Understand</text>
+        <text data-detail="context" x="730" y="159" class="t-muted" font-size="9" text-anchor="middle">analyst call → intent + slots</text>
+        <text data-detail="fine" x="730" y="172" class="t-backend" font-size="7" text-anchor="middle">understand/pipeline.py</text>
         </g>
 
-        <g id="node-workers" data-node-id="workers" data-node-label="Data and sources" tabindex="0" role="button" aria-label="Focus Data and sources, places · stays · weather · flights, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="places · stays · weather · flights" data-node-tag="sourced facts" data-node-context="Architecture component">
-          <title>Data and sources · places · stays · weather · flights · Architecture component · sourced facts</title>
+        <g id="node-workers" data-node-id="workers" data-node-label="Evidence workers" tabindex="0" role="button" aria-label="Focus Evidence workers, places · stays · weather · flights, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="places · stays · weather · flights" data-node-tag="plan/agents.py" data-node-context="Architecture component">
+          <title>Evidence workers · places · stays · weather · flights · Architecture component · plan/agents.py</title>
           <rect x="860" y="105" width="180" height="76" rx="8" class="c-mask"/>
-          <rect x="860" y="105" width="180" height="76" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <rect x="860" y="105" width="180" height="76" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 111) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="141" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Data and sources</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="141" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Evidence workers</text>
         <text data-detail="context" x="950" y="157" class="t-muted" font-size="8.4" text-anchor="middle">places · stays · weather · flights</text>
-        <text data-detail="fine" x="950" y="173" class="t-backend" font-size="7" text-anchor="middle">sourced facts</text>
+        <text data-detail="fine" x="950" y="173" class="t-backend" font-size="7" text-anchor="middle">plan/agents.py</text>
         </g>
 
-        <g id="node-planner" data-node-id="planner" data-node-label="Planner" tabindex="0" role="button" aria-label="Focus Planner, builds the plan, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="builds the plan" data-node-tag="Plan tab" data-node-context="Architecture component">
-          <title>Planner · builds the plan · Architecture component · Plan tab</title>
+        <g id="node-planner" data-node-id="planner" data-node-label="Composer" tabindex="0" role="button" aria-label="Focus Composer, selects sourced refs only, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="selects sourced refs only" data-node-tag="plan/builder.py" data-node-context="Architecture component">
+          <title>Composer · selects sourced refs only · Architecture component · plan/builder.py</title>
           <rect x="860" y="290" width="180" height="78" rx="8" class="c-mask"/>
-          <rect x="860" y="290" width="180" height="78" rx="8" class="c-backend" data-animate="node" style="--step:8" stroke-width="1.5"/>
+          <rect x="860" y="290" width="180" height="78" rx="8" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 296) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Planner</text>
-        <text data-detail="context" x="950" y="343" class="t-muted" font-size="9" text-anchor="middle">builds the plan</text>
-        <text data-detail="fine" x="950" y="360" class="t-backend" font-size="7" text-anchor="middle">Plan tab</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Composer</text>
+        <text data-detail="context" x="950" y="343" class="t-muted" font-size="9" text-anchor="middle">selects sourced refs only</text>
+        <text data-detail="fine" x="950" y="360" class="t-backend" font-size="7" text-anchor="middle">plan/builder.py</text>
         </g>
 
-        <g id="node-checks" data-node-id="checks" data-node-label="Plan checks" tabindex="0" role="button" aria-label="Focus Plan checks, hours · travel time · budget, Architecture component" aria-pressed="false" data-node-kind="security" data-node-sublabel="hours · travel time · budget" data-node-tag="repair ≤ 2" data-node-context="Architecture component">
-          <title>Plan checks · hours · travel time · budget · Architecture component · repair ≤ 2</title>
+        <g id="node-checks" data-node-id="checks" data-node-label="Validator + verifier" tabindex="0" role="button" aria-label="Focus Validator + verifier, structure · traveller constraints, Architecture component" aria-pressed="false" data-node-kind="security" data-node-sublabel="structure · traveller constraints" data-node-tag="plan/validator.py" data-node-context="Architecture component">
+          <title>Validator + verifier · structure · traveller constraints · Architecture component · plan/validator.py</title>
           <rect x="1070" y="288" width="150" height="82" rx="8" class="c-mask"/>
-          <rect x="1070" y="288" width="150" height="82" rx="8" class="c-security" data-animate="node" style="--step:9" stroke-width="1.5"/>
+          <rect x="1070" y="288" width="150" height="82" rx="8" class="c-security" data-animate="node" style="--step:8" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1076 294) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1145" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan checks</text>
-        <text data-detail="context" x="1145" y="343" class="t-muted" font-size="8.4" text-anchor="middle">hours · travel time · budget</text>
-        <text data-detail="fine" x="1145" y="362" class="t-security" font-size="7" text-anchor="middle">repair ≤ 2</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Validator + verifier</text>
+        <text data-detail="context" x="1145" y="343" class="t-muted" font-size="7.1" text-anchor="middle">structure · traveller constraints</text>
+        <text data-detail="fine" x="1145" y="362" class="t-security" font-size="7" text-anchor="middle">plan/validator.py</text>
         </g>
 
-        <g id="node-store" data-node-id="store" data-node-label="My trips" tabindex="0" role="button" aria-label="Focus My trips, saved plan versions, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="saved plan versions" data-node-tag="your history" data-node-context="Architecture component">
-          <title>My trips · saved plan versions · Architecture component · your history</title>
+        <g id="node-store" data-node-id="store" data-node-label="Plan store" tabindex="0" role="button" aria-label="Focus Plan store, append-only versions, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="append-only versions" data-node-tag="core/store.py" data-node-context="Architecture component">
+          <title>Plan store · append-only versions · Architecture component · core/store.py</title>
           <rect x="1070" y="455" width="150" height="72" rx="8" class="c-mask"/>
-          <rect x="1070" y="455" width="150" height="72" rx="8" class="c-database" data-animate="node" style="--step:11" stroke-width="1.5"/>
+          <rect x="1070" y="455" width="150" height="72" rx="8" class="c-database" data-animate="node" style="--step:10" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1076 461) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1145" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">My trips</text>
-        <text data-detail="context" x="1145" y="505" class="t-muted" font-size="9" text-anchor="middle">saved plan versions</text>
-        <text data-detail="fine" x="1145" y="519" class="t-database" font-size="7" text-anchor="middle">your history</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan store</text>
+        <text data-detail="context" x="1145" y="505" class="t-muted" font-size="9" text-anchor="middle">append-only versions</text>
+        <text data-detail="fine" x="1145" y="519" class="t-database" font-size="7" text-anchor="middle">core/store.py</text>
         </g>
 
-        <g id="node-memory" data-node-id="memory" data-node-label="Saved memory" tabindex="0" role="button" aria-label="Focus Saved memory, preferences · feedback, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="preferences · feedback" data-node-tag="you can clear it" data-node-context="Architecture component">
-          <title>Saved memory · preferences · feedback · Architecture component · you can clear it</title>
+        <g id="node-memory" data-node-id="memory" data-node-label="Memory" tabindex="0" role="button" aria-label="Focus Memory, preferences + feedback, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="preferences + feedback" data-node-tag="application/memory.py" data-node-context="Architecture component">
+          <title>Memory · preferences + feedback · Architecture component · application/memory.py</title>
           <rect x="640" y="455" width="180" height="72" rx="8" class="c-mask"/>
           <rect x="640" y="455" width="180" height="72" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(646 461) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="730" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Saved memory</text>
-        <text data-detail="context" x="730" y="505" class="t-muted" font-size="9" text-anchor="middle">preferences · feedback</text>
-        <text data-detail="fine" x="730" y="519" class="t-database" font-size="7" text-anchor="middle">you can clear it</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Memory</text>
+        <text data-detail="context" x="730" y="505" class="t-muted" font-size="9" text-anchor="middle">preferences + feedback</text>
+        <text data-detail="fine" x="730" y="519" class="t-database" font-size="7" text-anchor="middle">application/memory.py</text>
         </g>
 
-        <g id="node-desk" data-node-id="desk" data-node-label="Desk" tabindex="0" role="button" aria-label="Focus Desk, a person can take over, Desk" aria-pressed="false" data-node-kind="security" data-node-sublabel="a person can take over" data-node-tag="Take over · Hand back" data-node-context="Desk">
-          <title>Desk · a person can take over · Desk · Take over · Hand back</title>
+        <g id="node-desk" data-node-id="desk" data-node-label="Desk" tabindex="0" role="button" aria-label="Focus Desk, human handoff, Human support" aria-pressed="false" data-node-kind="security" data-node-sublabel="human handoff" data-node-tag="api/admin.py" data-node-context="Human support">
+          <title>Desk · human handoff · Human support · api/admin.py</title>
           <rect x="220" y="105" width="170" height="74" rx="8" class="c-mask"/>
           <rect x="220" y="105" width="170" height="74" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-security" transform="translate(226 111) scale(0.6875)">
             <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="305" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Desk</text>
-        <text data-detail="context" x="305" y="156" class="t-muted" font-size="9" text-anchor="middle">a person can take over</text>
-        <text data-detail="fine" x="305" y="171" class="t-security" font-size="7" text-anchor="middle">Take over · Hand back</text>
+        <text data-detail="context" x="305" y="156" class="t-muted" font-size="9" text-anchor="middle">human handoff</text>
+        <text data-detail="fine" x="305" y="171" class="t-security" font-size="7" text-anchor="middle">api/admin.py</text>
         </g>
 
-        <g id="node-providers" data-node-id="providers" data-node-label="Sources" tabindex="0" role="button" aria-label="Focus Sources, live or curated corpus, Outside sources" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="live or curated corpus" data-node-tag="Data and sources" data-node-context="Outside sources">
-          <title>Sources · live or curated corpus · Outside sources · Data and sources</title>
+        <g id="node-providers" data-node-id="providers" data-node-label="Providers" tabindex="0" role="button" aria-label="Focus Providers, live or curated corpus, Outside sources" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="live or curated corpus" data-node-tag="evidence/providers.py" data-node-context="Outside sources">
+          <title>Providers · live or curated corpus · Outside sources · evidence/providers.py</title>
           <rect x="1070" y="110" width="150" height="72" rx="8" class="c-mask"/>
-          <rect x="1070" y="110" width="150" height="72" rx="8" class="c-cloud" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <rect x="1070" y="110" width="150" height="72" rx="8" class="c-cloud" data-animate="node" style="--step:5" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1076 116) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1145" y="144" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Sources</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="144" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Providers</text>
         <text data-detail="context" x="1145" y="160" class="t-muted" font-size="9" text-anchor="middle">live or curated corpus</text>
-        <text data-detail="fine" x="1145" y="174" class="t-cloud" font-size="7" text-anchor="middle">Data and sources</text>
+        <text data-detail="fine" x="1145" y="174" class="t-cloud" font-size="7" text-anchor="middle">evidence/providers.py</text>
         </g>
 
         <!-- Connection labels -->
-        <g data-detail="context" data-edge-from="traveller" data-edge-to="ui" data-edge-label="asks" data-edge-key="0" data-edge-id="ask">
-          <rect x="185" y="313" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="200" y="323" class="t-edge-emphasis" font-size="8" text-anchor="middle">asks</text>
+        <g data-detail="context" data-edge-from="traveller" data-edge-to="ui" data-edge-label="message" data-edge-key="0" data-edge-id="ask">
+          <rect x="178.2" y="313" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="200" y="323" class="t-edge-emphasis" font-size="8" text-anchor="middle">message</text>
         </g>
-        <g data-detail="context" data-edge-from="ui" data-edge-to="api" data-edge-label="one turn" data-edge-key="1" data-edge-id="send">
-          <rect x="338.825" y="251" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="363.025" y="261" class="t-edge-emphasis" font-size="8" text-anchor="middle">one turn</text>
+        <g data-detail="context" data-edge-from="ui" data-edge-to="orchestrator" data-edge-label="one turn" data-edge-key="1" data-edge-id="turn">
+          <rect x="490.8" y="349" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="515" y="359" class="t-edge-emphasis" font-size="8" text-anchor="middle">one turn</text>
         </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="orchestrator" data-edge-label="prepare + budget" data-edge-key="2" data-edge-id="prepare">
-          <rect x="523.2" y="273.4875" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="566.6" y="283.4875" class="t-edge-default" font-size="8" text-anchor="middle">prepare + budget</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read this message" data-edge-key="2" data-edge-id="read">
+          <rect x="625.4000000000001" y="228" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="671.2" y="238" class="t-edge-default" font-size="8" text-anchor="middle">read this message</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="analyst" data-edge-label="read this request" data-edge-key="3" data-edge-id="read">
-          <rect x="625.4000000000001" y="186.75" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="671.2" y="196.75" class="t-edge-default" font-size="8" text-anchor="middle">read this request</text>
+        <g data-detail="context" data-edge-from="analyst" data-edge-to="orchestrator" data-edge-label="intent + slots" data-edge-key="3" data-edge-id="route">
+          <rect x="743" y="255.5" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="781.6" y="265.5" class="t-edge-dashed" font-size="8" text-anchor="middle">intent + slots</text>
         </g>
-        <g data-detail="context" data-edge-from="analyst" data-edge-to="orchestrator" data-edge-label="intent + details" data-edge-key="4" data-edge-id="route">
-          <rect x="743" y="200.5" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="786.4" y="210.5" class="t-edge-dashed" font-size="8" text-anchor="middle">intent + details</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="workers" data-edge-label="what to look up" data-edge-key="4" data-edge-id="gather">
+          <rect x="799" y="212.975" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="840" y="222.975" class="t-edge-default" font-size="8" text-anchor="middle">what to look up</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="workers" data-edge-label="what to look up" data-edge-key="5" data-edge-id="gather">
-          <rect x="799" y="217" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="840" y="227" class="t-edge-default" font-size="8" text-anchor="middle">what to look up</text>
-        </g>
-        <g data-detail="context" data-edge-from="providers" data-edge-to="workers" data-edge-label="source records" data-edge-key="6" data-edge-id="sources">
+        <g data-detail="context" data-edge-from="providers" data-edge-to="workers" data-edge-label="source records" data-edge-key="5" data-edge-id="sources">
           <rect x="1015.9" y="186" width="77.2" height="14" rx="3" class="c-mask"/>
           <text x="1054.5" y="196" class="t-edge-dashed" font-size="8" text-anchor="middle">source records</text>
         </g>
-        <g data-detail="context" data-edge-from="workers" data-edge-to="planner" data-edge-label="sourced candidates" data-edge-key="7" data-edge-id="evidence">
+        <g data-detail="context" data-edge-from="workers" data-edge-to="planner" data-edge-label="sourced candidates" data-edge-key="6" data-edge-id="evidence">
           <rect x="847.5999999999999" y="255.75" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
           <text x="895.8" y="265.75" class="t-edge-default" font-size="8" text-anchor="middle">sourced candidates</text>
         </g>
-        <g data-detail="context" data-edge-from="planner" data-edge-to="checks" data-edge-label="draft plan" data-edge-key="8" data-edge-id="draft">
+        <g data-detail="context" data-edge-from="planner" data-edge-to="checks" data-edge-label="draft plan" data-edge-key="7" data-edge-id="draft">
           <rect x="1011.5" y="374" width="58" height="14" rx="3" class="c-mask"/>
           <text x="1040.5" y="384" class="t-edge-default" font-size="8" text-anchor="middle">draft plan</text>
         </g>
-        <g data-detail="context" data-edge-from="checks" data-edge-to="planner" data-edge-label="fix it, up to twice" data-edge-key="9" data-edge-id="repair">
+        <g data-detail="context" data-edge-from="checks" data-edge-to="planner" data-edge-label="fix it, up to twice" data-edge-key="8" data-edge-id="repair">
           <rect x="1003.9" y="244" width="101.2" height="14" rx="3" class="c-mask"/>
           <text x="1054.5" y="254" class="t-edge-dashed" font-size="8" text-anchor="middle">fix it, up to twice</text>
         </g>
-        <g data-detail="context" data-edge-from="checks" data-edge-to="store" data-edge-label="pass → save a version" data-edge-key="10" data-edge-id="save">
+        <g data-detail="context" data-edge-from="checks" data-edge-to="store" data-edge-label="pass → save a version" data-edge-key="9" data-edge-id="save">
           <rect x="1028.1999999999998" y="405.5" width="110.8" height="14" rx="3" class="c-mask"/>
           <text x="1083.6" y="415.5" class="t-edge-default" font-size="8" text-anchor="middle">pass → save a version</text>
         </g>
-        <g data-detail="context" data-edge-from="store" data-edge-to="api" data-edge-label="new plan version" data-edge-key="11" data-edge-id="version">
-          <rect x="841.1" y="531" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="884.5" y="541" class="t-edge-emphasis" font-size="8" text-anchor="middle">new plan version</text>
+        <g data-detail="context" data-edge-from="store" data-edge-to="orchestrator" data-edge-label="saved version" data-edge-key="10" data-edge-id="saved">
+          <rect x="807.8" y="394.5" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="844" y="404.5" class="t-edge-emphasis" font-size="8" text-anchor="middle">saved version</text>
         </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="ui" data-edge-label="progress + answer" data-edge-key="12" data-edge-id="stream">
-          <rect x="308.4" y="372.5" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="354.2" y="382.5" class="t-edge-emphasis" font-size="8" text-anchor="middle">progress + answer</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="ui" data-edge-label="streamed reply" data-edge-key="11" data-edge-id="reply">
+          <rect x="471.375" y="376" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="509.975" y="386" class="t-edge-emphasis" font-size="8" text-anchor="middle">streamed reply</text>
         </g>
-        <g data-detail="context" data-edge-from="memory" data-edge-to="orchestrator" data-edge-label="your preferences" data-edge-key="13" data-edge-id="memory-read">
-          <rect x="686.6" y="435" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="730" y="445" class="t-edge-dashed" font-size="8" text-anchor="middle">your preferences</text>
+        <g data-detail="context" data-edge-from="memory" data-edge-to="orchestrator" data-edge-label="preferences" data-edge-key="12" data-edge-id="memory-read">
+          <rect x="698.6" y="435" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="730" y="445" class="t-edge-dashed" font-size="8" text-anchor="middle">preferences</text>
         </g>
-        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="desk" data-edge-label="a person is needed" data-edge-key="14" data-edge-id="handoff">
-          <rect x="567.8" y="213" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="616" y="223" class="t-edge-default" font-size="8" text-anchor="middle">a person is needed</text>
+        <g data-detail="context" data-edge-from="orchestrator" data-edge-to="desk" data-edge-label="a person is needed" data-edge-key="13" data-edge-id="handoff">
+          <rect x="466.8" y="209.5" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="515" y="219.5" class="t-edge-default" font-size="8" text-anchor="middle">a person is needed</text>
         </g>
-        <g data-detail="context" data-edge-from="desk" data-edge-to="ui" data-edge-label="operator joins" data-edge-key="15" data-edge-id="human">
+        <g data-detail="context" data-edge-from="desk" data-edge-to="ui" data-edge-label="operator joins" data-edge-key="14" data-edge-id="human">
           <rect x="221.79999999999998" y="230" width="77.2" height="14" rx="3" class="c-mask"/>
           <text x="260.4" y="240" class="t-edge-security" font-size="8" text-anchor="middle">operator joins</text>
         </g>
@@ -5546,42 +5526,42 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-boundary-label="" x="1048" y="103" class="t-cloud" font-size="9" font-weight="600">Outside sources</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Pathfinder app">
-          <rect data-graph-role="structural-frame-label-mask" x="14" y="275" width="85.6" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="18" y="288" class="t-cloud" font-size="9" font-weight="600">Pathfinder app</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Browser">
+          <rect data-graph-role="structural-frame-label-mask" x="14" y="275" width="47.8" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="18" y="288" class="t-cloud" font-size="9" font-weight="600">Browser</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Desk">
-          <rect data-graph-role="structural-frame-label-mask" x="194" y="85" width="31.599999999999998" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="198" y="98" class="t-cloud" font-size="9" font-weight="600">Desk</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Human support">
+          <rect data-graph-role="structural-frame-label-mask" x="194" y="85" width="80.2" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="198" y="98" class="t-cloud" font-size="9" font-weight="600">Human support</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="40" y="583" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="603" data-legend-width="93">
-            <rect x="40" y="594" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
-            <text x="62" y="603" class="t-muted" font-size="10" font-weight="500">Frontend</text>
+          <text x="40" y="559" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="579" data-legend-width="93">
+            <rect x="40" y="570" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="579" class="t-muted" font-size="10" font-weight="500">Frontend</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="155" data-legend-baseline="603" data-legend-width="87">
-            <rect x="155" y="594" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
-            <text x="177" y="603" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="155" data-legend-baseline="579" data-legend-width="87">
+            <rect x="155" y="570" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="177" y="579" class="t-muted" font-size="10" font-weight="500">Backend</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="264" data-legend-baseline="603" data-legend-width="93">
-            <rect x="264" y="594" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
-            <text x="286" y="603" class="t-muted" font-size="10" font-weight="500">Database</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="264" data-legend-baseline="579" data-legend-width="93">
+            <rect x="264" y="570" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="286" y="579" class="t-muted" font-size="10" font-weight="500">Database</text>
           </g>
-          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="379" data-legend-baseline="603" data-legend-width="74">
-            <rect x="379" y="594" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
-            <text x="401" y="603" class="t-muted" font-size="10" font-weight="500">Cloud</text>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="379" data-legend-baseline="579" data-legend-width="74">
+            <rect x="379" y="570" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="401" y="579" class="t-muted" font-size="10" font-weight="500">Cloud</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="475" data-legend-baseline="603" data-legend-width="93">
-            <rect x="475" y="594" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
-            <text x="497" y="603" class="t-muted" font-size="10" font-weight="500">Security</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="475" data-legend-baseline="579" data-legend-width="93">
+            <rect x="475" y="570" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="497" y="579" class="t-muted" font-size="10" font-weight="500">Security</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="590" data-legend-baseline="603" data-legend-width="93">
-            <rect x="590" y="594" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
-            <text x="612" y="603" class="t-muted" font-size="10" font-weight="500">External</text>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="590" data-legend-baseline="579" data-legend-width="93">
+            <rect x="590" y="570" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="612" y="579" class="t-muted" font-size="10" font-weight="500">External</text>
           </g>
         </g>
       </svg>
@@ -5764,25 +5744,26 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>The short story</h3>
+          <h3>What happens in one turn</h3>
         </div>
         <ul>
-          <li>You send a message in Chat.</li>
-          <li>Pathfinder reads it, looks things up in Data and sources, and builds the plan.</li>
-          <li>The plan is checked, then shown in Plan and Trip map as a saved version in My trips.</li>
-          <li>If a detail is missing or two readings are possible, a clarify card asks instead of guessing.</li>
+          <li>Plan sends the message to the Turn orchestrator.</li>
+          <li>The orchestrator calls Understand, then Evidence workers and the Composer.</li>
+          <li>The Validator and verifier check the plan; the Plan store saves a version; Plan shows it.</li>
+          <li>If a detail is missing, Understand returns a clarify card instead of guessing.</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Why you can trust the plan</h3>
+          <h3>Why the plan can be trusted</h3>
         </div>
         <ul>
-          <li>Data and sources lists where every stop and stay came from.</li>
-          <li>Code decides dates, travel time, opening hours and totals; the model does not do the arithmetic.</li>
-          <li>A failed Plan check goes back for repair, not silently into the plan.</li>
+          <li>Evidence workers keep the source and freshness of every fact.</li>
+          <li>The Composer may only choose sourced references; code copies the address, price and time.</li>
+          <li>The Validator checks structure and the verifier audits the traveller’s constraints.</li>
+          <li>A failed check goes back to the Composer for repair, not silently into the plan.</li>
         </ul>
       </div>
 
@@ -5793,7 +5774,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>You ask for a person, sound stuck, or the same problem repeats.</li>
-          <li>The chat moves to the Desk with its history.</li>
+          <li>The orchestrator hands the chat to the Desk with its history.</li>
           <li>An operator can Take over, leave a note, or Hand back.</li>
           <li>A finished chat moves to Session history.</li>
         </ul>

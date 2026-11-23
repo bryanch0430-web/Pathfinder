@@ -26,6 +26,13 @@ Start with the journey, then follow the branch that answers your question:
   it names a component.
 - **Name the role, then the code.** “Request reader” is the primary label; the typed
   schema or module name belongs in a tag or a technical note, not the headline.
+- **Use codebase elements as the starting point.** The internal labels are
+  *Turn orchestrator*, *Understand*, *Evidence workers*, *Composer*,
+  *Validator + verifier*, *Plan store* and *Memory*. UI surfaces keep their literal
+  labels: *Plan*, *Chat*, *Trip map*, *My trips* and *Desk*.
+- **Do not invent infrastructure.** Pathfinder is one application process; there is no
+  separate “server” layer to draw. The diagram shows the request entering the Turn
+  orchestrator directly from the Plan surface.
 - **Use cards for the questions a diagram cannot draw.** Cards cover what you see,
   what can go wrong, what is guaranteed, and what deliberately does not happen.
 - **Do not draw a capability that is not wired.** The Judge model is reserved and not
