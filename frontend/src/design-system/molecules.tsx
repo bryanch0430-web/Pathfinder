@@ -1043,7 +1043,15 @@ export function ClarifyCard({
                     </button>
                   ) : null}
                   {options.map((option) => {
-                    const stored = slot === "budget" ? budgetStored(option) : option;
+                    // "5 days" must become 5. A number field cannot hold the words,
+                    // so the chip looked dead and Continue stayed disabled.
+                    const count = slot === "days" || slot === "party_size" ? amountIn(option) : null;
+                    const stored =
+                      slot === "budget"
+                        ? budgetStored(option)
+                        : count !== null && Number.isInteger(count) && count >= 1
+                          ? String(count)
+                          : option;
                     return (
                       <button
                         key={option}

@@ -3,6 +3,10 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.1.3 — 2026-11-24 00:35 HKT
+
+- **Length chips fill the number field.** A clarify chip such as "5 days" was stored as those words. The length box is a number field, so it stayed empty and Continue stayed disabled. The chip still reads "5 days" and now writes 5.
+
 ## 5.1.2 — 2026-11-23 23:55 HKT
 
 A new plan now waits for the departure city, a budget, and a currency the traveller
