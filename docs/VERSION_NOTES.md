@@ -73,6 +73,10 @@ plan; this release gives each uncertain part its own bounded representation.
   flow, complex-query guarantee, module, data table, API group, UI surface and known
   limit. The graph labels use the current intent-router / evidence-worker / validation
   names.
+- The offline evidence source is named the **curated place corpus** in code, UI and
+  diagram (`backend/app/evidence/place_corpus.py`). “Sandbox” is the runtime mode,
+  not the dataset; `data_mode` is `live` or `corpus`, while the legacy `atlas`
+  runtime value is still accepted for existing configurations.
 - `docs/ARCHITECTURE.md` points to that complete reference and keeps the short layer
   map.
 
