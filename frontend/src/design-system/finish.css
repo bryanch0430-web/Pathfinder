@@ -355,10 +355,14 @@ html.is-dark .pf-ops__tile[data-waiting] .pf-ops__mark {
   max-width: var(--p30-frame-max);
   margin: 0 auto;
   padding: 8px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
   background: color-mix(in srgb, var(--pf-bg) 92%, transparent);
 }
 
 .pf-shell__toggle {
+  flex: none;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 8px;

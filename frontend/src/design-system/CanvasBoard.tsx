@@ -506,6 +506,7 @@ export function CanvasBoard({
                   key={id}
                   type="button"
                   className="pf-shell__toggle"
+                  aria-label={barLabel[id]}
                   aria-pressed={saved.open[id]}
                   onClick={() => toggle(id)}
                 >

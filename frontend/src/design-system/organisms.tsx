@@ -79,6 +79,7 @@ import type {
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
 import { readableLabel } from "../lib/readableLabel";
+import { providerFromBaseUrl } from "../lib/modelKeys";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
 import { dayRoute, dayScope, overviewStops, travelLine } from "../lib/mapScope";
 import { RouteChoiceProvider, useRouteChoices } from "../lib/routeChoices";
@@ -1141,7 +1142,7 @@ export function ChatPanel({
             </Text>
             {held ? (
               <Text size="xs" tone="tertiary">
-                {t("chat.taken", { name: agentName.trim() || t("chat.liveAgent") })}
+                {agentName.trim() ? t("chat.taken", { name: agentName.trim() }) : t("chat.queued")}
               </Text>
             ) : null}
           </div>
@@ -1168,7 +1169,7 @@ export function ChatPanel({
         </div>
       </div>
       {held ? (
-        <p className="pf-chat__taken" role="status">{t("chat.taken", { name: agentName.trim() || t("chat.liveAgent") })}</p>
+        <p className="pf-chat__taken" role="status">{agentName.trim() ? t("chat.taken", { name: agentName.trim() }) : t("chat.queued")}</p>
       ) : null}
       <div className="pf-chat__messages pf-scroll" ref={scrollRef}>
         {messages.length === 0 ? (
@@ -2680,7 +2681,7 @@ export function TripWorkspace({
             canApply={viewingLatest && Boolean(onApplyLayout) && !held && !paused}
             saving={savingSheet}
             locked={held || !viewingLatest || !onApplyLayout || paused}
-            lockNote={held ? t("sheet.operatorEditing", { name: agentName.trim() || t("chat.liveAgent") }) : paused ? pausedNote : ""}
+            lockNote={held ? (agentName.trim() ? t("sheet.operatorEditing", { name: agentName.trim() }) : t("chat.queued")) : paused ? pausedNote : ""}
             onFocusDay={onFocusDay}
             onApply={async (items, drops) => {
               if (!onApplyLayout) return;
@@ -5021,6 +5022,8 @@ export function SettingsView({
   const [draftThresholds, setDraftThresholds] = useState<Record<string, string>>({});
   const [draftFreshness, setDraftFreshness] = useState<Record<string, string>>({});
   const [policyError, setPolicyError] = useState<string | null>(null);
+  const [policyNote, setPolicyNote] = useState<string | null>(null);
+  const [policyBusy, setPolicyBusy] = useState(false);
   useEffect(() => {
     if (!config) return;
     setDraftThresholds(Object.fromEntries(Object.entries(config.thresholds).map(([key, value]) => [key, String(value)])));
@@ -5029,16 +5032,25 @@ export function SettingsView({
   const savePolicy = async () => {
     if (!onSavePolicy) return;
     setPolicyError(null);
+    setPolicyNote(null);
     const thresholds = Object.fromEntries(Object.entries(draftThresholds).map(([key, value]) => [key, Number(value)]));
     const freshness_hours = Object.fromEntries(Object.entries(draftFreshness).map(([key, value]) => [key, Number(value)]));
-    if (Object.values(thresholds).some((value) => Number.isNaN(value)) || Object.values(freshness_hours).some((value) => Number.isNaN(value))) {
+    if (
+      Object.values(thresholds).some((value) => Number.isNaN(value)) ||
+      Object.values(freshness_hours).some((value) => Number.isNaN(value)) ||
+      Object.values(draftThresholds).some((value) => value.trim() === "")
+    ) {
       setPolicyError(t("settings.policyInvalid"));
       return;
     }
+    setPolicyBusy(true);
     try {
       await onSavePolicy({ thresholds, freshness_hours });
+      setPolicyNote(t("settings.policySaved"));
     } catch (cause) {
-      setPolicyError(String(cause));
+      setPolicyError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPolicyBusy(false);
     }
   };
   const [section, setSection] = useState<SettingsGroup>("general");
@@ -5185,9 +5197,9 @@ export function SettingsView({
       <div className="pf-card pf-eval__panel">
         <Text size="sm" weight="semibold">v5 runtime</Text>
         <Text size="xs" tone="tertiary">
-          One writer model answers every role, and the analyst routes the conversation. Jev, the
+          One writer model answers every role, and the analyst routes the conversation. The
           reviewer and the model arms are not used in this build, so their controls are not shown.
-          Thresholds below are the three the planner reads.
+          Thresholds below are the ones the planner and the Jev gate read.
         </Text>
       </div>
       ) : null}
@@ -5195,7 +5207,7 @@ export function SettingsView({
       {/* The keys do not depend on the server's configuration either. */}
       {show("keys", `${t("settings.group.keys")} ${t("settings.writer.callBody")} ${t("settings.orch.clearKey")} ${t("settings.orch.temperature")}`) && modelKeys ? (
         <WriterSettings
-          providerId={modelKeys.keys.find((key) => key.active)?.provider || "poe"}
+          providerId={modelKeys.keys.find((key) => key.active)?.provider || providerFromBaseUrl(config?.writer?.base_url) || "poe"}
           model={modelKeys.keys.find((key) => key.active)?.model || config?.writer?.model || ""}
           baseUrl={modelKeys.keys.find((key) => key.active)?.base_url || ""}
           temperature={config?.writer?.temperature ?? 0.2}
@@ -5243,6 +5255,13 @@ export function SettingsView({
                     <Input id={`pf-threshold-${key}`} value={draftThresholds[key] ?? ""} onChange={(event) => setDraftThresholds((current) => ({ ...current, [key]: event.target.value }))} inputMode="decimal" />
                   </Field>
                 ))}
+                <div className="pf-row" style={{ gap: 8, gridColumn: "1 / -1" }}>
+                  <Button size="sm" variant="primary" disabled={policyBusy} onClick={() => void savePolicy()}>
+                    {policyBusy ? t("settings.gateSaving") : t("settings.policySave")}
+                  </Button>
+                  {policyError ? <Text size="xs" tone="danger" role="alert">{policyError}</Text> : null}
+                  {policyNote ? <Text size="xs" tone="tertiary" role="status">{policyNote}</Text> : null}
+                </div>
               </div>
             ) : (
               Object.entries(config.thresholds).filter(([key]) => thresholdMeta[key]).map(([key, value]) => (

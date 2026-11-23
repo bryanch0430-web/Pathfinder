@@ -543,11 +543,26 @@ export default function App() {
         return;
       }
       setDeskOpen(false);
+      setDeskFocus(false);
       setTab(HASH_TAB[hash] ?? "plan");
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // The in-app Desk follows the address bar: opening it writes #desk (a reload or a shared link opens the
+  // desk page), closing it puts the earlier hash back. pushState does not fire hashchange, so nothing loops.
+  const hashBeforeDesk = useRef("#plan");
+  useEffect(() => {
+    if (deskFocus) {
+      if (window.location.hash !== "#desk") {
+        hashBeforeDesk.current = window.location.hash || "#plan";
+        window.history.pushState(null, "", "#desk");
+      }
+    } else if (window.location.hash === "#desk" && !deskOpen) {
+      window.history.replaceState(null, "", hashBeforeDesk.current);
+    }
+  }, [deskFocus, deskOpen]);
 
   useEffect(() => {
     if (!deskFocus) return;

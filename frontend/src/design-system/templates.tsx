@@ -374,6 +374,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("day.strip")}
             aria-pressed={chatPressed}
             aria-controls="pf-panel-chat"
             onClick={toggleChat}
@@ -386,6 +387,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("chat.label")}
             aria-pressed={mapPressed}
             aria-controls="pf-panel-map"
             onClick={toggleMap}
@@ -397,6 +399,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("settings.group.profile")}
             aria-pressed={sheet === "profile"}
             onClick={() => setSheet((current) => (current === "profile" ? null : "profile"))}
           >
@@ -405,6 +408,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("budget.tool")}
             aria-pressed={sheet === "budget"}
             onClick={() => setSheet((current) => (current === "budget" ? null : "budget"))}
           >
@@ -413,6 +417,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("budget.exchange")}
             aria-pressed={sheet === "exchange"}
             onClick={() => setSheet((current) => (current === "exchange" ? null : "exchange"))}
           >
@@ -421,6 +426,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("panels.sketch")}
             aria-pressed={sheet === "sketch"}
             onClick={() => setSheet((current) => (current === "sketch" ? null : "sketch"))}
           >
@@ -429,6 +435,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("videos.title")}
             aria-pressed={sheet === "videos"}
             onClick={() => setSheet((current) => (current === "videos" ? null : "videos"))}
           >
@@ -437,6 +444,7 @@ export function PlannerTemplate({
           <button
             type="button"
             className="pf-shell__toggle"
+            aria-label={t("trending.eyebrow")}
             aria-pressed={sheet === "trending"}
             onClick={() => setSheet((current) => (current === "trending" ? null : "trending"))}
           >

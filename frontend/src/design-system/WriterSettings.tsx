@@ -107,7 +107,8 @@ export function WriterSettings({
     if (activeKey?.key_tail) {
       return t("settings.reviewer.keySaved", { tail: activeKey.key_tail, ...named(activeKey.provider, activeKey.model) });
     }
-    return t("settings.writer.keyEnv", named(usage?.provider || "", usage?.model || ""));
+    // The environment key's provider is the one the dropdown shows (taken from the base URL), not the server's name for it.
+    return t("settings.writer.keyEnv", named(initialProvider || usage?.provider || "", usage?.model || ""));
   };
 
   const savedNote = (providerId: string, modelName: string) => t("settings.savedUses", {

@@ -33,6 +33,28 @@ export function providerLabel(id: string, providers: Pick<LlmProvider, "id" | "l
   return providers.find((provider) => provider.id === id)?.label ?? id;
 }
 
+const HOST_PROVIDERS: [string, string][] = [
+  ["poe.com", "poe"],
+  ["openai.com", "openai"],
+  ["anthropic.com", "anthropic"],
+  ["deepseek.com", "deepseek"],
+  ["x.ai", "xai"],
+  ["googleapis.com", "google"],
+  ["openrouter.ai", "openrouter"],
+];
+
+/** The provider id a base URL points at ("" when its host is not a known one). */
+export function providerFromBaseUrl(baseUrl: string | undefined): string {
+  if (!baseUrl) return "";
+  let host = "";
+  try {
+    host = new URL(baseUrl).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+  return HOST_PROVIDERS.find(([suffix]) => host === suffix || host.endsWith(`.${suffix}`))?.[1] ?? "";
+}
+
 /** True when a typed key does not start with the provider's usual prefix (a key pasted for another vendor). */
 export function keyPrefixMismatch(apiKey: string, prefix: string): boolean {
   const typed = apiKey.trim();
