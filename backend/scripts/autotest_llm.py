@@ -75,6 +75,46 @@ async def list_models(base_url: str, key: str) -> list[str]:
     return [item["id"] for item in data if item.get("id")]
 
 
+async def raw_probe(model: str, base_url: str, key: str) -> dict:
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "Reply with one short sentence: OK."}],
+        "temperature": 0,
+        "max_tokens": 32,
+    }
+    started = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                f"{base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+        content = (((data.get("choices") or [{}])[0].get("message")) or {}).get("content") or ""
+        usage = data.get("usage") or {}
+        return {
+            "model": model,
+            "ok": bool(content.strip()),
+            "intent": content.strip()[:80],
+            "confidence": None,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+            "tokens": int(usage.get("total_tokens") or 0),
+            "error": "" if content.strip() else "empty content",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "model": model,
+            "ok": False,
+            "intent": "",
+            "confidence": None,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+            "tokens": None,
+            "error": str(exc)[:300],
+        }
+
+
 async def probe(model: str, base_url: str, key: str, mode: str) -> dict:
     settings = get_settings().model_copy(
         update={
@@ -149,7 +189,7 @@ async def main() -> None:
     parser.add_argument("--models", default="", help="comma-separated model ids; overrides AUTOTEST_MODELS")
     parser.add_argument("--all", action="store_true", help="fetch the endpoint catalog")
     parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--mode", choices=["probe", "understand"], default="probe")
+    parser.add_argument("--mode", choices=["raw", "probe", "understand"], default="probe")
     parser.add_argument("--jev", action="store_true", help="also probe the Jev endpoint using JEV_API_KEY")
     args = parser.parse_args()
 
@@ -183,7 +223,7 @@ async def main() -> None:
     print(f"probing {len(models)} model(s) through {base_url}", flush=True)
     for model in models:
         print(f"  {model} ...", flush=True)
-        row = await probe(model, base_url, key, args.mode)
+        row = await raw_probe(model, base_url, key) if args.mode == "raw" else await probe(model, base_url, key, args.mode)
         payload["models"].append(row)
         print(f"    {'OK' if row['ok'] else 'FAIL'} {row['intent']} {row['latency_ms']} ms {row['error'][:100]}", flush=True)
 
@@ -206,7 +246,7 @@ async def main() -> None:
                     context=TripContext(session_id="autotest-jev", destination="Kyoto", origin="Hong Kong", days=3, party_size=2),
                     plan=None,
                     message="Plan a 3-day Kyoto trip for two people in April 2027.",
-                    history=[ChatMessage(role="user", content="Plan a 3-day Kyoto trip for two people in April 2027.")],
+                    history=[ChatMessage(id="jev-1", role="user", content="Plan a 3-day Kyoto trip for two people in April 2027.")],
                 )
                 payload["jev"].update(
                     {"ok": decision is not None, "intent": decision.intent if decision else "", "confidence": decision.confidence if decision else None, "error": "" if decision else "no decision"}
