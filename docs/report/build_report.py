@@ -293,6 +293,7 @@ table(
         ["Vector DB + reranker for useful trips", "SQLite plan versions + preference memory; no vector store", "Scope reduction; disclosed"],
         ["Langfuse observability", "Built-in turn trace, SSE trace and Why fold; Langfuse not integrated", "Simplified; trace data remains"],
         ["TravelPlanner full split and 70/30 custom split", "Small frozen suites: 84 routing, 17 planner, 20 verifier, 8 editor, 11 ask, 8 memory", "Screening evidence, not a powered benchmark"],
+        ["Admin Evaluation / Error Analysis", "Reference/demo surfaces; not the source of reported metrics", "Illustrative only; not extensively tested"],
         ["Autonomous booking / payment", "No booking; external reads only", "Out of scope; no unsafe action"],
     ],
     widths=[1.7, 2.3, 1.75],
@@ -470,15 +471,16 @@ body(
 )
 body(
     doc,
-    "Temperatures are set by the kind of decision, not by a universal default. Routing, editing, verification, "
-    "ask and memory use temperature 0 because their outputs are compared or tested and the task benefits from "
-    "reproducibility. The planner keeps 0.2 in the production profile: it must select and arrange candidates, "
-    "and a little variation can help when several sourced options are plausible. This is a production "
-    "assumption, not a swept optimum; the planner temperature was not systematically tuned. Caps follow the "
-    "same logic: 12,000 tokens for the plan, 2,000 for an edit, 1,500 for the verifier, 1,400 for an ask, 700 "
-    "for memory and 4,096 for the analyst. The lower-cost profile from the study (Flash-Lite for analyst, "
-    "planner and editor; DeepSeek for ask and memory) is exposed in Models by part but is not the shipped "
-    "default because its routing result was less stable on unclear utterances.",
+    "The shipped profile uses 0.2 for the writer, analyst, planner, editor, ask and memory purposes, and 0 "
+    "for the verifier. A controlled routing rerun found 0.0 and 0.2 both at 83/84 (exact McNemar p = 1.0); "
+    "the verifier ran 18/20 at both 0.0 and 0.2. Temperature 0 is therefore a reproducibility choice for the "
+    "verifier, not a demonstrated accuracy gain, and 0.2 is a production default that the current evidence "
+    "does not prove optimal. A planned editor-temperature run was stopped by provider quota, and no "
+    "planner/ask/memory temperature sweep or reasoning-effort ablation exists. Caps follow the same "
+    "conservative logic: 12,000 tokens for the plan, 2,000 for an edit, 1,500 for the verifier, 1,400 for an "
+    "ask, 700 for memory and 4,096 for the analyst. The lower-cost profile from the study (Flash-Lite for "
+    "analyst, planner and editor; DeepSeek for ask and memory) is exposed in Models by part but is not the "
+    "shipped default because its routing result was less stable on unclear utterances.",
 )
 body(
     doc,
@@ -956,6 +958,8 @@ for item in [
     "The optional low-cost part-model profile (Flash-Lite/DeepSeek) is tested but not the shipped default.",
     "Component results are one run per case; the only repeated current suite is routing (two runs).",
     "Live search/provider results depend on keys and current data; stale or missing facts are surfaced as gaps.",
+    "The Evaluation tab and the error-analysis view are reference/demo surfaces; their contents are illustrative, are not the source of the reported benchmark numbers, and were not extensively tested.",
+    "The Desk, stuck counter and trending rail are implemented local features, but the project was not operated with a public deployment or a staffed support team.",
 ]:
     bullet(doc, item)
 body(
