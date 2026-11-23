@@ -222,7 +222,9 @@ class Store:
         await self._run(op)
 
     async def delete_session(self, session_id: str) -> dict[str, int]:
-        tables = ("messages", "plans", "shares", "contexts", "wishlist", "seats")
+        # The saved-trip (wishlist) entry is deliberately not here: it keeps its own
+        # snapshot and is removed only from My Trips.
+        tables = ("messages", "plans", "shares", "contexts", "seats")
 
         def op(conn):
             counts = {}
@@ -315,7 +317,10 @@ class Store:
     async def get_message(self, message_id: str) -> dict[str, Any] | None:
         def op(conn):
             row = conn.execute("SELECT * FROM messages WHERE id=?", (message_id,)).fetchone()
-            return _message(row) if row else None
+            if not row:
+                return None
+            # The owning session lets a route refuse a message from another trip.
+            return {**_message(row), "session_id": row["session_id"]}
 
         return await self._run(op)
 
