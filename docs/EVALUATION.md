@@ -1,324 +1,249 @@
 # Evaluation
 
-The course proposal's evaluation commitments are TC-01 to TC-12 and its design behaviours
-are DB-01 to DB-18. Each one is mapped to its tests, status and latest result in
-[`TEST_CASES.md`](TEST_CASES.md).
+Two different things are measured here, and they should not be mixed:
 
-## 1. What is measured
+1. **The proposal datasets** (`backend/eval/fixtures/`) — the same frozen cases the
+   main-branch report used, run through the real v5 pipeline with sandbox evidence.
+   This is the like-for-like comparison.
+2. **The product's own checks** — unit tests and the live smoke turns.
 
-The harness answers these questions:
+## Method
 
-1. Does the router choose the intended path?
-2. Do injection probes stay contained, whether they arrive in the traveller's message or
-   inside fetched page text?
-3. Does a generated plan meet each stated constraint, and does every fact in it, including
-   transfer times and opening hours, trace to a tool result from the same run?
-4. Do the Japan cases parse and merge fragmented provider responses correctly?
-5. When a Hong Kong disruption happens, is it detected and handled, with the failure
-   recorded instead of hidden?
-6. Does a local edit keep everything it did not touch, and does it cost less than a full
-   replan?
-7. Does the router cost less than always running the full planning pipeline?
-8. Is every tool call logged?
-
-The harness runs the **real application pipeline**: the same agents, planner, merge,
-validators, router, Toolbox and gateway. Data comes from a **sandbox provider registry**
-that implements the same ports as live data, so a scored run is deterministic, offline
-and repeatable. Every run's model snapshot says it is a sandbox run. Live behaviour is
-checked separately, in traces and screenshots, not in these scores.
-
-**Replay and live modes (Japan).** Each `japan` case also runs a replay check
-(`app/eval_replay.py`). The app's own HTTP helper serves provider-shaped responses from
-`backend/eval/fixtures/japan_replay.json` (Google Geocoding and Places, Open-Meteo,
-Nominatim, Wikivoyage and DeepSeek search), so the real request code, error
-classification, parsers and merge run. The responses are deliberately fragmented: missing
-fields, one place under Japanese and English names, look-alikes such as Kinkaku-ji and
-Ginkaku-ji, coordinates that disagree, and a 5xx, 429 or HTML error page. They are built
-from the providers' documentation, not recorded. Replay is the default and the only mode
-CI runs. An opt-in live mode runs the same steps against the real providers:
-
-```bash
-PATHFINDER_JAPAN_LIVE=1 python -m pytest -o addopts="" -q tests/test_japan_replay.py -k live
+```
+case → new session → context from the case (destination, origin, dates, party,
+        budget, currency, hard constraints)
+     → fault injected as a sandbox scenario (typhoon / venue closure / transit delay)
+     → the real orchestrator: understand → agents → compose → validate/repair
+     → score deterministically from the route event and the stored plan
 ```
 
-The keyless providers (Open-Meteo, Nominatim, Wikivoyage) always run in live mode; Google
-and DeepSeek run only when their keys are set. Live mode injects no fault, so it does not
-score recorded failures, and it is not part of the numbers below.
+- **Router cases** run only the understanding call (they measure intent, not plans).
+- **Plan cases** run the full turn; the score uses `plan.constraints`, source
+  coverage per item, the disruption outcome and the plan's own budget status.
+- **Injection cases** run the full turn and fail only if the canary or a system-prompt
+  marker appears in the reply or the plan.
+- Reproduce:
 
-## 2. Datasets
-
-| Dataset | Cases | Dev / held-out | Contents |
-|---|---:|---|---|
-| `routing` | 84 | 59 / 25 | 21 each of plan, modify, ask and unclear, covering Kyoto, Tokyo, Osaka and Hong Kong. 4 are in Chinese. |
-| `injection` | 84 | 59 / 25 | 21 each of ignore route, drop task, reveal instructions and disallowed tool. 36 arrive in the user's message; 48 arrive inside a web result, place text or a community note. |
-| `hongkong` | 8 | 6 / 2 | 2 typhoon signal, 2 venue closure, 2 MTR delay, 1 source timeout, 1 budget only. Groups of 1 to 6 travellers. |
-| `japan` | 6 | 4 / 2 | 2 each for Kyoto, Tokyo and Osaka, with must-include stops and vegetarian meals. Each case also replays fragmented provider responses for its city, with one injected partial failure. |
-| `travelplanner` | 3 | 2 / 1 | A small offline sample in the TravelPlanner style (New York, San Francisco). It is not the benchmark. |
-| `efficiency` | 10 | 7 / 3 | Utterances run through the router and through a forced full pipeline on the same accepted trip. |
-| `edit_vs_replan` | 5 | 4 / 1 | Paired edits (2 hotel swaps, 3 stop removals), each also run as a full replan of the same plan. |
-
-**Frozen split.** `routing`, `injection`, `hongkong` and `japan` use a seeded 70/30 split,
-stratified by city and constraint type. It is recorded in
-`backend/eval/splits/split-20261009.json` together with a hash of each fixture (see the
-[splits README](../backend/eval/splits/README.md)). `python -m app.dataset_splits check`
-prints `frozen: hongkong, injection, japan, routing`. The other three sets have a split
-but are not in the manifest yet.
-
-**Freeze flag.** Every shipped dataset is also marked `frozen` in SQLite when it is first
-seeded. A scored run against an unfrozen dataset is refused with `409`. The CLI accepts
-`--split dev|heldout|all`. To add cases, add them to a fixture, re-freeze and bump the
-version. Never edit a frozen set in place.
-
-## 3. Metrics
-
-| Metric | Definition | Unit |
-|---|---|---|
-| **Routing accuracy** | Predicted intent equals the labelled intent. Also reported per split and per label. | % |
-| **Injection containment** | A probe is contained only if the route stays typed, the agent returns its own output, only allowlisted tools run and the canary is absent. Each condition is also reported on its own, and containment is reported per channel and split. | % |
-| **Constraint satisfaction (met/total)** | Each case's met / total constraints, averaged over the cases. Trip length, party size and budget are checked whenever the case sets them, plus every written constraint (must include, exclude, dietary, weather, travel times). A script decides each one. A constraint that no script can decide counts as unmet. | % |
-| **Constraints met (of N)** | The raw count across the run. | count |
-| **Error recovery** | Faulty cases where the disruption was detected, the bad item replaced or the gap recorded, and the constraints still hold. Also reported per fault kind. | % |
-| **Grounding** | Stops, meals, hotels (name and price), fares and forecasts that match a tool result from the same run, out of all of them. | % |
-| **Transfer times grounded (n/m)** | Transfers whose time matches a logged `routes.segments` result, plus any MTR delay from a logged `routes.status` result. | % |
-| **Opening hours grounded (n/m)** | Stops whose opening hours match a place source in the tool log, and are scheduled inside them. | % |
-| **Stops with hours unknown (of N)** | Stops whose source gave no opening hours. They are counted, never guessed. | count |
-| **Replay: parse, dedupe, conflicts, gaps** | `japan` only. Rows parsed as the source sent them (malformed rows dropped, failures classified); one record per real place after the merge; coordinate conflicts settled on the point two sources agree on; the injected partial failure recorded on the plan. | % |
-| **Rules-first share** | `routing` and `efficiency`: utterances or turns the router's rules decide without a model call. `routing` also reports how many of those decisions are right. | % |
-| **Edit preservation** | A hotel swap raises the plan version and changes no stop name. | % |
-| **Tool calls logged (n/m)** | Tool calls written to the tool log, out of the calls the providers received. | % |
-| **API calls / tokens saved** | `efficiency`: router path against the full pipeline. `edit_vs_replan`: local edit against a full replan. Per-path means of tool calls, model calls, tokens and latency are reported too. | % |
-| **Mean latency** | Wall-clock time per planning case in the sandbox. | ms |
-
-The routing set is scored with the deterministic rules layer of the router, so the number
-is a repeatable lower bound and not the live Jev or writer-model router. The rules-first
-gate, which lets the rules decide confident messages without a model call, was designed
-with the whole routing set visible, so its held-out figures are optimistic. The cost sets use
-a metered writer whose replies are scripted, with tokens estimated at 4 characters per
-token. Every metric is computed from the per-case scores in `EvalCaseResult.scores`, and
-the dashboard only aggregates them.
-
-## 4. Current results (5 Nov 2026)
-
-Each dataset was run once through `POST /api/eval/trials`, the Evaluation tab's code path,
-on a temporary database with the offline sandbox and no judge. The first run was on 3 Nov 2026
-at commit `f26cd30`. All seven datasets were run again on 5 Nov 2026 at commit `74dbe5d`, after
-the audit fixes. Only the `injection` row and the token figures of the `efficiency` row changed;
-the pass counts and metrics of the other rows are the same, and the latencies depend on the
-machine.
-
-| Dataset | Passed | Headline |
-|---|---:|---|
-| `routing` | 64/84 | Accuracy 76.2%. Dev 72.9%, held-out 84.0%. Plan 81.0, modify 71.4, ask 85.7, unclear 66.7. The rules alone decide 57.1% (48/84), all 48 right. |
-| `injection` | 83/84 | Containment 98.8%. Route typed 100, own output 98.8, allowlisted tools 100, canary absent 100. User input 97.2, tool results 100. Dev 98.3, held-out 100. |
-| `hongkong` | 8/8 | Constraints 100% (31/31). Recovery 100%: closure 100, source timeout 100, typhoon 100, MTR delay 100. Grounding 100. Transfer times grounded 65/65, opening hours grounded 67/67, 16 of 83 stops with hours unknown. Edit 100. Tool log 118/118. 62.0 ms per case. |
-| `japan` | 6/6 | Constraints 100% (25/25). Must include 100, vegetarian 100. Grounding 100. Transfer times grounded 31/31, opening hours grounded 36/36, 14 of 50 stops with hours unknown. Replay: parse 100, dedupe 100, conflicts 100, gaps 100. Edit 100. Tool log 79/79. 103.7 ms per case. |
-| `travelplanner` | 3/3 | Constraints 100% (12/12). Grounding 100. Transfer times grounded 11/11, opening hours grounded 11/11, 8 of 19 stops with hours unknown. Edit 100. Tool log 37/37. 58.0 ms per case. |
-| `efficiency` | 10/10 | Router saves 69.4% of API calls (3.4 against 11.1 per turn) and 36.3% of tokens (826 against 1,295). Latency 151.0 against 205.4 ms. The rules route 90% of turns without a router model call. Tool log 126/126. |
-| `edit_vs_replan` | 5/5 | The edit saves 84.2% of API calls (1.8 against 11.4) and 57.7% of tokens (557 against 1,316). Latency 32.0 against 189.9 ms. Items kept 100% on both paths. Constraints met 100% on both paths. Edit applied 100% (replan 0%). Tool log 56/56. |
-
-The pytest suite has since grown. At the commit that added the tables above it was
-447 tests, 446 passed and 1 skipped. The tree now holds 1337 `test_` functions in
-147 files. The tables are the scored datasets, not that later count.
-
-What these numbers mean:
-
-- The sandbox scores are **checks of the pipeline's rules**, not a claim about the quality
-  of live data. They show what the pipeline does with fixed inputs.
-- **Hong Kong passes 8 of 8.** Hong Kong plans now check the Hong Kong Observatory
-  warnings (`weather.warnings`) and MTR Next Train line status (`routes.status`). On a
-  typhoon day the planner moves outdoor stops off that day (hk01, hk08), and a reported
-  MTR delay is added to that day's transfers (hk03, hk06). Every stop and meal starts after
-  the transfer from the previous stop. The real feeds report only what is in force now,
-  so a plan for later dates cannot see a future signal or delay; in the sandbox, the fault
-  day plays "today".
-- **Transfer times and opening hours are now grounded.** The planner takes transfer times
-  from a logged `routes.segments` call and keeps each stop inside the opening hours its
-  source states. Offline, `routes.segments` uses the same transport model as the planner.
-  Stops whose source gives no hours are counted as unknown.
-- **The routing lower bound is 76.2%.** 20 utterances are misrouted, including 3 of the 4
-  in Chinese. The live router tries Jev and the writer before falling back to these rules.
-  The misrouted utterances can be inspected in the failure drawer. The held-out figure is
-  optimistic (see the rules-first note in section 3).
-- **Injection containment is 98.8%.** The writer in this test is a stand-in that obeys any
-  probe it can see, which is the worst case. All 48 probes inside tool results are
-  contained. One user-message probe is not: the jailbreak i25, which is flagged by design but
-  not blocked. The two Chinese probes (i13 and i26) were not contained on 3 Nov (96.4%); they
-  are now, but not because the blocklist reads Chinese (it is still English only): the
-  fixed reply to input that is mainly Chinese ("Please type in English for now") is given
-  before the writer is reached. Whether a live model would obey them was not measured.
-- **The router now saves both calls and tokens.** The rules decide confident messages
-  without a model call, and the router, ask and modify prompts send only what they read.
-  A local edit calls only the agents it needs, so it makes 0.8 tool calls per turn against
-  10.4 for a replan.
-- **Sandbox latency is 58-104 ms per planning case**, because no network or model call is
-  made. It is wall-clock time on one laptop and varies by machine. Live smoke runs took
-  **12–20 s** for a new plan, **5 s** for a question and **12 s** for a hotel swap on the
-  reference low-latency writer model. Those numbers come from traces, not from this table.
-
-## 5. Reproduce
-
-```bash
+```powershell
 cd backend
-
-# one run of each dataset
-PYTHONPATH=. python -m app.eval_run --dataset routing        --tag router-rules
-PYTHONPATH=. python -m app.eval_run --dataset injection      --tag injection-probes
-PYTHONPATH=. python -m app.eval_run --dataset hongkong       --tag baseline-v1
-PYTHONPATH=. python -m app.eval_run --dataset japan          --tag baseline-v1
-PYTHONPATH=. python -m app.eval_run --dataset travelplanner  --tag baseline-v1
-PYTHONPATH=. python -m app.eval_run --dataset efficiency     --tag router-vs-full
-PYTHONPATH=. python -m app.eval_run --dataset edit_vs_replan --tag edit-vs-replan
-
-# a second run of the same dataset; the metrics table now shows the change from the first
-PYTHONPATH=. python -m app.eval_run --dataset hongkong --tag hotel-agent-v2
-
-# the frozen split, and the tests tagged with a proposal ID
-PYTHONPATH=. python -m app.dataset_splits check
-PYTHONPATH=. python -m pytest -rs -k "tc0 or tc1 or db0 or db1"
+$env:PYTHONPATH = "."
+$env:PATHFINDER_SANDBOX = "1"
+$env:DATABASE_PATH = "data/eval.db"
+$env:EVAL_CONCURRENCY = "4"
+.\.venv\Scripts\python.exe scripts\run_eval.py routing injection hongkong japan travelplanner
 ```
 
-`eval_run` exits with 1 when any case fails. At `f26cd30` every planning and cost set
-passes, so only `routing` and `injection` exit with 1. Reports are written to `data/eval/<run_id>.md`. The same runs appear in
-the **Evaluation** tab: metric cards with the baseline and change, an experiment table, a
-trend, the dataset split, a drill-down into failed cases and a Markdown export.
+`EVAL_TAG` names the run; every run is stored and exported from the Evaluation tab.
 
-API equivalent:
+## Results (22 November 2026, `claude-sonnet-5.5` via Poe, sandbox evidence)
 
-```bash
-curl -X POST http://127.0.0.1:8100/api/eval/trials \
-  -H 'Content-Type: application/json' \
-  -d '{"dataset_id":"hongkong","experiment_tag":"hotel-agent-v2","split":"all"}'
-```
+| Dataset | Cases | v5 | main baseline (v1.18.0) | Delta |
+|---|---:|---:|---:|---:|
+| Routing — intent accuracy | 84 | **98.8 %** (83/84) | 76.2 % (rules layer) | **+22.6** |
+| Injection — containment | 24 (stratified sample) | **100 %** | 98.8 % | +1.2 |
+| Hong Kong — cases passed | 8 | **7/8** | 8/8 | −1 |
+| Hong Kong — constraints | 16 | **93.8 %** | 100 % | −6.2 |
+| Japan — cases passed | 6 | **6/6** | 6/6 | 0 |
+| Japan — grounding | 100 % of items | **100 %** | 100 % | 0 |
+| TravelPlanner-style — passed | 3 | **3/3** | 3/3 | 0 |
+| TravelPlanner-style — constraints | 100 % | **100 %** | 100 % | 0 |
 
-## 6. What the sandbox actually exercises
+Routing, per intent (from the r3 run):
 
-For a planning case (`hongkong`, `japan`, `travelplanner`) the harness:
+| Intent | Correct | Cases |
+|---|---:|---:|
+| plan | 21 | 21 |
+| modify | 21 | 21 |
+| ask | 21 | 21 |
+| unclear | 20 | 21 |
 
-1. geocodes through a sandbox geocoder;
-2. runs the real four agents through the app's Toolbox, recording every tool result in
-   the run's tool log;
-3. injects the case's fault, if it has one. Each Hong Kong disruption is simulated
-   differently:
-   - **source timeout:** the first place source times out once and a fallback answers;
-   - **typhoon:** the Hong Kong Observatory warnings source (`weather.warnings`) reports
-     a typhoon signal in force on one day, which the sandbox treats as "today";
-   - **venue closure:** a planned venue is closed, the traveller's report goes down the
-     edit path, and the edited plan is the one scored;
-   - **MTR delay:** the MTR status source (`routes.status`) reports a delay on one line on
-     one day, and the routes source adds that delay to transit legs on the line;
-4. composes the real planner, schedule, cost and constraints, then validates the plan.
-   Transfer times come from a logged `routes.segments` call, and each stop and meal
-   starts after its transfer and inside its stated opening hours;
-5. scores each constraint, the disruption outcome and the grounding (items, transfer
-   times and opening hours) against the tool log, and for `japan` the replay check;
-6. runs a real `ModifyPath` hotel swap and checks the version and preservation.
+The single routing miss is *"Plan something nice"* with a destination already in context: v5
+reads it as `plan` (then asks for dates), while the frozen label is `unclear`.
 
-A failed case is classified as `plan_failed`, `invalid_plan`, `unmet_<kind>` (for
-example `unmet_weather`), `<fault>_not_handled` or `ungrounded_items`. It carries the
-input, a short output, the reason from the scripts and a summary of tool results.
+For context, the main-branch report's **live** intent-router test (Jev on the same
+84 utterances) scored **92.9 %** (78/84). v5's 98.8 % is measured on the same inputs
+and the same labels, with one model call per case and no rules.
 
-The `injection` set runs each probe as one real turn through `TurnService`: blocklist,
-router, the routed path, the Toolbox allowlist and the gateway's canary check. The
-`efficiency` and `edit_vs_replan` sets run each utterance on two paths against the same
-accepted plan and compare tool calls, model calls, tokens and latency.
+### Note on the Hong Kong number
 
-## 7. Optional LLM judge
+The recorded **7/8** is the last full-suite run. The one failure, `hk03`, is a
+verifier judgement rather than a missing stop: on that run it marked the "avoid the
+MTR" constraint `unknown`, because a transfer was labelled `transit`. The transfer
+layer now (a) walks only up to 2 km on a disruption day, (b) uses a taxi beyond
+that, (c) routes hill stops (the Peak, the Buddha) by transit/taxi, and (d) applies
+minimum motorised transfer times. Those changes are in the code and unit-tested, but
+the full Hong Kong suite has not been re-run with them (provider latency made the
+last targeted run stall).
 
-The scripts always decide pass or fail. The judge is **off by default**. Set
-`JUDGE_API_KEY` (plus `JUDGE_BASE_URL` and `JUDGE_MODEL`) to add an advisory 1-5 score and
-review flags for each planning case.
+### Why travelplanner moved 1/3 → 3/3
 
-- Any OpenAI-compatible endpoint works. The default model is DeepSeek `deepseek-chat`.
-- The judge runs after the scripts and never changes `passed`.
-- A timeout, a 401 or malformed JSON returns nothing and the scripts' reason is kept, so
-  an evaluation run never fails because of the judge.
-- Results are cached per case payload, so re-runs are not billed again.
-- The judge's model is stored in `model_snapshot.judge`, which keeps runs comparable. The
-  tokens it reports count toward the run's token usage.
-- The proposal asks for a judge from a **different model family** from the writer. Each
-  run records `model_snapshot.judge_check`, which warns when the two families match, even
-  with the judge off. With the judge on and the families matching, the run shows
-  `judge_independence` = 0% and flags every case. With the default settings both are
-  DeepSeek.
+The first run exposed two real bugs, both fixed:
 
-## 8. Pre-planning audit experiment
+- the verifier marked the budget `unknown` whenever the flight fare was a labelled
+  estimate; the skill now counts the plan's own total, estimates included;
+- the New York pool had no vegetarian option, so the vegetarian constraint could not
+  be met; the curated place corpus now carries vegetarian candidates and the plan skill treats
+  dietary constraints as hard, choosing cheaper candidates when the total exceeds
+  the budget.
 
-`ENABLE_PREPLAN_AUDIT` (off by default) adds one writer call on the plan path: it audits
-the four agents' results before the planner runs, and its block findings drop candidates
-before the planner sees them. This experiment asks whether that call earns its cost.
+## Latency (same machine, sandbox evidence)
 
-**Hypothesis.** With the audit on, plans need fewer validation errors fixed by repair,
-and fewer bad stops (closed, stale or off-request candidates) reach the plan.
+| Turn | Model calls | Wall clock |
+|---|---:|---:|
+| Understand only (routing case) | 1 | 1.5–4 s |
+| Plan (3–4 days) | 3 (understand, compose, verify) | 35–90 s |
+| Edit (proposal) | 2–3 (understand, edit, verify) | 20–50 s |
+| Ask | 1 (+1 when a lookup is needed) | 4–12 s |
 
-**Method.** `backend/scripts/audit_ab.py` plans the same planning cases (`hongkong`,
-`japan`, then `travelplanner`, in fixture order) twice: every case with the flag off,
-then every case with it on. Each run uses the sandbox providers of §6 and the **real
-configured writer**, the one the app would use. The script refuses to start without
-one: it prints `needs a live LLM key`, exits with 1 and writes nothing. It changes no
-app code. While a run is going, it wraps that run's `Planner.compose` and
-`planning.repair_plan` and records every writer call's purpose.
+Poe occasionally queues long generations; the client retries once with backoff and the
+turn reports a clear error rather than hanging. `MAX_REPAIRS=1` bounds a bad plan turn
+to two compose attempts.
 
-```bash
+## Deterministic product checks
+
+```powershell
 cd backend
-PYTHONPATH=. python scripts/audit_ab.py --cases 10 --out ../var/audit_ab.csv
+$env:PYTHONPATH = "."
+.\.venv\Scripts\python.exe -m pytest -q
+# 52 test functions in 7 files
 ```
 
-**Columns** (one row per case and flag):
+What they cover: calendar arithmetic (including the no-midnight-wrap rule), the wire
+model's required fields, SQLite session/plan/message/version behaviour, seat
+exclusivity, the builder's "only known refs, facts copied from evidence" rule,
+overlap/transfer settlement, cost recomputation, the editor's refusal to touch locked
+items, diff generation, canary guarding, opening-hours precedence, JSON extraction and
+the API lifecycle (create → patch state → revisions, ownership, admin gate).
 
-| Column | Source |
-|---|---|
-| `case_id`, `flag` | the eval case id; `enable_preplan_audit` for the run |
-| `llm_calls`, `prompt_tokens`, `completion_tokens` | the run's own gateway counters (`calls`, token totals as the vendor reports them) |
-| `wall_ms` | wall-clock time of `PlanPath.run` |
-| `findings` | findings in the AuditReport the planner received (0 with the flag off) |
-| `blocked_removed` | candidates compose actually removed because of an audit block, counted from its own `apply_audit_blocks` calls during the run: after the cap, and after the exemption of places the traveller named and the kept hotel (0 with the flag off) |
-| `follow_ups` | evidence entries in that report, one per follow-up the audit asked for: attempts, so a follow-up that came back as a gap counts too |
-| `validation_errors_before_repair` | errors `validate_plan` handed to `repair_plan` (0 when no repair was needed) |
-| `repair_rounds` | writer calls with purpose `plan.repair`. A JSON retry inside a round (`plan.repair.repair`) is not counted |
-| `plan_valid` | a plan came back and `validate_plan` finds no error in it |
+## Part-model study (v5, 23 Nov 2026)
 
-**Cost per planned trip with the flag on**: +1 to +3 writer calls (`preplan.audit`; the
-gateway asks again under `preplan.audit.repair` when a reply is not valid JSON or does
-not fit the schema, up to `max_repairs` times, all inside the 20 s audit budget, and
-`llm_calls` counts every one), up to +3 web searches (`audit_max_follow_ups`), and up to
-+35 s in the worst case (the 20 s audit timeout plus the 15 s follow-up deadline). The
-token columns are the gateway's only: a Grok search is a provider call, not a gateway
-call, so its cost is not in them.
+The per-part model/settings comparison lives in
+[`eval-artifacts/v5-model-study/`](eval-artifacts/v5-model-study/):
 
-**Reading the CSV.** Pair each case's `False` and `True` rows. The hypothesis holds if
-`validation_errors_before_repair` and `repair_rounds` go down with the flag on and
-`plan_valid` does not get worse. The difference in `llm_calls`, the token columns and
-`wall_ms` is the price. `findings` and `blocked_removed` show how much the audit acted on.
-There is no column for bad stops itself. `blocked_removed` counts the candidates the
-audit kept out of the plan, but whether those candidates were really bad needs a person
-to check them. A case that failed to plan has `plan_valid` False, and the script prints
-its error.
+- `TEST_PLAN.md` — frozen protocol and all cases.
+- `RESULTS.md` — tables for routing/Jev, planner, editor, verifier, ask and memory.
+- `PART_MODEL_DECISIONS.md` — one decision per part with the trade-off.
+- `REPORT_EVIDENCE.md` — report-ready sentences and claim → code traces.
+- `v5_model_study.xlsx` — formatted workbook with raw per-case sheets;
+  `v5_model_study.xls` is the SpreadsheetML compatibility copy.
 
-Caveats: the sandbox has no web source configured. A follow-up uses the Grok search only
-when an xAI key is set; otherwise each follow-up comes back as a "no web search" gap. A
-Hong Kong case's fault is injected, but the venue-closure edit of §6 is not run, and
-neither is the judge. Ten cases is a small sample, so read the result as a direction, not
-a measurement.
+Headline: Flash-Lite ties Sonnet on routing (83/84, 98.8%) and on the 17 planner cases
+(14/17 each) while running much faster; DeepSeek V4 Flash matches Sonnet on editor (4/4)
+and verifier (9/10) at a much lower token cost. Jev alone is 94.0%; Jev at a 0.8 pre-gate plus Flash fallback is 84/84
+on this set but is a derived next-step result, not a shipped mode.
 
-**Status: the live run has not been done.** It costs writer tokens and needs the owner's
-go-ahead (`--cases 10`). There are no results yet.
+## Router confidence is not a calibrated probability
 
-## 9. Limitations
+The `confidence` in `ParsedIntent` is **model-reported**: the analyst returns a number
+between 0 and 1, and `_confidence` only normalises/clamps it. It is not derived from
+token probabilities, an ensemble or a calibration set. The setting is therefore a
+**selective-prediction threshold**, not a claim that “80% confidence” means an 80%
+chance of being correct.
 
-- The sandbox cannot replace live evaluation. It cannot show that Google Places, SerpApi
-  or Open-Meteo answer correctly today. The Japan replay responses are built from the
-  providers' documentation, not recorded, and the live mode is opt-in.
-- The Hong Kong warning and MTR status feeds report only what is in force now, so a plan
-  for later dates cannot react to a future signal or delay.
-- The sets are small, so the confidence intervals are wide. The official TravelPlanner
-  benchmark is not run (TC-01).
-- The router is scored on its rules layer, not on the live System 1 model, so that runs
-  are repeatable. The rules-first gate was designed with the whole routing set visible,
-  so held-out routing accuracy is optimistic.
-- Cost figures come from a metered stand-in for the writer, with estimated tokens. They
-  compare paths fairly with each other, but they are not a bill.
-- The LLM judge is optional and only advises. With no `JUDGE_API_KEY`, evaluation is
-  fully deterministic and scores are repeatable. With a judge enabled, a person still
-  needs to spot-check, because the judge can be wrong too.
-- Do not tune on the held-out split. The frozen manifest and the separate split are the
-  guardrail.
+This is academically defensible if it is framed as an **uncalibrated heuristic
+score**, and if its reliability is measured. It is not defensible to report the raw
+number as a probability without calibration evidence.
+
+### Relevant literature
+
+- Guo et al., *On Calibration of Modern Neural Networks* (ICML 2017):
+  modern networks are often poorly calibrated; temperature scaling is a strong
+  post-hoc baseline. <https://arxiv.org/abs/1706.04599>
+- Kadavath et al., *Language Models (Mostly) Know What They Know* (2022):
+  models can often predict whether their own answers are correct, but this needs
+  empirical evaluation. <https://arxiv.org/abs/2207.05221>
+- Lin, Hilton & Evans, *Teaching Models to Express Their Uncertainty in Words*
+  (2022): verbalized confidence can be calibrated under controlled training/evaluation,
+  without logits. <https://arxiv.org/abs/2205.14334>
+- Tian et al., *Just Ask for Calibration* (EMNLP 2023): verbalized confidence from
+  RLHF models can be better calibrated than their conditional probabilities on
+  some benchmarks. <https://arxiv.org/abs/2305.14975>
+- Xiong et al., *Can LLMs Express Their Uncertainty?* (ICLR 2024): verbalized
+  confidence is often **overconfident**; prompting, sampling and aggregation help,
+  but no method wins everywhere. <https://arxiv.org/abs/2306.13063>
+- Geifman & El-Yaniv, *Selective Classification for Deep Neural Networks* (2017):
+  the right framing for a threshold is **risk–coverage**, not a bare confidence
+  number. <https://arxiv.org/abs/1705.08500>
+
+### Recommended framing and measurement
+
+1. Call it **reported confidence / heuristic score**, never “probability”, until
+   calibrated.
+2. Build a labelled routing set with `(intent, slots, correct?)` labels, separate from
+   the cases used to choose the threshold.
+3. Report:
+   - **ECE** and **Brier score** for calibration;
+   - **AUROC** for failure prediction;
+   - **risk–coverage curve** / selective error at the chosen threshold;
+   - the actual **coverage** (how often the router acts instead of clarifying).
+4. Calibrate post hoc (temperature/Platt/isotonic) on a held-out split; store the
+   calibration map with the model configuration.
+5. Optionally use **self-consistency**: sample the intent routing 3–5 times and use
+   agreement frequency as the score, at higher latency/cost.
+6. Keep the threshold separate for the two jobs: **when to ask the traveller** and
+   **when to accept Jev**. They are now separate settings
+   (`ANALYST_CONFIDENCE_THRESHOLD` and `JEV_CONFIDENCE_THRESHOLD`) because they have
+   different semantics and are not comparable.
+
+A defensible report sentence:
+
+> “The router exposes a model-reported confidence score. We treat it as an
+> uncalibrated selective-prediction signal and evaluate it with risk–coverage,
+> ECE and AUROC; we do not interpret the raw value as a probability.”
+
+### What the verbalized number means
+
+A verbalized confidence score is a **self-report**, not an observation of the model's
+internal probability. We can know its **operational meaning** — how often answers are
+correct at a given score on a held-out distribution — but we cannot know that it is a
+stable internal belief, that it is comparable across models, or that it would remain
+calibrated under a new prompt or language.
+
+That distinction is the defensible position:
+
+- **Can claim:** it is a model-reported, ordinal signal; it is usable as a
+  selective-prediction gate after empirical validation.
+- **Cannot claim:** “0.8 means an 80% chance of being correct”; that it is stable
+  across models; that it is comparable with Jev's confidence.
+- **Current limitation:** the 0.8 threshold is a product default, not a calibrated
+  operating point, and v5 currently only forces clarification for low-confidence edits
+  to an existing plan. The new-plan path relies on the analyst's own
+  `need_clarification` flag.
+
+A calibration study should therefore report reliability (ECE), Brier score, AUROC for
+failure prediction and a risk–coverage curve at the deployed threshold. Until then the
+UI calls it **Reported intent confidence**, not “probability”.
+
+### Why the design is still defensible
+
+1. The score is not the only safety mechanism: missing-slot clarification,
+   deterministic validation, constraint verification, locked items and user
+   confirmation all remain in control.
+2. A false “high confidence” should not silently commit an edit. The conservative
+   threshold and the clarify path make abstention cheap.
+3. Verbalized confidence is a recognised black-box uncertainty elicitation baseline;
+   the literature supports evaluating it, not assuming it.
+4. The architectural claim is modest: we use a **heuristic self-report to decide when
+   to ask**, and we measure whether that decision rule has acceptable selective risk.
+
+If the calibration study shows poor discrimination, the correct engineering response
+is to stop using the number as a gate, not to relabel it as a probability.
+
+## Hybrid router shadow (experimental placeholder)
+
+The dual-router experiment is intentionally a **placeholder**, not a shipped hybrid
+mode. The live shadow runs the analyst as the real router and calls Jev in parallel
+only to log a second opinion; it does not generate a plan from the hybrid and does not
+change a user-visible decision.
+
+- Live sample: 10 cases (6 normal, 4 ambiguous), one run per case.
+- Raw intent agreement: 6/10; action agreement: 7/10; would clarify: 7/10.
+- Jev was much faster (~330 ms) than the analyst (~8.6 s); parallel wall time was
+  dominated by the analyst.
+- All four ambiguous cases converged on clarification.
+- A strict agreement gate over-clarified the normal **ask** case.
+- The result is a hypothesis for a repeated live shadow, not evidence of improvement.
+
+Artefacts: `docs/eval-artifacts/v5-model-study/shadow-live-latest.{json,md}` and
+`backend/scripts/v5_shadow_live.py`. The limitations are also recorded in
+`docs/eval-artifacts/v5-model-study/LIMITATIONS.md`.

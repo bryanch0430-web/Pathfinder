@@ -1,223 +1,91 @@
-"""Domain model for Pathfinder.
+"""The wire model of a Pathfinder trip.
 
-The domain owns the vocabulary of the product: a trip, its days, items,
-sources, freshness and constraint checks. It deliberately has no knowledge of
-FastAPI, HTTP, SQLite or any model vendor.
+These types are the contract the React UI was written against (``frontend/src/design-system/types.ts``).
+Everything the API returns is one of these models, so a field the UI reads can
+never be missing because some code path forgot it: defaults are part of the model.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from enum import StrEnum
-from typing import Annotated, Any, Literal
+from datetime import datetime, timezone
+from typing import Any, Literal
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    StringConstraints,
-    field_validator,
-    model_serializer,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+from app.core.currencies import normalise_currency
 
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+DataStatus = Literal["ok", "stale", "unavailable"]
+ItemType = Literal["attraction", "hotel", "meal", "transit", "ticket"]
+Intent = Literal["plan", "modify", "ask", "unclear"]
+PriceKind = Literal["live", "reference", "estimate", "none"]
+TransportMode = Literal["flight", "train", "ticket", "ferry", "bus", "shuttle", "taxi", "drive", "ground"]
+MealSlot = Literal["breakfast", "lunch", "dinner", "snack"]
+PlanLocale = Literal["en", "zh-Hant", "zh-Hans"]
+LinkKind = Literal["booking", "official", "map", "tickets", "menu"]
 
 
-def new_id(prefix: str = "id") -> str:
-    import uuid
-
-    return f"{prefix}_{uuid.uuid4().hex[:12]}"
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-class Intent(StrEnum):
-    PLAN = "plan"
-    MODIFY = "modify"
-    ASK = "ask"
-    UNCLEAR = "unclear"
-    #: show the plan in another display language; never edits the plan
-    SET_LANGUAGE = "set_language"
-    #: a display language that is not supported (fixed reply)
-    UNSUPPORTED = "unsupported"
-    #: re-fetch the outdated sections through the freshness check, nothing else
-    REFRESH = "refresh"
+class Wire(BaseModel):
+    """Base: lenient on input (sources evolve), strict on the fields the UI relies on."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
-class DataStatus(StrEnum):
-    OK = "ok"
-    STALE = "stale"
-    UNAVAILABLE = "unavailable"
+class GeoPoint(Wire):
+    lat: float
+    lng: float
 
 
-class ItemType(StrEnum):
-    ATTRACTION = "attraction"
-    HOTEL = "hotel"
-    MEAL = "meal"
-    TRANSIT = "transit"
-    TICKET = "ticket"
+class Money(Wire):
+    amount: float
+    currency: str = "HKD"
 
 
-class AgentName(StrEnum):
-    ATTRACTION = "attraction"
-    HOTEL = "hotel"
-    WEATHER = "weather"
-    TICKET = "ticket"
-
-
-class AgentStatus(StrEnum):
-    OK = "ok"
-    PARTIAL = "partial"
-    UNAVAILABLE = "unavailable"
-    TIMEOUT = "timeout"
-    FAILED = "failed"
-
-
-class FailureKind(StrEnum):
-    NO_DATA = "no_data"
-    TIMEOUT = "timeout"
-    RATE_LIMIT = "rate_limit"
-    SERVER_ERROR = "server_error"
-    INVALID_REQUEST = "invalid_request"
-    AUTH = "auth"
-    BLOCKED = "blocked"
-    NETWORK = "network"
-    PARSE = "parse"
-
-
-class PriceKind(StrEnum):
-    LIVE = "live"
-    REFERENCE = "reference"
-    ESTIMATE = "estimate"
-    NONE = "none"
-
-
-class ConstraintStatus(StrEnum):
-    PASS = "pass"
-    FAIL = "fail"
-    UNKNOWN = "unknown"
-
-
-class Severity(StrEnum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class GeoPoint(BaseModel):
-    lat: float = Field(ge=-90, le=90)
-    lng: float = Field(ge=-180, le=180)
-
-
-class Money(BaseModel):
-    amount: float = Field(ge=0)
-    currency: str = Field(min_length=3, max_length=3)
-
-    @model_validator(mode="after")
-    def _upper(self) -> "Money":
-        self.currency = self.currency.upper()
-        return self
-
-
-class DateRange(BaseModel):
-    start: date
-    end: date
-
-    @model_validator(mode="after")
-    def _order(self) -> "DateRange":
-        if self.end < self.start:
-            raise ValueError("trip end date must not precede start date")
-        if (self.end - self.start).days > 60:
-            raise ValueError("trip is too long")
-        return self
-
-    @property
-    def night_count(self) -> int:
-        return max((self.end - self.start).days, 0)
-
-    @property
-    def dates(self) -> list[date]:
-        return [date.fromordinal(self.start.toordinal() + i) for i in range((self.end - self.start).days + 1)]
-
-
-class SourceRef(BaseModel):
+class SourceRef(Wire):
     title: str
     url: str = ""
-    source: str
-    fetched_at: datetime = Field(default_factory=utcnow)
-    published_at: datetime | None = None
+    source: str = ""
+    fetched_at: str | None = None
 
 
-class Link(BaseModel):
-    """An address the traveller can open: built by code from what a source returned, never written by a model."""
+class ImageRef(Wire):
+    url: str
+    attribution: str = ""
+    source: Literal["google", "wikimedia", "serpapi"] = "wikimedia"
 
-    kind: Literal["booking", "official", "map", "tickets", "menu"]
+
+class Link(Wire):
+    kind: LinkKind
     url: str
     label: str = ""
 
 
-class ImageRef(BaseModel):
-    """A picture a source returned: an address the page can show (our own route for a Google photo, so the key
-    stays on the server), the credit to print under it, and the source it came from."""
-
-    url: str
-    attribution: str = ""
-    source: Literal["google", "wikimedia", "serpapi"]
-
-
-class WeatherDay(BaseModel):
-    date: date
-    status: DataStatus = DataStatus.OK
+class WeatherDay(Wire):
+    date: str
+    status: DataStatus = "ok"
     summary: str = ""
     high_c: float | None = None
     low_c: float | None = None
-    precipitation_probability: int | None = Field(default=None, ge=0, le=100)
+    precipitation_probability: float | None = None
     source: str = ""
-    fetched_at: datetime = Field(default_factory=utcnow)
+    fetched_at: str | None = None
     note: str = ""
 
-    @property
-    def is_available(self) -> bool:
-        return self.status == DataStatus.OK and self.high_c is not None
 
-
-class TransferLeg(BaseModel):
-    """The trip from the previous stop, as a routes tool returned it (Proposal TC-09)."""
-
+class TransferLeg(Wire):
     from_item_id: str
-    minutes: int = Field(ge=0)
-    mode: str
+    minutes: float
+    mode: str = "walk"
     distance_km: float | None = None
-    # Provider name ("transport-model"), the Toolbox tool that returned the leg
-    # ("routes.segments", empty when the leg was not logged) and the leg's id in
-    # that tool's result.
     source: str = ""
     tool: str = ""
     result_id: str = ""
-    # Extra minutes allowed for a reported rail delay that day (Hong Kong MTR), on
-    # top of ``minutes``. ``delay_tool`` is the status tool that reported it
-    # ("routes.status"); ``delay_source`` is "assumed" when the feed gave no length.
-    delay_minutes: int = Field(default=0, ge=0)
-    delay_tool: str = ""
-    delay_source: str = ""
 
 
-MealSlot = Literal["breakfast", "lunch", "dinner", "snack"]
-#: Longest source description kept on a stop or alternative.
-SOURCE_SUMMARY_MAX = 400
-
-
-class PlanAlternative(BaseModel):
-    """Another real choice for a stop, with the same source facts as the stop itself.
-
-    Every field comes from a place source except ``distance_m``, which the app computes
-    (straight line from the default stop). A fact the source did not give stays empty.
-    """
-
+class PlanAlternative(Wire):
     id: str
     name: str
     geo: GeoPoint | None = None
@@ -230,1280 +98,669 @@ class PlanAlternative(BaseModel):
     opening_hours: list[str] = Field(default_factory=list)
     source_refs: list[SourceRef] = Field(default_factory=list)
     booking_url: str = ""
-    distance_m: int | None = None
-    #: The place source's own type labels ("indian_restaurant", "vegetarian_restaurant"); empty when it gave none.
+    distance_m: float | None = None
     source_types: list[str] = Field(default_factory=list)
-    #: The source's own short description, cut to SOURCE_SUMMARY_MAX characters; empty when it gave none.
     source_summary: str = ""
-    #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
-    image: ImageRef | None = None
-    #: Booking, website and map links, written by ``TripPlan.refresh_links`` from the fields above.
     links: list[Link] = Field(default_factory=list)
-    #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
-    #: reasons, written by ``application/ranking``; ranking labels, it never re-orders or changes the choice.
+    image: ImageRef | None = None
     rank: int | None = None
     score: float | None = None
     reasons: list[str] = Field(default_factory=list)
 
 
-class PlanItem(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("item"))
-    type: ItemType
+class PlanItem(Wire):
+    id: str
+    type: ItemType = "attraction"
     name: str
-    start: TimeStr
-    end: TimeStr
+    start: str = ""
+    end: str = ""
     geo: GeoPoint | None = None
     address: str = ""
     notes: str = ""
     source_refs: list[SourceRef] = Field(default_factory=list)
-    data_status: DataStatus = DataStatus.OK
-    fetched_at: datetime = Field(default_factory=utcnow)
+    data_status: DataStatus = "ok"
+    fetched_at: str | None = None
     price: Money | None = None
-    price_kind: PriceKind = PriceKind.NONE
+    price_kind: PriceKind = "none"
     booking_url: str = ""
     locked: bool = False
     confirmed: bool = False
     tags: list[str] = Field(default_factory=list)
-    # Opening hours exactly as the place source stated them for the visit day.
-    # "unknown" means the source gave none; the planner never fills them in.
     opening_hours: list[str] = Field(default_factory=list)
     hours_status: Literal["stated", "unknown"] = "unknown"
     transfer: TransferLeg | None = None
-    #: Localized names a place source supplied ("en", "zh-Hant"); display data only,
-    #: never written by the model. Empty when no source named the place that way.
     names: dict[str, str] = Field(default_factory=dict)
-    #: Which meal a meal stop is (None on other items and on plans stored before it existed).
     meal_slot: MealSlot | None = None
-    #: Facts exactly as the place source gave them; None when it gave none.
     rating: float | None = None
     review_count: int | None = None
     price_level: str | None = None
     cuisine: str | None = None
-    #: Only set when the source said whether the place takes reservations.
     reservable: bool | None = None
-    #: The place source's own type labels and short description (see ``PlanAlternative``); empty when none.
     source_types: list[str] = Field(default_factory=list)
     source_summary: str = ""
-    #: Other source-backed choices for this stop; the item itself is the default.
     alternatives: list[PlanAlternative] = Field(default_factory=list)
-    #: Whether the place source says the entrance is step-free (wheelchair accessible): True, False, or None when
-    #: it did not say.
-    step_free: bool | None = None
-    #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
-    image: ImageRef | None = None
-    #: Booking, website and map links, written by ``TripPlan.refresh_links``.
     links: list[Link] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def _times(self) -> "PlanItem":
-        if self.end <= self.start:
-            raise ValueError(f"item {self.name!r} ends before it starts")
-        if self.type == ItemType.ATTRACTION and not self.source_refs:
-            raise ValueError(f"attraction {self.name!r} needs at least one source")
-        return self
+    image: ImageRef | None = None
+    step_free: bool | None = None
 
 
-class DayPlan(BaseModel):
-    date: date
+class DayPlan(Wire):
+    date: str
     title: str = ""
     weather: WeatherDay | None = None
     items: list[PlanItem] = Field(default_factory=list)
     note: str = ""
-    # Positive ascent in metres between the day's stops (Google Elevation).
     elevation_gain_m: float | None = None
-    #: The segment (city) the traveller sleeps in that night; the last day belongs to the last segment.
-    segment_id: str = ""
-
-    @model_validator(mode="after")
-    def _keep_overlaps(self) -> "DayPlan":
-        # Two stops may share a clock. The page shows that as a warning and a side column.
-        # ponytail: the day no longer rejects an overlap; the UI is the reminder.
-        return self
+    segment_id: str | None = None
+    # The city for this day in a multi-city plan; empty for a single-city trip.
+    city: str = ""
 
 
-class RoomType(BaseModel):
-    """One room the hotel source lists for the stay's dates, fetched only when the traveller opens the hotel."""
-
+class RoomType(Wire):
     name: str
     price_per_night: Money | None = None
-    #: The seller the source listed the room under ("Booking.com"); empty when it named none.
     source: str = ""
     link: str = ""
 
 
-class HotelNearby(BaseModel):
-    """A way to reach a place near the hotel, exactly as the hotel source listed it ("Taxi", "11 min")."""
-
+class HotelNearby(Wire):
     name: str
     type: str = ""
     duration: str = ""
 
 
-StayVerdict = Literal["meets", "partly", "unclear", "fails"]
-
-
-class StayMatch(BaseModel):
-    """How a stay fits the traveller's wishes for the stay, as the research step judged it.
-
-    The verdict rests only on what the sources gave: ``evidence`` holds room names, amenities and
-    reference page titles exactly as a source returned them. A verdict of ``meets`` or ``partly``
-    always has evidence; without any, the stay is ``unclear``.
-    """
-
+class StayMatch(Wire):
     wishes: list[str] = Field(default_factory=list)
-    verdict: StayVerdict = "unclear"
-    score: int = Field(default=0, ge=0, le=100)
-    reason: str = Field(default="", max_length=240)
+    verdict: Literal["meets", "partly", "unclear", "fails"] = "unclear"
+    score: float = 0
+    reason: str = ""
     evidence: list[str] = Field(default_factory=list)
-    #: The reference pages among the evidence, as the web search returned them.
     evidence_refs: list[SourceRef] = Field(default_factory=list)
-    #: True once the hotel source was asked for this stay's rooms for the trip's dates.
     rooms_checked: bool = False
 
 
-class HotelStay(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("hotel"))
+class HotelStay(Wire):
+    id: str
     name: str
     area: str = ""
     geo: GeoPoint | None = None
-    check_in: date
-    check_out: date
+    check_in: str = ""
+    check_out: str = ""
     price_per_night: Money | None = None
-    price_kind: PriceKind = PriceKind.NONE
+    price_kind: PriceKind = "none"
     rating: float | None = None
     review_count: int | None = None
     distance_to_centre_km: float | None = None
     source_refs: list[SourceRef] = Field(default_factory=list)
-    data_status: DataStatus = DataStatus.OK
-    fetched_at: datetime = Field(default_factory=utcnow)
+    data_status: DataStatus = "ok"
     booking_url: str = ""
     notes: str = ""
     confirmed: bool = False
     locked: bool = False
-    #: The traveller marked the locked stay as booked with the hotel; only a locked stay can be.
     booked: bool = False
-    #: Facts as the hotel source gave them; empty when it gave none.
+    names: dict[str, str] = Field(default_factory=dict)
     amenities: list[str] = Field(default_factory=list)
     hotel_class: int | None = None
-    #: The source's handle for the property, used to fetch its rooms on demand.
     property_token: str = ""
     nearby: list[HotelNearby] = Field(default_factory=list)
-    #: Rooms from the source's property details; empty until fetched, or when the source lists none.
     room_types: list[RoomType] = Field(default_factory=list)
-    #: The check-in and check-out the hotel source was last asked for rooms with; None until it was asked.
-    #: ``room_types`` (possibly empty) belong to these dates.
-    rooms_checked_for: DateRange | None = None
-    #: Straight-line km to the closest planned stop, computed by the app; None without coordinates.
+    rooms_checked_for: dict[str, str] | None = None
     nearest_stop_km: float | None = None
     nearest_stop_name: str = ""
-    #: The research step's judgement against the traveller's stay wishes; None when there was none to judge.
     match: StayMatch | None = None
-    #: The segment (city) this stay is in.
-    segment_id: str = ""
-    #: A picture a source returned for it (or None): its address, who to credit, and which source it is from.
-    image: ImageRef | None = None
-    #: Booking and map links, written by ``TripPlan.refresh_links``.
+    segment_id: str | None = None
     links: list[Link] = Field(default_factory=list)
-    #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
-    #: reasons, written by ``application/ranking``; ranking labels, it never re-orders or changes the choice.
+    image: ImageRef | None = None
     rank: int | None = None
     score: float | None = None
     reasons: list[str] = Field(default_factory=list)
 
 
-class TicketOption(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("ticket"))
-    #: ``drive`` and ``ground`` are the modes of an estimated hop between cities; ``ticket`` and ``ferry`` only
-    #: occur in plans stored before the model dropped them.
-    #: ``shuttle`` only when a source names the vehicle a shuttle; an estimate is never called one.
-    mode: Literal["flight", "train", "ticket", "ferry", "bus", "shuttle", "taxi", "drive", "ground"]
-    #: The leg (hop of the trip) this option is for; empty until the plan fills it in.
-    leg_id: str = ""
+class TicketOption(Wire):
+    id: str
+    mode: TransportMode = "ticket"
+    leg_id: str | None = None
+    estimated: bool = False
+    links: list[Link] = Field(default_factory=list)
+    rank: int | None = None
+    score: float | None = None
+    reasons: list[str] = Field(default_factory=list)
     name: str
     origin: str = ""
     destination: str = ""
-    depart_at: datetime | None = None
-    arrive_at: datetime | None = None
-    duration_minutes: int | None = None
-    # Round-trip flights carry the inbound leg on the same option so the fare is
-    # never split or double-counted.
+    depart_at: str | None = None
+    arrive_at: str | None = None
+    duration_minutes: float | None = None
     return_origin: str = ""
     return_destination: str = ""
-    return_depart_at: datetime | None = None
-    return_arrive_at: datetime | None = None
-    return_duration_minutes: int | None = None
+    return_depart_at: str | None = None
+    return_arrive_at: str | None = None
+    return_duration_minutes: float | None = None
     return_airline: str = ""
     return_flight_number: str = ""
     price: Money | None = None
-    price_kind: PriceKind = PriceKind.NONE
+    price_kind: PriceKind = "none"
     operator: str = ""
     booking_url: str = ""
     notes: str = ""
     source_refs: list[SourceRef] = Field(default_factory=list)
-    data_status: DataStatus = DataStatus.OK
-    fetched_at: datetime = Field(default_factory=utcnow)
+    data_status: DataStatus = "ok"
     confirmed: bool = False
-    #: The option the traveller goes with; exactly one per leg (the first when none was chosen).
     selected: bool = False
-    #: True for a duration worked out from distance or a routes source rather than a quoted fare and timetable.
-    estimated: bool = False
-    #: Booking link (a flight) or directions link (an estimate), written by ``TripPlan.refresh_links``.
-    links: list[Link] = Field(default_factory=list)
-    #: Where this option stands among its alternatives (1 is first), its 0..1 score and up to three short
-    #: reasons, written by ``application/ranking``; ranking labels, it never re-orders or changes the choice.
-    rank: int | None = None
-    score: float | None = None
-    reasons: list[str] = Field(default_factory=list)
 
 
-def selected_ticket(tickets: list[TicketOption], leg_id: str | None = None) -> TicketOption | None:
-    """The chosen option of a leg: the one marked selected, else the first (plans stored before the mark existed).
-
-    ``leg_id`` None means the first ticket's leg, which for a one-leg trip is every ticket.
-    """
-    if leg_id is None:
-        leg_id = tickets[0].leg_id if tickets else ""
-    options = [ticket for ticket in tickets if ticket.leg_id == leg_id]
-    return next((ticket for ticket in options if ticket.selected), options[0] if options else None)
+class TripSegment(Wire):
+    id: str
+    destination: dict[str, Any] = Field(default_factory=dict)
+    dates: dict[str, str] = Field(default_factory=dict)
 
 
-class TransportLeg(BaseModel):
-    """One hop of the trip: origin to the first city, between two cities, or the way home. ``to_stay`` and ``from_stay``
-    are not hops between cities: they are the way between an airport and a stay in one city, worked out from the
-    flights and the stays."""
-
-    id: str = Field(default_factory=lambda: new_id("leg"))
-    from_place: str = ""
-    to_place: str = ""
-    #: Named so because a field called ``date`` with a default hides the ``date`` type inside the class.
-    depart_date: date | None = None
+class TransportLeg(Wire):
+    id: str
+    from_place: str
+    to_place: str
+    depart_date: str | None = None
     kind: Literal["outbound", "between", "return", "to_stay", "from_stay"] = "outbound"
-    #: For a transfer: the city (segment) it is in and the IATA code of the airport it goes to or comes from.
-    segment_id: str = ""
-    airport: str = ""
-    #: The traveller locked in the chosen option: only it is shown, and chat edits leave it alone.
     locked: bool = False
-    #: The traveller marked the locked leg as booked with the provider; only a locked leg can be.
     booked: bool = False
+    segment_id: str | None = None
+    airport: str = ""
 
 
-class CostLine(BaseModel):
-    label: str
-    amount: float
-    kind: str = "estimate"
+class TripStop(Wire):
+    city: str
+    nights: int | None = None
+
+
+class ImportedStop(Wire):
+    """A named stop read from a traveller's itinerary image or document."""
+
+    name: str
+    city: str = ""
+    kind: Literal["attraction", "meal", "hotel", "ticket"] = "attraction"
+    start: str = ""
+    end: str = ""
     note: str = ""
 
 
-class CostBreakdown(BaseModel):
-    currency: str = "USD"
+class ImportedDay(Wire):
+    day: int | None = None
+    date: str | None = None
+    city: str = ""
+    title: str = ""
+    stops: list[ImportedStop] = Field(default_factory=list)
+
+    @field_validator("stops", mode="before")
+    @classmethod
+    def _stops(cls, value: Any) -> Any:
+        # A vision model occasionally returns bare names instead of objects.
+        if isinstance(value, list):
+            return [{"name": item} if isinstance(item, str) else item for item in value if item]
+        return value
+
+
+class ImportedItinerary(Wire):
+    """The day-by-day structure the intake model reads from an uploaded itinerary.
+
+    It is deliberately separate from ``TripPlan``: an import is a source, not a
+    verified plan. The importer looks each named stop up and leaves a gap when it
+    cannot be sourced.
+    """
+
+    summary: str = ""
+    days: list[ImportedDay] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
+    hotels: list[ImportedStop] = Field(default_factory=list)
+
+    @field_validator("hotels", mode="before")
+    @classmethod
+    def _hotels(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return [{"name": item, "kind": "hotel"} if isinstance(item, str) else item for item in value if item]
+        return value
+
+
+class CostLine(Wire):
+    label: str
+    amount: float = 0
+    kind: str = ""
+    note: str = ""
+
+
+class CostBreakdown(Wire):
+    currency: str = "HKD"
     lines: list[CostLine] = Field(default_factory=list)
-    total: float = 0.0
+    total: float = 0
     budget: float | None = None
     remaining: float | None = None
     status: Literal["within", "over", "unknown"] = "unknown"
     notes: list[str] = Field(default_factory=list)
 
 
-class ConstraintCheck(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("check"))
+class ConstraintCheck(Wire):
+    id: str
     text: str
-    status: ConstraintStatus = ConstraintStatus.UNKNOWN
+    status: Literal["pass", "fail", "unknown"] = "unknown"
     evidence: str = ""
 
 
-class Disruption(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("disruption"))
-    kind: str
-    summary: str
-    affected_item_ids: list[str] = Field(default_factory=list)
-    resolution: str = ""
-    resolved: bool = False
+class FreshnessMark(Wire):
+    section: Literal["weather", "tickets", "hotels"]
+    status: Literal["outdated", "refreshed"]
+    fetched_at: str
+    checked_at: str
+    window_seconds: float
+    note: str = ""
 
 
-class Reservation(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("reservation"))
-    name: str
-    reason: str
-    url: str = ""
-    needed_by: date | None = None
-    status: Literal["to_book", "optional", "booked"] = "to_book"
-
-
-class DataGap(BaseModel):
+class DataGap(Wire):
     section: str
-    kind: FailureKind
+    kind: str
     message: str
     retryable: bool = False
 
 
-class FreshnessMark(BaseModel):
-    """A time-sensitive section checked against its freshness window (Proposal DB-13).
-
-    ``outdated``: older than the window and not yet re-fetched. ``refreshed``: its
-    own agent fetched it again at ``checked_at``; ``fetched_at`` is the old stamp.
-    """
-
-    section: Literal["weather", "tickets", "hotels"]
-    status: Literal["outdated", "refreshed"]
-    fetched_at: datetime
-    checked_at: datetime
-    window_seconds: int
-    note: str = ""
-
-
-class DataQuality(BaseModel):
-    sources_used: list[str] = Field(default_factory=list)
-    gaps: list[DataGap] = Field(default_factory=list)
-    notes: list[str] = Field(default_factory=list)
-    search_window_months: int = 24
-    generated_at: datetime = Field(default_factory=utcnow)
-    freshness: list[FreshnessMark] = Field(default_factory=list)
-
-
-class Destination(BaseModel):
+class Reservation(Wire):
+    id: str
     name: str
-    country_code: str = ""
-    geo: GeoPoint | None = None
-    timezone: str = ""
+    reason: str = ""
+    url: str = ""
+    needed_by: str | None = None
+    status: Literal["to_book", "optional", "booked"] = "optional"
 
 
-class TripSegment(BaseModel):
-    """One city of the trip: ``dates.start`` is the arrival day, ``dates.end`` the departure day.
+class VideoNote(Wire):
+    title: str
+    url: str
+    source: str = ""
+    snippet: str = ""
+    video_id: str = ""
+    thumbnail_url: str = ""
+    published_at: str | None = None
 
-    Consecutive segments share the day one is left and the next is reached; that day belongs to the city arrived in.
-    """
 
-    id: str = Field(default_factory=lambda: new_id("seg"))
-    destination: Destination
-    dates: DateRange
-
-
-class AssessmentSignal(BaseModel):
-    """One thing that lowered the plan's confidence, and by how much (0 to 1)."""
-
+class AssessmentSignal(Wire):
     code: str
-    weight: float = Field(ge=0, le=1)
-    message: str
+    weight: float = 0
+    message: str = ""
 
 
-class PlanAssessment(BaseModel):
-    """How far the plan can be relied on, worked out by the app from the plan's own checks.
-
-    ``confidence`` is 1 less the signals' weights, never a model's opinion. ``unverified`` lists
-    what no source confirmed; ``missing`` what only the traveller can say. ``next_action`` is what
-    the planner does about it: ``research`` (look again, then assess again), ``ask`` (put
-    ``question`` to the traveller) or ``none``.
-    """
-
-    confidence: float = Field(default=1.0, ge=0, le=1)
-    level: Literal["high", "medium", "low"] = "high"
+class PlanAssessment(Wire):
+    confidence: float = 0
+    level: Literal["high", "medium", "low"] = "low"
     signals: list[AssessmentSignal] = Field(default_factory=list)
     missing: list[str] = Field(default_factory=list)
     unverified: list[str] = Field(default_factory=list)
     next_action: Literal["none", "research", "ask"] = "none"
     question: str = ""
-    #: Rounds of further research the assessment already set off for this plan.
-    research_rounds: int = Field(default=0, ge=0)
-    #: What those rounds changed, one sentence each.
+    research_rounds: int = 0
     improvements: list[str] = Field(default_factory=list)
 
 
-class TripPlan(BaseModel):
-    schema_version: str = "1.0"
-    trip_id: str = Field(default_factory=lambda: new_id("trip"))
+class Destination(Wire):
+    name: str = ""
+    country_code: str = ""
+    geo: GeoPoint | None = None
+    timezone: str = "UTC"
+
+
+class DateRange(Wire):
+    start: str = ""
+    end: str = ""
+
+
+class DataQuality(Wire):
+    sources_used: list[str] = Field(default_factory=list)
+    gaps: list[DataGap] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    search_window_months: int = 24
+    generated_at: str = Field(default_factory=now_iso)
+    freshness: list[FreshnessMark] = Field(default_factory=list)
+
+
+class Disruption(Wire):
+    id: str
+    kind: str = ""
+    summary: str = ""
+    affected_item_ids: list[str] = Field(default_factory=list)
+    resolution: str = ""
+    resolved: bool = False
+
+
+class TripPlan(Wire):
+    schema_version: str = "5.0"
+    trip_id: str
     session_id: str
-    version: int = Field(default=1, ge=1)
-    status: Literal["draft", "ready"] = "ready"
-    destination: Destination
+    version: int = 1
+    status: Literal["draft", "ready"] = "draft"
+    destination: Destination = Field(default_factory=Destination)
     origin: str = ""
-    dates: DateRange
-    #: The cities in travel order; always at least one once validated (a plan stored without any gets one).
-    segments: list[TripSegment] = Field(default_factory=list)
-    #: The profile the plan was made for; None for the default one.
-    profile: TravellerProfile | None = None
-    #: True once the airport transfers were worked out from the plan's flights and stays (a plan with no flights has
-    #: none to work out). A plan stored before they existed is False and edits leave it without them.
-    transfers_synced: bool = False
-    party_size: int = Field(default=1, ge=1, le=20)
+    dates: DateRange = Field(default_factory=DateRange)
+    party_size: int = 1
     budget: Money | None = None
     summary: str = ""
     days: list[DayPlan] = Field(default_factory=list)
     hotels: list[HotelStay] = Field(default_factory=list)
-    #: Source-backed stays to choose from (up to 5); ``hotels[0]`` is the chosen one and is among them.
     hotel_options: list[HotelStay] = Field(default_factory=list)
     tickets: list[TicketOption] = Field(default_factory=list)
-    #: The hops of the trip in order; ``tickets`` hold the options of each by ``leg_id``, one chosen per leg.
+    segments: list[TripSegment] = Field(default_factory=list)
     legs: list[TransportLeg] = Field(default_factory=list)
     cost: CostBreakdown = Field(default_factory=CostBreakdown)
     constraints: list[ConstraintCheck] = Field(default_factory=list)
     disruptions: list[Disruption] = Field(default_factory=list)
     reservations: list[Reservation] = Field(default_factory=list)
+    video_notes: list[VideoNote] = Field(default_factory=list)
     data_quality: DataQuality = Field(default_factory=DataQuality)
-    #: The app's own confidence in this plan version; None on plans made before it existed.
     assessment: PlanAssessment | None = None
-    # Short public videos that ground the destination (YouTube / Bilibili).
-    video_notes: list["NoteItem"] = Field(default_factory=list)
     change_summary: str = ""
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
+    created_at: str = Field(default_factory=now_iso)
+    updated_at: str = Field(default_factory=now_iso)
 
-    @model_validator(mode="after")
-    def _shape(self) -> "TripPlan":
-        dates = [day.date for day in self.days]
-        if dates and dates != self.dates.dates:
-            raise ValueError("days must cover the trip date range exactly and in order")
-        ids = [item.id for day in self.days for item in day.items]
-        ids += [hotel.id for hotel in self.hotels]
-        ids += [ticket.id for ticket in self.tickets]
-        if len(ids) != len(set(ids)):
-            raise ValueError("plan item ids must be unique")
-        if len({leg.id for leg in self.legs}) != len(self.legs):
-            raise ValueError("leg ids must be unique")
-        if self.cost.total < 0:
-            raise ValueError("cost total cannot be negative")
-        if self.tickets:
-            if not self.legs:
-                self.legs = [
-                    TransportLeg(
-                        id="leg_out",
-                        from_place=self.origin,
-                        to_place=self.destination.name,
-                        depart_date=self.dates.start,
-                        kind="outbound",
-                    )
-                ]
-            known_legs = {leg.id for leg in self.legs}
-            for ticket in self.tickets:
-                if ticket.leg_id not in known_legs:
-                    ticket.leg_id = self.legs[0].id
-            # Exactly one option per leg is the chosen one: the first marked, else the first.
-            for leg in self.legs:
-                chosen = selected_ticket(self.tickets, leg.id)
-                for ticket in self.tickets:
-                    if ticket.leg_id == leg.id:
-                        ticket.selected = ticket is chosen
-        self._shape_segments()
-        self.refresh_derived()
-        return self
+    def item_index(self) -> dict[str, PlanItem]:
+        return {item.id: item for day in self.days for item in day.items}
 
-    def refresh_derived(self) -> None:
-        """Write everything derived again from the plan's fields: the links, then the rank labels."""
-        from app.application.ranking import rank_plan
-
-        self.refresh_links()
-        rank_plan(self)
-
-    def refresh_links(self) -> None:
-        """Write the links of every stop, stay and transport option again from their fields (they are derived data)."""
-        from app.application.links import attach_links
-
-        attach_links(self)
-
-    def _shape_segments(self) -> None:
-        if not self.segments:
-            self.segments = [TripSegment(id="seg_1", destination=self.destination, dates=self.dates)]
-        elif len(self.segments) == 1:
-            # The plan's own fields define a single-city trip.
-            self.segments[0].destination = self.destination
-            self.segments[0].dates = self.dates
-        else:
-            order_error = ValueError(
-                "segments must cover the trip in order, each starting the day the one before ends"
-            )
-            if self.segments[0].dates.start != self.dates.start or self.segments[-1].dates.end != self.dates.end:
-                raise order_error
-            for before, after in zip(self.segments, self.segments[1:]):
-                if before.dates.end != after.dates.start:
-                    raise order_error
-            if self.segments[0].destination.name != self.destination.name:
-                raise ValueError("destination must be the first segment's destination")
-        if len({segment.id for segment in self.segments}) != len(self.segments):
-            raise ValueError("segment ids must be unique")
-        known = {segment.id for segment in self.segments}
-        for day in self.days:
-            if day.segment_id not in known:
-                day.segment_id = self.segment_of(day.date).id
-        for stay in self.hotels:
-            if stay.segment_id not in known:
-                stay.segment_id = self.segment_of(stay.check_in).id
-
-    def segment_of(self, day: date) -> TripSegment:
-        """The segment a date belongs to: the last one that starts on or before it, else the first.
-
-        The day two cities share belongs to the city arrived in. A one-city plan has one segment for any date.
-        """
-        chosen = self.segments[0]
-        if len(self.segments) > 1:
-            for segment in self.segments:
-                if segment.dates.start <= day:
-                    chosen = segment
-        return chosen
-
-    def stay_on(self, day: date) -> HotelStay | None:
-        """The stay the traveller sleeps in on a night, or wakes up in on the last morning; None when there is none."""
-        for stay in self.hotels:
-            if stay.check_in <= day < stay.check_out:
-                return stay
-        for stay in self.hotels:
-            if stay.check_out == day:
-                return stay
-        if len(self.hotels) == 1 and len(self.segments) == 1:
-            return self.hotels[0]
-        return None
-
-    def stays_in(self, segment_id: str) -> list[HotelStay]:
-        """The chosen stays of a segment, in date order."""
-        return sorted((stay for stay in self.hotels if stay.segment_id == segment_id), key=lambda s: s.check_in)
-
-    def route_legs(self) -> list[TransportLeg]:
-        """The hops of the trip: out, between the cities and home (not the airport transfers)."""
-        return [leg for leg in self.legs if leg.kind in ("outbound", "between", "return")]
-
-    def transfer_legs(self) -> list[TransportLeg]:
-        """The airport transfers: from an airport to a stay, and from a stay to an airport."""
-        return [leg for leg in self.legs if leg.kind in ("to_stay", "from_stay")]
-
-    def leg_id_of(self, ticket: TicketOption) -> str:
-        """The leg an option belongs to; an option no leg claims (added after validation) is on the first hop."""
-        if any(leg.id == ticket.leg_id for leg in self.legs):
-            return ticket.leg_id
-        hops = self.route_legs()
-        return hops[0].id if hops else ticket.leg_id
-
-    def options_for(self, leg_id: str) -> list[TicketOption]:
-        """The transport options of one leg, in the order they are kept."""
-        return [ticket for ticket in self.tickets if self.leg_id_of(ticket) == leg_id]
-
-    def open_choices(self) -> list[tuple[str, str]]:
-        """The choices still to make: ``("hotel", stay id)`` for each chosen stay that is not locked and has two or more
-        options in its city, ``("transport", leg id)`` for each leg that is not locked and has two or more options. A slot
-        with one option or none needs no decision."""
-        first = self.segments[0].id if self.segments else ""
-        out: list[tuple[str, str]] = []
-        for stay in self.hotels:
-            if stay.locked:
-                continue
-            city = stay.segment_id or first
-            options = {option.id for option in self.hotel_options if (option.segment_id or first) == city}
-            if len(options | {stay.id}) >= 2:
-                out.append(("hotel", stay.id))
-        for leg in self.legs:
-            if not leg.locked and len(self.options_for(leg.id)) >= 2:
-                out.append(("transport", leg.id))
-        return out
-
-    def chosen_tickets(self) -> list[TicketOption]:
-        """The chosen option of each leg in leg order; a leg with no options is skipped."""
-        if not self.legs:
-            chosen = selected_ticket(self.tickets)
-            return [chosen] if chosen else []
-        chosen_ones = []
-        for leg in self.route_legs():
-            options = self.options_for(leg.id)
-            if options:
-                chosen_ones.append(next((t for t in options if t.selected), options[0]))
-        return chosen_ones
-
-    @property
-    def first_stay(self) -> HotelStay | None:
-        """The first chosen stay: the seam for code that still thinks of one stay per trip."""
-        return self.hotels[0] if self.hotels else None
-
-    @property
     def item_count(self) -> int:
         return sum(len(day.items) for day in self.days)
 
-    def iter_items(self):
-        for day in self.days:
-            for item in day.items:
-                yield day, item
 
-    def find_item(self, item_id: str) -> tuple[DayPlan, PlanItem] | None:
-        for day, item in self.iter_items():
-            if item.id == item_id:
-                return day, item
-        return None
-
-    def find_hotel(self, hotel_id: str) -> HotelStay | None:
-        for hotel in self.hotels:
-            if hotel.id == hotel_id:
-                return hotel
-        return None
-
-    def scope_name(self, scope_id: str) -> str | None:
-        """Human label for a selected scope id (day item or stay)."""
-        found = self.find_item(scope_id)
-        if found:
-            return found[1].name
-        hotel = self.find_hotel(scope_id)
-        return hotel.name if hotel else None
-
-    def summary_for_prompt(self) -> dict[str, Any]:
-        """Small, stable projection used in router/planner prompts."""
-        return {
-            "trip_id": self.trip_id,
-            "destination": self.destination.name,
-            "dates": [self.dates.start.isoformat(), self.dates.end.isoformat()],
-            "party_size": self.party_size,
-            "budget": self.budget.model_dump() if self.budget else None,
-            "version": self.version,
-            **({"route": [s.destination.name for s in self.segments]} if len(self.segments) > 1 else {}),
-            "days": [
-                {
-                    "date": day.date.isoformat(),
-                    "title": day.title,
-                    **({"city": self.segment_of(day.date).destination.name} if len(self.segments) > 1 else {}),
-                    "items": [
-                        {
-                            "id": item.id,
-                            "type": item.type.value,
-                            "name": item.name,
-                            "start": item.start,
-                            "end": item.end,
-                            "data_status": item.data_status.value,
-                            "locked": item.locked,
-                            "confirmed": item.confirmed,
-                        }
-                        for item in day.items
-                    ],
-                }
-                for day in self.days
-            ],
-        }
-
-
-# ---------------------------------------------------------------------------
-# Conversation, context, memory
-# ---------------------------------------------------------------------------
-
-#: What a trip's form keeps, whoever writes it: TRIP_LINES_MAX preferences and as many constraints of
-#: TRIP_LINE_MAX_LENGTH characters, and TRIP_FIELD_MAX_LENGTH characters in each of its other texts. A request over
-#: them is refused (PATCH /api/journeys/{id}/state); what the system itself writes, and a form stored before the
-#: limits, is cut to them (`TripContext.fit_to_limits`), so the page can always send back the form it was shown.
-TRIP_LINES_MAX = 50
-TRIP_LINE_MAX_LENGTH = 200
-TRIP_FIELD_MAX_LENGTH = 120
-#: Most cities one trip can visit.
-TRIP_STOPS_MAX = 8
-
-
-#: TripContext's marks of the check before planning (application/budget_check.py).
-_CHECK_MARKS = ("budget_confirmed", "past_dates_confirmed")
-
-
-class TripStop(BaseModel):
-    """One city of the trip form, in travel order, with the nights the traveller gave it (None when not stated)."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    city: str = Field(min_length=1, max_length=TRIP_FIELD_MAX_LENGTH)
-    nights: int | None = Field(default=None, ge=1, le=60)
-
-
-def _legacy_pace(value: Any) -> str:
-    """An old stored pace word as a pace of the profile: slow/relaxed -> relaxed, fast/packed -> packed, else balanced."""
-    word = str(value or "").strip().lower()
-    if word in {"slow", "relaxed"}:
-        return "relaxed"
-    if word in {"fast", "packed"}:
-        return "packed"
-    return "balanced"
-
-
-class TravellerProfile(BaseModel):
-    """Who is travelling, as the traveller said it. Planning reads it in code (stops a day, hours, which places
-    come first, how stays are ranked); no prompt decides what it does."""
-
+class TravellerProfile(Wire):
     pace: Literal["relaxed", "balanced", "packed"] = "balanced"
     with_children: bool = False
     purpose: Literal["leisure", "business"] = "leisure"
-    #: Step-free access is needed (a wheelchair, a pram, a walking difficulty).
     step_free: bool = False
 
-    @field_validator("pace", mode="before")
+
+class TripContext(Wire):
+    @model_validator(mode="before")
     @classmethod
-    def _pace_word(cls, value: Any) -> str:
-        return _legacy_pace(value)
+    def _fill_nulls(cls, data: Any) -> Any:
+        """A context written by an older build can hold null strings; never 500 on load."""
+        if not isinstance(data, dict):
+            return data
+        for key in ("session_id", "destination", "origin", "hotel_style"):
+            if key in data and data[key] is None:
+                data[key] = ""
+        if data.get("currency") is None:
+            data["currency"] = "HKD"
+        if data.get("currency_set") is None:
+            data["currency_set"] = False
+        if data.get("pace") is None:
+            data["pace"] = "balanced"
+        if data.get("language") is None:
+            data["language"] = "en"
+        if data.get("plan_locale") is None:
+            data["plan_locale"] = "en"
+        for key in ("preferences", "hard_constraints", "stops"):
+            if key in data and data[key] is None:
+                data[key] = []
+        return data
 
-
-class TripContext(BaseModel):
     session_id: str
     destination: str = ""
-    #: The cities in travel order. Empty for a one-city trip (``destination`` is that city); with several,
-    #: ``destination`` is the first. Code that needs the route reads ``route``.
-    stops: list[TripStop] = Field(default_factory=list, max_length=TRIP_STOPS_MAX)
-    #: The trip does not return to where it starts ("one way", "ending in X"): no leg home.
-    one_way: bool = False
     origin: str = ""
-    start_date: date | None = None
-    end_date: date | None = None
-    days: int | None = Field(default=None, ge=1, le=60)
-    party_size: int | None = Field(default=None, ge=1, le=20)
-    budget: float | None = Field(default=None, ge=0)
+    start_date: str | None = None
+    end_date: str | None = None
+    days: int | None = None
+    party_size: int | None = None
+    budget: float | None = None
     currency: str = "HKD"
+    # False until the traveller names a currency. The HKD default is not a choice.
+    currency_set: bool = False
     hotel_style: str = ""
-    #: Pace, children, business and step-free access; ``pace`` below reads it. A stored context that has only the
-    #: old ``pace`` string gets its profile from it.
-    profile: TravellerProfile = Field(default_factory=TravellerProfile)
+    pace: str = "balanced"
+    profile: TravellerProfile | None = None
     preferences: list[str] = Field(default_factory=list)
-    #: Set when the traveller finalises the plan. Edits stop; a rating may then write preferences.
     finalized: bool = False
     hard_constraints: list[str] = Field(default_factory=list)
     language: str = "en"
-    #: the plan's display language; the English plan stays the source of truth
-    plan_locale: Literal["en", "zh-Hant", "zh-Hans"] = "en"
-    #: The traveller chose to plan with this budget although it is below the per-night floor (or zero): the
-    #: check before planning does not ask again. Another budget clears it.
-    budget_confirmed: bool = False
-    #: The traveller chose to keep a start date that has gone by: the check before planning does not ask again.
-    past_dates_confirmed: bool = False
-    updated_at: datetime = Field(default_factory=utcnow)
+    plan_locale: PlanLocale = "en"
+    stops: list[TripStop] = Field(default_factory=list)
+    one_way: bool = False
+    imported_itinerary: ImportedItinerary | None = None
 
-    @model_validator(mode="before")
+    @field_validator("currency", mode="before")
     @classmethod
-    def _old_pace(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "pace" in data:
-            data = dict(data)
-            pace = data.pop("pace")
-            if "profile" not in data:
-                data["profile"] = {"pace": pace}
-        return data
-
-    @property
-    def pace(self) -> str:
-        return self.profile.pace
-
-    @pace.setter
-    def pace(self, value: str) -> None:
-        self.profile = self.profile.model_copy(update={"pace": _legacy_pace(value)})
-
-    @field_validator("party_size", mode="before")
-    @classmethod
-    def _party_or_blank(cls, value: object) -> int | None:
-        """A party outside 1–20 is not stored. A saved -43 or 43 used to make the trip unreadable."""
-        if value is None or value == "":
-            return None
-        try:
-            number = int(value)  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            return None
-        if number < 1 or number > 20:
-            return None
-        return number
-
-    @model_validator(mode="after")
-    def _within_limits(self) -> "TripContext":
-        return self.fit_to_limits()
-
-    @model_serializer(mode="wrap")
-    def _marks_only_when_set(self, handler: Any) -> Any:
-        """The check's marks are written only when set: a form without them dumps as it did before they existed, so
-        the stored form, the API's and the prompts' trip JSON are unchanged for every trip that was not asked about."""
-        data = handler(self)
-        if isinstance(data, dict):
-            for key in (*_CHECK_MARKS, "stops", "one_way"):
-                if key in data and not data[key]:
-                    del data[key]
-            # The form always showed ``pace``; the rest of the profile is written only when it is not the default.
-            profile = data.pop("profile", None)
-            if isinstance(profile, dict):
-                data["pace"] = profile.get("pace", "balanced")
-                if profile != TravellerProfile().model_dump(mode="json"):
-                    data["profile"] = profile
-        return data
-
-    def fit_to_limits(self) -> "TripContext":
-        """Cut the form to the limits above, in place: the newest lines of a long list, the first characters of a
-        long text. The store does this before it writes (the understanding step appends to the lists in place, so
-        nothing else sees what it left) and a form read back is cut the same way, so one stored before the limits
-        cannot slow the service. The work is bounded by the limits, not by what the form held."""
-        self.destination = self.destination[:TRIP_FIELD_MAX_LENGTH]
-        self.origin = self.origin[:TRIP_FIELD_MAX_LENGTH]
-        self.currency = self.currency[:TRIP_FIELD_MAX_LENGTH]
-        self.hotel_style = self.hotel_style[:TRIP_FIELD_MAX_LENGTH]
-        self.language = self.language[:TRIP_FIELD_MAX_LENGTH]
-        self.preferences = [line[:TRIP_LINE_MAX_LENGTH] for line in self.preferences[-TRIP_LINES_MAX:]]
-        self.hard_constraints = [line[:TRIP_LINE_MAX_LENGTH] for line in self.hard_constraints[-TRIP_LINES_MAX:]]
-        return self
-
-    #: How many cities the last message named when that was more than a trip can hold; 0 otherwise. Not stored:
-    #: it only tells the turn that read the message to ask which cities to keep.
-    _route_overflow: int = PrivateAttr(default=0)
-
-    @property
-    def route_overflow(self) -> int:
-        return self._route_overflow
-
-    def set_route_overflow(self, count: int) -> None:
-        self._route_overflow = count
-
-    #: The last message asked for the cities in their best order. Not stored: it only tells the planning that
-    #: follows that message.
-    _best_order: bool = PrivateAttr(default=False)
-
-    @property
-    def best_order(self) -> bool:
-        return self._best_order
-
-    def set_best_order(self, asked: bool) -> None:
-        self._best_order = asked
-
-    @property
-    def route(self) -> list[TripStop]:
-        """The cities in travel order: ``stops`` when set, else one stop for the destination, else none."""
-        if self.stops:
-            return self.stops
-        city = self.destination.strip()
-        return [TripStop(city=city)] if city else []
-
-    def missing_slots(self) -> list[str]:
-        missing: list[str] = []
-        if not self.destination.strip():
-            missing.append("destination")
-        if not self.origin.strip():
-            missing.append("origin")
-        if not self.start_date:
-            missing.append("dates")
-        elif not self.end_date and not self.days:
-            missing.append("dates")
-        if not self.party_size:
-            missing.append("party_size")
-        if self.budget is None:
-            missing.append("budget")
-        return missing
-
-    def date_range(self) -> DateRange | None:
-        if self.start_date and self.end_date:
-            return DateRange(start=self.start_date, end=self.end_date)
-        if self.start_date and self.days:
-            return DateRange(
-                start=self.start_date,
-                end=date.fromordinal(self.start_date.toordinal() + self.days - 1),
-            )
-        return None
+    def _currency(cls, value: Any) -> str:
+        return normalise_currency(value) or "HKD"
 
 
-class RouteDecision(BaseModel):
-    intent: Intent
-    confidence: float = Field(ge=0, le=1)
+class ChatMessage(Wire):
+    id: str
+    role: Literal["user", "assistant", "system"] = "assistant"
+    content: str = ""
+    intent: Intent | None = None
+    confidence: float | None = None
+    created_at: str = Field(default_factory=now_iso)
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class VersionEntry(Wire):
+    trip_id: str
+    version: int
+    change_summary: str = ""
+    created_at: str = Field(default_factory=now_iso)
+    item_count: int = 0
+    destination: str = ""
+    days: int = 0
+
+
+class AgentState(Wire):
+    agent: str
+    status: Literal["running", "ok", "partial", "unavailable", "timeout", "failed"] = "ok"
+    elapsed_ms: float = 0
+    summary: str = ""
+
+
+class ClarifySuggestion(Wire):
+    slot: str
+    asked: str = ""
+    name: str
+
+
+class ClarifyPayload(Wire):
+    question: str
+    slots: list[str] = Field(default_factory=list)
+    labels: list[str] = Field(default_factory=list)
+    options: dict[str, list[str]] = Field(default_factory=dict)
+    choices: list[dict[str, str]] = Field(default_factory=list)
+    suggestions: list[ClarifySuggestion] = Field(default_factory=list)
+    reason_code: str = "missing_slots"
+
+
+class RoutePayload(Wire):
+    intent: Intent = "unclear"
+    confidence: float = 0
+    threshold: float = 0.8
     need_clarification: bool = False
     reason_code: str = ""
     affected_parts: list[str] = Field(default_factory=list)
     missing_slots: list[str] = Field(default_factory=list)
-    related_to_plan: bool = True
-    rationale: str = ""
-    #: separate enum slots read by the rules: ``language`` (en | zh-Hant | other)
-    #: and ``cuisine``; a language phrase never fills the cuisine slot
-    slots: dict[str, str] = Field(default_factory=dict)
+    related_to_plan: bool = False
+    blocked: bool = False
+    # A period the traveller named without a day ("next month"); the clarify
+    # card uses it to ask for the date without inventing one.
+    date_window: str = ""
 
 
-class Message(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("msg"))
-    session_id: str
-    role: Literal["user", "assistant", "system"]
-    content: str
-    intent: Intent | None = None
-    confidence: float | None = None
-    meta: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-class User(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("user"))
-    email: str
-    display_name: str = ""
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-#: Profile token prefix of a signed-in account: `user:<id>`.
-USER_PREFIX = "user:"
-
-
-class Session(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("sess"))
-    client_token: str = ""
-    user_id: str = ""
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
-
-    @property
-    def owner(self) -> str:
-        """Identity that owns this session's memory: `user:<id>`, else its guest token.
-
-        A `user:` client token on a session with no account was never proven
-        with a bearer, so it owns nothing (empty string).
-        """
-        if self.user_id:
-            return f"{USER_PREFIX}{self.user_id}"
-        token = (self.client_token or "").strip()
-        return "" if token.startswith(USER_PREFIX) else token
-
-
-class Feedback(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("fb"))
-    trip_id: str
-    useful: bool
-    stars: int | None = Field(default=None, ge=1, le=5)
-    reason_code: str = ""
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-class SavedTrip(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("saved"))
-    trip_id: str
-    destination: str
-    rating: float = 0.0
-    stars: int | None = None
-    summary: str = ""
-    embedding: list[float] = Field(default_factory=list)
-    plan: TripPlan | None = None
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-#: What a traveller profile keeps, whoever writes it: PREFERENCES_MAX phrases of PREFERENCE_MAX_LENGTH characters.
-PREFERENCES_MAX = 20
-PREFERENCE_MAX_LENGTH = 80
-
-
-def fit_preference(text: str) -> str:
-    """One preference as a profile keeps it: trimmed, and cut to PREFERENCE_MAX_LENGTH characters."""
-    return text.strip()[:PREFERENCE_MAX_LENGTH].rstrip()
-
-
-class PreferenceProfile(BaseModel):
-    client_token: str
-    #: Oldest first. Every profile that is built or read is fitted to the limits above, so what the
-    #: turns, feedback and the sign-in merge write can always be sent back by the Settings page.
-    preferences: list[str] = Field(default_factory=list)
-    updated_at: datetime = Field(default_factory=utcnow)
-
-    @model_validator(mode="after")
-    def _fit(self) -> "PreferenceProfile":
-        # A dict keeps the first of each repeat in order, in one pass: a profile stored before the limits
-        # may hold any number of phrases, and `value not in kept` took seconds on thousands of them.
-        kept = list(dict.fromkeys(value for value in map(fit_preference, self.preferences) if value))
-        self.preferences = kept[-PREFERENCES_MAX:]
-        return self
-
-
-# ---------------------------------------------------------------------------
-# Agent and provider DTOs
-# ---------------------------------------------------------------------------
-
-
-class AgentResult(BaseModel):
-    agent: AgentName
-    status: AgentStatus
-    payload: dict[str, Any] = Field(default_factory=dict)
-    notes: list[str] = Field(default_factory=list)
-    sources: list[SourceRef] = Field(default_factory=list)
-    failures: list[DataGap] = Field(default_factory=list)
-    elapsed_ms: int = 0
-    fetched_at: datetime = Field(default_factory=utcnow)
-    #: True when the agent was cut off and this is what it had found so far. Its status is PARTIAL
-    #: as well; the console shows the status and the gap.
-    partial: bool = False
-
-
-class AuditSeverity(StrEnum):
-    INFO = "info"
-    WARN = "warn"
-    BLOCK = "block"
-
-
-class AuditIssue(StrEnum):
-    SUSPECT = "suspect_fact"
-    STALE = "stale"
-    OFF_REQUEST = "off_request"
-    INCONSISTENT = "inconsistent"
-    MISSING = "missing"
-
-
-class AuditFollowUp(BaseModel):
-    """A web search the audit asks for to check one finding."""
-
-    query: str = Field(min_length=3, max_length=160)
-
-
-class AuditFinding(BaseModel):
-    agent: AgentName
-    item_id: str | None = None
-    issue: AuditIssue
-    severity: AuditSeverity
-    detail: str = Field(max_length=300)
-    follow_up: AuditFollowUp | None = None
-
-
-class FollowUpEvidence(BaseModel):
-    """What a follow-up search found: reference material only, never a price or a temperature."""
-
-    finding_index: int
-    query: str
-    references: list[SourceRef] = Field(default_factory=list)
-    gap: DataGap | None = None
-
-
-class AuditReport(BaseModel):
-    findings: list[AuditFinding] = Field(default_factory=list)
-    evidence: list[FollowUpEvidence] = Field(default_factory=list)
-    #: Why the audit did not run or finished early; the trip plans either way.
-    skipped: str | None = None
-
-    @property
-    def blocked_ids(self) -> set[str]:
-        return {
-            f.item_id for f in self.findings
-            if f.severity == AuditSeverity.BLOCK and f.item_id is not None
-        }
-
-
-class PlaceCandidate(BaseModel):
+class IntakeSource(Wire):
     name: str
-    category: str = "attraction"
-    description: str = ""
-    geo: GeoPoint | None = None
-    address: str = ""
-    rating: float | None = None
-    review_count: int | None = None
-    opening_hours: list[str] = Field(default_factory=list)
-    price_level: str = ""
-    website: str = ""
-    #: a few real reviews: what visitors praise or complain about. Without these
-    #: an opinion question ("is it fun?") can only restate the editorial summary.
-    reviews: list[dict[str, Any]] = Field(default_factory=list)
-    source_refs: list[SourceRef] = Field(default_factory=list)
-    tags: list[str] = Field(default_factory=list)
-    #: other names the source knows the place by ("Lotte World" for 롯데월드);
-    #: also used to merge duplicates across scripts (伏見稲荷大社 / Fushimi Inari Taisha).
-    aliases: list[str] = Field(default_factory=list)
-    #: the source's own localized names, keyed "en" / "zh-Hant" (OSM name:en, name:zh-HK, ...).
-    names: dict[str, str] = Field(default_factory=dict)
-    #: whether the place takes reservations, only when the source said so.
-    reservable: bool | None = None
-    #: cuisine label read from the source's place type ("ramen_restaurant" -> "Ramen"); None otherwise.
-    cuisine: str | None = None
-    #: the source's own price range text ("JPY 1,000-2,000"); empty when it gave none.
-    price_range: str = ""
-    #: The source's statement about a step-free entrance (Google ``wheelchairAccessibleEntrance``); None when it gave none.
-    step_free: bool | None = None
-    #: The picture the source returned for the place; None when it returned none.
-    image: ImageRef | None = None
-    #: The English Wikipedia title the source gave for the place (OSM's wikipedia tag, a Wikivoyage
-    #: listing's wikipedia field); used only to look up a page image.
-    wikipedia_title: str = ""
+    kind: Literal["url", "pdf", "image", "text"] = "text"
+    status: Literal["read", "failed"] = "read"
+    note: str = ""
 
 
-class HotelCandidate(BaseModel):
+class IntakePayload(Wire):
+    sources: list[IntakeSource] = Field(default_factory=list)
+    filled: list[str] = Field(default_factory=list)
+    places: list[str] = Field(default_factory=list)
+
+
+class TraceSpan(Wire):
     name: str
-    area: str = ""
-    geo: GeoPoint | None = None
-    nightly_price: Money | None = None
-    price_kind: PriceKind = PriceKind.NONE
-    rating: float | None = None
-    review_count: int | None = None
-    distance_to_centre_km: float | None = None
-    booking_url: str = ""
-    source_refs: list[SourceRef] = Field(default_factory=list)
-    notes: str = ""
-    #: Facts the hotel source returned; empty when it returned none.
-    amenities: list[str] = Field(default_factory=list)
-    hotel_class: int | None = None
-    property_token: str = ""
-    nearby: list[HotelNearby] = Field(default_factory=list)
-    #: The thumbnail the hotel source returned; None when it returned none.
-    image: ImageRef | None = None
+    duration_ms: float | None = None
+    status: str | None = None
 
 
-class FlightCandidate(BaseModel):
-    airline: str = ""
-    flight_number: str = ""
-    origin: str
-    destination: str
-    depart_at: datetime
-    arrive_at: datetime
-    duration_minutes: int | None = None
-    return_origin: str = ""
-    return_destination: str = ""
-    return_depart_at: datetime | None = None
-    return_arrive_at: datetime | None = None
-    return_duration_minutes: int | None = None
-    return_airline: str = ""
-    return_flight_number: str = ""
-    price: Money | None = None
-    price_kind: PriceKind = PriceKind.REFERENCE
-    booking_url: str = ""
-    source_refs: list[SourceRef] = Field(default_factory=list)
+class GenerationTrace(Wire):
+    purpose: str = ""
+    model: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms: float = 0
+    reasoning: str = ""
+    output_preview: str = ""
+    user_preview: str = ""
 
 
-class NoteItem(BaseModel):
-    title: str
-    url: str
-    source: str
-    snippet: str = ""
-    video_id: str = ""
-    thumbnail_url: str = ""
-    published_at: datetime | None = None
-    fetched_at: datetime = Field(default_factory=utcnow)
+class SearchTrace(Wire):
+    provider: str = ""
+    query: str = ""
+    results: list[dict[str, Any]] = Field(default_factory=list)
 
 
-class RouteStep(BaseModel):
-    """One step inside a routed leg. WALK routes can include a ferry step."""
-
-    mode: str = "walk"
-    minutes: int | None = None
-    polyline: list[GeoPoint] = Field(default_factory=list)
-    instruction: str = ""
-    #: The routes source's vehicle type for a transit step ("HEAVY_RAIL", "BUS"); empty for any other step.
-    #: Read as an attribute only: left out of JSON dumps so prompts and API payloads keep their shape.
-    vehicle: str = Field(default="", exclude=True)
+class ToolTrace(Wire):
+    name: str = ""
+    status: str = "ok"
+    latency_ms: float = 0
+    args: dict[str, Any] = Field(default_factory=dict)
+    note: str = ""
 
 
-class RouteLeg(BaseModel):
-    from_geo: GeoPoint
-    to_geo: GeoPoint
-    duration_minutes: int | None = None
-    distance_km: float | None = None
-    mode: str = "walk"
-    source: str = "estimate"
-    polyline: list[GeoPoint] = Field(default_factory=list)
-    steps: list[RouteStep] = Field(default_factory=list)
-    # Set by a source that returns many legs in one result (routes.segments), so
-    # a plan can name the exact leg it used. Read as attributes only: they are
-    # left out of JSON dumps, so prompts and API payloads keep their shape.
-    id: str = Field(default="", exclude=True)
-    from_id: str = Field(default="", exclude=True)
-    to_id: str = Field(default="", exclude=True)
-
-
-class WeatherAlert(BaseModel):
-    """An official weather warning in force on a date (Hong Kong Observatory)."""
-
-    date: date
-    code: str
-    name: str
-    # Severe warnings (typhoon signal No. 3 and above, red or black rainstorm,
-    # tsunami) move outdoor stops off the day; the others are a note.
-    severe: bool = False
-    source: str = ""
-    url: str = ""
-    issued_at: datetime | None = None
-    fetched_at: datetime = Field(default_factory=utcnow)
-
-
-class TransitStatus(BaseModel):
-    """The service status one rail line reported for a date (MTR Next Train)."""
-
-    line: str
-    line_name: str = ""
-    date: date
-    delayed: bool = False
-    # Only when the source states it; the MTR feed reports a delay flag only.
-    delay_minutes: int | None = None
+class RunTrace(Wire):
+    request_id: str
+    spans: list[TraceSpan] = Field(default_factory=list)
+    generations: list[GenerationTrace] = Field(default_factory=list)
+    why: list[str] = Field(default_factory=list)
+    flow: list[str] = Field(default_factory=list)
+    path: dict[str, Any] | None = None
+    reason: str = ""
     message: str = ""
-    source: str = ""
-    url: str = ""
-    fetched_at: datetime = Field(default_factory=utcnow)
+    searches: list[SearchTrace] = Field(default_factory=list)
+    tools: list[ToolTrace] = Field(default_factory=list)
+    tool_calls: int = 0
 
 
-class GeoLocation(BaseModel):
+class PlanTranslation(Wire):
+    locale: PlanLocale = "en"
+    plan_version: int = 1
+    status: Literal["translated", "fallback", "unavailable", "english"] = "english"
+    reason: str = ""
+    disclaimer: str = ""
+    fields: dict[str, Any] = Field(default_factory=dict)
+
+
+class SessionState(Wire):
+    session: dict[str, Any]
+    context: TripContext
+    plan: TripPlan | None = None
+    versions: list[VersionEntry] = Field(default_factory=list)
+    messages: list[ChatMessage] = Field(default_factory=list)
+    held: bool = False
+    agent_name: str = ""
+    planner_busy: bool = False
+    planner_note: str = ""
+
+
+# --- request bodies -------------------------------------------------------
+
+
+class BufferedAttachment(Wire):
     name: str
-    country_code: str = ""
-    timezone: str = ""
-    geo: GeoPoint
-    source: str = ""
-    #: What the geocoder says the place is: a whole country, a first-level region, a city or town, or "unknown"
-    #: when the answer did not say. Never guessed from the name.
-    kind: Literal["country", "region", "city", "unknown"] = "unknown"
+    media_type: str = "application/octet-stream"
+    data: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Evaluation
-# ---------------------------------------------------------------------------
+class ChatRequest(Wire):
+    session_id: str | None = None
+    message: str = ""
+    locale: str = "en"
+    scope_item_id: str | None = None
+    scope_label: str | None = None
+    developer: bool = False
+    review: bool = True
+    client_token: str | None = None
+    identity: str = ""
+    attachments: list[BufferedAttachment] = Field(default_factory=list)
 
 
-class EvalCase(BaseModel):
+class CreateSessionRequest(Wire):
+    client_token: str | None = None
+
+
+class LayoutItem(Wire):
     id: str
-    dataset: str
-    split: Literal["dev", "heldout"] = "dev"
-    kind: Literal["routing", "planning", "injection", "disruption", "edit"] = "planning"
-    input: str
-    expected_intent: Intent | None = None
-    destination: str = ""
-    origin: str = ""
+    day: int
+    start: str
+    end: str
+    name: str | None = None
+
+
+class LayoutRequest(Wire):
+    items: list[LayoutItem] = Field(default_factory=list)
+    drops: list[str] = Field(default_factory=list)
+    plan_version: int | None = None
+
+
+class ChooseRequest(Wire):
+    kind: Literal["item", "hotel", "flight", "transport"]
+    target_id: str | None = None
+    option_id: str
+    plan_version: int | None = None
+    lock: bool = False
+
+
+class LockRequest(Wire):
+    kind: Literal["hotel", "transport"]
+    target_id: str
+    locked: bool = True
+    plan_version: int | None = None
+
+
+class BookedRequest(Wire):
+    kind: Literal["hotel", "transport"]
+    target_id: str
+    booked: bool = True
+    plan_version: int | None = None
+
+
+class RestoreRequest(Wire):
+    version: int
+
+
+class ProposalDecision(Wire):
+    change_id: str
+    accept: bool
+
+
+class ImportRequest(Wire):
+    client_token: str | None = None
+    plan: dict[str, Any]
+
+
+class FeedbackRequest(Wire):
+    useful: bool
+    stars: int | None = None
+    client_token: str = ""
+
+
+class PatchState(Wire):
+    """Every field optional; a null leaves the value unchanged."""
+
+    destination: str | None = None
+    origin: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
     days: int | None = None
     party_size: int | None = None
     budget: float | None = None
-    currency: str = "USD"
-    constraints: list[str] = Field(default_factory=list)
-    expected_facts: list[str] = Field(default_factory=list)
-    fault: str = ""
-    # What the sandbox injects for `fault` (day, venue, delay minutes, report text).
-    fault_detail: dict[str, Any] = Field(default_factory=dict)
-
-
-class DatasetMeta(BaseModel):
-    id: str
-    name: str
-    version: str = "1.0"
-    split: Literal["dev", "heldout"] = "dev"
-    frozen: bool = False
-    item_count: int = 0
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-class EvalMetric(BaseModel):
-    key: str
-    label: str
-    value: float
-    unit: str = "%"
-    baseline: float | None = None
-    delta: float | None = None
-    direction: Literal["up", "down", "flat"] = "flat"
-
-
-class EvalCaseResult(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("case"))
-    case_id: str
-    dataset: str
-    split: str
-    passed: bool
-    score: float = 0.0
-    failure_class: str = ""
-    input: str = ""
-    output_summary: str = ""
-    judge_reason: str = ""
-    judge_score: float | None = None
-    judge_flags: list[str] = Field(default_factory=list)
-    tool_summary: list[str] = Field(default_factory=list)
-    scores: dict[str, float] = Field(default_factory=dict)
-    # Planning cases: per-constraint verdicts, disruption outcomes, recovery and
-    # grounding checks (see app.eval_checks).
-    plan_checks: dict[str, Any] = Field(default_factory=dict)
-    trace_id: str = ""
-    latency_ms: int = 0
-
-
-class EvaluationRun(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("run"))
-    experiment_tag: str
-    dataset_id: str
-    dataset_version: str = "1.0"
-    status: Literal["running", "completed", "failed"] = "completed"
-    metrics: list[EvalMetric] = Field(default_factory=list)
-    cases: list[EvalCaseResult] = Field(default_factory=list)
-    model_snapshot: dict[str, Any] = Field(default_factory=dict)
-    token_usage: int = 0
-    latency_ms: int = 0
-    created_at: datetime = Field(default_factory=utcnow)
-    finished_at: datetime | None = None
-
-
-class TurnEvent(BaseModel):
-    """One SSE event. `data` is JSON-serialisable."""
-
-    event: str
-    data: dict[str, Any] = Field(default_factory=dict)
-
-
-# TripPlan references NoteItem, which is declared later in this module.
-TripPlan.model_rebuild()
+    currency: str | None = None
+    hotel_style: str | None = None
+    pace: str | None = None
+    profile: TravellerProfile | None = None
+    preferences: list[str] | None = None
+    hard_constraints: list[str] | None = None
+    language: str | None = None
+    plan_locale: PlanLocale | None = None
+    stops: list[TripStop] | None = None
+    one_way: bool | None = None
+    finalized: bool | None = None

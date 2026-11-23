@@ -1,0 +1,84 @@
+{
+  "dataset": "travelplanner",
+  "tag": "v5-travelplanner-sonnet",
+  "passed": 3,
+  "case_count": 3,
+  "latency_ms": 290220.5,
+  "metrics": [
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 3,
+      "unit": "cases",
+      "baseline": 3,
+      "delta": 0,
+      "direction": "flat"
+    },
+    {
+      "key": "constraints_met",
+      "label": "Constraints met",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": 0.0,
+      "direction": "flat"
+    }
+  ],
+  "model_snapshot": {
+    "writer": "claude-sonnet-5.5",
+    "writer_endpoint": "https://api.poe.com/v1",
+    "sandbox": true,
+    "router_threshold": 0.8,
+    "max_repairs": 1
+  },
+  "cases": [
+    {
+      "case_id": "tp01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 55207,
+        "llm_calls": 5,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "Three days in New York over Christmas, with the Met on Christmas Eve because it is closed on Wednesday. Each day is grouped by area. The trip covers the classic skyline views, Central Park, the Statue of Liberty, Brooklyn Bridge and a few well-known New York meals. The total comes to about $1,676 against the $2,500 budget.\n\nDay 1 (2026-12-23): Joe's Pizza, The High Line, Top of the Rock, Times Squ",
+      "latency_ms": 119103.8,
+      "trace_id": "87937f40966e4fa0ac8a91c65333dabd"
+    },
+    {
+      "case_id": "tp02",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 20103,
+        "llm_calls": 3,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "A four-day San Francisco trip that covers the main sights without rushing. It runs from Painted Ladies and the waterfront, through Alcatraz and the Golden Gate Bridge at golden hour, to a quiet museum-and-park day and a short last morning. You stay in the central Union Square area, and the total comes in well under your USD 1,800 budget.\n\nDay 1 (2026-12-23): Painted Ladies, Fisherman's Wharf, Gree",
+      "latency_ms": 116382.3,
+      "trace_id": "f71111aaeabb44c5bbf13d36029b277e"
+    },
+    {
+      "case_id": "tp03",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 19555,
+        "llm_calls": 3,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "Two balanced days in Manhattan. Day one goes from Central Park to a vegetarian lunch in the East Village, then the High Line and a sunset view from Top of the Rock, and ends with Times Square lit up after dark. Christmas Eve covers the Met, a walk over the Brooklyn Bridge and the 9/11 Memorial. Lunch both days is at Superiority Burger, the only fully vegetarian restaurant available, and the whole ",
+      "latency_ms": 54712.3,
+      "trace_id": "4479f3075cc64559a17566bd57d44103"
+    }
+  ],
+  "arm": "sonnet",
+  "model": "claude-sonnet-5.5",
+  "purpose": "plan"
+}

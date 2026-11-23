@@ -215,9 +215,6 @@ export function WriterSettings({
         <Field label={t("settings.orch.temperature")} htmlFor={`${formId}-heat`} hint={t("settings.writer.temperatureHint")}>
           <Input id={`${formId}-heat`} value={heat} disabled={!canEdit || locked} inputMode="decimal" onChange={(event) => setHeat(event.target.value)} />
         </Field>
-        <Field label={t("settings.orch.maxTokens")} htmlFor={`${formId}-cap`} hint={t("settings.writer.tokensHint")}>
-          <Input id={`${formId}-cap`} value={capText} disabled={!canEdit || locked} inputMode="numeric" onChange={(event) => setCapText(event.target.value)} />
-        </Field>
         <Field label={t("settings.orch.reasoning")} htmlFor={`${formId}-reason`} hint={t("settings.orch.reasoningHint")}>
           <Select id={`${formId}-reason`} value={reasoning} disabled={!canEdit || locked} onChange={(event) => setReasoning(event.target.value)}>
             {REASONING.map((effort) => (

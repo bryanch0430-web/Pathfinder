@@ -19,11 +19,11 @@ import {
   dayCount,
   endBounds,
   endOpensOnStart,
-  keepsPlanAnyway,
-  phraseDates,
 } from "../lib/clarifyInput";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
+import { currencyCodes, currencyOptionLabel } from "../lib/currency";
+import { readableLabel } from "../lib/readableLabel";
 import { profileOf } from "../lib/profile";
 import { useRouteChoices } from "../lib/routeChoices";
 import { choiceInto } from "../lib/routeShift";
@@ -171,6 +171,119 @@ export function SearchField({
         placeholder={placeholder ?? t("common.search")}
         aria-label={label ?? t("common.search")}
       />
+    </div>
+  );
+}
+
+const INLINE_MD = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\))/g;
+
+function inlineMd(text: string, key: string): ReactNode[] {
+  return text
+    .split(INLINE_MD)
+    .filter((part) => part !== "")
+    .map((part, index) => {
+      const token = `${key}-${index}`;
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        return <strong key={token}>{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        return <code key={token}>{part.slice(1, -1)}</code>;
+      }
+      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+        return <em key={token}>{part.slice(1, -1)}</em>;
+      }
+      const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (link) {
+        const href = safeHref(link[2]);
+        return href ? (
+          <a key={token} href={href} target="_blank" rel="noreferrer noopener">
+            {link[1]}
+          </a>
+        ) : (
+          part
+        );
+      }
+      return part;
+    });
+}
+
+type MdBlock = { kind: "p" | "ul" | "ol"; items: string[] };
+
+/**
+ * Small, safe Markdown for assistant replies: bold/italic/code, links, and bullet or
+ * numbered lists. It builds React nodes and never injects HTML, so model text cannot
+ * become markup.
+ */
+export function MarkdownText({ text }: { text: string }) {
+  const blocks: MdBlock[] = [];
+  let current: MdBlock | null = null;
+  const flush = () => {
+    if (current) {
+      blocks.push(current);
+      current = null;
+    }
+  };
+  for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      flush();
+      continue;
+    }
+    const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
+    if (bullet) {
+      if (!current || current.kind !== "ul") {
+        flush();
+        current = { kind: "ul", items: [] };
+      }
+      current.items.push(bullet[1]);
+      continue;
+    }
+    const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (ordered) {
+      if (!current || current.kind !== "ol") {
+        flush();
+        current = { kind: "ol", items: [] };
+      }
+      current.items.push(ordered[1]);
+      continue;
+    }
+    const heading = line.match(/^\s*#{1,4}\s+(.*)$/);
+    if (heading) {
+      flush();
+      blocks.push({ kind: "p", items: [`**${heading[1]}**`] });
+      continue;
+    }
+    if (!current || current.kind !== "p") {
+      flush();
+      current = { kind: "p", items: [] };
+    }
+    current.items.push(line);
+  }
+  flush();
+  return (
+    <div className="pf-md">
+      {blocks.map((block, blockIndex) => {
+        if (block.kind === "p") {
+          return (
+            <p key={blockIndex}>
+              {block.items.map((line, lineIndex) => (
+                <Fragment key={lineIndex}>
+                  {lineIndex ? <br /> : null}
+                  {inlineMd(line, `${blockIndex}-${lineIndex}`)}
+                </Fragment>
+              ))}
+            </p>
+          );
+        }
+        const List = block.kind === "ul" ? "ul" : "ol";
+        return (
+          <List key={blockIndex}>
+            {block.items.map((item, itemIndex) => (
+              <li key={itemIndex}>{inlineMd(item, `${blockIndex}-${itemIndex}`)}</li>
+            ))}
+          </List>
+        );
+      })}
     </div>
   );
 }
@@ -339,6 +452,7 @@ export function TripContextForm({
   submitting = false,
   saving = false,
   compact = false,
+  fx = null,
 }: {
   values: Partial<TripContext>;
   onChange: (patch: Partial<TripContext>) => void;
@@ -348,6 +462,7 @@ export function TripContextForm({
   submitting?: boolean;
   saving?: boolean;
   compact?: boolean;
+  fx?: FxSnapshot | null;
 }) {
   const { t } = useI18n();
   const id = useId();
@@ -359,6 +474,7 @@ export function TripContextForm({
   const [preferenceTags, setPreferenceTags] = useState<string[]>(values.preferences ?? []);
   const [prefInput, setPrefInput] = useState("");
   const [constraintText, setConstraintText] = useState((values.hard_constraints ?? []).join(", "));
+  const [showRequired, setShowRequired] = useState(false);
   const tripStart = values.start_date ?? "";
   const tripEnd = values.end_date ?? "";
   const tripDays = dayCount(tripStart, tripEnd);
@@ -460,6 +576,13 @@ export function TripContextForm({
       }}
       onSubmit={(event) => {
         event.preventDefault();
+        const originMissing = !(values.origin ?? "").trim();
+        const budgetMissing = values.budget == null || Number(values.budget) <= 0;
+        const currencyMissing = !/^[A-Za-z]{3}$/.test((values.currency ?? "").trim());
+        if (originMissing || budgetMissing || currencyMissing) {
+          setShowRequired(true);
+          return;
+        }
         addPendingPreference();
         onSubmit();
       }}
@@ -549,10 +672,11 @@ export function TripContextForm({
             ) : null}
           </div>
         </div>
-        <Field label={t("form.from")} required htmlFor={`${id}-origin`}>
+        <Field label={t("form.from")} required htmlFor={`${id}-origin`} error={showRequired && !(values.origin ?? "").trim() ? t("form.required") : undefined}>
           <Input
             id={`${id}-origin`}
             value={values.origin ?? ""}
+            invalid={showRequired && !(values.origin ?? "").trim()}
             onChange={(event) => onChange({ origin: event.target.value })}
             placeholder=""
             autoComplete="off"
@@ -601,7 +725,17 @@ export function TripContextForm({
             onChange={(event) => onChange({ party_size: event.target.value ? Number(event.target.value) : null })}
           />
         </Field>
-        <Field label={t("form.budget")} required wide htmlFor={`${id}-budget`}>
+        <Field
+          label={t("form.budget")}
+          required
+          wide
+          htmlFor={`${id}-budget`}
+          error={
+            showRequired && (values.budget == null || Number(values.budget) <= 0 || !/^[A-Za-z]{3}$/.test((values.currency ?? "").trim()))
+              ? t("form.required")
+              : undefined
+          }
+        >
           <div className="pf-budget-input">
             <Input
               id={`${id}-budget`}
@@ -609,20 +743,24 @@ export function TripContextForm({
               min={0}
               step="any"
               value={values.budget ?? ""}
+              invalid={showRequired && (values.budget == null || Number(values.budget) <= 0)}
               onChange={(event) => onChange({ budget: event.target.value ? Number(event.target.value) : null })}
               placeholder=""
             />
-            <Select
+            <Input
+              id={`${id}-currency`}
               aria-label={t("form.currency")}
+              list={`${id}-currency-list`}
               value={values.currency ?? "HKD"}
-              onChange={(event) => onChange({ currency: event.target.value })}
-            >
-              {["USD", "JPY", "HKD", "CNY", "EUR", "GBP", "SGD", "THB", "TWD", "KRW", "AUD"].map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
+              invalid={showRequired && !/^[A-Za-z]{3}$/.test((values.currency ?? "").trim())}
+              placeholder={t("form.currencySearch")}
+              onChange={(event) => onChange({ currency: event.target.value.toUpperCase().slice(0, 3) })}
+            />
+            <datalist id={`${id}-currency-list`}>
+              {currencyCodes(fx, values.currency).map((code) => (
+                <option key={code} value={code} label={currencyOptionLabel(code)} />
               ))}
-            </Select>
+            </datalist>
           </div>
         </Field>
         <Field label={t("form.hotelStyle")} htmlFor={`${id}-style`}>
@@ -788,21 +926,27 @@ export function ClarifyCard({
   submitting?: boolean;
 }) {
   const { t } = useI18n();
+  const id = useId();
   const choices = payload.choices ?? [];
-  const slotsOnly = payload.slots.length > 0;
+  // Older stored clarify cards were made before the backend added the currency
+  // field. If the question itself asks about a currency, show the field anyway.
+  const asksCurrency = /currency|(HKD|TWD|JPY|USD|EUR|GBP)/i.test(payload.question);
+  const slots = asksCurrency && !payload.slots.includes("currency") ? [...payload.slots, "currency"] : payload.slots;
+  const slotsOnly = slots.length > 0;
   // A number the trip could not take (a party of -2) flags its field and holds Continue;
   // an empty field is just unanswered and the backend still re-asks anything missing.
   const badNumber = (slot: string): boolean => {
     const raw = (values[slot] ?? "").trim();
-    if (!raw) return false;
+    // A required count is not "answered" by leaving the field blank; the card's
+    // Continue button stays disabled until a whole number is chosen or typed.
+    if (!raw) return slot === "party_size" || slot === "days" || slot === "origin" || slot === "destination" || slot === "budget";
     if (slot === "budget") {
-      if (keepsPlanAnyway(raw)) return false;
       const amount = amountIn(raw);
-      return amount === null || amount < 0;
+      return amount === null || amount <= 0;
     }
     const amount = Number(raw);
-    if (slot === "party_size") return !Number.isFinite(amount) || amount < 1 || amount > 20;
-    if (slot === "days") return !Number.isFinite(amount) || amount < 1 || amount > 60;
+    if (slot === "party_size") return !Number.isInteger(amount) || amount < 1 || amount > 20;
+    if (slot === "days") return !Number.isInteger(amount) || amount < 1 || amount > 60;
     return false;
   };
   const dateProblem = (slot: string): boolean => {
@@ -811,7 +955,11 @@ export function ClarifyCard({
     const count = dayCount(span.start, span.end);
     return !span.start || !span.end || count === null || count < 1 || count > MAX_TRIP_DAYS;
   };
-  const blocked = payload.slots.some(badNumber) || payload.slots.some(dateProblem);
+  const badCurrency = (slot: string): boolean => {
+    if (slot !== "currency") return false;
+    return !/^[A-Z]{3}$/.test((values[slot] ?? "").trim().toUpperCase());
+  };
+  const blocked = slots.some(badNumber) || slots.some(dateProblem) || slots.some(badCurrency);
   return (
     <div className="pf-clarify">
       <div className="pf-row">
@@ -825,8 +973,32 @@ export function ClarifyCard({
           const label =
             payload.labels[payload.slots.indexOf(slot)] ??
             slot.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-          const options = payload.options[slot] ?? [];
+          // Travellers are whole people: never offer a range ("3–4") or "5+" in a
+          // number field, because clicking it makes the field invalid. The free
+          // field still accepts a larger group.
+          const options = slot === "party_size" ? ["1", "2", "3", "4", "5", "6"] : payload.options[slot] ?? [];
           const suggested = payload.suggestions?.find((item) => item.slot === slot)?.name ?? "";
+          if (slot === "currency") {
+            const code = (values[slot] ?? "").toUpperCase().slice(0, 3);
+            return (
+              <Field key={slot} label={label} wide>
+                <Input
+                  id={`${id}-currency-${slot}`}
+                  aria-label={label}
+                  list={`${id}-currency-list-${slot}`}
+                  value={code}
+                  placeholder={t("form.currencySearch")}
+                  invalid={badCurrency(slot)}
+                  onChange={(event) => onChange(slot, event.target.value.toUpperCase().slice(0, 3))}
+                />
+                <datalist id={`${id}-currency-list-${slot}`}>
+                  {currencyCodes(null, code).map((choice) => (
+                    <option key={choice} value={choice} label={currencyOptionLabel(choice)} />
+                  ))}
+                </datalist>
+              </Field>
+            );
+          }
           if (slot === "dates") {
             return (
               <DateRangeField
@@ -844,9 +1016,17 @@ export function ClarifyCard({
                 type={isDate ? "date" : slot === "party_size" || slot === "budget" || slot === "days" ? "number" : "text"}
                 min={slot === "party_size" || slot === "days" ? 1 : slot === "budget" ? 0 : undefined}
                 max={slot === "party_size" ? 20 : slot === "days" ? 60 : undefined}
+                step={slot === "party_size" || slot === "days" ? 1 : undefined}
+                inputMode={slot === "party_size" || slot === "days" ? "numeric" : undefined}
                 invalid={badNumber(slot)}
                 value={slot === "budget" ? budgetShown(values[slot] ?? "") : values[slot] ?? ""}
-                onChange={(event) => onChange(slot, event.target.value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  // Keep the leading whole-number part. "2.5" becomes "2", not "25";
+                  // "-2" becomes empty. The backend would otherwise truncate it.
+                  const whole = next.match(/^\d*/)?.[0] ?? "";
+                  onChange(slot, slot === "party_size" || slot === "days" ? whole : next);
+                }}
                 placeholder={slot === "budget" ? "400000" : undefined}
                 title={suggested || undefined}
               />
@@ -863,7 +1043,15 @@ export function ClarifyCard({
                     </button>
                   ) : null}
                   {options.map((option) => {
-                    const stored = slot === "budget" ? budgetStored(option) : option;
+                    // "5 days" must become 5. A number field cannot hold the words,
+                    // so the chip looked dead and Continue stayed disabled.
+                    const count = slot === "days" || slot === "party_size" ? amountIn(option) : null;
+                    const stored =
+                      slot === "budget"
+                        ? budgetStored(option)
+                        : count !== null && Number.isInteger(count) && count >= 1
+                          ? String(count)
+                          : option;
                     return (
                       <button
                         key={option}
@@ -889,8 +1077,7 @@ export function ClarifyCard({
               key={choice.label}
               type="button"
               className="pf-chip"
-              disabled={submitting}
-              onClick={() => onSubmit(choice.message)}
+              onClick={() => onSubmit(choice.message || choice.label)}
             >
               {choice.label}
             </button>
@@ -964,13 +1151,6 @@ function dateSpan(value: string): { start: string; end: string } {
   return { start: found[0] ?? "", end: found[1] ?? "" };
 }
 
-function chipMatches(option: string, value: string): boolean {
-  const resolved = phraseDates(option);
-  if (!resolved) return value === option;
-  const current = dateSpan(value);
-  return current.start === resolved.start && current.end === resolved.end;
-}
-
 function DateRangeField({
   value,
   options,
@@ -1028,16 +1208,7 @@ function DateRangeField({
       {options.length ? (
         <span className="pf-clarify__options">
           {options.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className="pf-chip"
-              data-active={chipMatches(option, value)}
-              onClick={() => {
-                const next = phraseDates(option) ?? dateSpan(option);
-                if (next.start) write(next.start, next.end);
-              }}
-            >
+            <button key={option} type="button" className="pf-chip" data-active={value === option} onClick={() => { const next = dateSpan(option); write(next.start, next.end); }}>
               {option}
             </button>
           ))}
@@ -1107,7 +1278,7 @@ export function PlaceFacts({ place }: { place: Partial<PlaceFactFields> }) {
     parts.push(`\u2605 ${place.rating.toFixed(1)}${reviews}`);
   }
   if (place.price_level) parts.push(place.price_level);
-  if (place.cuisine) parts.push(place.cuisine);
+  if (place.cuisine) parts.push(readableLabel(place.cuisine));
   // Reservations are shown only when the source said yes; unknown and "no" show nothing.
   if (place.reservable === true) parts.push(t("options.reservable"));
   if (!parts.length) return null;
@@ -1617,10 +1788,11 @@ export function ExchangePanel({ cost, fx }: { cost: CostBreakdown; fx: FxSnapsho
   const { t } = useI18n();
   const [displayCurrency, setDisplayCurrency] = useState("USD");
   const rates = fx.rates ?? {};
+  const conversionCurrencies = currencyCodes(fx, cost.currency);
   const fromRate = rates[cost.currency] ?? 1;
-  const toRate = rates[displayCurrency] ?? 1;
-  const converted = fromRate > 0 ? (cost.total * toRate) / fromRate : cost.total;
-  const conversionCurrencies = ["USD", "HKD", "JPY", "CNY", "EUR", "GBP", "SGD", "TWD", "THB", "KRW"];
+  const toRate = rates[displayCurrency];
+  const known = typeof toRate === "number" && toRate > 0;
+  const converted = known && fromRate > 0 ? (cost.total * toRate) / fromRate : null;
   return (
     <div className="pf-exchange">
       <div className="pf-fx">
@@ -1634,17 +1806,22 @@ export function ExchangePanel({ cost, fx }: { cost: CostBreakdown; fx: FxSnapsho
           <span className="pf-small pf-muted">
             {cost.currency} {Math.round(cost.total).toLocaleString()} ≈
           </span>
-          <Select
+          <Input
             aria-label={t("budget.displayCurrency")}
+            list="pf-fx-currency-list"
             value={displayCurrency}
-            onChange={(event) => setDisplayCurrency(event.target.value)}
-          >
+            placeholder={t("form.currencySearch")}
+            onChange={(event) => setDisplayCurrency(event.target.value.toUpperCase().slice(0, 3))}
+          />
+          <datalist id="pf-fx-currency-list">
             {conversionCurrencies.map((code) => (
-              <option key={code} value={code}>{code}</option>
+              <option key={code} value={code} label={currencyOptionLabel(code)} />
             ))}
-          </Select>
+          </datalist>
           <strong>
-            {displayCurrency} {Math.round(converted).toLocaleString()}
+            {known && converted !== null
+              ? `${displayCurrency} ${Math.round(converted).toLocaleString()}`
+              : t("budget.chooseCurrency")}
           </strong>
         </div>
         <span className="pf-fx__note">
@@ -1728,27 +1905,58 @@ export function PlanFeedback({
   verdict: "useful" | "not_useful" | null;
   stars?: number | null;
   added?: string[];
-  onFinalise?: () => void;
+  onFinalise?: () => void | Promise<void>;
   onUseful: (stars?: number) => void;
   onNotUseful: () => void;
 }) {
   const { t } = useI18n();
+  const [finalising, setFinalising] = useState(false);
   if (!finalized) {
     return (
       <div className="pf-plan-feedback">
-        <button type="button" className="pf-plan-feedback__button" onClick={onFinalise}>
-          {t("feedback.finalise")}
+        <button
+          type="button"
+          className="pf-plan-feedback__button pf-plan-feedback__finalise"
+          disabled={finalising}
+          onClick={() => {
+            if (finalising) return;
+            setFinalising(true);
+            void Promise.resolve(onFinalise?.()).finally(() => setFinalising(false));
+          }}
+        >
+          {finalising ? t("feedback.finalising") : t("feedback.finalise")}
         </button>
       </div>
     );
   }
+  const starRow = (
+    <span className="pf-row">
+      {[1, 2, 3, 4, 5].map((value) => (
+        <button
+          key={value}
+          type="button"
+          className="pf-plan-feedback__button"
+          aria-label={t("feedback.stars", { count: value })}
+          onClick={() => onUseful(value)}
+        >
+          <Icon name="star" size={12} />
+          {value}
+        </button>
+      ))}
+    </span>
+  );
   return (
     <div className="pf-plan-feedback">
-      {verdict === "useful" ? (
+      {verdict === "useful" && stars ? (
         <button type="button" className="pf-plan-feedback__saved" data-saved="true">
           <Icon name="check" size={13} />
-          {t("feedback.markedUseful")}
+          {t("feedback.markedUseful")} · {t("feedback.saved", { stars })}
         </button>
+      ) : verdict === "useful" ? (
+        <>
+          <span className="pf-day__date">{t("feedback.ratePrompt")}</span>
+          {starRow}
+        </>
       ) : verdict === "not_useful" ? (
         <span className="pf-plan-feedback__not">{t("feedback.markedNotUseful")}</span>
       ) : (
@@ -1760,26 +1968,9 @@ export function PlanFeedback({
           <button type="button" className="pf-plan-feedback__button" onClick={onNotUseful}>
             {t("feedback.notUseful")}
           </button>
-          <span className="pf-row">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                className="pf-plan-feedback__button"
-                aria-label={t("feedback.stars", { count: value })}
-                onClick={() => onUseful(value)}
-              >
-                <Icon name="star" size={12} />
-                {value}
-              </button>
-            ))}
-          </span>
         </>
       )}
-      {verdict === "useful" && stars ? (
-        <span className="pf-plan-feedback__added">{t("feedback.saved", { stars })}</span>
-      ) : null}
-      {verdict === "useful" && added.length ? (
+      {verdict === "useful" && stars && added.length ? (
         <span className="pf-plan-feedback__added">+ {added.slice(0, 3).join(", ")}</span>
       ) : null}
       {verdict ? <span className="pf-muted">{t("feedback.frozen")}</span> : null}

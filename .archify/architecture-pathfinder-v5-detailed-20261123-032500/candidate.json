@@ -1,0 +1,1193 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Pathfinder v5 — Detailed Code Architecture",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "docs/architecture/pathfinder-v5-architecture-detailed.html",
+    "repository": {
+      "url": "https://github.com/bryanch0430-web/Pathfinder.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "0b74fe25c0048f8a2b98f22012418396939c79ca"
+    },
+    "viewBox": [
+      1234,
+      940
+    ]
+  },
+  "components": [
+    {
+      "id": "config",
+      "type": "backend",
+      "label": "Config",
+      "sublabel": ".env → Settings",
+      "tag": "40+ keys",
+      "icon": "backend",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "backend/app/config.py",
+          "line": 28,
+          "end_line": 173
+        }
+      ]
+    },
+    {
+      "id": "jev",
+      "type": "backend",
+      "label": "Jev router",
+      "sublabel": "System 1 · optional",
+      "tag": "confidence gate",
+      "icon": "decision",
+      "pos": [
+        450,
+        40
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/understand/jev.py",
+          "line": 102,
+          "end_line": 158
+        }
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "backend",
+      "label": "Model gateway",
+      "sublabel": "core/llm.py · JSON contract",
+      "tag": "one repair",
+      "icon": "backend",
+      "pos": [
+        670,
+        40
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "sources": [
+        {
+          "path": "backend/app/core/llm.py",
+          "line": 1,
+          "end_line": 18
+        },
+        {
+          "path": "backend/app/core/llm.py",
+          "line": 71,
+          "end_line": 110
+        },
+        {
+          "path": "backend/app/core/llm.py",
+          "line": 488,
+          "end_line": 531
+        }
+      ]
+    },
+    {
+      "id": "writer",
+      "type": "external",
+      "label": "Writer model",
+      "sublabel": "Poe / OpenAI / xAI",
+      "tag": "BYOK",
+      "icon": "external",
+      "pos": [
+        900,
+        40
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/config.py",
+          "line": 52,
+          "end_line": 76
+        }
+      ]
+    },
+    {
+      "id": "judge",
+      "type": "external",
+      "label": "Judge model",
+      "sublabel": "DeepSeek · optional",
+      "tag": "eval only",
+      "icon": "external",
+      "pos": [
+        1090,
+        40
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "sources": [
+        {
+          "path": "backend/app/config.py",
+          "line": 98,
+          "end_line": 101
+        },
+        {
+          "path": "backend/app/plan/validator.py",
+          "line": 120,
+          "end_line": 128
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Ownership",
+      "sublabel": "guest · user",
+      "tag": "deps.py",
+      "icon": "security",
+      "pos": [
+        40,
+        170
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/deps.py",
+          "line": 58,
+          "end_line": 95
+        }
+      ]
+    },
+    {
+      "id": "operator",
+      "type": "backend",
+      "label": "Operator routers",
+      "sublabel": "admin · evals · llm · misc",
+      "tag": "60 routes",
+      "icon": "backend",
+      "pos": [
+        240,
+        170
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/admin.py",
+          "line": 286,
+          "end_line": 319
+        },
+        {
+          "path": "backend/app/api/evals.py",
+          "line": 59,
+          "end_line": 67
+        },
+        {
+          "path": "backend/app/api/llm.py",
+          "line": 78,
+          "end_line": 98
+        }
+      ]
+    },
+    {
+      "id": "journeys",
+      "type": "backend",
+      "label": "Journey router",
+      "sublabel": "state · versions · proposals",
+      "tag": "27 routes",
+      "icon": "backend",
+      "pos": [
+        450,
+        170
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/journeys.py",
+          "line": 50,
+          "end_line": 63
+        },
+        {
+          "path": "backend/app/api/journeys.py",
+          "line": 166,
+          "end_line": 199
+        }
+      ]
+    },
+    {
+      "id": "turn",
+      "type": "backend",
+      "label": "Turn router",
+      "sublabel": "POST /api/turn/stream",
+      "tag": "SSE",
+      "icon": "backend",
+      "pos": [
+        670,
+        170
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/turn.py",
+          "line": 22,
+          "end_line": 23
+        },
+        {
+          "path": "backend/app/api/turn.py",
+          "line": 100,
+          "end_line": 179
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "security",
+      "label": "Admin & Desk",
+      "sublabel": "queue · cases · prompts",
+      "tag": "32 routes",
+      "icon": "security",
+      "pos": [
+        900,
+        170
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/admin.py",
+          "line": 593,
+          "end_line": 626
+        },
+        {
+          "path": "backend/app/api/admin.py",
+          "line": 690,
+          "end_line": 720
+        }
+      ]
+    },
+    {
+      "id": "understand",
+      "type": "backend",
+      "label": "Turn analyst",
+      "sublabel": "pipeline.py",
+      "tag": "one JSON call",
+      "icon": "decision",
+      "pos": [
+        240,
+        300
+      ],
+      "size": [
+        160,
+        72
+      ],
+      "sources": [
+        {
+          "path": "backend/app/understand/pipeline.py",
+          "line": 39,
+          "end_line": 111
+        },
+        {
+          "path": "backend/app/understand/pipeline.py",
+          "line": 114,
+          "end_line": 188
+        }
+      ]
+    },
+    {
+      "id": "route",
+      "type": "backend",
+      "label": "Route + clarify",
+      "sublabel": "route + clarify",
+      "tag": "domain schema",
+      "icon": "decision",
+      "pos": [
+        450,
+        300
+      ],
+      "size": [
+        170,
+        66
+      ],
+      "sources": [
+        {
+          "path": "backend/app/understand/pipeline.py",
+          "line": 237,
+          "end_line": 304
+        },
+        {
+          "path": "backend/app/domain/models.py",
+          "line": 498,
+          "end_line": 517
+        }
+      ]
+    },
+    {
+      "id": "traveller",
+      "type": "external",
+      "label": "Traveller",
+      "sublabel": "browser chat",
+      "icon": "person",
+      "pos": [
+        40,
+        430
+      ],
+      "size": [
+        120,
+        60
+      ]
+    },
+    {
+      "id": "react_ui",
+      "type": "frontend",
+      "label": "React UI",
+      "sublabel": "api.ts + SSE hook",
+      "tag": "JSON + SSE",
+      "icon": "frontend",
+      "pos": [
+        240,
+        430
+      ],
+      "size": [
+        160,
+        68
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 1,
+          "end_line": 40
+        },
+        {
+          "path": "frontend/src/lib/api.ts",
+          "line": 61,
+          "end_line": 135
+        },
+        {
+          "path": "frontend/src/lib/usePathfinder.ts",
+          "line": 1040,
+          "end_line": 1130
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI app",
+      "sublabel": "7 routers · SSE",
+      "tag": "86 OpenAPI paths",
+      "icon": "backend",
+      "pos": [
+        450,
+        430
+      ],
+      "size": [
+        170,
+        74
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/app.py",
+          "line": 27,
+          "end_line": 68
+        },
+        {
+          "path": "backend/app/api/turn.py",
+          "line": 100,
+          "end_line": 179
+        }
+      ]
+    },
+    {
+      "id": "orchestrator",
+      "type": "backend",
+      "label": "Turn orchestrator",
+      "sublabel": "orchestrator.py",
+      "tag": "one turn, one path",
+      "icon": "active",
+      "pos": [
+        670,
+        430
+      ],
+      "size": [
+        180,
+        80
+      ],
+      "sources": [
+        {
+          "path": "backend/app/turn/orchestrator.py",
+          "line": 71,
+          "end_line": 97
+        },
+        {
+          "path": "backend/app/turn/orchestrator.py",
+          "line": 170,
+          "end_line": 180
+        },
+        {
+          "path": "backend/app/turn/orchestrator.py",
+          "line": 408,
+          "end_line": 567
+        }
+      ]
+    },
+    {
+      "id": "composer",
+      "type": "backend",
+      "label": "Composer",
+      "sublabel": "builder.py · refs",
+      "tag": "evidence → plan",
+      "icon": "backend",
+      "pos": [
+        900,
+        430
+      ],
+      "size": [
+        170,
+        68
+      ],
+      "sources": [
+        {
+          "path": "backend/app/plan/builder.py",
+          "line": 75,
+          "end_line": 136
+        },
+        {
+          "path": "backend/app/plan/builder.py",
+          "line": 246,
+          "end_line": 367
+        }
+      ]
+    },
+    {
+      "id": "validator",
+      "type": "security",
+      "label": "Validator",
+      "sublabel": "structure + audit",
+      "tag": "verify skill",
+      "icon": "security",
+      "pos": [
+        1090,
+        430
+      ],
+      "size": [
+        140,
+        68
+      ],
+      "sources": [
+        {
+          "path": "backend/app/plan/validator.py",
+          "line": 32,
+          "end_line": 45
+        },
+        {
+          "path": "backend/app/plan/validator.py",
+          "line": 98,
+          "end_line": 146
+        }
+      ]
+    },
+    {
+      "id": "agents",
+      "type": "backend",
+      "label": "Specialist agents",
+      "sublabel": "places · stays",
+      "tag": "parallel",
+      "icon": "messagebus",
+      "pos": [
+        40,
+        560
+      ],
+      "size": [
+        130,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/app/plan/agents.py",
+          "line": 40,
+          "end_line": 119
+        }
+      ]
+    },
+    {
+      "id": "editor",
+      "type": "backend",
+      "label": "Editor",
+      "sublabel": "typed ops",
+      "tag": "edit skill",
+      "icon": "backend",
+      "pos": [
+        240,
+        560
+      ],
+      "size": [
+        160,
+        66
+      ],
+      "sources": [
+        {
+          "path": "backend/app/plan/editor.py",
+          "line": 43,
+          "end_line": 126
+        },
+        {
+          "path": "backend/app/plan/editor.py",
+          "line": 202,
+          "end_line": 298
+        }
+      ]
+    },
+    {
+      "id": "repair",
+      "type": "backend",
+      "label": "Repair loop",
+      "sublabel": "composer retry ≤2",
+      "tag": "MAX_REPAIRS",
+      "icon": "active",
+      "pos": [
+        450,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/turn/orchestrator.py",
+          "line": 451,
+          "end_line": 553
+        }
+      ]
+    },
+    {
+      "id": "budget",
+      "type": "backend",
+      "label": "Budget guard",
+      "sublabel": "trim paid stops",
+      "tag": "builder._fit_budget",
+      "icon": "backend",
+      "pos": [
+        670,
+        560
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/plan/builder.py",
+          "line": 623,
+          "end_line": 684
+        }
+      ]
+    },
+    {
+      "id": "fallback",
+      "type": "backend",
+      "label": "Fallback plan",
+      "sublabel": "sourced shortlist",
+      "tag": "on LLMError",
+      "icon": "backend",
+      "pos": [
+        900,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/plan/builder.py",
+          "line": 924,
+          "end_line": 1029
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Store",
+      "sublabel": "12 tables",
+      "tag": "versioned plans",
+      "icon": "database",
+      "pos": [
+        1090,
+        560
+      ],
+      "size": [
+        140,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/app/core/store.py",
+          "line": 22,
+          "end_line": 128
+        },
+        {
+          "path": "backend/app/core/store.py",
+          "line": 131,
+          "end_line": 615
+        }
+      ]
+    },
+    {
+      "id": "providers",
+      "type": "cloud",
+      "label": "Provider adapters",
+      "sublabel": "places · weather",
+      "tag": "gaps not guesses",
+      "icon": "cloud",
+      "pos": [
+        40,
+        690
+      ],
+      "size": [
+        130,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/app/evidence/providers.py",
+          "line": 1,
+          "end_line": 12
+        },
+        {
+          "path": "backend/app/evidence/providers.py",
+          "line": 99,
+          "end_line": 169
+        },
+        {
+          "path": "backend/app/evidence/providers.py",
+          "line": 288,
+          "end_line": 355
+        }
+      ]
+    },
+    {
+      "id": "evidence_models",
+      "type": "database",
+      "label": "Evidence model",
+      "sublabel": "Evidence · Bundle",
+      "tag": "refs + gaps",
+      "icon": "database",
+      "pos": [
+        240,
+        690
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/evidence/models.py",
+          "line": 31,
+          "end_line": 207
+        }
+      ]
+    },
+    {
+      "id": "atlas",
+      "type": "database",
+      "label": "Curated atlas",
+      "sublabel": "12 cities + US",
+      "tag": "sandbox",
+      "icon": "database",
+      "pos": [
+        450,
+        690
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/evidence/atlas.py",
+          "line": 198,
+          "end_line": 294
+        },
+        {
+          "path": "backend/app/evidence/atlas_us.py",
+          "line": 1,
+          "end_line": 30
+        }
+      ]
+    },
+    {
+      "id": "travel_apis",
+      "type": "cloud",
+      "label": "Travel APIs",
+      "sublabel": "Google · Open-Meteo · SerpAPI",
+      "tag": "Wikipedia fallback",
+      "icon": "cloud",
+      "pos": [
+        670,
+        690
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/app/evidence/providers.py",
+          "line": 424,
+          "end_line": 535
+        },
+        {
+          "path": "backend/app/evidence/providers.py",
+          "line": 564,
+          "end_line": 614
+        },
+        {
+          "path": "backend/app/evidence/providers.py",
+          "line": 687,
+          "end_line": 769
+        }
+      ]
+    },
+    {
+      "id": "eval_runner",
+      "type": "backend",
+      "label": "Eval runner",
+      "sublabel": "real pipeline · sandbox",
+      "tag": "7 suites",
+      "icon": "flag",
+      "pos": [
+        900,
+        690
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/eval/runner.py",
+          "line": 34,
+          "end_line": 90
+        },
+        {
+          "path": "backend/app/eval/runner.py",
+          "line": 208,
+          "end_line": 334
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite (WAL)",
+      "sublabel": "data/pathfinder.db",
+      "tag": "local single user",
+      "icon": "database",
+      "pos": [
+        1090,
+        690
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/core/store.py",
+          "line": 22,
+          "end_line": 128
+        }
+      ]
+    },
+    {
+      "id": "fixtures",
+      "type": "database",
+      "label": "Frozen fixtures",
+      "sublabel": "8 files · 84 cases",
+      "tag": "main baseline",
+      "icon": "database",
+      "pos": [
+        40,
+        820
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/eval/fixtures/routing.jsonl",
+          "line": 1,
+          "end_line": 2
+        }
+      ]
+    },
+    {
+      "id": "datasets",
+      "type": "backend",
+      "label": "Dataset loader",
+      "sublabel": "cases · suites",
+      "tag": "eval/datasets.py",
+      "icon": "backend",
+      "pos": [
+        240,
+        820
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/eval/datasets.py",
+          "line": 143,
+          "end_line": 163
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Evidence plane",
+      "wraps": [
+        "providers",
+        "evidence_models",
+        "atlas",
+        "travel_apis"
+      ],
+      "pad": 12
+    }
+  ],
+  "connections": [
+    {
+      "id": "open-ui",
+      "from": "traveller",
+      "to": "react_ui",
+      "label": "opens"
+    },
+    {
+      "id": "ui-api",
+      "from": "react_ui",
+      "to": "api",
+      "label": "JSON"
+    },
+    {
+      "id": "api-sse",
+      "from": "api",
+      "to": "react_ui",
+      "label": "SSE",
+      "variant": "dashed"
+    },
+    {
+      "id": "api-orchestrator",
+      "from": "api",
+      "to": "orchestrator",
+      "label": "turn"
+    },
+    {
+      "id": "turn-orchestrator",
+      "from": "turn",
+      "to": "orchestrator",
+      "label": "stream"
+    },
+    {
+      "id": "orchestrator-understand",
+      "from": "orchestrator",
+      "to": "understand",
+      "label": "read"
+    },
+    {
+      "id": "understand-gateway",
+      "from": "understand",
+      "to": "gateway",
+      "label": "JSON"
+    },
+    {
+      "id": "gateway-writer",
+      "from": "gateway",
+      "to": "writer",
+      "label": "chat"
+    },
+    {
+      "id": "gateway-judge",
+      "from": "gateway",
+      "to": "judge",
+      "label": "judge",
+      "variant": "dashed"
+    },
+    {
+      "id": "understand-route",
+      "from": "understand",
+      "to": "route",
+      "label": "intent",
+      "labelAt": [
+        400,
+        386
+      ]
+    },
+    {
+      "id": "route-orchestrator",
+      "from": "route",
+      "to": "orchestrator",
+      "label": "dispatch"
+    },
+    {
+      "id": "jev-understand",
+      "from": "jev",
+      "to": "understand",
+      "label": "override",
+      "variant": "dashed"
+    },
+    {
+      "id": "orchestrator-composer",
+      "from": "orchestrator",
+      "to": "composer",
+      "label": "plan"
+    },
+    {
+      "id": "composer-validator",
+      "from": "composer",
+      "to": "validator",
+      "label": "draft",
+      "variant": "emphasis"
+    },
+    {
+      "id": "validator-orchestrator",
+      "from": "validator",
+      "to": "orchestrator",
+      "label": "problems",
+      "variant": "emphasis"
+    },
+    {
+      "id": "orchestrator-editor",
+      "from": "orchestrator",
+      "to": "editor",
+      "label": "modify"
+    },
+    {
+      "id": "orchestrator-agents",
+      "from": "orchestrator",
+      "to": "agents",
+      "label": "gather"
+    },
+    {
+      "id": "agents-providers",
+      "from": "agents",
+      "to": "providers",
+      "label": "query"
+    },
+    {
+      "id": "agents-atlas",
+      "from": "agents",
+      "to": "atlas",
+      "label": "sandbox"
+    },
+    {
+      "id": "providers-apis",
+      "from": "providers",
+      "to": "travel_apis",
+      "label": "HTTP"
+    },
+    {
+      "id": "orchestrator-store",
+      "from": "orchestrator",
+      "to": "store",
+      "label": "persist",
+      "labelAt": [
+        940,
+        638
+      ]
+    },
+    {
+      "id": "api-auth",
+      "from": "api",
+      "to": "auth",
+      "label": "identity"
+    },
+    {
+      "id": "operator-api",
+      "from": "operator",
+      "to": "api",
+      "label": "admin",
+      "variant": "dashed"
+    },
+    {
+      "id": "composer-budget",
+      "from": "composer",
+      "to": "budget",
+      "label": "trim"
+    },
+    {
+      "id": "composer-fallback",
+      "from": "composer",
+      "to": "fallback",
+      "label": "LLMError",
+      "variant": "dashed"
+    },
+    {
+      "id": "store-sqlite",
+      "from": "store",
+      "to": "sqlite",
+      "label": "SQL"
+    },
+    {
+      "id": "eval-fixtures",
+      "from": "eval_runner",
+      "to": "fixtures",
+      "label": "cases"
+    },
+    {
+      "id": "eval-datasets",
+      "from": "eval_runner",
+      "to": "datasets",
+      "label": "load"
+    },
+    {
+      "id": "eval-store",
+      "from": "eval_runner",
+      "to": "store",
+      "label": "runs"
+    },
+    {
+      "id": "config-gateway",
+      "from": "config",
+      "to": "gateway",
+      "label": "env"
+    },
+    {
+      "id": "config-providers",
+      "from": "config",
+      "to": "providers",
+      "label": "keys"
+    },
+    {
+      "id": "agents-evidence",
+      "from": "agents",
+      "to": "evidence_models",
+      "label": "Evidence"
+    },
+    {
+      "id": "orchestrator-repair",
+      "from": "orchestrator",
+      "to": "repair",
+      "label": "loop",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "HTTP surface — 7 routers, 98 handlers",
+      "items": [
+        "api/app.py includes journeys, turn, misc, account, admin, llm and evals; it also mounts frontend/dist at /.",
+        "turn.py: POST /api/turn/stream; sse_frame() writes event + JSON; 11 turn events (intake, route, clarify, progress, agent, plan, proposal, token, trace, done, error).",
+        "journeys.py (27 routes): create, state, revisions, itinerary, proposal decision, lock/booked, finalise, share, import, delete.",
+        "account.py (10), llm.py (8), misc.py (11), admin.py (32), evals.py (9); 98 route handlers produce 86 OpenAPI paths.",
+        "deps.py: X-Client-Token guest, Bearer account, X-Admin-Token/local admin; one seat per session per turn.",
+        "frontend/src/lib/api.ts exposes 70 request paths; usePathfinder.ts consumes route, progress, agent, clarify, plan, proposal, token, trace, done and error.",
+        "views.py is a helper module (session_view, segments, calendar ICS, translate_plan, runtime_config), not a router."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Turn control — mask, read, route, gate",
+      "items": [
+        "_produce(): mask_pii first; load context + plan + last 10 messages; write user row; held-session short circuit.",
+        "_intake(): files (pypdf) and URLs become IntakeFacts only when a file or link is present.",
+        "understand(): one purpose=understand JSON call into ParsedIntent; merge_slots copies untouched context and clamps days 1–60, party 1–40.",
+        "_route(): threshold 0.8; unclear always clarifies; a low-confidence modify on an existing plan becomes a clarify; affected_parts defaults to attraction/hotel/weather on plan.",
+        "Optional Jev: TURN_ORCHESTRATOR=jev overrides intent only when Jev confidence ≥ threshold; analyst slots are kept.",
+        "Gates before dispatch: injection count, self-harm reply, handoff phrases/frustration/stuck, finalised plan refuses plan/modify."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Plan path — gather, compose, validate, repair",
+      "items": [
+        "gather(): attraction, hotel, weather, flight and route work runs concurrently; a failed source becomes DataGap, never a guessed fact.",
+        "candidate_pool(): stable refs (pl-, x-, wiki-, hotel-) are all the composer sees; it cannot write an address, price or hour.",
+        "compose(): purpose=plan, 12k cap, PlanDraft → build_plan copies Evidence into PlanItem, settles overlaps/transfers, hotel, tickets, alternatives and budget.",
+        "validate_structure(): required fields, known refs, day integrity; repair loops MAX_REPAIRS (default 2) with previous problems fed back.",
+        "audit_constraints(): purpose=verify into VerifyResult; failed or unknown checks become repair problems; one extra compose attempt.",
+        "Fallbacks: one composer retry on LLMError, then fallback_plan() from the sourced shortlist; _persist_plan writes the next version and SSE plan + reply."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Modify path — typed ops and proposals",
+      "items": [
+        "Scoped gather first, then propose_edit(): purpose=edit, EditDraft with ops (move, retime, add, replace, swap_hotel, set_field, remove).",
+        "needs_research: lookup_place() (Google Places live, Wikipedia offline) adds a source before the edit is asked again.",
+        "Draft scope=whole or a date/destination change returns rebuild=True; orchestrator calls _plan_turn instead of applying a small edit.",
+        "Locked and confirmed items are protected; untouched items keep their data; diff_plans() describes the change.",
+        "review=true is the default: the candidate plan is stored as a proposal; only decide_proposal(accept) persists it.",
+        "No change bumps the stuck counter; at 3 failed edits the chat can hand off to the Desk queue."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Ask + clarify paths — no plan mutation",
+      "items": [
+        "Ask: _search_queries() (purpose=search_query) → up to 2 SerpAPI searches × 4 results; payload = trip + plan text + history + sources + cost.",
+        "Ask streams llm.stream_text(purpose=ask) as token events, then _guard_output + mask_pii; no plan version is written.",
+        "Clarify: route.need_clarification or a plan missing destination/dates; _clarify() builds question + slots + labels + options + choices + suggestions.",
+        "Clarify emits event=clarify and a short chat line, saves the assistant message, and returns without evidence or plan work.",
+        "Both paths end through _finish(): trace event, done event, session note; ask resets the stuck counter."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "State, security and evaluation",
+      "items": [
+        "SQLite WAL has 12 tables: sessions, contexts, messages, plans, shares, profiles, wishlist, eval_runs, users, feedback, kv, seats.",
+        "Plans are append-only (session_id, version); restore copies an old version forward; one seat row prevents two turns on one session.",
+        "PII: HKID, phone, email, card (Luhn) masked before the model/store; runtime patterns editable in the admin preview.",
+        "Canary checked on every output; a leak becomes a refusal. Injection is recorded as a threat and the message stays data.",
+        "Eval: 7 suites (routing 84, injection 84, hongkong 8, japan 6, travelplanner 3, efficiency 10, edit_vs_replan 5) run the real pipeline with sandbox evidence.",
+        "Config: 40+ env keys, per-part model/temperature/reasoning/cap overrides, MAX_REPAIRS=2, TURN_DEADLINE_SECONDS=180, SSE_KEEPALIVE_SECONDS=15.",
+        "core/dates.py owns parse_date, finish_dates, minutes_between, overlaps and shift_time; core/trace.py records the per-turn span list.",
+        "application/memory.py derives profile preferences; core/prompts.py loads the 7 prompt packs and runtime overrides.",
+        "Provider methods in evidence/providers.py: locate, attractions, hotels, meals, weather, leg, tickets, search, page_text, videos, lookup_place."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Model gateway — one client, eleven purposes",
+      "items": [
+        "Purposes seen in code: understand, plan, edit, verify, ask, intake, memory, search_query, translate, flights, search.",
+        "Built-in caps: plan 12,000; edit 2,000; verify 1,500; ask 1,400; intake 1,200; memory 700; search_query 200; translate 4,000.",
+        "JSON contract: system prompt + skeleton → extract_json → Pydantic schema → one repair turn with the exact validation error.",
+        "Settings.writer resolves Poe / OpenAI-compatible / xAI blocks; per-purpose overrides win over the writer default.",
+        "Every call is traced with model, tokens and latency; a fake LLMClient is the test seam.",
+        "Prompt packs: understand 170, plan 91, edit 74, verify 45, ask 38, intake 32, translate 21 lines; overridable at /api/admin/prompts."
+      ]
+    }
+  ]
+}

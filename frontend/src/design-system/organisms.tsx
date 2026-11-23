@@ -11,9 +11,9 @@ import { ClashNote, DirectSheet, clashesOf, clashIds, type LayoutMove, type Stop
 import { Icon, type IconName } from "./icons";
 import { SituationReading, WriterDiagnosis } from "./writerDiagnosis";
 import { type ModelKeysProps } from "./ModelKeys";
-import { OrchestratorSettings } from "./OrchestratorSettings";
-import { ReviewerSettings, type ReviewerBody, type ReviewerConfig } from "./ReviewerSettings";
 import { WriterSettings } from "./WriterSettings";
+import { ModelsSettings } from "./ModelsSettings";
+import type { ReviewerBody, ReviewerConfig } from "./ReviewerSettings";
 import { SerpApiRotation } from "./SerpApiRotation";
 import {
   AgentActivity,
@@ -28,6 +28,7 @@ import {
   failureReason,
   GapList,
   IntakeNotice,
+  MarkdownText,
   MetricCard,
   MiniStat,
   Field,
@@ -58,6 +59,7 @@ import type {
   EvalReference,
   EvalRun,
   EvalRunSummary,
+  FxSnapshot,
   GuideChunk,
   HotelStay,
   IntakePayload,
@@ -76,6 +78,7 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
+import { readableLabel } from "../lib/readableLabel";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
 import { dayRoute, dayScope, overviewStops, travelLine } from "../lib/mapScope";
 import { RouteChoiceProvider, useRouteChoices } from "../lib/routeChoices";
@@ -415,6 +418,7 @@ export function TripPanel({
   saving,
   submitting,
   initialOpen = false,
+  fx = null,
 }: {
   context: Partial<TripContext>;
   plan: TripPlan | null;
@@ -425,6 +429,7 @@ export function TripPanel({
   saving?: boolean;
   submitting?: boolean;
   initialOpen?: boolean;
+  fx?: FxSnapshot | null;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(initialOpen);
@@ -480,6 +485,7 @@ export function TripPanel({
             onSuggestDestination={onSuggestDestination}
             saving={saving}
             submitting={submitting}
+            fx={fx}
           />
         </div>
       </Drawer>
@@ -960,29 +966,6 @@ function EditDecision({
   );
 }
 
-/** Ticks once a second while a step is still running, so its duration can count up. */
-function useRunningClock(active: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [active]);
-  return now;
-}
-
-function stepDuration(
-  step: { id: string; status: string; seconds?: number },
-  started: Record<string, number>,
-  now: number,
-) {
-  if (step.status === "done" && typeof step.seconds === "number") return `${step.seconds}s`;
-  const at = started[step.id];
-  if (at == null) return "0s";
-  return `${Math.max(0, Math.floor((now - at) / 1000))}s`;
-}
-
 export function ChatPanel({
   messages,
   onSend,
@@ -1144,13 +1127,6 @@ export function ChatPanel({
     }
   };
   const running = Object.values(agents).filter((agent) => agent.status === "running").length;
-  const clocks = useRef<Record<string, number>>({});
-  const timing = busy && steps.some((step) => step.status !== "done");
-  const now = useRunningClock(timing);
-  if (!steps.length) clocks.current = {};
-  for (const step of steps) {
-    if (step.status !== "done" && clocks.current[step.id] == null) clocks.current[step.id] = Date.now();
-  }
   const [developer] = useDeveloperMode();
   return (
     <section className="pf-card pf-chat" aria-label={t("chat.label")}>
@@ -1249,7 +1225,11 @@ export function ChatPanel({
                   </>
                 }
               >
-                {message.role === "user" && !fromOperator ? maskTyped(message.content) : message.content}
+                {message.role === "user" && !fromOperator ? (
+                  maskTyped(message.content)
+                ) : (
+                  <MarkdownText text={message.content} />
+                )}
               </ChatBubble>
               {message.role !== "user" && !fromAgent ? (
                 <WhyThisDecision
@@ -1298,7 +1278,7 @@ export function ChatPanel({
                 <span>{step.phase}</span>
                 <span className="pf-steps__model">{step.model}</span>
                 <span className="pf-steps__time">
-                  {stepDuration(step, clocks.current, now)}
+                  {step.status === "done" && typeof step.seconds === "number" ? `${step.seconds}s` : "…"}
                 </span>
               </li>
             ))}
@@ -1627,7 +1607,7 @@ function HotelOptionCard({
       {amenities.length ? (
         <div className="pf-option-card__chips">
           {shownAmenities.map((amenity) => (
-            <Badge key={amenity} tone="neutral">{amenity}</Badge>
+            <Badge key={amenity} tone="neutral">{readableLabel(amenity)}</Badge>
           ))}
           {amenities.length > AMENITIES_SHOWN ? (
             <button
@@ -1791,8 +1771,11 @@ export function TicketCard({
       <span className="pf-ticket-card__thumb"><Icon name={icon} size={20} /></span>
       <div className="pf-stack pf-grow" style={{ gap: 2 }}>
         <Text size="sm" weight="semibold">
-          {side === "return" && ticket.return_airline
-            ? `${ticket.return_airline} ${ticket.return_flight_number ?? ""}`.trim()
+          {side === "return"
+            ? [
+                ticket.return_airline || ticket.operator || t("workspace.return"),
+                ticket.return_flight_number,
+              ].filter(Boolean).join(" ").trim()
             : ticket.name}
           {side !== "return" && operator ? <span className="pf-muted pf-small"> · {operator}</span> : null}
         </Text>
@@ -2827,7 +2810,9 @@ export function TripWorkspace({
               <div className="pf-stack">
                 {plan.reservations.map((reservation) => (
                   <div className="pf-row" key={reservation.id} style={{ alignItems: "flex-start" }}>
-                    <Badge tone={reservation.status === "to_book" ? "warning" : "neutral"} dot>{reservation.status}</Badge>
+                    <Badge tone={reservation.status === "to_book" ? "warning" : "neutral"} dot>
+                      {t(`workspace.reservation.${reservation.status}` as MessageKey)}
+                    </Badge>
                     <div className="pf-stack" style={{ gap: 1 }}>
                       <Text size="sm" weight="semibold">{reservation.name}</Text>
                       <Text size="xs" tone="tertiary">{reservation.reason}</Text>
@@ -3760,7 +3745,14 @@ export function TrendingRail({
             <article className="pf-trending__card" key={`${item.destination}-${item.year ?? ""}`}>
               <div className="pf-row pf-row--between">
                 <strong>{item.destination}</strong>
-                <Badge tone="brand">{t(item.plans === 1 ? "trending.plansOne" : "trending.plans", { count: item.plans })}</Badge>
+                <div className="pf-row" style={{ gap: 6 }}>
+                  {typeof item.average_stars === "number" ? (
+                    <span title={t("trending.averageStars", { stars: item.average_stars.toFixed(1) })}>
+                      <Badge tone="warning">{`★ ${item.average_stars.toFixed(1)}`}</Badge>
+                    </span>
+                  ) : null}
+                  <Badge tone="brand">{t(item.plans === 1 ? "trending.plansOne" : "trending.plans", { count: item.plans })}</Badge>
+                </div>
               </div>
               <span className="pf-trending__meta">
                 {t(item.days === 1 ? "workspace.daysOne" : "workspace.days", { count: item.days })}{item.year ? ` · ${item.year}` : ""}
@@ -3827,9 +3819,13 @@ export function TrendingRail({
 export function SavedTripsView({
   trips,
   onOpen,
+  onDelete,
+  deleting,
 }: {
-  trips: { id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
+  trips: { id: string; destination: string; rating: number; stars: number | null; useful?: boolean | null; summary: string; created_at: string; days: number | null }[];
   onOpen?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  deleting?: string | null;
 }) {
   const { t } = useI18n();
   return (
@@ -3850,17 +3846,38 @@ export function SavedTripsView({
       ) : (
         <div className="pf-saved__grid">
           {trips.map((trip) => (
-            <button type="button" className="pf-card pf-saved-card" key={trip.id} onClick={() => onOpen?.(trip.id)}>
-              <div className="pf-row pf-row--between">
-                <Heading level={4}>{trip.destination}</Heading>
-                <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
-              </div>
-              <Text size="sm" tone="secondary">{trip.summary}</Text>
-              <div className="pf-row pf-row--between">
-                <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
-                {trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
-              </div>
-            </button>
+            <div className="pf-saved-card-shell" key={trip.id}>
+              <button type="button" className="pf-card pf-saved-card" onClick={() => onOpen?.(trip.id)}>
+                <div className="pf-row pf-row--between">
+                  <Heading level={4}>{trip.destination}</Heading>
+                  {trip.useful === false ? (
+                    <Badge tone="danger" dot>{t("feedback.markedNotUseful")}</Badge>
+                  ) : trip.useful === true ? (
+                    <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
+                  ) : (
+                    <Badge tone="neutral" dot>{t("saved.awaitingRating")}</Badge>
+                  )}
+                </div>
+                <Text size="sm" tone="secondary">{trip.summary}</Text>
+                <div className="pf-row pf-row--between">
+                  <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
+                  {trip.useful === true && trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
+                </div>
+              </button>
+              {onDelete ? (
+                <div className="pf-saved-card__actions">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={deleting === trip.id}
+                    onClick={() => onDelete(trip.id)}
+                  >
+                    {deleting === trip.id ? t("saved.deleting") : t("saved.delete")}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       )}
@@ -4788,7 +4805,7 @@ export function TravellerProfileCard({
 }
 
 const REDACTION_SAMPLE =
-  "Plan 4 days in Kyoto from Hong Kong for 2 people, leaving 5 December, budget 8000 HKD. My HKID is Y335 776(5). Call me on 9123 4567 or chan@example.com. The card is 4111 1111 1111 1111.";
+  "Plan 4 days in Kyoto from Hong Kong for 2 people, leaving 5 December, budget 8000 HKD. My HKID is Y3447 886(5). Call me on 9123 4567 or chan@example.com. The card is 4111 1111 1111 1111.";
 
 function RedactionSettings({
   saved,
@@ -4915,6 +4932,7 @@ export function SettingsView({
   canEditPolicy = false,
   onSavePolicy,
   onResetPolicy,
+  onSaveDataMode,
   onSaveGate,
   onSaveRedaction,
   onSaveOrchestrator,
@@ -4930,14 +4948,25 @@ export function SettingsView({
     freshness_hours: Record<string, number>;
     writer: { available: boolean; model: string; base_url?: string; temperature?: number; max_tokens?: number; reasoning?: string };
     gate?: "jev" | "plain" | "reason";
+    data_mode?: "live" | "corpus";
+    sandbox?: boolean;
     poe_ready?: boolean;
     poe?: { key_set: boolean; key_saved: boolean; key_tail: string };
-    models?: { plain?: string; reason?: string };
+    models?: {
+      default: string;
+      temperature?: number;
+      reasoning?: string;
+      purposes: Record<string, string>;
+      temperatures?: Record<string, number>;
+      reasoning_by_purpose?: Record<string, string>;
+      max_tokens_by_purpose?: Record<string, number>;
+      effective_max_tokens?: Record<string, number>;
+    };
     writer_model?: string;
     reviewer?: ReviewerConfig;
     orchestrator?: {
-      jev: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
-      fast: { model: string; url: string; key_set: boolean; key_saved: boolean; key_tail: string };
+      mode: "analyst" | "jev";
+      jev: { model: string; url: string; key_set: boolean; key_tail: string };
     };
     providers: Record<string, string[] | string>;
     locales: string[];
@@ -4955,6 +4984,7 @@ export function SettingsView({
   /** Saves which model chooses the path. */
   onSaveGate?: (gate: "jev" | "plain" | "reason") => Promise<void>;
   onSaveRedaction?: (body: RedactionFlags) => Promise<void>;
+  onSaveDataMode?: (mode: "live" | "corpus") => Promise<void> | void;
   /** Saves one orchestrator model's address and key. */
   onSaveOrchestrator?: (body: {
     jev?: { model: string; url: string; api_key?: string; clear_key?: boolean };
@@ -4994,7 +5024,7 @@ export function SettingsView({
   useEffect(() => {
     if (!config) return;
     setDraftThresholds(Object.fromEntries(Object.entries(config.thresholds).map(([key, value]) => [key, String(value)])));
-    setDraftFreshness(Object.fromEntries(Object.entries(config.freshness_hours).map(([key, value]) => [key, String(value)])));
+    setDraftFreshness(Object.fromEntries(Object.entries(config.freshness_hours ?? {}).map(([key, value]) => [key, String(value)])));
   }, [config]);
   const savePolicy = async () => {
     if (!onSavePolicy) return;
@@ -5033,15 +5063,29 @@ export function SettingsView({
     if (group === "system") return t("settings.group.system");
     return t("settings.group.general");
   };
+  const thresholdMeta: Record<string, { label: string; hint: string }> = {
+    analyst_confidence: {
+      label: t("settings.threshold.analyst_confidence"),
+      hint: t("settings.thresholdHint.analyst_confidence"),
+    },
+    jev_confidence: {
+      label: t("settings.threshold.jev_confidence"),
+      hint: t("settings.thresholdHint.jev_confidence"),
+    },
+    max_repairs: {
+      label: t("settings.threshold.max_repairs"),
+      hint: t("settings.thresholdHint.max_repairs"),
+    },
+    turn_deadline: {
+      label: t("settings.threshold.turn_deadline_seconds"),
+      hint: t("settings.thresholdHint.turn_deadline_seconds"),
+    },
+  };
   const clusters = (
     [
       ["general", ...(admin ? (["handoff", "instructions"] as const) : [])],
-      [
-        ...(config ? (["orchestrator"] as const) : []),
-        ...(modelKeys ? (["keys"] as const) : []),
-        ...(config ? (["reviewer"] as const) : []),
-      ],
-      ...(config ? [["policy", "redaction", "freshness", "system"] as const] : []),
+      ...(modelKeys ? [["keys"] as const] : []),
+      ...(config ? [["policy", "redaction", "system"] as const] : []),
     ] as SettingsGroup[][]
   ).filter((cluster) => cluster.length > 0);
   return (
@@ -5110,6 +5154,43 @@ export function SettingsView({
         <Text size="xs" tone="tertiary">{t("settings.developerBody")}</Text>
       </div>
       ) : null}
+      {onSaveDataMode && show("general", "data source live providers offline curated place corpus") ? (
+        <div className="pf-card pf-eval__panel">
+          <div className="pf-row pf-row--between">
+            <Text size="sm" weight="semibold">Data source</Text>
+            <div className="pf-row" style={{ gap: 6 }}>
+              <Button
+                size="sm"
+                variant={(config?.data_mode ?? "live") === "live" ? "primary" : "ghost"}
+                onClick={() => void onSaveDataMode("live")}
+              >
+                Live providers
+              </Button>
+              <Button
+                size="sm"
+                variant={(config?.data_mode ?? "live") === "corpus" ? "primary" : "ghost"}
+                onClick={() => void onSaveDataMode("corpus")}
+              >
+                Curated place corpus
+              </Button>
+            </div>
+          </div>
+          <Text size="xs" tone="tertiary">
+            Live uses Google Places, Open-Meteo, SerpAPI and Wikipedia. The curated place corpus is a source-labelled
+            fallback for demos and evaluation; it is smaller but needs no provider quota.
+          </Text>
+        </div>
+      ) : null}
+      {show("general", "v5 runtime writer analyst jev reviewer model arms") ? (
+      <div className="pf-card pf-eval__panel">
+        <Text size="sm" weight="semibold">v5 runtime</Text>
+        <Text size="xs" tone="tertiary">
+          One writer model answers every role, and the analyst routes the conversation. Jev, the
+          reviewer and the model arms are not used in this build, so their controls are not shown.
+          Thresholds below are the three the planner reads.
+        </Text>
+      </div>
+      ) : null}
       {admin ? admin(show) : null}
       {/* The keys do not depend on the server's configuration either. */}
       {show("keys", `${t("settings.group.keys")} ${t("settings.writer.callBody")} ${t("settings.orch.clearKey")} ${t("settings.orch.temperature")}`) && modelKeys ? (
@@ -5135,58 +5216,38 @@ export function SettingsView({
           }}
         />
       ) : null}
+      {show("keys", "models by part turn router jev analyst planner editor verifier ask memory") && config ? (
+        <ModelsSettings
+          models={config.models ?? { default: config.writer.model, purposes: {} }}
+          orchestrator={config.orchestrator ?? { mode: "analyst", jev: { model: "jev-latest", url: "", key_set: false, key_tail: "" } }}
+          canEdit={canEditPolicy}
+          onSave={async (body) => { await onSaveOrchestrator?.(body); }}
+        />
+      ) : null}
+
       {config ? (
         <>
-          {show("orchestrator", `${t("settings.orch")} ${t("settings.orchBody")} ${t("settings.orch.poeTitle")} ${t("settings.gate.jev")} ${t("settings.gate.plain")} ${t("settings.gate.reason")}`) ? (
-            <OrchestratorSettings
-              config={config}
-              providers={providers}
-              canEdit={canEditPolicy}
-              onSaveGate={onSaveGate}
-              onSaveSide={onSaveOrchestrator}
-            />
-          ) : null}
-          {show("reviewer", `${t("settings.group.reviewer")} ${t("settings.reviewer.body")} ${t("settings.reviewer.rounds")} ${t("settings.reviewer.modelHint")}`) ? (
-            <ReviewerSettings
-              reviewer={config.reviewer ?? {
-                provider: "poe",
-                model: "",
-                base_url: "",
-                temperature: 0,
-                max_tokens: 4096,
-                reasoning: "none",
-                rounds: Number(config.thresholds.rule_passes ?? 3),
-                key_set: false,
-                key_saved: false,
-                key_tail: "",
-                key_source: "none",
-              }}
-              providers={providers}
-              canEdit={canEditPolicy}
-              onSave={async (body) => { await onSaveOrchestrator?.({ reviewer: body }); }}
-            />
-          ) : null}
-          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
+          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.analyst_confidence")} ${t("settings.threshold.jev_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {canEditPolicy ? (
               <div className="pf-form-grid">
-                {Object.keys(config.thresholds).filter((key) => key !== "rule_passes").map((key) => (
+                {Object.keys(config.thresholds).filter((key) => thresholdMeta[key]).map((key) => (
                   <Field
                     key={key}
                     wide
                     htmlFor={`pf-threshold-${key}`}
-                    label={t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}
-                    hint={t(`settings.thresholdHint.${key}` as "settings.thresholdHint.router_confidence")}
+                    label={thresholdMeta[key].label}
+                    hint={thresholdMeta[key].hint}
                   >
                     <Input id={`pf-threshold-${key}`} value={draftThresholds[key] ?? ""} onChange={(event) => setDraftThresholds((current) => ({ ...current, [key]: event.target.value }))} inputMode="decimal" />
                   </Field>
                 ))}
               </div>
             ) : (
-              Object.entries(config.thresholds).filter(([key]) => key !== "rule_passes").map(([key, value]) => (
+              Object.entries(config.thresholds).filter(([key]) => thresholdMeta[key]).map(([key, value]) => (
                 <div className="pf-row pf-row--between" key={key}>
-                  <span className="pf-small pf-muted">{t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}</span>
+                  <span className="pf-small pf-muted">{thresholdMeta[key].label}</span>
                   <span className="pf-mono pf-small">{String(value)}</span>
                 </div>
               ))
@@ -5202,41 +5263,6 @@ export function SettingsView({
                 setRedaction(body);
               }}
             />
-          ) : null}
-          {show("freshness", `${t("settings.freshness")} ${t("settings.freshnessBody")} ${t("settings.fresh.weather")} ${t("settings.fresh.tickets")} ${t("settings.fresh.hotels")} ${t("settings.fresh.attractions")}`) ? (
-          <div className="pf-card pf-eval__panel">
-            <Text size="sm" weight="semibold">{t("settings.freshness")}</Text>
-            <Text size="xs" tone="tertiary">{t("settings.freshnessBody")}</Text>
-            {canEditPolicy ? (
-              <div className="pf-form-grid">
-                {Object.keys(config.freshness_hours).map((key) => (
-                  <Field
-                    key={key}
-                    wide
-                    htmlFor={`pf-fresh-${key}`}
-                    label={t(`settings.fresh.${key}` as "settings.fresh.weather")}
-                    hint={t(`settings.freshHint.${key}` as "settings.freshHint.weather")}
-                  >
-                    <Input id={`pf-fresh-${key}`} value={draftFreshness[key] ?? ""} onChange={(event) => setDraftFreshness((current) => ({ ...current, [key]: event.target.value }))} inputMode="numeric" />
-                  </Field>
-                ))}
-              </div>
-            ) : (
-              Object.entries(config.freshness_hours).map(([key, value]) => (
-                <div className="pf-row pf-row--between" key={key}>
-                  <span className="pf-small pf-muted">{t(`settings.fresh.${key}` as "settings.fresh.weather")}</span>
-                  <span className="pf-mono pf-small">{t("settings.hours", { count: value })}</span>
-                </div>
-              ))
-            )}
-            {canEditPolicy ? (
-              <div className="pf-admin-tune__actions">
-                {policyError ? <Text size="xs" tone="tertiary">{policyError}</Text> : null}
-                <Button variant="primary" onClick={() => void savePolicy()}>{t("settings.policySave")}</Button>
-                <Button onClick={() => void onResetPolicy?.()}>{t("settings.policyReset")}</Button>
-              </div>
-            ) : null}
-          </div>
           ) : null}
           {show("system", `${t("settings.providers")} ${t("settings.injections")} ${t("settings.writer")} ${t("settings.serp.title")} ${t("settings.serp.body")}`) ? (
           <>

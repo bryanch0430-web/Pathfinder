@@ -1,43 +1,46 @@
-# Start Pathfinder locally on http://127.0.0.1:8100
+# Pathfinder v5 — start the API and the built UI on http://127.0.0.1:8101
 #
-#   .\start.ps1              run as installed (serves the built frontend)
-#   .\start.ps1 -Rebuild     rebuild the frontend first
-#   .\start.ps1 -Port 8110   listen on another port
+#   .\start.ps1              # uses backend\.venv
+#   .\start.ps1 -Port 8102   # another port
+#   .\start.ps1 -Sandbox     # curated offline evidence (no provider calls)
 #
-# Reads .env at the repository root. Stop with Ctrl+C, or see DEPLOY-LOCAL.md.
+# The React UI is served from frontend\dist by the same process.
 
 param(
-  [int]$Port = 8100,
-  [switch]$Rebuild
+    [int]$Port = 8101,
+    [switch]$Sandbox,
+    [switch]$Reload
 )
 
 $ErrorActionPreference = "Stop"
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $Root
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-$Py = Join-Path $Root "backend\.venv\Scripts\python.exe"
-if (-not (Test-Path $Py)) {
-  Write-Host "Creating backend\.venv and installing the backend ..."
-  py -3.13 -m venv backend/.venv
-  & $Py -m pip install --no-cache-dir -r backend\requirements.txt
+$python = Join-Path $root "backend\.venv\Scripts\python.exe"
+if (-not (Test-Path $python)) {
+    $python = "python"
+    Write-Host "backend\.venv not found; using the python on PATH." -ForegroundColor Yellow
 }
 
-if ($Rebuild -or -not (Test-Path (Join-Path $Root "frontend\dist\index.html"))) {
-  Write-Host "Building the frontend ..."
-  Push-Location frontend
-  npm install --no-audit --no-fund
-  npm run build
-  Pop-Location
+if (-not (Test-Path (Join-Path $root ".env"))) {
+    Write-Host "No .env found. Copy .env.example to .env and add a writer key." -ForegroundColor Yellow
 }
 
-if (-not (Test-Path (Join-Path $Root ".env"))) {
-  Write-Warning "No .env at $Root. The app will start, but every source reports unavailable."
+$env:PYTHONPATH = Join-Path $root "backend"
+if ($Sandbox) { $env:PATHFINDER_SANDBOX = "1" }
+
+$ui = Join-Path $root "frontend\dist\index.html"
+if (-not (Test-Path $ui)) {
+    Write-Host "frontend\dist is missing: build the UI first with  cd frontend; npm install; npm run build" -ForegroundColor Yellow
 }
 
-$env:PYTHONPATH = "backend"
+$uvicornArgs = @("-m", "uvicorn", "app.main:app", "--app-dir", (Join-Path $root "backend"), "--host", "127.0.0.1", "--port", "$Port")
+if ($Reload) { $uvicornArgs += "--reload" }
+
 Write-Host ""
-Write-Host "  Pathfinder   http://127.0.0.1:$Port" -ForegroundColor Green
-Write-Host "  API docs     http://127.0.0.1:$Port/docs"
-Write-Host "  Readiness    http://127.0.0.1:$Port/api/ready"
+Write-Host "  Pathfinder v5"
+Write-Host "  UI + API : http://127.0.0.1:$Port"
+Write-Host "  API docs : http://127.0.0.1:$Port/docs"
+Write-Host "  sandbox  : $($Sandbox.IsPresent)"
 Write-Host ""
-& $Py -m uvicorn app.main:app --host 127.0.0.1 --port $Port
+
+& $python @uvicornArgs

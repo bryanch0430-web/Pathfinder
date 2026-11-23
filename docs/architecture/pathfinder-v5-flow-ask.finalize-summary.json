@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\.archify\\workflow-pathfinder-v5-flow-ask-20261123-032500\\candidate.json",
+    "sha256": "73853447c28db1bd5846c74f2e461a4227a64392c116460014671366f66a6a85",
+    "bytes": 5952
+  },
+  "artifact": {
+    "path": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-ask.html",
+    "sha256": "f60554c39d7d545d429aa93826528165af1a6cab7f6ab2d81b0b91f428911777",
+    "bytes": 848452
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-ask.finalize.json",
+    "summaryReceipt": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-ask.finalize-summary.json",
+    "browserCheckReceipt": "C:\\Users\\Dies Irae\\Desktop\\HKU\\LLM\\Pathfinder v5\\docs\\architecture\\pathfinder-v5-flow-ask.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-22T09:43:20.156Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 2445,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

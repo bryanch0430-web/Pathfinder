@@ -1,74 +1,29 @@
-# secrets and runtime state (any .env file in any folder, except the committed templates)
-.env
-.env.*
-!.env.example
-backend/.env
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+backend/data/
 data/
 *.db
 *.db-wal
 *.db-shm
-*.sqlite
-*.sqlite3
-*.sqlite-wal
-*.sqlite-shm
-*.sqlite3-wal
-*.sqlite3-shm
-*.pem
-*.key
-
-# python
-.venv*/
-# accidental npm lock from running npm in the repo root (frontend/package-lock.json stays)
-/package-lock.json
-__pycache__/
-*.pyc
 .pytest_cache/
-.pip-cache/
-.mypy_cache/
 .ruff_cache/
-.coverage
-.coverage.*
-htmlcov/
-*.egg-info/
 
-# local tooling
-/pathfinder.bat
-.tmp/
-.refs/
-.cache/
-*.log
-
-# node
-node_modules/
+# Node
+frontend/node_modules/
 frontend/dist/
-frontend/storybook-static/
-frontend/.storybook-static/
-.npm-cache/
-*.tsbuildinfo
-frontend/coverage/
-.vite/
+frontend/.tmp/
+frontend/tsconfig.tsbuildinfo
 
-# editor / os
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
+# Local secrets and logs
+.env
+!.env.example
+*.log
+data/*.txt
 
-# test/pip scratch (created when TMPDIR is not writable)
-pytest-of-*/
-pip-build-tracker-*/
-pip-install-*/
-pip-metadata-*/
-pip-unpack-*/
+backend/.tmp-chrome*/
 
-# local uvicorn logs
-backend/uvicorn.*.log
-
-# local runtime output and private task notes (never published)
-var/
-docs/tasks/
-
-# local Claude Code state (agent worktrees, preview launch config, personal settings)
-.claude/worktrees/
-.claude/launch.json
-.claude/settings.local.json
+.env.autotest
+.env.autotest.*
+!.env.autotest.example

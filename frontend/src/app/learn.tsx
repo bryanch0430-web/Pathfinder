@@ -189,14 +189,17 @@ function findStop(plan: TripPlan, id: string) {
 
 function clockText(since: string | undefined, now: number): string {
   const start = since ? Date.parse(since) : Number.NaN;
-  const seconds = Number.isNaN(start) ? 0 : Math.max(0, Math.floor((now - start) / 1000));
-  const hh = String(Math.floor(seconds / 3600)).padStart(2, "0");
-  const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
-  return `${hh}:${mm}:${ss}`;
+  if (Number.isNaN(start)) return "";
+  const seconds = Math.max(0, Math.floor((now - start) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  return `${Math.floor(hours / 24)}d`;
 }
 
-function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) {
+function ChatClock({ since }: { since?: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -204,10 +207,26 @@ function ChatClock({ sessionId, since }: { sessionId: string; since?: string }) 
   }, []);
   return (
     <p className="pf-desk__clock" data-role="clock">
-      <span>{sessionId}</span>
       <span>{clockText(since, now)}</span>
     </p>
   );
+}
+
+/** The session window starts nearly as large as the viewport, then stays draggable/resizable. */
+function deskStartPlace() {
+  const vw = typeof window === "undefined" ? 1440 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 900 : window.innerHeight;
+  const w = Math.max(720, Math.min(1400, vw - 72));
+  const h = Math.max(520, Math.min(900, vh - 132));
+  return { x: Math.max(12, Math.round((vw - w) / 2)), y: Math.max(56, Math.round((vh - h) / 2)), w, h };
+}
+
+function clampDeskPlace(place: { x: number; y: number; w: number; h: number }) {
+  const vw = typeof window === "undefined" ? 1440 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 900 : window.innerHeight;
+  const w = Math.max(640, Math.min(place.w, Math.max(640, vw - 24)));
+  const h = Math.max(460, Math.min(place.h, Math.max(460, vh - 80)));
+  return { x: Math.max(8, Math.min(place.x, vw - w - 8)), y: Math.max(48, Math.min(place.y, vh - h - 8)), w, h };
 }
 
 /** A contact desk, separate from the planner: a queue, the conversation, and the trip beside it. */
@@ -224,7 +243,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       return true;
     }
   });
-  const [place, setPlace] = useState({ x: 36, y: 88, w: 860, h: 520 });
+  const [place, setPlace] = useState(deskStartPlace);
   const mainRef = useRef<HTMLElement>(null);
   const dragRef = useRef<{ kind: "move" | "size"; x: number; y: number; place: { x: number; y: number; w: number; h: number } } | null>(null);
   const [ready, setReady] = useState(() => {
@@ -263,6 +282,13 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   const [stops, setStops] = useState<DeskStop[]>([]);
   const [error, setError] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fit = () => setPlace((current) => clampDeskPlace(current));
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
 
   const loadList = () => {
     void getDesk().then((data) => setChats(data.chats)).catch((cause) => setError(String(cause)));
@@ -370,8 +396,12 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   const open = (chat: DeskChat) => !chat.finished && matches(chat);
   const queued = chats.filter((chat) => open(chat) && chat.held && !(chat.agent_name || "").trim());
   const handling = chats.filter((chat) => open(chat) && chat.held && Boolean((chat.agent_name || "").trim()));
-  const answering = chats.filter((chat) => open(chat) && !chat.held && chat.state !== "completed");
-  const records = chats.filter((chat) => matches(chat) && (chat.finished || (!chat.held && chat.state === "completed")));
+  const answering = chats.filter(
+    (chat) => open(chat) && !chat.finished && !chat.held && chat.state !== "completed"
+  );
+  const records = chats.filter(
+    (chat) => matches(chat) && (Boolean(chat.finished) || chat.state === "completed")
+  );
   const setPresence = (next: boolean) => {
     setReady(next);
     try {
@@ -598,8 +628,15 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
         }
       }}
     >
-      <strong className="pf-ops__sid">{chat.session_id}</strong>
-      <span className="pf-ops__time">{clockText(chat.created_at || chat.updated_at, now)}</span>
+      <strong
+        className="pf-ops__sid"
+        title={`${chat.destination || chat.name || t("desk.untitled")}${tripWhen(chat) ? ` · ${tripWhen(chat)}` : ""}`}
+      >
+        {chat.destination || chat.name || t("desk.untitled")}
+      </strong>
+      <span className="pf-ops__time">
+        {tripWhen(chat) ? `${tripWhen(chat)} · ${clockText(chat.created_at || chat.updated_at, now)}` : clockText(chat.created_at || chat.updated_at, now)}
+      </span>
       <span className="pf-ops__marks">
         {tagText(Boolean(chat.stuck)) ? (
           <span className="pf-ops__mark" data-mark="stuck">{tagText(Boolean(chat.stuck))}</span>
@@ -730,8 +767,8 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
             <>
               <div className="pf-desk__bar">
                 <div>
-                  <Text size="sm" weight="semibold">{current.session_id}</Text>
-                  <Text size="xs" tone="tertiary">{current.destination || t("desk.untitled")}</Text>
+                  <Text size="sm" weight="semibold">{current.destination || t("desk.untitled")}</Text>
+                  <Text size="xs" tone="tertiary">{tripWhen(current) || current.session_id.slice(0, 8)}</Text>
                 </div>
                 {current.finished ? (
                   <Button
@@ -757,7 +794,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
                 )}
               </div>
               <div className="pf-desk__messages" ref={threadRef}>
-                <ChatClock sessionId={current.session_id} since={current.created_at || current.updated_at} />
+                <ChatClock since={current.created_at || current.updated_at} />
                 {messages.length === 0 ? <Text tone="tertiary">{t("desk.empty")}</Text> : null}
                 {messages.map((message) => (
                   <p key={message.id} data-role={message.role} data-live={message.live_agent || undefined}>

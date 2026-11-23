@@ -1,139 +1,185 @@
-"""Long-term trip memory with a deterministic local embedding.
+"""Long-term memory about one traveller, derived by the model from a finished trip.
 
-A saved trip is recalled only above the configured similarity cutoff. The
-embedding is a signed hashing of words and character trigrams: no external model,
-no personal data, stable across restarts. This is the documented single-node
-degraded mode for the vector store in the proposal.
+The old rule-based version remembered little more than a destination name. Here a
+short model call reads the plan and the conversation and extracts durable statements
+("prefers museums over theme parks", "vegetarian", "slow pace", "mid-range stays")
+plus the traveller profile fields. Those statements are injected into the trip
+context on every later turn, so the analyst and the planner both see them.
 """
 
 from __future__ import annotations
 
-import hashlib
-import math
-from typing import Sequence
+import re
+import unicodedata
+from difflib import SequenceMatcher
+from typing import Any, Literal
 
-from app.config import Settings
-from app.domain.models import Feedback, PreferenceProfile, SavedTrip, TripContext, TripPlan, utcnow
-from app.infrastructure.store import SQLiteStore
-
-DIMENSIONS = 192
+from app.domain.models import ChatMessage, TripContext, TripPlan, TravellerProfile
+from app.understand.schemas import Draft
 
 
-def embed(text: str) -> list[float]:
-    vector = [0.0] * DIMENSIONS
-    tokens = [token for token in _normalise(text).split() if token]
-    grams: list[str] = list(tokens)
-    for token in tokens:
-        padded = f"^{token}$"
-        for index in range(max(1, len(padded) - 2)):
-            grams.append(padded[index : index + 3])
-    for gram in grams:
-        digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
-        value = int.from_bytes(digest, "big")
-        index = value % DIMENSIONS
-        sign = 1.0 if (value >> 63) & 1 else -1.0
-        vector[index] += sign
-    norm = math.sqrt(sum(value * value for value in vector))
-    if norm:
-        vector = [value / norm for value in vector]
-    return vector
+class MemoryDraft(Draft):
+    preferences: list[str] = []
+    pace: Literal["relaxed", "balanced", "packed"] | None = None
+    with_children: bool | None = None
+    purpose: Literal["leisure", "business"] | None = None
+    step_free: bool | None = None
 
 
-def _normalise(text: str) -> str:
-    return "".join(ch.lower() if ch.isalnum() else " " for ch in text)
+_STOPWORDS = {
+    "a", "al", "and", "como", "con", "de", "del", "el", "en", "es", "for", "i",
+    "la", "las", "le", "les", "lo", "los", "me", "mi", "mis", "my", "o", "of",
+    "para", "pero", "por", "que", "se", "son", "su", "sus", "the", "to", "un",
+    "una", "with", "y", "yo", "gusta", "gustan", "prefiero", "prefiere",
+    "disfruto", "atraen", "atrae", "encanta", "encantan", "like", "likes",
+    "prefer", "prefers", "enjoy", "enjoys", "love", "loves", "would",
+}
 
 
-class MemoryService:
-    def __init__(self, store: SQLiteStore, settings: Settings):
-        self.store = store
-        self.settings = settings
+def _tokens(text: str) -> set[str]:
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    words = re.findall(r"[a-z0-9]+", plain)
+    return {word for word in words if len(word) > 2 and word not in _STOPWORDS}
 
-    def recall(self, context: TripContext, *, owner: str) -> list[tuple[float, SavedTrip]]:
-        """The owner's own similar saved trips. Another traveller's trip, and
-        anything at all for an empty owner, is never recalled."""
-        query = " ".join(
-            [
-                context.destination,
-                f"{context.days or ''} days",
-                f"{context.party_size or ''} travellers",
-                context.hotel_style,
-                " ".join(context.preferences),
-            ]
+
+def _near_duplicate(left: str, right: str) -> bool:
+    """Catch paraphrases, not just exact repeats.
+
+    Memory extraction is deliberately allowed to rephrase a preference; over a
+    few trips that produced near-identical hotel/pace sentences. Token overlap
+    handles those while keeping genuinely different interests apart.
+    """
+    a, b = _tokens(left), _tokens(right)
+    if not a or not b:
+        return left.strip().lower() == right.strip().lower()
+    shared = len(a & b)
+    containment = shared / min(len(a), len(b))
+    union = len(a | b)
+    jaccard = shared / union if union else 0.0
+    if len(a) >= 3 and len(b) >= 3 and containment >= 0.66 and jaccard >= 0.42:
+        return True
+    return SequenceMatcher(None, " ".join(sorted(a)), " ".join(sorted(b))).ratio() >= 0.82
+
+
+def merge_preferences(existing: list[str], incoming: list[str]) -> tuple[list[str], list[str]]:
+    """Merge without exact or paraphrased duplicates, capped at what the UI shows."""
+    merged: list[str] = []
+    added: list[str] = []
+    for source, values in (("existing", existing), ("incoming", incoming)):
+        for value in values:
+            text = " ".join(str(value).split()).strip()
+            if not text or len(text) > 160:
+                continue
+            if any(_near_duplicate(text, kept) for kept in merged):
+                continue
+            merged.append(text)
+            if source == "incoming":
+                added.append(text)
+    return merged[:20], added
+
+
+async def derive_memory(
+    *,
+    llm: Any,
+    plan: TripPlan,
+    context: TripContext,
+    messages: list[ChatMessage],
+) -> MemoryDraft | None:
+    """One small call: durable facts only, no trip-specific dates or bookings."""
+    from app.core.llm import LLMError
+
+    payload = {
+        "traveller": {
+            "preferences": context.preferences[:12],
+            "hard_constraints": context.hard_constraints[:8],
+            "profile": context.profile.model_dump() if context.profile else None,
+            "party_size": context.party_size,
+        },
+        "plan": {
+            "destination": plan.destination.name,
+            "summary": plan.summary,
+            "stays": [hotel.name for hotel in plan.hotels[:2]],
+            "stops": [item.name for day in plan.days for item in day.items][:24],
+            "tags": sorted({tag for day in plan.days for item in day.items for tag in item.tags})[:20],
+        },
+        "recent_turns": [
+            {"role": message.role, "text": (message.content or "")[:300]}
+            for message in messages[-8:]
+            if message.role == "user"
+        ],
+    }
+    try:
+        return await llm.json(
+            purpose="memory",
+            system=(
+                "You maintain a traveller's long-term travel memory. From the finished trip and the "
+                "traveller's own words, extract only DURABLE preferences that should shape future trips: "
+                "interests, pace, dietary needs, accessibility, hotel style, dislikes, travelling style. "
+                "Do not store dates, prices, bookings, names of companions, or anything that changes per trip. "
+                "Write each preference as a short English sentence, at most 6. Always English, even when "
+                "the traveller wrote in another language, the place names are not English, or older saved "
+                "preferences are in another language. Rewrite the fact; do not copy those sentences. "
+                "Also fill the profile fields when the evidence is clear, else null. "
+                'Reply as JSON: {"preferences": ["..."], "pace": "relaxed|balanced|packed|null", '
+                '"with_children": true|false|null, "purpose": "leisure|business|null", "step_free": true|false|null}'
+            ),
+            user=__import__("json").dumps(payload, ensure_ascii=False),
+            schema=MemoryDraft,
         )
-        if not context.destination:
-            return []
-        return self.store.search_saved_trips(
-            embedding=embed(query),
-            destination=context.destination,
-            cutoff=self.settings.memory_similarity_cutoff,
-            owner=owner,
-            limit=3,
-        )
+    except LLMError:
+        return None
 
-    def save_useful_trip(
-        self, plan: TripPlan, *, stars: int | None = None, owner: str | None = None
-    ) -> SavedTrip:
-        """Remember a useful trip for `owner` (`user:<id>` or a guest token)."""
-        text = " ".join(
-            [
-                plan.destination.name,
-                plan.summary,
-                " ".join(preference for day in plan.days for item in day.items for preference in item.tags),
-                f"{len(plan.days)} days",
-                f"{plan.party_size} travellers",
-            ]
-        )
-        saved = SavedTrip(
-            trip_id=plan.trip_id,
-            destination=plan.destination.name,
-            rating=(stars / 5.0) if stars else 1.0,
-            stars=stars,
-            summary=plan.summary,
-            embedding=embed(text),
-            plan=plan,
-            created_at=utcnow(),
-        )
-        self.store.save_saved_trip(saved, owner=owner)
-        return saved
 
-    def record_feedback(
-        self,
-        plan: TripPlan,
-        *,
-        useful: bool,
-        stars: int | None,
-        reason_code: str,
-        owner: str | None = None,
-    ) -> Feedback:
-        feedback = Feedback(
-            trip_id=plan.trip_id,
-            useful=useful,
-            stars=stars,
-            reason_code=reason_code,
-        )
-        self.store.add_feedback(feedback)
-        if useful:
-            self.save_useful_trip(plan, stars=stars, owner=owner)
-        return feedback
+async def remember_trip(
+    *,
+    container: Any,
+    identity: str,
+    plan: TripPlan,
+    context: TripContext,
+    session_id: str,
+) -> list[str]:
+    """Derive memory, merge it into the traveller's profile, and return what was new."""
+    if not identity:
+        return []
+    from app.api.turn import effective_settings
+    from app.core.llm import LLMClient
 
-    def remember_preferences(self, owner: str, context: TripContext) -> PreferenceProfile | None:
-        """Add a session's preferences to `owner`'s profile (`user:<id>` or a guest token).
+    messages = await container.store.recent_messages(session_id, limit=10)
+    # Use the runtime model map so the memory part follows the Models tab too.
+    llm = LLMClient(await effective_settings(container))
+    try:
+        draft = await derive_memory(llm=llm, plan=plan, context=context, messages=[ChatMessage(**row) for row in messages])
+    finally:
+        await llm.aclose()
+    if draft is None:
+        return []
+    profile = await container.store.get_profile(identity) or {"preferences": [], "hard_constraints": []}
+    merged, added = merge_preferences(profile["preferences"], draft.preferences)
+    await container.store.save_profile(identity, merged, profile.get("hard_constraints", []))
+    if draft.pace or draft.with_children is not None or draft.purpose or draft.step_free is not None:
+        base = context.profile.model_dump() if context.profile else TravellerProfile().model_dump()
+        if draft.pace:
+            base["pace"] = draft.pace
+        if draft.with_children is not None:
+            base["with_children"] = draft.with_children
+        if draft.purpose:
+            base["purpose"] = draft.purpose
+        if draft.step_free is not None:
+            base["step_free"] = draft.step_free
+        context.profile = TravellerProfile(**base)
+        await container.store.save_context(session_id, context.model_dump())
+    return added
 
-        No owner has no profile: an empty key would be shared by every session that has none.
-        """
-        if not owner:
-            return None
-        existing = self.store.get_preferences(owner)
-        # The profile fits what it is given: no repeats, 20 phrases of 80 characters, the newest kept. That
-        # takes one pass over the trip's list, however long it is (a loop with `not in` took seconds on thousands).
-        profile = PreferenceProfile(
-            client_token=owner,
-            preferences=[*(existing.preferences if existing else []), *context.preferences],
-            updated_at=utcnow(),
-        )
-        self.store.upsert_preferences(profile)
-        return profile
 
-    @staticmethod
-    def memory_summaries(matches: Sequence[tuple[float, SavedTrip]]) -> list[str]:
-        return [f"{trip.destination} · {trip.summary[:180]}" for _, trip in matches]
+def merged_context_memory(context: TripContext, profile: dict[str, Any] | None) -> TripContext:
+    """Copy the stored preferences into this turn's context (without duplicates)."""
+    if not profile:
+        return context
+    merged, _added = merge_preferences(context.preferences, profile.get("preferences") or [])
+    constraints = list(context.hard_constraints)
+    for value in profile.get("hard_constraints") or []:
+        if value and value not in constraints:
+            constraints.append(value)
+    context.preferences = merged
+    context.hard_constraints = constraints[:16]
+    return context

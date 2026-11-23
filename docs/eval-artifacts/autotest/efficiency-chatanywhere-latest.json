@@ -1,0 +1,157 @@
+{
+  "dataset": "efficiency",
+  "passed": 10,
+  "case_count": 10,
+  "latency_ms": 4440.2,
+  "metrics": [
+    {
+      "key": "mean_calls",
+      "label": "Model calls per turn",
+      "value": 0.0,
+      "unit": "calls",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    },
+    {
+      "key": "mean_tokens",
+      "label": "Tokens per turn",
+      "value": 0.0,
+      "unit": "tokens",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    },
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 10,
+      "unit": "cases",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "ef01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 431.9,
+      "trace_id": "4dfc271da9a54568b6fe93ed11ff57c5"
+    },
+    {
+      "case_id": "ef02",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 398.1,
+      "trace_id": "0af6345192474e9090af77582ef26212"
+    },
+    {
+      "case_id": "ef03",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 429.3,
+      "trace_id": "f3c1c944402f44f6bfe9a81d12054f04"
+    },
+    {
+      "case_id": "ef04",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 439.1,
+      "trace_id": "af15ee9539ee4705981e54562bb60257"
+    },
+    {
+      "case_id": "ef05",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 400.8,
+      "trace_id": "040886ee21dd470c838008a191a55854"
+    },
+    {
+      "case_id": "ef06",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 511.3,
+      "trace_id": "83c84b4db1534d93bd486b07d8372e61"
+    },
+    {
+      "case_id": "ef07",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 481.6,
+      "trace_id": "a9de8753ee124c92bb4bf5580204e682"
+    },
+    {
+      "case_id": "ef08",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 433.2,
+      "trace_id": "8f90e8db858d49ef83ab5f9f9c490750"
+    },
+    {
+      "case_id": "ef09",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 432.1,
+      "trace_id": "28a5cb94159b4a7eb9f02fc41d4ab9cc"
+    },
+    {
+      "case_id": "ef10",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0
+      },
+      "output_summary": "I need one detail before I can plan.",
+      "latency_ms": 433.1,
+      "trace_id": "7c914a9f4a5a41739d4251ca45705b0d"
+    }
+  ]
+}

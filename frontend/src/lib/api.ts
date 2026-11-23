@@ -38,6 +38,8 @@ export interface SessionState {
   planner_busy?: boolean;
   /** What that turn last said it was doing. */
   planner_note?: string;
+  /** The latest rating saved for this trip, so a reload or tab switch remembers it. */
+  feedback?: { useful: boolean; stars: number | null; created_at: string } | null;
 }
 
 /**
@@ -208,6 +210,12 @@ export function setSerpKeyStatus(id: string, status: SerpKeyStatus): Promise<{ k
 }
 
 export function saveRuntime(body: {
+  data_mode?: "live" | "corpus";
+  purpose_models?: Record<string, string>;
+  purpose_temperatures?: Record<string, number>;
+  purpose_reasoning?: Record<string, string>;
+  purpose_max_tokens?: Record<string, number>;
+  orchestrator?: { mode: "analyst" | "jev"; jev?: { model: string; url: string; api_key?: string } };
   thresholds?: Record<string, number>;
   freshness_hours?: Record<string, number>;
   gate?: "jev" | "plain" | "reason";
@@ -656,6 +664,14 @@ export async function getTrending(
   }
 }
 
+/** Remove one saved trip. The original planning session is not touched. */
+export function deleteSavedTrip(clientToken: string, id: string): Promise<{ deleted: boolean }> {
+  return request(`/api/wishlist/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { "X-Client-Token": clientToken },
+  });
+}
+
 /** Open a saved trip as a new planning session. The saved copy stays as it was. */
 export function openSavedTrip(clientToken: string, id: string): Promise<SessionState> {
   return request(`/api/wishlist/${encodeURIComponent(id)}/open`, {
@@ -678,7 +694,7 @@ export async function getSavedTrip(clientToken: string, id: string): Promise<{
 }
 
 export async function getSavedTrips(clientToken: string): Promise<{
-  trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
+  trips: { id: string; trip_id: string; destination: string; rating: number; stars: number | null; useful?: boolean | null; summary: string; created_at: string; days: number | null }[];
 }> {
   return request("/api/wishlist", { headers: { "X-Client-Token": clientToken } });
 }
@@ -928,6 +944,8 @@ export interface MonitorPart {
 }
 
 export interface EscalationPolicy {
+  live_agent?: boolean;
+  phrases_on?: boolean;
   enabled: boolean;
   message: string;
   frustration_at: number | null;
@@ -935,6 +953,7 @@ export interface EscalationPolicy {
   use_jev?: boolean;
   stuck_on?: boolean;
   stuck_after?: number;
+  human_phrases?: string[];
   words?: string[];
   key_source?: "saved" | "gate" | "none";
   key_set?: boolean;
@@ -957,15 +976,19 @@ export function getEscalation(): Promise<EscalationPolicy> {
 }
 
 export function saveEscalation(body: {
+  live_agent?: boolean;
+  phrases_on?: boolean;
   enabled: boolean;
   message: string;
   frustration_at: number | null;
-  examples: string[];
-  match_mode: "examples" | "keywords";
-  use_jev: boolean;
   stuck_on: boolean;
   stuck_after: number;
-  words: string[];
+  human_phrases?: string[];
+  /** v4 fields, kept optional so an old client does not break; v5 ignores them. */
+  examples?: string[];
+  match_mode?: "examples" | "keywords";
+  use_jev?: boolean;
+  words?: string[];
   api_key?: string;
   clear_key?: boolean;
   monitors?: { hand: MonitorPart; sentiment: MonitorPart; stuck: MonitorPart };

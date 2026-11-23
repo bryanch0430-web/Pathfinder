@@ -1,0 +1,168 @@
+{
+  "dataset": "hongkong",
+  "tag": "v5-hongkong-flash",
+  "passed": 6,
+  "case_count": 8,
+  "latency_ms": 175823.0,
+  "metrics": [
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 6,
+      "unit": "cases",
+      "baseline": 8,
+      "delta": -2,
+      "direction": "down"
+    },
+    {
+      "key": "constraints_met",
+      "label": "Constraints met",
+      "value": 85.7,
+      "unit": "%",
+      "baseline": 100,
+      "delta": -14.3,
+      "direction": "down"
+    },
+    {
+      "key": "recovery",
+      "label": "Disruptions handled",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    }
+  ],
+  "model_snapshot": {
+    "writer": "claude-sonnet-5.5",
+    "writer_endpoint": "https://api.poe.com/v1",
+    "sandbox": true,
+    "router_threshold": 0.8,
+    "max_repairs": 1
+  },
+  "cases": [
+    {
+      "case_id": "hk01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 24194,
+        "llm_calls": 4,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This balanced 3-day Hong Kong leisure trip features iconic skyline views, world-class museums, cultural landmarks, and renowned local dining while respecting budget and weather constraints.\n\nDay 1 (2027-03-12): Australia Dairy Company, Tai Kwun, Yung Kee, Victoria Peak.\n\nDay 2 (2027-03-13): Tim Ho Wan (Sham Shui Po), M+ Museum, Mak's Noodle, Hong Kong Palace Museum.\n\nDay 3 (2027-03-14): Man Mo Tem",
+      "latency_ms": 29283.1,
+      "trace_id": "5ca9c8600d8c46afbe82809327f46fcc"
+    },
+    {
+      "case_id": "hk02",
+      "passed": false,
+      "failure_class": "constraint",
+      "scores": {
+        "tokens": 46184,
+        "llm_calls": 7,
+        "constraints_met": 1,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This balanced two-day itinerary combines iconic Hong Kong harbor sights, cultural landmarks, and world-class culinary stops while staying within your budget. You'll stay at the central Hotel ICON with quick access across the city, exploring historic neighborhoods, museums, and panoramic viewpoints.\n\nDay 1 (2027-04-02): Australia Dairy Company, Star Ferry, Man Mo Temple, Mak's Noodle.\n\nDay 2 (2027-",
+      "latency_ms": 67827.5,
+      "trace_id": "6f30bc8a27284bf2b9547a58a0a764f9"
+    },
+    {
+      "case_id": "hk03",
+      "passed": false,
+      "failure_class": "constraint",
+      "scores": {
+        "tokens": 40166,
+        "llm_calls": 7,
+        "constraints_met": 1,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This 3-day balanced trip to Hong Kong pairs a boutique central stay with iconic harbour views, historic neighbourhoods, and world-renowned dining. Day 1 keeps transit strictly non-MTR and local in Central to navigate the transit delay smoothly, followed by days exploring West Kowloon's cultural museums, the Peak, and lively night markets.\n\nDay 1 (2027-05-10): Man Mo Temple, Mak's Noodle, Tai Kwun,",
+      "latency_ms": 71810.3,
+      "trace_id": "4fbeb34000e44a839c375ae902c0fea2"
+    },
+    {
+      "case_id": "hk04",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 14883,
+        "llm_calls": 3,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "This balanced 2-day leisure trip to Hong Kong combines iconic harbour views, historic temples, world-class dining, and vibrant night markets. You will stay comfortably at Cordis, Hong Kong in Mong Kok while keeping total expenses well within your 5000 HKD budget.\n\nDay 1 (2027-06-01): Mak's Noodle, Man Mo Temple, Victoria Peak, Yung Kee.\n\nDay 2 (2027-06-02): Australia Dairy Company, Wong Tai Sin Te",
+      "latency_ms": 17956.7,
+      "trace_id": "c1cb52e3dd3b431f8418e503eb369b2f"
+    },
+    {
+      "case_id": "hk05",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 32828,
+        "llm_calls": 6,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "This two-day balanced itinerary explores Hong Kong's iconic culture, museums, and panoramic views while keeping comfortably within budget. You will stay at the central Hotel ICON, enjoy world-renowned local cuisine, and take in the city's highlights from the harbor to the Peak.\n\nDay 1 (2027-07-08): Australia Dairy Company, Man Mo Temple, Tai Kwun, Yung Kee.\n\nDay 2 (2027-07-09): Tim Ho Wan (Sham Sh",
+      "latency_ms": 29785.1,
+      "trace_id": "414ea44d0c3741bbb26e52d2b679306b"
+    },
+    {
+      "case_id": "hk06",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 29291,
+        "llm_calls": 5,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "This two-day balanced itinerary for six travellers combines iconic cultural landmarks like Tian Tan Buddha and Victoria Peak with world-class dining and scenic harbour views. Staying centrally at Hotel ICON ensures a comfortable base while respecting transit constraints and local pacing.\n\nDay 1 (2027-10-15): Australia Dairy Company, Star Ferry, Tai Kwun, Mak's Noodle.\n\nDay 2 (2027-10-16): Tian Tan",
+      "latency_ms": 52354.0,
+      "trace_id": "70653165effe4972a6e856486545e7a8"
+    },
+    {
+      "case_id": "hk07",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 22235,
+        "llm_calls": 4,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "A balanced two-day itinerary exploring Hong Kong's iconic harbor views, historical temples, and vibrant neighborhoods, staying comfortably at Hotel ICON with flights included within budget.\n\nDay 1 (2027-09-06): Australia Dairy Company, Star Ferry, Mak's Noodle, Victoria Peak.\n\nDay 2 (2027-09-07): Wong Tai Sin Temple, Tim Ho Wan (Sham Shui Po), Tai Kwun, Man Mo Temple.\n\nStay: Cordis, Hong Kong.\n\nEs",
+      "latency_ms": 20524.5,
+      "trace_id": "39405dd435f24917a267ca8a0517267d"
+    },
+    {
+      "case_id": "hk08",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 33866,
+        "llm_calls": 6,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "This two-day itinerary combines cultural exploration and world-class dining while fully respecting the severe weather conditions on day one by featuring indoor museums and historical sites. Day two transitions to clear, partly cloudy skies with iconic city sights and vibrant local markets.\n\nDay 1 (2027-08-20): Australia Dairy Company, M+ Museum, Tim Ho Wan (Sham Shui Po), Hong Kong Palace Museum.\n",
+      "latency_ms": 39683.6,
+      "trace_id": "9a7b74eab15948ff837e26b4ae0ec176"
+    }
+  ],
+  "arm": "flash",
+  "model": "gemini-3.5-flash-lite",
+  "purpose": "plan"
+}

@@ -82,7 +82,21 @@ function valuesForSuggestions(payload: ClarifyPayload): Record<string, string> {
 function clarifyFromHistory(message: ChatMessage | undefined): ClarifyPayload | null {
   if (!message || message.role === "user") return null;
   const meta = message.meta;
-  if (!meta || meta.clarify !== true) return null;
+  if (!meta) return null;
+  // v5 stores the whole payload; use it so choices survive a refresh.
+  const stored = meta.clarify_payload as ClarifyPayload | undefined;
+  if (stored && Array.isArray(stored.slots)) {
+    return {
+      question: typeof stored.question === "string" ? stored.question : message.content,
+      slots: stored.slots,
+      labels: Array.isArray(stored.labels) ? stored.labels : [],
+      options: stored.options && typeof stored.options === "object" ? stored.options : {},
+      choices: Array.isArray(stored.choices) ? stored.choices : [],
+      suggestions: Array.isArray(stored.suggestions) ? stored.suggestions : [],
+      reason_code: stored.reason_code ?? "clarify",
+    };
+  }
+  if (meta.clarify !== true) return null;
   const slots = Array.isArray(meta.slots) ? meta.slots.filter((slot): slot is string => typeof slot === "string") : [];
   if (!slots.length) return null;
   const suggestions = suggestionsOf(meta.place_suggestions);
@@ -481,10 +495,13 @@ export function usePathfinder(locale: string): PathfinderHook {
     setSteps([]);
     setSelectedItem(null);
     setFeedbackStars(null);
+    setFeedbackSaved(false);
+    setFeedbackAdded([]);
+    setFeedbackVerdict(null);
   }, [clearBanner]);
 
   /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
-  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages">) => {
+  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages" | "feedback">) => {
     if (sessionRef.current !== id) {
       // The reply being written for the trip being left stops with it, so its late events cannot land in this one.
       abortRef.current?.abort();
@@ -504,6 +521,10 @@ export function usePathfinder(locale: string): PathfinderHook {
     setChangedLegIds(NO_IDS);
     setVersions(trip.versions);
     setMessages(trip.messages);
+    setFeedbackVerdict(trip.feedback ? (trip.feedback.useful ? "useful" : "not_useful") : null);
+    setFeedbackStars(trip.feedback?.stars ?? null);
+    setFeedbackSaved(Boolean(trip.feedback?.useful));
+    setFeedbackAdded([]);
     const card = clarifyFromHistory(trip.messages.at(-1));
     setClarify(card);
     setClarifyValues(card ? valuesForSuggestions(card) : {});
@@ -628,12 +649,6 @@ export function usePathfinder(locale: string): PathfinderHook {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
-
-  useEffect(() => {
-    setFeedbackSaved(false);
-    setFeedbackAdded([]);
-    setFeedbackVerdict(null);
-  }, [plan?.trip_id, plan?.version]);
 
   const openSession = useCallback(async (id: string): Promise<OpenOutcome> => {
     const ticket = ++navRef.current;
@@ -1034,6 +1049,7 @@ export function usePathfinder(locale: string): PathfinderHook {
               // A stopped or replaced turn, or another trip, must not write into the view.
               if (turnGen.current !== generation || controller.signal.aborted || sessionRef.current !== id) return;
               if (event === "intake") setIntake(data as unknown as IntakePayload);
+              if (event === "context") setContextState(data as unknown as TripContext);
               if (event === "route") setRoute(data as unknown as RoutePayload);
               if (event === "locale" && isPlanLocale(data.plan_locale)) {
                 // A set_language turn: follow it in the interface and fetch the translation afresh.
@@ -1233,6 +1249,11 @@ export function usePathfinder(locale: string): PathfinderHook {
   generateRef.current = generate;
 
   const submitClarify = useCallback(async (message?: string) => {
+    // A choice can be clicked while the clarify turn is still closing. Wait for it
+    // instead of dropping the click (send() refuses while a turn is running).
+    for (let attempt = 0; attempt < 100 && (shownRef.current.busy || abortRef.current); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     if (message && message.trim()) {
       setClarify(null);
       setClarifyValues({});
@@ -1351,9 +1372,12 @@ export function usePathfinder(locale: string): PathfinderHook {
     setActiveVersion(data.plan.version);
     setChangedIds(kind === "item" && targetId ? [targetId] : []);
     setChangedStayIds(kind === "hotel" ? new Set([optionId]) : NO_IDS);
+    // Lock/choose is called with the slot the traveller clicked. Return
+    // options can carry the outbound leg_id from the provider, so preferring
+    // the ticket's leg_id marked the inbound card as Updated instead.
     const legId =
       kind === "flight" || kind === "transport"
-        ? data.plan.tickets.find((ticket) => ticket.id === optionId)?.leg_id
+        ? targetId || data.plan.tickets.find((ticket) => ticket.id === optionId)?.leg_id
         : undefined;
     setChangedLegIds(legId ? new Set([legId]) : NO_IDS);
     try {
@@ -1426,8 +1450,11 @@ export function usePathfinder(locale: string): PathfinderHook {
     async (useful: boolean, starsOverride?: number | null): Promise<void> => {
       const id = sessionRef.current;
       if (!id) return;
+      const rating = starsOverride ?? feedbackStars;
+      // Answer the click immediately; the profile extraction runs on the server after it.
+      setFeedbackVerdict(useful ? "useful" : "not_useful");
+      if (useful && rating) setFeedbackStars(rating);
       try {
-        const rating = starsOverride ?? feedbackStars;
         const result = await postFeedback(id, useful, rating);
         // The answer came after another trip was opened: the verdict belongs to the trip that was rated.
         if (sessionRef.current !== id) return;
@@ -1438,7 +1465,10 @@ export function usePathfinder(locale: string): PathfinderHook {
         }
       } catch (cause) {
         const failure = await failureOfCall(cause, "errors.feedback");
-        if (sessionRef.current === id) showBanner(failure, { kind: "rate", run: () => feedback(useful, starsOverride) });
+        if (sessionRef.current === id) {
+          setFeedbackVerdict(null);
+          showBanner(failure, { kind: "rate", run: () => feedback(useful, starsOverride) });
+        }
       }
     },
     [failureOfCall, feedbackStars, showBanner],

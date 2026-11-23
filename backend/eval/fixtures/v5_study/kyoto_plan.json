@@ -1,0 +1,382 @@
+{
+  "schema_version": "5.0",
+  "trip_id": "trip-bench-kyoto",
+  "session_id": "session-bench-kyoto",
+  "version": 1,
+  "status": "ready",
+  "destination": {
+    "name": "Kyoto",
+    "country_code": "JP",
+    "geo": {
+      "lat": 35.0116,
+      "lng": 135.7681
+    },
+    "timezone": "Asia/Tokyo"
+  },
+  "origin": "Hong Kong",
+  "dates": {
+    "start": "2026-12-05",
+    "end": "2026-12-07"
+  },
+  "party_size": 2,
+  "budget": {
+    "amount": 100000.0,
+    "currency": "JPY"
+  },
+  "summary": "Two days in Kyoto: Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion.",
+  "days": [
+    {
+      "date": "2026-12-05",
+      "title": "South Kyoto and the market",
+      "weather": {
+        "date": "2026-12-05",
+        "status": "ok",
+        "summary": "Partly cloudy with a chance of showers",
+        "high_c": 14.0,
+        "low_c": 7.0,
+        "precipitation_probability": 30.0,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-20T00:00:00+00:00",
+        "note": ""
+      },
+      "items": [
+        {
+          "id": "a1",
+          "type": "attraction",
+          "name": "Fushimi Inari Taisha",
+          "start": "08:00",
+          "end": "10:00",
+          "geo": {
+            "lat": 34.9671,
+            "lng": 135.7727
+          },
+          "address": "68 Fukakusa Yabunouchicho",
+          "notes": "",
+          "source_refs": [
+            {
+              "title": "Fushimi Inari Taisha",
+              "url": "https://en.wikipedia.org/wiki/Fushimi_Inari-taisha",
+              "source": "Wikipedia",
+              "fetched_at": "2026-11-20T00:00:00+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "shrine",
+            "hike"
+          ],
+          "opening_hours": [
+            "24 hours"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "a2",
+          "type": "meal",
+          "name": "Nishiki Market",
+          "start": "12:00",
+          "end": "13:30",
+          "geo": {
+            "lat": 35.005,
+            "lng": 135.7649
+          },
+          "address": "Nishikikoji-dori",
+          "notes": "",
+          "source_refs": [
+            {
+              "title": "Nishiki Market",
+              "url": "https://en.wikipedia.org/wiki/Nishiki_Market",
+              "source": "Wikipedia",
+              "fetched_at": "2026-11-20T00:00:00+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [],
+          "opening_hours": [
+            "09:00-18:00"
+          ],
+          "hours_status": "stated",
+          "transfer": {
+            "from_item_id": "a1",
+            "minutes": 32.0,
+            "mode": "transit",
+            "distance_km": 4.2,
+            "source": "",
+            "tool": "",
+            "result_id": ""
+          },
+          "names": {},
+          "meal_slot": "lunch",
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        }
+      ],
+      "note": "",
+      "elevation_gain_m": null,
+      "segment_id": null
+    },
+    {
+      "date": "2026-12-06",
+      "title": "Higashiyama and Gion",
+      "weather": {
+        "date": "2026-12-06",
+        "status": "ok",
+        "summary": "Clear",
+        "high_c": 13.0,
+        "low_c": 6.0,
+        "precipitation_probability": 10.0,
+        "source": "Open-Meteo",
+        "fetched_at": "2026-11-20T00:00:00+00:00",
+        "note": ""
+      },
+      "items": [
+        {
+          "id": "b1",
+          "type": "attraction",
+          "name": "Kiyomizu-dera",
+          "start": "09:00",
+          "end": "11:00",
+          "geo": {
+            "lat": 34.9949,
+            "lng": 135.785
+          },
+          "address": "1-294 Kiyomizu, Higashiyama",
+          "notes": "",
+          "source_refs": [
+            {
+              "title": "Kiyomizu-dera",
+              "url": "https://en.wikipedia.org/wiki/Kiyomizu-dera",
+              "source": "Wikipedia",
+              "fetched_at": "2026-11-20T00:00:00+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": null,
+          "price": {
+            "amount": 400.0,
+            "currency": "JPY"
+          },
+          "price_kind": "live",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [
+            "temple",
+            "viewpoint"
+          ],
+          "opening_hours": [
+            "06:00-18:00"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": null,
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        },
+        {
+          "id": "b2",
+          "type": "meal",
+          "name": "Gion Karyo",
+          "start": "19:00",
+          "end": "20:30",
+          "geo": {
+            "lat": 35.0037,
+            "lng": 135.7788
+          },
+          "address": "570-235 Gionmachi Minamigawa",
+          "notes": "",
+          "source_refs": [
+            {
+              "title": "Gion Karyo",
+              "url": "https://example.com/gion-karyo",
+              "source": "Wikipedia",
+              "fetched_at": "2026-11-20T00:00:00+00:00"
+            }
+          ],
+          "data_status": "ok",
+          "fetched_at": null,
+          "price": null,
+          "price_kind": "none",
+          "booking_url": "",
+          "locked": false,
+          "confirmed": false,
+          "tags": [],
+          "opening_hours": [
+            "11:30-14:00",
+            "17:30-21:00"
+          ],
+          "hours_status": "stated",
+          "transfer": null,
+          "names": {},
+          "meal_slot": "dinner",
+          "rating": null,
+          "review_count": null,
+          "price_level": null,
+          "cuisine": null,
+          "reservable": null,
+          "source_types": [],
+          "source_summary": "",
+          "alternatives": [],
+          "links": [],
+          "image": null,
+          "step_free": null
+        }
+      ],
+      "note": "",
+      "elevation_gain_m": null,
+      "segment_id": null
+    }
+  ],
+  "hotels": [
+    {
+      "id": "h1",
+      "name": "Hotel Granvia Kyoto",
+      "area": "Kyoto Station",
+      "geo": {
+        "lat": 34.9855,
+        "lng": 135.7586
+      },
+      "check_in": "2026-12-05",
+      "check_out": "2026-12-07",
+      "price_per_night": {
+        "amount": 22000.0,
+        "currency": "JPY"
+      },
+      "price_kind": "live",
+      "rating": 4.5,
+      "review_count": 3200,
+      "distance_to_centre_km": null,
+      "source_refs": [
+        {
+          "title": "Hotel Granvia Kyoto",
+          "url": "https://example.com/hotel-granvia",
+          "source": "Wikipedia",
+          "fetched_at": "2026-11-20T00:00:00+00:00"
+        }
+      ],
+      "data_status": "ok",
+      "booking_url": "",
+      "notes": "Breakfast inclusion was not confirmed by the source.",
+      "confirmed": false,
+      "locked": false,
+      "booked": false,
+      "names": {},
+      "amenities": [],
+      "hotel_class": null,
+      "property_token": "",
+      "nearby": [],
+      "room_types": [],
+      "rooms_checked_for": null,
+      "nearest_stop_km": null,
+      "nearest_stop_name": "",
+      "match": null,
+      "segment_id": null,
+      "links": [],
+      "image": null,
+      "rank": null,
+      "score": null,
+      "reasons": []
+    }
+  ],
+  "hotel_options": [],
+  "tickets": [],
+  "segments": [],
+  "legs": [],
+  "cost": {
+    "currency": "JPY",
+    "lines": [
+      {
+        "label": "Hotel",
+        "amount": 44000.0,
+        "kind": "hotel",
+        "note": ""
+      },
+      {
+        "label": "Food and tickets",
+        "amount": 44000.0,
+        "kind": "other",
+        "note": ""
+      }
+    ],
+    "total": 88000.0,
+    "budget": 100000.0,
+    "remaining": 12000.0,
+    "status": "within",
+    "notes": []
+  },
+  "constraints": [
+    {
+      "id": "c1",
+      "text": "Keep the total under 100000 JPY",
+      "status": "pass",
+      "evidence": "Estimated total 88000 JPY."
+    }
+  ],
+  "disruptions": [],
+  "reservations": [],
+  "video_notes": [],
+  "data_quality": {
+    "sources_used": [],
+    "gaps": [
+      {
+        "section": "hotel",
+        "kind": "unconfirmed",
+        "message": "Breakfast inclusion was not confirmed by the source.",
+        "retryable": false
+      }
+    ],
+    "notes": [],
+    "search_window_months": 24,
+    "generated_at": "2026-11-22T18:06:27.036480+00:00",
+    "freshness": []
+  },
+  "assessment": null,
+  "change_summary": "Added Kiyomizu-dera and Gion Karyo.",
+  "created_at": "2026-11-22T18:06:27.036498+00:00",
+  "updated_at": "2026-11-22T18:06:27.036500+00:00"
+}

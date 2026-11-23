@@ -1,0 +1,485 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Pathfinder v5 — System Architecture",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "docs/architecture/pathfinder-v5-architecture.html"
+  },
+  "components": [
+    {
+      "id": "traveller",
+      "type": "external",
+      "label": "Traveller",
+      "sublabel": "browser chat",
+      "icon": "person",
+      "pos": [
+        40,
+        318
+      ],
+      "size": [
+        120,
+        64
+      ]
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "React UI",
+      "sublabel": "v4 UI, unchanged",
+      "tag": "Vite build",
+      "icon": "frontend",
+      "pos": [
+        200,
+        315
+      ],
+      "size": [
+        150,
+        70
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI API",
+      "sublabel": "routers · SSE stream",
+      "tag": "REST + SSE",
+      "icon": "backend",
+      "pos": [
+        400,
+        315
+      ],
+      "size": [
+        160,
+        74
+      ]
+    },
+    {
+      "id": "orchestrator",
+      "type": "backend",
+      "label": "Turn orchestrator",
+      "sublabel": "one turn, one path",
+      "tag": "plan · modify · ask · clarify",
+      "icon": "active",
+      "pos": [
+        620,
+        312
+      ],
+      "size": [
+        180,
+        78
+      ]
+    },
+    {
+      "id": "analyst",
+      "type": "backend",
+      "label": "Turn analyst",
+      "sublabel": "intent · slots · constraints",
+      "tag": "typed schema",
+      "icon": "decision",
+      "pos": [
+        620,
+        150
+      ],
+      "size": [
+        180,
+        70
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "backend",
+      "label": "Model gateway",
+      "sublabel": "JSON contract · one repair",
+      "tag": "every call traced",
+      "icon": "backend",
+      "pos": [
+        860,
+        150
+      ],
+      "size": [
+        160,
+        70
+      ]
+    },
+    {
+      "id": "writer",
+      "type": "external",
+      "label": "Writer model",
+      "sublabel": "Poe · claude-sonnet-5.5",
+      "tag": "OpenAI-compatible",
+      "icon": "external",
+      "pos": [
+        1080,
+        90
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "judge",
+      "type": "external",
+      "label": "Judge model",
+      "sublabel": "DeepSeek",
+      "tag": "optional",
+      "icon": "external",
+      "pos": [
+        1080,
+        180
+      ],
+      "size": [
+        150,
+        58
+      ]
+    },
+    {
+      "id": "composer",
+      "type": "backend",
+      "label": "Composer",
+      "sublabel": "chooses evidence refs",
+      "tag": "plan skill",
+      "icon": "backend",
+      "pos": [
+        860,
+        230
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "editor",
+      "type": "backend",
+      "label": "Editor",
+      "sublabel": "typed operations",
+      "tag": "edit skill",
+      "icon": "backend",
+      "pos": [
+        860,
+        400
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "validator",
+      "type": "backend",
+      "label": "Validator",
+      "sublabel": "structure + constraint audit",
+      "tag": "repair ≤ 1",
+      "icon": "security",
+      "pos": [
+        1060,
+        315
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "agents",
+      "type": "backend",
+      "label": "Specialist agents",
+      "sublabel": "attractions · hotels · weather · tickets",
+      "tag": "run in parallel",
+      "icon": "messagebus",
+      "pos": [
+        620,
+        470
+      ],
+      "size": [
+        180,
+        76
+      ]
+    },
+    {
+      "id": "providers",
+      "type": "external",
+      "label": "Travel providers",
+      "sublabel": "Places · weather · routes · flights · search",
+      "tag": "live, sourced",
+      "icon": "cloud",
+      "pos": [
+        860,
+        490
+      ],
+      "size": [
+        200,
+        96
+      ]
+    },
+    {
+      "id": "atlas",
+      "type": "database",
+      "label": "Sandbox atlas",
+      "sublabel": "12 curated cities",
+      "tag": "offline + eval",
+      "icon": "database",
+      "pos": [
+        620,
+        620
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "SQLite (WAL)",
+      "sublabel": "sessions · contexts · messages",
+      "tag": "versioned plans",
+      "icon": "database",
+      "pos": [
+        420,
+        620
+      ],
+      "size": [
+        170,
+        74
+      ]
+    },
+    {
+      "id": "fixtures",
+      "type": "database",
+      "label": "Frozen fixtures",
+      "sublabel": "7 suites · 84 routing cases",
+      "tag": "v4 baseline",
+      "icon": "database",
+      "pos": [
+        40,
+        620
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "eval",
+      "type": "backend",
+      "label": "Eval runner",
+      "sublabel": "real pipeline, scored",
+      "tag": "sandbox evidence",
+      "icon": "flag",
+      "pos": [
+        200,
+        620
+      ],
+      "size": [
+        140,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Browser",
+      "wraps": [
+        "ui"
+      ],
+      "pad": 10
+    },
+    {
+      "kind": "security-group",
+      "label": "Turn fence: schema · canary · code-owned tools",
+      "wraps": [
+        "api",
+        "orchestrator"
+      ],
+      "pad": 12
+    },
+    {
+      "kind": "region",
+      "label": "External model providers",
+      "wraps": [
+        "writer",
+        "judge"
+      ],
+      "pad": 10
+    },
+    {
+      "kind": "region",
+      "label": "External travel data",
+      "wraps": [
+        "providers"
+      ],
+      "pad": 10
+    },
+    {
+      "kind": "region",
+      "label": "Local state",
+      "wraps": [
+        "store",
+        "atlas"
+      ],
+      "pad": 10
+    }
+  ],
+  "connections": [
+    {
+      "id": "traveller-ui",
+      "from": "traveller",
+      "to": "ui"
+    },
+    {
+      "id": "ui-api",
+      "from": "ui",
+      "to": "api",
+      "label": "JSON"
+    },
+    {
+      "id": "api-sse",
+      "from": "api",
+      "to": "ui",
+      "label": "SSE events",
+      "variant": "dashed"
+    },
+    {
+      "id": "api-orchestrator",
+      "from": "api",
+      "to": "orchestrator",
+      "label": "turn"
+    },
+    {
+      "id": "orchestrator-analyst",
+      "from": "orchestrator",
+      "to": "analyst",
+      "label": "read"
+    },
+    {
+      "id": "orchestrator-composer",
+      "from": "orchestrator",
+      "to": "composer",
+      "label": "plan"
+    },
+    {
+      "id": "orchestrator-editor",
+      "from": "orchestrator",
+      "to": "editor",
+      "label": "edit"
+    },
+    {
+      "id": "analyst-gateway",
+      "from": "analyst",
+      "to": "gateway",
+      "label": "call"
+    },
+    {
+      "id": "gateway-writer",
+      "from": "gateway",
+      "to": "writer",
+      "label": "chat"
+    },
+    {
+      "id": "composer-validator",
+      "from": "composer",
+      "to": "validator",
+      "label": "draft",
+      "variant": "emphasis"
+    },
+    {
+      "id": "editor-validator",
+      "from": "editor",
+      "to": "validator",
+      "label": "ops"
+    },
+    {
+      "id": "validator-orchestrator",
+      "from": "validator",
+      "to": "orchestrator",
+      "label": "plan + problems",
+      "variant": "emphasis"
+    },
+    {
+      "id": "orchestrator-agents",
+      "from": "orchestrator",
+      "to": "agents",
+      "label": "gather"
+    },
+    {
+      "id": "agents-providers",
+      "from": "agents",
+      "to": "providers",
+      "label": "query"
+    },
+    {
+      "id": "agents-atlas",
+      "from": "agents",
+      "to": "atlas",
+      "label": "sandbox"
+    },
+    {
+      "id": "orchestrator-store",
+      "from": "orchestrator",
+      "to": "store",
+      "label": "persist"
+    },
+    {
+      "id": "api-store",
+      "from": "api",
+      "to": "store",
+      "label": "state"
+    },
+    {
+      "id": "eval-store",
+      "from": "eval",
+      "to": "store",
+      "label": "runs"
+    },
+    {
+      "id": "fixtures-eval",
+      "from": "fixtures",
+      "to": "eval"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Grounding by construction",
+      "items": [
+        "The composer names evidence refs; code copies name, address, price, hours and sources.",
+        "A named place outside the atlas is looked up (Google Places live, Wikipedia offline) before it is added.",
+        "If no source exists and the traveller insists, the stop is added marked unconfirmed, with a visible gap.",
+        "A deterministic budget guard trims paid stops rather than letting the total overrun."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "State and edits",
+      "items": [
+        "Plans are append-only versions; restore copies an old version forward.",
+        "An edit returns typed ops and a proposal; the plan changes only when a tick is accepted.",
+        "Locked and confirmed stops are never moved or removed by an edit."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security and trust",
+      "items": [
+        "The traveller message is untrusted data in every prompt; injection is recorded as a threat.",
+        "A canary is checked on every model output; a leak becomes a refusal.",
+        "Code chooses which provider runs: no booking or payment tool exists.",
+        "Session access: owner token, signed-in user, or local admin."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evaluation",
+      "items": [
+        "The 7 frozen v4 suites run through the same orchestrator with sandbox evidence.",
+        "Scoring is deterministic: intent match, constraint audit, source coverage, disruption outcome.",
+        "Runs and scores persist to SQLite and export from the Evaluation tab."
+      ]
+    }
+  ]
+}

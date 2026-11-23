@@ -35,6 +35,7 @@ import {
   type LlmProvider,
   type LlmStatus,
   getProfile,
+  deleteSavedTrip,
   openSavedTrip,
   getSavedTrips,
   runEval,
@@ -56,6 +57,7 @@ export function SavedPage() {
   const [error, setError] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     getSavedTrips(ensureClientToken())
@@ -63,6 +65,17 @@ export function SavedPage() {
       .catch((cause) => setError(failureOf(cause, "errors.savedTrips")))
       .finally(() => setLoading(false));
   }, []);
+
+  const remove = (id: string) => {
+    if (deleting) return;
+    if (!window.confirm(t("saved.deleteConfirm"))) return;
+    setDeleting(id);
+    setError(null);
+    void deleteSavedTrip(ensureClientToken(), id)
+      .then(() => setTrips((current) => current.filter((trip) => trip.id !== id)))
+      .catch((cause: unknown) => setError(failureOf(cause, "errors.savedTrips")))
+      .finally(() => setDeleting(null));
+  };
 
   const show = (id: string) => {
     setOpening(true);
@@ -87,7 +100,7 @@ export function SavedPage() {
     <>
       {opening ? <Banner>{t("saved.loading")}</Banner> : null}
       {error ? <Banner>{describeFailure(error, t)}</Banner> : null}
-      <SavedTripsView trips={trips} onOpen={show} />
+      <SavedTripsView trips={trips} onOpen={show} onDelete={remove} deleting={deleting} />
     </>
   );
 }
@@ -399,6 +412,10 @@ export function SettingsPage() {
         const next = (await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"];
         setRedaction(next?.redaction);
         setConfig(next);
+      }}
+      onSaveDataMode={async (mode) => {
+        await saveRuntime({ data_mode: mode });
+        setConfig((await getConfig()) as unknown as Parameters<typeof SettingsView>[0]["config"]);
       }}
       onSaveGate={async (gate) => {
         await saveRuntime({ gate });

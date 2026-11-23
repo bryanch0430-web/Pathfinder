@@ -1,375 +1,122 @@
 # API
 
-Base URL: `http://127.0.0.1:8100`. All bodies are JSON. Times are ISO 8601 UTC.
+v5 serves **the existing Pathfinder wire contract**. The React app is carried over, so
+the fastest correctness check is: every `request(...)` path in
+`frontend/src/lib/api.ts` has a route here. That check is reproducible:
 
-## 1. Meta
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/ready` | process, writer, decision model, Langfuse, provider chains, thresholds |
-| GET | `/api/runtime` | UI configuration, thresholds, freshness, provider chains, demo prompts |
-| GET | `/api/handbook?destination=&q=&limit=&rerank=` | BM25+BGE hybrid by default; cited chunks with `last_verified`, `stale`, `content_hash`, `corpus_version`; `rerank=true` enables the optional BGE cross-encoder. Needs a Bearer token or an `X-Client-Token` header (401 otherwise) |
-| GET | `/api/places/suggest?q=&limit=` | destination autocomplete (Places API New). Needs a Bearer token or an `X-Client-Token` header (401 otherwise) |
-| GET | `/api/wallet?base=HKD` | cached live reference rates, source, date and note |
-| GET | `/api/wallet/convert?amount=9000&from=HKD&to=USD` | converted amount and rate |
-| GET | `/docs` | Swagger UI |
-
-FX is keyless and cached for 12 hours. `open.er-api` is the live source; if it is
-unreachable the dated static table is used and `source` becomes `static` (live rates that had aged
-out are replaced by that table, with its date, not kept under that label), and it is not asked
-again for a minute, so these public routes make at most one outbound call a minute while it is
-down. The UI labels both and converts the known budget total into a chosen display currency.
-
-`/api/ready` never proves every data key. A missing Places or SerpApi key appears as
-a `data_quality.gap` on the plan, not a failed health check.
-
-## 2. Auth and sessions
-
-| Method | Path | Body / query | Returns |
-|---|---|---|---|
-| POST | `/api/account/signup` | `{email,password,display_name?,client_token?,session_id?}` | `{token,user,profile_token}` |
-| POST | `/api/account/signin` | same | `{token,user,profile_token}` |
-| GET | `/api/account/whoami` | Bearer token | `{user,profile_token}` |
-| POST | `/api/account/attach` | `{session_id, client_token}` — the guest token the session was created with | `{claimed}` |
-| POST | `/api/journeys` | `{client_token}` | `{session, context}` |
-| GET | `/api/journeys/{id}` | — | `{session, context, plan, versions, messages}` |
-| PATCH | `/api/journeys/{id}/state` | `ContextPatch`: any `TripContext` field except `session_id` and `updated_at`; `null` leaves a field unchanged. At most 50 `preferences` and 50 `hard_constraints` of at most 200 characters each, and at most 120 characters in any other text; more is refused with `422`, not cut | `{context}` |
-| GET | `/api/journeys/{id}/itinerary` | `?version=` optional: a version of the session's newest trip (`404` when it has none by that number) | `{plan}` |
-| GET | `/api/journeys/{id}/revisions` | — | `{versions}`: the versions of the session's newest trip, newest first |
-| GET | `/api/journeys/{id}/geometry` | — | map payload for the current plan |
-| GET | `/api/journeys/{id}/segments` | `?day=YYYY-MM-DD` optional | `{trip_id, version, day, legs}` — real route geometry per leg |
-
-A version is a number inside one trip. Planning again in the same session (`Plan my trip`) starts a new trip at
-version 1, and the session shows that trip: `versions` and `revisions` list its versions only, and `?version=` finds
-them. The versions of the earlier trip are no longer listed or served, so no number is offered twice. A new trip for
-the place the saved plan is for keeps the stay the traveller accepted and their locked and confirmed stops. A length
-or date said in plain words (`only 2 days`, `let's do 4 days`, `end the trip on day 2`) is a request for other dates
-of the same trip, never a new one, unless it names another place than the plan's (`I want 4 nights in Osaka` plans a
-trip to Osaka). The plan and the trip form name one destination when the words of one are the start of the other
-(`Kyoto`, `Kyoto Japan` and `Kyoto, Japan`; `New York` and `New York City`); `Paris, France` and `Paris, Texas` are two.
-
-Opening a trip (`GET /api/journeys/{id}`, `GET .../itinerary` without `version`) fetches an outdated
-forecast, fare or stay again and saves the result as the next version. A forecast, fare or stay that
-failed when the plan was made (the plan holds none of it and names a retryable data gap for it) is fetched
-again the same way, when the trip is opened or a message about it is worked on; while its source stays down
-it is asked again no more often than every ten minutes, and so is an outdated section that its source could
-not renew (it stays flagged as outdated meanwhile). A source is always asked about the trip of the
-plan (its destination, dates, party size, budget and currency), whatever the trip's form says by now. `Refresh the data` in the chat asks for such a
-section at once and says which sections are still missing. While a message for the trip
-is being worked on, the plan is returned as stored and nothing is saved, so that message cannot end in
-`plan_conflict` because of a page that was opened; the turn refreshes an outdated plan itself first. If a
-message saved a newer version while the refresh was being fetched, the newer version is returned,
-even when the refresh found nothing. A
-`PATCH` made while a message is being understood is kept: the turn saves only what the message changed,
-on top of the form as it is stored then. What a message adds to the form is cut to the limits above, the oldest lines first, as is a form stored before them. A `PATCH` stores the form and leaves the plan alone; the page's
-`Re-plan with the updated details.` is what moves the trip to the dates the form then holds. That is an
-edit of the same trip, a new version that keeps the stops and the hotel, not a new trip. A message cannot
-change the stored dates (`understand` keeps a stored range): a request such as `move it to 12-14 December`,
-while the form holds the plan's dates, is answered with a plain reply that dates are changed in the trip
-details, and the plan stays as it is. `PATCH` accepts
-any date range an end-before-start check lets through, a start in the past included; an edit that moves the
-trip into the past says so in the plan's data gaps, and one asked for while the form holds an end before its
-start answers `plan_invalid`.
-
-Auth is optional. A guest session answers only to the guest token it was created with, sent as
-the `X-Client-Token` header on every request. No session response carries the token; `GET` and
-`PATCH /api/traveller` echo back the identity the caller presented, which is its own guest token
-or `user:<id>`. Any other caller gets 404, not 403, and so does anyone for a row whose token is a
-`user:` profile token that no account owns (an empty token never matches either). Once a session
-is claimed by a user, requests without the matching Bearer token return 404 too. Sign-up and
-sign-in move every guest session made with the guest token they present (`client_token`) to the
-account, so the trips of the browser follow the traveller; `session_id` in the request is no
-longer needed. `attach` moves one session and needs the token it was created with. A `user:`
-token and an empty token move nothing. `PATCH` recomputes `days` from the date range (or
-`end_date` from `days`).
-
-A guest token is 1 to 120 printable ASCII characters without spaces (a UUID is fine). `POST /api/journeys`
-and `POST /api/turn/stream` without a `session_id` take it from `client_token`, else from the
-`X-Client-Token` header, and answer `422` for any other token, because the session could not be
-opened again. A bearer needs no guest token, and one sent along with it is not checked. A request that
-would start a trip with neither is `401`.
-The server does not issue guest tokens and cannot
-tell a strong one from a weak one: whoever sends the same string opens the same trips, so use a
-random value (the page uses a UUID), never `undefined` or a name. A trip made with a valid bearer
-belongs to the account and is stored under its `user:<id>` token, whatever guest token the request names.
-
-A JSON body that holds a lone UTF-16 surrogate (an escape such as `\ud800` with no second half, which a broken
-input method or a string cut inside an emoji sends, or the character itself) is refused with `422` and a plain
-`detail`, on every route and whether the body is UTF-8, UTF-16 or UTF-32, before anything is stored or counted.
-Two halves that make up one character are read as that character (a media type such as `Application/JSON` is read like
-`application/json`).
-
-Every free text of a request has a limit: a session or stop id 80 characters, a `locale` 35, a rating's `reason_code` 80,
-and the trip form's texts as in section 2; a longer one is refused with `422`, except the `scope_label` of a chat
-message (the name of the selected stop), which is cut to 200 characters. A body of more than 1 MiB (about ten times the
-largest the page sends) is answered `413` before it is read, and so is a body sent in chunks that grows past it. A body that cannot
-be read as text answers `422` with where and why (`loc`, `msg`, `type`), without the value that was refused.
-
-Shared trips are redacted before storage: no budget, party size, session id or client token
-is exposed. The share URL is read-only and does not require an account.
-
-### Map payload
-
-```json
-{
-  "trip_id": "trip_...",
-  "destination": "Kyoto",
-  "center": {"lat": 35.0116, "lng": 135.7681},
-  "hotel": {"name": "...", "lat": 35.0, "lng": 135.7},
-  "days": [{"date": "2026-11-10", "title": "...", "weather": {...},
-            "points": [{"id": "item_p1", "name": "...", "type": "attraction",
-                        "lat": 34.99, "lng": 135.78, "start": "09:00",
-                        "end": "10:30", "status": "ok", "sources": 2}]}],
-  "tickets": [{"id": "flight_f1", "mode": "flight", "name": "...",
-               "origin": "HKG", "destination": "KIX", "depart_at": "..."}]
-}
+```powershell
+cd backend
+$env:PYTHONPATH = "."
+.\.venv\Scripts\python.exe - <<'PY'
+from app.api.app import create_app
+import re
+paths = create_app().openapi()["paths"]
+print(len(paths), "documented routes")
+PY
 ```
 
-## 3. Chat stream
+At the time of writing: 70 distinct frontend request paths, all covered; 86 routes in
+the OpenAPI document (the extra ones are operator/eval helpers).
 
-`POST /api/turn/stream`
+## Identity
 
-```json
-{"session_id": "sess_...", "message": "Swap the hotel for the other option.", "locale": "en", "scope_item_id": "item_p3"}
-```
-
-`scope_item_id` is the stop behind the console's `About: …` chip. A scoped
-`remove this` / `tell me about this` is resolved to that exact item; the server
-forces the action/question path and skips the ambiguity clarification.
-
-Response: `text/event-stream`. Each frame is `event: <name>` followed by a single-line
-`data: <json>`.
-
-| Event | Data |
+| Header | Used for |
 |---|---|
-| `route` | `{intent, confidence, threshold, need_clarification, reason_code, affected_parts, missing_slots, related_to_plan}` |
-| `progress` | `{phase, message, progress}` |
-| `agent` | `{agent, phase: "start"|"done", status?, elapsed_ms?, summary?, failures?}` |
-| `token` | `{text}` — streamed prose for ask/clarify/modify |
-| `plan` | `{plan: TripPlan, diff: []}` |
-| `clarify` | `{question, slots, labels, options, choices, reason_code}` |
-| `error` | `{code, message, retryable}`, with `kind` and `source` added for a data source failure. The two frames the stream itself sends, `turn_timeout` and `stream_error`, are `{code, message, detail}` with no `retryable`. Codes and what follows an `error`: section 8 |
-| `llm_key` | `{provider, model, reason}`: the traveller's own key failed, and the turn used the rule-based path |
-| `tool` | `{name, status, latency_ms, note}` (and `args` in the developer view), one for each lookup a path makes |
-| `locale` | `{plan_locale}` — the plan's language, after a request to change it |
-| `trace` | `{request_id, spans, generations, tool_calls, why}` |
-| `done` | `{request_id, intent, session_id}`, with `blocked: true` for a message the injection screen refused |
+| `X-Client-Token` | a guest trip's owner token; also the identity for traveller memory |
+| `Authorization: Bearer <token>` | a signed-in account (`/api/account/*`) |
+| `X-Admin-Token` | operator routes (desk, eval, prompts, keys) |
 
-The `diff` of a `plan` event lists what an edit changed, one entry per change with a `kind`: `added`,
-`changed` and `removed` for stops, `dates` (the trip moved; `from` and `to` are the date ranges), `stay`
-(the hotel's nights), `hotel_price` (the same hotel at another rate), `hotel`, `flight`, `weather` (the
-forecast changed), `cost` (with the currency of each total, `from_currency` and `currency`, since the trip form can change it), and `party`, `origin` and `budget` (the details of the trip form). An edit that only moves the dates is a new version like any other, so the
-version it left stays available. What an edit could not do (for example, that no cheaper verified hotel was
-returned, that no stop matched a removal, or that a place is already in the plan) is told in the reply and is
-not kept as a data gap of the plan. An edit that changes nothing is not a new
-version: its reason is the reply, and the version it read keeps the summary it had in `revisions`.
+Local requests (`127.0.0.1` or `LOCAL_ADMIN_PROXY`) count as the operator when
+`LOCAL_ADMIN=true`, which is what opens the Evaluation and Desk tabs in a local demo.
 
-The page's `Re-plan with the updated details.` compares the trip form with the plan. Another place in the form is a
-new trip (`reason_code` `replan_destination`; a form that lacks the departure city, the party, the budget or the dates is
-asked for them first, as for any new trip); other dates move the trip; another party size is applied to the plan
-and the stay and the fares are priced again for it (the stay is kept with its marks), another departure city prices
-the fares again, and another budget is checked against the cost;
-a form that holds nothing the plan does not is answered with a plain reply and changes nothing.
-A trip moved to other weekdays drops the opening-hours lines its stops carry for other weekdays (their hours are
-unknown) and names those stops in an `attractions` data gap, and a stop whose stored hours say it is closed on its new
-day is named with that day; locked and confirmed stops put back by a rebuild whose travel time does not fit between
-them are named in a `transfers` data gap.
+## Journeys and plans
 
-Messages for one trip run one after another. A message that waits for an earlier one gets
-keepalive comments and no events; its deadline (`TURN_DEADLINE_SECONDS`; after it the stream ends with an
-`error` frame whose code is `turn_timeout`) starts when its own turn does, so waiting never counts against it.
-
-A blocked injection returns `route` with `blocked: true`, a `token` safe reply and
-`done`; no planning runs. A schema failure after bounded repair returns `error` with
-`code: plan_invalid`, never a dirty plan.
-
-### curl
-
-A guest session answers only to the guest token it was created with, so the request carries it as
-`X-Client-Token` (without it the answer is `404`):
-
-```bash
-curl -N -X POST http://127.0.0.1:8100/api/turn/stream \
-  -H "Content-Type: application/json" \
-  -H "X-Client-Token: <the guest token the session was created with>" \
-  -d '{"session_id":"sess_x","message":"What is the weather on day 2?","locale":"en"}'
-```
-
-## 4. Feedback and memory
-
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| POST | `/api/journeys/{id}/rating` | `{useful, stars?, reason_code?, client_token?}` | `{feedback, preferences_added}` |
-| DELETE | `/api/journeys/{id}` | — | deletes turns, itineraries, state and the journey (Scrap plan); a turn still running on it does not bring it back, what it saves after the delete is removed when it ends, and a message that was waiting for that turn ends with `error` `session_not_found` and saves nothing |
-| DELETE | `/api/journeys/{id}/turns` | — | `{deleted, session_id}`; itinerary is kept |
-| POST | `/api/journeys/{id}/share` | — | `{slug,url}`; public read-only redacted trip |
-| GET | `/s/{slug}` | — | public HTML trip |
-| GET | `/api/public/{slug}` | — | public JSON trip |
-| GET | `/api/traveller` | — | the caller's identity (`client_token`), preferences, counts, destinations |
-| PATCH | `/api/traveller` | `{client_token?, preferences}`: at most 20 preferences of at most 80 characters each; more is refused with 422, not cut | `{profile}` |
-| POST | `/api/recall/clear` | `{client_token?}` | `{cleared, saved_trips, preferences}`: deletes only the caller's saved trips and preferences |
-| GET | `/api/wishlist?limit=` | — | the caller's saved-trip summaries |
-| GET | `/api/popular?q=&limit=&destination=` | — | cards from hybrid retrieval over useful-marked trips + trace (`mode`, `candidates`); public, `match` uses only the caller's own preferences |
-
-**Caller identity** (traveller, recall/clear, wishlist, rating preferences, popular
-matching): a valid `Authorization: Bearer` token is `user:<id>`; otherwise the guest
-token, sent as the `X-Client-Token` header. A `client_token` query parameter or body field is
-still read first, for older clients, but a URL is written to access logs: send the header. A
-token of `user:<id>` without that user's bearer is `401`, here and on `POST /api/journeys` /
-`POST /api/turn/stream`. No identity at all is `401`, except
-on `/api/popular`, which then ranks without personal matching. A useful rating saves the
-trip for the journey's owner, and the preferences a turn learns are remembered for that owner
-too (a trip with no owner remembers none); planner recall reads only that owner's saved trips;
-signing in moves the guest's saved trips and preferences to the account. A profile keeps at most 20
-preferences of at most 80 characters, newest last: what turns, feedback and the sign-in merge write is cut
-to that (the oldest go first, a longer phrase is shortened), so what `GET /api/traveller` returns can
-always be sent back to `PATCH /api/traveller`.
-
-The credential is a header, so two callers send the same URL. Every answer under `/api/account`,
-`/api/journeys`, `/api/traveller`, `/api/recall`, `/api/wishlist`, `/api/popular`, `/api/turn`, `/api/eval`
-and `/api/admin`, errors included, therefore carries `Cache-Control: private, no-store` (the turn stream keeps
-its own `no-cache`); the public routes (`/api/runtime`, `/api/wallet`, shared trips) do not.
-
-A `useful` feedback saves the plan in a background task with its embedding. The feedback
-endpoint never blocks the response on the write. Trending prefers those **marked-useful**
-plans; until one exists it falls back to anonymous workspace plans.
-
-Clearing chat removes only `messages` for that session. The context and current plan stay,
-so the traveller can keep working. Clearing memory removes the caller's saved trips and
-preferences; the current chat/plan stay. Guest profile data is keyed by a random token in
-localStorage; a signed-in profile is keyed by `user:<id>` and needs the bearer.
-
-### Trending
-
-```json
-{
-  "items": [
-    {
-      "destination": "Kyoto",
-      "plans": 9,
-      "days": 4,
-      "year": 2026,
-      "places": ["Kiyomizu-dera", "Fushimi Inari Taisha"],
-      "summary": "4-day plan · 4 sights"
-    }
-  ],
-  "trace": {
-    "note": "Aggregated from anonymous plans created in this workspace...",
-    "filter": "",
-    "dropped": []
-  }
-}
-```
-
-Only destination, plan count, length, year and sight names are exposed. The endpoint never
-returns a session id, client token, owner, budget, party size or generated summary.
-
-### LLM keys
-
-Routes for a caller's own LLM keys (see "Bring your own key" in `ARCHITECTURE.md`). The owner is the signed-in account (bearer) or the guest `X-Client-Token`. With `?scope=server` and `X-Admin-Token`, the same routes manage the operator's server key. A client token equal to `server` is refused with `401`. A key is sent only in a JSON body and comes back only as `key_tail`, never in full.
-
-| Method | Path | Body | Answer |
-|---|---|---|---|
-| GET | `/api/llm/providers` | none | `{providers: [{id, label, default_model, key_prefix, supports_search}]}` (anthropic, openai, poe, xai, gemini) |
-| GET | `/api/llm/keys` | none | `{keys: [Key], status: {source, provider, model, problem, local}}` |
-| POST | `/api/llm/keys/test` | `{provider, api_key, model}` | `{ok, kind, message, latency_ms, models}` (`models` is the list of model ids the key can use, `[]` when none could be fetched); saves nothing |
-| POST | `/api/llm/keys` | `{provider, api_key, model, use_for_search?}` | `{key: Key}`, plus `warning` when saved after a failed test. The saved key becomes the owner's active key and their other keys are made inactive |
-| POST | `/api/llm/keys/{key_id}/test` | none | `{key: Key, result}`; `result` is `{ok, kind, message, latency_ms, models}`; tests the saved key |
-| PATCH | `/api/llm/keys/{key_id}` | `{model?, use_for_search?}` (an empty `model` restores the default) | `{key: Key}` |
-| PUT | `/api/llm/choice` | `{key_id: string or null}` | `{status}`; switches the active key, `null` chooses no key |
-| DELETE | `/api/llm/keys/{key_id}` | none | `{deleted: true}` |
-
-`Key` is `{id, provider, label, model, key_tail, active, use_for_search, last_test_ok, last_tested_at, last_error, unreadable}`. `kind` is one of `ok`, `auth`, `model`, `rate_limit`, `credit`, `network` or `other`. `status.source` is `byok`, `server`, `env`, `local` or `none`. `status.problem` is `unreadable` or `unknown_provider` when the chosen key cannot be used, and empty when it can.
-
-Status codes: `404` for a key that is not the owner's; `409` when a saved key can no longer be read (re-test); `422` for a bad body, a malformed guest token or a provider that is no longer offered; `401` also for `?scope=server` without a valid `X-Admin-Token`; `401` when no caller can be named; `429` over the test limit. The `api_key` is 8 to 512 printable characters with no spaces.
-
-`POST /api/llm/keys` tests first. It answers `422` with `{detail, kind}` and saves nothing for `auth`, `model`, `other` or any unknown kind. It saves, with a `warning` and `last_test_ok: false`, for `rate_limit`, `network` and `credit`.
-
-A turn whose chosen key fails sends one `llm_key` event, `{provider, model, reason}`, and then uses the rule-based path. Later calls in that request send nothing more. A failure before the turn streams live events (in understanding, routing or an answer) is sent before the turn's last frame. `reason` is a failure kind (`auth`, `rate_limit`, `timeout`, `network`, `invalid_request`, `no_data`, `server_error`, `parse`, `blocked`) or `unreadable` for a saved key that no longer decrypts.
-
-`/api/ready` and `/api/runtime` report the operator chain (never the calling traveller's key), with `writer.source` set to `server`, `env`, `local` or `none`. Traces and `think` events carry `llm_source` (`byok`, `server`, `env`, `local` or `none`) beside the model name, never a key or its tail.
-
-## 5. Evaluation
-
-| Method | Path | Body / query | Notes |
-|---|---|---|---|
-| GET | `/api/eval/suites` | — | seeded and frozen |
-| POST | `/api/eval/suites/{id}/lock` | header `X-Admin-Token` | freezes a custom dataset |
-| GET | `/api/eval/trials` | `?limit=` | summaries (metrics, case counts, latency) |
-| POST | `/api/eval/trials` | `{dataset_id, experiment_tag, split}` | returns the full run |
-| GET | `/api/eval/trials/{id}` | — | full run with cases |
-| GET | `/api/eval/trials/{id}/export` | — | Markdown report |
-| GET | `/api/eval/contrast?a=&b=` | — | per-metric delta rows |
-
-Every `/api/eval/*` route needs the `X-Admin-Token` header (401 otherwise). The web page sends the
-token it finds in the browser's local storage under the key `pathfinder.admin` (without one it
-sends no request and shows "Admin token required"); nothing in the page sets it, see the README,
-section 6.
-
-An unfrozen dataset returns `409`. An unknown dataset returns `404`. A planning run is
-deterministic and sandboxed; see `docs/EVALUATION.md`.
-
-## 6. Admin
-
-| Method | Path | Header | Purpose |
-|---|---|---|---|
-| GET | `/api/admin/threats` | `X-Admin-Token` | aggregate injection counts |
-| GET | `/api/admin/spans/{request_id}` | `X-Admin-Token` | one JSON trace |
-
-The built-in default token is `local-admin`; `.env.example` ships the placeholder
-`REPLACE_ME`. With `ENVIRONMENT` other than `development` or `test` (for example
-`production`, which is also what an unset `ENVIRONMENT` means), the app refuses to start until `ADMIN_TOKEN` (neither of those two values)
-and `AUTH_SECRET` (32+ characters) are set to real secrets. Trace ids must match `req_[0-9a-f]{12}`.
-
-## 7. Contracts
-
-- `contracts/openapi.json` — OpenAPI 3 document.
-- `contracts/trip_plan.schema.json` — TripPlan JSON Schema.
-
-Regenerate after a model or route change (a test fails while a committed contract is out of date):
-
-```bash
-cd .
-PYTHONPATH=backend python -m app.export_contracts
-```
-
-It needs no `ENVIRONMENT` and no secrets, and takes an optional directory to write to instead of `contracts/`.
-
-## 8. Error codes
-
-The `code` of an `error` event. After an `error` the turn's `trace` and `done` events still follow, except for
-`session_not_found`, `turn_timeout` and `stream_error`: those end the stream, and nothing follows them. A
-message with details missing is not an error: it is answered with a `clarify` event, and a message the blocklist
-stops with `route` (`blocked: true`), a `token` and `done`.
-
-| Code | Meaning | Retryable |
+| Method | Path | Notes |
 |---|---|---|
-| `security_blocked` | a tool was called that the path is not allowed to use (the toolbox's allowlist); the traveller reads "This request was stopped by a safety check." | no |
-| `canary_leak` | output contained the canary | no |
-| `plan_invalid` | validation failed after repair, or the destination could not be located | yes (no when the lookup cap refused the lookup) |
-| `tool_budget_exceeded` | the turn reached the per-turn lookup cap (`MAX_TOOL_CALLS_PER_TURN`) | no |
-| `plan_conflict` | another turn on the same trip saved its version first (turns on one trip otherwise run one after another) | yes |
-| `session_not_found` | the trip was deleted before the turn began, for instance while the message waited for an earlier one; nothing is saved and no trip is made in its place. The stream carries this `error` alone | no |
-| `provider_error` | data source failure (kind attached) | depends |
-| `internal_error` | unexpected failure, no internals leaked to the user | yes |
-| `turn_timeout` | the turn did not finish within `TURN_DEADLINE_SECONDS` and was stopped. Sent by the stream, as `{code, message, detail}` (`detail` says how many seconds) with no `retryable` field; the message asks the traveller to try again | not sent |
-| `stream_error` | the turn failed in a way it did not report itself. Sent by the stream, as `{code, message, detail}` with the traveller-safe text in `detail` and no `retryable` field | not sent |
+| POST | `/api/journeys` | new trip + default context |
+| GET | `/api/journeys/{id}` | `SessionState`: context, latest plan, versions, messages, busy |
+| GET | `/api/journeys/{id}/held` | desk hold + `planner_busy` |
+| PATCH | `/api/journeys/{id}/state` | the trip form |
+| GET | `/api/journeys/{id}/revisions` | version list |
+| GET | `/api/journeys/{id}/itinerary?version=` | one plan version |
+| POST | `/api/journeys/{id}/itinerary/restore` | copy an old version forward |
+| POST | `/api/journeys/{id}/layout` | direct-edit grid (move rows, drop rows) |
+| POST | `/api/journeys/{id}/proposals/{message_id}` | accept/reject an edit tick |
+| POST | `/api/journeys/{id}/plan/choose` | swap an alternative / hotel / flight |
+| POST | `/api/journeys/{id}/lock` | lock a stay or leg |
+| POST | `/api/journeys/{id}/booked` | mark a stay or leg booked |
+| GET | `/api/journeys/{id}/plan/hotels/{hotel_id}/rooms` | room types the plan holds |
+| POST | `/api/journeys/{id}/finalise` | lock the trip, save it to the wishlist |
+| POST | `/api/journeys/{id}/rating` | feedback |
+| POST/DELETE | `/api/journeys/{id}/share` | share link |
+| GET | `/api/public/{slug}`, `/s/{slug}` | public JSON / HTML |
+| GET | `/api/journeys/{id}/translation?version=&locale=` | model translation, cached |
+| GET | `/api/journeys/{id}/segments?day=` | map legs + anchors |
+| GET | `/api/journeys/{id}/leg-options?from_id=&to_id=` | four modes between two stops |
+| GET | `/api/journeys/{id}/geometry` | per-day points |
+| GET | `/api/journeys/{id}/calendar.ics` | calendar export |
+| POST | `/api/journeys/import` | open a plan file as a new trip |
+| DELETE | `/api/journeys/{id}` / `/turns` | discard a trip / clear the chat |
 
-## 9. Rate limits
+## The turn stream
 
-Counted per process and per client address (the socket peer, or the client a trusted proxy
-forwards; see the README) in a sliding one-minute window. A request over the limit is answered `429` with a `Retry-After` header
-and is not counted. A limit of `0` turns it off.
+`POST /api/turn/stream` takes `{session_id, message, locale, scope_item_id,
+scope_label, review, attachments?}` and returns `text/event-stream`. Frames:
 
-| Setting | Default | Routes |
-|---|---|---|
-| `RATE_LIMIT_AUTH_PER_MINUTE` | 10 | `POST /api/account/signup` and `/signin` (one budget, counted before the password is checked) |
-| `RATE_LIMIT_AI_PER_MINUTE` | 30 | `POST /api/turn/stream` and `POST /api/eval/trials` (one budget; a turn is counted once the trip is the caller's or a new one is allowed, and a run once the admin token is checked, so a `401`, `404` or `422` never uses it up) |
-| `RATE_LIMIT_CREATE_PER_MINUTE` | 60 | `POST /api/journeys` and `POST /api/journeys/{id}/share` (one budget; a request that is refused with `401`, `404` or `422` makes nothing and is not counted) |
-| `RATE_LIMIT_LOOKUP_PER_MINUTE` | 60 | `GET /api/places/suggest` (the `X-Client-Token` it needs is a string the caller makes up, so the budget follows the address and a new token does not reset it) |
-| `RATE_LIMIT_KEY_TEST_PER_MINUTE` | 6 | `POST /api/llm/keys/test`, `POST /api/llm/keys` and `POST /api/llm/keys/{key_id}/test` (one budget, per client address) |
-| `RATE_LIMIT_HANDBOOK_PER_MINUTE` | 60 | `GET /api/handbook` (its own budget, so running out of place suggestions does not silence the guide notes; keyed by address like the others) |
+```
+event: progress   {phase, message, progress}
+event: intake     {sources, filled, places}
+event: route      {intent, confidence, threshold, need_clarification, reason_code,
+                   affected_parts, missing_slots, related_to_plan, blocked}
+event: agent      {agent, phase: start|end, status, elapsed_ms, summary}
+event: plan       {plan, diff}
+event: proposal   {message_id, proposal: {changes: [...]}, log: {steps: [...]}}
+event: token      {text}
+event: clarify    {question, slots, labels, options, choices, suggestions, reason_code}
+event: think      {purpose, latency_ms, reasoning, output_preview}
+event: tool       {name, status, latency_ms, note, args}
+event: trace      RunTrace
+event: done       {request_id, intent, session_id, plan_version?}
+event: error      {code, message, detail?, retryable?}
+```
 
-The address is the only key. A caller can make up as many guest tokens as it likes, so no limit can
-follow a token, and everyone behind one address (a NAT, or a proxy uvicorn is not told to trust)
-shares its budgets: valid requests from one of them count against all of them.
+Keepalives are SSE comments (`: keepalive`), never an event, so the UI parser is
+untouched. One turn per trip is enforced with a seat; a second message waits.
+
+## Evidence, guides, money
+
+| Method | Path |
+|---|---|
+| GET | `/api/places/suggest?q=` |
+| GET | `/api/images/place?name=` (redirects to a Wikimedia thumbnail) |
+| GET | `/api/handbook?destination=&q=&limit=` |
+| GET | `/api/wallet?base=`, `/api/wallet/convert` |
+| GET | `/api/popular?q=&destination=` |
+
+## Accounts and memory
+
+`/api/account/signup`, `/signin`, `/whoami`, `/attach`; `/api/traveller` (GET/PATCH);
+`/api/recall/clear`; `/api/wishlist` list/get/open.
+
+## Models
+
+`/api/llm/providers`, `/api/llm/keys` (list/save/test/patch/delete), `/api/llm/choice`.
+Keys are stored in the local SQLite file and only a masked tail is returned.
+
+## Operator
+
+- `/api/runtime` (GET public shape), `/api/admin/runtime` (PUT/DELETE overrides),
+  `/api/admin/redaction/preview`, `/api/admin/prompts` (list/save/reset),
+  `/api/admin/escalation`, `/api/admin/threats`, `/api/admin/serpapi-keys`.
+- Desk: `/api/admin/desk`, `/api/admin/desk/{id}` plus `hold`, `release`, `note`,
+  `say`, `run`, `brief`, `plan`, `revisions`, `undo`, `layout`, `edit`, `itinerary`.
+- Review: `/api/admin/cases`, `/c`,`/cases/turns`, `/cases/scan`, `/cases/check`,
+  `/cases/suggestions/{id}/accept|dismiss|restore`.
+
+## Evaluation
+
+`/api/eval/suites`, `/suites/{id}/cases`, `/suites/{id}/lock`, `/reference`,
+`/trials` (GET/POST), `/trials/{id}`, `/trials/{id}/export`, `/contrast`.
+
+A trial runs synchronously and returns the finished run; the UI renders it directly.
+Run times are in `docs/EVALUATION.md`.

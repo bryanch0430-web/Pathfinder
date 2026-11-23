@@ -1,1117 +1,325 @@
-# Pathfinder
+# Pathfinder v5
 
-> **Archived v1.x line.** This branch is the legacy v1.x application, kept for
-> history and the v1.x release notes. The current product is the rebuilt v5 line on
-> [`pathfinder_v5`](https://github.com/bryanch0430-web/Pathfinder/tree/pathfinder_v5).
+A conversational, state-aware trip planner. **The Pathfinder interface, with a new,
+LLM-first core.** The React app in `frontend/` is carried over with small settings
+changes; the backend behind `/api` is rebuilt around a typed turn analyst, sourced
+evidence, bounded repair and versioned plans.
 
-**Group 1 · COMP7608B Final Project**  
-Chan Yuk Ming · Lai Helen · Ng Tsan Fung · Wong Man Kit
+**Latest:** the Models tab configures a model, temperature, reasoning effort and
+reply cap for each part; the turn router can be the LLM router or Jev (System 1);
+handoff goes to a real human-in-the-loop desk queue with independent switches. See
+[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md) — it also imports the `main` v1.x
+release notes and maps each one to what v5 kept, changed, or deliberately dropped.
 
-Pathfinder is a conversational, state-aware agentic trip planner. A traveller describes
-a trip in plain language. A typed System 1 router sends the turn down exactly one path —
-**plan**, **modify** or **ask** — and anything unclear is clarified instead of guessed.
-Four specialist agents gather live travel data in parallel; a grounded planner turns
-verified candidates into a day-by-day itinerary where every item carries a source and a
-freshness status.
-
-This repository is the group's implementation of the Pathfinder proposal and
-functional specification. The architecture, API and design system are documented
-under [`docs/`](docs/); the AI-use declaration is in
-[`docs/AI_USE.md`](docs/AI_USE.md).
+**Constraint verifier:** by default it uses `deepseek-flash` at
+`https://api.deepseek.com/v1`, temperature 0 and a 1,500-token cap. It has its own
+`VERIFIER_API_KEY` so it is not tied to the writer provider. The Settings **Models by
+part → Constraint verifier** field can override the model; all other parts still share
+the active writer key. With no verifier key it falls back to the default writer.
 
 ## Version notes
 
-Recent releases, newest first. The table is only an index. The notes under it are the patch notes. A shorter copy is also in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
-
-| Version | When (HKT) | Headline |
-|---|---|---|
-| v1.19.0 | 2026-11-23 12:45 | Complex requests get a bounded path: date windows, flight windows, city segments and an execution budget |
-| v1.18.0 | 2026-11-22 16:30 | A wish stays a wish, the end date is labelled, and a budget chip fills the box |
-| v1.17.0 | 2026-11-22 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out |
-| v1.16.0 | 2026-11-22 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal |
-| v1.15.0 | 2026-11-21 19:35 | An edit waits for a tick, a nickname finds the stop on the plan, and "how long should I stay" is the visit |
-| v1.14.0 | 2026-11-20 18:10 | The map starts at the hotel, sentiment no longer hands over a chat, and Take over works on any chat |
-| v1.13.0 | 2026-11-20 15:40 | A meal change stays on the selected stop, a stop cannot sit outside the flight, and personal details are masked |
-| v1.12.0 | 2026-11-19 22:45 | A chat escalates to a live agent in three ways, and the desk shows who is waiting |
-| v1.11.0 | 2026-11-19 16:23 | A map hit is confirmed before it is stored, and 简 translates the plan the same way 繁 does |
-| v1.10.0 | 2026-11-18 21:20 | A named day stays that day, a missing fare is not a pass, and Error analysis reviews the misses |
-| v1.9.0 | 2026-11-17 22:56 | Three routing gates, a Desk window, and every evaluation suite on one page |
-| v1.8.0 | 2026-11-17 02:55 | UI/UX visual upgrade: a studio canvas, sketchbook, and one Export menu |
-| v1.7.0 | 2026-11-15 14:35 | Trips of several cities; every stay, leg and transfer is a lockable choice slot; pictures, links and ranks |
-| v1.6.2 | 2026-11-08 21:41 | Clarify answers stay in their slot; flights shape the day; far stops move |
-| v1.6.1 | 2026-11-06 18:00 | Every leg visible; Walk/Transit/Taxi; ferry, cable car, tram |
-| v1.6.0 | 2026-11-06 14:13 | Chat remembers recent turns; honest budgets; edits ask instead of refusing |
-| v1.5.1 | 2026-11-06 11:16 | Transit legs read Transit; ferry segments in the legend |
-| v1.5.0 | 2026-11-06 01:54 | Long trips fill their days; pre-planning audit experiment (off) |
-| v1.4.0 | 2026-11-05 21:45 | Honest route map: ferry segments, one leg at a time |
-| v1.3.1 | 2026-11-05 16:40 | Hardening: limits, expiry, honest failures, EN / 简 / 繁 |
-| v1.3.0 | 2026-11-03 11:55 | Edits match the request; pace and hours; map pin |
-| v1.2.0 | 2026-11-01 23:57 | Identity answers, useful clarify choices, label rows |
-| v1.1.0 | 2026-11-01 23:28 | Web search (DeepSeek, Grok opt-in), follow-ups, reviews, scoped stop |
-| v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
-| v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
-| v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
-
-### v1.19.0 — 23 November 2026, 12:45 HKT
-
-**Complex requests need explicit state, not a longer prompt.** A request can combine
-"next month", a 2-day length, a budget in another currency, flights, more than one
-city and items already locked. v1.19 gives each uncertain part its own bounded
-representation.
-
-This entry documents the rebuilt v5 line on `pathfinder_v5`; the legacy v1.x
-application on `main` remains at v1.18.0 and is not rebuilt by this note.
-
-- **A month is a window, not a day.** "Next month" is remembered as December 2026.
-  The 2-day length is kept, the clarify card asks only for the start date, and the
-  app no longer invents 1 December.
-- **A flight bounds the day.** Selected arrival and departure times add a 90-minute
-  arrival and a 120-minute departure buffer. A stop before landing or after leaving
-  is returned to the planner, not silently kept.
-- **A complex route is several segments.** Multi-city stops are planned city by city,
-  joined in order, and checked for consecutive days, segment order and city order.
-  Intercity transport remains a visible booking gap until a source is connected.
-- **A turn has an execution budget.** The whole turn is bounded at 300 seconds by
-  default (60–900). On expiry the harness cancels the work, returns `turn_timeout`,
-  and releases the seat.
-- **Today's date comes from the clock.** A current-date question answers from the
-  runtime `now`, not from cached search snippets.
-- **Locked choices stay visible.** Direct edit shows locked stays and flights
-  read-only; locking a return flight updates the return leg, not the outbound one.
-- **Verification is not evaluation.** The in-turn checks are the validator plus the
-  constraint verifier. "Evaluation" is reserved for the offline evaluation harness.
-
-**Still open:** intercity sourcing and booking, per-segment refinement, and tool-policy
-allowlists.
-
-### v1.18.0 — 22 November 2026, 16:30 HKT
-
-More ways of saying a trip are read. A wish is not stored as the city. The clarify card names the end date, and a budget chip fills the box. Evaluation lists the bulk sets for reference only.
-
-- **A wish is not the city.** "I want to see sun cakes in Kaohsiung" stays Kaohsiung. Pandas, cherry blossoms, and "built around ramen" stay a wish.
-- **More ordinary routes are read.** "Departing Charlotte for Akron", "the 24th of March to the 29th of March", and a name that ends in City, such as Panama City.
-- **"From time to time" is still not a departure city.** Neither is "change the trip from Kyoto to Osaka".
-- **The dates form shows Start and End.** The second box is no longer an unlabelled date.
-- **A budget chip fills the number box.** HKD 91,000 shows as 91000. Continue still sends the currency.
-- **Evaluation has a Bulk tests column, marked reference only.** It lists the full TravelPlanner set, 1,225 queries, and 1,000 English sentences each for Hong Kong, Taiwan, Japan, and China. Sentences that share a wording are one row. Those lists are not an experiment.
-
-### v1.17.0 — 22 November 2026, 12:44 HKT
-
-A shared itinerary can start a new trip. The dates form says how long the range is before it is sent. A stop the flight removes is no longer called "nothing changed."
-
-- **A found stop says why it is not on the day.** Kyoto National Garden can be found and then removed because you reach the hotel at 12:11. The reply says that, and that a morning stop cannot be added.
-- **An add on a trip you already have is read.** "Add a sakura flower stop on day 2 morning" is that add, that day, and the morning. Morning is not part of the place name.
-- **"A new trip" is not a city called New.** It is no longer matched to Newark.
-- **A file can replace the open trip.** "Plan a new trip like this file" uses the cities and the length in the file. An automatic handoff from an earlier failed edit does not block it.
-- **The dates form has a start and an end.** It shows the number of days. Continue stays off until both dates are set, the end is not before the start, and the range is 30 days or fewer.
-- **One later date lengthens the trip.** 30 November no longer becomes the start while 23 November stays the end. That range used to crash planning.
-- **A details form is not a handoff.** "Here are the missing details — dates: This weekend" answers the question. Earlier failed edits do not hand that answer to a person.
-- **Error analysis reads a miss without the writer.** A wish searched as a name, a stop deleted by the flight, and "ok fix" each get a cause and a fix. If the writer account cannot pay, the page says so and opens writer settings.
-
-### v1.16.0 — 22 November 2026, 12:00 HKT
-
-A wish such as "where I can see Gundam" is looked up as a real place. A finalised trip leaves the live desk. A flight shows the chosen fare, and the other fares sit behind it.
-
-- **A wish is a search, not a street name.** "Where I can see Gundam", "something like a shopping mall", and "da y 1" become a short lookup. The first result that has a map point is the stop, even when its name does not repeat the wish.
-- **A stop three minutes early is moved, not deleted.** Reaching the hotel at 14:33 no longer drops a stop that starts at 15:30. It starts at 15:33. A stop that overlaps the taxi is still left out, and the reply says so.
-- **"ok fix" answers the flight question.** A stale flight-arrival warning is cleared when the day already fits. A stop outside the flight is moved into the open part of the day.
-- **The same failed edit is flagged, then handed over.** The first failure is flag 1, the next flag 2, and the third hands the chat to a person.
-- **A finalised trip is history.** It leaves Handling, Queue, and Auto-Answering. It can be read and its log downloaded. It cannot be taken over.
-- **My trips opens on the planning page.** The card stays saved. The opened copy is a new trip you can ask about and refresh.
-- **Flights read like a meal.** The chosen fare stays up. The other fares are under "N other options". The flight out and the taxi to the hotel come before the flight home and the taxi back.
-- **Desk dark mode keeps the session name.** A stuck card stays readable.
-
-### v1.15.0 — 21 November 2026, 19:35 HKT
-
-An edit is shown first and written only when you accept it. A nickname means the stop already on the plan. A question about how long to stay is about that visit.
-
-- **Tick to apply, cross to leave it.** A chat edit is not written until you tick it. A cross leaves that part as it is. The form's own Re-plan button still writes the plan at once, because that button is you applying the details.
-- **A full day can still take the stop.** If the day has no free gap, the first tick puts the stop after the last one and keeps the others. The other ticks each replace one stop to make room. Nothing is written until you tick one.
-- **A nickname is the stop already on the plan.** "Put the sheep farm on day 1" is Mother Farm when that farm is already on the trip. The move uses that stop.
-- **A whole day is a long visit.** "Disneyland for a whole day, not just 2 hours" lengthens that stop to 09:00–18:30 and moves what would overlap it.
-- **"How long should I stay" is the visit.** "How long should I stay at the farm" and "what is the duration of Mother Farm" use the hours already on the plan, and a duration page when one comes back. "Which hotel am I staying at?" is still the hotel.
-- **Re-plan uses the dates on the form.** A one-day plan can be lengthened across the form's dates. A city shown on the form and a leftover city are both planned. One later date, when the start is already set, fills the end.
-- **A harbour walk looks nearby.** "A harbour walk" is an outing. The edit looks for a verified promenade near the stop, rather than a place whose name is exactly those words.
-- **Overlapping stops are separated.** The later stop is pushed on, and the reply says so. The chat does not stop with a failed plan.
-- **The steps show while the turn runs.** Routing, editing, review, and the reply each name what is working and how many seconds it took. The model list is no longer pasted under the reply.
-- **The reply is written from the plan and the chat.** After an edit, the sentence describes what is on the plan now. It no longer uses a fixed "Updated to version" line.
-
-### v1.14.0 — 20 November 2026, 18:10 HKT
-
-A day on the map starts at the hotel. An unhappy sentence about a meal no longer hands the chat to a person. An operator can take any open chat.
-
-**The map starts at the stay.** Each day runs from the hotel, through every stop that has a location, and back to the hotel. The day you land starts at the airport. The day you fly out ends at the airport. A stay that sits in another region is not used as that day's start.
-
-**The airport taxi is a drive.** The map asks for a driving route for that taxi. Before the first stop, the time bar names the hotel and does not say Walk. Walk, Transit, or Drive appears only while the marker is moving between places.
-
-**Sentiment monitoring is gone.** A line is not scored, and it is not handed to a person for sounding unhappy. Settings → Handoff now has two cards: asking for a person, and a stuck edit that leaves the plan unchanged. The desk no longer shows a heat score or a Hot filter.
-
-**Take over works on any chat.** Take over holds the chat that is open, whether or not it was escalated, and whether or not the desk was set to Away. Hand back still returns the chat to the planner.
-
-### v1.13.0 — 20 November 2026, 15:40 HKT
-
-A change that names no new place stays on the selected stop. A stop cannot be dragged outside the flight. Personal details are masked before a model sees them.
-
-**A meal change that names no restaurant stays on that meal.** "Change to something else" and "I don't want to eat this" are not looked up as a city or a restaurant, and they do not hand the chat to a person. The selected meal is replaced by the next option already listed on that card. The other stops, and the other days, stay as they are. Asking for a person, or a line that is abuse or distress, still goes to the desk.
-
-**Direct edit keeps the flight window.** A stop cannot start before the traveller can be at the stay, and it cannot end after they must leave for the airport. The drag is refused, and a save that would drop the stop is refused, so the stop stays where it was.
-
-**The map is the main window.** Chat, Map and Plan sit in that order, with the map widest. Closing one of those three lets the others fill the row. Profile, Budget, Exchange, Sketch, Watch and Trending stay where they are. A layout saved before this release is replaced once.
-
-**The desk saves details and edits the open plan.** Build the plan is gone. Saving the form only saves the details. Open plan studio opens above the desk. Release as draft closes that studio, says the traveller can edit, and unlocks Direct edit on the traveller's page at once. Day 1, 2 and 3 scroll the plan to that day. The desk can open in its own window. Admin pages are labelled Admin only, and a traveller who opens one is returned to the plan.
-
-**The page uses the Pathfinder type.** Sketch titles and empty Watch, Exchange and map text use the same serif and sans as the rest of the page. The saved sketch file still uses the handwritten font so the words stay in their boxes.
-
-**Personal details are masked.** Settings → Redaction. A Hong Kong identity number, a Hong Kong phone number, an email address and a payment card are masked before a message is sent to a model, and in the earlier turns that model reads. An overseas number, and a card that fails its check digit, stay as written. The preview is not stored. The person line uses a label such as [HKID]. The machine line uses a stable token.
-
-**"What is this" is about the selected stop.** With a stop or a stay selected, this, that, it and here mean that selection.
-
-**A plan that overlaps itself can be opened.** Two stops left on the same time, or the same place written twice, are separated when the plan is saved or read back. A locked stop stays. A stop that cannot fit is left out, and the day says so.
-
-**A slow review keeps the drafted plan.** The reviewer is asked once. If it does not answer within the review timeout, which starts at 20 seconds, the draft is kept. Settings → Policy can set the review timeout, the turn timeout and the model timeout. Why this decision, in developer mode, records what the review asked and shows the message sent to the model. A DeepSeek gate or reviewer with no key of its own uses the server DeepSeek key.
-
-### v1.12.0 — 19 November 2026, 22:45 HKT
-
-A chat is handed to a person in three ways. The desk shows which chats are waiting, and a drafted plan is checked for visit length and for rows that do not hold together.
-
-**Escalate to live agent.** Settings → Handoff. "I want to talk to a live agent" and "please find someone to help" escalate at once, as do "human agent", "real person", "customer service", and 转人工 / 轉人工 / 人工客服 / 真人客服. "Please don't talk to a live agent" does not. Extra phrases can be added on that card. There is no score. The traveller sees the sentence on the card, and the planner does not answer that turn.
-
-**Sentiment is a keyword table, or Jev.** Each anger word has its own score. A sharp word starts at 80 and a mild word at 40. The line escalates when a matching score reaches the cutoff, which starts at 60. Use Jev instead of keyword search, at the top of Handoff, sends that table with the line and uses the score Jev returns. If Jev cannot be asked, the keyword scores are used. Jev also catches anger that never uses a listed word, and it does not treat "I am not angry" as angry. Asking for a person still uses the phrase list.
-
-**Stuck edits are a count.** An edit that leaves the itinerary unchanged, while the traveller keeps using the same words, is counted. After the number on the card, which starts at 3, the chat escalates. There is no word list on that card.
-
-**The desk queue can be accepted.** A queued card shows the session id, the time since the session started, and Accept. Accept takes the chat and moves it to Handling. The Ready control at the top only says the operator is available. Hot and Stuck sit on the card as HOT, STUCK, or HOT．STUCK. Filters for those tags work on Queue, Handling, and Session history.
-
-**A drafted plan is checked twice more.** A theme park, a hike, or a named park is given a longer stay than the pace alone would give, unless the traveller stated a length. After the draft, each row is checked for a name that was never found, a repeated sight, a day with no meal, a price the source did not give, and a stop that sits in another city. A meal that overruns its slot is shortened, and an unsourced live price is cleared. The rest is noted. Settings → Reviewer can ask one model to adjust times and wording only, and can be left blank so only the rules run.
-
-### v1.11.0 — 19 November 2026, 16:23 HKT
-
-A place the assistant does not already know is checked before it is stored, and Simplified Chinese now translates the plan as well as the page.
-
-**A new city is checked on the map.** A city the assistant already knows, such as Kyoto or Hong Kong, is kept with no lookup. Any other new destination, departure city or extra stop is looked up. A hit is not stored yet. The reply names what was found ("I found … for Heaven. Is that the one?") and, when the name differs, "The closest place I can find …". No hit puts the previous city back and asks which city to use. A lookup that fails does not store the name.
-
-**The found place can be accepted from the question.** The destination or departure box is filled with the address the map returned. Use this place fills it again. Continue accepts it and asks for the next missing detail. Yes in the chat does the same. Kyoto, Tokyo and Hong Kong on that card still replace the suggestion.
-
-**简 and 繁 both translate the plan.** English stays the original. 繁 uses Traditional Chinese and Hong Kong wording (的士, 港鐵, 巴士). 简 uses Simplified Chinese and Mainland wording (出租车, 地铁, 公共汽车). Dates, times and prices are copied from the English and checked. A place shows a Chinese name only when a trusted source supplied one in that script. "用中文" still means Traditional Chinese. "简体中文", or the 简 switch, asks for Simplified Chinese.
-
-**Earlier messages are a setting.** Settings → Policy → Earlier messages runs from 1 to 10 and starts at 10. The writer, the edit, the clarify step, understand, and Jev when the rules step aside, read that many earlier turns. The rule router still decides from the current message. A web-search query is still built from the current sentence.
-
-**Error analysis reads the lines before the miss.** A failed case carries up to ten earlier messages, shown under the input, and Check these cases passes them along when it routes the case again. Instructions names the file being edited, such as `backend/app/skills/route-message/SKILL.md`. Saving still stores an override. The file on disk stays as it is. The review note says what counts as a failed case.
-
-**Clear details blanks the form.** It clears the cities, dates, party, budget, pace and wishes on the trip form. A plan already on the sheet stays until it is planned again.
-
-### v1.10.0 — 18 November 2026, 21:20 HKT
-
-An edit can name one day, and a missing price no longer counts as a budget pass. An admin can review the misses.
-
-**A named day is the only day that changes.** "Only change day 2 to one attraction" leaves the other days as they are. "Day 2 starts after 14:00, only one attraction" sets that day's start and that day's count. A clock is read as a time. A question about that shape is answered, and the plan stays as it was.
-
-**Less walking, a meal, and the same budget can sit in one sentence.** An elderly pace shortens the days. "Change lunch to vegetarian" changes lunch. "Keep the budget the same" leaves the prices alone and does not ask about a fare that was never returned.
-
-**A missing hotel rate or flight fare leaves the budget unknown.** The check says the budget cannot be judged yet. A total of 0 is not a pass.
-
-**A question asked while the form is still open is answered.** "What is Gundam?" gets an answer. The missing dates stay missing. A greeting stays a greeting. "See Gundam" is kept as something to see. A start day on its own does not become a one-day trip. "From morning to afternoon" moves a stop inside its day.
-
-**What happened, and a sheet that shows the work.** The control under a reply is What happened. Why this decision stays in developer mode. On the plan sheet, drag a stop to another time and Apply, or click a stop to edit it. While a plan or an edit is running, the sheet says so. Undo returns the previous version.
-
-**The Desk keeps live and finished chats apart.** A session stays live while its page is open, or for 24 hours after the last change. Queue and Handling, Auto-Answering, and Session history are separate. The operator can fill the trip form and build the plan, open Plan studio on the traveller's plan, ask the planner to edit it, or change one stop's name and times. Release as draft hands editing back. The traveller sees who is editing.
-
-**Error analysis is an admin page.** It lists cases Evaluation missed, and live or finished chats marked not useful or left unchanged. An operator can add a case, or take a line from a chat. Ask the writer suggests a replacement for a skill the model already reads, or a number for the confidence gate or a gate temperature. Use this skill applies it. The built-in file stays on disk. Restore the built-in skill puts that text back. Dismiss removes a draft, and a restored leftover. Check these cases scores the listed exam cases again and marks Now passes or Still failed. A chat is routed again and is not marked passed.
-
-**Evaluation counts every case.** A run reports how many cases produced the expected result. The page no longer splits the list into dev and held-out. The Training tab is gone. Handoff examples in Settings remain, and a saved line has to share real words with the message before it is used as a hint. The router is no longer sent down a path because one past line was close.
-
-**Web search has a second list.** DeepSeek is still tried first, and a refused search key is followed by the judge key. When that returns nothing, Google results are read through the SerpAPI key already used for hotels and flights.
-
-### v1.9.0 — 17 November 2026, 22:56 HKT
-
-The planner still takes one path per message. This release is about which model chooses that path, and about being able to see every test suite.
-
-**Three routing gates, switched in Settings.** Orchestrator offers Jev, a fast model and a fast reasoning model. Jev stays the decision model. Each of the other two has its own provider, model, key, base URL when the provider needs one, temperature, reasoning effort and reply cap. A blank key uses the server Poe key. The choice applies to the next message. If a bot rejects a reasoning-effort field, that field is left off and the call is tried again. On this Poe key the working defaults are Gemini 3.5 Flash-Lite (temperature 0, reasoning off) and Gemini 3.8 Flash (temperature 0.2). GPT-6 Luna and GPT-6.1 Terra are not on the key.
-
-**Jev stays the gate.** On the frozen routing set of 84 items, one run, four requests at a time, Jev (`jev-latest`) and Gemini 3.5 Flash-Lite both scored 78/84. A paired test cannot separate them (6 disagreements each way, p = 1.00). Jev is the one to keep: median 0.6 seconds, and a confidence of 0.8 keeps 63 answers of which 61 are right. The fast model takes about 5 seconds and reports a high confidence on hits and misses, so the 0.8 cutoff never abstains. Gemini 3.8 Flash is not usable as this gate on Poe: the reasoning field is rejected, 30 of 84 calls failed, and the calls that returned took about 9 seconds at the median. Repeat it with `python scripts/gate_compare.py` from `backend/`.
-
-**Settings are grouped.** A search box and group chips open General, Handoff, Instructions, Profile, Writer, Orchestrator, Policy, Updates and System. Writer is the writing key. The search box is a search field, so a saved password is not typed into it.
-
-**SerpAPI keys rotate.** Under System, an admin keeps one key in use, keys waiting, and keys that are used up or set aside. When the key in use runs out of searches, the next waiting key takes over and that search is tried again.
-
-**The Desk opens in its own window.** It shows whether the chat belongs to a signed-in client or a guest, and the preferences kept for that browser or account. After taking the chat over, the operator can run the same workflow, start a plan, or change stops by hand. A message from the live person is shown as that person. A line that is not about the trip, such as a greeting, is answered at once as Pathfinder for this trip and does not wait on the writer.
-
-**Evaluation lists every suite.** Routing, Injection, Hongkong, Japan, Travelplanner, Efficiency and Edit vs replan sit above the cases. A scored case shows its input, output, component scores and tool calls. A suite that has not been run still lists its frozen cases and what each one expects. The four lookups are called workers on the page. The live agent is still a person.
-
-### v1.8.0 — 17 November 2026, 02:55 HKT
-
-This release is a UI/UX visual upgrade. The planner still takes one path per message. What changed is how the trip is shown, and a few replies that were being asked about the selected stop when they were not about the trip.
-
-**The plan is a studio.** Chat, Plan and Trip map are three windows of one height: a narrow chat, a wide plan, and the map on the right. Each can be dragged, resized and hidden. Reset layout puts that picture back and scales it to the screen. The toolbar sits above the windows. Sketch, Watch before you go and Trending open from the toolbar when they are wanted, so the map is only the map. Cited local-guide notes sit with Watch before you go. With no route yet, the map says the path has not been decided. How the AI worked sits on the plan page until a plan exists. Highlighted words in a dark message stay readable.
-
-**One Export menu, and a sketchbook.** Export offers the plan file (JSON), the calendar, the sketch and the slides. The sketchbook draws the current plan, including times. The saved sketch uses the same handwritten font as the page, so words stay inside their boxes. Simplified Chinese shows the same translation disclaimer as Traditional Chinese.
-
-**Why this decision stays with the reply.** With Developer on, each assistant reply has a Why this decision control. It says whether the reply was written from the plan or as chat, and which source it used, and it is still there after a reload. A message that does not name the trip, including a greeting or an insult, is answered in chat. It is not turned into a question about the selected stop. A short reply such as "the other one" still asks about the plan.
-
-**Brought in from main, which this tree was behind.** These had landed on GitHub with no row in this table.
-
-- **A plain request for more stops adds one again.** "Add one more attraction on day 2", "add two more stops" and "can u add this days more stop" added nothing, because the day phrase or the count was read as the name of a place.
-- **A language or cuisine request searches for no place.** "Translate the plan to Chinese" searched places for "Chinese", and "a Chinese restaurant" started a place search beside the meal search.
-- **A flight that arrives late for the plan is said so on reopening.** A trip planned while the flight source was down gets its flight when it is reopened. It now also gets the flight-arrival check, and a note names the stops the flight leaves no time for. No stop is moved.
-- **An edit costs fewer tokens.** The edit skill says the same rules in fewer words. The edit still reads the whole plan, the forecast and the tags.
-- **The calendar export works on Windows.** `tzdata` is now a requirement, because `zoneinfo` has no time zone database of its own there.
-
-The evaluation causes are in [`docs/EVAL_REGRESSIONS.md`](docs/EVAL_REGRESSIONS.md). An OpenAI-compatible endpoint can be named in Settings and in `.env`.
-
-### v1.7.0 — 15 November 2026, 14:35 HKT
-
-A trip may now visit several cities, every stay and every leg is a choice you can lock in place, and each option arrives with a picture, a link and a rank. This entry collects everything since v1.6.2.
-
-**A trip is a route of cities.** The trip form holds up to eight cities in order, each with its nights, and a one-way choice; a trip may run thirty days. The route step works out the nights of each city and the nearest order, then the existing pipeline plans one city at a time and the results are stitched, costed, checked and assessed as one plan. Each hop between cities is a leg with its own ranked flight and ground options, and the ground ones are marked as estimates. A turn's deadline and its tool-call cap grow with the cities it covers, and hotel and flight results are kept for the session, so planning the same route again pays for no search. A message that names several cities makes them the trip's ordered stops, and more than eight is asked about instead of cut. A bare country or region for four days or more asks which cities to visit; when the form names them, a trip stored for the whole country is planned again by city, and cities read from shared material become the trip's stops even when the form already names a country.
-
-**Every stay, leg and transfer is a choice slot.** A slot shows every option with a **Lock in** button, or only the locked one with a **Change** button, and a pill counts the choices still open and jumps to the first open one. A stay or a leg can be locked in place without a new version, and a locked leg refuses another choice until it is unlocked. A chat edit leaves a locked stay as it is and says so, and a route change keeps the locks it did not touch and names the ones it released. A booked flight now gives airport transfers between the airport and each city's stay, chosen and locked like any leg and worked out again when the flight or the stay changes. A leg under 300 km with no transit bus gets one estimated bus-or-shuttle option timed from the drive.
-
-**Options carry a picture, a link and a rank.** Stops, meals, alternatives and stays carry a picture with its credit: a Google photo through a key-holding image route, a Wikimedia page image without a key, or a hotel's thumbnail. Stops, stays and transport carry **Book**, **Website** and **Map** links built from what a source returned, never a guessed address. A stay, a stop or a leg option carries a rank and up to three reasons written by code, shown as a badge and a reason line; the stay options of a one-city trip are ranked together whether or not they name their city.
-
-The picture route used to refuse every Google photo of a real place: a Places photo resource name is about 460 characters long and the route answered `422` above 300. It now accepts up to 2048 and the shared contract is regenerated; Google serves the same photo unchanged.
-
-**The traveller's profile changes the plan.** Pace, children, business and step-free needs are read from the message or the form and change the stops a day, the hours, which places come first, the stay ranking, the transfers and what the assessment lists.
-
-**Meals, alternatives and a refine loop.** Each meal comes with its slot, its source facts and up to two backup options near that day's stops. A traveller can take another stop, hotel or flight from the plan's options without a model call, and open a hotel's room types on demand. A deterministic refine loop then checks each composed plan and each choice — closed or mistimed stops, transfers that do not fit, a wasteful order — and reports every change it made. An option found for other dates says its price for these dates was not checked.
-
-**Research, intake and the whole plan.** A stay research step ranks the found hotels against what the traveller asked of the room. A shared link, a PDF or a picture fills the trip form before planning. An edit or a question with nothing selected and no day named is read against the whole plan, which is written out for the prompt with its stay, transport, prices and ratings and cut to fit without losing a day. A plan assessment sets off further research before an open point becomes a question.
-
-**Local admin mode.** With `LOCAL_ADMIN=true` and `ENVIRONMENT=development`, a browser on the owner's own machine opens the app and every admin page without a token. It refuses other hosts and cross-site writes.
-
-**Fixed.** A polite request to change the selected hotel changes it instead of being refused as a question, and a refusal only stops a swap when it is aimed at the hotel. A Claude model that refuses a temperature is asked again without it. Bring-your-own-key support (`/api/llm/*`) landed on 8 November without a note of its own; its behaviour is described under [Use your own model key](#use-your-own-model-key).
-
-Known gaps: ground options are estimates timed from the drive, never bookings; a route change can release a lock, and the reply names each one it released; a place no source gave a picture or a link for has none, and nothing is looked up by name; the refine loop reports what it changed but does not re-rank a plan; the suite is 3,783 test functions in 199 files, and sixteen of them fail on this tree (see `HANDOFF.md`).
-
-### v1.6.2 — 8 November 2026, 21:41 HKT
-
-Three things a first try of the demo got wrong, from the 6 November review.
-
-**A short answer to a clarification fills that slot.** After "Plan a 3-day trip to Osaka" the card asks where you are travelling from. Answering "Hong Kong" used to replace the destination with Hong Kong. The clarify turn now remembers that it asked for the origin. A short reply fills the origin and leaves Osaka, the dates and the length as they were. A sentence that is itself a new trip ("Plan a 3-day trip to Hong Kong") is not treated as that answer.
-
-**A booked flight shapes the first and last day.** The first flight option opens the arrival day two hours after landing and closes the return day three and a half hours before departure. A 22:45 landing no longer leaves Day 1 starting at 08:00 while the summary talks about an evening arrival. If nothing fits after the transfer, that day is a travel day with no sightseeing.
-
-**A sight that is far from the rest of its day moves.** If a stop is more than 8 km from the other sights on its day, and another day with room is at least 8 km closer, the stop moves there. The day is not emptied. Meals are still chosen on their own, so a restaurant can still sit in another district.
-
-The evaluation note no longer says the suite is 447 tests. That figure was an earlier commit. This tree has 1,337 test functions in 147 files. The tables in `docs/EVALUATION.md` are the scored datasets, not that later count.
-
-### v1.6.1 — 6 November 2026, 18:00 HKT
-
-**Every scheduled leg is visible.** The map footer used to stop after three legs. It now lists every leg of the day in a scrollable area, and each row opens the “Getting there” comparison.
-
-**Walk, Cycle, Transit and Taxi are compared per leg.** The dialog shows time, distance and whether the option is a Google route or an estimate. Taxi uses Google’s drive route; it is a read-only comparison and never changes the itinerary or its timing.
-
-**Long walks are called out.** A walking leg over 30 minutes is marked “Long walk”, with a pointer to open it and compare transit or taxi, instead of presenting a 65-minute walk as if it were a normal transfer.
-
-**Ferry, cable car and tram are distinct.** Ferry is violet, cable car pink and tram amber, each with a legend entry and a note. A ferry icon appears once per ferry service Google names, not once per leg, so the two directions of one crossing do not draw two icons.
-
-Known gaps: the itinerary still keeps the walk the planner chose; the per-leg comparison does not rewrite it. Taxi is an estimate when Google Routes is unavailable, and selecting an option never changes the plan.
-
-### v1.6.0 — 6 November 2026, 14:13 HKT
-
-This release is about a chat that forgot what had just been said, repeated an old budget warning, and refused edits it could have asked about.
-
-**The chat uses the recent conversation.** The edit, clarify, understand and answer steps now see up to six earlier turns, each clipped, and not only the latest message. "where i live?" followed by "add it" is one request; before, the edit step saw only "add it" and replied "This message reads as a question, not a change." Earlier turns are given to the model as untrusted context, only for resolving words such as "it" or "that hotel". The understand step takes a trip detail from them only when the message refers back to it ("there", "same dates", or a bare answer to the last question), and never takes preferences or limits from them.
-
-**Budget warnings are worked out again on every edit.** A warning such as "HKD 5,118 … over the HKD 5,000 budget" was written once and then repeated as the reply to later edits, such as "more grand", even after the budget had been raised. Now every edit drops the old budget gap and writes one only if today's cost is over the current budget, and an edit that changes nothing replies with what happened in this turn only. A new budget in the trip form followed by "Re-plan with the updated details" searches hotels and flights again; before, only a new party size or departure city did. A budget word in a concessive clause ("add a museum even if it is over budget") no longer turns the edit into a budget search. "No hotel for the new dates" is said only when the dates moved.
-
-**A budget that cannot pay for the trip is asked about first.** HKD 5,000 for 12 nights left a nightly cap of about HKD 216, the hotel search dropped every result, and the plan had no hotel. Now a new trip with a budget of 0, or below USD 150 per traveller per night (converted to the trip's currency; `MIN_BUDGET_PER_PERSON_NIGHT`, 0 turns the check off), gets a question before any agent runs. It ends "Raise the budget, shorten the trip, or plan anyway with an over-budget hotel?" and offers a suggested budget or, for example, "Keep HKD 5,000 and plan anyway". The choice is kept, and the question comes back only when the budget or the currency changes. A trip whose dates have all gone by is asked about the same way. The clarify card's budget options now scale with nights and travellers, instead of the fixed 1,000 / 2,500 / 5,000. When every priced hotel is over the cap, the three cheapest are kept and marked over budget, instead of none.
-
-**Edits ask for a missing fact instead of refusing.** "Add the place I live" now gets "Where do you live? I'll add it to the plan.", and the answer ("Mong Kok") completes the edit. A home is not a verified place, so it is kept as a note on the plan ("Home: Mong Kok …") and not as a stop, and it is taken only from the traveller's own words. An answer that is not a place ("yes", "idk") is asked once more; "no" or "never mind" leaves the plan as it was. The answer never replaces the trip: "Hong Kong" given as the home on a Kyoto plan keeps the Kyoto trip. A new request sent instead of an answer ("plan a trip to Osaka") is handled as a new request. An imperative edit that names no stop, day or section and that the writer could not read gets "Which stop or day should I change, and what should I change about it?" With a plan open, an unclear message gets a question about that plan instead of "I have the trip details. Could you say what you want me to plan or change?"; with no plan, that line stays.
-
-**"Add more stops" with a stop selected adds them to that stop's day.** Before, the selection limited the edit to the one stop, the new stop went to the day with the fewest stops, the edit was then undone, and the reply said it "could not find a verified stop". Now the day named in the message, or else the day of the named or selected stop, gets the new stops. Places already in the plan are skipped, also under another spelling, and the place source is asked again with the larger candidate limit when its first list is used up. "More stops" is an add, not a pace cap; "only two stops each day" is still a cap. When nothing can be added, the reply names the day and the plan stays as it was. The decision note says which scope the edit really used, for example "The message asked for more stops on Day N, so only Day N could change."
-
-**Grander means the hotel.** "Make it more grand", "grander", "luxurious", "luxury" and "upscale" ask for a better-rated hotel within the budget, not a change of pace. Plain "grand" does not, so "Grand Hyatt" is only a name. If nothing fits, the reply is "No grander verified hotel within the budget was returned; the current hotel stays."
-
-Known gaps: a home answer that is an area named after a park or a temple ("Kowloon Park") is asked again (writing "I live in Kowloon Park" works); a bare "more grand" still changes the pace when the router names only attractions; with no plan, "I live in Mong Kok" is still read as the destination; "plan anyway" is not asked again when the party or the length changes later; "Re-plan" after lowering the form budget states the over-budget gap but asks nothing; the grander choice compares nightly rates without converting currencies.
-
-### v1.5.1 — 6 November 2026, 11:16 HKT
-
-**Transit legs are called Transit.** The planner's transit mode covers minibus and MTR together, so a leg that mixes them is labelled Transit on the map, not Metro (公共交通 in both Chinese scripts).
-
-**Ferry segments are explained.** When a walking leg contains a ferry step, the route legend shows a Ferry entry with a violet line and the note "Purple segments are ferry crossings inside a walking leg."
-
-### v1.5.0 — 6 November 2026, 01:54 HKT
-
-**Long trips get their days filled.** The attraction agent asked for 10 places whatever the trip's length. It now asks for three a day, at least 10 and at most 20 (one page of Google Places), so a 14-day trip asks for 20. Before the schedule is built, no day with room is left empty while another holds two or more stops: the fullest day gives up the stop farthest from the rest of its day. Days that still have no verified stop, because there were too few places or a stop moved for its opening hours, stay open, and the plan lists them as a data gap: "Only N of M days have verified stops; the rest are open." Days kept free on purpose and flight days are not counted. Nothing is invented to fill a day.
-
-**A pre-planning audit, as an experiment, off by default.** With `ENABLE_PREPLAN_AUDIT` on, one more writer call checks the four agents' results before the planner runs and returns typed findings (info, warn or block). It may ask for up to three follow-up web searches; they are logged and used as references only, never as a price. Blocked candidates are dropped only within a cap (at most half of a section, and at least one row stays), and never a place the traveller named or the hotel they keep. The findings go to the planner and to the repair step, and their evidence URLs are kept out of the plan's text. The audit fails open: if it fails, the trip still plans. With the flag on, a planned trip costs 1 to 3 more writer calls, up to 3 web searches and, in the worst case, up to 35 s more. With it off, nothing changes: no audit event and no extra call. Edits are not audited, except a rebuild for a new trip length.
-
-**The A/B run has not been done.** `backend/scripts/audit_ab.py` plans the same cases with the flag off and on and writes one CSV row per case and flag (calls, tokens, time, findings, blocked candidates, repair rounds, plan validity). It needs a live writer key and costs tokens, so it waits for the owner's go-ahead. There are no results yet; see `docs/EVALUATION.md` §8.
-
-### v1.4.0 — 5 November 2026, 21:45 HKT
-
-The map says what each leg really is, and shows one leg at a time.
-
-**A walk that includes a ferry is a walk plus a ferry.** Google's per-step route data is read for every leg. A ferry, cable car or tram step inside a walking route is no longer drawn as a footpath. A ferry crossing is a solid violet segment with a ferry icon.
-
-**Only the active leg is at full strength.** The leg being travelled is bold; the other legs fade and thin out. Two legs on the same road are offset so both stay visible, and every casing is drawn under every coloured line.
-
-**No invented trip back to the hotel.** Only the scheduled chain from stop to stop is drawn. The hotel → first stop and last stop → hotel legs are drawn only when the itinerary really includes them.
-
-**The camera follows only while playback runs**, so a paused map shows the whole day instead of a close-up of the token.
-
-### v1.3.1 — 5 November 2026, 16:40 HKT
-
-A hardening release. Seven independent testers, then three rounds of reviewers who tried to break the fixes, found most of these. The full list, with commits, is in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
-
-**Trips belong to the browser or the account that made them.** Knowing a trip's id is no longer enough: the page sends a guest token with every request, in a header and never in a URL, and a guest trip answers only to that token. Signing up or in moves every guest trip of the browser to the account, not only the open one. Share links last 30 days (`SHARE_TTL_DAYS`), show their expiry and can be turned off; deleting a trip turns its links off. A deleted trip stays deleted, signing out sticks, and a sign-out in another window is followed.
-
-**Limits on what one request can cost.** Sign-in and sign-up allow 10 requests a minute per address, the chat stream and evaluation runs 30, and new trips, share links, place suggestions and the handbook 60; over the limit is HTTP 429 with `Retry-After`. A body over 1 MiB gets 413, and every free text has a limit. The trip form keeps at most 50 preferences and 50 constraints of 200 characters, and says so when a field is full. One 6,000-character message used to freeze the server for about 26 seconds; tags are now removed in time proportional to the text. The evaluation runs need the admin token, and an unset `ENVIRONMENT` now means production, so the backend will not start on the repository's public secrets. A turn that runs past 180 s ends with `turn_timeout`.
-
-**Failures are told as failures.** A source's own error text goes to the trace only; the traveller reads "A data source failed. Your plan was not changed." A map or geocoder outage is a failure, not "no such place", and a lookup the per-turn cap refused says "Not looked up: this request reached its limit of data lookups." A slow attraction search keeps what it already found. A repaired plan may change only times, stay dates and wording, and cannot drop a stop. A forecast, fare or stay that failed is fetched again on reopen (at most every ten minutes) and on "Refresh the data". Exchange rates are really cached for 12 hours.
-
-**Dates and length change the trip you have.** Moving the dates is a new version, and the reply names the dates. The hotel you accepted keeps its marks and is priced again for the new nights, and a locked or confirmed stop stays. "Only 2 days", "two more days" and "end the trip on day 2" change the existing trip instead of starting a new one. "18 to 23 November", "Nov 18-23" and "18/11 to 23/11" are read as written, day first. A trip moved to other weekdays drops opening hours stated for other days and names the stops.
-
-**The message is read more carefully.** "From scratch" is not a departure city, while Long Beach, St. Louis and Santa Cruz de Tenerife are read again. "Korea" is South Korea, not a village in Côte d'Ivoire. "Is it safe to drink in Mexico City" is no longer a trip to Drink. "I don't like the area, but keep the hotel" keeps it, and "swap this hotel" with the hotel selected works. The injection screen blocks a sentence split by tags, line breaks or hidden characters like the plain one, and lets ordinary sentences through, such as "Ignore my previous instructions about the hotel" or "Please call booking.com".
-
-**The page.** The whole console is translated into Simplified and Traditional Chinese, and a missing translation fails the typecheck. Trip tabs stay in sync across windows and survive a damaged store. The Enter that picks an input-method word no longer sends the message. Opening another trip cancels a reply still being written for the one you left. A server outage keeps the open trip and the sign-in. Retry repeats the action that failed, and a message typed and not sent stays with its trip. Dialogs take and return focus, the tab bars follow the ARIA tabs pattern, and the header wraps on a phone. The Slides button downloads a PowerPoint deck.
-
-**Hong Kong, evaluation and the build.** Hong Kong Observatory warnings move outdoor stops off a typhoon day, and an MTR delay is added to that day's transfers; the Hong Kong set passes 8/8. The router is scored on 84 labelled utterances (76.2% for the rules layer), and 84 injection probes are 96.4% contained. Against a full replan, an edit makes 84.2% fewer API calls and uses 57.7% fewer tokens. AMap is an opt-in fallback for mainland China (`AMAP_KEY`). CI runs the tests, builds Storybook, runs `npm audit` and `pip-audit`, and installs pinned backend packages; database upgrades are numbered migrations.
-
-Known gaps: one high `npm audit` advisory in the build tools (Vite and Storybook) needs a major Vite upgrade; TC-01 is not done and TC-02 and TC-07 are only partly covered; the rules-first router gate was designed with the whole routing set visible, so held-out routing accuracy is optimistic.
-
-### v1.3.0 — 3 November 2026, 11:55 HKT
-
-This release is about the assistant doing the change that was asked, and not a different one.
-
-**Only the referred row changes.** If the sentence names a stop or a hotel, that name is the target, unless the sentence only names a hotel as a place ("add a cafe near Kyoto Garden Inn" adds the cafe and leaves the hotel). If it says "this", "switch", or "somewhere else" and a chip is selected ("About: Day 2 · Pakeeza"), the chip is the target. After the edit, every other row is put back: the hotel, the flights, the other days, and the dates. The reply says "Replaced Pakeeza Food Restaurant with …" and then "Everything else is unchanged." It no longer says only "Updated Café Bohème", which hid which row had actually moved. A selected restaurant is never turned into a hotel swap. A hotel more than 40 km from the city is not a candidate. A sentence that asks for other dates or another length ("shift the trip by a week", "make it 4 days") is about the whole trip: a name in it or a selected row does not turn it into a one-row edit, the move is a new version, and the hotel you have, with its marks, is kept and priced again.
-
-**A question is answered, not sent back to trip setup.** A message that ends in "?" and does not use a change verb (change, swap, add, remove, …) is an ask, even if it starts with a place name. "Café Bohème TKO is for eating japanese food??" is no longer answered with "I have the trip details. Could you say what you want me to plan or change?" A cuisine question is checked against public pages. If those pages mention the cuisine, the reply quotes the page. If they do not, the reply says the pages do not state it and that Pathfinder will not guess. Asking for Japanese food as a *change* searches for a Japanese restaurant. A café whose text does not mention Japanese, sushi, ramen, or an izakaya is not substituted, and the selected restaurant stays.
-
-**The whole plan can be reshaped, without naming a stop.** These are not single-stop edits:
-
-- How many places a day. "One place each day", "two stops a day", and the same idea in other wording. The limit is 1 to 4. Zero places, "delete the trip", or 5 or more places a day is refused and the plan is not changed.
-- Meals. "No meals", "skip lunch and dinner", "meals not required" removes meal rows. The hotel and the flights stay.
-- When the day starts. "After 14:00", "after 1400", "after 2pm". Every sight is moved to that time or later. A flight is not moved. A start before 08:00 or after 18:00 is refused. "I can't wake up in the morning", with no clock, is read as 11:00.
-- How long a visit lasts. "Spend at least 3 hours at one spot" stretches each sight to at least that long, up to 6 hours. "Spend 3 hours" is time. It is not a request for a cheaper hotel, which is what the word "spend" used to trigger. If the next sight would run past 21:30, that sight is removed and the reply names it. A 3-hour visit that cannot start at the requested time, because 21:30 would be passed, is refused entirely.
-
-**Web pages are references, not prices.** When a section is thin, DeepSeek search runs once. A page counts only if the city is in the title or snippet, the title matches the question (a sight, a hotel, the weather, a flight), and the host is not a video site or a shop. The provider's own score is not used: on a Tokyo query it barely moved and ranked an advertisement first. Grok runs once, and only when no page was relevant. Its text is kept only when it includes a URL. If both time out or return 429, the gap says "Search did not answer in time" and is marked retryable. A relevant page that still does not state a fare, a nightly rate, or a temperature does not get a made-up number.
-
-**The map.** Pressing a stop pans to it and zooms to street level (zoom 15). The camera starts pinned on the traveller token. The control under the clock reads **Pinned**; press it to leave the camera where you put it. While a stop is selected, the pin does not drag the view away.
-
-### v1.2.0 — 1 November 2026, 23:57 HKT
-
-The console stopped producing answers that looked like actions but were not.
-
-- "Who are you?", "are you a real person?", and "which model are you?" are answered immediately, in about 40 ms, with no model call, no router call, and no web search. The reply does not claim to be human. The route reason is `identity`.
-- When a clarification is about what to do next, rather than a missing field, the card offers four real messages: Plan my trip, Make it cheaper, What is on day 1?, What changed? The old Continue button re-sent "Please continue with the current details." and could only loop.
-- The source line `Live · google-places: …` is a label. The whole strip sits on a tinted band, not in the body text of the stop.
-
-### v1.1.0 — 1 November 2026, 23:28 HKT
-
-Questions the itinerary cannot answer are answered from sources, and the selected stop is actually used.
-
-- DeepSeek Search (`POST /v1/tools/search`) is the interactive web source. A measured call returned in about 0.6 s. It is billed at $0.75 per 1,000 successful calls. Grok's Agent Tools search synthesises across many pages but took 13–23 s, so it is off unless `GROK_SEARCH_ENABLED` is set, and then only for synthesis questions.
-- "really?" and "why?" receive the previous exchange. They continue that topic instead of describing the whole itinerary again.
-- "Is it fun?" uses Google Places reviews. Up to three reviews are given to the writer, so the answer is what visitors wrote, not only the one-line editorial summary.
-- Place lookup, web search, and a distance question use the row selected in the console. The distance is that stop's coordinates, not the city centre.
-- The sent message keeps `meta.scope`, for example "Day 1 · Ocean Park". The tag is drawn above the bubble and survives a reload.
-- "How far is this?", "what is nearest?", and "why is there no hotel?" are answered from data already on the plan. A failed hotel or flight lookup names the source error. It does not say only "the plan has no hotel".
-
-### v1.0.2 — 1 November 2026, 22:50 HKT
-
-Modify reports a change only when one was made.
-
-- "Make it cheaper", when nothing in the plan has a price, asks whether to replace the stop or keep it. It does not bump the version and it does not invent a "no cheaper hotel" gap.
-- "Change Ocean Park to Disneyland" takes the place after the last "to". Joined words resolve: "oceanpark" is Ocean Park. If that place is already on another day, it is not added twice. The reply names the existing day and time.
-- A meal can be replaced, by its number in the day, by its name, or by the selected chip.
-- An edit that changes nothing does not create a new version. The reply states why.
-
-### v1.0.1 — 1 November 2026, 20:30 HKT
-
-- The product name is Pathfinder. The old "Pathfinder 30" title was removed from the README, the handoff note, the gap analysis, the API title, `app_name`, and the OpenAPI contract.
-- Browser storage keys moved from `pathfinder30.*` to `pathfinder.*`, with a one-time copy, so a session already in the browser is kept.
-- Fourteen of the eighteen screenshots were retaken for the UI as it stood that evening.
-
-### v1.0.0 — 1 November 2026
-
-First import on branch `pathfinder-v1`. The tree is the FastAPI backend, the React console, the evaluation harness, the OpenAPI contract, and the docs. One path per message: plan, modify, or ask. Four agents gather places, hotels, weather, and flights. A missing source is a gap, not a guessed price.
-
-Known gaps at v1.3.0: flight and hotel sources are unavailable while the SerpApi account is
-out of searches, so budget figures are provisional; price estimates are deliberately not
-implemented (see `docs/SPEC.md`); rail is not connected.
-
-A 3-day Hong Kong plan from Singapore. The middle column is the sourced itinerary. The map on the right is pinned to the traveller (**Pinned**, under the clock) and draws the day's metro legs. Press a stop and the map zooms to that place; press **Pinned** again to let the camera stay where you leave it.
-
-![Planner with a live itinerary, map pinned on the traveller](docs/screenshots/app_plan.png)
-
-| Selected stop, zoomed on the map | Evaluation | Storybook Pathfinder |
-|---|---|---|
-| ![Tian Tan Buddha selected; the map has zoomed to the stop](docs/screenshots/app_selected.png) | ![Evaluation dashboard](docs/screenshots/app_evaluation.png) | ![Storybook planner](docs/screenshots/sb_planner.png) |
-
-| Trip details open as a drawer | Changes called out in green |
-|---|---|
-| ![Trip details drawer](docs/screenshots/app_trip_details.png) | ![Updated itinerary](docs/screenshots/app_updated.png) |
-
-| Trending rail | Traveller token on a leg |
-|---|---|
-| ![Trending rail](docs/screenshots/app_trending.png) | ![The map token, with the pin control and playback speed](docs/screenshots/map_token_walk.png) |
-
-| Budget FX monitor | Map speed and moving token |
-|---|---|
-| ![FX monitor](docs/screenshots/fx_monitor.png) | ![Map speed](docs/screenshots/map_speed.png) |
-
-| Anonymous profile and tag-style preferences | Elongated middle column, rounded right column |
-|---|---|
-| ![Profile](docs/screenshots/app_profile.png) | ![Fixed layout](docs/screenshots/layout_fixed.png) |
-
-| Signed-in account | Marked useful → saved preferences |
-|---|---|
-| ![Signed in](docs/screenshots/app_auth.png) | ![Useful](docs/screenshots/app_feedback_top.png) |
-
-| Log in / create account | Local guide with citations |
-|---|---|
-| ![Login](docs/screenshots/app_login.png) | ![Local guide](docs/screenshots/app_guides.png) |
-
-| Account menu | Signed-in profile |
-|---|---|
-| ![Account menu](docs/screenshots/app_account_menu.png) | ![Account profile](docs/screenshots/app_profile.png) |
-
-| Multi-plan tabs | Useful/not-useful at top right |
-|---|---|
-| ![Plan tabs](docs/screenshots/app_plan_tabs.png) | ![Feedback](docs/screenshots/app_feedback_top.png) |
-
----
-
-## 1. What is inside
-
-| Layer | Stack | What it does |
-|---|---|---|
-| **Storybook Pathfinder** | React 18 + TypeScript + Storybook 8 | The design system built first: tokens, atoms, elements, molecules, organisms, templates. |
-| **Frontend** | React 18 + Vite + TypeScript + Google Maps | The console, composed only from Storybook components. English, Simplified Chinese and Traditional Chinese UI. Default currency **HKD**; budget FX monitor with live/static conversion. |
-| **Backend** | FastAPI + Pydantic v2 + SQLite | Typed routing, four concurrent agents, grounded planning, bounded repair, SSE streaming, memory, evaluation. |
-| **Contracts** | `contracts/openapi.json`, `contracts/trip_plan.schema.json` | The only backend ↔ frontend coupling. Regenerate with `python -m app.export_contracts`. |
-
-There is no agent framework (no LangChain / LlamaIndex / CrewAI). Prompts, tool calls,
-retries, budgets and validation are our own code.
-
-### The one invariant
-
-> The planner may **select and order** verified candidates. It may never **create** one.
-
-An item without a source URL is rejected by the domain model. A model repair may not
-introduce a new place or a new URL, and may only change times, stay dates and wording: every
-price, coordinate, source, forecast and data gap in a repaired plan is the original's. If a
-source is missing, the section is `unavailable` and the gap is shown.
-
----
-
-## 2. Run it
-
-### 2.1 Prerequisites
-
-- Python 3.13 in `backend/.venv` (`backend/.python-version`; the code needs 3.11+)
-- Node 20.19+ (CI uses 22, see `.nvmrc`) and npm
-- Reference versions: FastAPI 0.141, Pydantic 2.11, httpx 0.28, uvicorn 0.47,
-  React 18.3, TypeScript 5.6, Vite 5.4, Storybook 8.6.
-
-### 2.2 Configure
-
-```bash
-cp .env.example .env
+**v1.0.0 → v1.19.0 — 2026-11-01 to 2026-11-23 12:45 HKT (summarised).**
+The legacy `main` line grew from the renamed, migrated prototype in v1.0.0 into a
+complete product: identity and accounts, web search and reviews, plan / edit / clarify
+turns, maps with transit, ferry and walking comparisons, budgets and currency
+conversion, live flight evidence, PDF and image intake, multi-city routes, lockable
+stays and legs, the studio UI and Export menu, three routing gates, a human-in-the-loop
+desk with three escalation paths, traveller memory and profiles, and privacy masking.
+It was checked with the offline `pytest` suite, frontend typecheck and production
+build, Storybook, CI, the frozen routing / injection / Hong Kong / Japan / TravelPlanner
+/ efficiency / edit-vs-replan evaluation suites, and live smoke turns. The legacy line
+retained known limits (ground transport estimates, incomplete source coverage, and a
+small set of stale test gaps); it is archived and is not rebuilt by v5.
+
+> **New design direction.** After v1.19.0, the v5 redesign was proposed to handle more
+> complex and ambiguous requests, and to give the runtime better context management:
+> typed state, date windows, bounded execution, ordered city segments, sourced
+> evidence, and explicit clarification rather than a longer prompt.
+
+| Version | When (HKT) | Commits | Headline |
+|---|---|---|---|
+| **v5.1.1** | 2026-11-23 15:43 | `2d6d7c3`…`ebe064e` | Selected-item context, current-hotel locking, verifier visibility, DeepSeek verifier benchmark, and DeepSeek Search as the final web fallback |
+| **v5.1.0** | 2026-11-23 14:16 | `4995ec9`…`152fd51` | Complex requests get explicit state: date windows, flight buffers, a whole-turn budget, ordered multi-city segments, a runtime clock, split LLM/Jev confidence settings, and the complete architecture reference |
+| **v5.0.0** | 2026-11-23 11:47 | `fabeb36`…`e72cfff` | LLM-first core behind the unchanged React UI: typed analyst/router, evidence workers, sourced-only planner, deterministic validation, bounded repair, versioned plans, per-part models, optional Jev and a real HITL queue |
+
+The detailed patch notes, including every commit and the part-model study, are in
+[docs/VERSION_NOTES.md](docs/VERSION_NOTES.md). `v5.0.0` is the first v5 release;
+`v5.1.0` introduced the complex-request line; `v5.1.1` is the current patch.
+
+## What kind of agent is this?
+
+In **COMP7608B** terms, Pathfinder v5 is an **LLM-based agentic system**: a
+task-oriented, tool-using **planning agent** running under a bounded **runtime
+harness**. One turn uses **routing**, **prompt chaining**, **parallelization** of
+tool workers, an **evaluator–optimizer** repair loop, **skills** and **memory**, and
+**human-in-the-loop** handoff. It is **not** an autonomous multi-agent swarm, and it
+does **not** use a vector database/RAG for saved trips. The full mapping from course
+terms (context builder, runtime/harness, observation, skill, memory types, HITL,
+evaluation) to v5 code and UI is in
+[docs/AGENT_TERMINOLOGY.md](docs/AGENT_TERMINOLOGY.md).
+
+
+```
+traveller message
+   │
+   ├─ intake         files / links → trip facts
+   ├─ understand     ONE model call → typed intent + slots + constraints + clarify
+   │
+   ├─ plan    agents (places · hotels · weather · tickets)  →  composer  →  validator  →  repair ≤2
+   ├─ modify  agents (same evidence) → typed edit ops → validate → proposal ticks
+   ├─ ask     retrieve → answer with sources
+   └─ unclear clarify
+   │
+   └─ versioned TripPlan (SQLite) → SSE → the same React UI
 ```
 
-Fill the keys you have. Nothing is mandatory: with no keys the backend still starts,
-the four agents mark their sections unavailable and the planner returns an honest,
-source-grounded plan with visible gaps. `.env` is git-ignored and is not part of this
-repository; create it from `.env.example` on each machine.
+## Architecture at a glance
 
-**After pulling an update**, install any new Python dependency into the existing virtual environment
-once (bring-your-own keys added `cryptography`, without which the backend stops with an `ImportError`):
+An interactive diagram (dark/light, motion, export) is generated from this codebase
+with [Archify](https://github.com/tt-a1i/archify):
+
+[docs/architecture/pathfinder-v5-architecture.html](docs/architecture/pathfinder-v5-architecture.html)
+
+It tells the whole journey in plain language: you ask, Pathfinder reads the request,
+gathers real evidence, builds and checks a plan, and asks a person only when it should.
+Cards cover the short story, the guarantees, and when a human steps in.
+
+The other maps are deliberately separate, so each can tell one complete story
+([how to read them](docs/architecture/README.md)):
+
+- [Under the hood: how a plan is checked](docs/architecture/pathfinder-v5-architecture-detailed.html) — sources, draft, rules, constraint audit, repair, gaps and versioning.
+- [What data moves through Pathfinder](docs/architecture/pathfinder-v5-dataflow.html) — words, privacy masking, source records, plan versions, memory and replies.
+- [Plan turn](docs/architecture/pathfinder-v5-flow-plan.html) · [Change turn](docs/architecture/pathfinder-v5-flow-modify.html) · [Ask turn](docs/architecture/pathfinder-v5-flow-ask.html) · [Clarify turn](docs/architecture/pathfinder-v5-flow-clarify.html)
+
+## Why a revamp
+
+The `main` branch (v1.18.0) works, and its `backend/app` is 56,831 Python lines:
+2,479 lines of slot extraction in `application/understanding.py`, 1,031 lines of
+intent rules in `application/router.py`, and 861 `re.*` uses (233 `re.compile` calls)
+across 63 files deciding what a traveller meant, what a slot is, whether an edit is
+safe. That core is fast and brittle — it caps intent accuracy at what the rules
+anticipated and makes every new phrasing a new rule.
+
+v5 moves the judgement into a model and keeps the *contract* in code:
+
+| Job | main (v1.18.0) | v5 |
+|---|---|---|
+| What does the traveller want? | rules first, model fallback | **one typed model call** (`app/skills/understand.md`) |
+| Slots, dates, constraints | regex + gazetteers | model + calendar arithmetic in code |
+| Which places to include | templates + rules | model chooses **refs** from sourced candidates |
+| Facts in the plan | mixed | **copied from evidence by code** |
+| Edit scope | rules | model returns **typed ops**, code applies them |
+| Safety | rules + model | schema + canary fence + grounded facts |
+| Repair | bounded | bounded, with the validator's exact problems fed back |
+
+There is **no regex-based understanding** anywhere in v5: `understand/` has no `re`
+import, and the whole backend uses `re` in just two redaction controls
+(`security/pii.py` and the admin preview endpoint) — 9 uses in 2 files. Structured
+values such as `10:00-23:00` opening hours are parsed with string operations in
+`plan/validator.py`, not regex.
+
+Measured on the checked-out trees (23 Nov 2026):
+
+| Measure | main (v1.18.0) | v5 |
+|---|---:|---:|
+| Python lines in `backend/app` | 56,831 | 11,990 |
+| Python files | 148 | 43 |
+| Files using `re.*` | 63 | 2 |
+| `re.compile` calls | 233 | 4 |
+| FastAPI route handlers | 100 | 98 |
+| Test functions | 2,326 | 52 |
+| Frontend source lines | 39,146 | 39,362 |
+| Prompt packs | 24 `SKILL.md` (857 lines) | 7 (471 lines) |
+
+The 98 v5 handlers are 95 decorated routes plus three dynamic suggestion routes; the
+two missing from v5 are the SPA catch-all (replaced by a static mount) and the admin
+trace-span reader. The frontend differs in 17 of its 118 main-branch source files,
+plus one new Models settings file (574 lines added, 610 removed), mostly the settings
+surface and its copy. The test gap is the honest cost of the rewrite: 52 test
+functions against main's 2,326.
+
+## Quick start
+
+Requirements: Python 3.11+ (3.13 tested), Node 20+ only if you rebuild the UI.
 
 ```powershell
-backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+cd "Pathfinder v5"
+copy .env.example .env      # then add a writer key (Poe, OpenAI, xAI, …)
+.\start.ps1                 # http://127.0.0.1:8101
 ```
 
-On macOS or Linux: `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. A virtual
-environment made with `uv` has no `pip`; there, run
-`uv pip install --python backend\.venv\Scripts\python.exe -r backend\requirements.txt` instead.
-
-`ENVIRONMENT` defaults to `production` when it is not set. Local work uses
-`ENVIRONMENT=development` (`scripts/dev.sh` and `scripts/dev.ps1` set it, and `.env.example`
-has it) and the tests use `ENVIRONMENT=test`; the built-in `AUTH_SECRET` and `ADMIN_TOKEN`
-defaults are accepted only there. For any other value, and when it is not set, the backend
-refuses to start until `AUTH_SECRET` (a random value of at least 32 characters) and
-`ADMIN_TOKEN` (not `local-admin` or `REPLACE_ME`) are set to real secrets. Generate one
-with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
-
-The writer is OpenAI-compatible. The reference configuration uses xAI
-`grok-4.20-0309-non-reasoning` — the low-latency general model measured for interactive
-turns. DeepSeek, xAI or any chat-completions endpoint works by changing
-`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
-
-#### Any OpenAI-compatible endpoint
-
-A gateway that speaks `POST /chat/completions` needs no code change: point the `OPENAI_*` block
-at its `/v1` address and set a label that names the protocol.
-
-```bash
-LLM_PROVIDER=openai          # or openai-compatible, compatible, custom
-OPENAI_BASE_URL=https://api.example.com/v1
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=the-model-id-that-endpoint-serves
-```
-
-Labels `openai`, `openai-compatible` (also spelled `openai_compatible` or `openai compatible`),
-`compatible` and `custom` all read this block, falling back to `LLM_*` when a
-field is blank, exactly as the `XAI_*` block does. `writer_vendor` then reports
-`openai-compatible`, and `/api/runtime` names the protocol rather than guessing a vendor.
-The model id is whatever the gateway lists at `GET {OPENAI_BASE_URL}/models`; a display name
-is often not the id.
-
-`WIKIMEDIA_USER_AGENT` is preset with a contact URL and framework name. Wikimedia refuses
-a generic crawler string with HTTP 403; keep this value descriptive if you fork the
-project.
-
-#### Use your own model key
-
-A traveller can use their own key instead of the server's.
-
-1. Open **Settings** and find the **Model and API keys** card.
-2. Choose a provider (Anthropic Claude, OpenAI, **OpenAI-compatible API**, Poe, xAI Grok or Google Gemini), paste the key and pick a model. For **OpenAI-compatible API**, also paste the endpoint's base URL (ending at `/v1`): that address, not a fixed one, is what the key calls, and the model id is required because no default is assumed.
-3. Save it. The key is tested first. A key the provider refuses is not saved; a key that is rate-limited, out of credit or unreachable is saved with a warning.
-4. A saved key becomes the active one and your other keys are made inactive. Use the choice control only to switch to another saved key. Only a key's masked tail is shown again.
-
-If your key fails during a turn, that turn uses PathFinder's rule-based path and the chat says so; no other key or model is used in its place. An xAI key can also pay for Grok web search. A guest's keys move to the account on sign-in (inactive, if the account already has an active key). Keys are encrypted at rest: set `BYOK_ENCRYPTION_KEY` in production (see `.env.example`; in development and test it is derived from `AUTH_SECRET`). Changing it makes saved keys unreadable, and they must be added again.
-
-Order of use: your chosen key, then the server key, then the `.env` writer key, then the local model, then none.
-
-#### Run with a local model
-
-Ollama can serve as the writer of last resort when no key is set:
-
-```bash
-ollama pull llama3.1
-```
-
-Then set `LOCAL_LLM_BASE_URL` (for example `http://localhost:11434/v1`) and `LOCAL_LLM_MODEL` (`llama3.1`); both are described in `.env.example`. The local model is used only while its probe says it is reachable.
-
-### 2.3 Backend (port 8100)
-
-```bash
-python -m venv backend/.venv
-# Windows: backend\.venv\Scripts\activate
-# POSIX:   source backend/.venv/bin/activate
-pip install -r backend/requirements.txt
-# optional local hybrid RAG (BGE-small + optional BGE reranker)
-pip install -r backend/requirements-rag.txt
-
-PYTHONPATH=backend python -m uvicorn app.main:app --port 8100
-```
-
-`scripts/dev.sh` and `scripts/dev.ps1` run the backend, the tests and the evaluation with
-`backend/.venv` and stop with the line above if it does not exist yet.
-
-Windows PowerShell:
+The same process serves the API and the built UI (`frontend/dist`). Useful flags:
 
 ```powershell
-$env:PYTHONPATH = "backend"
-python -m uvicorn app.main:app --port 8100
+.\start.ps1 -Sandbox        # every provider answers from the curated place corpus: offline demo + evaluation
+.\start.ps1 -Port 8102
 ```
 
-Check: <http://127.0.0.1:8100/api/ready> · Swagger: <http://127.0.0.1:8100/docs>
+Without a writer key the app still starts and the Settings page explains what is
+missing; planning turns answer that the model is not configured.
 
-**Local admin mode (your own machine only).** Set `LOCAL_ADMIN=true` with
-`ENVIRONMENT=development` to use the app with no sign-in and every admin page open: a browser on
-the same machine (loopback, 127.0.0.1 or ::1) opens the evaluation pages, the threat panel and the
-server "Model & API keys" card without `ADMIN_TOKEN`, and the page hides Log in and Create account
-(Log out stays while a sign-in from before is stored). It is development-only and loopback-only:
-the request must also name this machine in its `Host` header (`localhost`, `127.0.0.1` or
-`[::1]`, so open the app by one of those names), and a write must come with a loopback `Origin`,
-so a DNS-rebinding page or another site's form is refused. Any other caller still needs the token,
-a wrong token is still refused, guests still see only their own trips, and the backend refuses to
-start with `LOCAL_ADMIN` set under any other `ENVIRONMENT`. `/api/ready` reports it as `local_admin`.
-**Never combine it with a forwarded-allow-ips of `*`:** uvicorn would then take the caller's own
-`X-Forwarded-For`, so anyone could pass as 127.0.0.1. The backend refuses to start with
-`FORWARDED_ALLOW_IPS=*`, but it cannot see the `--forwarded-allow-ips '*'` command-line flag, so do
-not pass that flag either.
+### Development UI
 
-### 2.4 Frontend (port 5173)
-
-```bash
+```powershell
 cd frontend
-npm install
+$env:VITE_API_TARGET = "http://127.0.0.1:8101"   # main's dev server defaults to 8100
 npm run dev
 ```
 
-Vite proxies `/api` to `http://127.0.0.1:8100`; override with `VITE_API_TARGET`.
+The Vite config already proxies `/api` and honours `VITE_API_TARGET`.
 
-For a single-origin build:
+### Rebuilding the UI
 
-```bash
+```powershell
 cd frontend
-npm run build          # writes frontend/dist
-```
-
-The backend serves `frontend/dist` automatically when it exists, so
-<http://127.0.0.1:8100> is the whole application.
-
-### 2.5 Storybook Pathfinder (port 6006)
-
-```bash
-cd frontend
-npm run storybook          # design-system workbench
-npm run build-storybook    # static build in frontend/storybook-static
-```
-
-The Storybook is the contract for the frontend. It was built before any application
-screen; the app imports the same components rather than restyling them.
-
-### 2.6 Demo accounts
-
-Local-only accounts created for testing:
-
-| Email | Password | Name |
-|---|---|---|
-| `testaccount1@pathfinder.test` | `Pathfinder123!` | Test Account 1 |
-| `testaccount2@pathfinder.test` | `Pathfinder123!` | Test Account 2 |
-| `testaccount3@pathfinder.test` | `Pathfinder123!` | Test Account 3 |
-
-Any valid email address — including a Gmail address — can register with the normal
-email/password form. **Sign in with Google** is a separate OAuth integration; it needs a
-Google OAuth client ID and is not enabled yet.
-
-They are seeded through the normal registration endpoint. Change `AUTH_SECRET`, use real
-passwords, and remove these rows before any public deployment.
-
----
-
-## 3. The turn pipeline
-
-```
-POST /api/turn/stream (SSE)
-  screen (injection flags, aggregate log)
-  → understand (rules first; model fills only missing slots)
-  → route (typed: intent, confidence, need_clarification, reason, affected_parts)
-  → gate (threshold 0.8; missing slots; plan required for modify)
-  → ONE path:
-
-  plan    memory recall → 4 agents in parallel under a deadline
-          → planner (selects/orders candidate ids) → validators → ≤2 repairs
-  modify  typed change → only affected agents → merge preserving locked/confirmed
-          → recalculate cost/constraints → version + 1
-  ask     answer from the current plan first → else at most one allowlisted tool
-  clarify one short question about the missing slots; no tools, no planning
-```
-
-### The four agents
-
-| Agent | Owns | Fallback |
-|---|---|---|
-| **Attraction** | Places, coordinates, ratings, hours, dining candidates, community notes | Google Places → AMap (mainland China, only with `AMAP_KEY`) → Nominatim OSM → Wikivoyage; `unavailable` if none |
-| **Hotel** | Candidates with price, rating, distance to centre | SerpApi Google Hotels → Wikivoyage Sleep; `unavailable` |
-| **Weather** | Daily forecast for the exact trip dates | Open-Meteo; dates beyond the horizon become `unavailable`, never a fabricated temperature |
-| **Ticket** | Flights with reference fares; reservation flags | SerpApi Google Flights; rail is explicitly not connected |
-
-All four run concurrently. A slow or failing agent marks only its section
-`unavailable`; the turn still returns inside `PREPLAN_BUDGET_SECONDS`. An attraction agent
-cut off by that budget keeps what it had already found (located places, restaurants, notes,
-the places the traveller named) and the section reads `partial`, provided it had located at least
-one place; with none located the restaurants and notes are not kept either and the section reads
-`unavailable`.
-
-### How a day is laid out
-
-The planner chooses *which* verified stops belong to a day; the scheduler owns the clock:
-
-- **Stops are chronological.** Meals sit at their real time (lunch 12:30, dinner 19:00),
-  never appended after the afternoon.
-- **Transfers are mode-aware.** Each leg is classified by distance — walk under 2.5 km,
-  metro/bus under 35 km, car under 160 km, otherwise flight — and the next stop starts
-  after that ride plus a pace buffer. The itinerary note names the mode, matching the
-  map legend; nothing claims a multi-kilometre walk.
-- **The map follows the real roads.** `GET /api/journeys/{id}/segments` returns the provider's
-  route geometry for every leg of a day — **hotel → first stop, every stop → stop
-  (restaurants included), last stop → hotel** — and the console draws those polylines and
-  moves the traveller along them. A straight dashed line appears only when the provider
-  returns nothing for that pair.
-- **Pace shapes the day.** `slow pace` → at most 3 stops, 2 h each, 15 min of slack;
-  balanced → 4 stops; fast → 5. Days are rebalanced so a day is not left with one
-  stop while another has three, and empty days are filled from days with two or more stops
-  when the places allow. A longer trip asks for three place candidates a day (at least 10,
-  at most 20, one page of Google Places). Days that still have no verified stop (too few
-  places, or a stop moved for its opening hours) stay open, and the plan lists them as a
-  data gap ("Only N of M days have verified stops").
-- **Early slots are data-driven, not site-specific.** The first stop opens the day at
-  08:00 when the traveller named it (`I want Fushimi Inari` → `must-see:` preference), when
-  the source says it opens by 08:30, when its review count marks it as a place crowds
-  build at, or when four stops have to fit. The same rule works in any city.
-- **No repeat stops.** Near-duplicate candidates ("Arashiyama" vs "Arashiyama Bamboo
-  Forest") are collapsed, while genuinely different places ("Kyoto National Museum" vs
-  "Kyoto Railway Museum") are kept.
-
-### Security boundary
-
-- User text is fenced as data; it never becomes an instruction. An earlier turn, or a line kept
-  from one (a preference, a constraint), that a prompt repeats loses any fence tag the same way,
-  and a turn the blocklist blocked or flagged high is not repeated (one flagged medium, such as "a
-  hotel with no restrictions on pets", is). A tag is found however it is spelled (hidden
-  characters, look-alike brackets, pieces of one inside another) in time proportional to the
-  text; a text of more than 50,000 characters loses every opening bracket instead. The plan's own
-  names (a destination typed in the trip form, a stop from a place source) and the router model's
-  reason code lose any fence tag too where a prompt carries them.
-- A blocklist screens prompt overrides, hidden-instruction requests and smuggled tool
-  calls, in the message as typed and as the model will read it (a fence tag typed inside a word
-  is taken out first, a line break counts as a space, as it does when a later prompt repeats the
-  turn, and what a reader draws as nothing is left out, or read as the space it stands for between
-  two words, and a full-width letter is read as the plain one, as the fence does when it looks for
-  its tags). It aims at the assistant's own instructions and token, so a traveller's correction
-  ("ignore my previous instructions about the hotel"), a reply language ("from now on, every
-  reply in Cantonese"), a part of the plan dropped ("stop planning so many temples and add a
-  cafe instead") and the Canary Islands or Canary Wharf pass. Suspected injections are logged as
-  **category + count only**.
-- Each path has an allowlist (`PATH_ALLOWLIST` in `application/toolbox.py`). `ask` can
-  never run a pre-planning agent.
-- A canary token is planted in every system prompt; any output containing it is blocked.
-- The agent never books, pays, cancels or reads an account.
-
----
-
-## 4. Clean architecture
-
-```
-backend/app/
-├── domain/          entities, enums, errors, provider + repository ports
-├── application/     use cases: understand, route, agents, planner, modify, ask,
-│                    clarify, memory, validation, evaluation, orchestrator
-├── infrastructure/  OpenAI-compatible writer, Jev, data providers, SQLite,
-│                    tracing, FX, prompt loading
-├── interface/       FastAPI routes, SSE, request/response models
-├── security/        blocklist, fence, canary
-└── container.py     composition root; the only place that wires concretes
-```
-
-Rules enforced by the structure:
-
-- `application/` imports `domain/` only; it never imports FastAPI, SQLite or a vendor SDK.
-- `infrastructure/` implements the domain ports; replacing a source is one class plus one
-  registration line in `providers/registry.py`.
-- `interface/` contains no business logic; it maps HTTP/SSE to the orchestrator.
-- Every external call goes through `Toolbox`, which enforces the path allowlist and logs
-  the call.
-- One turn is one trace: a JSON file per turn in `data/traces/` (written for every turn that gets as far as a trace) and Langfuse when configured.
-
-Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The A-grade gap analysis against
-comparable GitHub projects (RAG, reranking, route optimization, sharing) is in
-[`docs/GAP_ANALYSIS.md`](docs/GAP_ANALYSIS.md).
-
----
-
-## 5. Data and truthfulness
-
-| Fact | Source | Truth label |
-|---|---|---|
-| Attractions, ratings, hours | Google Places (New) | live when key works; `unavailable` otherwise |
-| Attraction fallback | AMap in mainland China (`AMAP_KEY`, off by default; GCJ-02 converted to WGS-84) → Nominatim OSM → Wikivoyage (compliant Wikimedia User-Agent) | guide/OSM listings; no live hours |
-| Hotels | SerpApi Google Hotels | **reference** nightly rate, availability not confirmed |
-| Hotel fallback | Wikivoyage Sleep | guide listing, reference price |
-| Flights | SerpApi Google Flights | **reference** fare for the travelling party |
-| Weather | Open-Meteo | forecast, 16-day horizon |
-| Weather beyond horizon | Open-Meteo Archive | 3-year seasonal reference, marked `stale`, never a forecast |
-| Notes | YouTube Data API, Bilibili | community, last 24 months, lower trust |
-| FX | open.er-api.com (12 h cache) | live reference + dated static fallback; HKD default |
-| Map base | Google Maps everywhere; geocoding and place search fall back to AMap in mainland China when `AMAP_KEY` is set | browser key served by `/api/runtime`; contextual, not navigation |
-| Map time | plan item `start`/`end` | 06:00–23:00 scrubber, play/pause, 1×/2×/4× speed, current-stop HUD |
-| Map route key | per-leg distance estimate | travelled/ahead line style, mode colours, leg list |
-| New trip / export | session + plan | scrap the old session and local pointer; Markdown export |
-| Map token mode | distance estimate from verified coordinates | walk / metro / drive / flight, labelled `est` |
-| Trending | trips marked useful, retrieved by hybrid BM25 + dense search | destination, days, year and sight names only |
-| Profile / memory | random browser token or email account | preferences, saved-trip count, recent destinations |
-| Auth | email + password + HS256 token | optional; guest mode still works |
-| Plan tabs | localStorage session list | up to several open trips; switch without regenerating |
-| Feedback | top-right of the itinerary | 1–5 stars, useful/not-useful, green saved animation |
-| Shared trip | signed-in or guest plan | read-only page; budget, party size and session id redacted |
-| Local guide RAG | 10 versioned documents (HK, Japan, USA) + citations | never used for price, hours or booking facts |
-| Route order | open-path 2-opt on the chosen day stops | synthetic benchmark: avg 91.7 km → 61.7 km (−32.7%) |
-| Useful → preferences | feedback on a plan | tags derived from structured choices; green save animation |
-| Map route | Google Routes | day route between sights; straight-line estimate fallback |
-
-A gap is a **statement about the current plan**, not an append-only log. New versions
-drop resolved gaps; duplicate/obsolete edit gaps are removed on reload. The common cases:
-
-- `weather`: dates outside the 16-day forecast fall back to a three-year archive average,
-  labelled `Seasonal`/`stale`. If the archive also has no rows, the gap names both dates
-  and both windows. A forecast source that failed (a timeout, a server error) keeps its gap
-  while only the seasonal average fills the dates. A source that answers for only some of the
-  trip's days leaves a gap that says how many.
-- `tickets`: a departure city is now a required planning slot, so the assistant asks for
-  it instead of leaving a ticket gap. Same-city trips skip flights with a note, not a gap.
-  A round trip uses SerpApi's two-step flow (`departure_token`): the outbound and the
-  inbound leg are shown on one option with one combined fare, never a departure alone.
-- `attractions`: only a resolver failure that leaves no attraction is a gap. A failed
-  higher-priority source with a working fallback (Google → Nominatim OSM → Wikivoyage)
-  is not surfaced as a gap. A guide place the geocoder could not be asked about is a gap that
-  names the failure (timeout, network, rate limit, auth) and says whether asking again could help; a
-  geocoder that answers with a quota or key problem (Google does so with HTTP 200 and a `status`)
-  has failed, it has not said the place does not exist, and neither has one whose answer has no
-  readable coordinates (a `parse` failure, and the next geocoder is still asked); after two failed lookups in a row the agent
-  stops asking. A guide place that is in the plan after all (the traveller named it and a place
-  source located it) is not reported as left out or unchecked. A place the traveller named whose lookup
-  failed is a gap too, and its "Include" check says the lookup failed. A map outage at the
-  destination itself is a failed data source, not a name to rephrase.
-- any section: a lookup the per-turn cap (`MAX_TOOL_CALLS_PER_TURN`) refused is a `blocked`
-  gap, "Not looked up: this request reached its limit of data lookups.", and transfer times
-  that fell back to estimates for that reason are a `transfers` gap. A destination that cannot
-  be looked up for that reason ends the turn with a not-retryable `plan_invalid`.
-
-What the system deliberately does **not** do: invent a price, an opening hour, a flight
-number or a restaurant. It also does not book. Unavailable sections stay visible.
-
----
-
-## 6. Evaluation
-
-```bash
-cd backend
-PYTHONPATH=. python -m app.eval_run --dataset hongkong --tag baseline-v1
-PYTHONPATH=. python -m app.eval_run --dataset hongkong --tag improved-v2
-PYTHONPATH=. python -m app.eval_run --dataset routing  --tag baseline-v1
-PYTHONPATH=. python -m app.eval_run --dataset injection --tag baseline-v1
-```
-
-The harness runs the **real application pipeline** against a deterministic sandbox
-provider registry, so a scored run needs no network and no model key. Datasets are
-frozen before scoring; an unfrozen dataset is refused.
-
-The soft-guide corpus is ten versioned Markdown documents covering Hong Kong,
-Japan and the USA. Each has a citation, licence, `last_verified` date, content
-hash and corpus version. Details and the quarterly update policy:
-[`docs/RAG_CORPUS.md`](docs/RAG_CORPUS.md).
-
-```bash
-cd backend && PYTHONPATH=. python -m app.guide_eval
-# {'cases': 30, 'top1': 1.0, 'mrr': 1.0, 'cross_destination_noise': 0}
-
-PYTHONPATH=. python -m app.guide_ablation
-# lexical 0.9167 Top1 → BM25/dense/hybrid 1.0;
-# BGE reranker 1.0 but 263.9 ms vs 10.8 ms hybrid — no gain on this corpus
-```
-
-The default guide path is **BM25 + BGE-small hybrid**; the BGE cross-encoder is
-opt-in (`/api/handbook?...&rerank=true`) and stays off until a larger, harder
-corpus shows a gain. Jev is still the System 1 router, not a reranker.
-
-```bash
-cd backend && PYTHONPATH=. python -m app.route_bench
-# avg_before_km 91.681 → avg_after_km 61.696 (−32.71%) on 40 synthetic 6-stop days
-```
-
-The route pass is open-path 2-opt over the day's chosen stops; the benchmark is synthetic,
-not live-traffic evidence. Markdown/CSV export are built into the **Evaluation** tab.
-Reports land in
-`data/eval/<run_id>.md`.
-
-The Evaluation tab lists every frozen suite: Routing, Injection, Hongkong, Japan,
-Travelplanner, Efficiency and Edit vs replan. A suite that has been run shows each
-case's input, output, component scores and tool calls. A suite that has not been
-run still lists its cases and what each one expects; choose it and run it to score
-it. A comparison and a trend appear once that suite has a run. Full method and
-current results: [`docs/EVALUATION.md`](docs/EVALUATION.md). The three-gate
-comparison on the routing set is `python scripts/gate_compare.py` from `backend/`.
-
-The tab, like the threat list on the Settings page, calls the admin routes, so the page must
-send your `ADMIN_TOKEN`. It reads the token from the browser's local storage; nothing in the
-page sets it. Store it once per browser (a profile only you use, because local storage is not
-a secret store) from the developer console:
-
-```js
-localStorage.setItem("pathfinder.admin", "<your ADMIN_TOKEN>")
-```
-
-Without it the tab sends no request and shows "Admin token required", in the page's language.
-
----
-
-## 7. Tests
-
-```bash
-cd backend
-PYTHONPATH=. python -m pytest
-```
-
-The suite needs no network and no API keys. A few tests try the keyless FX lookup and fall
-back to the static rate table when it is unreachable. It covers: injection
-screen/fence/canary, typed routing and the confidence gate, grounded planner composition,
-minimal hotel edit with preserved stops, allowlist enforcement, memory cutoff, the
-evaluation harness, accounts and per-profile privacy, and the HTTP/SSE surface.
-
-```bash
-cd frontend
-npm run typecheck
+npm install
 npm run build
-npm run build-storybook
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the backend tests (Python 3.13) and the
-frontend typecheck and build (Node 22) on every push and pull request to `main`; the
-Storybook build is not part of CI. Live end-to-end turns were exercised against the real
-APIs (plan, ask, hotel swap) and captured in `docs/screenshots/`.
+On Windows, esbuild sometimes cannot delete its own temp file; point the build at a
+local temp directory if that happens:
 
----
-
-## 8. Demo walkthrough
-
-See [`docs/DEMO.md`](docs/DEMO.md). The two-minute path:
-
-1. **Plan** — fill Kyoto, 10–13 Nov 2026, 2 travellers, 400,000 JPY → Generate.
-   Watch the four agents, then the itinerary, map, sources and budget.
-2. **Select** a stop → the map pin, place card and scope chip follow.
-3. **Ask** “What is the weather on day 2?” → answered from the plan, no re-planning.
-4. **Modify** “Swap the hotel for the other option.” → only the hotel agent reruns;
-   version becomes 2; every stop is preserved.
-5. **Evaluation** → run `hongkong` twice, compare metrics, open a failed case, export.
-6. **Settings** → thresholds, freshness windows, provider chains, aggregate injection log.
-
----
-
-## 9. Known limitations (declared, not hidden)
-
-- **No booking and no live inventory.** Hotel/flight prices are reference figures. The
-  user completes the purchase.
-- **A budget request is an honest search, not a guarantee.** "Cheaper"/"optimise the
-  budget" re-runs the hotel and flight agents, keeps the cheapest verified combination,
-  and — when it is still over — states the cheapest total, how far over it is, and which
-  line dominates (usually flights). It never deletes confirmed stops or invents a price.
-  A round-trip flight search costs up to four SerpApi calls (one outbound list plus one
-  `departure_token` call per shown option).
-- **Rail is not connected to a live schedule.** The ticket agent says so; it does not
-  estimate a fare.
-- **Weather beyond ~16 days** is not a forecast. It is filled from a three-year
-  archive average, explicitly labelled `Seasonal` and `stale`; if the archive also has
-  nothing, the gap explains the date range and both failed windows.
-- **Long-term memory is SQLite + a deterministic hashed embedding**, not pgvector. It is
-  a deliberate single-node trade-off; weak matches are excluded by the cutoff.
-- **The map is contextual, not a navigation map.** Google Maps is the single base map
-  everywhere, including Hong Kong and mainland China. The day route uses the routes
-  provider's real geometry (plus the hotel legs and restaurant stops) and only falls back
-  to a straight line when no route comes back. Playback follows the vehicle and rolls into
-  the next day on its own. Tile requests need network; if the base fails, pins and route
-  still render on paper. One browser key (`GOOGLE_MAPS_API_KEY`) is served by
-  `/api/runtime`; the backend never calls a map vendor.
-- **Transport modes on the map are estimates** from straight-line distance, not live
-  routing. The token switches walk/metro/drive/flight and every leg labels `est`;
-  flight appears on long intercity legs (>160 km), so a single-city plan normally shows
-  walk, metro and drive.
-- **Trending is workspace-local and retrieval-based.** Only trips marked useful are
-  indexed; a query, the current destination and the caller's own preference tags are run
-  through BM25 + a dense vector, fused with reciprocal rank fusion, then aggregated into
-  cards. It exposes no owner, budget, party size, session id or other traveller's
-  preferences. Seed a platform-sized corpus with
-  `backend/scripts/seed_platform_demo.py`; see `docs/TRENDING_RAG.md`.
-- **Profile works logged-out or logged-in.** Guests use a random browser token; email
-  accounts are optional and take over the guest's preferences and saved trips on first
-  login. Saved trips, preferences and planner recall are per profile: nobody sees or
-  recalls another traveller's. A profile keeps at most 20 preferences of at most 80
-  characters: the Settings page refuses more, and what turns, feedback and sign-in learn is
-  cut to fit, keeping the newest. A trip's form keeps at most 50 preferences and 50 constraints of at
-  most 200 characters (120 for its other texts): saving more is refused, and what a message adds is cut
-  the same way. Clearing memory removes only the caller's saved trips and
-  preferences; clearing chat removes messages but keeps the current plan. **New trip** deletes the current session row and local pointer, so a stale
-  `pathfinder.session` cannot pin the console to an old plan.
-- **Export** writes Markdown from structured fields and sources, not a model transcript.
-- **Local-guide RAG is small and needs the optional packages.** It is destination-filtered
-  and cited, and the eval set reports Top1/MRR/noise. The default BM25 + BGE-small hybrid
-  needs `backend/requirements-rag.txt`; without it the retriever falls back to lexical
-  matching and says so. The BGE reranker is opt-in and showed no gain on this corpus, and
-  Jev is not used as a reranker.
-- **Share links are public until they expire.** Redaction removes budget, party size,
-  session id and client token. A link stops working after `SHARE_TTL_DAYS` (30), when the
-  owner turns it off in the share dialog, or when the trip is deleted; comments remain roadmap.
-- **Rate limits are per process and per IP.** Sign-in and sign-up allow 10 requests a
-  minute, planning turns and evaluation runs 30, new trips and share links 60, place
-  suggestions 60 and handbook look-ups 60, each with its own budget (`RATE_LIMIT_*_PER_MINUTE`). Behind a
-  reverse proxy, start uvicorn with `--forwarded-allow-ips` for that proxy, or every user
-  shares its address. The application never reads `X-Forwarded-For`, but uvicorn does: for a
-  peer in `--forwarded-allow-ips` (default `127.0.0.1,::1`) it takes the right-most address in
-  the header that is not itself trusted, so the proxy must set or append the header. Never use
-  `*` (or `FORWARDED_ALLOW_IPS=*`) there, behind a proxy or not: uvicorn then trusts every peer
-  and takes the left-most address, which the caller chose, so every caller picks its own address,
-  and so its own budget. List the proxy's address or network instead. `--no-proxy-headers`
-  limits by the socket peer only.
-- **Auth has no password reset or email verification yet.** Passwords use scrypt and tokens
-  are HS256 JWTs; change `AUTH_SECRET` outside a local demo.
-- **Origin is required for planning.** It is a gate slot, so a plan without a departure
-  city asks for it instead of silently skipping tickets. A message sets it only when it says so:
-  after a travel word right before "from" ("flying from", "leaving from", "flights from") or
-  before a short place ("flights to Rome from X", "arriving in Rome from X"), in
-  "a trip from X to Y", in a statement ("my departure city is X", "change the origin to X") or
-  in an explicit change ("actually, plan it from X", "start from X instead"). These replace the
-  departure city a trip has. A planning request ("plan Kyoto from X"), a stay ("a week in
-  Paris from X"), where the traveller is from or starts ("I'm from X", "we start from X", "by
-  train from X") or a bare "from X" only gives a trip that has none a city the assistant
-  knows, and a question never does. "From scratch", a weekday, "home", an airline, a station
-  ("how far is the temple from Kyoto Station?"), "a day trip from Kyoto to Nara" and "from
-  the list above" never name one, and the name ends at "and", "via", "at" or "around" or at a pronoun, a
-  weekday or an airport name ("flying from Leeds via Dubai", "London we want 4 days" and
-  "London Heathrow" are Leeds and London). The departure city is never the destination ("flights
-  from Kyoto on day 5" on a trip to Kyoto names none), and a trip word in another part of the
-  sentence does not make a "from" phrase one. A destination, departure city or extra stop the assistant
-  does not already know is looked up on the map and stored only after the traveller confirms the hit.
-  No hit, or a lookup that fails, puts the previous city back and asks again.
-- **Evaluation runs are sandboxed** for determinism. They exercise the real pipeline,
-  not live providers; live behaviour is captured separately in traces and screenshots.
-- **简 and 繁 translate the plan as well as the interface.** The EN/简/繁 switcher translates
-  every label, button and message in the console. 繁 also shows the plan in Traditional Chinese
-  with Hong Kong wording, and 简 shows it in Simplified Chinese with Mainland wording. English
-  stays the original: dates, times and prices are copied from it and checked. A place shows a
-  Chinese name only when a trusted source supplied one in that script. Prompts, quick-prompt
-  chips and traces stay English-first, because the planner reads that text. "用中文" still means
-  Traditional Chinese.
-- **Admin endpoints use one shared token.** They require an `X-Admin-Token` header equal to
-  `ADMIN_TOKEN`. Outside `ENVIRONMENT=development` or `test` the backend refuses to start
-  with the default or placeholder token (see section 2.2); set a real one before exposing
-  the process. The web page has no field for it: section 6 shows how to store it in the
-  browser for the Evaluation tab.
-- **Policy thresholds are environment-configured.** The Settings screen is intentionally
-  read-only; changing a threshold means editing `.env`, restarting and recording the diff.
-
----
-
-## 10. Repository map
-
-```
-Pathfinder/
-├── .github/workflows/       CI: backend tests, frontend typecheck and build
-├── backend/
-│   ├── app/                 layered application (domain → application → infrastructure → interface)
-│   ├── tests/               offline pytest suite
-│   └── eval/fixtures/       routing, injection, HK, Japan, TravelPlanner fixtures
-├── frontend/
-│   ├── src/design-system/   Storybook Pathfinder: tokens, components, stories, fixtures
-│   ├── src/app/             application pages
-│   ├── src/lib/             API client, session hook, i18n
-│   └── .storybook/          Storybook configuration
-├── contracts/               OpenAPI + TripPlan JSON Schema
-├── docs/                    spec, architecture, API, design, evaluation, demo
-├── samples/                 ordinary, changed and failure-case inputs
-├── scripts/                 dev helpers
-├── .env.example
-└── README.md
+```powershell
+$env:TEMP = "$PWD\.tmp"; $env:TMP = "$PWD\.tmp"; npm run build
 ```
 
----
+## Configuration
 
-## 11. Non-functional targets
+Everything is read from `.env` by `backend/app/config.py`; `Settings.writer` resolves
+the writer endpoint by `LLM_PROVIDER`:
 
-| Target | Value | How it is enforced |
+| `LLM_PROVIDER` | block used |
+|---|---|
+| `openai` / `openai-compatible` / `chatanywhere` | `OPENAI_*` (falls back to `LLM_*`, then `POE_*`) |
+| `xai` | `XAI_*` |
+| anything else | `LLM_*` |
+
+The important keys:
+
+| Group | Keys | What it powers |
 |---|---|---|
-| Turn latency | interactive: typical live plan 12–20 s | fast writer model; agents parallel; budget 90 s |
-| Agent deadline | 30 s each | `asyncio.wait_for` + overall `asyncio.wait` |
-| Repair bound | 2 | `MAX_REPAIRS`; then a typed error, never a dirty plan |
-| Routing gate | 0.8 | configurable; below it the turn clarifies |
-| Memory cutoff | 0.72 | configurable; weak matches are not injected |
-| Retries | 2 per request | `HTTP_RETRIES`, inside twice the request timeout; it covers the main data sources (flights, hotels, routes, places, forecast, geocoding, web search). Elevation, time zones, videos, Hong Kong feeds, archive weather and exchange rates keep a fixed count of their own |
-| Tool-call cap | 150 per tool path | `MAX_TOOL_CALLS_PER_TURN`; the plan, an edit, a question and the refresh of an outdated plan each count their own, so one request can make up to twice the cap. A refused lookup shows as a data gap; 0 turns the cap off |
-| Freshness | weather 6 h, tickets 24 h, hotels 7 d, attractions 30 d | timestamps on every item |
-| Privacy | no identity data in long-term memory | schema + aggregate injection log |
-| Observability | one trace per turn | a JSON file per turn in `data/traces/`; Langfuse when keys are set (an exception's text stays in the file, Langfuse gets its class) |
+| writer | `LLM_*`, `OPENAI_*`, `XAI_*`, `POE_*` | every model call: understanding, planning, edits, answers, translation |
+| places | `GOOGLE_PLACES_API_KEY`, `GOOGLE_MAPS_API_KEY` | attractions, hotels, restaurants, autocomplete, photos |
+| travel | `SERPAPI_KEY`, `SERPAPI_KEY_POOL` | live flight fares, web search |
+| search | `DEEPSEEK_SEARCH_API_KEY` | final web-search fallback after SerpAPI and Wikipedia |
+| verifier | `VERIFIER_*` | constraint audit on its own DeepSeek endpoint |
+| weather | none | Open-Meteo forecast |
+| judge | `JUDGE_*` | reserved; not called by the v5 runtime or evaluator |
+| security | `CANARY_TOKEN`, `ADMIN_TOKEN`, `LOCAL_ADMIN` | injection fence, operator views |
+| sandbox | `PATHFINDER_SANDBOX=1` | curated evidence, no network |
 
----
+## The evidence rule
 
-## 12. AI use
+A plan may only contain facts that a source returned. The pipeline enforces it
+structurally:
 
-AI-use declaration: [`docs/AI_USE.md`](docs/AI_USE.md).  
-Functional baseline: [`docs/SPEC.md`](docs/SPEC.md).
+1. each agent turns provider answers into `Evidence` (name, address, coordinates,
+   price, hours, source refs, freshness),
+2. the composer sees a compact candidate pool with stable `ref` ids and may only
+   choose refs,
+3. code builds each `PlanItem` from the chosen evidence, so a hallucinated place,
+   price or address cannot reach the plan,
+4. a place the traveller names but the curated place corpus lacks is looked up by name (Google
+   Places live, Wikipedia offline) before the edit model decides;
+5. if no source exists and the traveller still insists, the stop can be added as
+   **user-provided and unconfirmed** — no invented address, hours or price, marked
+   `stale`, with a visible gap. The traveller's decision is allowed; the uncertainty
+   is not hidden;
+6. anything else the sources could not confirm is shown as a `DataGap`, never filled
+   from the model's memory.
 
-Credentials are not part of the submission. `.env` is ignored; `.env.example` documents
-every variable. Regenerate contracts and screenshots rather than committing secrets.
+A deterministic budget guard runs after the composer: it first moves to a cheaper
+sourced stay, then drops optional paid stops (never a locked or constraint-named
+one) until the plan fits, and records anything it trimmed.
+
+Disruptions (a closed venue, a typhoon, a transit delay) are evidence too: the
+affected venue is marked unavailable and excluded, and the recovery is recorded on
+the plan.
+
+## Currency
+
+Chat currency statements are validated ISO codes, update the trip through a `context` event, and drive searchable FX widgets. See [docs/CURRENCY.md](docs/CURRENCY.md).
+
+## Image import
+
+A day-by-day itinerary image is parsed into `ImportedItinerary` and each named stop is sourced before the existing builder validates it. Ordinary planning is unchanged; see [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).
+
+## Evaluation
+
+Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
+
+The proposal datasets (the same frozen cases as `main`) run through the real pipeline
+with sandbox evidence:
+
+```powershell
+cd backend
+$env:PYTHONPATH = "."
+$env:PATHFINDER_SANDBOX = "1"
+$env:DATABASE_PATH = "data/eval.db"
+.\.venv\Scripts\python.exe scripts\run_eval.py routing injection hongkong japan travelplanner
+```
+
+Headline results so far (22 Nov 2026, `claude-sonnet-5.5`, sandbox evidence):
+
+| Suite | v5 | main baseline (v1.18.0) |
+|---|---:|---:|
+| Routing — intent accuracy (84) | **98.8 %** | 76.2 % rules (64/84) / 92.9 % live Jev (78/84) |
+| TravelPlanner-style (3) | **3/3, constraints 100 %** | 3/3, 100 % |
+
+The `main` numbers are the ones recorded on that branch: the rules layer 64/84
+(76.2 %), the live Jev router 78/84 (92.9 %), injection 83/84 (98.8 %), Hong Kong
+8/8, Japan 6/6 and TravelPlanner 3/3. The full table, including the cases v5 does
+not yet match, is in [docs/EVALUATION.md](docs/EVALUATION.md).
+
+The same suites are in the UI's **Evaluation** tab (operator views), with a run
+report export. The architecture is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
+what changed against `main` is in [docs/REVAMP.md](docs/REVAMP.md).
+
+## Project layout
+
+```
+Pathfinder v5/
+├── backend/
+│   ├── app/
+│   │   ├── api/          FastAPI routers (the existing wire contract)
+│   │   ├── core/         store, model gateway, dates, traces, prompts
+│   │   ├── domain/       the wire model (mirrors frontend types)
+│   │   ├── evidence/     providers + curated place corpus (12 cities)
+│   │   ├── plan/         agents, composer, validator, editor
+│   │   ├── understand/   turn analyst schema + merge
+│   │   ├── turn/         the orchestrator and its event stream
+│   │   ├── eval/         datasets + runner
+│   │   └── skills/       the prompt packs (edit them, or override at runtime)
+│   ├── eval/fixtures/    the frozen main-branch datasets
+│   ├── scripts/          smoke tests, eval runner, debug helpers
+│   └── tests/
+├── frontend/             the carried-over Pathfinder React UI
+├── docs/
+└── start.ps1 / start.cmd
+```
+
+## Tests
+
+```powershell
+cd backend
+$env:PYTHONPATH = "."
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Unit tests cover the date arithmetic, the wire model, the store, the plan builder's
+grounding rule, the editor's preservation of locked items, the canary fence and the
+SSE framing. A live smoke turn is `scripts/smoke_turn.py`.
+
+## Known limits
+
+- Live evidence needs provider keys; without them the app falls back to the curated
+  curated place corpus and marks it (`data_status: stale`) and says so in the plan's gaps.
+- The weather forecast covers 16 days; further out the plan shows "no forecast yet"
+  rather than an invented one.
+- The curated place corpus covers 12 cities; other destinations need Google Places.
+- The editor is a model: a vague instruction can produce a broader change than
+  expected, which is why every edit comes back as a tick to accept or reject.
+- BYOK keys are stored in the local SQLite file and masked in every response. This
+  is a single-user local app; do not expose it publicly without adding secret
+  storage and HTTPS.

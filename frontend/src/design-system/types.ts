@@ -369,6 +369,8 @@ export interface TrendingPlace {
   destination: string;
   plans: number;
   likes: number;
+  /** Mean 1–5 star rating across the useful trips in this destination. */
+  average_stars?: number | null;
   days: number;
   year: number | null;
   places: string[];
@@ -485,6 +487,8 @@ export interface TripContext {
   party_size: number | null;
   budget: number | null;
   currency: string;
+  /** True once the traveller names a currency. The HKD default is not a choice. */
+  currency_set?: boolean;
   hotel_style: string;
   /** The profile's pace word (kept for the form as it always was). */
   pace: string;

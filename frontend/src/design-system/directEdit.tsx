@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Button, Text } from "./atoms";
+import { Icon } from "./icons";
 import { BannerClose } from "./molecules";
 import type { TripPlan } from "./types";
+import { chosenFor } from "../lib/segments";
 import { useI18n } from "../lib/i18n";
 
 /** One stop in the grid. `day` is 0-based. Times are minutes from midnight. */
@@ -254,6 +256,20 @@ export function DirectSheet({
   const span = range.end - range.start;
   const dirty = !sameLayout(plan, draft);
   const stay = plan.hotels[0]?.name;
+  const lockedStays = (plan.hotels ?? []).filter((hotel) => hotel.locked);
+  const lockedLegs = (plan.legs ?? [])
+    .filter((leg) => leg.locked)
+    .map((leg) => {
+      const ticket = chosenFor(plan, leg.id);
+      const depart = leg.kind === "return" ? ticket?.return_depart_at : ticket?.depart_at;
+      const arrive = leg.kind === "return" ? ticket?.return_arrive_at : ticket?.arrive_at;
+      return {
+        leg,
+        depart,
+        arrive,
+        when: depart ? `${depart.slice(0, 10)} · ${depart.slice(11, 16)}` : "",
+      };
+    });
   const clashes = clashesOf(
     plan.days.map((day, index) => ({
       label: `${t("day.number", { n: index + 1 })} · ${day.date}`,
@@ -394,6 +410,28 @@ export function DirectSheet({
           </Button>
         </span>
       </div>
+      {lockedStays.length || lockedLegs.length ? (
+        <div className="pf-sheet__locked" aria-label={t("sheet.lockedIn")}>
+          <Text size="xs" weight="semibold" tone="secondary">{t("sheet.lockedIn")}</Text>
+          <div className="pf-sheet__locked-items">
+            {lockedStays.map((hotel) => (
+              <span className="pf-sheet__locked-card" key={hotel.id}>
+                <Icon name="hotel" size={13} />
+                <span>{hotel.name}</span>
+                <small>{hotel.check_in} → {hotel.check_out}</small>
+              </span>
+            ))}
+            {lockedLegs.map(({ leg, when }) => (
+              <span className="pf-sheet__locked-card" key={leg.id}>
+                <Icon name="plane" size={13} />
+                <span>{leg.kind === "return" ? t("workspace.return") : t("workspace.outbound")} · {leg.from_place} → {leg.to_place}</span>
+                {when ? <small>{when}</small> : null}
+              </span>
+            ))}
+          </div>
+          <Text size="xs" tone="tertiary">{t("sheet.lockedHint")}</Text>
+        </div>
+      ) : null}
       <ClashNote clashes={clashes} />
       {refused ? (
         <div className="pf-banner" data-tone="warning" role="alert">

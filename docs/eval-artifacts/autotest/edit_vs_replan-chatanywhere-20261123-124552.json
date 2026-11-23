@@ -1,0 +1,102 @@
+{
+  "dataset": "edit_vs_replan",
+  "passed": 0,
+  "case_count": 5,
+  "latency_ms": 7480.3,
+  "metrics": [
+    {
+      "key": "preservation",
+      "label": "Stops preserved",
+      "value": 0.0,
+      "unit": "%",
+      "baseline": 100,
+      "delta": -100.0,
+      "direction": "down"
+    },
+    {
+      "key": "mean_edit_calls",
+      "label": "Model calls per edit",
+      "value": 0.0,
+      "unit": "calls",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    },
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 0,
+      "unit": "cases",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "ed01",
+      "passed": false,
+      "failure_class": "edit_lost_items",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0,
+        "preservation": 0.0
+      },
+      "output_summary": "0 stops before, 0 after, 0% kept",
+      "latency_ms": 396.2,
+      "trace_id": "db45a63210724282914aa380e34d28a7"
+    },
+    {
+      "case_id": "ed02",
+      "passed": false,
+      "failure_class": "edit_lost_items",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0,
+        "preservation": 0.0
+      },
+      "output_summary": "0 stops before, 0 after, 0% kept",
+      "latency_ms": 418.8,
+      "trace_id": "0fc0aee9efbc416592a4babcfbd875d3"
+    },
+    {
+      "case_id": "ed03",
+      "passed": false,
+      "failure_class": "edit_lost_items",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0,
+        "preservation": 0.0
+      },
+      "output_summary": "0 stops before, 0 after, 0% kept",
+      "latency_ms": 407.7,
+      "trace_id": "9a9a05f55099410387f0127f821c24cc"
+    },
+    {
+      "case_id": "ed04",
+      "passed": false,
+      "failure_class": "edit_lost_items",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0,
+        "preservation": 0.0
+      },
+      "output_summary": "0 stops before, 0 after, 0% kept",
+      "latency_ms": 436.1,
+      "trace_id": "b4b98ff83db946a1bd20a4360fe2ff24"
+    },
+    {
+      "case_id": "ed05",
+      "passed": false,
+      "failure_class": "edit_lost_items",
+      "scores": {
+        "tokens": 0,
+        "llm_calls": 0,
+        "preservation": 0.0
+      },
+      "output_summary": "0 stops before, 0 after, 0% kept",
+      "latency_ms": 419.2,
+      "trace_id": "744fc00ac7444be99f7becc3959b9229"
+    }
+  ]
+}

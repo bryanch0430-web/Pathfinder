@@ -26,7 +26,8 @@ const KIND: Record<ReviewCase["kind"], MessageKey> = {
 };
 
 const SETTING_NAME: Record<string, string> = {
-  router_confidence: "confidence gate",
+  analyst_confidence: "LLM router confidence gate",
+  jev_confidence: "Jev confidence gate",
   gate_plain_temperature: "plain temperature",
   gate_reason_temperature: "reasoning temperature",
 };
