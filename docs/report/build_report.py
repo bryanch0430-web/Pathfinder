@@ -230,11 +230,12 @@ r = p.add_run(
     "sourced candidates, validating the result, and asking the traveller when the request is underspecified. "
     "We describe the delivered system, the parts of the proposal that changed, and the tests that support "
     "the claims. The core design follows the workflow-first pattern rather than a free ReAct loop: the "
-    "orchestrator owns the path and the budget; the model supplies judgement at typed boundaries. On frozen "
-    "component suites, the shipped default achieves 97.0% routing accuracy across two current runs, 14/17 "
-    "planner cases, 8/8 editor cases, 18/20 verifier cases and 11/11 in-scope quick answers. The verifier's "
-    "two failures are transfer-arithmetic cases, and routing degrades on ambiguous requests. We therefore "
-    "report the system as a bounded, auditable planner rather than an autonomous travel agent."
+    "orchestrator owns the path and the budget; the model supplies judgement at typed boundaries. On the "
+    "latest component runs, four routing arms score 80-84/84 and Jev scores 79/84 when given the same plan "
+    "context. The same configuration generated 13/14 Hong Kong and Japan plans, verified 15/17 constraints, "
+    "edited 8/8 cases, and answered 11/11 in-scope questions. A 20-case relevance-selected TravelPlanner "
+    "pilot produced 15 plans and five correct currency clarifications under the ISO 4217 assumption. The "
+    "verifier still fails two transfer-arithmetic cases, and we do not claim the full 1,225-case benchmark."
 )
 r.font.name = "Times New Roman"
 r.font.size = Pt(9.5)
@@ -447,10 +448,10 @@ body(
     doc,
     "The model choices follow four criteria: structured-output reliability, an independent failure mode for "
     "verification, measured quality on the frozen component suites, and cost/latency. The writer path uses "
-    "Sonnet 5.5 because it has to hold a long typed contract across planning, editing and answering; its "
-    "planner result matches the lower-cost arm (14/17) but it is the safer instruction follower for the whole "
-    "product. The constraint verifier uses DeepSeek Flash because a different model family reduces correlated "
-    "blind spots, its 18/20 verifier score matches the Sonnet arm, and its p50 is lower (2.0 s vs 5.7 s). It "
+    "Sonnet 5.5 because it has to hold a long typed contract across planning, editing and answering; the "
+    "current Sonnet/DeepSeek profile generated 13/14 Hong Kong and Japan plans, but no full model ablation is "
+    "claimed. The constraint verifier uses DeepSeek Flash because a different model family reduces correlated "
+    "blind spots, its latest verifier score is 15/17, and its p50 is lower than the Sonnet arm. It "
     "is not used for arithmetic; the deterministic checks own that. This shape is consistent with inference "
     "analysis: prefill processes a large context in parallel, while generation is sequential and output-bound "
     "[18]. Test-time-compute evidence likewise shows that extra reasoning must be allocated to the right "
@@ -460,11 +461,10 @@ body(
 body(
     doc,
     "The shipped profile uses 0.2 for the writer, analyst, planner, editor, ask and memory purposes, and 0 "
-    "for the verifier. A controlled routing rerun found 0.0 and 0.2 both at 83/84 (exact McNemar p = 1.0); "
-    "the verifier ran 18/20 at both 0.0 and 0.2. Temperature 0 is therefore a reproducibility choice for the "
-    "verifier, not a demonstrated accuracy gain, and 0.2 is a production default that the current evidence "
-    "does not prove optimal. A planned editor-temperature run was stopped by provider quota, and no "
-    "planner/ask/memory temperature sweep or reasoning-effort ablation exists. Caps follow the same "
+    "for the verifier. The latest verifier runs score 15/17 at both 0.0 and 0.2 for most arms; the editor "
+    "scored 7/8 at 0.0 and 8/8 at 0.2. Temperature 0 is therefore a reproducibility choice for the verifier, "
+    "not a demonstrated accuracy gain, and 0.2 is a production default that the current evidence does not "
+    "prove optimal. No planner/ask/memory temperature sweep or reasoning-effort ablation exists. Caps follow the same "
     "conservative logic: 12,000 tokens for the plan, 2,000 for an edit, 1,500 for the verifier, 1,400 for an "
     "ask, 700 for memory and 4,096 for the analyst. The lower-cost profile from the study (Flash-Lite for "
     "analyst, planner and editor; DeepSeek for ask and memory) is exposed in Models by part but is not the "
@@ -556,7 +556,7 @@ table(
     [
         ["Stop before landing / after departure", "before_flight_arrival; after_flight_departure", "Return to composer; repair ≤ 2; visible problem otherwise", "test_flight_windows.py: 3/3 pass"],
         ["Turn exceeds budget", "turn_timeout from the harness", "Cancel work; release seat; explicit stream error", "test_api.py: timeout and seat-release test"],
-        ["Verifier unavailable / no constraints", "LLMError or empty constraint list", "Skip audit; record Why line; fail-open disclosed", "test_models.py: trace line; live 18/20"],
+        ["Verifier unavailable / no constraints", "LLMError or empty constraint list", "Skip audit; record Why line; fail-open disclosed", "test_models.py: trace line; live 15/17 best"],
         ["Locking the current hotel", "choose endpoint rejected current stay", "Accept current stay; preserve other hotels", "test_api.py: regression test added"],
         ["Selected stop not used in answer", "ask payload omitted selected_stop", "Pass selected context; prompt resolves 'this'", "live acceptance: answer names One Dim Sum"],
     ],
@@ -650,22 +650,24 @@ body(
     "We use frozen, project-specific suites because they isolate the component whose behaviour changed. "
     "Headline scores are deterministic or exact-match; no LLM-as-a-judge is used for the main tables. The "
     "constraint verifier is a model audit with explicit pass/fail/unknown criteria and a human check on its "
-    "20 cases; the reserved Judge model is not invoked. All runs are one run per case unless stated. Wilson "
+    "17 unique cases; the reserved Judge model is not invoked. All runs are one run per case unless stated. Wilson "
     "95% intervals are reported for routing; the other suites are too small for powered claims.",
 )
 table(
     doc,
     ["Suite (n)", "Current result", "Comparison / baseline", "Interpretation"],
     [
-        ["Routing (84)", "81/84 = 96.4%; second run 82/84 = 97.6%", "Frozen Sonnet 83/84; earlier Flash 83/84", "Prompt change and unclear-utterance variance; all misses are 'unclear'"],
-        ["Planner (17)", "14/17 = 82.4%", "Sonnet 14/17; Flash 14/17", "Same pass count; different failures"],
-        ["Editor (8)", "8/8 = 100%", "all three arms 8/8", "Small, remove/move/time only"],
-        ["Verifier (20)", "18/20 = 90%; 2 false passes, 0 false alarms", "Sonnet 18/20; Flash 17/20", "Two transfer-arithmetic misses (v06, v14)"],
-        ["Ask (11 in scope)", "11/11 = 100%", "Sonnet 11/11; Flash 10/11", "q11 scope case excluded; human-adjudicated"],
-        ["Memory (8)", "91.7% recall with optional DeepSeek; 79.8% shipped Sonnet", "Sonnet 79.8%; DeepSeek 1 invented preference", "Optional profile not shipped; two no-fact checks"],
+        ["Routing (84)", "Sonnet 84/84; GPT-5.5 82; DeepSeek 81; Flash 80; Jev 79 with plan context", "Four ChatAnywhere arms; Jev env key", "Jev is fastest; no-context run is 51/84"],
+        ["Planner (14)", "Hong Kong 7/8; Japan 6/6", "Sonnet writer, DeepSeek verifier", "13/14 valid plans"],
+        ["Editor (8)", "8/8 at T=0.2; 7/8 at T=0.0", "Sonnet ChatAnywhere", "Small set; duplicate removed"],
+        ["Verifier (17)", "15/17 best; 2 false passes, 0 false alarms", "DeepSeek and Sonnet at T=0/0.2", "v06 and v14 transfer arithmetic"],
+        ["Ask (12)", "11/12 total; 11/11 in-scope", "Sonnet ChatAnywhere", "q11 scope case fails by design"],
+        ["Memory (8)", "6/8 exact; 91.7% mean recall", "Sonnet ChatAnywhere", "Small; optional profile not shipped"],
+        ["Injection (84)", "84/84 contained", "Sandbox injection fixture", "No leak in this run"],
+        ["TravelPlanner pilot (20)", "15 plans + 5 correct currency clarifications", "Relevance-selected, fixed 2022 clock", "Pilot only; not full 423/1,225"],
     ],
     widths=[1.1, 1.45, 1.65, 1.7],
-    cap="Table 5. Component evidence. Routing is the only suite re-run twice after the prompt change; the other frozen suites are reported as component study results, not as a single end-to-end run.",
+    cap="Table 5. Latest observed evidence. ChatAnywhere/Jev runs use the frozen cases; the TravelPlanner pilot is relevance-selected and is not a full benchmark score.",
 )
 
 body(
@@ -679,11 +681,11 @@ body(
 )
 body(
     doc,
-    "Routing is the least stable result. The two current runs score 81/84 and 82/84; the earlier frozen run "
-    "scored 83/84. All current misses are unclear utterances, where the analyst chooses a concrete path too "
-    "readily. This is consistent with the proposal's concern about ambiguous input and with the model-study "
-    "finding that confidence is not a calibrated probability. The split threshold is a policy setting, not a "
-    "guarantee; the current design would need a larger held-out set before claiming a reliable operating point.",
+    "Routing is the least stable result. Sonnet scores 84/84, GPT-5.5 82/84, DeepSeek 81/84 and Flash-Lite "
+    "80/84; Jev scores 79/84 when given the same plan context. The misses concentrate on ambiguous utterances "
+    "and a few plan/modify boundary cases. Jev is much faster but its no-context run collapses to 51/84, so "
+    "the context must be held fixed. Confidence is model-reported and not a calibrated probability; the "
+    "current design would need a larger evaluation set before claiming a reliable operating point.",
 )
 body(
     doc,
@@ -834,8 +836,9 @@ doc.add_page_break()
 heading(doc, "Appendix A  Figures, test protocol and raw results", 1)
 figure(doc, "fig-architecture.png", width=5.3, cap="Figure A1. The delivered turn path. The model is called at the Understand, Evidence and Composer boundaries; the orchestrator owns routing, budget, validation, persistence and handoff.")
 figure(doc, "fig-dataflow.png", width=5.0, cap="Figure A2. Data flow. Personal details are masked before model calls; source records carry provenance and freshness; only validated plan versions reach the UI.")
-figure(doc, "fig-results.png", width=5.2, cap="Figure A3. Component pass rates on different case sets. Routing uses the mean of two current 84-case runs; planner/editor/verifier/ask use the frozen component suites.")
-figure(doc, "fig-verifier.png", width=5.2, cap="Figure A4. Verifier outcome on 20 frozen cases. Both errors are false passes on transfer arithmetic (10 min and 29 min against a 30 min constraint), not false alarms.")
+figure(doc, "fig-results.png", width=5.2, cap="Figure A3. Latest observed results. Routing uses four ChatAnywhere arms plus Jev with plan context; component panels use the latest tested cases. Sets differ in size and are not one end-to-end score.")
+figure(doc, "fig-verifier.png", width=5.2, cap="Figure A4. Verifier outcome on 17 unique cases. Both residual errors are false passes on transfer arithmetic (10 min and 29 min against a 30 min constraint), not false alarms.")
+figure(doc, "fig-tp-pilot.png", width=5.2, cap="Figure A5. TravelPlanner screening and 20-case pilot. Population and official subsets come from osunlp/TravelPlanner on Hugging Face (CC-BY-4.0); the pilot result is ours and is not a full-set benchmark score.")
 body(
     doc,
     "All tests were run on the submitted branch with the repository virtual environment; no network is "
@@ -849,16 +852,18 @@ table(
     ["Run", "Setting", "Result", "Date / note"],
     [
         ["pytest backend", "Sandbox; no network; current tree", "83 passed", "23 Nov 2026, current tree"],
-        ["Routing run 1", "Flash-Lite 0.0; 84 cases", "81/84 (96.4%); p50 3,967 ms", "23 Nov 2026 15:50 HKT"],
-        ["Routing run 2", "Flash-Lite 0.0; 84 cases", "82/84 (97.6%); p50 3,985 ms", "23 Nov 2026 15:52 HKT"],
-        ["Verifier", "DeepSeek Flash; 20 cases; T=0; cap 1,500", "18/20; 2 false pass; 0 false alarm; p50 1,958 ms", "23 Nov 2026 15:05 HKT"],
-        ["Planner", "17 cases; Sonnet and Flash frozen study", "14/17 each", "Part-model study, 23 Nov"],
-        ["Editor", "8 cases; three arms", "8/8 each", "Part-model study, 23 Nov"],
-        ["Ask", "11 in-scope; three arms", "11/11 Sonnet/DeepSeek; 10/11 Flash", "Part-model study, 23 Nov"],
-        ["Memory", "8 cases", "Sonnet 79.8%; DeepSeek 91.7% with 1 invented preference", "Part-model study, 23 Nov"],
+        ["Routing", "ChatAnywhere, 84 cases, T=0", "Sonnet 84/84; GPT-5.5 82/84; DeepSeek 81/84; Flash 80/84", "23 Nov 2026"],
+        ["Jev", "Jev env key, 84 cases, plan context", "79/84 (94.0%); p50 444 ms", "23 Nov 2026"],
+        ["Verifier", "ChatAnywhere, 17 unique cases, T=0/0.2", "15/17 best; 2 false passes", "23 Nov 2026"],
+        ["Planner", "Hong Kong 8 + Japan 6", "13/14 plans", "23 Nov 2026"],
+        ["Editor", "8 cases, T=0/0.2", "7/8; 8/8", "23 Nov 2026"],
+        ["Ask", "12 cases, Sonnet", "11/12; 11/11 in-scope", "23 Nov 2026"],
+        ["Memory", "8 cases, Sonnet", "6/8 exact; 91.7% mean recall", "23 Nov 2026"],
+        ["Injection", "84 cases", "84/84 contained", "23 Nov 2026"],
+        ["TravelPlanner pilot", "20 relevance-selected, fixed 2022 clock", "15 plans; 5 correct currency clarifications", "23 Nov 2026"],
     ],
     widths=[1.0, 1.9, 1.65, 1.25],
-    cap="Table A1. Runs used in the report. Routing and verifier are current; the other component rows are frozen study results.",
+    cap="Table A1. Latest runs. The TravelPlanner pilot is not a full 1,225-case score; the old frozen study is kept only as reference.",
 )
 table(
     doc,
@@ -866,10 +871,10 @@ table(
     [
         ["v06", "30 min between Fushimi Inari and Nishiki Market", "10-minute transfer", "fail", "pass (false pass)"],
         ["v14", "30 min between Fushimi Inari and Nishiki Market", "29-minute transfer", "fail", "pass (false pass)"],
-        ["v01-v05, v07-v13, v15-v20", "budget / inclusion / source / date constraints", "good or injected", "mixed", "correct (18)"],
+        ["v01-v05, v07-v13, v15-v20", "budget / inclusion / source / date constraints", "good or injected", "mixed", "correct (15 of 17 at best)"],
     ],
     widths=[1.1, 2.1, 1.3, 0.6, 1.2],
-    cap="Table A2. The two verifier errors are the same transfer-arithmetic cases across model arms. Exact-match rows are in verifier-current.json.",
+    cap="Table A2. The two verifier errors are the same transfer-arithmetic cases across model arms. Exact-match rows are in the current autotest artifact.",
 )
 table(
     doc,
@@ -889,7 +894,7 @@ heading(doc, "Appendix B  Settings, prompts and search path", 1)
 body(
     doc,
     "The current runtime defaults are: Claude Sonnet 5.5 as writer/analyst/planner/editor/ask/memory; "
-    "DeepSeek Flash as constraint verifier; temperature 0 for verifier and tested structured parts; per-part "
+    "DeepSeek Flash as constraint verifier; temperature 0.2 for writer-side purposes and 0 for the verifier; per-part "
     "caps of 4,096 (analyst), 12,000 (planner), 2,000 (editor), 1,500 (verifier), 1,400 (ask), 700 (memory). "
     "The plan validator is deterministic; the constraint verifier is the only model audit. The orchestrator "
     "holds a seat, a whole-turn deadline and a repair cap. The optional Jev router is off by default; the "

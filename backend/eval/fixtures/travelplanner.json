@@ -1,7 +1,7 @@
 [
   {
     "id": "tp01",
-    "input": "Plan a 3-day trip to New York for 2 people, budget 2500 USD, must include the Metropolitan Museum of Art.",
+    "input": "Plan a 3-day trip to New York for 2 people, budget 2500 USD, must include the Metropolitan Museum of Art starting 2026-12-23.",
     "expected_intent": "plan",
     "destination": "New York",
     "origin": "London",
@@ -9,12 +9,16 @@
     "party_size": 2,
     "budget": 2500,
     "currency": "USD",
-    "constraints": ["must include the Metropolitan Museum of Art", "stay within budget"],
-    "split": "dev"
+    "constraints": [
+      "must include the Metropolitan Museum of Art",
+      "stay within budget"
+    ],
+    "split": "dev",
+    "start_date": "2026-12-23"
   },
   {
     "id": "tp02",
-    "input": "Plan a 4-day trip to San Francisco for 1 person, budget 1800 USD.",
+    "input": "Plan a 4-day trip to San Francisco for 1 person, budget 1800 USD starting 2027-05-10.",
     "expected_intent": "plan",
     "destination": "San Francisco",
     "origin": "Tokyo",
@@ -22,12 +26,15 @@
     "party_size": 1,
     "budget": 1800,
     "currency": "USD",
-    "constraints": ["stay within budget"],
-    "split": "heldout"
+    "constraints": [
+      "stay within budget"
+    ],
+    "split": "heldout",
+    "start_date": "2027-05-10"
   },
   {
     "id": "tp03",
-    "input": "Plan a 2-day trip to New York for 2 people, budget 1500 USD. We are vegetarian and must visit Central Park.",
+    "input": "Plan a 2-day trip to New York for 2 people, budget 1500 USD starting 2027-06-12. We are vegetarian and must visit Central Park.",
     "expected_intent": "plan",
     "destination": "New York",
     "origin": "Chicago",
@@ -35,7 +42,12 @@
     "party_size": 2,
     "budget": 1500,
     "currency": "USD",
-    "constraints": ["vegetarian restaurants only", "must visit Central Park", "stay within budget"],
-    "split": "dev"
+    "constraints": [
+      "vegetarian restaurants only",
+      "must visit Central Park",
+      "stay within budget"
+    ],
+    "split": "dev",
+    "start_date": "2027-06-12"
   }
 ]

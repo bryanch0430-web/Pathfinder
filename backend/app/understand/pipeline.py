@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from typing import Any
 
 from app.config import Settings
@@ -51,6 +52,16 @@ async def understand(
     skill_overrides: dict[str, str] | None = None,
 ) -> Understanding:
     today = datetime.now().astimezone()
+    # Evaluation-only fixed clock. Never used by the production app.
+    fixed = os.environ.get("PATHFINDER_EVAL_TODAY", "").strip()
+    if fixed:
+        try:
+            parsed_today = datetime.fromisoformat(fixed)
+            if parsed_today.tzinfo is None:
+                parsed_today = parsed_today.replace(tzinfo=today.tzinfo)
+            today = parsed_today
+        except ValueError:
+            pass
     user_payload: dict[str, Any] = {
         "today": today.date().isoformat(),
         "now_local": today.isoformat(timespec="minutes"),
@@ -146,6 +157,7 @@ def merge_slots(context: TripContext, parsed: ParsedIntent) -> TripContext:
         code = normalise_currency(slots.currency)
         if code:
             updated.currency = code
+            updated.currency_set = True
     if slots.hotel_style:
         updated.hotel_style = slots.hotel_style.strip()[:120]
     pace = _pace(slots.pace)
@@ -275,18 +287,19 @@ def _clarify(
     plan: TripPlan | None,
     route: RoutePayload,
 ) -> ClarifyPayload:
-    slots = list(parsed.missing_slots)[:4]
-    known = {
-        "destination": bool(context.destination),
-        "start_date": bool(context.start_date),
-        "days": bool(context.days or context.end_date),
-        "party_size": bool(context.party_size),
-    }
+    slots = list(parsed.missing_slots)[:6]
+    known = _filled(context)
     # Never ask again for a slot the context already has. The analyst can list a
     # slot it left empty while the merge filled it from the sentence ("2 days").
     slots = [slot for slot in slots if not known.get(slot, False)]
+    # A new plan asks for every required gap on this card, not only the one the
+    # analyst mentioned. An edit of a plan that already exists keeps its question.
+    if plan is None and (parsed.intent == "plan" or route.intent == "plan"):
+        for slot in missing_for_plan(context):
+            if slot not in slots:
+                slots.append(slot)
     if not slots:
-        slots = missing_for_plan(context)[:4]
+        slots = missing_for_plan(context)
     question = (parsed.question or "").strip()
     options = {key: [str(value)[:80] for value in values[:6]] for key, values in parsed.options.items() if values}
     # Travellers are whole people; a model-generated range ("3-4") or "5+" cannot be
@@ -317,34 +330,8 @@ def _clarify(
         ]
         options["currency"] = list(dict.fromkeys(code for code in choices if code))[:6]
     if not question:
-        missing = missing_for_plan(context)
-        if "destination" in missing:
-            question = "Where would you like to go, and roughly when?"
-            slots = ["destination", "start_date"]
-        elif "start_date" in missing and "days" in missing:
-            question = (
-                f"Which date in {route.date_window} should I start, and how many days?"
-                if route.date_window
-                else "Which dates should I plan for? A start date and a length is enough."
-            )
-            slots = ["start_date", "days"]
-        elif "start_date" in missing:
-            length = context.days or 0
-            question = (
-                f"I have the {length}-day length. Which date in {route.date_window} should I start?"
-                if route.date_window
-                else f"I have the {length}-day length. What start date should I use?"
-            )
-            slots = ["start_date"]
-        elif "days" in missing:
-            question = "How many days should the trip be?"
-            slots = ["days"]
-        elif "party_size" in missing:
-            question = "How many people are travelling?"
-            slots = ["party_size"]
-        else:
-            question = "Could you say a little more about what you want to change?"
-            slots = ["scope"]
+        question, fallback_slots = required_clarify(context, route)
+        slots = slots or fallback_slots
     return ClarifyPayload(
         question=question[:400],
         slots=slots,
@@ -387,20 +374,59 @@ def dates_usable(context: TripContext) -> bool:
     return start is not None and bool(context.days or context.end_date)
 
 
+def _filled(context: TripContext) -> dict[str, bool]:
+    """Which required slots the traveller has actually given."""
+    return {
+        "destination": bool((context.destination or "").strip()),
+        "start_date": bool(context.start_date),
+        "days": bool(context.days or context.end_date),
+        "party_size": bool(context.party_size),
+        "origin": bool((context.origin or "").strip()),
+        "budget": context.budget is not None and context.budget > 0,
+        # The stored HKD default is not a choice. Only a named currency counts.
+        "currency": bool(context.currency_set),
+    }
+
+
 def missing_for_plan(context: TripContext) -> list[str]:
-    missing: list[str] = []
-    if not context.destination:
-        missing.append("destination")
-    if not context.start_date:
-        missing.append("start_date")
-    if not (context.days or context.end_date):
-        missing.append("days")
-    # Party size changes the cost, room count and pace, so it is not a safe silent
-    # default. Budget stays optional: ask for it in the same question, but do not
-    # block the plan when the traveller does not have one.
-    if not context.party_size:
-        missing.append("party_size")
-    return missing
+    filled = _filled(context)
+    return [slot for slot in ("destination", "start_date", "days", "party_size", "origin", "budget", "currency") if not filled[slot]]
 
 
-__all__ = ["Understanding", "understand", "merge_slots", "missing_for_plan", "dates_usable", "LLMError"]
+def required_clarify(context: TripContext, route: RoutePayload | None) -> tuple[str, list[str]]:
+    """The question and fields for whatever a new plan is still missing."""
+    missing = missing_for_plan(context)
+    window = route.date_window if route else ""
+    if not missing:
+        return "Could you say a little more about what you would like?", ["scope"]
+    if missing == ["destination"] or missing == ["destination", "start_date"]:
+        return "Where would you like to go, and roughly when?", missing
+    if missing == ["start_date", "days"]:
+        question = (
+            f"Which date in {window} should I start, and how many days?"
+            if window
+            else "Which dates should I plan for? A start date and a length is enough."
+        )
+        return question, missing
+    if missing == ["start_date"]:
+        length = context.days or 0
+        question = (
+            f"I have the {length}-day length. Which date in {window} should I start?"
+            if window
+            else f"I have the {length}-day length. What start date should I use?"
+        )
+        return question, missing
+    if missing == ["days"]:
+        return "How many days should the trip be?", missing
+    if missing == ["party_size"]:
+        return "How many people are travelling?", missing
+    if missing == ["origin"]:
+        return "Where are you leaving from?", missing
+    if missing == ["budget"]:
+        return "What total budget should I plan within?", missing
+    if missing == ["currency"]:
+        return "Which currency should I use for this trip?", missing
+    return "I need these before I can plan.", missing
+
+
+__all__ = ["Understanding", "understand", "merge_slots", "missing_for_plan", "required_clarify", "dates_usable", "LLMError"]
