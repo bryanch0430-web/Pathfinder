@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
 from app.api.deps import container, require_admin, require_session, user_public
 from app.api.views import load_context, load_plan, runtime_config, save_plan, session_view
+from app.core.currencies import normalise_currency
 from app.core.dates import shift_time
 from app.core.prompts import SKILL_DIR, skill_names
 from app.domain.models import ChatRequest, TripPlan, now_iso
@@ -191,6 +193,97 @@ async def reset_prompt(name: str, request: Request) -> dict[str, Any]:
     return {"ok": True}
 
 
+async def _json_object(request: Request) -> dict[str, Any]:
+    """The request body as an object; a missing, malformed or non-object body is a 422."""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any parse failure is the caller's bad input
+        raise HTTPException(status_code=422, detail="Send a JSON object as the request body.") from None
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=422, detail="Send a JSON object as the request body.")
+    return body
+
+
+def _bad(message: str) -> HTTPException:
+    return HTTPException(status_code=422, detail=message)
+
+
+def _as_bool(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in {"true", "false"}:
+        return value.strip().lower() == "true"
+    if value in (0, 1) and not isinstance(value, float):
+        return bool(value)
+    raise _bad(f"{name} must be true or false.")
+
+
+def _as_number(value: Any, name: str) -> float:
+    if isinstance(value, bool) or value is None:
+        raise _bad(f"{name} must be a number.")
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise _bad(f"{name} must be a number.") from None
+    if not math.isfinite(number):
+        raise _bad(f"{name} must be a number.")
+    return number
+
+
+def _as_int(value: Any, name: str, low: int, high: int) -> int:
+    number = _as_number(value, name)
+    if number != int(number) or not low <= int(number) <= high:
+        raise _bad(f"{name} must be a whole number from {low} to {high}.")
+    return int(number)
+
+
+def _as_text(value: Any, name: str, limit: int) -> str:
+    if not isinstance(value, str):
+        raise _bad(f"{name} must be text.")
+    return value.strip()[:limit]
+
+
+def _as_texts(value: Any, name: str, limit: int, count: int) -> list[str]:
+    if isinstance(value, str):
+        value = value.splitlines()
+    if not isinstance(value, list):
+        raise _bad(f"{name} must be a list of text.")
+    return [item.strip()[:limit] for item in value if isinstance(item, str) and item.strip()][:count]
+
+
+def _as_clock(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"\d{1,2}:\d{2}", value.strip()):
+        raise _bad(f"{name} must be a time such as 09:30.")
+    hours, minutes = (int(part) for part in value.strip().split(":"))
+    if hours > 23 or minutes > 59:
+        raise _bad(f"{name} must be a time such as 09:30.")
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def _as_rows(body: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = body.get("items")
+    if rows is None:
+        return []
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise _bad("items must be a list of objects.")
+    return rows
+
+
+async def _require_chat(c, session_id: str) -> dict[str, Any]:
+    session = await c.store.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="That chat is not there.")
+    return session
+
+
+async def _note_operator_action(c, session_id: str, kind: str, text: str) -> None:
+    """Operator instructions are kept apart from the traveller's transcript."""
+    key = f"operator:log:{session_id}"
+    rows = await c.store.get_kv(key) or []
+    rows.append({"at": now_iso(), "kind": kind, "text": text[:500]})
+    await c.store.set_kv(key, rows[-50:])
+
+
 @router.get("/api/admin/escalation")
 async def get_escalation(request: Request) -> dict[str, Any]:
     require_admin(request)
@@ -205,31 +298,20 @@ async def get_escalation(request: Request) -> dict[str, Any]:
 async def save_escalation(request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
-    stored = {
-        key: body[key]
-        for key in ("phrases_on", "enabled", "message", "frustration_at", "stuck_on", "stuck_after", "human_phrases")
-        if key in body
-    }
-    try:
-        if "frustration_at" in stored and stored["frustration_at"] is not None:
-            value = float(stored["frustration_at"])
-            stored["frustration_at"] = max(0.0, min(1.0, value / 100.0 if value > 1 else value))
-    except (TypeError, ValueError):
-        stored.pop("frustration_at", None)
-    try:
-        if "human_phrases" in stored:
-            raw = stored["human_phrases"]
-            if isinstance(raw, str):
-                raw = raw.splitlines()
-            stored["human_phrases"] = [str(item).strip()[:80] for item in raw if str(item).strip()][:20]
-    except (TypeError, ValueError):
-        stored.pop("human_phrases", None)
-    try:
-        if "stuck_after" in stored:
-            stored["stuck_after"] = max(2, min(8, int(stored["stuck_after"])))
-    except (TypeError, ValueError):
-        stored.pop("stuck_after", None)
+    body = await _json_object(request)
+    stored: dict[str, Any] = {}
+    for key in ("phrases_on", "enabled", "stuck_on"):
+        if key in body:
+            stored[key] = _as_bool(body[key], key)
+    if "message" in body and body["message"] is not None:
+        stored["message"] = _as_text(body["message"], "message", 300)
+    if body.get("frustration_at") not in (None, ""):
+        value = _as_number(body["frustration_at"], "frustration_at")
+        stored["frustration_at"] = max(0.0, min(1.0, value / 100.0 if value > 1 else value))
+    if body.get("stuck_after") not in (None, ""):
+        stored["stuck_after"] = max(2, min(8, int(_as_number(body["stuck_after"], "stuck_after"))))
+    if "human_phrases" in body and body["human_phrases"] is not None:
+        stored["human_phrases"] = _as_texts(body["human_phrases"], "human_phrases", 80, 20)
     await c.store.set_kv("escalation", {**ESCALATION_DEFAULT, **stored})
     policy = {**ESCALATION_DEFAULT, **stored}
     policy["parts"] = _monitor_parts(policy)
@@ -283,6 +365,13 @@ def _desk_contact(context) -> dict[str, Any]:
     }
 
 
+def _kv_number(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _desk_recent(value: str | None, hours: int = 24) -> bool:
     """A session is live while it changed in the last day; older idle chats belong in history."""
     if not value:
@@ -301,6 +390,9 @@ async def desk_list(request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
     sessions = await c.store.list_sessions(60)
+    policy = {**ESCALATION_DEFAULT, **(await c.store.get_kv("escalation") or {})}
+    stuck_after = int(policy.get("stuck_after") or 3)
+    hot_at = float(policy.get("frustration_at") if policy.get("frustration_at") is not None else 0.75)
     chats = []
     for session in sessions:
         messages = await c.store.list_messages(session["id"], limit=50)
@@ -312,6 +404,8 @@ async def desk_list(request: Request) -> dict[str, Any]:
         recent = _desk_recent(session.get("updated_at"))
         state = "live" if recent and not finished else "completed"
         last = messages[-1]
+        stuck_count = _kv_number(await c.store.get_kv(f"stuck:{session['id']}"))
+        frustration = max(0.0, min(1.0, _kv_number(await c.store.get_kv(f"frustration:{session['id']}"))))
         chats.append(
             {
                 **_desk_contact(context),
@@ -323,10 +417,10 @@ async def desk_list(request: Request) -> dict[str, Any]:
                 "finished": finished,
                 "held": bool(session.get("held")),
                 "agent_name": session.get("agent_name") or "",
-                "stuck": False,
-                "frustration": 0.0,
-                "frustration_kind": "none",
-                "band": "calm",
+                "stuck": bool(policy.get("stuck_on", True)) and stuck_count >= stuck_after,
+                "frustration": frustration,
+                "frustration_kind": "session" if frustration > 0 else "none",
+                "band": "hot" if frustration >= hot_at else "uneasy" if frustration >= 0.4 else "calm",
                 "sentiment_score": 0.0,
                 "sentiment_label": "calm",
                 "sentiment_notes": [],
@@ -349,7 +443,7 @@ async def desk_chat(session_id: str, request: Request) -> dict[str, Any]:
     return {
         "session_id": session_id,
         "held": bool(session.get("held")),
-        "note": session.get("note") or "",
+        "note": session.get("operator_note") or "",
         "contact": _desk_contact(context),
         "messages": [
             {
@@ -371,7 +465,7 @@ async def desk_chat(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_hold(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    user_id = request.headers.get("X-Admin-Token") or "operator"
+    await _require_chat(c, session_id)
     name = "Operator"
     from app.api.deps import bearer_user
 
@@ -387,6 +481,7 @@ async def desk_hold(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_release(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
+    await _require_chat(c, session_id)
     await c.store.set_held(session_id, False, "")
     return {"held": False}
 
@@ -395,9 +490,10 @@ async def desk_release(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_note(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
-    note = str(body.get("note", ""))[:500]
-    await c.store.touch_session(session_id, planner_note=note)
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    note = _as_text(body.get("note", ""), "note", 500) if body.get("note") is not None else ""
+    await c.store.touch_session(session_id, operator_note=note)
     return {"note": note}
 
 
@@ -405,8 +501,11 @@ async def desk_note(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_say(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
-    text = str(body.get("text", ""))[:2000]
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    text = _as_text(body.get("text"), "text", 2000)
+    if not text:
+        raise _bad("text must not be empty.")
     message_id = secrets.token_hex(8)
     await c.store.add_message(
         session_id,
@@ -425,20 +524,24 @@ async def desk_say(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_run(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
-    message = str(body.get("message", ""))[:2000]
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    message = _as_text(body.get("message"), "message", 2000)
+    if not message:
+        raise _bad("message must not be empty.")
     from app.turn.orchestrator import Dependencies, collect_turn
 
     context = await load_context(c, session_id)
+    await _note_operator_action(c, session_id, "run", message)
     events = await collect_turn(
-        Dependencies(settings=c.settings, store=c.store),
+        Dependencies(settings=c.settings, store=c.store, operator=True),
         ChatRequest(session_id=session_id, message=message, locale=context.language, review=False),
         session_id=session_id,
         user_message=message,
     )
     reply = "".join(event.data.get("text", "") for event in events if event.event == "token")
     intent = next((event.data.get("intent", "") for event in events if event.event == "done"), "")
-    return {"reply": reply, "intent": intent}
+    return {"reply": reply, "intent": intent, "plan": _desk_plan(await load_plan(c, session_id))}
 
 
 @router.get("/api/admin/desk/{session_id}/itinerary")
@@ -487,13 +590,15 @@ async def desk_get_plan(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_save_plan(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    rows = _as_rows(body)
     plan = await load_plan(c, session_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="There is no plan.")
     context = await load_context(c, session_id)
     index = plan.item_index()
-    for row in body.get("items") or []:
+    for row in rows:
         item = index.get(row.get("id"))
         if item is None:
             continue
@@ -501,8 +606,8 @@ async def desk_save_plan(session_id: str, request: Request) -> dict[str, Any]:
             for day in plan.days:
                 day.items = [entry for entry in day.items if entry.id != item.id]
             continue
-        item.start = row.get("start") or item.start
-        item.end = row.get("end") or item.end
+        item.start = _as_clock(row["start"], "start") if row.get("start") else item.start
+        item.end = _as_clock(row["end"], "end") if row.get("end") else item.end
         if row.get("name"):
             item.name = str(row["name"])[:160]
     refresh_derived(plan, context)
@@ -510,46 +615,95 @@ async def desk_save_plan(session_id: str, request: Request) -> dict[str, Any]:
     return {"plan": _desk_plan(plan)}
 
 
+def _brief_date(body: dict[str, Any], key: str, current: str | None) -> date | None:
+    value = body.get(key)
+    if value in (None, ""):
+        try:
+            return date.fromisoformat(current[:10]) if current else None
+        except ValueError:
+            return None
+    if not isinstance(value, str):
+        raise _bad(f"{key} must be a date such as 2027-04-10.")
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        raise _bad(f"{key} must be a date such as 2027-04-10.") from None
+
+
 @router.post("/api/admin/desk/{session_id}/brief")
 async def desk_brief(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
     context = await load_context(c, session_id)
-    for field in ("destination", "origin", "start_date", "end_date", "party_size", "budget", "currency", "preferences"):
-        if body.get(field) not in (None, ""):
-            setattr(context, field, body[field])
-    if body.get("end_date") and body.get("start_date"):
-        from app.core.dates import parse_date
-
-        start, end = parse_date(body["start_date"]), parse_date(body["end_date"])
-        if start and end:
-            context.days = (end - start).days + 1
+    updates: dict[str, Any] = {}
+    for key in ("destination", "origin"):
+        if body.get(key) not in (None, ""):
+            updates[key] = _as_text(body[key], key, 120)
+    if body.get("party_size") not in (None, ""):
+        updates["party_size"] = _as_int(body["party_size"], "party_size", 1, 20)
+    if body.get("budget") not in (None, ""):
+        budget = _as_number(body["budget"], "budget")
+        if budget < 0:
+            raise _bad("budget must not be negative.")
+        updates["budget"] = budget
+    if body.get("currency") not in (None, ""):
+        currency = normalise_currency(_as_text(body["currency"], "currency", 20))
+        if not currency:
+            raise _bad("currency must be a three-letter code such as HKD or JPY.")
+        updates["currency"] = currency
+    if body.get("preferences") is not None:
+        if not isinstance(body["preferences"], list) or not all(isinstance(x, str) for x in body["preferences"]):
+            raise _bad("preferences must be a list of text.")
+        updates["preferences"] = _as_texts(body["preferences"], "preferences", 80, 20)
+    start = _brief_date(body, "start_date", context.start_date)
+    end = _brief_date(body, "end_date", context.end_date)
+    if start and end and end < start:
+        raise _bad("end_date must not be before start_date.")
+    if body.get("start_date") not in (None, ""):
+        updates["start_date"] = start.isoformat()
+    if body.get("end_date") not in (None, ""):
+        updates["end_date"] = end.isoformat()
+    if start and end and ("start_date" in updates or "end_date" in updates):
+        updates["days"] = (end - start).days + 1
+    for key, value in updates.items():
+        setattr(context, key, value)
     await c.store.save_context(session_id, context.model_dump())
-    return {"built": True, "plan": _desk_plan(await load_plan(c, session_id))}
+    plan = await load_plan(c, session_id)
+    return {
+        "built": False,
+        "reason": (
+            "The brief was saved. The desk does not build an itinerary from it"
+            + ("; the existing itinerary was not changed." if plan else ", so no plan exists yet.")
+        ),
+        "plan": _desk_plan(plan),
+    }
 
 
 @router.post("/api/admin/desk/{session_id}/layout")
 async def desk_layout(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    rows = _as_rows(body)
     plan = await load_plan(c, session_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="There is no plan.")
     context = await load_context(c, session_id)
     index = plan.item_index()
-    for row in body.get("items") or []:
+    for row in rows:
         item = index.get(row.get("id"))
         if item is None:
             continue
-        day_index = int(row.get("day") or 1)
+        day_index = _as_int(row.get("day") or 1, "day", 1, 366)
         if not 1 <= day_index <= len(plan.days):
             continue
         for day in plan.days:
             day.items = [entry for entry in day.items if entry.id != item.id]
-        item.start = row.get("start") or item.start
-        item.end = row.get("end") or item.end
+        item.start = _as_clock(row["start"], "start") if row.get("start") else item.start
+        item.end = _as_clock(row["end"], "end") if row.get("end") else item.end
         plan.days[day_index - 1].items.append(item)
     for day in plan.days:
         day.items.sort(key=lambda entry: entry.start or "99:99")
@@ -570,11 +724,13 @@ async def desk_revisions(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_undo(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
-    plan = await load_plan(c, session_id, int(body.get("version") or 0))
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    version = _as_int(body.get("version"), "version", 1, 1_000_000)
+    plan = await load_plan(c, session_id, version)
     if plan is None:
         raise HTTPException(status_code=404, detail="That version is not there.")
-    plan = await save_plan(c, plan, f"Restored version {body.get('version')}.")
+    plan = await save_plan(c, plan, f"Restored version {version}.")
     return {"plan": plan.model_dump(mode="json")}
 
 
@@ -582,9 +738,12 @@ async def desk_undo(session_id: str, request: Request) -> dict[str, Any]:
 async def desk_edit(session_id: str, request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
-    body = await request.json()
-    instruction = str(body.get("instruction", ""))[:1000]
-    item_id = str(body.get("item_id", ""))
+    await _require_chat(c, session_id)
+    body = await _json_object(request)
+    instruction = _as_text(body.get("instruction"), "instruction", 1000)
+    if not instruction:
+        raise _bad("instruction must not be empty.")
+    item_id = str(body.get("item_id") or "")
     plan = await load_plan(c, session_id)
     message = instruction
     if item_id and plan is not None:
@@ -594,8 +753,9 @@ async def desk_edit(session_id: str, request: Request) -> dict[str, Any]:
     from app.turn.orchestrator import Dependencies, collect_turn
 
     context = await load_context(c, session_id)
+    await _note_operator_action(c, session_id, "edit", message)
     events = await collect_turn(
-        Dependencies(settings=c.settings, store=c.store),
+        Dependencies(settings=c.settings, store=c.store, operator=True),
         ChatRequest(session_id=session_id, message=message, locale=context.language, review=False),
         session_id=session_id,
         user_message=message,

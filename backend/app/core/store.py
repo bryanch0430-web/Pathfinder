@@ -159,6 +159,13 @@ class Store:
             if "useful" not in columns:
                 conn.execute("ALTER TABLE wishlist ADD COLUMN useful INTEGER")
                 conn.execute("UPDATE wishlist SET useful=1 WHERE useful IS NULL AND stars IS NOT NULL")
+            # The operator's note and the planner's transient status used to share `note`.
+            # `note` stays what the traveller sees; the two sources get their own columns.
+            session_columns = {row[1] for row in conn.execute("PRAGMA table_info(sessions)")}
+            if "planner_status" not in session_columns:
+                conn.execute("ALTER TABLE sessions ADD COLUMN planner_status TEXT NOT NULL DEFAULT ''")
+            if "operator_note" not in session_columns:
+                conn.execute("ALTER TABLE sessions ADD COLUMN operator_note TEXT NOT NULL DEFAULT ''")
         self._ready = True
 
     async def _run(self, fn, *args, **kwargs):
@@ -200,15 +207,35 @@ class Store:
 
         return await self._run(op)
 
-    async def touch_session(self, session_id: str, *, planner_note: str | None = None) -> None:
+    async def touch_session(
+        self, session_id: str, *, planner_note: str | None = None, operator_note: str | None = None
+    ) -> None:
+        """Bump the session; `planner_note` is the transient planner status, `operator_note` the desk's.
+
+        `note` is what the traveller sees: the operator's note while a held chat has one,
+        otherwise the latest planner status.
+        """
+
         def op(conn):
-            if planner_note is None:
-                conn.execute("UPDATE sessions SET updated_at=? WHERE id=?", (_now(), session_id))
+            now = _now()
+            if planner_note is None and operator_note is None:
+                conn.execute("UPDATE sessions SET updated_at=? WHERE id=?", (now, session_id))
+                return
+            row = conn.execute(
+                "SELECT held, planner_status, operator_note FROM sessions WHERE id=?", (session_id,)
+            ).fetchone()
+            if row is None:
+                return
+            status = row["planner_status"] if planner_note is None else planner_note
+            desk = row["operator_note"] if operator_note is None else operator_note
+            if desk and (row["held"] or planner_note is None):
+                shown = desk
             else:
-                conn.execute(
-                    "UPDATE sessions SET updated_at=?, note=? WHERE id=?",
-                    (_now(), planner_note, session_id),
-                )
+                shown = status
+            conn.execute(
+                "UPDATE sessions SET updated_at=?, planner_status=?, operator_note=?, note=? WHERE id=?",
+                (now, status, desk, shown, session_id),
+            )
 
         await self._run(op)
 

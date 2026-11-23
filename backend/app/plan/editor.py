@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -99,11 +100,18 @@ async def propose_edit(
     updated_plan = plan.model_copy(deep=True)
     updated_context = context.model_copy(deep=True)
     changed = False
+    applied: list[str] = []
+    refused: list[str] = []
     for op in draft.ops:
+        before = len(log)
+        done = False
         try:
-            changed |= _apply(op, updated_plan, updated_context, bundle, log)
+            done = _apply(op, updated_plan, updated_context, bundle, log)
         except Exception as exc:  # noqa: BLE001 - one bad op must not lose the others
             log.append(f"Skipped a step ({op.op}): {exc}")
+        changed |= done
+        if op.op != "note":
+            (applied if done else refused).extend(log[before:])
     if _dates_touched(draft):
         return EditOutcome(
             plan=plan,
@@ -115,7 +123,14 @@ async def propose_edit(
         )
     if changed:
         refresh_derived(updated_plan, updated_context)
-        updated_plan.change_summary = draft.summary or "Edited the trip."
+        actual = actual_changes(plan, updated_plan, context, updated_context)
+        if not actual:
+            # Every step said it worked, yet the candidate equals the current plan.
+            changed = False
+            log[:] = [*refused, "Nothing in the plan changed."]
+        else:
+            draft = _honest_draft(draft, applied, refused, actual)
+            updated_plan.change_summary = draft.summary or "Edited the trip."
     return EditOutcome(
         plan=updated_plan,
         context=updated_context,
@@ -123,6 +138,49 @@ async def propose_edit(
         log=log,
         changed=changed,
         research_failed=research_failed,
+    )
+
+
+def actual_changes(old: TripPlan, new: TripPlan, old_context: TripContext, new_context: TripContext) -> list[dict[str, Any]]:
+    """What really differs between the current plan and the candidate (empty means no change)."""
+    entries = diff_plans(old, new)
+    if not any(entry["kind"] == "hotel" for entry in entries):
+        before, after = [hotel.name for hotel in old.hotels], [hotel.name for hotel in new.hotels]
+        if before != after:
+            entries.append({"kind": "hotel", "name": after[0] if after else "", "from": before[:1], "to": after[:1]})
+    if old_context.budget != new_context.budget:
+        entries.append({"kind": "budget", "from": old_context.budget, "to": new_context.budget})
+    if old_context.party_size != new_context.party_size:
+        entries.append({"kind": "party", "from": old_context.party_size, "to": new_context.party_size})
+    return entries
+
+
+def wording_fits(text: str, entries: list[dict[str, Any]]) -> bool:
+    """False when the text claims a removal, addition or stay swap the diff does not contain."""
+    kinds = {entry["kind"] for entry in entries}
+    low = (text or "").lower()
+    if re.search(r"\b(remov\w*|delet\w*|drop\w*)\b", low) and "removed" not in kinds:
+        return False
+    if re.search(r"\b(add|adds|added|adding)\b", low) and "added" not in kinds:
+        return False
+    if (
+        re.search(r"\b(hotel|stay)\b", low)
+        and re.search(r"\b(swap\w*|switch\w*|replac\w*|chang\w*)\b", low)
+        and "hotel" not in kinds
+    ):
+        return False
+    return True
+
+
+def _honest_draft(draft: EditDraft, applied: list[str], refused: list[str], entries: list[dict[str, Any]]) -> EditDraft:
+    """Keep the model's wording only when it matches what was applied; otherwise state the facts."""
+    if not refused and wording_fits(f"{draft.summary} {draft.detail}", entries):
+        return draft
+    return draft.model_copy(
+        update={
+            "summary": (" ".join(applied) or "Edited the trip.")[:180],
+            "detail": " ".join(refused)[:240],
+        }
     )
 
 
