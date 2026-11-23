@@ -662,6 +662,22 @@ table(
     widths=[1.1, 2.1, 1.3, 0.6, 1.2],
     cap="Table A2. The two verifier errors are the same transfer-arithmetic cases across model arms. Exact-match rows are in verifier-current.json.",
 )
+table(
+    doc,
+    ["Additional check", "Result", "Interpretation"],
+    [
+        ["Cap stress: verifier, 64 tokens", "unknown (fail)", "A 1,500-token cap is required for the audit"],
+        ["Cap stress: memory, 64 tokens", "fail", "A 700-token cap is required for preference extraction"],
+        ["Cap stress: ask / planner low caps", "inconclusive", "The control turn clarified; not claimed as causal"],
+        ["Hybrid shadow (retrospective)", "78/84 agreement; 100% accepted accuracy; 6 clarifications", "Not shipped; saved-prediction analysis"],
+        ["Hybrid shadow (live)", "6/10 raw agreement; 7/10 action agreement; 7/10 would clarify", "Small pilot; strict gate over-clarified an ask"],
+        ["Acceptance: selected stop", "answer named One Dim Sum after fix", "Live API check, not a UI-only fix"],
+        ["Acceptance: current hotel lock", "Ramada stay locks in regression test", "Backend /choose fallback added"],
+    ],
+    widths=[1.7, 2.0, 2.1],
+    cap="Table A3. Additional reliability, capability and shadow checks retained for completeness.",
+)
+
 heading(doc, "Appendix B  Settings, prompts and search path", 1)
 body(
     doc,
