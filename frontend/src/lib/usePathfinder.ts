@@ -495,10 +495,13 @@ export function usePathfinder(locale: string): PathfinderHook {
     setSteps([]);
     setSelectedItem(null);
     setFeedbackStars(null);
+    setFeedbackSaved(false);
+    setFeedbackAdded([]);
+    setFeedbackVerdict(null);
   }, [clearBanner]);
 
   /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
-  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages">) => {
+  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages" | "feedback">) => {
     if (sessionRef.current !== id) {
       // The reply being written for the trip being left stops with it, so its late events cannot land in this one.
       abortRef.current?.abort();
@@ -518,6 +521,10 @@ export function usePathfinder(locale: string): PathfinderHook {
     setChangedLegIds(NO_IDS);
     setVersions(trip.versions);
     setMessages(trip.messages);
+    setFeedbackVerdict(trip.feedback ? (trip.feedback.useful ? "useful" : "not_useful") : null);
+    setFeedbackStars(trip.feedback?.stars ?? null);
+    setFeedbackSaved(Boolean(trip.feedback?.useful));
+    setFeedbackAdded([]);
     const card = clarifyFromHistory(trip.messages.at(-1));
     setClarify(card);
     setClarifyValues(card ? valuesForSuggestions(card) : {});
@@ -642,12 +649,6 @@ export function usePathfinder(locale: string): PathfinderHook {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
-
-  useEffect(() => {
-    setFeedbackSaved(false);
-    setFeedbackAdded([]);
-    setFeedbackVerdict(null);
-  }, [plan?.trip_id, plan?.version]);
 
   const openSession = useCallback(async (id: string): Promise<OpenOutcome> => {
     const ticket = ++navRef.current;

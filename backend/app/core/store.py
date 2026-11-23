@@ -580,6 +580,18 @@ class Store:
 
         return await self._run(op)
 
+    async def latest_feedback(self, session_id: str) -> dict[str, Any] | None:
+        def op(conn):
+            row = conn.execute(
+                "SELECT useful, stars, created_at FROM feedback WHERE session_id=? ORDER BY rowid DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return {"useful": bool(row["useful"]), "stars": row["stars"], "created_at": row["created_at"]}
+
+        return await self._run(op)
+
     # -- kv -----------------------------------------------------------
 
     async def get_kv(self, key: str) -> Any | None:

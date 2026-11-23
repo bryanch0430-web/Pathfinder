@@ -281,3 +281,18 @@ def test_only_the_owner_can_delete_a_saved_trip(tmp_path):
         assert deleted.json() == {"deleted": 1}
         assert client.get("/api/wishlist", headers=owner).json()["trips"] == []
         assert client.delete("/api/wishlist/saved-delete", headers=owner).status_code == 404
+
+
+def test_feedback_is_returned_with_the_session(tmp_path):
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "feedback-tester"}
+        session_id = client.post("/api/journeys", json={}, headers=headers).json()["session"]["id"]
+        rated = client.post(
+            f"/api/journeys/{session_id}/rating",
+            json={"useful": False, "stars": None},
+            headers=headers,
+        )
+        assert rated.status_code == 200
+        state = client.get(f"/api/journeys/{session_id}", headers=headers).json()
+        assert state["feedback"]["useful"] is False
+        assert state["feedback"]["stars"] is None

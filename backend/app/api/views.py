@@ -40,6 +40,7 @@ async def session_view(c: Container, session_id: str, session: dict[str, Any]) -
         "agent_name": session.get("agent_name") or "",
         "planner_busy": bool(seat),
         "planner_note": session.get("note") or "",
+        "feedback": await c.store.latest_feedback(session_id),
     }
 
 

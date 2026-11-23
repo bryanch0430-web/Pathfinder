@@ -38,6 +38,8 @@ export interface SessionState {
   planner_busy?: boolean;
   /** What that turn last said it was doing. */
   planner_note?: string;
+  /** The latest rating saved for this trip, so a reload or tab switch remembers it. */
+  feedback?: { useful: boolean; stars: number | null; created_at: string } | null;
 }
 
 /**
