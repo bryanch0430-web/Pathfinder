@@ -791,7 +791,7 @@ export const EN = {
   "settings.threshold.reviewer_timeout_seconds": "Review timeout",
   "settings.threshold.turn_deadline_seconds": "Turn execution budget",
   "settings.threshold.llm_timeout_seconds": "Model timeout",
-  "settings.thresholdHint.router_confidence": "Below this value, from 0 to 1, the intent router asks again instead of acting.",
+  "settings.thresholdHint.router_confidence": "Confidence in the intent route, from 0 to 1. A low-confidence edit to an existing plan is clarified; a Jev decision below this is ignored, and the analyst's route is kept.",
   "settings.thresholdHint.memory_similarity": "How close a past trip must be, from 0 to 1, before it is recalled.",
   "settings.thresholdHint.preplan_budget_seconds": "Seconds the search may run before the plan is written.",
   "settings.thresholdHint.max_repairs": "How many times a failed check may be sent back to the planner. 0 to 6.",

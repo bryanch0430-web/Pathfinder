@@ -789,7 +789,7 @@ export const ZH_HANS: Messages = {
   "settings.threshold.reviewer_timeout_seconds": "审阅时限",
   "settings.threshold.turn_deadline_seconds": "单轮执行预算",
   "settings.threshold.llm_timeout_seconds": "模型时限",
-  "settings.thresholdHint.router_confidence": "低于这个数（0 到 1），意图路由器会再问一次，而不是直接动手。",
+  "settings.thresholdHint.router_confidence": "意图路由的置信度（0 到 1）。对已有计划，置信度低的修改会先澄清；Jev 的置信度低于此值时会被忽略，采用分析器的路由。",
   "settings.thresholdHint.memory_similarity": "过去的行程要有多接近（0 到 1）才会被记起。",
   "settings.thresholdHint.preplan_budget_seconds": "写出行程之前，搜索最多可以跑多少秒。",
   "settings.thresholdHint.max_repairs": "检查失败后，最多把计划送回规划器几次。0 到 6。",
