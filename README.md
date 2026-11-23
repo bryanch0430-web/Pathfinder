@@ -1,5 +1,9 @@
 # Pathfinder
 
+> **Archived v1.x line.** This branch is the legacy v1.x application, kept for
+> history and the v1.x release notes. The current product is the rebuilt v5 line on
+> [`pathfinder_v5`](https://github.com/bryanch0430-web/Pathfinder/tree/pathfinder_v5).
+
 **Group 1 · COMP7608B Final Project**  
 Chan Yuk Ming · Lai Helen · Ng Tsan Fung · Wong Man Kit
 
