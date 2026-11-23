@@ -5253,9 +5253,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Boundaries (behind everything) -->
         <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="Outside sources" x="1040" y="80" width="210" height="122" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Your browser" x="10" y="265" width="410" height="124" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Pathfinder app" x="10" y="265" width="410" height="124" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Human support" x="190" y="75" width="230" height="124" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="Desk" x="190" y="75" width="230" height="124" rx="12" class="c-region" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <g data-graph-role="automatic-crossover" style="--step:0">
@@ -5324,19 +5324,20 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
 
         <!-- Components -->
-        <g id="node-traveller" data-node-id="traveller" data-node-label="You" tabindex="0" role="button" aria-label="Focus You, ask for a trip in chat, Your browser" aria-pressed="false" data-node-kind="external" data-node-sublabel="ask for a trip in chat" data-node-context="Your browser">
-          <title>You · ask for a trip in chat · Your browser</title>
+        <g id="node-traveller" data-node-id="traveller" data-node-label="Traveller" tabindex="0" role="button" aria-label="Focus Traveller, ask for a trip in chat, Pathfinder app" aria-pressed="false" data-node-kind="external" data-node-sublabel="ask for a trip in chat" data-node-tag="the traveller" data-node-context="Pathfinder app">
+          <title>Traveller · ask for a trip in chat · Pathfinder app · the traveller</title>
           <rect x="40" y="300" width="140" height="66" rx="8" class="c-mask"/>
           <rect x="40" y="300" width="140" height="66" rx="8" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-external" transform="translate(46 306) scale(0.6875)">
             <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="110" y="331" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">You</text>
+          <text data-node-label="" data-detail-anchor="" x="110" y="331" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Traveller</text>
         <text data-detail="context" x="110" y="347" class="t-muted" font-size="9" text-anchor="middle">ask for a trip in chat</text>
+        <text data-detail="fine" x="110" y="358" class="t-external" font-size="7" text-anchor="middle">the traveller</text>
         </g>
 
-        <g id="node-ui" data-node-id="ui" data-node-label="Trip workspace" tabindex="0" role="button" aria-label="Focus Trip workspace, chat · plan · map, Your browser" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="chat · plan · map" data-node-tag="the page you use" data-node-context="Your browser">
-          <title>Trip workspace · chat · plan · map · Your browser · the page you use</title>
+        <g id="node-ui" data-node-id="ui" data-node-label="Plan" tabindex="0" role="button" aria-label="Focus Plan, Chat · Plan · Trip map, Pathfinder app" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Chat · Plan · Trip map" data-node-tag="the page you use" data-node-context="Pathfinder app">
+          <title>Plan · Chat · Plan · Trip map · Pathfinder app · the page you use</title>
           <rect x="220" y="295" width="170" height="74" rx="8" class="c-mask"/>
           <rect x="220" y="295" width="170" height="74" rx="8" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(226 301) scale(0.6875)">
@@ -5345,132 +5346,132 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="305" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Trip workspace</text>
-        <text data-detail="context" x="305" y="346" class="t-muted" font-size="9" text-anchor="middle">chat · plan · map</text>
+          <text data-node-label="" data-detail-anchor="" x="305" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan</text>
+        <text data-detail="context" x="305" y="346" class="t-muted" font-size="9" text-anchor="middle">Chat · Plan · Trip map</text>
         <text data-detail="fine" x="305" y="361" class="t-frontend" font-size="7" text-anchor="middle">the page you use</text>
         </g>
 
-        <g id="node-api" data-node-id="api" data-node-label="Request desk" tabindex="0" role="button" aria-label="Focus Request desk, receives one turn, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="receives one turn" data-node-tag="streams progress live" data-node-context="Architecture component">
-          <title>Request desk · receives one turn · Architecture component · streams progress live</title>
+        <g id="node-api" data-node-id="api" data-node-label="Pathfinder server" tabindex="0" role="button" aria-label="Focus Pathfinder server, receives each message, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="receives each message" data-node-tag="live progress" data-node-context="Architecture component">
+          <title>Pathfinder server · receives each message · Architecture component · live progress</title>
           <rect x="430" y="295" width="170" height="74" rx="8" class="c-mask"/>
           <rect x="430" y="295" width="170" height="74" rx="8" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(436 301) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="515" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Request desk</text>
-        <text data-detail="context" x="515" y="346" class="t-muted" font-size="9" text-anchor="middle">receives one turn</text>
-        <text data-detail="fine" x="515" y="361" class="t-backend" font-size="7" text-anchor="middle">streams progress live</text>
+          <text data-node-label="" data-detail-anchor="" x="515" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Pathfinder server</text>
+        <text data-detail="context" x="515" y="346" class="t-muted" font-size="9" text-anchor="middle">receives each message</text>
+        <text data-detail="fine" x="515" y="361" class="t-backend" font-size="7" text-anchor="middle">live progress</text>
         </g>
 
-        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Turn manager" tabindex="0" role="button" aria-label="Focus Turn manager, one request, one path, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="one request, one path" data-node-tag="budget + safety" data-node-context="Architecture component">
-          <title>Turn manager · one request, one path · Architecture component · budget + safety</title>
+        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Pathfinder" tabindex="0" role="button" aria-label="Focus Pathfinder, one path per message, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="one path per message" data-node-tag="plan · change · question" data-node-context="Architecture component">
+          <title>Pathfinder · one path per message · Architecture component · plan · change · question</title>
           <rect x="640" y="290" width="180" height="82" rx="8" class="c-mask"/>
           <rect x="640" y="290" width="180" height="82" rx="8" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(646 296) scale(0.6875)">
             <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="730" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Turn manager</text>
-        <text data-detail="context" x="730" y="345" class="t-muted" font-size="9" text-anchor="middle">one request, one path</text>
-        <text data-detail="fine" x="730" y="364" class="t-backend" font-size="7" text-anchor="middle">budget + safety</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Pathfinder</text>
+        <text data-detail="context" x="730" y="345" class="t-muted" font-size="9" text-anchor="middle">one path per message</text>
+        <text data-detail="fine" x="730" y="364" class="t-backend" font-size="7" text-anchor="middle">plan · change · question</text>
         </g>
 
-        <g id="node-analyst" data-node-id="analyst" data-node-label="Request reader" tabindex="0" role="button" aria-label="Focus Request reader, what do you want?, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="what do you want?" data-node-tag="intent + details" data-node-context="Architecture component">
-          <title>Request reader · what do you want? · Architecture component · intent + details</title>
+        <g id="node-analyst" data-node-id="analyst" data-node-label="Understanding" tabindex="0" role="button" aria-label="Focus Understanding, Pathfinder is understanding your message, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Pathfinder is understanding your message" data-node-tag="what do you want?" data-node-context="Architecture component">
+          <title>Understanding · Pathfinder is understanding your message · Architecture component · what do you want?</title>
           <rect x="640" y="110" width="180" height="70" rx="8" class="c-mask"/>
           <rect x="640" y="110" width="180" height="70" rx="8" class="c-backend" data-animate="node" style="--step:4" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="decision" class="semantic-sigil s-backend" transform="translate(646 116) scale(0.6875)">
             <path d="M8 2.2 13.8 8 8 13.8 2.2 8Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="730" y="143" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Request reader</text>
-        <text data-detail="context" x="730" y="159" class="t-muted" font-size="9" text-anchor="middle">what do you want?</text>
-        <text data-detail="fine" x="730" y="172" class="t-backend" font-size="7" text-anchor="middle">intent + details</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="143" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Understanding</text>
+        <text data-detail="context" x="730" y="159" class="t-muted" font-size="7.1" text-anchor="middle">Pathfinder is understanding your message</text>
+        <text data-detail="fine" x="730" y="172" class="t-backend" font-size="7" text-anchor="middle">what do you want?</text>
         </g>
 
-        <g id="node-workers" data-node-id="workers" data-node-label="Research team" tabindex="0" role="button" aria-label="Focus Research team, places · stays · weather · flights, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="places · stays · weather · flights" data-node-tag="flights · videos" data-node-context="Architecture component">
-          <title>Research team · places · stays · weather · flights · Architecture component · flights · videos</title>
+        <g id="node-workers" data-node-id="workers" data-node-label="Data and sources" tabindex="0" role="button" aria-label="Focus Data and sources, places · stays · weather · flights, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="places · stays · weather · flights" data-node-tag="sourced facts" data-node-context="Architecture component">
+          <title>Data and sources · places · stays · weather · flights · Architecture component · sourced facts</title>
           <rect x="860" y="105" width="180" height="76" rx="8" class="c-mask"/>
           <rect x="860" y="105" width="180" height="76" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 111) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="141" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Research team</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="141" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Data and sources</text>
         <text data-detail="context" x="950" y="157" class="t-muted" font-size="8.4" text-anchor="middle">places · stays · weather · flights</text>
-        <text data-detail="fine" x="950" y="173" class="t-backend" font-size="7" text-anchor="middle">flights · videos</text>
+        <text data-detail="fine" x="950" y="173" class="t-backend" font-size="7" text-anchor="middle">sourced facts</text>
         </g>
 
-        <g id="node-planner" data-node-id="planner" data-node-label="Plan builder" tabindex="0" role="button" aria-label="Focus Plan builder, only uses sourced facts, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="only uses sourced facts" data-node-tag="no invented addresses" data-node-context="Architecture component">
-          <title>Plan builder · only uses sourced facts · Architecture component · no invented addresses</title>
+        <g id="node-planner" data-node-id="planner" data-node-label="Planner" tabindex="0" role="button" aria-label="Focus Planner, builds the plan, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="builds the plan" data-node-tag="Plan tab" data-node-context="Architecture component">
+          <title>Planner · builds the plan · Architecture component · Plan tab</title>
           <rect x="860" y="290" width="180" height="78" rx="8" class="c-mask"/>
           <rect x="860" y="290" width="180" height="78" rx="8" class="c-backend" data-animate="node" style="--step:8" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 296) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan builder</text>
-        <text data-detail="context" x="950" y="343" class="t-muted" font-size="9" text-anchor="middle">only uses sourced facts</text>
-        <text data-detail="fine" x="950" y="360" class="t-backend" font-size="7" text-anchor="middle">no invented addresses</text>
+          <text data-node-label="" data-detail-anchor="" x="950" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Planner</text>
+        <text data-detail="context" x="950" y="343" class="t-muted" font-size="9" text-anchor="middle">builds the plan</text>
+        <text data-detail="fine" x="950" y="360" class="t-backend" font-size="7" text-anchor="middle">Plan tab</text>
         </g>
 
-        <g id="node-checks" data-node-id="checks" data-node-label="Checks" tabindex="0" role="button" aria-label="Focus Checks, hours · travel time · budget, Architecture component" aria-pressed="false" data-node-kind="security" data-node-sublabel="hours · travel time · budget" data-node-tag="repair up to twice" data-node-context="Architecture component">
-          <title>Checks · hours · travel time · budget · Architecture component · repair up to twice</title>
+        <g id="node-checks" data-node-id="checks" data-node-label="Plan checks" tabindex="0" role="button" aria-label="Focus Plan checks, hours · travel time · budget, Architecture component" aria-pressed="false" data-node-kind="security" data-node-sublabel="hours · travel time · budget" data-node-tag="repair ≤ 2" data-node-context="Architecture component">
+          <title>Plan checks · hours · travel time · budget · Architecture component · repair ≤ 2</title>
           <rect x="1070" y="288" width="150" height="82" rx="8" class="c-mask"/>
           <rect x="1070" y="288" width="150" height="82" rx="8" class="c-security" data-animate="node" style="--step:9" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1076 294) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1145" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Checks</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Plan checks</text>
         <text data-detail="context" x="1145" y="343" class="t-muted" font-size="8.4" text-anchor="middle">hours · travel time · budget</text>
-        <text data-detail="fine" x="1145" y="362" class="t-security" font-size="7" text-anchor="middle">repair up to twice</text>
+        <text data-detail="fine" x="1145" y="362" class="t-security" font-size="7" text-anchor="middle">repair ≤ 2</text>
         </g>
 
-        <g id="node-store" data-node-id="store" data-node-label="Saved plan" tabindex="0" role="button" aria-label="Focus Saved plan, every version kept, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="every version kept" data-node-tag="your history" data-node-context="Architecture component">
-          <title>Saved plan · every version kept · Architecture component · your history</title>
+        <g id="node-store" data-node-id="store" data-node-label="My trips" tabindex="0" role="button" aria-label="Focus My trips, saved plan versions, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="saved plan versions" data-node-tag="your history" data-node-context="Architecture component">
+          <title>My trips · saved plan versions · Architecture component · your history</title>
           <rect x="1070" y="455" width="150" height="72" rx="8" class="c-mask"/>
           <rect x="1070" y="455" width="150" height="72" rx="8" class="c-database" data-animate="node" style="--step:11" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1076 461) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1145" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Saved plan</text>
-        <text data-detail="context" x="1145" y="505" class="t-muted" font-size="9" text-anchor="middle">every version kept</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">My trips</text>
+        <text data-detail="context" x="1145" y="505" class="t-muted" font-size="9" text-anchor="middle">saved plan versions</text>
         <text data-detail="fine" x="1145" y="519" class="t-database" font-size="7" text-anchor="middle">your history</text>
         </g>
 
-        <g id="node-memory" data-node-id="memory" data-node-label="Travel memory" tabindex="0" role="button" aria-label="Focus Travel memory, preferences · feedback, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="preferences · feedback" data-node-tag="you can clear it" data-node-context="Architecture component">
-          <title>Travel memory · preferences · feedback · Architecture component · you can clear it</title>
+        <g id="node-memory" data-node-id="memory" data-node-label="Saved memory" tabindex="0" role="button" aria-label="Focus Saved memory, preferences · feedback, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="preferences · feedback" data-node-tag="you can clear it" data-node-context="Architecture component">
+          <title>Saved memory · preferences · feedback · Architecture component · you can clear it</title>
           <rect x="640" y="455" width="180" height="72" rx="8" class="c-mask"/>
           <rect x="640" y="455" width="180" height="72" rx="8" class="c-database" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(646 461) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="730" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Travel memory</text>
+          <text data-node-label="" data-detail-anchor="" x="730" y="489" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Saved memory</text>
         <text data-detail="context" x="730" y="505" class="t-muted" font-size="9" text-anchor="middle">preferences · feedback</text>
         <text data-detail="fine" x="730" y="519" class="t-database" font-size="7" text-anchor="middle">you can clear it</text>
         </g>
 
-        <g id="node-desk" data-node-id="desk" data-node-label="Human desk" tabindex="0" role="button" aria-label="Focus Human desk, a person can take over, Human support" aria-pressed="false" data-node-kind="security" data-node-sublabel="a person can take over" data-node-tag="hold · notes · release" data-node-context="Human support">
-          <title>Human desk · a person can take over · Human support · hold · notes · release</title>
+        <g id="node-desk" data-node-id="desk" data-node-label="Desk" tabindex="0" role="button" aria-label="Focus Desk, a person can take over, Desk" aria-pressed="false" data-node-kind="security" data-node-sublabel="a person can take over" data-node-tag="Take over · Hand back" data-node-context="Desk">
+          <title>Desk · a person can take over · Desk · Take over · Hand back</title>
           <rect x="220" y="105" width="170" height="74" rx="8" class="c-mask"/>
           <rect x="220" y="105" width="170" height="74" rx="8" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-security" transform="translate(226 111) scale(0.6875)">
             <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="305" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Human desk</text>
+          <text data-node-label="" data-detail-anchor="" x="305" y="140" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Desk</text>
         <text data-detail="context" x="305" y="156" class="t-muted" font-size="9" text-anchor="middle">a person can take over</text>
-        <text data-detail="fine" x="305" y="171" class="t-security" font-size="7" text-anchor="middle">hold · notes · release</text>
+        <text data-detail="fine" x="305" y="171" class="t-security" font-size="7" text-anchor="middle">Take over · Hand back</text>
         </g>
 
-        <g id="node-providers" data-node-id="providers" data-node-label="Real-world sources" tabindex="0" role="button" aria-label="Focus Real-world sources, places · weather · flights, Outside sources" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="places · weather · flights" data-node-tag="live or offline corpus" data-node-context="Outside sources">
-          <title>Real-world sources · places · weather · flights · Outside sources · live or offline corpus</title>
+        <g id="node-providers" data-node-id="providers" data-node-label="Sources" tabindex="0" role="button" aria-label="Focus Sources, live or curated corpus, Outside sources" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="live or curated corpus" data-node-tag="Data and sources" data-node-context="Outside sources">
+          <title>Sources · live or curated corpus · Outside sources · Data and sources</title>
           <rect x="1070" y="110" width="150" height="72" rx="8" class="c-mask"/>
           <rect x="1070" y="110" width="150" height="72" rx="8" class="c-cloud" data-animate="node" style="--step:6" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1076 116) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1145" y="144" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Real-world sources</text>
-        <text data-detail="context" x="1145" y="160" class="t-muted" font-size="9" text-anchor="middle">places · weather · flights</text>
-        <text data-detail="fine" x="1145" y="174" class="t-cloud" font-size="7" text-anchor="middle">live or offline corpus</text>
+          <text data-node-label="" data-detail-anchor="" x="1145" y="144" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Sources</text>
+        <text data-detail="context" x="1145" y="160" class="t-muted" font-size="9" text-anchor="middle">live or curated corpus</text>
+        <text data-detail="fine" x="1145" y="174" class="t-cloud" font-size="7" text-anchor="middle">Data and sources</text>
         </g>
 
         <!-- Connection labels -->
@@ -5545,14 +5546,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-boundary-label="" x="1048" y="103" class="t-cloud" font-size="9" font-weight="600">Outside sources</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Your browser">
-          <rect data-graph-role="structural-frame-label-mask" x="14" y="275" width="74.8" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="18" y="288" class="t-cloud" font-size="9" font-weight="600">Your browser</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Pathfinder app">
+          <rect data-graph-role="structural-frame-label-mask" x="14" y="275" width="85.6" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="18" y="288" class="t-cloud" font-size="9" font-weight="600">Pathfinder app</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Human support">
-          <rect data-graph-role="structural-frame-label-mask" x="194" y="85" width="80.2" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="198" y="98" class="t-cloud" font-size="9" font-weight="600">Human support</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="Desk">
+          <rect data-graph-role="structural-frame-label-mask" x="194" y="85" width="31.599999999999998" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="198" y="98" class="t-cloud" font-size="9" font-weight="600">Desk</text>
         </g>
 
         <!-- Legend -->
@@ -5766,10 +5767,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>The short story</h3>
         </div>
         <ul>
-          <li>You ask in normal language.</li>
-          <li>Pathfinder reads the request, looks up real places and times, and builds a plan.</li>
-          <li>It checks the plan, then saves a version and shows it to you.</li>
-          <li>If a detail is missing or two readings are possible, it asks instead of guessing.</li>
+          <li>You send a message in Chat.</li>
+          <li>Pathfinder reads it, looks things up in Data and sources, and builds the plan.</li>
+          <li>The plan is checked, then shown in Plan and Trip map as a saved version in My trips.</li>
+          <li>If a detail is missing or two readings are possible, a clarify card asks instead of guessing.</li>
         </ul>
       </div>
 
@@ -5779,9 +5780,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Why you can trust the plan</h3>
         </div>
         <ul>
-          <li>Every stop and stay points back to a source.</li>
+          <li>Data and sources lists where every stop and stay came from.</li>
           <li>Code decides dates, travel time, opening hours and totals; the model does not do the arithmetic.</li>
-          <li>A failed check goes back for repair, not silently into the plan.</li>
+          <li>A failed Plan check goes back for repair, not silently into the plan.</li>
         </ul>
       </div>
 
@@ -5793,8 +5794,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <ul>
           <li>You ask for a person, sound stuck, or the same problem repeats.</li>
           <li>The chat moves to the Desk with its history.</li>
-          <li>An operator can hold, note, take over or release it.</li>
-          <li>The finished chat then moves to Session history.</li>
+          <li>An operator can Take over, leave a note, or Hand back.</li>
+          <li>A finished chat moves to Session history.</li>
         </ul>
       </div>
     </div>
