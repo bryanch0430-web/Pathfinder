@@ -67,6 +67,15 @@ plan; this release gives each uncertain part its own bounded representation.
   audit), **evaluator** (offline evaluation). The front-page section is
   **Verification**, not Evaluation.
 
+### Documentation
+
+- The interactive HTML architecture now carries a complete reference: every intent
+  flow, complex-query guarantee, module, data table, API group, UI surface and known
+  limit. The graph labels use the current intent-router / evidence-worker / validation
+  names.
+- `docs/ARCHITECTURE.md` points to that complete reference and keeps the short layer
+  map.
+
 ### Limits
 
 - Intercity flights/trains are not searched, priced or booked.
