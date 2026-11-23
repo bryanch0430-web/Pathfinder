@@ -905,6 +905,7 @@ export function ClarifyCard({
   submitting?: boolean;
 }) {
   const { t } = useI18n();
+  const id = useId();
   const choices = payload.choices ?? [];
   const slotsOnly = payload.slots.length > 0;
   // A number the trip could not take (a party of -2) flags its field and holds Continue;
@@ -930,7 +931,11 @@ export function ClarifyCard({
     const count = dayCount(span.start, span.end);
     return !span.start || !span.end || count === null || count < 1 || count > MAX_TRIP_DAYS;
   };
-  const blocked = payload.slots.some(badNumber) || payload.slots.some(dateProblem);
+  const badCurrency = (slot: string): boolean => {
+    if (slot !== "currency") return false;
+    return !/^[A-Z]{3}$/.test((values[slot] ?? "").trim().toUpperCase());
+  };
+  const blocked = payload.slots.some(badNumber) || payload.slots.some(dateProblem) || payload.slots.some(badCurrency);
   return (
     <div className="pf-clarify">
       <div className="pf-row">
@@ -949,6 +954,27 @@ export function ClarifyCard({
           // field still accepts a larger group.
           const options = slot === "party_size" ? ["1", "2", "3", "4", "5", "6"] : payload.options[slot] ?? [];
           const suggested = payload.suggestions?.find((item) => item.slot === slot)?.name ?? "";
+          if (slot === "currency") {
+            const code = (values[slot] ?? "").toUpperCase().slice(0, 3);
+            return (
+              <Field key={slot} label={label} wide>
+                <Input
+                  id={`${id}-currency-${slot}`}
+                  aria-label={label}
+                  list={`${id}-currency-list-${slot}`}
+                  value={code}
+                  placeholder={t("form.currencySearch")}
+                  invalid={badCurrency(slot)}
+                  onChange={(event) => onChange(slot, event.target.value.toUpperCase().slice(0, 3))}
+                />
+                <datalist id={`${id}-currency-list-${slot}`}>
+                  {currencyCodes(null, code).map((choice) => (
+                    <option key={choice} value={choice} label={currencyOptionLabel(choice)} />
+                  ))}
+                </datalist>
+              </Field>
+            );
+          }
           if (slot === "dates") {
             return (
               <DateRangeField

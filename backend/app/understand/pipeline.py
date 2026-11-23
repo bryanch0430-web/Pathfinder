@@ -278,6 +278,21 @@ def _clarify(
             value for value in options["party_size"] if value.strip().isdigit() and 1 <= int(value) <= 20
         ][:6]
         options["party_size"] = normalized or ["1", "2", "3", "4", "5", "6"]
+    # A clarify question that talks about converting/keeping a currency must
+    # include the currency field. Otherwise the card asks "HKD or TWD?" while
+    # only rendering a Budget number, and the traveller has nowhere to answer it.
+    currency_prompt = "currency" in question.lower() or any(
+        code in question.lower() for code in ("hkd", "twd", "jpy", "usd", "eur", "gbp", "cny", "sgd")
+    )
+    if currency_prompt or normalise_currency(parsed.slots.currency):
+        if "currency" not in slots:
+            slots.append("currency")
+        choices = [
+            normalise_currency(context.currency),
+            normalise_currency(parsed.slots.currency),
+            "TWD", "HKD", "JPY", "USD", "EUR", "GBP",
+        ]
+        options["currency"] = list(dict.fromkeys(code for code in choices if code))[:6]
     if not question:
         if not context.destination:
             question = "Where would you like to go, and roughly when?"

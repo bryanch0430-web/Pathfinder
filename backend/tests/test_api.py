@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.api.app import create_app
 from app.config import Settings
 from app.core.currencies import normalise_currency
-from app.domain.models import TripContext
+from app.domain.models import RoutePayload, TripContext
 from app.understand.pipeline import missing_for_plan
 
 
@@ -241,3 +241,19 @@ def test_currency_must_be_a_real_iso_code(tmp_path):
         )
         assert good.status_code == 200
         assert good.json()["context"]["currency"] == "TWD"
+
+
+def test_currency_ambiguity_clarify_always_has_a_currency_field():
+    from app.understand.pipeline import _clarify
+    from app.understand.schemas import ParsedIntent
+
+    parsed = ParsedIntent(
+        intent="modify",
+        question="I think you mean HKD (Hong Kong dollars). Should I convert your 12,000 TWD budget to HKD, or keep 12,000 and treat it as HKD?",
+        missing_slots=["budget"],
+    )
+    route = RoutePayload(intent="modify", need_clarification=True, missing_slots=["budget"])
+    clarify = _clarify(parsed, TripContext(session_id="currency-clarify", currency="TWD"), None, route)
+    assert "currency" in clarify.slots
+    assert "HKD" in clarify.options["currency"]
+    assert "TWD" in clarify.options["currency"]
