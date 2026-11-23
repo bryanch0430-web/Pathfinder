@@ -6,6 +6,7 @@ import type { TripPlan } from "../design-system/types";
 import { Icon } from "../design-system/icons";
 import { useI18n } from "../lib/i18n";
 import { maskTyped } from "../lib/maskPii";
+import { startPolling } from "../lib/poll";
 import {
   getDesk,
   getDeskChat,
@@ -221,12 +222,11 @@ function deskStartPlace() {
   return { x: Math.max(12, Math.round((vw - w) / 2)), y: Math.max(56, Math.round((vh - h) / 2)), w, h };
 }
 
-function clampDeskPlace(place: { x: number; y: number; w: number; h: number }) {
-  const vw = typeof window === "undefined" ? 1440 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 900 : window.innerHeight;
-  const w = Math.max(640, Math.min(place.w, Math.max(640, vw - 24)));
-  const h = Math.max(460, Math.min(place.h, Math.max(460, vh - 80)));
-  return { x: Math.max(8, Math.min(place.x, vw - w - 8)), y: Math.max(48, Math.min(place.y, vh - h - 8)), w, h };
+/** Keeps the session window inside the desk's main area (the viewport less the side menu), not the whole viewport. */
+function clampDeskPlace(place: { x: number; y: number; w: number; h: number }, box: { w: number; h: number }) {
+  const w = Math.max(320, Math.min(place.w, box.w - 16));
+  const h = Math.max(320, Math.min(place.h, box.h - 16));
+  return { x: Math.max(8, Math.min(place.x, box.w - w - 8)), y: Math.max(8, Math.min(place.y, box.h - h - 8)), w, h };
 }
 
 /** A contact desk, separate from the planner: a queue, the conversation, and the trip beside it. */
@@ -284,17 +284,26 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   const threadRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fit = () => setPlace((current) => clampDeskPlace(current));
+    const node = mainRef.current;
+    const fit = () => {
+      const rect = node?.getBoundingClientRect();
+      const box = rect && rect.width > 0 ? { w: rect.width, h: rect.height } : { w: window.innerWidth - 240, h: window.innerHeight - 56 };
+      setPlace((current) => clampDeskPlace(current, box));
+    };
     fit();
     window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+    const observer = node && typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
+    if (node) observer?.observe(node);
+    return () => {
+      window.removeEventListener("resize", fit);
+      observer?.disconnect();
+    };
   }, []);
 
-  const loadList = () => {
-    void getDesk().then((data) => setChats(data.chats)).catch((cause) => setError(String(cause)));
-  };
-  const loadChat = (id: string, withNote = false) => {
-    void getDeskChat(id).then((data) => {
+  const loadList = () =>
+    getDesk().then((data) => setChats(data.chats)).catch((cause) => setError(String(cause)));
+  const loadChat = (id: string, withNote = false) =>
+    getDeskChat(id).then((data) => {
       setMessages(data.messages);
       setHeld(data.held);
       if (withNote) {
@@ -312,11 +321,9 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
         });
       }
     }).catch((cause) => setError(String(cause)));
-  };
   useEffect(() => {
-    loadList();
-    const timer = window.setInterval(loadList, 5000);
-    return () => window.clearInterval(timer);
+    void loadList();
+    return startPolling(loadList, 5000);
   }, []);
   const loadPlan = (id: string) => {
     void getDeskPlan(id).then((data) => {
@@ -324,8 +331,8 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       setStops(data.plan?.days.flatMap((day) => day.items.map((item) => ({ ...item }))) ?? []);
     }).catch((cause) => setError(String(cause)));
   };
-  const loadTrip = (id: string, announce = false) => {
-    void getDeskItinerary(id).then((data) => {
+  const loadTrip = (id: string, announce = false) =>
+    getDeskItinerary(id).then((data) => {
       setPlannerBusy(Boolean(data.planner_busy));
       setPlannerNote(data.planner_note || "");
       setTripPlan((current) => {
@@ -342,18 +349,17 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       setError(cause instanceof Error ? cause.message : String(cause));
       setStudioOpen(false);
     });
-  };
   useEffect(() => {
     if (!active || !held) return;
-    loadTrip(active);
+    void loadTrip(active);
   }, [active, held]);
   useEffect(() => {
     if (!studioOpen || !active) return;
     window.dispatchEvent(new CustomEvent("pf-desk-studio", { detail: { open: true } }));
-    loadTrip(active, true);
-    const timer = window.setInterval(() => loadTrip(active), 4000);
+    void loadTrip(active, true);
+    const stopPolling = startPolling(() => loadTrip(active), 5000);
     return () => {
-      window.clearInterval(timer);
+      stopPolling();
       window.dispatchEvent(new CustomEvent("pf-desk-studio", { detail: { open: false } }));
     };
   }, [studioOpen, active]);
@@ -371,10 +377,9 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   }, [studioOpen, active, tripPlan]);
   useEffect(() => {
     if (!active) return;
-    loadChat(active, true);
+    void loadChat(active, true);
     loadPlan(active);
-    const timer = window.setInterval(() => loadChat(active), 4000);
-    return () => window.clearInterval(timer);
+    return startPolling(() => loadChat(active), 4000);
   }, [active]);
   useEffect(() => {
     const node = threadRef.current;

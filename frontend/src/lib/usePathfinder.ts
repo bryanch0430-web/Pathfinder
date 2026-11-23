@@ -116,6 +116,7 @@ function clarifyFromHistory(message: ChatMessage | undefined): ClarifyPayload | 
 }
 import { forgetSignIn, forgetTrip, readStoredValue, rememberedTrip, rememberTrip, writeStoredValue } from "./storage";
 import { writeTrips } from "./tripsStore";
+import { startPolling } from "./poll";
 
 /**
  * A random version 4 UUID. `crypto.randomUUID` exists only in a secure context (https or localhost): a page served over
@@ -799,8 +800,7 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   useEffect(() => {
     if (!held || !sessionId) return;
-    const timer = window.setInterval(() => void refresh(), 4000);
-    return () => window.clearInterval(timer);
+    return startPolling(refresh, 4000);
   }, [held, sessionId, refresh]);
 
   useEffect(() => {
@@ -836,21 +836,18 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   useEffect(() => {
     if (held || !sessionId) return;
-    const timer = window.setInterval(() => {
+    return startPolling(() => {
       if (shownRef.current.busy) return;
-      void getHeld(sessionId)
-        .then((data) => {
-          if (sessionRef.current !== sessionId) return;
-          setPlannerBusy(Boolean(data.planner_busy));
-          setPlannerNote(data.planner_note || "");
-          if (!data.held) return;
-          setHeld(true);
-          setAgentName(data.agent_name || "");
-          void refresh();
-        })
-        .catch(() => undefined);
+      return getHeld(sessionId).then((data) => {
+        if (sessionRef.current !== sessionId) return;
+        setPlannerBusy(Boolean(data.planner_busy));
+        setPlannerNote(data.planner_note || "");
+        if (!data.held) return;
+        setHeld(true);
+        setAgentName(data.agent_name || "");
+        void refresh();
+      });
     }, 5000);
-    return () => window.clearInterval(timer);
   }, [held, sessionId, refresh]);
 
   const setPlanLocale = useCallback(async (value: PlanLocale) => {

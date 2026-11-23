@@ -905,6 +905,7 @@ button.pf-badge:hover {
 
 .pf-chat__taken {
   margin: 0;
+  overflow-wrap: anywhere;
   padding: 8px 12px;
   border-bottom: 1px solid var(--pf-line);
   color: var(--pf-ink);
@@ -3822,6 +3823,12 @@ button.pf-badge:hover {
 
 .pf-chat__identity .pf-stack {
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pf-chat__identity .pf-text {
+  white-space: normal;
+  text-wrap: balance;
 }
 
 .pf-chat__tools {
