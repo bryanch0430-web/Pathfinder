@@ -305,6 +305,8 @@ export const ZH_HANT: Messages = {
   "sheet.plannerUnderstand": "Pathfinder 正在理解你的訊息",
   "sheet.plannerModify": "Pathfinder 正在修改行程",
   "sheet.plannerPlan": "Pathfinder 正在規劃行程",
+  "sheet.lockedIn": "已鎖定",
+  "sheet.lockedHint": "此處唯讀。請在詳情頁解鎖或更改。",
   "sheet.undo": "還原",
   "sheet.start": "開始時間",
   "sheet.duration": "分鐘",

@@ -4061,6 +4061,51 @@ button.pf-badge:hover {
   gap: 8px;
 }
 
+.pf-sheet__locked {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--pf-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--p30-tone-brand-light) 32%, var(--pf-surface));
+}
+
+.pf-sheet__locked-items {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.pf-sheet__locked-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--pf-line);
+  border-radius: 6px;
+  background: var(--pf-surface);
+  color: var(--pf-ink-secondary);
+  font-size: 11px;
+}
+
+.pf-sheet__locked-card > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-sheet__locked-card small {
+  color: var(--pf-ink-tertiary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .pf-sheet__frame {
   display: flex;
   flex: 1;

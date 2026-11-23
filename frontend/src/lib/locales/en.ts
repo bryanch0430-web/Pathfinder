@@ -305,6 +305,8 @@ export const EN = {
   "sheet.plannerUnderstand": "Pathfinder is understanding your message",
   "sheet.plannerModify": "Pathfinder is modifying the plan",
   "sheet.plannerPlan": "Pathfinder is planning the trip",
+  "sheet.lockedIn": "Locked in",
+  "sheet.lockedHint": "Read-only here. Unlock or change these in Detail view.",
   "sheet.undo": "Undo",
   "sheet.start": "Start time",
   "sheet.duration": "Minutes",

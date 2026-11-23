@@ -1372,9 +1372,12 @@ export function usePathfinder(locale: string): PathfinderHook {
     setActiveVersion(data.plan.version);
     setChangedIds(kind === "item" && targetId ? [targetId] : []);
     setChangedStayIds(kind === "hotel" ? new Set([optionId]) : NO_IDS);
+    // Lock/choose is called with the slot the traveller clicked. Return
+    // options can carry the outbound leg_id from the provider, so preferring
+    // the ticket's leg_id marked the inbound card as Updated instead.
     const legId =
       kind === "flight" || kind === "transport"
-        ? data.plan.tickets.find((ticket) => ticket.id === optionId)?.leg_id
+        ? targetId || data.plan.tickets.find((ticket) => ticket.id === optionId)?.leg_id
         : undefined;
     setChangedLegIds(legId ? new Set([legId]) : NO_IDS);
     try {

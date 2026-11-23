@@ -303,6 +303,8 @@ export const ZH_HANS: Messages = {
   "sheet.plannerUnderstand": "Pathfinder 正在理解你的消息",
   "sheet.plannerModify": "Pathfinder 正在修改行程",
   "sheet.plannerPlan": "Pathfinder 正在规划行程",
+  "sheet.lockedIn": "已锁定",
+  "sheet.lockedHint": "此处只读。请在详情页解锁或更改。",
   "sheet.undo": "还原",
   "sheet.start": "开始时间",
   "sheet.duration": "分钟",
