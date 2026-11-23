@@ -189,3 +189,41 @@ A defensible report sentence:
 > “The router exposes a model-reported confidence score. We treat it as an
 > uncalibrated selective-prediction signal and evaluate it with risk–coverage,
 > ECE and AUROC; we do not interpret the raw value as a probability.”
+
+### What the verbalized number means
+
+A verbalized confidence score is a **self-report**, not an observation of the model's
+internal probability. We can know its **operational meaning** — how often answers are
+correct at a given score on a held-out distribution — but we cannot know that it is a
+stable internal belief, that it is comparable across models, or that it would remain
+calibrated under a new prompt or language.
+
+That distinction is the defensible position:
+
+- **Can claim:** it is a model-reported, ordinal signal; it is usable as a
+  selective-prediction gate after empirical validation.
+- **Cannot claim:** “0.8 means an 80% chance of being correct”; that it is stable
+  across models; that it is comparable with Jev's confidence.
+- **Current limitation:** the 0.8 threshold is a product default, not a calibrated
+  operating point, and v5 currently only forces clarification for low-confidence edits
+  to an existing plan. The new-plan path relies on the analyst's own
+  `need_clarification` flag.
+
+A calibration study should therefore report reliability (ECE), Brier score, AUROC for
+failure prediction and a risk–coverage curve at the deployed threshold. Until then the
+UI calls it **Reported intent confidence**, not “probability”.
+
+### Why the design is still defensible
+
+1. The score is not the only safety mechanism: missing-slot clarification,
+   deterministic validation, constraint verification, locked items and user
+   confirmation all remain in control.
+2. A false “high confidence” should not silently commit an edit. The conservative
+   threshold and the clarify path make abstention cheap.
+3. Verbalized confidence is a recognised black-box uncertainty elicitation baseline;
+   the literature supports evaluating it, not assuming it.
+4. The architectural claim is modest: we use a **heuristic self-report to decide when
+   to ask**, and we measure whether that decision rule has acceptable selective risk.
+
+If the calibration study shows poor discrimination, the correct engineering response
+is to stop using the number as a gate, not to relabel it as a probability.
