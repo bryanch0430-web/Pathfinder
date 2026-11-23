@@ -707,8 +707,10 @@ body(
     "before the run; a missing or errored case counts as wrong; the same prompt and model settings are used "
     "for every case in an arm. Routing is paired against the frozen Sonnet run, but the other suites are not "
     "powered for a claim of general model superiority. The planner suite covers Hong Kong, Japan and a small "
-    "TravelPlanner subset; it is not the full 1,225-query benchmark. The editor suite covers remove, move and "
-    "time changes but not add/research edits. These boundaries are part of the result, not footnotes.",
+    "TravelPlanner subset; it is not the full 1,225-query benchmark. TravelPlanner also informed the proposal: "
+    "its raw query patterns shaped our request fixtures and UI expectations, although no labels were used for "
+    "tuning. The editor suite covers remove, move and time changes but not add/research edits. These boundaries "
+    "are part of the result, not footnotes.",
 )
 body(
     doc,
@@ -839,6 +841,14 @@ figure(doc, "fig-dataflow.png", width=5.0, cap="Figure A2. Data flow. Personal d
 figure(doc, "fig-results.png", width=5.2, cap="Figure A3. Latest observed results. Routing uses four ChatAnywhere arms plus Jev with plan context; component panels use the latest tested cases. Sets differ in size and are not one end-to-end score.")
 figure(doc, "fig-verifier.png", width=5.2, cap="Figure A4. Verifier outcome on 17 unique cases. Both residual errors are false passes on transfer arithmetic (10 min and 29 min against a 30 min constraint), not false alarms.")
 figure(doc, "fig-tp-pilot.png", width=5.2, cap="Figure A5. TravelPlanner screening and 20-case pilot. Population and official subsets come from osunlp/TravelPlanner on Hugging Face (CC-BY-4.0); the pilot result is ours and is not a full-set benchmark score.")
+body(
+    doc,
+    "TravelPlanner also served as a proposal-level design input, not only as an evaluation source. We used its "
+    "raw request patterns—origin/destination pairs, 3/5/7-day horizons, party sizes, budget phrasing, multi-city "
+    "requests and local constraints—to shape realistic test utterances and interface expectations. No "
+    "TravelPlanner labels were used for model tuning, and the full set was not run; the official population is "
+    "cited to the Hugging Face dataset so the distinction between design inspiration and measured result is clear.",
+)
 body(
     doc,
     "All tests were run on the submitted branch with the repository virtual environment; no network is "
