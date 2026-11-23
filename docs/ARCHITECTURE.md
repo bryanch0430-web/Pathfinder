@@ -4,6 +4,12 @@ Pathfinder v5 keeps the existing **interface** and replaces the **core**. This d
 the map: what each layer owns, how one turn flows, where the guarantees live, and
 what to change for the common extensions.
 
+> **Complete companion reference:** the
+> [interactive HTML architecture](architecture/pathfinder-v5-architecture.html#architecture-reference)
+> now includes every intent flow, complex-query guarantee, module, data table, API
+> group, UI surface and known limit (v5.1, 23 November 2026). Use it as the full
+> specification; this Markdown file is the short map.
+
 ## 1. Layers
 
 ```
@@ -11,12 +17,12 @@ frontend/                 the carried-over React app
    │  same JSON + SSE contract
 backend/app/api/          FastAPI routers, auth, admin, eval endpoints
 backend/app/turn/         orchestrator: one turn → ordered events
-backend/app/understand/   turn analyst: typed intent, slots, constraints, clarify
-backend/app/plan/         agents, composer, validator, editor, diff
+backend/app/understand/   intent router/analyst: typed intent, intake slots, clarify
+backend/app/plan/         evidence workers, planner, editor, validation, continuity, multi-city
 backend/app/evidence/     providers + curated atlas + Evidence model
 backend/app/domain/       the wire model (mirrors frontend/src/design-system/types.ts)
 backend/app/core/         store, model gateway, dates, prompts, traces
-backend/app/eval/         datasets + runner
+backend/app/eval/         offline evaluator: datasets + runner
 backend/app/skills/       prompt packs (Markdown, overridable at runtime)
 ```
 
