@@ -331,6 +331,11 @@ def missing_for_plan(context: TripContext) -> list[str]:
         missing.append("start_date")
     if not (context.days or context.end_date):
         missing.append("days")
+    # Party size changes the cost, room count and pace, so it is not a safe silent
+    # default. Budget stays optional: ask for it in the same question, but do not
+    # block the plan when the traveller does not have one.
+    if not context.party_size:
+        missing.append("party_size")
     return missing
 
 

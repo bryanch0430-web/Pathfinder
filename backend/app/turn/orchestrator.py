@@ -959,6 +959,12 @@ def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> Clari
         question, slots = "Where would you like to go, and roughly when?", ["destination", "start_date"]
     elif not dates_usable(context):
         question, slots = "Which dates should I plan for? A start date and a length is enough.", ["start_date", "days"]
+    elif not context.party_size:
+        question, slots = (
+            "How many people are travelling? If you have a budget in mind, include it; "
+            "otherwise I will plan without a fixed budget.",
+            ["party_size", "budget"],
+        )
     else:
         question, slots = "Could you say a little more about what you would like?", ["scope"]
     return ClarifyPayload(

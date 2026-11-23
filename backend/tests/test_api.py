@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 
 from app.api.app import create_app
 from app.config import Settings
+from app.domain.models import TripContext
+from app.understand.pipeline import missing_for_plan
 
 
 def _client(tmp_path, *, local_admin: bool = True) -> TestClient:
@@ -209,3 +211,13 @@ def test_clear_memory_removes_preferences_and_saved_trips(tmp_path):
         again = client.post("/api/recall/clear", json={"client_token": "tester"}, headers=headers)
         assert again.status_code == 200
         assert again.json() == {"cleared": True, "saved_trips": 0, "preferences": 0}
+
+
+def test_a_new_plan_asks_for_party_size_but_not_budget():
+    context = TripContext(
+        session_id="party-check", destination="Japan", start_date="2026-11-30", days=10, currency="HKD"
+    )
+    assert missing_for_plan(context) == ["party_size"]
+
+    context.party_size = 2
+    assert missing_for_plan(context) == []

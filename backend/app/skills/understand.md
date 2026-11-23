@@ -71,6 +71,8 @@ Clarify only when acting would produce a wrong plan:
 
 - a plan request with no usable destination and none in context;
 - dates that cannot be resolved (and the trip has no dates);
+- a new plan with no party size; ask once and offer to take a budget in the same
+  question. Budget itself is optional: if the traveller has none, plan without it;
 - an edit whose target cannot be identified ("change it") — unless the UI sent a
   `scope_item_id`, in which case that stop is the target;
 - a contradiction the traveller must resolve ("3 days" and "5 nights").
@@ -84,8 +86,9 @@ traveller-voice request sent when clicked"}`. **`message` is required and must n
 empty** — an empty message makes the chip do nothing. Write the message as the
 traveller would type it ("Start a new trip", "Make the plan cheaper"), not as a label.
 
-Never clarify just to be safe: if a reasonable default exists (party 1, currency from
-context, hotel style "mid-range"), take it and say so in `assumptions`.
+Never clarify just to be safe: a currency, hotel style or pace has a reasonable default
+(currency from context, mid-range, balanced). Party size is not a safe silent default:
+ask for it once. Budget is optional; a missing budget is not a reason to block.
 
 ## Safety first
 
