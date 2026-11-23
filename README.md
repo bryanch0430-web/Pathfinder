@@ -21,6 +21,7 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 
 | Version | When (HKT) | Headline |
 |---|---|---|
+| v1.19.0 | 2026-11-23 12:45 | Complex requests get a bounded path: date windows, flight windows, city segments and an execution budget |
 | v1.18.0 | 2026-11-22 16:30 | A wish stays a wish, the end date is labelled, and a budget chip fills the box |
 | v1.17.0 | 2026-11-22 12:44 | A file can start a new trip, a date range is checked, and a found stop says why it was left out |
 | v1.16.0 | 2026-11-22 12:00 | A wish becomes a real stop, a finished trip stays in history, and flights fold like a meal |
@@ -46,6 +47,38 @@ Recent releases, newest first. The table is only an index. The notes under it ar
 | v1.0.2 | 2026-11-01 22:50 | Modify only reports changes it made; named swaps; meals |
 | v1.0.1 | 2026-11-01 20:30 | Product renamed to Pathfinder; storage keys migrated; screenshots refreshed |
 | v1.0.0 | 2026-11-01 | First import on `pathfinder-v1` |
+
+### v1.19.0 — 23 November 2026, 12:45 HKT
+
+**Complex requests need explicit state, not a longer prompt.** A request can combine
+"next month", a 2-day length, a budget in another currency, flights, more than one
+city and items already locked. v1.19 gives each uncertain part its own bounded
+representation.
+
+This entry documents the rebuilt v5 line on `pathfinder_v5`; the legacy v1.x
+application on `main` remains at v1.18.0 and is not rebuilt by this note.
+
+- **A month is a window, not a day.** "Next month" is remembered as December 2026.
+  The 2-day length is kept, the clarify card asks only for the start date, and the
+  app no longer invents 1 December.
+- **A flight bounds the day.** Selected arrival and departure times add a 90-minute
+  arrival and a 120-minute departure buffer. A stop before landing or after leaving
+  is returned to the planner, not silently kept.
+- **A complex route is several segments.** Multi-city stops are planned city by city,
+  joined in order, and checked for consecutive days, segment order and city order.
+  Intercity transport remains a visible booking gap until a source is connected.
+- **A turn has an execution budget.** The whole turn is bounded at 300 seconds by
+  default (60–900). On expiry the harness cancels the work, returns `turn_timeout`,
+  and releases the seat.
+- **Today's date comes from the clock.** A current-date question answers from the
+  runtime `now`, not from cached search snippets.
+- **Locked choices stay visible.** Direct edit shows locked stays and flights
+  read-only; locking a return flight updates the return leg, not the outbound one.
+- **Verification is not evaluation.** The in-turn checks are the validator plus the
+  constraint verifier. "Evaluation" is reserved for the offline evaluation harness.
+
+**Still open:** intercity sourcing and booking, per-segment refinement, and tool-policy
+allowlists.
 
 ### v1.18.0 — 22 November 2026, 16:30 HKT
 

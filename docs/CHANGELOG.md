@@ -5,7 +5,40 @@ commit is named for anyone who wants to read the diff.
 
 ---
 
+## v1.19.0 — 2026-11-23 12:45
+
+**Complex requests need explicit state, not a longer prompt.** A request can combine
+"next month", a 2-day length, a budget in another currency, flights, more than one
+city and items already locked. v1.19 gives each uncertain part its own bounded
+representation.
+
+This entry documents the rebuilt v5 line on `pathfinder_v5`; the legacy v1.x
+application on `main` remains at v1.18.0 and is not rebuilt by this note.
+
+- **A month is a window, not a day.** "Next month" is remembered as December 2026.
+  The 2-day length is kept, the clarify card asks only for the start date, and the
+  app no longer invents 1 December.
+- **A flight bounds the day.** Selected arrival and departure times add a 90-minute
+  arrival and a 120-minute departure buffer. A stop before landing or after leaving
+  is returned to the planner, not silently kept.
+- **A complex route is several segments.** Multi-city stops are planned city by city,
+  joined in order, and checked for consecutive days, segment order and city order.
+  Intercity transport remains a visible booking gap until a source is connected.
+- **A turn has an execution budget.** The whole turn is bounded at 300 seconds by
+  default (60–900). On expiry the harness cancels the work, returns `turn_timeout`,
+  and releases the seat.
+- **Today's date comes from the clock.** A current-date question answers from the
+  runtime `now`, not from cached search snippets.
+- **Locked choices stay visible.** Direct edit shows locked stays and flights
+  read-only; locking a return flight updates the return leg, not the outbound one.
+- **Verification is not evaluation.** The in-turn checks are the validator plus the
+  constraint verifier. "Evaluation" is reserved for the offline evaluation harness.
+
+**Still open:** intercity sourcing and booking, per-segment refinement, and tool-policy
+allowlists.
+
 ## v1.18.0 — 2026-11-22 16:30
+
 
 More ways of saying a trip are read. A wish is not stored as the city. The clarify card names the end date, and a budget chip fills the box. Evaluation lists the bulk sets for reference only.
 
