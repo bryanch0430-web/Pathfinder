@@ -284,5 +284,15 @@
       "outcome": "would_clarify",
       "error": ""
     }
+  ],
+  "experimental": true,
+  "placeholder": true,
+  "shipped": false,
+  "limitations": [
+    "one run per case",
+    "n=10",
+    "routing-layer only",
+    "no real hybrid mode",
+    "no itinerary generated"
   ]
 }

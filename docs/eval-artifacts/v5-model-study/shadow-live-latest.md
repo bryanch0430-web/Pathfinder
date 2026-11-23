@@ -2,7 +2,7 @@
 
 Generated: 2026-11-23T13:58:04+08:00
 
-Mode: **live shadow**. The analyst route is the real route; Jev is called in parallel only to log a second opinion. No user-visible decision changes.
+Mode: **live shadow — experimental placeholder, not a shipped hybrid mode**. The analyst route is the real route; Jev is called in parallel only to log a second opinion. No user-visible decision changes.
 
 - Cases: **10** (6 normal, 4 ambiguous)
 - Raw intent agreement: **6/10 = 60.0%**

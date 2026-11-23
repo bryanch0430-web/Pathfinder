@@ -227,3 +227,22 @@ UI calls it **Reported intent confidence**, not “probability”.
 
 If the calibration study shows poor discrimination, the correct engineering response
 is to stop using the number as a gate, not to relabel it as a probability.
+
+## Hybrid router shadow (experimental placeholder)
+
+The dual-router experiment is intentionally a **placeholder**, not a shipped hybrid
+mode. The live shadow runs the analyst as the real router and calls Jev in parallel
+only to log a second opinion; it does not generate a plan from the hybrid and does not
+change a user-visible decision.
+
+- Live sample: 10 cases (6 normal, 4 ambiguous), one run per case.
+- Raw intent agreement: 6/10; action agreement: 7/10; would clarify: 7/10.
+- Jev was much faster (~330 ms) than the analyst (~8.6 s); parallel wall time was
+  dominated by the analyst.
+- All four ambiguous cases converged on clarification.
+- A strict agreement gate over-clarified the normal **ask** case.
+- The result is a hypothesis for a repeated live shadow, not evidence of improvement.
+
+Artefacts: `docs/eval-artifacts/v5-model-study/shadow-live-latest.{json,md}` and
+`backend/scripts/v5_shadow_live.py`. The limitations are also recorded in
+`docs/eval-artifacts/v5-model-study/LIMITATIONS.md`.
