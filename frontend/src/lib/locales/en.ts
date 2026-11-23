@@ -940,6 +940,7 @@ export const EN = {
   "form.travellers": "Travellers",
   "form.budget": "Budget",
   "form.currency": "Budget currency",
+  "form.currencySearch": "Search currency (e.g. TWD)",
   "form.hotelStyle": "Hotel style",
   "form.style.none": "No preference",
   "form.style.budget": "Budget",
@@ -1126,6 +1127,7 @@ export const EN = {
   "budget.exchangeEmpty": "A plan with a total can be turned into another currency here.",
   "budget.reference": "Reference",
   "budget.displayCurrency": "Display currency",
+  "budget.chooseCurrency": "Choose a currency",
   "budget.base": "{base} base",
   "budget.optimise": "Optimise my budget",
 

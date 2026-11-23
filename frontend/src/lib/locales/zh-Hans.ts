@@ -938,6 +938,7 @@ export const ZH_HANS: Messages = {
   "form.travellers": "出行人数",
   "form.budget": "预算",
   "form.currency": "预算币种",
+  "form.currencySearch": "搜索货币（例如 TWD）",
   "form.hotelStyle": "酒店风格",
   "form.style.none": "无偏好",
   "form.style.budget": "经济型",
@@ -1124,6 +1125,7 @@ export const ZH_HANS: Messages = {
   "budget.exchangeEmpty": "有行程总额后，可以在这里换成另一种货币。",
   "budget.reference": "参考",
   "budget.displayCurrency": "显示币种",
+  "budget.chooseCurrency": "选择货币",
   "budget.base": "以 {base} 为基准",
   "budget.optimise": "优化我的预算",
 

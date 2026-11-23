@@ -24,6 +24,7 @@ from datetime import date, timedelta
 from typing import Any, AsyncIterator
 
 from app.config import Settings
+from app.core.currencies import normalise_currency
 from app.core.dates import parse_date
 from app.core.llm import LLMClient, LLMError
 from app.core.prompts import context_brief, dialogue, plan_text, retrieved, skill
@@ -281,9 +282,49 @@ async def _produce(
     trace.why.append(
         f"Read as {route.intent} ({route.confidence:.0%} confident): {understanding.parsed.reason or route.reason_code}."
     )
+    # The request may set the trip currency. Validate it before anything is
+    # planned or saved; the UI also gets the context so its budget/FX widgets
+    # follow the same value immediately.
+    requested_currency = (understanding.parsed.slots.currency or "").strip()
+    if "invalid_currency" in str(route.reason_code or "") or (
+        requested_currency and not normalise_currency(requested_currency)
+    ):
+        clarify = ClarifyPayload(
+            question=(
+                f"I can't use “{requested_currency[:20]}” as a currency. "
+                "Use a three-letter code such as TWD, JPY, USD, HKD or EUR."
+            ),
+            slots=["currency"],
+            labels=["Currency"],
+            options={"currency": ["TWD", "JPY", "USD", "HKD", "EUR", "GBP"]},
+            choices=[],
+            suggestions=[],
+            reason_code="invalid_currency",
+        )
+        await push("clarify", clarify.model_dump())
+        await _stream_text(push, "I need a valid currency code before I can use that.")
+        await _save_assistant(
+            store,
+            session_id,
+            "I need a valid currency code before I can use that.",
+            intent=route.intent,
+            meta={"clarify": True, "slots": ["currency"], "clarify_payload": clarify.model_dump()},
+        )
+        await _finish(push, trace, session_id=session_id, intent=route.intent)
+        return
     await store.save_context(session_id, context.model_dump())
+    await push("context", context.model_dump(mode="json"))
     await push("route", route.model_dump())
     await push("progress", {"phase": "route", "message": "Deciding the path.", "progress": 8})
+    if requested_currency and normalise_currency(requested_currency):
+        if route.intent in {"ask", "unclear"} and _currency_statement(message):
+            reply = f"Got it — I'll use {context.currency} for this trip."
+            await _stream_text(push, reply)
+            await _save_assistant(
+                store, session_id, reply, intent=route.intent, meta={"currency": context.currency}
+            )
+            await _finish(push, trace, session_id=session_id, intent=route.intent)
+            return
     if understanding.parsed.assumptions:
         trace.why.extend(f"Assumed: {line}" for line in understanding.parsed.assumptions[:3])
     if understanding.parsed.injection_suspected:
@@ -1007,6 +1048,19 @@ def _safety_reply() -> str:
     )
 
 
+def _currency_statement(message: str) -> bool:
+    """A currency-setting sentence, not a question about exchange rates."""
+    lowered = (message or "").lower()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "currency i am using", "currency i'm using", "my currency",
+            "currency is", "use twd", "use jpy", "use usd", "use hkd",
+            "currency to", "switch currency",
+        )
+    )
+
+
 def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> ClarifyPayload:
     if not context.destination:
         question, slots = "Where would you like to go, and roughly when?", ["destination", "start_date"]
@@ -1188,8 +1242,14 @@ def _apply_intake(context: TripContext, facts: IntakeFacts | None) -> TripContex
     updated = context.model_copy(deep=True)
     for field in ("destination", "origin", "start_date", "end_date", "days", "party_size", "budget", "currency"):
         value = getattr(facts, field, None)
-        if value not in (None, ""):
-            setattr(updated, field, value)
+        if value in (None, ""):
+            continue
+        if field == "currency":
+            code = normalise_currency(value)
+            if code:
+                updated.currency = code
+            continue
+        setattr(updated, field, value)
     if facts.preferences:
         updated.preferences = list(dict.fromkeys([*updated.preferences, *facts.preferences]))[:16]
     if facts.hard_constraints:

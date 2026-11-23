@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.api.app import create_app
 from app.config import Settings
+from app.core.currencies import normalise_currency
 from app.domain.models import TripContext
 from app.understand.pipeline import missing_for_plan
 
@@ -221,3 +222,22 @@ def test_a_new_plan_asks_for_party_size_but_not_budget():
 
     context.party_size = 2
     assert missing_for_plan(context) == []
+
+
+def test_currency_must_be_a_real_iso_code(tmp_path):
+    assert normalise_currency("twd") == "TWD"
+    assert normalise_currency("NTD") == "TWD"
+    assert normalise_currency("not a currency") == ""
+
+    with _client(tmp_path) as client:
+        headers = {"X-Client-Token": "currency-tester"}
+        session_id = client.post("/api/journeys", json={}, headers=headers).json()["session"]["id"]
+        bad = client.patch(
+            f"/api/journeys/{session_id}/state", json={"currency": "NOPE"}, headers=headers
+        )
+        assert bad.status_code == 400
+        good = client.patch(
+            f"/api/journeys/{session_id}/state", json={"currency": "twd"}, headers=headers
+        )
+        assert good.status_code == 200
+        assert good.json()["context"]["currency"] == "TWD"

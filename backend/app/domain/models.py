@@ -12,6 +12,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.currencies import normalise_currency
+
 DataStatus = Literal["ok", "stale", "unavailable"]
 ItemType = Literal["attraction", "hotel", "meal", "transit", "ticket"]
 Intent = Literal["plan", "modify", "ask", "unclear"]
@@ -509,6 +511,11 @@ class TripContext(Wire):
     stops: list[TripStop] = Field(default_factory=list)
     one_way: bool = False
     imported_itinerary: ImportedItinerary | None = None
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def _currency(cls, value: Any) -> str:
+        return normalise_currency(value) or "HKD"
 
 
 class ChatMessage(Wire):

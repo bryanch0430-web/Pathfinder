@@ -940,6 +940,7 @@ export const ZH_HANT: Messages = {
   "form.travellers": "旅客人數",
   "form.budget": "預算",
   "form.currency": "預算貨幣",
+  "form.currencySearch": "搜尋貨幣（例如 TWD）",
   "form.hotelStyle": "酒店類型",
   "form.style.none": "沒有偏好",
   "form.style.budget": "經濟型",
@@ -1126,6 +1127,7 @@ export const ZH_HANT: Messages = {
   "budget.exchangeEmpty": "有行程總額後，可以在這裡換成另一種貨幣。",
   "budget.reference": "參考",
   "budget.displayCurrency": "顯示貨幣",
+  "budget.chooseCurrency": "選擇貨幣",
   "budget.base": "以 {base} 為基準",
   "budget.optimise": "優化我的預算",
 

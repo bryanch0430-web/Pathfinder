@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from app.config import Settings
+from app.core.currencies import normalise_currency
 from app.core.dates import finish_dates, parse_date
 from app.core.llm import LLMClient, LLMError
 from app.core.prompts import context_brief, dialogue, plan_outline, skill
@@ -135,7 +136,9 @@ def merge_slots(context: TripContext, parsed: ParsedIntent) -> TripContext:
     if slots.budget is not None:
         updated.budget = float(slots.budget) if float(slots.budget) > 0 else None
     if slots.currency:
-        updated.currency = slots.currency.strip().upper()[:8]
+        code = normalise_currency(slots.currency)
+        if code:
+            updated.currency = code
     if slots.hotel_style:
         updated.hotel_style = slots.hotel_style.strip()[:120]
     pace = _pace(slots.pace)

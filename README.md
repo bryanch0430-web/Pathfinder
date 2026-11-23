@@ -198,6 +198,10 @@ Disruptions (a closed venue, a typhoon, a transit delay) are evidence too: the
 affected venue is marked unavailable and excluded, and the recovery is recorded on
 the plan.
 
+## Currency
+
+Chat currency statements are validated ISO codes, update the trip through a `context` event, and drive searchable FX widgets. See [docs/CURRENCY.md](docs/CURRENCY.md).
+
 ## Image import
 
 A day-by-day itinerary image is parsed into `ImportedItinerary` and each named stop is sourced before the existing builder validates it. Ordinary planning is unchanged; see [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).

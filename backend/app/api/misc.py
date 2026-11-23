@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse, Response
 
 from app.api.deps import container, identity_for, is_admin
 from app.api.views import runtime_config
+from app.core.currencies import normalise_currency
 from app.evidence import atlas
 from app.evidence.providers import Providers
 
@@ -23,6 +24,14 @@ _PHOTO_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
 FALLBACK_RATES = {
     "HKD": 1.0, "USD": 0.128, "EUR": 0.118, "GBP": 0.101, "JPY": 19.4,
     "CNY": 0.92, "TWD": 4.1, "SGD": 0.172, "THB": 4.5, "KRW": 176.0,
+    "AUD": 0.195, "CAD": 0.175, "CHF": 0.113, "NZD": 0.212, "INR": 10.7,
+    "IDR": 2050.0, "MYR": 0.57, "PHP": 7.3, "VND": 3250.0, "AED": 0.47,
+    "SAR": 0.48, "QAR": 0.466, "KWD": 0.039, "BHD": 0.048, "OMR": 0.049,
+    "JOD": 0.091, "ILS": 0.47, "TRY": 4.4, "ZAR": 2.35, "EGP": 6.3,
+    "MXN": 2.2, "BRL": 0.70, "ARS": 128.0, "CLP": 122.0, "COP": 530.0,
+    "PEN": 0.48, "UYU": 5.2, "CZK": 2.95, "PLN": 0.51, "HUF": 45.0,
+    "RON": 0.59, "BGN": 0.23, "SEK": 1.35, "NOK": 1.38, "DKK": 0.88,
+    "ISK": 17.6, "RUB": 11.6, "UAH": 5.3,
 }
 
 
@@ -207,7 +216,9 @@ async def handbook(request: Request, destination: str = "", q: str = "", limit: 
 
 @router.get("/api/wallet")
 async def wallet(request: Request, base: str = "HKD") -> dict[str, Any]:
-    code = (base or "HKD").strip().upper()[:3]
+    code = normalise_currency(base)
+    if not code:
+        raise HTTPException(status_code=404, detail="That currency is not supported.")
     cached = _FX_CACHE.get(code)
     if cached and time.time() - cached[0] < 3600:
         return cached[1]

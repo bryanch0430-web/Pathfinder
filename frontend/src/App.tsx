@@ -710,6 +710,7 @@ export default function App() {
                   }}
                   onSuggestDestination={async (query) => (await suggestPlaces(query)).items}
                   submitting={pf.busy}
+                  fx={fx}
                 />
                 {pf.plan ? (
                   <DayRail

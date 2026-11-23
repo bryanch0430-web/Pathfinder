@@ -23,6 +23,7 @@ import {
 } from "../lib/clarifyInput";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { TRIP_FIELD_MAX_LENGTH, TRIP_LINE_MAX_LENGTH, TRIP_LINES_MAX, TRIP_STOPS_MAX } from "../lib/limits";
+import { currencyCodes, currencyOptionLabel } from "../lib/currency";
 import { profileOf } from "../lib/profile";
 import { useRouteChoices } from "../lib/routeChoices";
 import { choiceInto } from "../lib/routeShift";
@@ -451,6 +452,7 @@ export function TripContextForm({
   submitting = false,
   saving = false,
   compact = false,
+  fx = null,
 }: {
   values: Partial<TripContext>;
   onChange: (patch: Partial<TripContext>) => void;
@@ -460,6 +462,7 @@ export function TripContextForm({
   submitting?: boolean;
   saving?: boolean;
   compact?: boolean;
+  fx?: FxSnapshot | null;
 }) {
   const { t } = useI18n();
   const id = useId();
@@ -724,17 +727,19 @@ export function TripContextForm({
               onChange={(event) => onChange({ budget: event.target.value ? Number(event.target.value) : null })}
               placeholder=""
             />
-            <Select
+            <Input
+              id={`${id}-currency`}
               aria-label={t("form.currency")}
+              list={`${id}-currency-list`}
               value={values.currency ?? "HKD"}
-              onChange={(event) => onChange({ currency: event.target.value })}
-            >
-              {["USD", "JPY", "HKD", "CNY", "EUR", "GBP", "SGD", "THB", "TWD", "KRW", "AUD"].map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
+              placeholder={t("form.currencySearch")}
+              onChange={(event) => onChange({ currency: event.target.value.toUpperCase().slice(0, 3) })}
+            />
+            <datalist id={`${id}-currency-list`}>
+              {currencyCodes(fx, values.currency).map((code) => (
+                <option key={code} value={code} label={currencyOptionLabel(code)} />
               ))}
-            </Select>
+            </datalist>
           </div>
         </Field>
         <Field label={t("form.hotelStyle")} htmlFor={`${id}-style`}>
@@ -1725,10 +1730,11 @@ export function ExchangePanel({ cost, fx }: { cost: CostBreakdown; fx: FxSnapsho
   const { t } = useI18n();
   const [displayCurrency, setDisplayCurrency] = useState("USD");
   const rates = fx.rates ?? {};
+  const conversionCurrencies = currencyCodes(fx, cost.currency);
   const fromRate = rates[cost.currency] ?? 1;
-  const toRate = rates[displayCurrency] ?? 1;
-  const converted = fromRate > 0 ? (cost.total * toRate) / fromRate : cost.total;
-  const conversionCurrencies = ["USD", "HKD", "JPY", "CNY", "EUR", "GBP", "SGD", "TWD", "THB", "KRW"];
+  const toRate = rates[displayCurrency];
+  const known = typeof toRate === "number" && toRate > 0;
+  const converted = known && fromRate > 0 ? (cost.total * toRate) / fromRate : null;
   return (
     <div className="pf-exchange">
       <div className="pf-fx">
@@ -1742,17 +1748,22 @@ export function ExchangePanel({ cost, fx }: { cost: CostBreakdown; fx: FxSnapsho
           <span className="pf-small pf-muted">
             {cost.currency} {Math.round(cost.total).toLocaleString()} ≈
           </span>
-          <Select
+          <Input
             aria-label={t("budget.displayCurrency")}
+            list="pf-fx-currency-list"
             value={displayCurrency}
-            onChange={(event) => setDisplayCurrency(event.target.value)}
-          >
+            placeholder={t("form.currencySearch")}
+            onChange={(event) => setDisplayCurrency(event.target.value.toUpperCase().slice(0, 3))}
+          />
+          <datalist id="pf-fx-currency-list">
             {conversionCurrencies.map((code) => (
-              <option key={code} value={code}>{code}</option>
+              <option key={code} value={code} label={currencyOptionLabel(code)} />
             ))}
-          </Select>
+          </datalist>
           <strong>
-            {displayCurrency} {Math.round(converted).toLocaleString()}
+            {known && converted !== null
+              ? `${displayCurrency} ${Math.round(converted).toLocaleString()}`
+              : t("budget.chooseCurrency")}
           </strong>
         </div>
         <span className="pf-fx__note">

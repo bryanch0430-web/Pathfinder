@@ -59,6 +59,7 @@ import type {
   EvalReference,
   EvalRun,
   EvalRunSummary,
+  FxSnapshot,
   GuideChunk,
   HotelStay,
   IntakePayload,
@@ -416,6 +417,7 @@ export function TripPanel({
   saving,
   submitting,
   initialOpen = false,
+  fx = null,
 }: {
   context: Partial<TripContext>;
   plan: TripPlan | null;
@@ -426,6 +428,7 @@ export function TripPanel({
   saving?: boolean;
   submitting?: boolean;
   initialOpen?: boolean;
+  fx?: FxSnapshot | null;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(initialOpen);
@@ -481,6 +484,7 @@ export function TripPanel({
             onSuggestDestination={onSuggestDestination}
             saving={saving}
             submitting={submitting}
+            fx={fx}
           />
         </div>
       </Drawer>

@@ -1048,6 +1048,7 @@ export function usePathfinder(locale: string): PathfinderHook {
               // A stopped or replaced turn, or another trip, must not write into the view.
               if (turnGen.current !== generation || controller.signal.aborted || sessionRef.current !== id) return;
               if (event === "intake") setIntake(data as unknown as IntakePayload);
+              if (event === "context") setContextState(data as unknown as TripContext);
               if (event === "route") setRoute(data as unknown as RoutePayload);
               if (event === "locale" && isPlanLocale(data.plan_locale)) {
                 // A set_language turn: follow it in the interface and fetch the translation afresh.
