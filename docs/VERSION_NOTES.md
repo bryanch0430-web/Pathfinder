@@ -80,6 +80,10 @@ plan; this release gives each uncertain part its own bounded representation.
 - The architecture reference now includes an ordered step map, a separate
   escalation/HITL branch, a reserved Judge-model marker, and the distinction between
   reported intent confidence and calibrated probability.
+- Retrospective dual-router shadow: 78/84 agreement, 100% accuracy on the 78 agreed
+  cases, six clarifications, and the analyst's only error inside the disagreement set.
+  This is a saved-prediction analysis, not a live concurrent shadow; see
+  `docs/eval-artifacts/v5-model-study/shadow-router.md`.
 - `docs/ARCHITECTURE.md` points to that complete reference and keeps the short layer
   map.
 

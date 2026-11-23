@@ -1,0 +1,249 @@
+{
+  "generated_at": "2026-11-23T13:45:00+08:00",
+  "method": "retrospective shadow over saved one-run per-case routing predictions; no provider calls; no runtime change",
+  "dataset": "routing",
+  "n": 84,
+  "primary_analyst": "flash-lite-0.0",
+  "agreement": {
+    "n": 84,
+    "agree": 78,
+    "disagree": 6,
+    "rate": 0.9286,
+    "accuracy_when_agree": 1.0,
+    "both_wrong": 0
+  },
+  "accuracy": {
+    "flash_lite": 0.9881,
+    "jev": 0.9405,
+    "sonnet": 0.9881
+  },
+  "calibration": {
+    "flash_lite": {
+      "n": 84,
+      "ece": 0.0879,
+      "brier": 0.0489,
+      "auroc": 0.9036,
+      "bins": [
+        {
+          "bin": 1,
+          "range": "0.2–0.4",
+          "n": 3,
+          "mean_confidence": 0.267,
+          "accuracy": 1.0
+        },
+        {
+          "bin": 2,
+          "range": "0.4–0.6",
+          "n": 5,
+          "mean_confidence": 0.44,
+          "accuracy": 1.0
+        },
+        {
+          "bin": 4,
+          "range": "0.8–1.0",
+          "n": 76,
+          "mean_confidence": 0.956,
+          "accuracy": 0.987
+        }
+      ]
+    },
+    "jev": {
+      "n": 84,
+      "ece": 0.116,
+      "brier": 0.0671,
+      "auroc": 0.8747,
+      "bins": [
+        {
+          "bin": 2,
+          "range": "0.4–0.6",
+          "n": 9,
+          "mean_confidence": 0.543,
+          "accuracy": 0.778
+        },
+        {
+          "bin": 3,
+          "range": "0.6–0.8",
+          "n": 20,
+          "mean_confidence": 0.688,
+          "accuracy": 0.85
+        },
+        {
+          "bin": 4,
+          "range": "0.8–1.0",
+          "n": 55,
+          "mean_confidence": 0.92,
+          "accuracy": 1.0
+        }
+      ]
+    },
+    "sonnet": {
+      "n": 84,
+      "ece": 0.1143,
+      "brier": 0.0299,
+      "auroc": 0.8434,
+      "bins": [
+        {
+          "bin": 2,
+          "range": "0.4–0.6",
+          "n": 1,
+          "mean_confidence": 0.4,
+          "accuracy": 1.0
+        },
+        {
+          "bin": 3,
+          "range": "0.6–0.8",
+          "n": 2,
+          "mean_confidence": 0.6,
+          "accuracy": 1.0
+        },
+        {
+          "bin": 4,
+          "range": "0.8–1.0",
+          "n": 81,
+          "mean_confidence": 0.886,
+          "accuracy": 0.988
+        }
+      ]
+    }
+  },
+  "policies": [
+    {
+      "policy": "analyst only (Flash-Lite)",
+      "accepted": 84,
+      "clarified": 0,
+      "coverage": 1.0,
+      "correct": 83,
+      "accuracy_on_accepted": 0.9881,
+      "wilson95": [
+        0.9356,
+        0.9979
+      ]
+    },
+    {
+      "policy": "Jev only",
+      "accepted": 84,
+      "clarified": 0,
+      "coverage": 1.0,
+      "correct": 79,
+      "accuracy_on_accepted": 0.9405,
+      "wilson95": [
+        0.8681,
+        0.9743
+      ]
+    },
+    {
+      "policy": "agreement gate (accept if both agree; otherwise clarify)",
+      "accepted": 78,
+      "clarified": 6,
+      "coverage": 0.9286,
+      "correct": 78,
+      "accuracy_on_accepted": 1.0,
+      "wilson95": [
+        0.9531,
+        1.0
+      ]
+    },
+    {
+      "policy": "agreement + analyst confidence ≥ 0.8",
+      "accepted": 72,
+      "clarified": 12,
+      "coverage": 0.8571,
+      "correct": 72,
+      "accuracy_on_accepted": 1.0,
+      "wilson95": [
+        0.9493,
+        1.0
+      ]
+    },
+    {
+      "policy": "both confidences ≥ 0.8 (analyst route)",
+      "accepted": 52,
+      "clarified": 32,
+      "coverage": 0.619,
+      "correct": 51,
+      "accuracy_on_accepted": 0.9808,
+      "wilson95": [
+        0.8988,
+        0.9966
+      ]
+    }
+  ],
+  "latency_ms": {
+    "flash_lite_mean": 3969.6,
+    "jev_mean": 658.6,
+    "parallel_max_mean": 3969.6,
+    "parallel_max_p50": 4108.2
+  },
+  "disagreements": [
+    {
+      "id": "r06",
+      "input": "How much is the flight?",
+      "expected": "ask",
+      "analyst": "ask",
+      "analyst_confidence": 0.95,
+      "analyst_correct": true,
+      "jev": "unclear",
+      "jev_confidence": 0.63,
+      "jev_correct": false
+    },
+    {
+      "id": "r12",
+      "input": "What about it?",
+      "expected": "unclear",
+      "analyst": "unclear",
+      "analyst_confidence": 0.5,
+      "analyst_correct": true,
+      "jev": "ask",
+      "jev_confidence": 0.73,
+      "jev_correct": false
+    },
+    {
+      "id": "r13",
+      "input": "Plan something nice",
+      "expected": "unclear",
+      "analyst": "unclear",
+      "analyst_confidence": 0.4,
+      "analyst_correct": true,
+      "jev": "plan",
+      "jev_confidence": 0.51,
+      "jev_correct": false
+    },
+    {
+      "id": "r19",
+      "input": "Surprise me",
+      "expected": "unclear",
+      "analyst": "unclear",
+      "analyst_confidence": 0.95,
+      "analyst_correct": true,
+      "jev": "plan",
+      "jev_confidence": 0.54,
+      "jev_correct": false
+    },
+    {
+      "id": "r64",
+      "input": "What's the best way to get from the airport to the hotel?",
+      "expected": "ask",
+      "analyst": "ask",
+      "analyst_confidence": 0.95,
+      "analyst_correct": true,
+      "jev": "unclear",
+      "jev_confidence": 0.69,
+      "jev_correct": false
+    },
+    {
+      "id": "r68",
+      "input": "Not sure yet, maybe somewhere warm?",
+      "expected": "unclear",
+      "analyst": "plan",
+      "analyst_confidence": 0.85,
+      "analyst_correct": false,
+      "jev": "unclear",
+      "jev_confidence": 0.81,
+      "jev_correct": true
+    }
+  ],
+  "interpretation": {
+    "headline": "Agreement was perfect on this 84-case retrospective set: all 78 agreed predictions were right, and the six disagreements contained the analyst's only error. The gate would have clarified 7.1% of cases and accepted 92.9% at 100% accuracy.",
+    "caveat": "One run per case, one model/provider/date, n=84, and no live concurrent shadow. The agreement gate was more accurate than analyst-only on this sample but at a coverage cost; this is a hypothesis, not a general result."
+  }
+}

@@ -137,3 +137,34 @@ The ask and planner low-cap controls were inconclusive because the control turn 
 ## 9. Trace / code map
 
 See `TRACE_INDEX.md` for the claim → code path table and sample trace IDs.
+
+## 9. Dual-router retrospective shadow (23 Nov 2026)
+
+This is a **retrospective shadow**, not a live concurrent run. It uses the saved
+per-case predictions from the 84-case routing set and computes what a second,
+same-input Jev signal would have done. Raw artefact:
+`shadow-router.json`; narrative: `shadow-router.md`; script:
+`backend/scripts/v5_shadow_router.py`.
+
+| Policy | Accepted | Clarified | Coverage | Accuracy on accepted |
+|---|---:|---:|---:|---:|
+| Flash-Lite analyst only | 84 | 0 | 100.0% | 98.8% |
+| Jev only | 84 | 0 | 100.0% | 94.0% |
+| Agreement gate (clarify on disagreement) | 78 | 6 | 92.9% | 100.0% |
+| Agreement + analyst confidence ≥ 0.8 | 72 | 12 | 85.7% | 100.0% |
+| Both confidences ≥ 0.8 | 52 | 32 | 61.9% | 98.1% |
+
+- Agreement: 78/84 (92.9%). All 78 agreed predictions were correct.
+- All six disagreements contained the analyst's only error; Jev was correct on one of
+  the six. Both routers were wrong on zero cases.
+- Calibration (descriptive, n=84): Flash ECE 0.088 / Brier 0.049 / AUROC 0.904;
+  Jev ECE 0.116 / Brier 0.067 / AUROC 0.875.
+- Latency if run concurrently: mean max(analyst, Jev) 3,970 ms, versus 3,970 ms for
+  the analyst and 659 ms for Jev. This is a computed max of saved latencies, not a
+  measured concurrent run.
+
+**Interpretation:** the agreement gate is promising — it removed the only error at
+the cost of six clarifications — but n=84, one run per case, no live shadow, and
+overlapping uncertainty intervals. It is a hypothesis for live instrumentation, not
+evidence for a default change.
+

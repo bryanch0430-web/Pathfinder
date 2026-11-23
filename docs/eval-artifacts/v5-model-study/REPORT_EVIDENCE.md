@@ -108,6 +108,9 @@ report needs a reasoning arm.
 
 ## 6. Task traces to cite
 
+- Dual-router retrospective shadow: `docs/eval-artifacts/v5-model-study/shadow-router.json`
+  and `shadow-router.md`; agreement 78/84, 100% on agreed cases, six clarifications,
+  no live concurrent run.
 - Routing: `docs/eval-artifacts/v5-model-study/routing-merged.json`, cases with `trace_id`
   `bench-<arm>-<case>`.
 - Planner: `datasets-latest.json`; eval DB `backend/data/bench_<dataset>_<arm>.db`; each row has the
