@@ -62,12 +62,31 @@ class TurnEvent:
     data: dict[str, Any]
 
 
-class Dependencies:
-    """What a turn needs from the running app."""
+class _TranscriptFreeStore:
+    """A store view for desk-driven turns: everything passes through except chat messages."""
 
-    def __init__(self, *, settings: Settings, store: Store) -> None:
+    def __init__(self, store: Store) -> None:
+        self._store = store
+
+    def __getattr__(self, name: str):
+        return getattr(self._store, name)
+
+    async def add_message(self, session_id: str, message: dict[str, Any]) -> dict[str, Any]:
+        return message
+
+
+class Dependencies:
+    """What a turn needs from the running app.
+
+    `operator=True` is a turn the desk runs on a traveller's chat: it is not the traveller
+    speaking, so the hold queue does not intercept it, no handoff is raised, and nothing is
+    written into the traveller's transcript.
+    """
+
+    def __init__(self, *, settings: Settings, store: Store, operator: bool = False) -> None:
         self.settings = settings
-        self.store = store
+        self.operator = operator
+        self.store = _TranscriptFreeStore(store) if operator else store
 
 
 async def run_turn(deps: Dependencies, request: ChatRequest, *, session_id: str, user_message: str) -> AsyncIterator[TurnEvent]:
@@ -205,9 +224,9 @@ async def _produce(
     user_row = ChatMessage(id=uuid.uuid4().hex, role="user", content=message, created_at=now_iso())
     await store.add_message(session_id, user_row.model_dump())
     session_row = await store.get_session(session_id)
-    if session_row and session_row.get("held"):
+    if session_row and session_row.get("held") and not deps.operator:
         agent = (session_row.get("agent_name") or "").strip()
-        note = session_row.get("note") or ""
+        note = session_row.get("operator_note") or ""
         if agent:
             reply = f"{agent} is with you now and will answer here." + (f" {note}" if note else "")
         else:
@@ -272,6 +291,8 @@ async def _produce(
     )
     context = understanding.context
     route = understanding.route
+    if not deps.operator:
+        await store.set_kv(f"frustration:{session_id}", float(understanding.parsed.frustration or 0))
     trace.path = {
         "intent": route.intent,
         "confidence": route.confidence,
@@ -354,7 +375,7 @@ async def _produce(
         await _finish(push, trace, session_id=session_id, intent="ask")
         return
     policy = await store.get_kv("escalation") or {}
-    handoff_reason = await _handoff_reason(store, session_id, understanding.parsed, policy, message)
+    handoff_reason = "" if deps.operator else await _handoff_reason(store, session_id, understanding.parsed, policy, message)
     if handoff_reason == "disabled":
         reply = (
             "Explicit live-agent requests are turned off for this trip. I can keep planning or "
@@ -366,7 +387,7 @@ async def _produce(
         await _finish(push, trace, session_id=session_id, intent="ask")
         return
     if handoff_reason:
-        await _handoff(push, store, session_id, trace, handoff_reason)
+        await _handoff(push, store, session_id, trace, handoff_reason, policy)
         return
     if context.finalized and route.intent in {"plan", "modify"}:
         await _finish_plain(
@@ -762,11 +783,19 @@ async def _edit_turn(
         )
         return
     if not outcome.changed:
-        if await _bump_stuck(store, session_id, policy) >= int(policy.get("stuck_after") or 3) and policy.get("stuck_on", True):
-            await _handoff(push, store, session_id, trace, "stuck")
+        if (
+            not deps.operator
+            and await _bump_stuck(store, session_id, policy) >= int(policy.get("stuck_after") or 3)
+            and policy.get("stuck_on", True)
+        ):
+            await _handoff(push, store, session_id, trace, "stuck", policy)
             return
-        reason = outcome.log[-1] if outcome.log else ""
-        reply = reason or "I could not make that change from sourced places, so the plan is unchanged."
+        lines = [line for line in dict.fromkeys(outcome.log) if line]
+        reply = (
+            "I did not change the plan. " + " ".join(lines)
+            if lines
+            else "I could not make that change from sourced places, so the plan is unchanged."
+        )
         if outcome.research_failed:
             reply += (
                 '\n\nIf you still want it, say "add it anyway" and I will add it as an '
@@ -1082,7 +1111,7 @@ def _plan_reply(plan: TripPlan, gaps) -> str:
 
 def _edit_reply(plan: TripPlan, summary: str, log: list[str]) -> str:
     first = summary or "I have prepared that change."
-    extra = [line for line in log if line][:2]
+    extra = [line for line in dict.fromkeys(log) if line and line not in first][:3]
     return "\n\n".join([first, *extra])
 
 
@@ -1146,7 +1175,8 @@ async def _handoff_reason(
         if count >= int(policy.get("stuck_after") or 3):
             return "stuck"
     if policy.get("enabled", False):
-        threshold = float(policy.get("frustration_at") or 0.75)
+        raw_threshold = policy.get("frustration_at")
+        threshold = 0.75 if raw_threshold is None else float(raw_threshold)
         if float(parsed.frustration or 0) >= threshold:
             return "frustration"
     return ""
@@ -1187,14 +1217,17 @@ async def _reset_stuck(store: Store, session_id: str) -> None:
     await store.delete_kv(f"stuck:{session_id}")
 
 
-async def _handoff(push, store: Store, session_id: str, trace: TurnTrace, reason: str) -> None:
+async def _handoff(
+    push, store: Store, session_id: str, trace: TurnTrace, reason: str, policy: dict[str, Any] | None = None
+) -> None:
     await store.set_held(session_id, True, "")
     replies = {
         "asked": "I have put this chat in the travel-designer queue. An agent will accept it and reply here; you can keep typing in the meantime.",
         "frustration": "I am sorry this is not working for you. I have put this chat in the travel-designer queue so a person can take over; an agent will accept it and reply here.",
         "stuck": "We have been circling the same point, so I have put this chat in the travel-designer queue. An agent will accept it and reply here; you can keep typing.",
     }
-    reply = replies.get(reason, replies["asked"])
+    configured = policy.get("message") if policy else None
+    reply = configured.strip() if isinstance(configured, str) and configured.strip() else replies.get(reason, replies["asked"])
     trace.say(f"Escalated to a person ({reason}).")
     await _stream_text(push, reply)
     await _save_assistant(store, session_id, reply, intent="ask", meta={"handoff": True, "handoff_reason": reason})
