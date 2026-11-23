@@ -735,8 +735,79 @@ body(
     "prompt change.",
 )
 
-# 7 Contributions
-heading(doc, "7  Contributions and attribution", 1)
+# 7 Limitations
+heading(doc, "7  Limitations and production readiness", 1)
+body(
+    doc,
+    "The largest limitation is evidence coverage, not the planner's control flow. Pathfinder can only compose "
+    "a stop, stay, ticket or transfer when an evidence adapter has returned a sourced record. Even with the "
+    "curated corpus and the live provider chain, some tickets, attractions, opening hours, weather windows and "
+    "other local facts remain unavailable or stale. We treat that as a first-class product gap rather than "
+    "filling it with model knowledge.",
+)
+body(
+    doc,
+    "The team has taken several measures. Evidence has a typed schema with source references and a freshness "
+    "timestamp; the composer may copy only values that are present in that schema; missing facts become a "
+    "visible DataGap in the plan and the reply; and the deterministic validator keeps arithmetic, dates and "
+    "flight windows outside the model. A failed provider does not silently become an invented address. The "
+    "same pipeline runs against live adapters and the curated sandbox, so adding a ticket, attraction or "
+    "weather source is an adapter change rather than a redesign of the agent. The current evidence set is "
+    "therefore incomplete, but the architecture is designed to expand: source-labelled retrieval, a fixed "
+    "composer boundary and an explicit gap are the extension points for a production deployment.",
+)
+body(
+    doc,
+    "The second limitation is BYOK and model availability. The delivered and tested defaults use the selected "
+    "Poe writer and DeepSeek verifier credentials. The settings screen also exposes alternative providers and "
+    "per-part model choices because bring-your-own-key is common industry practice, but an alternative key may "
+    "be absent, rate-limited, incompatible with the JSON contract or unable to support the same context "
+    "length. We do not claim that every listed provider is available in every deployment. A missing key fails "
+    "visibly; it does not fabricate a model response.",
+)
+body(
+    doc,
+    "The third limitation is the human operator. The Desk, held-session state, escalation policy and handback "
+    "path are implemented locally, and the interface makes the handoff explicit. The project did not run a "
+    "staffed support operation or a public deployment, so response time, operator training and 24/7 coverage "
+    "are business-operations questions rather than properties of the prototype. A live-agent feature is common "
+    "practice, but its availability depends on whether the operating organisation actually staffs the queue. "
+    "The correct claim is therefore that the handoff is implemented and testable, not that a production "
+    "support team exists.",
+)
+body(
+    doc,
+    "These limitations do not invalidate the design; they define what the evidence supports. The system is "
+    "production-extensible where evidence adapters and operator processes are supplied, and deliberately "
+    "conservative where they are not. The report therefore separates a working bounded planner from a "
+    "complete travel-booking service.",
+)
+body(
+    doc,
+    "The evidence base is deliberately narrow. The suites are small, the four-model routing run is a single "
+    "provider snapshot, the TravelPlanner pilot is relevance-selected and happened to contain only easy cases, "
+    "and no independent annotator has adjudicated every expected label. We therefore use the results as design "
+    "evidence: they tell us which parts of the architecture need code ownership, which model choices are "
+    "defensible, and where a production run must improve its sampling. They do not support a claim of general "
+    "model superiority or a complete travel-planning score.",
+)
+body(
+    doc,
+    "The production path is nevertheless concrete. A ticket, attraction or weather gap can be closed by adding "
+    "an evidence adapter that returns the same typed record, source references and freshness metadata; the "
+    "composer and validator do not need to change. A BYOK deployment can add a provider health check and a "
+    "visible unavailable state per part. A staffed operation can attach the existing Desk queue to an operator "
+    "rota and define response targets. These are operational additions around a stable boundary, not a "
+    "rewrite of the agent.",
+)
+body(
+    doc,
+    "This is the standard we apply in the report: distinguish a design that can be extended from a capability "
+    "that has already been demonstrated. The former is what the implementation supports; the latter is what "
+    "the measured cases in this submission actually show.",
+)
+
+heading(doc, "8  Contributions and attribution", 1)
 body(
     doc,
     "The repository history in the submitted checkout is squashed under one shared GitHub identity, so "
@@ -786,7 +857,7 @@ body(
 )
 
 # 8 Conclusion
-heading(doc, "8  Conclusion", 1)
+heading(doc, "9  Conclusion", 1)
 body(
     doc,
     "Pathfinder delivers a bounded, state-aware trip planner: typed routing, parallel evidence, sourced-only "
