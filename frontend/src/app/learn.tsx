@@ -212,6 +212,23 @@ function ChatClock({ since }: { since?: string }) {
   );
 }
 
+/** The session window starts nearly as large as the viewport, then stays draggable/resizable. */
+function deskStartPlace() {
+  const vw = typeof window === "undefined" ? 1440 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 900 : window.innerHeight;
+  const w = Math.max(720, Math.min(1400, vw - 72));
+  const h = Math.max(520, Math.min(900, vh - 132));
+  return { x: Math.max(12, Math.round((vw - w) / 2)), y: Math.max(56, Math.round((vh - h) / 2)), w, h };
+}
+
+function clampDeskPlace(place: { x: number; y: number; w: number; h: number }) {
+  const vw = typeof window === "undefined" ? 1440 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 900 : window.innerHeight;
+  const w = Math.max(640, Math.min(place.w, Math.max(640, vw - 24)));
+  const h = Math.max(460, Math.min(place.h, Math.max(460, vh - 80)));
+  return { x: Math.max(8, Math.min(place.x, vw - w - 8)), y: Math.max(48, Math.min(place.y, vh - h - 8)), w, h };
+}
+
 /** A contact desk, separate from the planner: a queue, the conversation, and the trip beside it. */
 export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: () => void }) {
   const { t } = useI18n();
@@ -226,7 +243,7 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       return true;
     }
   });
-  const [place, setPlace] = useState({ x: 36, y: 88, w: 860, h: 520 });
+  const [place, setPlace] = useState(deskStartPlace);
   const mainRef = useRef<HTMLElement>(null);
   const dragRef = useRef<{ kind: "move" | "size"; x: number; y: number; place: { x: number; y: number; w: number; h: number } } | null>(null);
   const [ready, setReady] = useState(() => {
@@ -265,6 +282,13 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   const [stops, setStops] = useState<DeskStop[]>([]);
   const [error, setError] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fit = () => setPlace((current) => clampDeskPlace(current));
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
 
   const loadList = () => {
     void getDesk().then((data) => setChats(data.chats)).catch((cause) => setError(String(cause)));
@@ -372,8 +396,12 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
   const open = (chat: DeskChat) => !chat.finished && matches(chat);
   const queued = chats.filter((chat) => open(chat) && chat.held && !(chat.agent_name || "").trim());
   const handling = chats.filter((chat) => open(chat) && chat.held && Boolean((chat.agent_name || "").trim()));
-  const answering = chats.filter((chat) => open(chat) && !chat.held && chat.state !== "completed");
-  const records = chats.filter((chat) => matches(chat) && (chat.finished || (!chat.held && chat.state === "completed")));
+  const answering = chats.filter(
+    (chat) => open(chat) && !chat.finished && !chat.held && chat.state !== "completed"
+  );
+  const records = chats.filter(
+    (chat) => matches(chat) && (Boolean(chat.finished) || chat.state === "completed")
+  );
   const setPresence = (next: boolean) => {
     setReady(next);
     try {

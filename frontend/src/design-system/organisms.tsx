@@ -3806,9 +3806,13 @@ export function TrendingRail({
 export function SavedTripsView({
   trips,
   onOpen,
+  onDelete,
+  deleting,
 }: {
   trips: { id: string; destination: string; rating: number; stars: number | null; summary: string; created_at: string; days: number | null }[];
   onOpen?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  deleting?: string | null;
 }) {
   const { t } = useI18n();
   return (
@@ -3829,17 +3833,32 @@ export function SavedTripsView({
       ) : (
         <div className="pf-saved__grid">
           {trips.map((trip) => (
-            <button type="button" className="pf-card pf-saved-card" key={trip.id} onClick={() => onOpen?.(trip.id)}>
-              <div className="pf-row pf-row--between">
-                <Heading level={4}>{trip.destination}</Heading>
-                <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
-              </div>
-              <Text size="sm" tone="secondary">{trip.summary}</Text>
-              <div className="pf-row pf-row--between">
-                <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
-                {trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
-              </div>
-            </button>
+            <div className="pf-saved-card-shell" key={trip.id}>
+              <button type="button" className="pf-card pf-saved-card" onClick={() => onOpen?.(trip.id)}>
+                <div className="pf-row pf-row--between">
+                  <Heading level={4}>{trip.destination}</Heading>
+                  <Badge tone="success" dot>{t("feedback.markedUseful")}</Badge>
+                </div>
+                <Text size="sm" tone="secondary">{trip.summary}</Text>
+                <div className="pf-row pf-row--between">
+                  <Text size="xs" tone="tertiary">{trip.days ? t(trip.days === 1 ? "workspace.daysOne" : "workspace.days", { count: trip.days }) : "—"} · {new Date(trip.created_at).toLocaleDateString("en-GB")}</Text>
+                  {trip.stars ? <Badge tone="warning">{`${trip.stars}★`}</Badge> : null}
+                </div>
+              </button>
+              {onDelete ? (
+                <div className="pf-saved-card__actions">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={deleting === trip.id}
+                    onClick={() => onDelete(trip.id)}
+                  >
+                    {deleting === trip.id ? t("saved.deleting") : t("saved.delete")}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

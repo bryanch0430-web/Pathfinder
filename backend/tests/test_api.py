@@ -257,3 +257,27 @@ def test_currency_ambiguity_clarify_always_has_a_currency_field():
     assert "currency" in clarify.slots
     assert "HKD" in clarify.options["currency"]
     assert "TWD" in clarify.options["currency"]
+
+
+def test_only_the_owner_can_delete_a_saved_trip(tmp_path):
+    with _client(tmp_path) as client:
+        owner = {"X-Client-Token": "owner"}
+        other = {"X-Client-Token": "other"}
+        session_id = client.post("/api/journeys", json={}, headers=owner).json()["session"]["id"]
+
+        # A finalised trip writes this row; seed it directly for the ownership check.
+        db = sqlite3.connect(tmp_path / "api.db")
+        db.execute(
+            "INSERT INTO wishlist (id, session_id, identity, destination, summary, stars, body, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            ("saved-delete", session_id, "guest:owner", "Kyoto", "A saved trip", 5, json.dumps({}), "2026-11-23T00:00:00+00:00"),
+        )
+        db.commit()
+        db.close()
+
+        assert client.delete("/api/wishlist/saved-delete", headers=other).status_code == 403
+        deleted = client.delete("/api/wishlist/saved-delete", headers=owner)
+        assert deleted.status_code == 200
+        assert deleted.json() == {"deleted": 1}
+        assert client.get("/api/wishlist", headers=owner).json()["trips"] == []
+        assert client.delete("/api/wishlist/saved-delete", headers=owner).status_code == 404

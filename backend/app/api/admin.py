@@ -293,6 +293,8 @@ async def desk_list(request: Request) -> dict[str, Any]:
         if not messages:
             continue
         context = await load_context(c, session["id"])
+        plan = await load_plan(c, session["id"])
+        finished = bool(context.finalized) or (plan is not None and plan.status == "ready")
         last = messages[-1]
         chats.append(
             {
@@ -300,9 +302,9 @@ async def desk_list(request: Request) -> dict[str, Any]:
                 "session_id": session["id"],
                 "created_at": session["created_at"],
                 "updated_at": session["updated_at"],
-                "state": "live",
+                "state": "completed" if finished else "live",
                 "on_page": False,
-                "finished": bool(context.finalized),
+                "finished": finished,
                 "held": bool(session.get("held")),
                 "agent_name": session.get("agent_name") or "",
                 "stuck": False,

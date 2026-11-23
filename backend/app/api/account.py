@@ -214,6 +214,19 @@ async def get_wishlist(saved_id: str, request: Request, client_token: str = "") 
     }
 
 
+@router.delete("/api/wishlist/{saved_id}")
+async def delete_wishlist(saved_id: str, request: Request) -> dict[str, Any]:
+    c = container(request)
+    row = await c.store.get_wishlist(saved_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="That saved trip is not there.")
+    identity = identity_for(request)
+    if row.get("identity") and row["identity"] != identity:
+        raise HTTPException(status_code=403, detail="That saved trip belongs to another traveller.")
+    deleted = await c.store.delete_wishlist(saved_id)
+    return {"deleted": deleted}
+
+
 @router.post("/api/wishlist/{saved_id}/open")
 async def open_wishlist(saved_id: str, request: Request) -> dict[str, Any]:
     c = container(request)

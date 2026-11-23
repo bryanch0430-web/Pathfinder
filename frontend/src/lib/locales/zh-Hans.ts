@@ -438,6 +438,9 @@ export const ZH_HANS: Messages = {
 
   "saved.eyebrow": "记忆",
   "saved.title": "我的行程",
+  "saved.delete": "删除",
+  "saved.deleting": "正在删除…",
+  "saved.deleteConfirm": "删除这个已保存的行程？原始规划会话不会受影响。",
   "saved.body": "你保存的行程。相似的新行程可以借用它们的结构，但不会直接采信旧事实。",
   "saved.empty": "还没有保存的行程",
   "saved.emptyBody": "在规划页点星号，行程会连同目的地出现在这里。",

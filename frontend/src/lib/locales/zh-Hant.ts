@@ -440,6 +440,9 @@ export const ZH_HANT: Messages = {
 
   "saved.eyebrow": "記憶",
   "saved.title": "我的行程",
+  "saved.delete": "刪除",
+  "saved.deleting": "正在刪除…",
+  "saved.deleteConfirm": "刪除這個已儲存的行程？原始規劃工作階段不會受影響。",
   "saved.body": "你儲存的行程。相似的新行程可以參考它們的架構，但不會直接沿用舊資料。",
   "saved.empty": "還沒有儲存的行程",
   "saved.emptyBody": "在規劃頁點星號，行程會連同目的地出現在這裡。",

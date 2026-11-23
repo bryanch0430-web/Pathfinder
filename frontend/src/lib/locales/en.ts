@@ -440,6 +440,9 @@ export const EN = {
 
   "saved.eyebrow": "Memory",
   "saved.title": "My trips",
+  "saved.delete": "Delete",
+  "saved.deleting": "Deleting…",
+  "saved.deleteConfirm": "Delete this saved trip? The original planning session is not affected.",
   "saved.body": "Trips you saved. A similar new trip can use their shape, never their facts.",
   "saved.empty": "No saved trips yet",
   "saved.emptyBody": "Use the star on a plan to save it here, with its destination.",

@@ -662,6 +662,14 @@ export async function getTrending(
   }
 }
 
+/** Remove one saved trip. The original planning session is not touched. */
+export function deleteSavedTrip(clientToken: string, id: string): Promise<{ deleted: boolean }> {
+  return request(`/api/wishlist/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { "X-Client-Token": clientToken },
+  });
+}
+
 /** Open a saved trip as a new planning session. The saved copy stays as it was. */
 export function openSavedTrip(clientToken: string, id: string): Promise<SessionState> {
   return request(`/api/wishlist/${encodeURIComponent(id)}/open`, {

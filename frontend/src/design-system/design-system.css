@@ -6020,6 +6020,19 @@ button.pf-badge:hover {
   gap: var(--p30-gap-md);
 }
 
+.pf-saved-card-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pf-saved-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 4px 4px;
+}
+
 .pf-saved-card {
   display: flex;
   flex-direction: column;

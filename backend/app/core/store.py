@@ -485,6 +485,12 @@ class Store:
 
         return await self._run(op)
 
+    async def delete_wishlist(self, entry_id: str) -> int:
+        def op(conn):
+            return conn.execute("DELETE FROM wishlist WHERE id=?", (entry_id,)).rowcount
+
+        return await self._run(op)
+
     # -- evaluation ---------------------------------------------------
 
     async def save_eval_run(self, run: dict[str, Any]) -> None:
