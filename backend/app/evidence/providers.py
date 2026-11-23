@@ -75,6 +75,7 @@ class Providers:
         self.trace = trace
         self._client = client
         self._owns_client = client is None
+        self.last_video_error = ""
         self.sandbox = bool(settings.sandbox)
         self._serp_index = 0
         self.serp_keys = serp_keys or []
@@ -625,6 +626,7 @@ class Providers:
     async def videos(self, query: str, *, limit: int = 3) -> list[VideoNote]:
         """YouTube (and optionally Bilibili) notes for a destination. Never a fact source."""
         notes: list[VideoNote] = []
+        self.last_video_error = ""
         if self.settings.enable_notes and self.settings.enable_youtube and self.settings.youtube_api_key:
             params = {
                 "part": "snippet",
@@ -658,8 +660,13 @@ class Providers:
                             published_at=snippet.get("publishedAt"),
                         )
                     )
+            except httpx.HTTPStatusError as exc:
+                if exc.response is not None and exc.response.status_code == 429:
+                    self.last_video_error = "YouTube's daily video-search quota is exhausted."
+                else:
+                    self.last_video_error = f"YouTube video search failed ({exc.response.status_code if exc.response is not None else 'HTTP error'})."
             except (httpx.HTTPError, ValueError):
-                pass
+                self.last_video_error = "YouTube video search is unavailable."
         if self.settings.enable_notes and self.settings.enable_bilibili:
             try:
                 response = await self.client.get(
@@ -683,10 +690,47 @@ class Providers:
                             thumbnail_url=("https:" + str(item.get("pic"))) if item.get("pic") else "",
                         )
                     )
+            except httpx.HTTPStatusError as exc:
+                if exc.response is not None and exc.response.status_code == 412:
+                    self.last_video_error = "Bilibili blocked the search request (HTTP 412)."
+                else:
+                    self.last_video_error = f"Bilibili video search failed ({exc.response.status_code if exc.response is not None else 'HTTP error'})."
             except (httpx.HTTPError, ValueError):
-                pass
+                self.last_video_error = "Bilibili video search is unavailable."
+        if not notes and self.settings.enable_notes and self._serp_key():
+            # YouTube's search endpoint has a small daily quota (100 searches per
+            # project) and returns 429 when it is spent. SerpAPI can still find
+            # public YouTube watch pages through normal web search.
+            try:
+                rows = await self.search(f"{query} youtube", limit=max(6, limit * 2))
+            except Exception:  # noqa: BLE001 - video notes are optional
+                rows = []
+            for row in rows:
+                video_id = _youtube_watch_id(str(row.get("url") or ""))
+                if not video_id:
+                    continue
+                notes.append(
+                    VideoNote(
+                        title=(str(row.get("title") or "").strip() or "YouTube video")[:200],
+                        url=f"https://www.youtube.com/watch?v={video_id}",
+                        source="youtube",
+                        snippet=str(row.get("snippet") or "")[:400],
+                        video_id=video_id,
+                        thumbnail_url=f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                    )
+                )
+                if len(notes) >= limit:
+                    break
+            if notes and self.trace:
+                self.trace.search(
+                    provider="SerpAPI YouTube",
+                    query=query,
+                    results=[{"title": note.title, "url": note.url} for note in notes],
+                )
         if self.trace and notes:
             self.trace.search(provider=notes[0].source, query=query, results=[{"title": note.title, "url": note.url} for note in notes])
+        if not notes and not self.last_video_error:
+            self.last_video_error = "No video notes were found for this destination."
         return notes[:limit]
 
     # -- named place lookup -------------------------------------------
@@ -846,6 +890,19 @@ def _iata(city: str) -> str:
     for name, code in IATA.items():
         if name in key:
             return code
+    return ""
+
+
+def _youtube_watch_id(url: str) -> str:
+    """The v= id of a YouTube watch URL, or an empty string."""
+    from urllib.parse import parse_qs, urlparse
+
+    parsed = urlparse(url)
+    if "youtu.be" in parsed.netloc:
+        return parsed.path.strip("/")[:20]
+    if "youtube.com" in parsed.netloc:
+        value = (parse_qs(parsed.query).get("v") or [""])[0]
+        return str(value)[:20]
     return ""
 
 

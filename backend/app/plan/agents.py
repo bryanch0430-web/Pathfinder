@@ -158,6 +158,9 @@ async def gather(
             bundle.video_notes = notes
             status = "ok" if notes else "unavailable"
             summary = f"{len(notes)} video note(s)"
+            if not notes:
+                reason = getattr(providers, "last_video_error", "") or "No video source returned notes."
+                bundle.gap("videos", "unavailable", reason)
         except Exception as exc:  # noqa: BLE001
             status, summary = "failed", "the video source failed"
             notes = []
