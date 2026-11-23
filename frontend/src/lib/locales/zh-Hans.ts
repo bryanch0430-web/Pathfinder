@@ -445,7 +445,7 @@ export const ZH_HANS: Messages = {
   "saved.body": "你保存的行程。相似的新行程可以借用它们的结构，但不会直接采信旧事实。",
   "saved.empty": "还没有保存的行程",
   "saved.emptyBody": "在规划页点星号，行程会连同目的地出现在这里。",
-  "saved.useful": "保存到我的行程",
+  "saved.useful": "标记为有用",
 
   "eval.title": "预期结果有没有出现？",
   "eval.body": "每个用例都有一个预期结果。一轮运行会数有多少个用例出现了那个结果，并能和上一轮比较。",
@@ -1142,7 +1142,7 @@ export const ZH_HANS: Messages = {
   "feedback.frozen": "这份行程已完成。要改内容请开一份新行程，或到我的行程查看。",
   "feedback.markedUseful": "已保存到我的行程",
   "feedback.markedNotUseful": "已标记为没用",
-  "feedback.notUseful": "没用",
+  "feedback.notUseful": "标记为没用",
   "feedback.rate": "为此行程评分",
   "feedback.ratePrompt": "有用——请选择 1–5 星。",
   "feedback.question": "这份行程有多有用？",

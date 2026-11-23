@@ -447,7 +447,7 @@ export const EN = {
   "saved.body": "Trips you saved. A similar new trip can use their shape, never their facts.",
   "saved.empty": "No saved trips yet",
   "saved.emptyBody": "Use the star on a plan to save it here, with its destination.",
-  "saved.useful": "Save to my trips",
+  "saved.useful": "Mark as useful",
 
   "eval.title": "Did the expected result happen?",
   "eval.body": "Each case has an expected result. A run counts how many cases produced it, and you can compare that with the previous run.",
@@ -1144,7 +1144,7 @@ export const EN = {
   "feedback.frozen": "This plan is final. Start a new plan to change it, or open it from My trips.",
   "feedback.markedUseful": "Saved to my trips",
   "feedback.markedNotUseful": "Marked as not useful",
-  "feedback.notUseful": "Not useful",
+  "feedback.notUseful": "Mark as not useful",
   "feedback.rate": "Rate this plan",
   "feedback.ratePrompt": "Useful — now pick 1–5 stars.",
   "feedback.question": "How useful was this plan?",

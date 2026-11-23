@@ -447,7 +447,7 @@ export const ZH_HANT: Messages = {
   "saved.body": "你儲存的行程。相似的新行程可以參考它們的架構，但不會直接沿用舊資料。",
   "saved.empty": "還沒有儲存的行程",
   "saved.emptyBody": "在規劃頁點星號，行程會連同目的地出現在這裡。",
-  "saved.useful": "儲存到我的行程",
+  "saved.useful": "標記為有用",
 
   "eval.title": "預期結果有沒有出現？",
   "eval.body": "每個案例都有一個預期結果。一輪執行會計有多少個案例出現了那個結果，並能跟上一次比較。",
@@ -1144,7 +1144,7 @@ export const ZH_HANT: Messages = {
   "feedback.frozen": "這份行程已完成。要改內容請開一份新行程，或到我的行程查看。",
   "feedback.markedUseful": "已儲存到我的行程",
   "feedback.markedNotUseful": "已標記為沒用",
-  "feedback.notUseful": "沒用",
+  "feedback.notUseful": "標記為沒用",
   "feedback.rate": "為這份行程評分",
   "feedback.ratePrompt": "有用——請選擇 1–5 星。",
   "feedback.question": "這份行程有多有用？",
