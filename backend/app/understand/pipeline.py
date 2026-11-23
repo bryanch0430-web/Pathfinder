@@ -268,6 +268,13 @@ def _clarify(
     slots = list(parsed.missing_slots)[:4]
     question = (parsed.question or "").strip()
     options = {key: [str(value)[:80] for value in values[:6]] for key, values in parsed.options.items() if values}
+    # Travellers are whole people; a model-generated range ("3-4") or "5+" cannot be
+    # submitted from a number field. Keep the field's numeric choices numeric.
+    if "party_size" in options:
+        normalized = [
+            value for value in options["party_size"] if value.strip().isdigit() and 1 <= int(value) <= 20
+        ][:6]
+        options["party_size"] = normalized or ["1", "2", "3", "4", "5", "6"]
     if not question:
         if not context.destination:
             question = "Where would you like to go, and roughly when?"

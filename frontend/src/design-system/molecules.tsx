@@ -913,8 +913,8 @@ export function ClarifyCard({
       return amount === null || amount < 0;
     }
     const amount = Number(raw);
-    if (slot === "party_size") return !Number.isFinite(amount) || amount < 1 || amount > 20;
-    if (slot === "days") return !Number.isFinite(amount) || amount < 1 || amount > 60;
+    if (slot === "party_size") return !Number.isInteger(amount) || amount < 1 || amount > 20;
+    if (slot === "days") return !Number.isInteger(amount) || amount < 1 || amount > 60;
     return false;
   };
   const dateProblem = (slot: string): boolean => {
@@ -937,7 +937,10 @@ export function ClarifyCard({
           const label =
             payload.labels[payload.slots.indexOf(slot)] ??
             slot.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-          const options = payload.options[slot] ?? [];
+          // Travellers are whole people: never offer a range ("3–4") or "5+" in a
+          // number field, because clicking it makes the field invalid. The free
+          // field still accepts a larger group.
+          const options = slot === "party_size" ? ["1", "2", "3", "4", "5", "6"] : payload.options[slot] ?? [];
           const suggested = payload.suggestions?.find((item) => item.slot === slot)?.name ?? "";
           if (slot === "dates") {
             return (
@@ -956,9 +959,17 @@ export function ClarifyCard({
                 type={isDate ? "date" : slot === "party_size" || slot === "budget" || slot === "days" ? "number" : "text"}
                 min={slot === "party_size" || slot === "days" ? 1 : slot === "budget" ? 0 : undefined}
                 max={slot === "party_size" ? 20 : slot === "days" ? 60 : undefined}
+                step={slot === "party_size" || slot === "days" ? 1 : undefined}
+                inputMode={slot === "party_size" || slot === "days" ? "numeric" : undefined}
                 invalid={badNumber(slot)}
                 value={slot === "budget" ? budgetShown(values[slot] ?? "") : values[slot] ?? ""}
-                onChange={(event) => onChange(slot, event.target.value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  // Keep the leading whole-number part. "2.5" becomes "2", not "25";
+                  // "-2" becomes empty. The backend would otherwise truncate it.
+                  const whole = next.match(/^\d*/)?.[0] ?? "";
+                  onChange(slot, slot === "party_size" || slot === "days" ? whole : next);
+                }}
                 placeholder={slot === "budget" ? "400000" : undefined}
                 title={suggested || undefined}
               />
