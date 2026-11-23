@@ -77,6 +77,9 @@ plan; this release gives each uncertain part its own bounded representation.
   diagram (`backend/app/evidence/place_corpus.py`). “Sandbox” is the runtime mode,
   not the dataset; `data_mode` is `live` or `corpus`, while the legacy `atlas`
   runtime value is still accepted for existing configurations.
+- The architecture reference now includes an ordered step map, a separate
+  escalation/HITL branch, a reserved Judge-model marker, and the distinction between
+  reported intent confidence and calibrated probability.
 - `docs/ARCHITECTURE.md` points to that complete reference and keeps the short layer
   map.
 

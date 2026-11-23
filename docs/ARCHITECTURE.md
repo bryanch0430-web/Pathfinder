@@ -12,6 +12,10 @@ what to change for the common extensions.
 
 ## 1. Layers
 
+> **Judge model:** its client method exists, but no v5 runtime path calls it. The
+> offline evaluator is deterministic. The architecture diagram labels it “reserved”.
+
+
 ```
 frontend/                 the carried-over React app
    │  same JSON + SSE contract

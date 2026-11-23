@@ -59,7 +59,7 @@ phrasing the rules did not anticipate was misread, and every fix added a conditi
 
 1. **One model, many roles.** Every call goes through `core/llm.py` with a `purpose`
    and a schema. Provider quirks (JSON mode rejected, rate limits, timeouts) live in
-   one place. A second model (DeepSeek) is optional and used only as a judge.
+   one place. A second model (DeepSeek) is configured as a judge but has no call site in v5; evaluation is deterministic.
 
 2. **Grounding is structural.** The composer never writes an address, price or
    opening time: it names a `ref`, and code copies the evidence. An unknown ref is

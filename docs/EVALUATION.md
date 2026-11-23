@@ -131,3 +131,61 @@ Headline: Flash-Lite ties Sonnet on routing (83/84, 98.8%) and on the 17 planner
 (14/17 each) while running much faster; DeepSeek V4 Flash matches Sonnet on editor (4/4)
 and verifier (9/10) at a much lower token cost. Jev alone is 94.0%; Jev at a 0.8 pre-gate plus Flash fallback is 84/84
 on this set but is a derived next-step result, not a shipped mode.
+
+## Router confidence is not a calibrated probability
+
+The `confidence` in `ParsedIntent` is **model-reported**: the analyst returns a number
+between 0 and 1, and `_confidence` only normalises/clamps it. It is not derived from
+token probabilities, an ensemble or a calibration set. The setting is therefore a
+**selective-prediction threshold**, not a claim that “80% confidence” means an 80%
+chance of being correct.
+
+This is academically defensible if it is framed as an **uncalibrated heuristic
+score**, and if its reliability is measured. It is not defensible to report the raw
+number as a probability without calibration evidence.
+
+### Relevant literature
+
+- Guo et al., *On Calibration of Modern Neural Networks* (ICML 2017):
+  modern networks are often poorly calibrated; temperature scaling is a strong
+  post-hoc baseline. <https://arxiv.org/abs/1706.04599>
+- Kadavath et al., *Language Models (Mostly) Know What They Know* (2022):
+  models can often predict whether their own answers are correct, but this needs
+  empirical evaluation. <https://arxiv.org/abs/2207.05221>
+- Lin, Hilton & Evans, *Teaching Models to Express Their Uncertainty in Words*
+  (2022): verbalized confidence can be calibrated under controlled training/evaluation,
+  without logits. <https://arxiv.org/abs/2205.14334>
+- Tian et al., *Just Ask for Calibration* (EMNLP 2023): verbalized confidence from
+  RLHF models can be better calibrated than their conditional probabilities on
+  some benchmarks. <https://arxiv.org/abs/2305.14975>
+- Xiong et al., *Can LLMs Express Their Uncertainty?* (ICLR 2024): verbalized
+  confidence is often **overconfident**; prompting, sampling and aggregation help,
+  but no method wins everywhere. <https://arxiv.org/abs/2306.13063>
+- Geifman & El-Yaniv, *Selective Classification for Deep Neural Networks* (2017):
+  the right framing for a threshold is **risk–coverage**, not a bare confidence
+  number. <https://arxiv.org/abs/1705.08500>
+
+### Recommended framing and measurement
+
+1. Call it **reported confidence / heuristic score**, never “probability”, until
+   calibrated.
+2. Build a labelled routing set with `(intent, slots, correct?)` labels, separate from
+   the cases used to choose the threshold.
+3. Report:
+   - **ECE** and **Brier score** for calibration;
+   - **AUROC** for failure prediction;
+   - **risk–coverage curve** / selective error at the chosen threshold;
+   - the actual **coverage** (how often the router acts instead of clarifying).
+4. Calibrate post hoc (temperature/Platt/isotonic) on a held-out split; store the
+   calibration map with the model configuration.
+5. Optionally use **self-consistency**: sample the intent routing 3–5 times and use
+   agreement frequency as the score, at higher latency/cost.
+6. Keep the threshold separate for the two jobs: **when to ask the traveller** and
+   **when to accept Jev**. They currently share `router_threshold` but have different
+   semantics.
+
+A defensible report sentence:
+
+> “The router exposes a model-reported confidence score. We treat it as an
+> uncalibrated selective-prediction signal and evaluate it with risk–coverage,
+> ECE and AUROC; we do not interpret the raw value as a probability.”
