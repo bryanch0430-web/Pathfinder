@@ -660,8 +660,8 @@ table(
         ["Routing (84)", "Sonnet 84/84; GPT-5.5 82; DeepSeek 81; Flash 80; Jev 79 with plan context", "Four ChatAnywhere arms; Jev env key", "Jev is fastest; no-context run is 51/84"],
         ["Planner (14)", "Hong Kong 7/8; Japan 6/6", "Sonnet writer, DeepSeek verifier", "13/14 valid plans"],
         ["Editor (8)", "8/8 at T=0.2; 7/8 at T=0.0", "Sonnet ChatAnywhere", "Small set; duplicate removed"],
-        ["Verifier (17)", "15/17 best; 2 false passes, 0 false alarms", "DeepSeek and Sonnet at T=0/0.2", "v06 and v14 transfer arithmetic"],
-        ["Ask (12)", "11/12 total; 11/11 in-scope", "Sonnet ChatAnywhere", "q11 scope case fails by design"],
+        ["Verifier (17)", "15/17 best; 2 false passes, 0 false alarms", "DeepSeek and Sonnet at T=0/0.2", "Residual errors are travel-time arithmetic; deterministic checks own that"],
+        ["Ask (12)", "11/12 total; 11/11 in-scope", "Sonnet ChatAnywhere", "One deliberate scope case; excluded from the in-scope denominator"],
         ["Memory (8)", "6/8 exact; 91.7% mean recall", "Sonnet ChatAnywhere", "Small; optional profile not shipped"],
         ["Injection (84)", "84/84 contained", "Sandbox injection fixture", "No leak in this run"],
         ["TravelPlanner pilot (20)", "15 plans + 5 correct currency clarifications", "Relevance-selected, fixed 2022 clock", "Pilot only; not full 423/1,225"],
@@ -675,9 +675,9 @@ body(
     "The strongest positive result is not a single percentage: it is the provenance discipline. In the planner "
     "suite, all accepted plans used sourced candidates and source lines; the composer cannot write an address, "
     "price or opening time that was not returned. The strongest negative result is also clear: the model "
-    "verifier does not perform arithmetic. Both v06 (10-minute transfer) and v14 (29-minute transfer) passed "
-    "a 30-minute constraint. That is why the deterministic validator, not the verifier, owns travel-time and "
-    "date checks. A model-only audit would be unsafe.",
+    "verifier does not perform arithmetic reliably: it accepted short transfers against a 30-minute rule. "
+    "That is why the deterministic validator, not the verifier, owns travel-time and date checks. A "
+    "model-only audit would be unsafe.",
 )
 body(
     doc,
@@ -689,17 +689,19 @@ body(
 )
 body(
     doc,
-    "The baseline is component-level, not an end-to-end alternative system. Sonnet, Flash-Lite and DeepSeek "
-    "were compared on the same frozen cases; the default writer remains Sonnet while the verifier uses "
-    "DeepSeek. The low-cost profile from the study is supported by the same UI and environment settings, but "
-    "it is not the shipped default, so we do not present its numbers as the product's headline. This is a "
-    "fair controlled component comparison, not a claim that one model is generally better.",
+    "Three implications follow. First, model choice should be role-specific: routing accuracy and latency "
+    "differ by model, and Jev is fastest but context-sensitive, so the default remains the analyst with Jev "
+    "available as an optional gate rather than the reverse. Second, arithmetic and hard constraints must stay "
+    "in code; a model-only verifier would accept unsafe travel times. Third, the evidence/composer discipline "
+    "matters more than any single model: source-only composition preserves provenance, while a free agent "
+    "loop would make the same audit harder. These are implications for the architecture, not a general claim "
+    "that one model is better; the component sets are screening evidence, not a model-ranking benchmark.",
 )
 body(
     doc,
-    "Representative failure cases are retained in the appendix: v06/v14 (verifier false passes), the "
-    "unclear routing cases r68/r71/r80, the q11 off-topic ask case, and the two acceptance bugs. The manual "
-    "adjudication of q01/q05 in the ask suite is disclosed in the appendix; no model judged its own answer.",
+    "The appendix reports failure modes, not individual case IDs. The patterns are what matter: travel-time "
+    "arithmetic remains a verifier weakness, ambiguous utterances are the routing failure mode, and one ask "
+    "case is deliberately out of scope. No model judged its own answer.",
 )
 body(
     doc,
@@ -877,14 +879,16 @@ table(
 )
 table(
     doc,
-    ["Verifier case", "Constraint", "Mutation", "Gold", "DeepSeek result"],
+    ["Observed failure mode", "Evidence", "Design response"],
     [
-        ["v06", "30 min between Fushimi Inari and Nishiki Market", "10-minute transfer", "fail", "pass (false pass)"],
-        ["v14", "30 min between Fushimi Inari and Nishiki Market", "29-minute transfer", "fail", "pass (false pass)"],
-        ["v01-v05, v07-v13, v15-v20", "budget / inclusion / source / date constraints", "good or injected", "mixed", "correct (15 of 17 at best)"],
+        ["Travel-time arithmetic", "Both residual verifier errors were short-transfer false passes against a 30-minute rule.", "Keep arithmetic and date checks deterministic; use the verifier only for constraint reading."],
+        ["Ambiguous routing", "Routing misses concentrate on unclear or plan/modify-boundary utterances.", "Keep a dedicated clarify route; do not let the model guess missing slots."],
+        ["Currency ambiguity", "TravelPlanner pilot clarifications were caused by the ambiguous dollar sign, not a missing plan.", "Treat ISO 4217 clarification as correct POC behaviour."],
+        ["Historical dates", "2022 TravelPlanner dates triggered correct date clarification under the 2026 clock.", "Use a fixed evaluation clock or date-normalized fixtures for external benchmarks."],
+        ["Invalid harness cases", "Efficiency, edit-seed and cap runs had no usable context or seed plan.", "Do not count them as model failures; fix the fixtures before retesting."],
     ],
-    widths=[1.1, 2.1, 1.3, 0.6, 1.2],
-    cap="Table A2. The two verifier errors are the same transfer-arithmetic cases across model arms. Exact-match rows are in the current autotest artifact.",
+    widths=[1.35, 2.2, 2.2],
+    cap="Table A2. Failure modes and the design response. Cases are not listed individually in the report; the case catalogue is the workbook.",
 )
 table(
     doc,
