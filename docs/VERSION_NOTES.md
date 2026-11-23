@@ -3,6 +3,78 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.1.0 — 2026-11-23 12:45 HKT
+
+Complex requests need explicit state, not a longer prompt. A request can combine a
+relative period (“next month”), a length (“2 days”), a budget and currency, flights,
+several cities and items already locked. The 5.0 line treated that as one generated
+plan; this release gives each uncertain part its own bounded representation.
+
+### Why the change
+
+- **A month is not a day.** “Next month” is a date window. The 2-day length is kept,
+  the window is carried into clarification, and the exact start remains the
+  traveller’s choice. v5 no longer invents 1 December.
+- **A turn needs a stop condition.** The runtime now enforces a whole-turn execution
+  budget: 300 s default, 60 s minimum, 900 s maximum. On expiry the work is cancelled,
+  the stream returns `turn_timeout`, and the seat is released.
+- **A complex route is several segments.** Multi-city requests are planned one city at
+  a time and joined into ordered segments. Route continuity checks dates, segment
+  order and city order. Intercity transport is deliberately left as a booking gap
+  until a real source is wired.
+- **Flights bound the day.** Selected flight times add a 90-minute arrival and a
+  120-minute departure buffer; violations return to the planner within the repair
+  budget.
+- **The runtime clock is authoritative.** “What is today’s date?” is answered from
+  `now`, never from cached search snippets.
+- **Locked choices stay visible.** Direct edit shows locked stays and flights as a
+  read-only strip, and locking a return flight updates the return leg, not the
+  outbound leg.
+
+### Date windows
+
+- “Next month” becomes **December 2026**, not 1 December.
+- The clarify card asks for the **start date only** when the length is already known.
+- If the date is unknown, it stays unknown; the plan is not created with a guessed
+  day.
+
+### Flight windows
+
+- `before_flight_arrival` and `after_flight_departure` are deterministic problems.
+- A day fully inside the flight window produces no false problem.
+- The same checks run before repair and after the constraint audit.
+
+### Multi-city route continuity
+
+- `context.stops` splits the dates into ordered city segments.
+- Each city is gathered and composed with the existing planner; a failed segment uses
+  the existing fallback planner.
+- Days, hotels, tickets, costs, constraints and gaps are merged.
+- `validate_route_continuity` checks consecutive days, segment order, city order and
+  day-to-segment assignment.
+- Intercity transport is a `TransportLeg` plus a visible `DataGap`; it is not
+  invented or priced.
+
+### Runtime and answer quality
+
+- The analyst may report a subjective confidence; Jev has its own acceptance gate.
+  The settings hint now explains both uses.
+- Current date/time answers use the injected `now` object and ignore stale search
+  snippets.
+- Settings labels are human-readable: **Intent confidence**, **Repair attempts**,
+  **Turn execution budget**.
+- Naming is separated: **validator** (deterministic), **constraint verifier** (model
+  audit), **evaluator** (offline evaluation). The front-page section is
+  **Verification**, not Evaluation.
+
+### Limits
+
+- Intercity flights/trains are not searched, priced or booked.
+- Tool-policy allowlists remain deferred because v5 does not let the model choose
+  tools.
+- A multi-city plan is a first safe slice; segment-level refinement, per-city stays and
+  intercity sourcing are follow-up work.
+
 ## 5.0.0 — 2026-11-23
 
 The LLM-first revamp is the first release. One writer model (BYOK-capable) answers
@@ -96,7 +168,7 @@ references; the plan is validated, repaired at most twice, and stored as a versi
 
 ## Imported from `main` — the v1.x release notes
 
-`main` is the **pre-revamp line** (v1.0.0 → **v1.18.0**, 22 Nov 2026, 16:30 HKT).
+`main` is the **pre-revamp line** (v1.0.0 → **v1.19.0**, 23 Nov 2026, 12:45 HKT).
 Its `README.md` and `docs/CHANGELOG.md` are the product requirements the rebuild has
 to preserve. They are not v5 releases; they are the behaviour v5 must not regress.
 
