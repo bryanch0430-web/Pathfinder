@@ -141,6 +141,9 @@ def table(doc: Document, headers: list[str], rows: list[list[str]], *, widths: l
             if len(t.rows) % 2 == 0:
                 set_cell_shading(cells[i], "EEF2F6")
     if widths:
+        # The report uses the NeurIPS 2026 5.5-inch text block. Scale authored
+        # widths down slightly so every table stays inside that block in Word.
+        widths = [width * 0.9 for width in widths]
         for row in t.rows:
             for i, width in enumerate(widths):
                 row.cells[i].width = Inches(width)
@@ -155,10 +158,10 @@ doc = Document()
 section = doc.sections[0]
 section.page_width = Inches(8.5)
 section.page_height = Inches(11)
-section.top_margin = Inches(0.9)
-section.bottom_margin = Inches(0.9)
-section.left_margin = Inches(1.25)
-section.right_margin = Inches(1.25)
+section.top_margin = Inches(1.0)
+section.bottom_margin = Inches(1.0)
+section.left_margin = Inches(1.5)
+section.right_margin = Inches(1.5)
 
 styles = doc.styles
 normal = styles["Normal"]
