@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import html
+import math
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from pydantic import ValidationError
 
 from app.core.currencies import normalise_currency
 
@@ -32,6 +35,7 @@ from app.domain.models import (
     ImportRequest,
     LayoutRequest,
     LockRequest,
+    PlanAlternative,
     PlanItem,
     ProposalDecision,
     RestoreRequest,
@@ -42,6 +46,8 @@ from app.domain.models import (
 from app.plan.builder import refresh_derived
 
 router = APIRouter()
+
+MAX_IMPORT_SUMMARY = 20_000
 
 
 def _c(request: Request) -> Container:
@@ -104,10 +110,15 @@ async def patch_state(session_id: str, payload: dict[str, Any], request: Request
                 merged[field] = code
                 merged["currency_set"] = True
                 continue
-            merged[field] = payload[field]
+            merged[field] = _checked_state(field, payload[field])
     if isinstance(payload.get("profile"), dict):
         merged["profile"] = payload["profile"]
-    context = TripContext.model_validate(merged)
+    try:
+        context = TripContext.model_validate(merged)
+    except ValidationError as exc:
+        first = exc.errors()[0] if exc.errors() else {}
+        where = ".".join(str(part) for part in first.get("loc", ())) or "state"
+        raise HTTPException(status_code=422, detail=f"The value for {where} is not valid.") from exc
     await c.store.save_context(session_id, context.model_dump())
     return {"context": context.model_dump()}
 
@@ -133,6 +144,7 @@ async def itinerary(session_id: str, request: Request, version: int | None = Non
 async def restore(session_id: str, payload: RestoreRequest, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
+    await _require_open(c, session_id)
     plan = await load_plan(c, session_id, payload.version)
     if plan is None:
         raise HTTPException(status_code=404, detail="That version is not there.")
@@ -144,12 +156,12 @@ async def restore(session_id: str, payload: RestoreRequest, request: Request) ->
 async def apply_layout(session_id: str, payload: LayoutRequest, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
+    context = await _require_open(c, session_id)
     plan = await load_plan(c, session_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="There is no itinerary to rearrange.")
     if payload.plan_version and payload.plan_version != plan.version:
         plan = await load_plan(c, session_id, payload.plan_version) or plan
-    context = await load_context(c, session_id)
     index = plan.item_index()
     for row in payload.items:
         item = index.get(row.id)
@@ -178,7 +190,8 @@ async def decide_proposal(
     c = _c(request)
     await require_session(request, session_id)
     message = await c.store.get_message(message_id)
-    if message is None:
+    # A message of another trip is "not there" for this one.
+    if message is None or message.pop("session_id", None) != session_id:
         raise HTTPException(status_code=404, detail="That change is no longer there.")
     meta = message.get("meta") or {}
     proposal = meta.get("proposal") or {}
@@ -186,15 +199,29 @@ async def decide_proposal(
     change = next((row for row in changes if row.get("id") == payload.change_id), None)
     if change is None:
         raise HTTPException(status_code=404, detail="That change is no longer there.")
+    if (change.get("status") or "pending") != "pending":
+        raise HTTPException(status_code=409, detail="That change was already decided.")
     plan = await load_plan(c, session_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="There is no itinerary to change.")
     if payload.accept:
+        context = await _require_open(c, session_id)
         candidate = change.get("plan")
         if not isinstance(candidate, dict):
             raise HTTPException(status_code=400, detail="That change has no plan to apply.")
-        new_plan = TripPlan(**candidate)
-        context = await load_context(c, session_id)
+        # The suggestion was written on top of the version before its own; if the
+        # plan moved on since, applying it would throw the newer edits away.
+        base = candidate.get("version")
+        if isinstance(base, int) and plan.version != base - 1:
+            raise HTTPException(
+                status_code=409,
+                detail="The plan has changed since this suggestion was made, so it can no longer be applied. Ask again for a fresh one.",
+            )
+        try:
+            new_plan = TripPlan(**candidate)
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail="That change has no valid plan to apply.") from exc
+        new_plan.session_id = session_id
         new_plan = await save_plan(c, new_plan, change.get("label") or "Applied a change.")
         plan = new_plan
         refresh_derived(plan, context)
@@ -212,10 +239,10 @@ async def decide_proposal(
 async def choose_option(session_id: str, payload: ChooseRequest, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
+    context = await _require_open(c, session_id)
     plan = await load_plan(c, session_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="There is no itinerary yet.")
-    context = await load_context(c, session_id)
     changed = False
     if payload.kind == "item":
         item = plan.item_index().get(payload.target_id or "")
@@ -224,6 +251,32 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
         alternative = next((row for row in item.alternatives if row.id == payload.option_id), None)
         if alternative is None:
             raise HTTPException(status_code=404, detail="That option is not listed for the stop.")
+        # The stop being replaced becomes an alternative, so it can be switched back.
+        taken = {row.id for row in item.alternatives if row.id != alternative.id}
+        previous_id = f"{item.id}-prev"
+        number = 1
+        while previous_id in taken:
+            number += 1
+            previous_id = f"{item.id}-prev{number}"
+        previous = PlanAlternative(
+            id=previous_id,
+            name=item.name,
+            geo=item.geo,
+            address=item.address,
+            rating=item.rating,
+            review_count=item.review_count,
+            price_level=item.price_level,
+            cuisine=item.cuisine,
+            reservable=item.reservable,
+            opening_hours=list(item.opening_hours),
+            source_refs=list(item.source_refs),
+            booking_url=item.booking_url,
+            source_types=list(item.source_types),
+            source_summary=item.source_summary,
+            links=list(item.links),
+            image=item.image,
+        )
+        item.alternatives = [previous if row.id == alternative.id else row for row in item.alternatives]
         item.name = alternative.name
         item.geo = alternative.geo
         item.address = alternative.address
@@ -240,8 +293,20 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
         item.locked = bool(payload.lock)
         changed = True
     elif payload.kind == "hotel":
-        current = next((row for row in plan.hotels if row.id == payload.target_id), None)
         chosen = next((row for row in plan.hotel_options if row.id == payload.option_id), None)
+        current = None
+        if payload.target_id:
+            current = next((row for row in plan.hotels if row.id == payload.target_id), None)
+            if current is None:
+                raise HTTPException(status_code=404, detail="That stay is not on the plan.")
+        elif len(plan.hotels) == 1:
+            current = plan.hotels[0]
+        elif plan.hotels:
+            # Several stays (a multi-city trip): the option's own city decides which one.
+            wanted = chosen.segment_id if chosen is not None else None
+            current = next((row for row in plan.hotels if wanted and row.segment_id == wanted), None)
+            if current is None:
+                raise HTTPException(status_code=404, detail="Say which stay to change.")
         # The current stay is also a lockable option: it need not appear again in
         # the alternative list. This is the common "Lock in" path for a hotel.
         if chosen is None:
@@ -253,6 +318,7 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
         if current is not None:
             chosen.check_in = current.check_in
             chosen.check_out = current.check_out
+            chosen.segment_id = current.segment_id or chosen.segment_id
             # Keep the other city's stays; replacing the whole list would drop
             # them on a multi-city trip.
             plan.hotels = [chosen if row.id == current.id else row for row in plan.hotels]
@@ -265,7 +331,12 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
         chosen = next((row for row in plan.tickets if row.id == payload.option_id), None)
         if chosen is None:
             raise HTTPException(status_code=404, detail="That travel option is not listed.")
-        for ticket in plan.tickets:
+        # On a multi-city trip each city has its own ticket; only that city's pick changes.
+        same_trip = plan.tickets
+        if len(plan.segments) > 1:
+            city = (chosen.destination or "").strip().lower()
+            same_trip = [row for row in plan.tickets if (row.destination or "").strip().lower() == city]
+        for ticket in same_trip:
             ticket.selected = ticket.id == chosen.id
         # The UI locks the slot it is showing (leg-back), not the ticket's
         # source leg. Return options can share the outbound leg_id in the
@@ -287,6 +358,7 @@ async def choose_option(session_id: str, payload: ChooseRequest, request: Reques
 async def set_lock(session_id: str, payload: LockRequest, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
+    await _require_open(c, session_id)
     plan = await load_plan(c, session_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="There is no itinerary yet.")
@@ -346,9 +418,11 @@ async def finalise(session_id: str, request: Request) -> dict[str, Any]:
     # Finalise is idempotent: a double-click must not create a second saved trip.
     if context.finalized:
         return {"context": context.model_dump()}
+    plan = await load_plan(c, session_id)
+    if plan is None:
+        raise HTTPException(status_code=409, detail="There is no itinerary to finalise yet.")
     context.finalized = True
     await c.store.save_context(session_id, context.model_dump())
-    plan = await load_plan(c, session_id)
     if plan is not None:
         plan.status = "ready"
         await save_plan(c, plan, "Finalised the trip.")
@@ -384,7 +458,9 @@ async def rate(
 ) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
-    useful = bool(payload.get("useful"))
+    useful = payload.get("useful", False)
+    if not isinstance(useful, bool):
+        raise HTTPException(status_code=422, detail="useful must be true or false.")
     raw_stars = payload.get("stars")
     stars: int | None = None
     if useful and raw_stars is not None:
@@ -446,7 +522,13 @@ async def public_plan(slug: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=410, detail="That shared trip has expired.")
     plan = await load_plan(c, row["session_id"])
     context = await load_context(c, row["session_id"])
-    return {"plan": plan.model_dump(mode="json") if plan else None, "context": context.model_dump(mode="json")}
+    # The session id is the only credential of a trip without an owner: never share it.
+    plan_json = plan.model_dump(mode="json") if plan else None
+    if plan_json:
+        plan_json.pop("session_id", None)
+    context_json = context.model_dump(mode="json")
+    context_json.pop("session_id", None)
+    return {"plan": plan_json, "context": context_json}
 
 
 @router.get("/s/{slug}", response_class=Response)
@@ -455,24 +537,27 @@ async def public_page(slug: str, request: Request) -> Response:
     row = await c.store.get_share(slug)
     if row is None:
         return Response("This shared trip is not here.", status_code=404, media_type="text/plain")
+    if row["expires_at"] < now_iso():
+        return Response("That shared trip has expired.", status_code=410, media_type="text/plain")
     plan = await load_plan(c, row["session_id"])
     if plan is None:
         return Response("This trip has no itinerary yet.", status_code=404, media_type="text/plain")
+    esc = html.escape
     rows = []
     for index, day in enumerate(plan.days, start=1):
-        stops = "".join(f"<li><b>{item.start}</b> {item.name}</li>" for item in day.items)
-        rows.append(f"<h2>Day {index} · {day.date} · {day.title}</h2><ul>{stops}</ul>")
-    html = (
+        stops = "".join(f"<li><b>{esc(item.start)}</b> {esc(item.name)}</li>" for item in day.items)
+        rows.append(f"<h2>Day {index} · {esc(day.date)} · {esc(day.title)}</h2><ul>{stops}</ul>")
+    page = (
         "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-        f"<title>{plan.destination.name} trip</title>"
+        f"<title>{esc(plan.destination.name)} trip</title>"
         "<style>body{font:16px/1.55 system-ui;margin:0 auto;max-width:44rem;padding:2rem 1rem;color:#16202a}"
         "h1{font-size:1.7rem}h2{font-size:1.05rem;margin-top:1.6rem;color:#0b5c66}li{margin:.25rem 0}"
         ".s{color:#5b6b78}</style>"
-        f"<h1>{plan.destination.name}</h1><p class='s'>{plan.dates.start} → {plan.dates.end} · "
-        f"{plan.party_size} traveller(s)</p><p>{plan.summary}</p>{''.join(rows)}"
+        f"<h1>{esc(plan.destination.name)}</h1><p class='s'>{esc(plan.dates.start)} → {esc(plan.dates.end)} · "
+        f"{int(plan.party_size)} traveller(s)</p><p>{esc(plan.summary)}</p>{''.join(rows)}"
         "<p class='s'>Shared from Pathfinder.</p>"
     )
-    return Response(html, media_type="text/html")
+    return Response(page, media_type="text/html")
 
 
 @router.get("/api/journeys/{session_id}/translation")
@@ -548,15 +633,18 @@ async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any
     token = (request.headers.get("X-Client-Token") or payload.client_token or "").strip()
     from app.api.deps import bearer_user
 
-    session = await c.store.create_session(client_token=token, user_id=bearer_user(request))
     raw = payload.plan or {}
+    if isinstance(raw.get("summary"), str) and len(raw["summary"]) > MAX_IMPORT_SUMMARY:
+        raise HTTPException(status_code=413, detail="That plan's summary is too long to import.")
     try:
         plan = TripPlan(**raw)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"That file is not a Pathfinder plan: {exc}") from exc
+    # Only a valid plan gets a session, so a bad file leaves nothing behind.
+    session = await c.store.create_session(client_token=token, user_id=bearer_user(request))
     plan.session_id = session["id"]
     plan.version = 1
-    plan.trip_id = plan.trip_id or "trip-" + fingerprint(session["id"])
+    plan.trip_id = "trip-" + fingerprint(session["id"])
     await c.store.save_plan(plan.model_dump(mode="json"))
     context = TripContext(
         session_id=session["id"],
@@ -587,6 +675,59 @@ async def clear_turns(session_id: str, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
     return {"deleted": await c.store.clear_messages(session_id)}
+
+
+async def _require_open(c: Container, session_id: str) -> TripContext:
+    """The trip's context, or 409 when the trip is finalised and so read-only."""
+    context = await load_context(c, session_id)
+    if context.finalized:
+        raise HTTPException(status_code=409, detail="This trip is finalised, so it can be viewed but not changed.")
+    return context
+
+
+def _checked_state(field: str, value: Any) -> Any:
+    def bad(message: str) -> HTTPException:
+        return HTTPException(status_code=422, detail=message)
+
+    def number(low: float | None = None, high: float | None = None, *, whole: bool = False) -> Any:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise bad(f"{field} must be a number.")
+        if whole and value != int(value):
+            raise bad(f"{field} must be a whole number.")
+        if (low is not None and value < low) or (high is not None and value > high):
+            raise bad(f"{field} must be between {low:g} and {high:g}." if high is not None else f"{field} must be at least {low:g}.")
+        return int(value) if whole else value
+
+    if field == "party_size":
+        return number(1, 20, whole=True)
+    if field == "days":
+        return number(1, 60, whole=True)
+    if field == "budget":
+        return number(0)
+    if field in {"start_date", "end_date"}:
+        if not isinstance(value, str):
+            raise bad(f"{field} must be a date such as 2026-12-03.")
+        if value:
+            try:
+                date.fromisoformat(value)
+            except ValueError as exc:
+                raise bad(f"{field} must be a date such as 2026-12-03.") from exc
+        return value
+    if field in {"preferences", "hard_constraints"}:
+        if not isinstance(value, list) or not all(isinstance(row, str) for row in value):
+            raise bad(f"{field} must be a list of text values.")
+        return value
+    if field in {"finalized", "one_way"}:
+        if not isinstance(value, bool):
+            raise bad(f"{field} must be true or false.")
+        return value
+    if field == "stops":
+        if not isinstance(value, list):
+            raise bad("stops must be a list.")
+        return value
+    if not isinstance(value, str):
+        raise bad(f"{field} must be text.")
+    return value
 
 
 def _day_number(plan: TripPlan, day: int) -> DayPlan | None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -146,7 +147,10 @@ def calendar_ics(plan: TripPlan) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     def escape(text: str) -> str:
-        return (text or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+        text = (text or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
+        text = re.sub(r"\r\n|\r|\n", lambda _m: "\\n", text)
+        # No other control character may reach the file: it could start a new line.
+        return re.sub(r"[\x00-\x1f\x7f]", " ", text)
 
     lines = [
         "BEGIN:VCALENDAR",
@@ -163,7 +167,7 @@ def calendar_ics(plan: TripPlan) -> str:
             lines.extend(
                 [
                     "BEGIN:VEVENT",
-                    f"UID:{item.id}@pathfinder",
+                    f"UID:{escape(item.id)}@pathfinder",
                     f"DTSTAMP:{stamp}",
                     f"DTSTART:{start}",
                     f"DTEND:{end}",
@@ -174,7 +178,23 @@ def calendar_ics(plan: TripPlan) -> str:
                 ]
             )
     lines.append("END:VCALENDAR")
-    return "\r\n".join(lines) + "\r\n"
+    return "\r\n".join(part for line in lines for part in _fold(line)) + "\r\n"
+
+
+def _fold(line: str) -> list[str]:
+    """Fold a content line at 75 octets (RFC 5545 3.1) without splitting a UTF-8 character."""
+    parts: list[str] = []
+    current = ""
+    size = 0
+    for char in line:
+        width = len(char.encode("utf-8"))
+        if size + width > 75:
+            parts.append(current)
+            current, size = " ", 1
+        current += char
+        size += width
+    parts.append(current)
+    return parts
 
 
 def _stamp(day: str, clock: str) -> str:
