@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-11-23T11:02:17.581448+00:00",
+  "base_url": "https://api.chatanywhere.org/v1",
+  "provider": "ChatAnywhere (test-only)",
+  "model_count": 4,
+  "models": [
+    {
+      "model": "claude-sonnet-5-5",
+      "ok": false,
+      "intent": "",
+      "confidence": null,
+      "latency_ms": 9951.8,
+      "tokens": null,
+      "error": "the model's understand answer was unusable: the reply was not a JSON object | raw: {\"intent\":\"plan\",\"confidence\":0.95,\"reason_code\":\"new_trip_request\",\"reason\":\"The traveller wants a new 3-day Kyoto itinerary for two people in April 2027 with a 4000 USD budget.\",\"language\":\"en\",\"slots\":{\"destination"
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 1.0,
+      "latency_ms": 3381.0,
+      "tokens": null,
+      "error": ""
+    },
+    {
+      "model": "deepseek-v4.1-flash",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.95,
+      "latency_ms": 3869.2,
+      "tokens": null,
+      "error": ""
+    },
+    {
+      "model": "gpt-5.5",
+      "ok": false,
+      "intent": "",
+      "confidence": null,
+      "latency_ms": 17026.9,
+      "tokens": null,
+      "error": "the model's understand answer was unusable: the reply was not a JSON object | raw: "
+    }
+  ],
+  "jev": {
+    "env_key_present": false,
+    "note": "Jev is optional and is not called by this smoke probe; use JEV_API_KEY when running the router comparison."
+  }
+}

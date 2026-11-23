@@ -97,7 +97,10 @@ class Settings(BaseSettings):
     # --- System 1 router (optional) ------------------------------------
     decision_enabled: bool = Field(default=False, alias="DECISION_ENABLED")
     decision_api_url: str = Field(default="https://api.typesafe.ai/v1/systemone", alias="DECISION_API_URL")
-    decision_api_key: str = Field(default="", alias="DECISION_API_KEY")
+    decision_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("DECISION_API_KEY", "JEV_API_KEY"),
+    )
     decision_model: str = Field(default="jev-latest", alias="DECISION_MODEL")
     decision_auth_prefix: str = Field(default="Bearer", alias="DECISION_AUTH_PREFIX")
     decision_timeout_seconds: float = Field(default=1.5, alias="DECISION_TIMEOUT_SECONDS")

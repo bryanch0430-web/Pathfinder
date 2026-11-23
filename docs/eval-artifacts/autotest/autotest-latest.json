@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-11-23T11:12:26.879236+00:00",
+  "base_url": "https://api.chatanywhere.org/v1",
+  "provider": "ChatAnywhere (test-only)",
+  "model_count": 4,
+  "mode": "probe",
+  "models": [
+    {
+      "model": "claude-sonnet-5-5",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.94,
+      "latency_ms": 10263.6,
+      "tokens": 1545,
+      "error": ""
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.95,
+      "latency_ms": 2609.2,
+      "tokens": 377,
+      "error": ""
+    },
+    {
+      "model": "deepseek-v4.1-flash",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.97,
+      "latency_ms": 8432.1,
+      "tokens": 1274,
+      "error": ""
+    },
+    {
+      "model": "gpt-5.5",
+      "ok": true,
+      "intent": "plan",
+      "confidence": 0.93,
+      "latency_ms": 15701.3,
+      "tokens": 1216,
+      "error": ""
+    }
+  ],
+  "jev": {
+    "env_key_present": false,
+    "note": "Jev is optional; set JEV_API_KEY and pass --jev to call it.",
+    "ok": false,
+    "error": "JEV_API_KEY is not set"
+  }
+}

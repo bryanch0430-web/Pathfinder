@@ -23,3 +23,7 @@ frontend/tsconfig.tsbuildinfo
 data/*.txt
 
 backend/.tmp-chrome*/
+
+.env.autotest
+.env.autotest.*
+!.env.autotest.example
