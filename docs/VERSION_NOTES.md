@@ -3,6 +3,43 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.1.1 — 2026-11-23 15:43 HKT
+
+Point release for the selected-item context, current-stay locking, verifier
+visibility, and the new search/verifier model setup.
+
+### Fixes
+
+- **Selected item context in answers.** The UI selection was sent to the analyst
+  but not to the answer payload, so “what is this?” ignored the selected stop.
+  The ask payload now includes `selected_stop`; the answer names the selected item.
+- **Locking the current hotel.** The choose endpoint only searched alternative
+  hotels, so locking the stay already on the plan (Ramada Hong Kong Harbour View)
+  returned “not listed”. It now accepts the current stay and keeps the other
+  hotels on a multi-city trip.
+- **Verifier visibility.** When a plan has no hard constraints, the “why” trace
+  now says that the constraint audit was skipped. A verifier endpoint failure is
+  also recorded instead of disappearing silently.
+
+### Models and search
+
+- Constraint verifier defaults to **DeepSeek `deepseek-flash`**, on its own
+  `VERIFIER_*` endpoint, temperature 0 and a 1,500-token cap. The 20-case benchmark
+  re-run scored **18/20**, the same two transfer-arithmetic false passes as before.
+- Web search has a **final DeepSeek Search fallback**:
+  `SerpAPI → Wikipedia → DeepSeek Search`. The model still only writes queries;
+  code runs the searches. The same DeepSeek key can be used for the verifier and
+  search, but the settings remain separate.
+- `.env.example` is reorganized around the current design, and the local `.env`
+  contains the separate verifier/search entries. Secrets remain local only.
+
+### Mapping
+
+- “How Pathfinder plans a trip” now uses the actual code roles (Turn orchestrator,
+  Understand, Evidence workers, Composer, Validator + verifier, Plan store, Memory)
+  and the UI labels (Plan, Chat, Trip map, My trips, Desk).
+- The map set includes the data-flow diagram and four plain-language turn stories.
+
 ## 5.1.0 — 2026-11-23 14:16 HKT
 
 Complex requests need explicit state, not a longer prompt. A request can combine a

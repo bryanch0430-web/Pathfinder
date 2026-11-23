@@ -39,12 +39,13 @@ small set of stale test gaps); it is archived and is not rebuilt by v5.
 
 | Version | When (HKT) | Commits | Headline |
 |---|---|---|---|
+| **v5.1.1** | 2026-11-23 15:43 | `2d6d7c3`…`ebe064e` | Selected-item context, current-hotel locking, verifier visibility, DeepSeek verifier benchmark, and DeepSeek Search as the final web fallback |
 | **v5.1.0** | 2026-11-23 14:16 | `4995ec9`…`152fd51` | Complex requests get explicit state: date windows, flight buffers, a whole-turn budget, ordered multi-city segments, a runtime clock, split LLM/Jev confidence settings, and the complete architecture reference |
 | **v5.0.0** | 2026-11-23 11:47 | `fabeb36`…`e72cfff` | LLM-first core behind the unchanged React UI: typed analyst/router, evidence workers, sourced-only planner, deterministic validation, bounded repair, versioned plans, per-part models, optional Jev and a real HITL queue |
 
 The detailed patch notes, including every commit and the part-model study, are in
 [docs/VERSION_NOTES.md](docs/VERSION_NOTES.md). `v5.0.0` is the first v5 release;
-`v5.1.0` is the current line.
+`v5.1.0` introduced the complex-request line; `v5.1.1` is the current patch.
 
 ## What kind of agent is this?
 
