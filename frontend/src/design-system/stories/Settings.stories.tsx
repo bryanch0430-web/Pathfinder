@@ -7,7 +7,7 @@ export default meta;
 type Story = StoryObj;
 
 const config = {
-  thresholds: { router_confidence: 0.8, memory_similarity: 0.72, preplan_budget_seconds: 90, max_repairs: 2, rule_passes: 3, conversation_turns: 10, reviewer_timeout_seconds: 20, turn_deadline_seconds: 180, llm_timeout_seconds: 90 },
+  thresholds: { router_confidence: 0.8, memory_similarity: 0.72, preplan_budget_seconds: 90, max_repairs: 2, rule_passes: 3, conversation_turns: 10, reviewer_timeout_seconds: 20, turn_deadline_seconds: 300, llm_timeout_seconds: 90 },
   freshness_hours: { weather: 6, tickets: 24, hotels: 168, attractions: 720 },
   writer: { available: true, model: "grok-4.20-0309-non-reasoning" },
   providers: {

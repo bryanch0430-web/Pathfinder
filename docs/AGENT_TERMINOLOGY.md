@@ -15,11 +15,11 @@ is a **bounded agent loop**:
 
 1. **Context builder** assembles instructions, the traveller's request, trip state,
    the current plan, recent turns and the available Skill.
-2. The **LLM router** proposes one route: `plan`, `modify`, `ask` or `clarify`.
-   (Jev, a *System 1* decision model, can be selected as the router.)
-3. The **runtime/harness** validates the route and dispatches only the allowed
-   work: parallel tool workers, the planner, or a question.
-4. **Tool workers** call the permitted tools (places, stays, weather, flights,
+2. The **intent router** proposes one route: `plan`, `modify`, `ask` or `clarify`.
+   (Jev, a *System 1* decision model, can be selected as the routing gate.)
+3. The **runtime controller / harness** validates the route and dispatches only the allowed
+   work: parallel evidence workers, the planner, or a question.
+4. **Evidence workers** call the permitted tools (places, stays, weather, flights,
    videos) and return **observations** as evidence records.
 5. The **planner** selects sourced references and composes the plan; the
    **evaluator/verifier** checks it and returns specific failures for a **bounded
@@ -86,7 +86,7 @@ planner, tools, memory and evaluation.
   not have that; it stores durable **semantic preferences** and live evidence. Do
   not call v5 “RAG” unless that retrieval layer is added.
 - The proposal's “multi-agent pipeline” is implemented as **one primary agent +
-  parallel tool workers**, not independent autonomous agents. In course terms this
+  parallel evidence workers**, not independent autonomous agents. In course terms this
   is **parallelization / fixed orchestrator–workers**, not a multi-agent society.
 - The proposal's router was **Jev (System 1)** by default. v5 defaults to the
   **LLM router**; Jev is an optional router because it scored lower on the routing
