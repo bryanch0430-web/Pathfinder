@@ -1101,9 +1101,17 @@ def _fallback_clarify(context: TripContext, route: RoutePayload | None) -> Clari
     if "destination" in missing:
         question, slots = "Where would you like to go, and roughly when?", ["destination", "start_date"]
     elif "start_date" in missing and "days" in missing:
-        question, slots = "Which dates should I plan for? A start date and a length is enough.", ["start_date", "days"]
+        window = route.date_window if route else ""
+        question, slots = (
+            f"Which date in {window} should I start, and how many days?" if window else "Which dates should I plan for? A start date and a length is enough.",
+            ["start_date", "days"],
+        )
     elif "start_date" in missing:
-        question, slots = f"I have the {context.days}-day length. What start date should I use?", ["start_date"]
+        window = route.date_window if route else ""
+        question, slots = (
+            f"I have the {context.days}-day length. Which date in {window} should I start?" if window else f"I have the {context.days}-day length. What start date should I use?",
+            ["start_date"],
+        )
     elif "days" in missing:
         question, slots = "How many days should the trip be?", ["days"]
     elif "party_size" in missing:

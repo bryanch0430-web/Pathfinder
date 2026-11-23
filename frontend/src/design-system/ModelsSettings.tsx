@@ -29,7 +29,7 @@ const PARTS: { key: string; label: string; hint: string }[] = [
   { key: "understand", label: "Analyst (intent + slots)", hint: "Reads the message, routes the turn and extracts the intake slots." },
   { key: "plan", label: "Planner (composer)", hint: "Chooses the stops, order and timings for a new plan." },
   { key: "edit", label: "Editor", hint: "Turns a change request into typed edit operations." },
-  { key: "verify", label: "Verifier", hint: "Audits the draft against the request and the sources." },
+  { key: "verify", label: "Constraint verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
   { key: "ask", label: "Ask / quick answers", hint: "Answers a question about the current plan." },
   { key: "memory", label: "Memory", hint: "Extracts durable preferences after a finalised trip." },
 ];

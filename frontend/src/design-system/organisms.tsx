@@ -5213,8 +5213,20 @@ export function SettingsView({
                     key={key}
                     wide
                     htmlFor={`pf-threshold-${key}`}
-                    label={t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}
-                    hint={t(`settings.thresholdHint.${key}` as "settings.thresholdHint.router_confidence")}
+                    label={t(
+                      key === "router"
+                        ? "settings.threshold.router_confidence"
+                        : key === "max_repairs"
+                          ? "settings.threshold.max_repairs"
+                          : "settings.threshold.turn_deadline_seconds"
+                    )}
+                    hint={t(
+                      key === "router"
+                        ? "settings.thresholdHint.router_confidence"
+                        : key === "max_repairs"
+                          ? "settings.thresholdHint.max_repairs"
+                          : "settings.thresholdHint.turn_deadline_seconds"
+                    )}
                   >
                     <Input id={`pf-threshold-${key}`} value={draftThresholds[key] ?? ""} onChange={(event) => setDraftThresholds((current) => ({ ...current, [key]: event.target.value }))} inputMode="decimal" />
                   </Field>
@@ -5223,7 +5235,15 @@ export function SettingsView({
             ) : (
               Object.entries(config.thresholds).filter(([key]) => ["router", "max_repairs", "turn_deadline"].includes(key)).map(([key, value]) => (
                 <div className="pf-row pf-row--between" key={key}>
-                  <span className="pf-small pf-muted">{t(`settings.threshold.${key}` as "settings.threshold.router_confidence")}</span>
+                  <span className="pf-small pf-muted">
+                    {t(
+                      key === "router"
+                        ? "settings.threshold.router_confidence"
+                        : key === "max_repairs"
+                          ? "settings.threshold.max_repairs"
+                          : "settings.threshold.turn_deadline_seconds"
+                    )}
+                  </span>
                   <span className="pf-mono pf-small">{String(value)}</span>
                 </div>
               ))

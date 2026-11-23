@@ -14,7 +14,7 @@ from typing import Any
 
 from app.config import Settings
 from app.core.currencies import normalise_currency
-from app.core.dates import finish_dates, parse_date, resolve_relative_start
+from app.core.dates import finish_dates, parse_date, relative_window_label
 from app.core.llm import LLMClient, LLMError
 from app.core.prompts import context_brief, dialogue, plan_outline, skill
 from app.domain.models import ChatMessage, ClarifyPayload, RoutePayload, TripContext, TripPlan
@@ -85,23 +85,16 @@ async def understand(
             missing_slots=["scope"],
         )
     updated = merge_slots(context, parsed)
-    # The analyst is good at meaning but often leaves "next month" as an
-    # assumption rather than a date. Fill only a provisional start date when
-    # the traveller named a period and gave no day; the assumption is recorded.
-    if not updated.start_date:
-        relative_start, relative_note = resolve_relative_start(message, today.date())
-        if relative_start is not None:
-            updated.start_date = relative_start.isoformat()
-            if relative_note:
-                parsed.assumptions.append(relative_note)
-            start, end, days = finish_dates(
-                start=updated.start_date,
-                end=updated.end_date,
-                days=updated.days if updated.days else None,
-            )
-            updated.start_date, updated.end_date, updated.days = start, end, days
-    updated.language = parsed.language or updated.language
+    # "Next month" is a window, not a start date. Keep the exact day empty and
+    # carry the window into the clarify card; never invent a day the traveller
+    # did not choose.
     route = _route(parsed, settings, plan)
+    if not updated.start_date:
+        window = relative_window_label(message, today.date())
+        if window:
+            parsed.assumptions.append(f"Exact start date is not fixed; the requested window is {window}.")
+            route = route.model_copy(update={"date_window": window})
+    updated.language = parsed.language or updated.language
     if settings.turn_orchestrator == "jev":
         from app.understand.jev import jev_route
 
@@ -307,15 +300,20 @@ def _clarify(
     # A clarify question that talks about converting/keeping a currency must
     # include the currency field. Otherwise the card asks "HKD or TWD?" while
     # only rendering a Budget number, and the traveller has nowhere to answer it.
-    currency_prompt = "currency" in question.lower() or any(
-        code in question.lower() for code in ("hkd", "twd", "jpy", "usd", "eur", "gbp", "cny", "sgd")
+    lowered_question = question.lower()
+    currency_prompt = "currency" in lowered_question or any(
+        phrase in lowered_question for phrase in ("which currency", "what currency", "convert", "exchange")
     )
-    if currency_prompt or normalise_currency(parsed.slots.currency):
+    # A currency code can appear in a date question simply because the brief
+    # mentioned it. Only add the field when the question asks to choose/convert
+    # a currency, or the analyst explicitly changed it.
+    currency_changed = normalise_currency(parsed.slots.currency)
+    if (currency_prompt and "currency" not in slots) or (currency_changed and not context.currency):
         if "currency" not in slots:
             slots.append("currency")
         choices = [
             normalise_currency(context.currency),
-            normalise_currency(parsed.slots.currency),
+            currency_changed,
             "TWD", "HKD", "JPY", "USD", "EUR", "GBP",
         ]
         options["currency"] = list(dict.fromkeys(code for code in choices if code))[:6]
@@ -325,11 +323,19 @@ def _clarify(
             question = "Where would you like to go, and roughly when?"
             slots = ["destination", "start_date"]
         elif "start_date" in missing and "days" in missing:
-            question = "Which dates should I plan for? A start date and a length is enough."
+            question = (
+                f"Which date in {route.date_window} should I start, and how many days?"
+                if route.date_window
+                else "Which dates should I plan for? A start date and a length is enough."
+            )
             slots = ["start_date", "days"]
         elif "start_date" in missing:
             length = context.days or 0
-            question = f"I have the {length}-day length. What start date should I use?"
+            question = (
+                f"I have the {length}-day length. Which date in {route.date_window} should I start?"
+                if route.date_window
+                else f"I have the {length}-day length. What start date should I use?"
+            )
             slots = ["start_date"]
         elif "days" in missing:
             question = "How many days should the trip be?"

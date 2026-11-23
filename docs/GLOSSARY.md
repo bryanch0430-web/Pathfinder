@@ -36,3 +36,41 @@ New UI copy should use **intent routing**, **intake slots**, **evidence
 workers**, **grounded context**, **tool policy**, **execution budget** and
 **route continuity**. Do not introduce new “tool workers”, “router turn” or
 “route permissions” labels.
+
+## Verification vs evaluation
+
+| Question | Term | Code | UI label |
+|---|---|---|---|
+| Is this plan structurally valid? | **validator** | `plan/validator.check_structure`, `plan/builder.validate_structure` | Validation / Verification |
+| Does it satisfy the traveller's hard constraints? | **constraint verifier** | `plan/validator.audit_constraints`, `skills/verify.md` | Constraint verifier |
+| How does the agent perform across a dataset? | **evaluator / evaluation** | `eval/runner.py`, `eval/datasets.py` | Evaluation |
+
+Course usage keeps these separate: a **verifier** checks an output or final state,
+while an **evaluator** runs a benchmark or evaluation harness. The front page
+previously used “Evaluation” for the in-turn checks; that was the wrong level and
+is now **Verification**. The Settings model part is **Constraint verifier**, not
+plain “Verifier”, so it cannot be confused with the offline evaluator.
+
+## Important modules
+
+| Module | Exact name | Entry point | Job |
+|---|---|---|---|
+| Intent routing | **intent router** | `understand.pipeline.understand` | Choose plan / modify / ask / clarify; extract intake slots. |
+| Context | **context builder** | `_load_context`, `app/core/prompts.py` | Assemble trip state, profile, memory and evidence. |
+| Evidence | **evidence workers** | `plan/agents.gather` | Fixed tool adapters: places, stays, weather, tickets, videos. |
+| Planning | **planner / composer** | `plan/builder.compose` | Select and order sourced candidates. |
+| Editing | **editor** | `plan/editor.propose_edit` | Turn a change request into typed operations. |
+| Validation | **validator** | `plan/validator.check_structure` | Deterministic structure, hours, budget, flight windows, route continuity. |
+| Constraint audit | **constraint verifier** | `plan/validator.audit_constraints` | Model judgement on the traveller's hard constraints. |
+| Repair | **repair loop** | `turn/orchestrator._plan_turn` | Send failed checks back within `max_repairs`. |
+| Runtime | **runtime harness** | `api/turn.py`, `turn/orchestrator.run_turn` | Deadline, seat, cancellation, SSE, trace. |
+| Memory | **memory** | `application/memory.remember_trip` | Durable preferences, deduped and capped. |
+| Evaluation | **evaluator** | `eval/runner.run_dataset` | Offline cases, metrics and reports. |
+| Human-in-the-loop | **desk / handoff** | `api/admin.py`, `frontend/src/app/learn.tsx` | Operator takeover and supervision. |
+| Tool policy | **tool policy** (future) | not implemented | Per-path allowlist; the model does not choose tools yet. |
+
+Naming convention: UI verbs are nouns of responsibility — **Intent routing**,
+**Evidence workers**, **Planner**, **Verification**, **Runtime harness**,
+**Evaluation**. Code role names keep the agent suffix (`router`, `planner`,
+`editor`, `validator`, `verifier`, `evaluator`), but `validator`, `verifier` and
+`evaluator` are not synonyms.

@@ -573,6 +573,9 @@ class RoutePayload(Wire):
     missing_slots: list[str] = Field(default_factory=list)
     related_to_plan: bool = False
     blocked: bool = False
+    # A period the traveller named without a day ("next month"); the clarify
+    # card uses it to ask for the date without inventing one.
+    date_window: str = ""
 
 
 class IntakeSource(Wire):

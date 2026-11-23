@@ -114,49 +114,33 @@ _MONTHS = {
 }
 
 
-def _date_label(value: date) -> str:
-    return f"{value.day} {value.strftime('%B %Y')}"
+def relative_window_label(message: str, today: date | None = None) -> str | None:
+    """Name the requested period without inventing a day inside it.
 
-
-def resolve_relative_start(message: str, today: date | None = None) -> tuple[date | None, str | None]:
-    """Resolve an explicit relative period to a provisional start date.
-
-    This is deliberately conservative: it only fills the date when the traveller
-    named a period and gave no exact day. The caller records the assumption, so a
-    provisional date never silently masquerades as a confirmed booking date.
+    "Next month" is a window, not a start date. The caller asks the traveller to
+    pick the day while keeping the length they already gave.
     """
     import re
 
     now = today or date.today()
     text = " ".join((message or "").lower().split())
     if not text:
-        return None, None
-
+        return None
     if re.search(r"\bnext\s+month\b", text):
         year = now.year + (1 if now.month == 12 else 0)
         month = 1 if now.month == 12 else now.month + 1
-        start = date(year, month, 1)
-        return start, f"Started on {_date_label(start)} because you said next month; change the date if you prefer."
-    if re.search(r"\bnext\s+week(?:end)?\b", text):
-        # Next week starts on the coming Monday; next weekend on the following Saturday.
-        if "weekend" in text:
-            days = (5 - now.weekday()) % 7 + 7
-            start = now + timedelta(days=days)
-            return start, f"Started on Saturday {_date_label(start)} because you said next weekend."
-        days = (7 - now.weekday()) % 7 or 7
-        start = now + timedelta(days=days)
-        return start, f"Started on Monday {_date_label(start)} because you said next week."
+        return f"{date(year, month, 1).strftime('%B')} {year}"
+    if re.search(r"\bnext\s+weekend\b", text):
+        return "next weekend"
     if re.search(r"\bthis\s+weekend\b", text):
-        days = (5 - now.weekday()) % 7
-        start = now + timedelta(days=days)
-        return start, f"Started on Saturday {_date_label(start)} because you said this weekend."
+        return "this weekend"
+    if re.search(r"\bnext\s+week\b", text):
+        return "next week"
     if re.search(r"\bthis\s+month\b", text):
-        start = now.replace(day=1)
-        return start, f"Started on {_date_label(start)} because you said this month."
+        return f"{now.strftime('%B')} {now.year}"
     month_match = re.search(r"\b(?:in|during|for)\s+(" + "|".join(_MONTHS) + r")\b", text)
     if month_match:
         month = _MONTHS[month_match.group(1)]
         year = now.year if month > now.month else now.year + 1
-        start = date(year, month, 1)
-        return start, f"Started on {_date_label(start)} because you named {month_match.group(1).title()}."
-    return None, None
+        return f"{date(year, month, 1).strftime('%B')} {year}"
+    return None
