@@ -71,17 +71,18 @@ def local_text(value: str) -> str:
 
 def screening(row):
     reasons = []
-    if int(row["visiting_city_number"]) != 1:
-        reasons.append("multi-city")
-    if int(row["days"]) not in (3, 5):
-        reasons.append("days not 3/5")
-    if int(row["people_number"]) > 4:
-        reasons.append("party >4")
     if has_local_constraint(row["local_constraint"]):
         reasons.append("local hard constraint unsupported")
     relevant = not reasons
+    single = int(row["visiting_city_number"]) == 1
+    small = int(row["people_number"]) <= 4
     corpus_ready = relevant and str(row["dest"]).strip() in {"New York", "San Francisco"}
-    tier = ("A: corpus-ready" if corpus_ready else "B: live-provider needed") if relevant else ""
+    if not relevant:
+        tier = ""
+    elif single and small:
+        tier = "A: core single-city"
+    else:
+        tier = "B: supported but secondary (multi-city and/or >4)"
     return relevant, "; ".join(reasons) if reasons else "relevant", corpus_ready, tier
 
 
@@ -146,11 +147,11 @@ def main() -> None:
         ("Sample", "200 cases (16.3%), stratified by official source subset and difficulty, random seed 20261123."),
         ("Sample estimate", f"{int(sample.relevant.sum())}/{n} relevant ({p:.1%}); Wilson 95% CI {low:.1%}-{high:.1%}."),
         ("Interpretation", "This is a structured-field audit, not independent human annotation. It checks whether the operational filter behaves as intended; it is not a substitute for human gold labels."),
-        ("Full filter", "Single city, 3 or 5 days, 1-4 travellers, no local hard constraint. This yields 147 cases."),
-        ("Why these rules", "v5 supports single-city day plans and small parties. It does not guarantee restaurant cuisine, house rules, room type or no-flight constraints, so those are excluded rather than silently failed."),
-        ("Tier A", "Relevant and destination is in the local place corpus (New York or San Francisco); 7 cases are corpus-ready."),
-        ("Tier B", "Relevant but destination needs a live provider or may produce a DataGap; 140 cases."),
-        ("Recommended order", "Run Tier A (7) first; then Tier B (140) after evidence-provider coverage is confirmed. Do not report all 147 as one equally valid benchmark."),
+        ("Full filter", "No unsupported local hard constraint. This yields 423 structurally relevant cases."),
+        ("Why these rules", "v5 can plan multi-city first slices and parties above four (the pipeline caps at 40; the UI lists up to 20). It does not guarantee restaurant cuisine, house rules, room type or no-flight constraints, so those remain excluded."),
+        ("Tier A", "Core single-city, 1-4 travellers, no local constraint: 147 cases; 19 are corpus-ready (New York or San Francisco)."),
+        ("Tier B", "Supported but secondary focus: multi-city and/or more than four travellers; 276 cases. They carry more transport/coverage risk and should not be treated as equally mature Tier A cases."),
+        ("Recommended order", "Run Tier A first; then Tier B only after the multi-city/transport path and provider coverage are confirmed. Do not report all 423 as one equally valid benchmark."),
         ("Date caveat", "TravelPlanner dates are 2022. These are static-planning cases, not live booking or forecast tests; dates are retained as official provenance."),
         ("Results", "No Pathfinder results are present. Every row is unrun reference material."),
         ("Review", "Use Review status: pending / keep / exclude / needs discussion."),
@@ -173,11 +174,10 @@ def main() -> None:
         ["Sample Wilson 95% CI", f"{low:.1%}-{high:.1%}"],
         ["Full relevant", len(relevant)],
         ["Full relevance rate", f"{len(relevant)/len(df):.1%}"],
-        ["Tier A: corpus-ready", int(relevant.corpus_ready.sum())],
-        ["Tier B: live-provider needed", int((~relevant.corpus_ready).sum())],
-        ["Excluded: multi-city", int((~df.relevant & df.reason.str.contains("multi-city")).sum())],
-        ["Excluded: party >4", int((~df.relevant & df.reason.str.contains("party >4")).sum())],
-        ["Excluded: local hard constraint", int((~df.relevant & df.reason.str.contains("local hard constraint")).sum())],
+        ["Tier A: core single-city", int(df.tier.str.startswith("A").sum())],
+        ["Tier B: supported but secondary", int(df.tier.str.startswith("B").sum())],
+        ["Tier A corpus-ready", int(relevant.corpus_ready.sum())],
+        ["Excluded: local hard constraint", int((~df.relevant).sum())],
     ], widths={"Item": 40, "Value": 20})
 
     # ---------------------------------------------------------------- sample
@@ -216,13 +216,13 @@ def main() -> None:
             "yes" if row["corpus_ready"] else "no", row["tier"], "Not run - reference only",
             "", "", "",
         ])
-    add_sheet(wb, "Relevant_Cases_147", ["Case UID", "Official subset", "Level", "Origin", "Destination", "Days", "Dates", "People", "Budget", "Query", "Corpus-ready", "Tier", "Run status", *REVIEW], relevant_rows,
+    add_sheet(wb, "Relevant_Cases_423", ["Case UID", "Official subset", "Level", "Origin", "Destination", "Days", "Dates", "People", "Budget", "Query", "Corpus-ready", "Tier", "Run status", *REVIEW], relevant_rows,
               widths={"Case UID": 20, "Official subset": 12, "Level": 8, "Origin": 16, "Destination": 16, "Days": 6, "Dates": 30, "People": 6, "Budget": 8, "Query": 95, "Corpus-ready": 10, "Tier": 22, "Run status": 26, "Review notes": 35})
 
-    wb._sheets = [wb["README"], wb["Summary"], wb["Sample_Audit_200"], wb["Relevant_Cases_147"], wb["All_1225_Screened"]]
+    wb._sheets = [wb["README"], wb["Summary"], wb["Sample_Audit_200"], wb["Relevant_Cases_423"], wb["All_1225_Screened"]]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUT)
-    print(f"{OUT} full={len(df)} sample={len(sample)} relevant={len(relevant)} tierA={int(relevant.corpus_ready.sum())} tierB={int((~relevant.corpus_ready).sum())}")
+    print(f"{OUT} full={len(df)} sample={len(sample)} relevant={len(relevant)} tierA={int(df.tier.str.startswith('A').sum())} tierB={int(df.tier.str.startswith('B').sum())}")
 
 
 if __name__ == "__main__":
