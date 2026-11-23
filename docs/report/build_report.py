@@ -264,14 +264,6 @@ body(
 )
 body(
     doc,
-    "The scope boundary is equally important. The system plans and explains; it does not book, pay or make "
-    "an external reservation. It stores trip state locally; it does not promise a multi-tenant production "
-    "service. It uses live sources when credentials exist and a curated corpus otherwise, and it labels the "
-    "difference. Those limits are stated in the interface and in the final report rather than being hidden "
-    "behind a demo path.",
-)
-body(
-    doc,
     "The core objective did not change, but several implementation choices did. Table 1 records the "
     "planned/delivered comparison. The most consequential change is that the long-term memory uses the "
     "application store and a preference profile, not the proposed vector database with a reranker. The "
@@ -318,7 +310,8 @@ body(
     "workflow on the outside: the turn router selects a path, the evidence workers are fixed adapters, and "
     "the validator owns the stop condition. The model is used inside the workflow for judgement that cannot "
     "be enumerated: reading intent, proposing an edit, selecting among sourced candidates and auditing a "
-    "written constraint. The bounded repair step is an evaluator–optimizer pattern [1].",
+    "written constraint. The bounded repair step is an evaluator–optimizer pattern [1], close to iterative "
+    "self-refinement [21].",
 )
 body(
     doc,
@@ -326,27 +319,18 @@ body(
     "typed Pydantic contracts, one SSE turn stream, a SQLite state store and explicit counters for seats, "
     "repairs and wall-clock budget. A framework would add an abstraction layer over prompts and tool calls "
     "while leaving the hard parts—schema validation, source provenance, lock preservation, deterministic "
-    "dates and arithmetic—outside the graph. The engineering handbook makes the same point in its agent-vs-"
-    "workflow section: draw the workflow on the outside and give an agent a fenced sandbox only where the "
-    "path is genuinely unknown [2]. Our use of a free agent loop is therefore restricted to bounded repair "
+    "dates and arithmetic—outside the graph. This follows the bounded tool-use pattern of ReAct, where "
+    "reasoning and actions interleave only with observations an environment can supply [2]; it is not a "
+    "licence for an unbounded loop. Our use of a free agent loop is therefore restricted to bounded repair "
     "within a single planner step.",
 )
 body(
     doc,
-    "The academic framing follows the course vocabulary: intent routing, context builder, evidence workers, "
-    "planner, validation, constraint verification, runtime harness and evaluation. The planner is not an "
+    "The academic framing uses a consistent system vocabulary: intent routing, context builder, evidence "
+    "workers, planner, validation, constraint verification, runtime harness and evaluation. The planner is not an "
     "autonomous multi-agent swarm: no worker can spawn another worker, no model chooses an arbitrary tool, "
     "and every model call is traced. This is a narrower claim than the proposal's 'agentic system', but it "
     "is the claim the implementation and the evidence support.",
-)
-body(
-    doc,
-    "This choice has a testability consequence. Every route is a finite sequence with named states, so a "
-    "failure can be assigned to routing, evidence, composition, validation, verification, persistence or "
-    "transport. A general agent loop would make the same trace possible only after the fact. The cost is "
-    "that the model cannot invent a new tool or a new route at runtime; the scope of autonomous behaviour is "
-    "deliberately narrow. For a course project, and for a travel product where an invented booking is worse "
-    "than a missing one, that is the right trade.",
 )
 
 # 3 Implementation
@@ -467,7 +451,11 @@ body(
     "planner result matches the lower-cost arm (14/17) but it is the safer instruction follower for the whole "
     "product. The constraint verifier uses DeepSeek Flash because a different model family reduces correlated "
     "blind spots, its 18/20 verifier score matches the Sonnet arm, and its p50 is lower (2.0 s vs 5.7 s). It "
-    "is not used for arithmetic; the deterministic checks own that.",
+    "is not used for arithmetic; the deterministic checks own that. This shape is consistent with inference "
+    "analysis: prefill processes a large context in parallel, while generation is sequential and output-bound "
+    "[18]. Test-time-compute evidence likewise shows that extra reasoning must be allocated to the right "
+    "prompts rather than applied uniformly [19], and chain-of-thought evidence shows that intermediate "
+    "reasoning helps complex reasoning but adds generated tokens [20].",
 )
 body(
     doc,
@@ -537,8 +525,9 @@ body(
     "held, and places it in the Desk queue; the operator sees the trip, the chat, the preferences and the "
     "last plan. Taking over suppresses automatic replies; handing back restores the planner. A finalised trip "
     "is frozen and moves to history, so an operator cannot accidentally revive a completed booking record. "
-    "The design follows the handbook's rule that an agent should return to a human when the task leaves its "
-    "authority, not merely when it is uncertain.",
+    "This follows human–AI interaction guidance to keep the user in control and make automated actions "
+    "reversible [16]: the handoff occurs when the task leaves the agent's authority, not merely when the "
+    "model is uncertain.",
 )
 
 # 4 Reliability
@@ -600,9 +589,8 @@ body(
     "timeouts and retries, and the only durable side effect is a local plan version. There is no booking "
     "retry that could duplicate a reservation. The main residual operational risk is therefore not a repeated "
     "purchase but a stale or partial evidence set; the UI marks that as a gap and the validator records the "
-    "affected item. If the project were extended to booking, the handbook's idempotency rule—one stable key "
-    "per run/step/tool/argument, an in-flight record and a recovery lookup—would be mandatory before any "
-    "external write.",
+    "affected item. If the project were extended to booking, idempotency would be mandatory before any "
+    "external write: a stable operation key, an in-flight record and a recovery lookup [17].",
 )
 
 # 5 NFR
@@ -766,8 +754,8 @@ body(
     "Reused material: the React interface is carried from the earlier Pathfinder line; the backend uses "
     "FastAPI, Pydantic, httpx, SQLite, React/Vite and Archify. Evidence comes from Google Places, Open-Meteo, "
     "SerpAPI, Wikimedia and the curated place corpus. Jev is TypeSafe's decision model. TravelPlanner is the "
-    "open benchmark referenced in the proposal. The AI Engineer Handbook and Anthropic's building-agents "
-    "article informed the architecture vocabulary; neither is a source of code. The diagrams and this "
+    "open benchmark referenced in the proposal. Anthropic's building-agents article and the agent literature "
+    "informed the architecture vocabulary; neither is a source of code. The diagrams and this "
     "report were drafted with an AI coding/report assistant and checked against the repository and tests; "
     "the authors remain responsible for every claim.",
 )
@@ -809,7 +797,7 @@ body(
 heading(doc, "References", 1)
 refs = [
     "[1] Anthropic. Building effective agents. Research note, 2024 (updated 2026). https://www.anthropic.com/research/building-effective-agents",
-    "[2] Me0wX. AI Engineer Handbook. GitHub, 2026. https://github.com/Me0wX-LR/AI_Engineer_Handbook_Me0wX",
+    "[2] S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. Narasimhan, and Y. Cao. ReAct: Synergizing reasoning and acting in language models. ICLR, 2023. arXiv:2210.03629.",
     "[3] J. Xie, K. Zhang, J. Chen, T. Zhu, R. Lou, Y. Tian, Y. Xiao, and Y. Su. TravelPlanner: A benchmark for real-world planning with language agents. ICML, 2024. arXiv:2308.13206.",
     "[4] D. Almeida. Introducing System One Models & Jev. TypeSafe AI, 15 September 2026. https://typesafe.ai/blog/introducing-system-one-models-and-jev",
     "[5] L. Zheng et al. Judging LLM-as-a-judge with MT-Bench and Chatbot Arena. NeurIPS 36, Datasets and Benchmarks, 2023.",
@@ -823,6 +811,12 @@ refs = [
     "[13] Wikimedia Foundation. MediaWiki API. https://www.mediawiki.org/wiki/API:Main_page",
     "[14] Pathfinder repository, branch pathfinder_v5, commit 9801670 (23 November 2026). https://github.com/bryanch0430-web/Pathfinder/tree/pathfinder_v5",
     "[15] Archify. Diagram renderer and authoring skill, 2026. https://github.com/tt-a1i/archify",
+    "[16] S. Amershi, D. Weld, M. Vorvoreanu, A. Fourney, B. Nushi, P. Collisson, J. Suh, S. Iqbal, M. Bennett, K. Inkpen, J. Teevan, R. Kikin-Gil, and E. Horvitz. Guidelines for human-AI interaction. CHI, 2019. doi:10.1145/3290605.3300233.",
+    "[17] P. Helland. Idempotence is not a medical condition. ACM Queue, 10(4):38–49, 2012. doi:10.1145/2181796.2187820.",
+    "[18] R. Pope, S. Douglas, A. Chowdhery, J. Devlin, J. Bradbury, A. Levskaya, J. Heek, K. Xiao, S. Agrawal, and J. Dean. Efficiently scaling transformer inference. arXiv:2211.05102, 2022.",
+    "[19] C. Snell, J. Lee, K. Xu, and A. Kumar. Scaling LLM test-time compute optimally can be more effective than scaling model parameters. arXiv:2408.03314, 2024.",
+    "[20] J. Wei, X. Wang, D. Schuurmans, M. Bosma, B. Ichter, F. Xia, E. Chi, Q. Le, and D. Zhou. Chain-of-thought prompting elicits reasoning in large language models. NeurIPS, 2022. arXiv:2201.11903.",
+    "[21] A. Madaan, N. Tandon, P. Gupta, S. Hallinan, L. Gao, S. Wiegreffe, U. Alon, N. Dziri, S. Prabhumoye, Y. Yang, S. Gupta, B. P. Majumder, K. Hermann, S. Welleck, A. Yazdanbakhsh, and P. Clark. Self-refine: Iterative refinement with self-feedback. NeurIPS, 2023. arXiv:2303.17651.",
 ]
 for ref in refs:
     p = doc.add_paragraph()
