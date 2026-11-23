@@ -1,0 +1,157 @@
+{
+  "dataset": "hongkong",
+  "passed": 7,
+  "case_count": 8,
+  "latency_ms": 1411080.6,
+  "metrics": [
+    {
+      "key": "cases_passed",
+      "label": "Cases passed",
+      "value": 7,
+      "unit": "cases",
+      "baseline": 8,
+      "delta": -1,
+      "direction": "down"
+    },
+    {
+      "key": "constraints_met",
+      "label": "Constraints met",
+      "value": 92.9,
+      "unit": "%",
+      "baseline": 100,
+      "delta": -7.1,
+      "direction": "down"
+    },
+    {
+      "key": "recovery",
+      "label": "Disruptions handled",
+      "value": 100.0,
+      "unit": "%",
+      "baseline": null,
+      "delta": null,
+      "direction": "flat"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "hk01",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 100860,
+        "llm_calls": 8,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "Three days in Hong Kong: Central heritage and the Peak skyline on arrival day, a museum day in West Kowloon that stays indoors for the typhoon, and a light last morning of temple, harbour promenade and the Star Ferry. The plan uses the Mong Kok Cordis for both nights and comes in under your HKD 9,000 budget.\n\nDay 1 (2027-03-12): Tai Kwun, Mak's Noodle, Man Mo Temple, Victoria Peak.\n\nDay 2 (2027-03",
+      "latency_ms": 605442.8,
+      "trace_id": "4549e947ca8d4bf4bfaf919e5a307c80"
+    },
+    {
+      "case_id": "hk02",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 20272,
+        "llm_calls": 3,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "Two days that split Hong Kong into its two sides: Day 1 covers Kowloon with a temple, the Palace Museum, a night market and the harbour light show. Day 2 pairs West Kowloon's M+ with a Star Ferry crossing and Central's heritage streets. It stays well under budget and avoids the closed Peak Tram.\n\nDay 1 (2027-04-02): Wong Tai Sin Temple, Hong Kong Palace Museum, Tim Ho Wan (Sham Shui Po), Temple St",
+      "latency_ms": 59246.1,
+      "trace_id": "4b88edfd967d4508b09d29bd42128cb8"
+    },
+    {
+      "case_id": "hk03",
+      "passed": false,
+      "failure_class": "constraint",
+      "scores": {
+        "tokens": 63205,
+        "llm_calls": 8,
+        "constraints_met": 1,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "A three-day Hong Kong trip that starts with an easy walking day around Tsim Sha Tsui and the harbour, then takes in Central's heritage sites and the Peak at dusk. It ends with a temple, dim sum and M+ before you head home. Stops are grouped by area to keep transfers short, and the total stays within your HKD 6,000 budget.\n\nDay 1 (2027-05-10): Australia Dairy Company, Tsim Sha Tsui Promenade, Star ",
+      "latency_ms": 212105.5,
+      "trace_id": "d7320cb883ad4af29c5ea0974b7e36f8"
+    },
+    {
+      "case_id": "hk04",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 30989,
+        "llm_calls": 4,
+        "constraints_met": 2,
+        "constraints_total": 2,
+        "grounding": 1.0
+      },
+      "output_summary": "A relaxed two-day Hong Kong break with Central's heritage lanes and a Peak sunset on day one, then West Kowloon's Palace Museum, a temple visit and a harbour ferry ride on day two. It is based at Ovolo Central, so you are close to most stops, and the whole trip stays under 5,000 HKD for two.\n\nDay 1 (2027-06-01): Mak's Noodle, Tai Kwun, Man Mo Temple, Victoria Peak.\n\nDay 2 (2027-06-02): Hong Kong P",
+      "latency_ms": 75837.7,
+      "trace_id": "53bd45007f5a40b396d69945e4fcc22c"
+    },
+    {
+      "case_id": "hk05",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 29946,
+        "llm_calls": 4,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "A compact two-day Hong Kong stay. Day one is an easy afternoon and evening on Hong Kong Island: heritage in Central, then the skyline from Victoria Peak. Day two covers a Kowloon temple, a museum and dim sum, and finishes early so you can get to the airport comfortably. It stays well within the HKD 10,000 budget for three people.\n\nDay 1 (2027-07-08): Mak's Noodle, Tai Kwun, Man Mo Temple, Victoria",
+      "latency_ms": 72371.1,
+      "trace_id": "5a4c6eec53734708b2abec956bd85c88"
+    },
+    {
+      "case_id": "hk06",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 57979,
+        "llm_calls": 5,
+        "constraints_met": 3,
+        "constraints_total": 3,
+        "grounding": 1.0
+      },
+      "output_summary": "A compact two-night-free, two-day Hong Kong trip for six. Day 1 starts in the afternoon and stays in the Tsim Sha Tsui, Yau Ma Tei and Jordan area, with a harbour crossing, the night market and the 20:00 skyline light show. Day 2 pairs Wong Tai Sin Temple with the Tian Tan Buddha on Lantau, with an early dim sum lunch in between and no MTR.\n\nDay 1 (2027-10-15): Star Ferry, Temple Street Night Mark",
+      "latency_ms": 209928.1,
+      "trace_id": "90480caa0e0e4729ac9b03a797b51308"
+    },
+    {
+      "case_id": "hk07",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 30956,
+        "llm_calls": 4,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "Two days that cover Hong Kong's big views and its heritage. Monday is an afternoon of Chinese art in West Kowloon, a Star Ferry crossing and a night-time Peak skyline. Tuesday is a Central morning of temples and heritage, wonton noodles, then M+ before you head home. Both days stay compact and mostly indoors or on short hops, and the total comes in well under your HKD 5,000 budget.\n\nDay 1 (2027-09",
+      "latency_ms": 75104.3,
+      "trace_id": "b50e683a36d74ac4a6caf25fc076dbba"
+    },
+    {
+      "case_id": "hk08",
+      "passed": true,
+      "failure_class": "",
+      "scores": {
+        "tokens": 34171,
+        "llm_calls": 4,
+        "constraints_met": 1,
+        "constraints_total": 1,
+        "grounding": 1.0
+      },
+      "output_summary": "A compact two-day Hong Kong trip. The first afternoon, under the Signal No. 8 forecast, stays indoors in two West Kowloon museums. The second day, with only a chance of showers, covers the harbour ferry, Sheung Wan and Central heritage sites, and the skyline from Victoria Peak. A TST hotel near the first day's museums keeps the total well inside the 5,000 HKD budget.\n\nDay 1 (2027-08-20): Hong Kong",
+      "latency_ms": 100978.6,
+      "trace_id": "d10a25ca52e9407193dbac5a8a02daa6"
+    }
+  ]
+}
