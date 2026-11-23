@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from docx import Document
 from docx.oxml.ns import qn
+import os
 
-DOC = "docs/report/Pathfinder_Final_Report_Updated.docx"
+DOC = os.environ.get("REPORT_DOC", "docs/report/Pathfinder_Final_Report_Updated.docx")
 doc = Document(DOC)
 body = doc.element.body
 children = list(body.iterchildren())

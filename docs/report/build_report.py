@@ -752,8 +752,10 @@ body(
     "China to Australia cannot be searched by Google Flights as a country, so the app falls back to a named, "
     "best-effort estimated ticket rather than a live fare; some tickets will therefore be unavailable. Special "
     "handling exists for a limited set of city keys, including Hong Kong, Singapore, Tokyo, Kyoto, Osaka, "
-    "Sydney, Shanghai, Beijing, Shenzhen, Guangzhou, New York, San Francisco, London and Paris. A production "
-    "deployment would add an airport resolver and expose the fallback as an estimate or DataGap.",
+    "Sydney, Shanghai, Beijing, Shenzhen, Guangzhou, New York, San Francisco, London and Paris. Maintaining a "
+    "worldwide city/airport database in-house would be computationally expensive and impractical for a POC, "
+    "so coverage is deliberately bounded. A production deployment would add an external airport resolver and "
+    "expose the fallback as an estimate or DataGap.",
 )
 body(
     doc,
