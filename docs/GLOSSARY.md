@@ -29,7 +29,11 @@ Internal names that predate this glossary stay for compatibility:
 
 - `RouterPayload` / `RoutePayload` — the intent-routing result.
 - `tools` in `RunTrace` — the evidence worker/tool call log.
-- `router_threshold` — the confidence threshold for intent routing.
+- `ANALYST_CONFIDENCE_THRESHOLD` — the LLM router's own confidence threshold. It is
+  model-reported, not deterministic, and not a calibrated probability; tune it from
+  observed routing behaviour.
+- `JEV_CONFIDENCE_THRESHOLD` — Jev's own acceptance threshold. It is a separate signal
+  and is not comparable with the LLM router threshold.
 - `turn_deadline_seconds` — the execution budget.
 
 New UI copy should use **intent routing**, **intake slots**, **evidence

@@ -197,7 +197,7 @@ This is the report-ready decision record. Evidence tables are in `RESULTS.md`; t
 - **Evidence:** LLM 98.8% at 4.1 s; Jev 94.0% at 0.6 s. At a 0.8 gate, Jev keeps 66% at 100% and escalates 29 cases. A **derived** Jev→Flash fallback scored 84/84 (100%, Wilson 95.7–100) at a mean sequential latency of about 2.0 s; Jev→Sonnet scored 83/84 at about 3.3 s.
 - **Trade-off:** the hybrid is the best measured option, but it adds a second call path and is not a shipped setting; it is a recommendation for the next version. Pure Jev is the fastest but not the most accurate.
 - **Threshold:** product 0.8 is a reasonable default; Flash at 0.9 kept 89% at 100%, so 0.9 is the quality-first variant.
-- **Code:** `app/understand/jev.py:jev_route`, `app/understand/pipeline.py`, `settings.router_threshold`.
+- **Code:** `app/understand/jev.py:jev_route`, `app/understand/pipeline.py`, `settings.analyst_confidence_threshold / settings.jev_confidence_threshold`.
 
 ## Planner
 
@@ -261,7 +261,7 @@ The study writes per-case rows (prediction, pass/fail, latency, tokens, confiden
 |---|---|---|
 | One path per turn | `app/understand/pipeline.py:understand`; `app/turn/orchestrator.py` | `routing-merged.json` per-case intents |
 | Jev typed route | `app/understand/jev.py:jev_route` | `routing-latest.json`, hybrid rows |
-| Threshold gate | `settings.router_threshold`; route decision in pipeline | `Router_Gate` sheet, `routing-analysis.md` |
+| Threshold gate | `settings.analyst_confidence_threshold / settings.jev_confidence_threshold`; route decision in pipeline | `Router_Gate` sheet, `routing-analysis.md` |
 | Planner composes from evidence | `app/plan/agents.py`; `app/plan/builder.py:build_plan` | `datasets-latest.json` |
 | Planner cannot invent | evidence refs / `build_plan` pool | `constraints_met`, `grounding` metrics |
 | Editor is typed and bounded | `app/plan/editor.py:propose_edit`, `_apply`, locked check | `editor-direct-latest.json` |

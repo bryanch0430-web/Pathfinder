@@ -56,14 +56,13 @@ async def understand(
         "now_local": today.isoformat(timespec="minutes"),
         "timezone": str(today.tzinfo),
         "interface_locale": locale,
-        "threshold": settings.router_threshold,
         "trip": context_brief(context),
         "plan": plan_outline(plan),
         "recent_turns": dialogue(messages),
         "selected_stop": {"id": scope_item_id, "label": scope_label} if scope_item_id or scope_label else None,
         "message": message,
     }
-    system = skill("understand", skill_overrides, threshold=settings.router_threshold)
+    system = skill("understand", skill_overrides)
     import json
 
     try:
@@ -105,7 +104,7 @@ async def understand(
             message=message,
             history=messages,
         )
-        if decision and decision.confidence >= settings.router_threshold:
+        if decision and decision.confidence >= settings.jev_confidence_threshold:
             # Jev chooses the path; the analyst's slots and constraints are kept.
             route = route.model_copy(
                 update={
@@ -248,7 +247,7 @@ def _merge(current: list[str], incoming: list[str]) -> list[str]:
 def _route(parsed: ParsedIntent, settings: Settings, plan: TripPlan | None) -> RoutePayload:
     intent = parsed.intent
     parts = [part for part in parsed.affected_parts if part in PART_NAMES]
-    threshold = settings.router_threshold
+    threshold = settings.analyst_confidence_threshold
     need_clarification = bool(parsed.need_clarification or parsed.intent == "unclear")
     if intent in {"plan", "modify"} and not parsed.slots.destination:
         # A plan with no destination can still be fine when the trip already knows one.

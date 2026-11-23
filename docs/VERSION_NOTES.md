@@ -73,6 +73,11 @@ plan; this release gives each uncertain part its own bounded representation.
   flow, complex-query guarantee, module, data table, API group, UI surface and known
   limit. The graph labels use the current intent-router / evidence-worker / validation
   names.
+- The shared router threshold is split into two policy fields:
+  **LLM router confidence** (`ANALYST_CONFIDENCE_THRESHOLD`) and **Jev confidence**
+  (`JEV_CONFIDENCE_THRESHOLD`). Both are labelled non-deterministic and must be tuned
+  from observed behaviour; they are not comparable and neither is a calibrated
+  probability. The analyst prompt no longer receives a threshold, avoiding anchoring.
 - The offline evidence source is named the **curated place corpus** in code, UI and
   diagram (`backend/app/evidence/place_corpus.py`). “Sandbox” is the runtime mode,
   not the dataset; `data_mode` is `live` or `corpus`, while the legacy `atlas`

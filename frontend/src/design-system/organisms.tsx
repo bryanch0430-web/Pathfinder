@@ -5060,6 +5060,24 @@ export function SettingsView({
     if (group === "system") return t("settings.group.system");
     return t("settings.group.general");
   };
+  const thresholdMeta: Record<string, { label: string; hint: string }> = {
+    analyst_confidence: {
+      label: t("settings.threshold.analyst_confidence"),
+      hint: t("settings.thresholdHint.analyst_confidence"),
+    },
+    jev_confidence: {
+      label: t("settings.threshold.jev_confidence"),
+      hint: t("settings.thresholdHint.jev_confidence"),
+    },
+    max_repairs: {
+      label: t("settings.threshold.max_repairs"),
+      hint: t("settings.thresholdHint.max_repairs"),
+    },
+    turn_deadline: {
+      label: t("settings.threshold.turn_deadline_seconds"),
+      hint: t("settings.thresholdHint.turn_deadline_seconds"),
+    },
+  };
   const clusters = (
     [
       ["general", ...(admin ? (["handoff", "instructions"] as const) : [])],
@@ -5206,47 +5224,27 @@ export function SettingsView({
 
       {config ? (
         <>
-          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.router_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
+          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.analyst_confidence")} ${t("settings.threshold.jev_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {canEditPolicy ? (
               <div className="pf-form-grid">
-                {Object.keys(config.thresholds).filter((key) => ["router", "max_repairs", "turn_deadline"].includes(key)).map((key) => (
+                {Object.keys(config.thresholds).filter((key) => thresholdMeta[key]).map((key) => (
                   <Field
                     key={key}
                     wide
                     htmlFor={`pf-threshold-${key}`}
-                    label={t(
-                      key === "router"
-                        ? "settings.threshold.router_confidence"
-                        : key === "max_repairs"
-                          ? "settings.threshold.max_repairs"
-                          : "settings.threshold.turn_deadline_seconds"
-                    )}
-                    hint={t(
-                      key === "router"
-                        ? "settings.thresholdHint.router_confidence"
-                        : key === "max_repairs"
-                          ? "settings.thresholdHint.max_repairs"
-                          : "settings.thresholdHint.turn_deadline_seconds"
-                    )}
+                    label={thresholdMeta[key].label}
+                    hint={thresholdMeta[key].hint}
                   >
                     <Input id={`pf-threshold-${key}`} value={draftThresholds[key] ?? ""} onChange={(event) => setDraftThresholds((current) => ({ ...current, [key]: event.target.value }))} inputMode="decimal" />
                   </Field>
                 ))}
               </div>
             ) : (
-              Object.entries(config.thresholds).filter(([key]) => ["router", "max_repairs", "turn_deadline"].includes(key)).map(([key, value]) => (
+              Object.entries(config.thresholds).filter(([key]) => thresholdMeta[key]).map(([key, value]) => (
                 <div className="pf-row pf-row--between" key={key}>
-                  <span className="pf-small pf-muted">
-                    {t(
-                      key === "router"
-                        ? "settings.threshold.router_confidence"
-                        : key === "max_repairs"
-                          ? "settings.threshold.max_repairs"
-                          : "settings.threshold.turn_deadline_seconds"
-                    )}
-                  </span>
+                  <span className="pf-small pf-muted">{thresholdMeta[key].label}</span>
                   <span className="pf-mono pf-small">{String(value)}</span>
                 </div>
               ))

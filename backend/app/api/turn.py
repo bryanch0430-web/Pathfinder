@@ -93,8 +93,16 @@ async def effective_settings(c: Container):
         # "atlas" is the legacy persisted value; normalize it to corpus.
         update["sandbox"] = mode in {"corpus", "atlas"}
     try:
+        if "analyst_confidence" in thresholds:
+            update["analyst_confidence_threshold"] = max(0.0, min(1.0, float(thresholds["analyst_confidence"])))
+        if "jev_confidence" in thresholds:
+            update["jev_confidence_threshold"] = max(0.0, min(1.0, float(thresholds["jev_confidence"])))
         if "router" in thresholds:
-            update["router_threshold"] = max(0.0, min(1.0, float(thresholds["router"])))
+            # Legacy runtime value: preserve the old shared behaviour for both
+            # signals until the operator saves the two new fields separately.
+            legacy = max(0.0, min(1.0, float(thresholds["router"])))
+            update.setdefault("analyst_confidence_threshold", legacy)
+            update.setdefault("jev_confidence_threshold", legacy)
         if "max_repairs" in thresholds:
             update["max_repairs"] = max(0, min(3, int(thresholds["max_repairs"])))
         if "turn_deadline" in thresholds:

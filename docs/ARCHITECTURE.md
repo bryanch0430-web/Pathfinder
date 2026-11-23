@@ -67,8 +67,12 @@ schema; `app/understand/pipeline.py` merges the answer into `TripContext`.
   start stays null and the turn clarifies.
 - `need_clarification` is the model's own judgement, plus a code check that a plan
   turn has a destination and usable dates.
-- Confidence below `ROUTER_THRESHOLD` on an edit becomes a question rather than a
+- Confidence below `ANALYST_CONFIDENCE_THRESHOLD` on an edit becomes a question rather than a
   risky change.
+- The LLM router and Jev have separate thresholds
+  (`ANALYST_CONFIDENCE_THRESHOLD` and `JEV_CONFIDENCE_THRESHOLD`). Both are
+  non-deterministic and must be tuned from observed behaviour; they are not
+  comparable, and neither is a calibrated probability.
 
 There are no keyword rules, no intent regexes, no slot gazetteers in this path.
 

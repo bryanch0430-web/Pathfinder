@@ -506,7 +506,7 @@ sheets = [
         ["Memory extraction", "app/application/memory.py:derive_memory", "memory-latest.json"],
         ["Caps", "app/core/llm.py:PURPOSE_MAX_TOKENS/max_tokens_for", "cap-stress-latest.json"],
         ["Temperature", "app/core/llm.py:temperature_for", "routing sonnet-0.0 vs 0.2"],
-        ["Threshold", "settings.router_threshold; pipeline", "Router_Gate sheet"],
+        ["Threshold", "settings.analyst_confidence_threshold / settings.jev_confidence_threshold; pipeline", "Router_Gate sheet"],
     ], [32, 55, 45]),
     sheet("Limits", [
         ["Limit"],

@@ -18,7 +18,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -124,7 +124,13 @@ class Settings(BaseSettings):
     enable_elevation: bool = Field(default=False, alias="ENABLE_ELEVATION")
 
     # --- policy ---------------------------------------------------------
-    router_threshold: float = Field(default=0.8, alias="ROUTER_THRESHOLD")
+    # Two different signals, two settings. ROUTER_THRESHOLD is accepted only as
+    # a legacy fallback for the analyst knob; Jev has its own threshold.
+    analyst_confidence_threshold: float = Field(
+        default=0.8,
+        validation_alias=AliasChoices("ANALYST_CONFIDENCE_THRESHOLD", "ROUTER_THRESHOLD"),
+    )
+    jev_confidence_threshold: float = Field(default=0.8, alias="JEV_CONFIDENCE_THRESHOLD")
     max_repairs: int = Field(default=2, alias="MAX_REPAIRS")
     preplan_budget_seconds: int = Field(default=90, alias="PREPLAN_BUDGET_SECONDS")
     agent_timeout_seconds: float = Field(default=30.0, alias="AGENT_TIMEOUT_SECONDS")

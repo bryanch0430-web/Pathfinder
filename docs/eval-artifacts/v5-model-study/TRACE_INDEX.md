@@ -6,7 +6,7 @@ The study writes per-case rows (prediction, pass/fail, latency, tokens, confiden
 |---|---|---|
 | One path per turn | `app/understand/pipeline.py:understand`; `app/turn/orchestrator.py` | `routing-merged.json` per-case intents |
 | Jev typed route | `app/understand/jev.py:jev_route` | `routing-latest.json`, hybrid rows |
-| Threshold gate | `settings.router_threshold`; route decision in pipeline | `Router_Gate` sheet, `routing-analysis.md` |
+| Threshold gate | `settings.analyst_confidence_threshold` / `settings.jev_confidence_threshold`; route decision in pipeline | `Router_Gate` sheet, `routing-analysis.md` |
 | Planner composes from evidence | `app/plan/agents.py`; `app/plan/builder.py:build_plan` | `datasets-latest.json` |
 | Planner cannot invent | evidence refs / `build_plan` pool | `constraints_met`, `grounding` metrics |
 | Editor is typed and bounded | `app/plan/editor.py:propose_edit`, `_apply`, locked check | `editor-direct-latest.json` |

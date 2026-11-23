@@ -20,7 +20,8 @@ If a control is not listed here, it is not in the UI.
 | Models | Per-part reply cap | **yes** | `purpose_max_tokens`, 16–32,000. The field shows the effective cap (planner 12,000; editor 2,000; verifier 1,500; ask 1,400; memory 700; understand 4,096). |
 | Models | Turn orchestrator (Analyst / Jev) | **yes** | Jev routes plan/modify/ask/clarify before the analyst; fallback to analyst |
 | Models | Jev endpoint / model / key | **yes** | used only when Jev is the orchestrator; key is stored server-side and shown masked |
-| Thresholds | Router confidence | **yes** | analyst confidence gate |
+| Thresholds | LLM router confidence (`ANALYST_CONFIDENCE_THRESHOLD`) | **yes** | Low-confidence edit clarification; model-reported, not deterministic |
+| Thresholds | Jev confidence (`JEV_CONFIDENCE_THRESHOLD`) | **yes** | Separate Jev acceptance threshold; only when Jev routes |
 | Thresholds | Max repairs | **yes** | compose attempts on a validation problem |
 | Thresholds | Turn deadline | **yes** | per-turn deadline in seconds |
 | Privacy | HKID / phone / email / card + patterns | **yes** | first-layer masking before storage and model calls; stale patterns fall back to defaults |

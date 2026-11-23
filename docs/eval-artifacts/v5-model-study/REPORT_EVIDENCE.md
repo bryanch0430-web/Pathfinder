@@ -21,7 +21,7 @@ system.
 |---|---|---|---|
 | Context | What the model sees: request, plan outline, recent turns, Skill, candidate evidence | `app/turn/orchestrator.py`, `app/core/prompts.py` | `trace` event; prompt/generation rows |
 | Route | One of plan / modify / ask / clarify; confidence | `app/understand/pipeline.py:understand`; optional `app/understand/jev.py` | intent + confidence in eval rows |
-| Gate | Whether confidence is high enough; otherwise clarify/escalate | `settings.router_threshold` | `Router_Gate` sheet |
+| Gate | Whether confidence is high enough; otherwise clarify/escalate | `settings.analyst_confidence_threshold` / `settings.jev_confidence_threshold` | `Router_Gate` sheet |
 | Plan path | Which sourced candidates become days/items; budget and transfers | `app/plan/agents.py`, `app/plan/builder.py` | plan JSON, constraints, grounding |
 | Edit path | Typed ops; locked/confirmed rows are protected | `app/plan/editor.py:propose_edit`, `_apply` | before/after item IDs, version |
 | Ask path | Answer from the current plan, sources and gaps | ask path in `app/turn/orchestrator.py` | reply + sources + known gaps |

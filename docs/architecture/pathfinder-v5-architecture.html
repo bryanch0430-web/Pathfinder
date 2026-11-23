@@ -6138,8 +6138,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
   <div class="arch-ref__note">
     <strong>Router confidence:</strong> the analyst’s confidence is a
-    model-reported score (0–1), not a calibrated probability. The threshold is a
-    selective-prediction operating point. Calibration, ECE/Brier, AUROC and
+    model-reported score (0–1), not a calibrated probability. The LLM router and Jev
+    each have a separate threshold; each is a selective-prediction operating point and
+    neither is a probability claim. Calibration, ECE/Brier, AUROC and
     risk–coverage evaluation are documented in
     <code>docs/EVALUATION.md</code>.
   </div>
@@ -6319,7 +6320,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   <h3 id="ref-config">13. Configuration and observability</h3>
   <ul>
     <li><strong>Models:</strong> purpose-specific model, temperature, reasoning and max tokens; one active provider key, with BYOK for the writer.</li>
-    <li><strong>Routing:</strong> analyst or Jev; <code>router_threshold</code> is shared but has different jobs — Jev acceptance and low-confidence edit clarification. The Settings hint says so.</li>
+    <li><strong>Routing:</strong> analyst or Jev; the two confidence thresholds are separate — <code>ANALYST_CONFIDENCE_THRESHOLD</code> for low-confidence edit clarification and <code>JEV_CONFIDENCE_THRESHOLD</code> for Jev acceptance. They are not comparable and are tuned from observed behaviour.</li>
     <li><strong>Runtime:</strong> <code>TURN_DEADLINE_SECONDS</code> default 300, bounded 60–900; <code>MAX_REPAIRS</code>; seat and SSE keepalive; data mode live/corpus.</li>
     <li><strong>Trace:</strong> every turn records <code>why</code>, <code>flow</code>, path, spans, generations, searches, tools and live agent state; downloadable from the UI.</li>
     <li><strong>Logs:</strong> structured server errors and redacted meta; no model prompt containing unmasked PII is persisted.</li>

@@ -76,10 +76,26 @@ def test_runtime_shape_for_the_settings_page(tmp_path):
         for key in ("thresholds", "writer", "redaction", "providers", "maps", "capabilities", "data_mode"):
             assert key in config
         assert "temperature" in config["writer"]
-        assert set(config["thresholds"]) == {"router", "max_repairs", "turn_deadline"}
+        assert set(config["thresholds"]) == {
+            "analyst_confidence",
+            "jev_confidence",
+            "max_repairs",
+            "turn_deadline",
+        }
         assert config["capabilities"]["jev"] is True
         assert config["capabilities"]["purpose_models"] is True
         assert "reviewer" not in config
+
+
+def test_analyst_and_jev_thresholds_are_separate(tmp_path):
+    with _client(tmp_path) as client:
+        client.put(
+            "/api/admin/runtime",
+            json={"thresholds": {"analyst_confidence": 0.7, "jev_confidence": 0.9}},
+        )
+        thresholds = client.get("/api/runtime").json()["thresholds"]
+        assert thresholds["analyst_confidence"] == 0.7
+        assert thresholds["jev_confidence"] == 0.9
 
 
 def test_writer_call_settings_persist(tmp_path):

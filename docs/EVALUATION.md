@@ -181,8 +181,9 @@ number as a probability without calibration evidence.
 5. Optionally use **self-consistency**: sample the intent routing 3–5 times and use
    agreement frequency as the score, at higher latency/cost.
 6. Keep the threshold separate for the two jobs: **when to ask the traveller** and
-   **when to accept Jev**. They currently share `router_threshold` but have different
-   semantics.
+   **when to accept Jev**. They are now separate settings
+   (`ANALYST_CONFIDENCE_THRESHOLD` and `JEV_CONFIDENCE_THRESHOLD`) because they have
+   different semantics and are not comparable.
 
 A defensible report sentence:
 

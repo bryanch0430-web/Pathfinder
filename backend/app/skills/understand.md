@@ -169,5 +169,6 @@ with a big ferris wheel"), put 1–2 web queries in `search_queries` instead (fo
 example "Gundam statue Tokyo Odaiba"). These are lookups, not questions to the
 traveller: do not ask for a name you can resolve.
 
-Confidence is your honest probability that the intent and slots are right. Below
-{{threshold}} the turn asks for clarification rather than acting.
+Confidence is your honest 0–1 estimate that the intent and slots are right. It is a
+model-reported diagnostic, not a calibrated probability. Do not tune it to a policy
+threshold; the application has separate LLM-router and Jev settings.
