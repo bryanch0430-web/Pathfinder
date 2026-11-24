@@ -3,6 +3,20 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.6 — 2026-11-24 15:10 HKT
+
+- **Evaluation scoring is named for what it is.** The score column was never
+  produced by the removed judge model: `runner._row` fills it from deterministic
+  checks. The panel now says **Check score** / **Check reason** (EN, 简, 繁), not
+  “Judge”, and the run summary names the **verifier** model (the only second
+  model in the runtime) instead of a judge.
+- New runs write `judge_score` on the same 0–5 scale the panel already used
+  (`score × 5`); the field name stays for old artifacts and API compatibility.
+- README explains the check-based scoring.
+- Wiring an actual model-graded score to the verifier was **not** added: the
+  deterministic checks are cheaper and reproducible, and the verifier is already
+  used for constraint audits.
+
 ## 5.2.5 — 2026-11-24 15:00 HKT
 
 - **The judge is gone from the demo.** `LLMClient.judge`, the `JUDGE_*`
