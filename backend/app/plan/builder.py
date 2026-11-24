@@ -832,13 +832,20 @@ def _constraints(context: TripContext, draft: PlanDraft) -> list[ConstraintCheck
     return checks
 
 
+def chosen_ticket(tickets: list[TicketOption]) -> TicketOption | None:
+    """The fare the traveller picked, else the first listed fare that has a price."""
+    picked = next((row for row in tickets if row.selected and row.price), None)
+    return picked or next((row for row in tickets if row.price), None)
+
+
 def _cost(context: TripContext, days: list[DayPlan], hotels: list[HotelStay], tickets: list[TicketOption], nights: int) -> CostBreakdown:
     currency = context.currency or "HKD"
     lines: list[CostLine] = []
     party = max(1, int(context.party_size or 1))
     rooms = max(1, (party + 1) // 2)
 
-    flight = tickets[0].price.amount if tickets and tickets[0].price else 0.0
+    picked = chosen_ticket(tickets)
+    flight = picked.price.amount if picked is not None and picked.price else 0.0
     if flight:
         lines.append(CostLine(label="Travel", amount=round(flight, 2), kind="flight", note="Return travel for the party."))
     stay = 0.0

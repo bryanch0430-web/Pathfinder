@@ -567,8 +567,10 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
                 "to": new.hotels[0].name if new.hotels else "",
             }
         )
-    old_ticket = old.tickets[0].id if old.tickets else ""
-    new_ticket = new.tickets[0].id if new.tickets else ""
+    old_pick = next((row for row in old.tickets if row.selected), None) or (old.tickets[0] if old.tickets else None)
+    new_pick = next((row for row in new.tickets if row.selected), None) or (new.tickets[0] if new.tickets else None)
+    old_ticket = old_pick.id if old_pick else ""
+    new_ticket = new_pick.id if new_pick else ""
     if old_ticket != new_ticket and new_ticket:
-        entries.append({"kind": "transport", "leg_id": "leg-out", "id": new_ticket, "to": new.tickets[0].name})
+        entries.append({"kind": "transport", "leg_id": "leg-out", "id": new_ticket, "to": new_pick.name})
     return entries[:40]
