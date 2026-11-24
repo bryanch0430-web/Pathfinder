@@ -4,6 +4,18 @@ Running notes for **Pathfinder v5**. The React UI carries the current workspace
 design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
 the core is the rebuilt backend at `backend/`.
 
+## Canonical model-purpose names — 2026-11-24
+
+- Backend purpose names now match Settings: **analyst, planner, editor,
+  verifier, translation**; `ask`, `memory`, `intake` and `search_query` keep
+  their names. `understand`, `plan`, `edit`, `verify` and `translate` remain
+  accepted aliases, so older `.env` values, saved overrides and scripts still
+  work.
+- `/api/runtime` reports the canonical names and the Models tab saves them; the
+  backend normalises both spellings to one key.
+- Live smoke turn: a short question used **`analyst`** (`claude-sonnet-5.5`) and
+  completed without error; the API and model alias tests pass.
+
 ## Settings naming audit — 2026-11-24
 
 - The **Models** section now matches the per-part design: “default model”, not a
