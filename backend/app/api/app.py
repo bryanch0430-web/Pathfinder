@@ -85,6 +85,9 @@ FRONTEND_DIST = PROJECT_DIR / "frontend" / "dist"
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    from app.core.prompts import set_canary
+
+    set_canary(settings.canary_token)
     store = Store(settings.database_file)
     container = Container(settings=settings, store=store)
 

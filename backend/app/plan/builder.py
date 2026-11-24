@@ -10,7 +10,6 @@ settled here in code.
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 from urllib.parse import quote
 from dataclasses import dataclass
@@ -20,7 +19,7 @@ from typing import Any
 from app.config import Settings
 from app.core.dates import add_days, clock_minutes, day_range, minutes_between, overlaps, parse_date, shift_time
 from app.core.llm import LLMClient, LLMError
-from app.core.prompts import context_brief, skill
+from app.core.prompts import context_brief, skill, user_prompt
 from app.core.trace import TurnTrace
 from app.domain.models import (
     CostBreakdown,
@@ -133,7 +132,6 @@ async def compose(
             }
             for day in bundle.weather
         ],
-        "candidates": candidate_pool(bundle),
         "disruptions": notes,
         "previous_problems": [
             {"code": problem.code, "message": problem.message} for problem in (previous_problems or [])
@@ -141,7 +139,7 @@ async def compose(
         "destination": bundle.notes[:0] or None,
     }
     system = skill("plan", skill_overrides)
-    user = json.dumps(payload, ensure_ascii=False, indent=1)
+    user = user_prompt(payload, {"candidates": candidate_pool(bundle)})
     # A seven-day answer is roughly twice a four-day one. A fixed cap truncated
     # it, the truncation failed validation, and the retry repeated the same cut.
     token_cap = min(16000, 4000 + 900 * max(2, int(context.days or 4)))

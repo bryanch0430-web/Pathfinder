@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.security.guard import clean_text
+
 from app.domain.models import (
     DataGap,
     GeoPoint,
@@ -75,22 +77,22 @@ class Evidence:
         """The compact form the planner sees: enough to choose, no prose wall."""
         row: dict[str, Any] = {
             "ref": self.ref,
-            "name": self.name,
+            "name": clean_text(self.name, 120),
             "kind": self.kind,
-            "area": self.area or self.address,
+            "area": clean_text(self.area or self.address, 160),
         }
         if self.summary:
-            row["about"] = self.summary[:240]
+            row["about"] = clean_text(self.summary, 240)
         if self.rating is not None:
             row["rating"] = self.rating
         if self.cuisine:
-            row["cuisine"] = self.cuisine
+            row["cuisine"] = clean_text(self.cuisine, 80)
         if self.price is not None:
             row["price"] = f"{self.price.amount:.0f} {self.price.currency}"
         if self.opening_hours:
             row["hours"] = self.opening_hours[:3]
         if self.tags:
-            row["tags"] = self.tags[:6]
+            row["tags"] = [clean_text(tag, 40) for tag in self.tags[:6]]
         if self.depart_at or self.arrive_at:
             row["flight"] = f"{self.depart_at or '?'} → {self.arrive_at or '?'}"
         if self.return_depart_at or self.return_arrive_at:
