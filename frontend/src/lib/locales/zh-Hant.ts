@@ -481,7 +481,7 @@ export const ZH_HANT: Messages = {
   "eval.casesTitle": "案例",
   "eval.bulkTitle": "批量測試",
   "eval.bulkBadge": "已完成執行",
-  "eval.bulkNote": "這些批量測試已離線執行過，這裡僅供參考。本頁不會啟動它們，它們也不是 TravelPlanner 的正式行程分數。",
+  "eval.bulkNote": "這些批量測試此前已在離線環境中對 Pathfinder 執行過。完整語料太大，無法在這裡重跑，因此僅列出作參考：本頁不會啟動它們，這些數字也不是 TravelPlanner 的正式行程分數。",
   "eval.bulkTravel": "完整公開集有 {count} 條（訓練 {train}、驗證 {validation}、測試 {test}）。檢查用規則讀取出發地、目的地、天數、人數和預算。模擬的航班、酒店和地點呼叫只在必填欄位齊全時才接受。不會呼叫寫作模型，也不為每日行程評分。其中一條把出發地標成 Phoenix，但句子裡沒有寫出任何出發城市。",
   "eval.bulkRegional": "{count} 條英文句子，只有 {shapes} 種句式。城市、天數、人數和預算會換，句式不變。四分之一把願望（動物、花、食物或氣氛）寫進句子。「want to see」、「built around」或「the whole point is」後面的詞不是城市。",
   "eval.bulkExample": "一個例子",

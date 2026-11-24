@@ -481,7 +481,7 @@ export const EN = {
   "eval.casesTitle": "Cases",
   "eval.bulkTitle": "Bulk tests",
   "eval.bulkBadge": "Already performed",
-  "eval.bulkNote": "These bulk sets were already run offline and are shown for reference only. They are not started by this page and are not the official TravelPlanner plan score.",
+  "eval.bulkNote": "These sets were already executed offline against Pathfinder. The full corpus is too large to re-run here, so they are listed for reference only: this page does not start them, and their numbers are not the official TravelPlanner plan score.",
   "eval.bulkTravel": "The full public set is {count} queries ({train} train, {validation} validation, {test} test). The check reads origin, destination, length, party and budget with the rules reader. A mock flight, hotel and place call is accepted only when the required fields are present. The writer is not called, and no day-by-day plan is scored. One labelled origin, Phoenix, is never named in its sentence.",
   "eval.bulkRegional": "{count} English queries, in {shapes} sentence shapes. The city, the days, the party and the budget change; the wording does not. A quarter name a wish, such as an animal, a flower, a food or a vibe. Words after “want to see”, “built around” or “the whole point is” are not the city.",
   "eval.bulkExample": "One example",

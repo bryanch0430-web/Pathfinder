@@ -479,7 +479,7 @@ export const ZH_HANS: Messages = {
   "eval.casesTitle": "用例",
   "eval.bulkTitle": "批量测试",
   "eval.bulkBadge": "已完成执行",
-  "eval.bulkNote": "这些批量测试已离线执行过，这里仅供参考。本页不会启动它们，它们也不是 TravelPlanner 的正式行程分数。",
+  "eval.bulkNote": "这些批量测试此前已在离线环境中对 Pathfinder 执行过。完整语料太大，无法在这里重跑，因此仅列出作参考：本页不会启动它们，这些数字也不是 TravelPlanner 的正式行程分数。",
   "eval.bulkTravel": "完整公开集有 {count} 条（训练 {train}、验证 {validation}、测试 {test}）。检查用规则读取出发地、目的地、天数、人数和预算。模拟的航班、酒店和地点调用只在必填字段齐全时才接受。不会调用写作模型，也不为每日行程评分。其中一条把出发地标成 Phoenix，但句子里没有写出任何出发城市。",
   "eval.bulkRegional": "{count} 条英文句子，只有 {shapes} 种句式。城市、天数、人数和预算会换，句式不变。四分之一把愿望（动物、花、食物或气氛）写进句子。“want to see”、“built around”或“the whole point is”后面的词不是城市。",
   "eval.bulkExample": "一个例子",

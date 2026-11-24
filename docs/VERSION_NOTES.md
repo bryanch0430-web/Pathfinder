@@ -3,6 +3,13 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.8 — 2026-11-24 15:25 HKT
+
+- **Bulk tests are described accurately.** They were executed offline against
+  Pathfinder before; the full corpus is too large to re-run from the page, so
+  they are listed for reference only and are not the official TravelPlanner
+  plan score. Copy updated in EN, 简 and 繁.
+
 ## 5.2.7 — 2026-11-24 15:20 HKT
 
 - **Evaluation is a demo view now.** The page says so and the Run button is
