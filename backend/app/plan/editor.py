@@ -66,7 +66,7 @@ async def propose_edit(
             bundle.add(extra, "edit_research")
             log.append(f"Found a source for {extra[0].name}.")
         else:
-            wanted = draft.research_name or "that place"
+            wanted = ", ".join(item for item in draft.research_places if item.strip()) or "that place"
             research_failed = True
             log.append(f"No source found for {wanted}; nothing was added.")
         draft = await _ask(
@@ -83,7 +83,7 @@ async def propose_edit(
                 "attempted": True,
                 "found": len(extra),
                 "names": [item.name for item in extra][:6],
-                "name": draft.research_name,
+                "places": list(draft.research_places),
             },
         )
         if draft.needs_research and extra:
@@ -225,9 +225,9 @@ async def _research(
     city = context.destination or ""
     kind = draft.research_kind
     found: list[Evidence] = []
-    named = (draft.research_name or "").strip()
+    named = [item for item in draft.research_places if item.strip()]
     if named:
-        found.extend(await providers.lookup_place(named, city))
+        found.extend(await providers.lookup_places(named, city))
     if kind == "hotel":
         found.extend(await providers.hotels(city, limit=8, style=context.hotel_style))
     elif kind == "meal":
@@ -251,7 +251,7 @@ async def _research(
     if trace:
         trace.say(
             f"Looked for {kind} options for the edit"
-            + (f" (“{named or draft.research_queries[0]}”)" if (named or draft.research_queries) else "")
+            + (f" (“{', '.join(named) or draft.research_queries[0]}”)" if (named or draft.research_queries) else "")
             + f": {len(result)} sourced."
         )
     return result

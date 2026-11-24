@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.models import ImportedItinerary
 
@@ -57,6 +57,28 @@ class SlotUpdate(Draft):
     purpose: str | None = None
     step_free: bool | None = None
     stops: list[StopSlot] | None = None
+
+    @field_validator("stops", mode="before")
+    @classmethod
+    def _stops(cls, value: Any) -> Any:
+        """The model sometimes sends ["Tokyo"] or a bare "Tokyo". Accept both.
+
+        Without this, the whole turn analyst answer failed validation and was
+        repaired by a second model call, which doubled the routing time.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return value
+        rows: list[Any] = []
+        for entry in value:
+            if isinstance(entry, str) and entry.strip():
+                rows.append({"city": entry.strip()})
+            elif isinstance(entry, dict) and str(entry.get("city") or "").strip():
+                rows.append(entry)
+        return rows
 
     @field_validator("start_date", "end_date", mode="before")
     @classmethod
@@ -255,9 +277,18 @@ class EditDraft(Draft):
     detail: str = ""
     needs_research: bool = False
     research_kind: Literal["attraction", "hotel", "meal", "ticket"] = "attraction"
+    # One entry per place. A list needs no parsing, so "A and B" cannot become one
+    # search. `research_name` stays for older saved prompts that still send a string.
+    research_places: list[str] = Field(default_factory=list)
     research_name: str = ""
     research_queries: list[str] = Field(default_factory=list)
     rebuild_reason: str = ""
+
+    @model_validator(mode="after")
+    def _one_list(self) -> "EditDraft":
+        if not self.research_places and self.research_name.strip():
+            self.research_places = [self.research_name.strip()]
+        return self
 
 
 class IntakeNote(Draft):

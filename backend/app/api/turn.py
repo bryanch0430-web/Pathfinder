@@ -151,6 +151,8 @@ async def effective_settings(c: Container):
             update["max_repairs"] = max(0, min(3, int(thresholds["max_repairs"])))
         if "turn_deadline" in thresholds:
             update["turn_deadline_seconds"] = max(60.0, min(900.0, float(thresholds["turn_deadline"])))
+        if "max_message_chars" in thresholds:
+            update["max_message_chars"] = max(200, min(8000, int(thresholds["max_message_chars"])))
     except (TypeError, ValueError):
         pass
     if not update:
@@ -163,6 +165,12 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
     c = container(request)
     payload = payload.model_copy(update={"attachments": check_attachments(payload.attachments)})
     settings = await effective_settings(c)
+    # The box stops at this length too; a script or an old page can still send more.
+    if len(payload.message) > settings.max_message_chars:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Keep the message under {settings.max_message_chars} characters.",
+        )
     from app.api.llm import effective_writer
     from app.api.deps import identity_for
 
@@ -190,8 +198,12 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
 
     async def stream():
         claimed = False
+        # A live turn refreshes its seat on every keepalive (15 s). A seat that
+        # has not been touched for 60 s belongs to a turn that died, so it is
+        # taken over instead of blocking this trip forever.
+        stale_after = 60.0
         for _ in range(40):  # wait for an earlier turn on the same trip, up to ~20 s
-            claimed = await c.store.claim_seat(session_id, turn_id)
+            claimed = await c.store.claim_seat(session_id, turn_id, stale_after=stale_after)
             if claimed:
                 break
             await asyncio.sleep(0.5)
@@ -227,6 +239,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     # A comment frame keeps proxies and browsers from dropping a quiet plan.
                     # The pending __anext__ is NOT cancelled for a keepalive: that would
                     # kill the turn while it is still working.
+                    await c.store.touch_seat(session_id, turn_id)
                     yield KEEPALIVE
                     continue
                 try:

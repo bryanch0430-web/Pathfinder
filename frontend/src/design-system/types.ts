@@ -537,6 +537,28 @@ export interface ChatMessage {
   meta?: Record<string, unknown>;
 }
 
+/** One stop of a plan the composer is still writing. */
+export interface PartialStop {
+  name: string;
+  start: string;
+  end: string;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+/** One day section of a plan the composer is still writing. */
+export interface PartialDay {
+  date: string;
+  title: string;
+  stops: PartialStop[];
+}
+
+/** The two ends of the draft, for the flight arc when both are known. */
+export interface PartialRoute {
+  from: { name: string; lat: number | null; lng: number | null };
+  to: { name: string; lat: number | null; lng: number | null };
+}
+
 export interface AgentState {
   agent: "attraction" | "hotel" | "weather" | "ticket" | string;
   status: "running" | "ok" | "partial" | "unavailable" | "timeout" | "failed";

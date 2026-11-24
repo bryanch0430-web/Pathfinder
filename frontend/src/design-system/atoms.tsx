@@ -386,20 +386,27 @@ export function Drawer({
   onClose,
   title,
   children,
+  placement = "right",
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** A right sheet for side work; a centred dialog for a form that is the task. */
+  placement?: "right" | "center";
 }) {
   const { t } = useI18n();
   const modalRef = useModalBehaviour<HTMLElement>(open, onClose);
   if (!open) return null;
   return createPortal(
-    <div className="pf-drawer-overlay" role="presentation" onMouseDown={onClose}>
+    <div
+      className={`pf-drawer-overlay${placement === "center" ? " pf-drawer-overlay--center" : ""}`}
+      role="presentation"
+      onMouseDown={onClose}
+    >
       <aside
         ref={modalRef}
-        className="pf-drawer"
+        className={`pf-drawer${placement === "center" ? " pf-drawer--center" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}

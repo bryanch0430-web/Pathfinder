@@ -25,7 +25,7 @@ import json
 import random
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -38,10 +38,11 @@ TModel = TypeVar("TModel", bound=BaseModel)
 # Built-in reply caps per part. A Models override wins; then an explicit call cap;
 # then this map; then the writer default.
 PURPOSE_MAX_TOKENS = {
-    "plan": 12000,
-    "edit": 2000,
+    "plan": 8000,
+    "edit": 3000,
     "verify": 1500,
     "ask": 1400,
+    "understand": 3000,
     "intake": 6000,
     "memory": 700,
     "search_query": 200,
@@ -99,12 +100,16 @@ class LLMClient:
         return bool(self.api_key and self.base_url and self.model)
 
     def _uses_verifier_provider(self, purpose: str) -> bool:
-        if purpose != "verify" or not self.settings.verifier_api_key:
+        if not self.settings.verifier_api_key:
             return False
-        configured = (self.settings.purpose_models or {}).get("verify", "").strip()
-        # Default and other DeepSeek names use the verifier endpoint; an explicit
-        # model from the writer provider keeps the writer endpoint.
-        return not configured or configured.lower().startswith("deepseek")
+        configured = (self.settings.purpose_models or {}).get(purpose, "").strip()
+        if purpose == "verify":
+            # Default and other DeepSeek names use the verifier endpoint; an
+            # explicit model from the writer provider keeps the writer endpoint.
+            return not configured or configured.lower().startswith("deepseek")
+        # A light part can borrow the fast verifier endpoint by naming a DeepSeek
+        # model. An empty entry keeps the writer, so nothing changes by default.
+        return bool(configured) and configured.lower().startswith("deepseek")
 
     def provider_for(self, purpose: str) -> tuple[str, str]:
         """Endpoint and key for a part; the verifier may use its own DeepSeek key."""
@@ -145,18 +150,22 @@ class LLMClient:
         return (configured or self.settings.llm_reasoning or "none").strip().lower()
 
     def max_tokens_for(self, purpose: str, max_tokens: int | None = None) -> int:
-        """A part's explicit cap, then the call's own cap, then the writer default."""
+        """A part's explicit cap, then the call's own cap, then the part default."""
         configured = (self.settings.purpose_max_tokens or {}).get(purpose)
         if configured:
             try:
                 return max(16, min(32000, int(configured)))
             except (TypeError, ValueError):
                 pass
-        if self._uses_verifier_provider(purpose) and not max_tokens:
-            return max(16, min(32000, int(self.settings.verifier_max_tokens)))
         if max_tokens:
             return max_tokens
-        return PURPOSE_MAX_TOKENS.get(purpose, self.settings.llm_max_tokens)
+        # The part's own cap beats the verifier default. Otherwise a light part
+        # moved to the fast endpoint would be cut at the verifier's 1,500 tokens.
+        if purpose in PURPOSE_MAX_TOKENS:
+            return PURPOSE_MAX_TOKENS[purpose]
+        if self._uses_verifier_provider(purpose):
+            return max(16, min(32000, int(self.settings.verifier_max_tokens)))
+        return self.settings.llm_max_tokens
 
     def _payload(
         self,
@@ -430,8 +439,108 @@ class LLMClient:
             retryable=False,
         )
 
-    # -- judge --------------------------------------------------------
+    async def json_stream(
+        self,
+        *,
+        purpose: str,
+        system: str,
+        user: str,
+        schema: type[TModel],
+        on_text: Callable[[str], Awaitable[None]] | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        deadline: float | None = None,
+    ) -> TModel:
+        """Stream one JSON answer and validate it once it is whole.
 
+        `on_text` sees the text written so far, so a caller can show a partial
+        result. There is no repair turn here: on any failure the caller falls
+        back to `json()`, which keeps the old behaviour.
+        """
+        if not self.available_for(purpose):
+            raise LLMError("no model is configured for this part", retryable=False)
+        chosen = self.model_for(purpose, model)
+        payload = self._payload(
+            system=system,
+            messages=[{"role": "user", "content": user}],
+            model=chosen,
+            temperature=self.temperature_for(purpose, temperature),
+            max_tokens=self.max_tokens_for(purpose, max_tokens),
+            json_mode=True,
+            stream=True,
+            reasoning=self.reasoning_for(purpose),
+        )
+        base, key = self.provider_for(purpose)
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        started = time.perf_counter()
+        # A provider may keep the stream open with keepalive lines after it has
+        # said everything. Without this wall clock the turn waited forever.
+        # It is not the per-call idle timeout: one stream may legitimately write
+        # a seven-day plan for a couple of minutes.
+        deadline = started + max(120.0, min(240.0, float(self.settings.turn_deadline_seconds) * 0.6)) if deadline is None else deadline
+        limit = max(2000, int(self.max_tokens_for(purpose, max_tokens)) * 8)
+        chunks: list[str] = []
+        total_chars = 0
+        prompt_tokens = completion_tokens = 0
+        try:
+            async with self.client.stream(
+                "POST", f"{base}/chat/completions", json=payload, headers=headers
+            ) as response:
+                if response.status_code in {400, 422}:
+                    # The endpoint refuses response_format or streaming; the
+                    # caller's json() path retries without them.
+                    raise LLMError(f"stream refused ({response.status_code})", status=response.status_code)
+                if response.status_code >= 400:
+                    raise LLMError(f"stream failed ({response.status_code})", status=response.status_code)
+                async for line in response.aiter_lines():
+                    if time.perf_counter() > deadline:
+                        raise LLMError("the stream ran past its time limit", retryable=True)
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if raw == "[DONE]":
+                        break
+                    try:
+                        event = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    usage = event.get("usage") or {}
+                    prompt_tokens = int(usage.get("prompt_tokens") or prompt_tokens)
+                    completion_tokens = int(usage.get("completion_tokens") or completion_tokens)
+                    delta = (((event.get("choices") or [{}])[0].get("delta")) or {}).get("content") or ""
+                    if not delta:
+                        continue
+                    chunks.append(delta)
+                    total_chars += len(delta)
+                    if total_chars > limit:
+                        raise LLMError("the streamed answer was longer than its cap", retryable=False)
+                    if on_text is not None:
+                        await on_text("".join(chunks))
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            if not chunks:
+                raise LLMError(f"model endpoint unreachable: {exc}") from exc
+        text = "".join(chunks)
+        self._record(
+            purpose,
+            LLMReply(
+                text=text,
+                model=chosen,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_ms=(time.perf_counter() - started) * 1000,
+            ),
+            user,
+        )
+        parsed = extract_json(text)
+        if parsed is None:
+            raise LLMError("the streamed answer was not a JSON object", retryable=False)
+        try:
+            return schema.model_validate(parsed)
+        except ValidationError as exc:
+            raise LLMError(f"the streamed answer was unusable: {_short_validation(exc)}", retryable=False) from exc
+
+    # -- judge --------------------------------------------------------
     async def judge(
         self,
         *,

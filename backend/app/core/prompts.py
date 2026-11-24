@@ -42,9 +42,8 @@ def context_brief(context: TripContext) -> dict[str, Any]:
         "days": context.days,
         "party_size": context.party_size,
         "budget": context.budget,
-        # Null until the traveller names one. The HKD default must not be copied back.
-        "currency": context.currency if context.currency_set else None,
-        "currency_set": context.currency_set,
+        # HKD unless the traveller named another currency or set one in the form.
+        "currency": context.currency or "HKD",
         "hotel_style": context.hotel_style or None,
         "preferences": context.preferences[:12],
         "hard_constraints": context.hard_constraints[:12],

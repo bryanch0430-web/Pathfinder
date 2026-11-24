@@ -125,7 +125,7 @@ async def jev_route(
                 "type": "noul",
                 "instructions": (
                     "The traveller still has to supply a destination, departure city, start date, "
-                    "length, party size, budget, or a currency they named "
+                    "length, party size, or budget "
                     "before an itinerary can be built"
                 ),
             },

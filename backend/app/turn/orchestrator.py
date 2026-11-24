@@ -53,7 +53,7 @@ from app.security.pii import Redaction, mask_pii
 from app.understand.pipeline import dates_usable, missing_for_plan, understand
 from app.understand.schemas import IntakeFacts
 
-MAX_CONTEXT_TURNS = 10
+MAX_CONTEXT_TURNS = 8
 
 
 @dataclass
@@ -502,7 +502,7 @@ async def _plan_turn(
 ):
     settings = deps.settings
     store = deps.store
-    if previous is None and not context.imported_itinerary and len(context.stops) > 1:
+    if not context.imported_itinerary and len(context.stops) > 1:
         from app.plan.multicity import build_multi_city_plan
 
         await push("progress", {"phase": "gather", "message": "Planning the city segments.", "progress": 12})
@@ -608,6 +608,13 @@ async def _plan_turn(
         )
         started = time.perf_counter()
         composed_fallback = False
+        # The whole turn is bounded; the composer must know how much is left.
+        turn_deadline = time.monotonic() + max(60.0, float(settings.turn_deadline_seconds)) - 15
+        # Leave time for the deterministic fallback plan if the composer fails.
+        compose_deadline = max(
+            time.monotonic() + 30,
+            min(turn_deadline - 75, time.monotonic() + 150),
+        )
         try:
             try:
                 plan, draft = await compose(
@@ -621,6 +628,8 @@ async def _plan_turn(
                     skill_overrides=skill_overrides,
                     trace=trace,
                     avoid_transit_days=gathered.avoid_transit_days,
+                    emit=push,
+                    deadline=compose_deadline,
                 )
             except LLMError:
                 # A queued or cut-off generation is worth one fresh attempt before degrading.
@@ -637,6 +646,8 @@ async def _plan_turn(
                     skill_overrides=skill_overrides,
                     trace=trace,
                     avoid_transit_days=gathered.avoid_transit_days,
+                    emit=push,
+                    deadline=compose_deadline,
                 )
         except LLMError as exc:
             from app.plan.builder import fallback_plan, sync_constraints
@@ -694,6 +705,8 @@ async def _plan_turn(
                 skill_overrides=skill_overrides,
                 trace=trace,
                 avoid_transit_days=gathered.avoid_transit_days,
+                emit=push,
+                deadline=compose_deadline,
             )
             await audit_constraints(llm=llm, plan=repaired, context=context, trace=trace, skill_overrides=skill_overrides)
             if repaired.item_count() >= plan.item_count() or not problems:
@@ -749,20 +762,43 @@ async def _edit_turn(
         scenario=scenario,
     )
     await push("progress", {"phase": "edit", "message": "Working out the smallest change.", "progress": 55})
-    outcome = await propose_edit(
-        llm=llm,
-        providers=providers,
-        settings=settings,
-        context=context,
-        plan=plan,
-        bundle=gathered.bundle,
-        message=request.message,
-        scope_label=request.scope_label,
-        scope_item_id=request.scope_item_id,
-        trace=trace,
-        skill_overrides=skill_overrides,
-    )
-    if outcome.rebuild:
+    try:
+        outcome = await propose_edit(
+            llm=llm,
+            providers=providers,
+            settings=settings,
+            context=context,
+            plan=plan,
+            bundle=gathered.bundle,
+            message=request.message,
+            scope_label=request.scope_label,
+            scope_item_id=request.scope_item_id,
+            trace=trace,
+            skill_overrides=skill_overrides,
+        )
+    except LLMError:
+        # A change too large for one edit answer is rebuilt instead of failing:
+        # "make it seven days and add Taiwan" needs a new itinerary, not ops.
+        trace.say("The edit answer was unusable, so the trip is replanned from the request.")
+        await push("progress", {"phase": "compose", "message": "Rebuilding the itinerary.", "progress": 48})
+        await _plan_turn(
+            deps=deps,
+            request=request,
+            session_id=session_id,
+            context=context,
+            previous=plan,
+            trace=trace,
+            llm=llm,
+            providers=providers,
+            push=push,
+            skill_overrides=skill_overrides,
+            scenario=scenario,
+            change_summary="Replanned the trip.",
+            research_places=research_places,
+            search_queries=search_queries,
+        )
+        return
+    if outcome.rebuild or _trip_shape_changed(plan, outcome.context):
         trace.say(f"The edit needs a replan: {outcome.rebuild_reason}.")
         await store.save_context(session_id, outcome.context.model_dump())
         await _plan_turn(
@@ -954,13 +990,13 @@ async def _add_plan_research(
 
     city = context.destination or ""
     for name in [item for item in names if item.strip()][:4]:
-        hits = await providers.lookup_place(name, city)
+        hits = await providers.lookup_places(name, city)
         if not hits:
             continue
-        evidence = hits[0]
-        evidence.ref = f"pl-{len(bundle.items) + 1}"
-        bundle.add([evidence], "research")
-        trace.say(f"Looked up {name}: {evidence.name}.")
+        for evidence in hits:
+            evidence.ref = f"pl-{len(bundle.items) + 1}"
+            bundle.add([evidence], "research")
+            trace.say(f"Looked up {evidence.name}.")
     for query in [item for item in queries if item.strip()][:2]:
         results = await providers.search(query, limit=3)
         for row in results[:2]:
@@ -1107,6 +1143,21 @@ def _plan_reply(plan: TripPlan, gaps) -> str:
     if plan.data_quality.gaps:
         lines.append("Not confirmed by a source: " + "; ".join(gap.message for gap in plan.data_quality.gaps[:3]) + ".")
     return "\n\n".join(lines[:8])
+
+
+def _trip_shape_changed(plan: TripPlan, context: TripContext) -> bool:
+    """True when the request changed the trip itself, not a stop inside it.
+
+    An edit answer can only move stops in days that already exist. Extending a
+    trip or adding a second city changes the shape, so it must be rebuilt.
+    """
+    if context.start_date and plan.dates.start and context.start_date != plan.dates.start:
+        return True
+    if context.end_date and plan.dates.end and context.end_date != plan.dates.end:
+        return True
+    if context.days and len(plan.days) and context.days != len(plan.days):
+        return True
+    return bool(context.stops)
 
 
 def _edit_reply(plan: TripPlan, summary: str, log: list[str]) -> str:

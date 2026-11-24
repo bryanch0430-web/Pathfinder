@@ -396,7 +396,9 @@ html.is-dark .pf-ops__tile[data-waiting] .pf-ops__mark {
 }
 
 .pf-shell .pf-planner[data-dock="true"][data-chat="open"][data-map="open"] {
-  grid-template-columns: var(--pf-w-chat) minmax(320px, 1fr) var(--pf-w-map);
+  /* A slimmer left column: the trip toolbar and day rail are navigation, not
+     content, so the map gets the room they used to take. */
+  grid-template-columns: 176px minmax(320px, 1fr) var(--pf-w-map);
 }
 
 .pf-shell .pf-planner[data-dock="true"][data-chat="closed"][data-map="open"] {
@@ -819,24 +821,24 @@ html.is-dark .pf-surface-scrim {
 .pf-day-rail {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-height: 0;
   overflow: auto;
-  padding: 4px 0 8px;
+  padding: 2px 0 6px;
 }
 
 .pf-day-rail button {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 40px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: var(--pf-ink);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 12.5px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
@@ -848,7 +850,19 @@ html.is-dark .pf-surface-scrim {
 }
 
 .pf-planner__left .pf-trip-bar {
-  padding: 8px 10px;
+  padding: 5px 8px;
+  gap: 6px;
+  border-radius: 10px;
+}
+
+.pf-planner__left .pf-trip-bar__title {
+  font-size: 12px;
+  -webkit-line-clamp: 1;
+}
+
+.pf-planner__left .pf-trip-bar__action {
+  padding: 3px 7px;
+  font-size: 9px;
 }
 
 .pf-planner__left .pf-trip-bar__icon,
@@ -857,7 +871,7 @@ html.is-dark .pf-surface-scrim {
   display: none;
 }
 
-.pf-shell[data-dock="true"] .pf-planner[data-chat="open"] .pf-day-strip {
+.pf-shell[data-dock="true"] .pf-planner[data-chat="open"] .pf-day-strip:not(.pf-day-strip--floating) {
   display: none;
 }
 

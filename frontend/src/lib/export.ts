@@ -1,4 +1,4 @@
-import type { HotelStay, TicketOption, TransportLeg, TripPlan } from "../design-system/types";
+import type { ChatMessage, HotelStay, TicketOption, TransportLeg, TripPlan } from "../design-system/types";
 import { bookedLines } from "./booked";
 import { chosenFor, daysBySegment, legHome, legInto, nightsBetween, optionsFor, routeLabel, segmentsOf, staysIn } from "./segments";
 
@@ -141,9 +141,25 @@ export function downloadPlanCalendar(plan: TripPlan, calendar: Blob): void {
   URL.revokeObjectURL(url);
 }
 
-/** The plan as stored, so another computer can open the same trip. */
-export function downloadPlanFile(plan: TripPlan): void {
-  const blob = new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" });
+/** The plan as stored, plus the conversation, so another computer can open the same trip. */
+export function downloadPlanFile(plan: TripPlan, messages: ChatMessage[] = []): void {
+  const file = {
+    plan,
+    messages: messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+      created_at: message.created_at,
+      intent: message.intent ?? null,
+      meta: {
+        ...(message.meta?.operator ? { operator: true } : {}),
+        ...(message.meta?.live_agent ? { live_agent: true } : {}),
+        ...(typeof message.meta?.agent_name === "string" && message.meta.agent_name.trim()
+          ? { agent_name: message.meta.agent_name.trim() }
+          : {}),
+      },
+    })),
+  };
+  const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

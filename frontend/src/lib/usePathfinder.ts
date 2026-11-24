@@ -40,6 +40,8 @@ import type {
   PlanItem,
   PlanLocale,
   PlanTranslation,
+  PartialDay,
+  PartialRoute,
   RoomType,
   RoutePayload,
   RunTrace,
@@ -239,6 +241,12 @@ export interface PathfinderHook {
   live: { id: string; title: string; body: string }[];
   /** Stages of the turn in progress, with the model and how long each one took. */
   steps: TurnStep[];
+  /** Day sections of a plan the composer is still writing. */
+  partialDays: PartialDay[];
+  /** The trip's two ends, for the draft's flight arc. */
+  partialRoute: PartialRoute | null;
+  /** True from the moment the composer starts until the plan (or an error) lands. */
+  drafting: boolean;
   route: RoutePayload | null;
   error: string | null;
   /** Something the traveller should know that is not a failure, such as the trip they had open being gone. */
@@ -376,6 +384,9 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [trace, setTrace] = useState<RunTrace | null>(null);
   const [live, setLive] = useState<{ id: string; title: string; body: string }[]>([]);
   const [steps, setSteps] = useState<TurnStep[]>([]);
+  const [partialDays, setPartialDays] = useState<PartialDay[]>([]);
+  const [partialRoute, setPartialRoute] = useState<PartialRoute | null>(null);
+  const [drafting, setDrafting] = useState(false);
   useEffect(() => {
     getConfig()
       .then((data) => setRedaction((data as { redaction?: Parameters<typeof setRedaction>[0] }).redaction))
@@ -741,18 +752,22 @@ export function usePathfinder(locale: string): PathfinderHook {
 
   const importPlanFile = useCallback(async (text: string): Promise<string | null> => {
     let plan: unknown;
+    let messages: unknown[] = [];
     try {
       const parsed = JSON.parse(text) as unknown;
-      plan =
-        parsed !== null && typeof parsed === "object" && "plan" in parsed
-          ? (parsed as { plan: unknown }).plan
-          : parsed;
+      if (parsed !== null && typeof parsed === "object" && "plan" in parsed && (parsed as { plan?: unknown }).plan) {
+        const wrapped = parsed as { plan: unknown; messages?: unknown };
+        plan = wrapped.plan;
+        messages = Array.isArray(wrapped.messages) ? wrapped.messages : [];
+      } else {
+        plan = parsed;
+      }
     } catch {
       showBanner("errors.importPlan");
       return null;
     }
     try {
-      const opened = await withTimeout((signal) => importPlan(clientToken(), plan, signal));
+      const opened = await withTimeout((signal) => importPlan(clientToken(), plan, signal, messages));
       showTrip(opened.session.id, opened);
       return opened.session.id;
     } catch (cause) {
@@ -1020,6 +1035,9 @@ export function usePathfinder(locale: string): PathfinderHook {
       setMessages((current) => [...current, optimistic]);
       setLive([]);
       setSteps([]);
+      setPartialDays([]);
+      setPartialRoute(null);
+      setDrafting(false);
       let streamingId: string | null = null;
       const controller = new AbortController();
       abortRef.current = controller;
@@ -1139,7 +1157,17 @@ export function usePathfinder(locale: string): PathfinderHook {
                 });
                 if (messageId) streamingId = messageId;
               }
+              if (event === "plan_partial") {
+                setDrafting(true);
+                const days = Array.isArray(data.days) ? (data.days as PartialDay[]) : [];
+                const route = data.route as PartialRoute | undefined;
+                if (route) setPartialRoute(route);
+                if (days.length) setPartialDays(days);
+              }
               if (event === "plan") {
+                setPartialDays([]);
+                setPartialRoute(null);
+                setDrafting(false);
                 setPlan(data.plan as unknown as TripPlan);
                 const diff = (data.diff ?? []) as PlanDiffEntry[];
                 setChangedIds(
@@ -1576,6 +1604,9 @@ export function usePathfinder(locale: string): PathfinderHook {
     trace,
     live,
     steps,
+    partialDays,
+    partialRoute,
+    drafting,
     route,
     error: error === null ? null : describeFailure(error, t),
     notice:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from urllib.parse import quote
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -18,7 +19,7 @@ from typing import Any
 
 from app.config import Settings
 from app.core.dates import add_days, clock_minutes, day_range, minutes_between, overlaps, parse_date, shift_time
-from app.core.llm import LLMClient
+from app.core.llm import LLMClient, LLMError
 from app.core.prompts import context_brief, skill
 from app.core.trace import TurnTrace
 from app.domain.models import (
@@ -51,6 +52,7 @@ from app.domain.models import (
 from app.evidence.models import Bundle, Evidence
 from app.evidence.providers import _same_city, haversine_km
 from app.plan.agents import candidate_pool
+from app.plan.partial import partial_days
 from app.understand.schemas import DayChoice, PlanDraft, StopChoice
 
 DEFAULT_SLOTS = ["09:30", "11:30", "13:00", "15:00", "17:00", "19:00"]
@@ -72,6 +74,30 @@ class Problem:
     item_id: str | None = None
 
 
+def _draft_route(context: TripContext, geo_by_name: dict[str, GeoPoint]) -> dict[str, Any] | None:
+    """The trip's two ends, for the draft's flight arc, when coordinates are known."""
+    from app.evidence import place_corpus as corpus
+
+    def point(name: str) -> dict[str, Any] | None:
+        clean = (name or "").strip()
+        if not clean:
+            return None
+        geo = geo_by_name.get(clean.lower())
+        if geo is None:
+            meta = corpus.city_meta(clean)
+            if meta:
+                return {"name": meta["name"], "lat": meta["lat"], "lng": meta["lng"]}
+        if geo is not None:
+            return {"name": clean, "lat": geo.lat, "lng": geo.lng}
+        return {"name": clean, "lat": None, "lng": None}
+
+    origin = point(context.origin)
+    destination = point(context.destination)
+    if not origin or not destination:
+        return None
+    return {"from": origin, "to": destination}
+
+
 async def compose(
     *,
     llm: LLMClient,
@@ -84,6 +110,8 @@ async def compose(
     skill_overrides: dict[str, str] | None = None,
     trace: TurnTrace | None = None,
     avoid_transit_days: set[int] | None = None,
+    emit: Any | None = None,
+    deadline: float | None = None,
 ) -> tuple[TripPlan, PlanDraft]:
     start = parse_date(context.start_date)
     if start is None:
@@ -113,12 +141,92 @@ async def compose(
         "destination": bundle.notes[:0] or None,
     }
     system = skill("plan", skill_overrides)
-    draft = await llm.json(
-        purpose="plan",
-        system=system,
-        user=json.dumps(payload, ensure_ascii=False, indent=1),
-        schema=PlanDraft,
-    )
+    user = json.dumps(payload, ensure_ascii=False, indent=1)
+    # A seven-day answer is roughly twice a four-day one. A fixed cap truncated
+    # it, the truncation failed validation, and the retry repeated the same cut.
+    token_cap = min(16000, 4000 + 900 * max(2, int(context.days or 4)))
+    draft: PlanDraft | None = None
+    if emit is not None:
+        # The day sections appear while the composer writes them. A failure
+        # anywhere in the stream falls back to the ordinary whole-answer call.
+        places = {
+            row["ref"]: row
+            for group in candidate_pool(bundle).values()
+            for row in group
+            if row.get("ref")
+        }
+        geo_by_name = {
+            item.name.strip().lower(): item.geo
+            for item in bundle.items
+            if item.geo is not None
+        }
+        route = _draft_route(context, geo_by_name)
+        last = {"at": 0.0, "sig": None}
+        # Tell the page at once that a plan is being written, before the first
+        # day exists, so the workspace is not blank for the first half minute.
+        await emit("plan_partial", {"days": [], "started": True, "route": route})
+
+        def payload_days(days: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            rows: list[dict[str, Any]] = []
+            for day in days:
+                stops: list[dict[str, Any]] = []
+                for stop in day["stops"]:
+                    row = places.get(stop["ref"])
+                    if not row:
+                        continue
+                    geo = geo_by_name.get(str(row.get("name") or "").strip().lower())
+                    stops.append(
+                        {
+                            "name": row.get("name", ""),
+                            "start": stop["start"],
+                            "end": stop["end"],
+                            "lat": geo.lat if geo else None,
+                            "lng": geo.lng if geo else None,
+                        }
+                    )
+                rows.append({"date": day["date"], "title": day["title"], "stops": stops[:8]})
+            return rows
+
+        async def on_text(text: str) -> None:
+            now = time.monotonic()
+            if now - last["at"] < 0.35:
+                return
+            last["at"] = now
+            days = partial_days(text)
+            if not days:
+                return
+            # A stop added to a day already shown is a change too, so compare the
+            # whole shape rather than only how many days exist.
+            signature = tuple((day["date"], day["title"], len(day["stops"])) for day in days)
+            if signature == last["sig"]:
+                return
+            last["sig"] = signature
+            await emit("plan_partial", {"days": payload_days(days), "route": route})
+
+        try:
+            draft = await llm.json_stream(
+                purpose="plan",
+                system=system,
+                user=user,
+                schema=PlanDraft,
+                on_text=on_text,
+                max_tokens=token_cap,
+                deadline=deadline,
+            )
+        except LLMError:
+            # Without enough turn budget left, a second full generation would
+            # only time out. Re-raise so the caller can build its fast fallback.
+            if deadline is not None and deadline - time.monotonic() < 90:
+                raise
+            draft = None
+    if draft is None:
+        draft = await llm.json(
+            purpose="plan",
+            system=system,
+            user=user,
+            schema=PlanDraft,
+            max_tokens=token_cap,
+        )
     plan = build_plan(
         context=context,
         bundle=bundle,

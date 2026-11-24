@@ -22,6 +22,7 @@ import {
   ClarifyCard,
   ConstraintList,
   DaySection,
+  DraftPlanPreview,
   type StopOffer,
   DayStrip,
   ExperimentTable,
@@ -62,6 +63,8 @@ import type {
   FxSnapshot,
   GuideChunk,
   HotelStay,
+  PartialDay,
+  PartialRoute,
   IntakePayload,
   PlanItem,
   RoomType,
@@ -78,6 +81,8 @@ import type {
 } from "./types";
 import { hotelScopeItem } from "./scope";
 import { openCount, slotCount, slotState, transportKinds } from "../lib/choices";
+import { parseQuickFacts } from "../lib/quickParse";
+import { CHAT_MESSAGE_MAX_LENGTH } from "../lib/limits";
 import { readableLabel } from "../lib/readableLabel";
 import { providerFromBaseUrl } from "../lib/modelKeys";
 import { ApiError, getLegOptions, getLegs, type ChoiceKind, type LegOption, type LegOptions, type LlmProvider, type MapAnchor, type MapLeg } from "../lib/api";
@@ -467,7 +472,7 @@ export function TripPanel({
           {t("trip.edit")} <Icon name="chevronRight" size={13} />
         </span>
       </button>
-      <Drawer open={open} onClose={() => setOpen(false)} title={t("trip.details")}>
+      <Drawer open={open} onClose={() => setOpen(false)} title={t("trip.details")} placement="center">
         <div className="pf-trip-drawer">
           <Text size="sm" tone="secondary">
             {t("trip.drawerIntro")}
@@ -999,6 +1004,8 @@ export function ChatPanel({
   intake = null,
   focusSignal = 0,
   initialFiles,
+  maxMessageChars = CHAT_MESSAGE_MAX_LENGTH,
+  partialDays = [],
 }: {
   messages: ChatMessage[];
   /** `attachments` are the files chosen in the box, already read; absent when there are none. */
@@ -1011,6 +1018,10 @@ export function ChatPanel({
   focusSignal?: number;
   /** Files already chosen when the panel opens (for stories and tests). */
   initialFiles?: File[];
+  /** Longest message the server will take. An operator can change it on Thresholds. */
+  maxMessageChars?: number;
+  /** Day sections a plan is still being written with, newest last. */
+  partialDays?: PartialDay[];
   busy: boolean;
   agents: Record<string, AgentState>;
   progress: number;
@@ -1054,6 +1065,8 @@ export function ChatPanel({
   const draft = onDraftChange ? (heldDraft ?? "") : (ownDrafts[draftKey] ?? "");
   const setDraft = (value: string) =>
     onDraftChange ? onDraftChange(value) : setOwnDrafts((current) => ({ ...current, [draftKey]: value }));
+  // What the box has already read; a display aid, never the decision.
+  const readAs = useMemo(() => parseQuickFacts(draft), [draft]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   // The box grows with what is typed in it: it is measured again whenever the draft changes, as when the trip shown
   // changes or a message that was not sent comes back.
@@ -1285,6 +1298,22 @@ export function ChatPanel({
             ))}
           </ol>
         ) : null}
+        {busy && partialDays.length ? (
+          <div className="pf-partial-plan" role="status" aria-live="polite">
+            <Text size="xs" tone="tertiary">{t("chat.writingPlan")}</Text>
+            <ol>
+              {partialDays.map((day, index) => (
+                <li key={`${day.date}-${index}`}>
+                  <span className="pf-partial-plan__day">
+                    {day.date ? new Date(`${day.date}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : t("day.number", { n: index + 1 })}
+                  </span>
+                  <span className="pf-partial-plan__title">{day.title || t("day.number", { n: index + 1 })}</span>
+                  <span className="pf-partial-plan__stops">{day.stops.map((stop) => (typeof stop === "string" ? stop : stop.name)).filter(Boolean).join(" · ")}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
         {busy ? (
           <div className="pf-thinking" role="status">
             <span className="pf-thinking__dots" aria-hidden="true"><i /><i /><i /></span>
@@ -1358,6 +1387,16 @@ export function ChatPanel({
             <Button size="sm" variant="primary" onClick={onStartNew}>{t("chat.startNew")}</Button>
           </div>
         ) : null}
+        {readAs.length ? (
+          <div className="pf-quick-read" aria-live="polite">
+            <span className="pf-quick-read__label">{t("chat.readAs")}</span>
+            {readAs.map((fact) => (
+              <span key={`${fact.key}-${fact.label}`} className="pf-quick-read__chip" data-key={fact.key}>
+                {fact.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="pf-composer">
           <input
             ref={fileInputRef}
@@ -1381,6 +1420,7 @@ export function ChatPanel({
             ref={composerRef}
             value={draft}
             rows={1}
+            maxLength={maxMessageChars}
             disabled={composerLocked}
             placeholder={finished ? t("chat.final") : disabled ? t("chat.offline") : busy ? t("chat.working") : scope ? t("chat.placeholderScoped") : t("chat.placeholder")}
             aria-label={t("chat.message")}
@@ -1417,6 +1457,17 @@ export function ChatPanel({
             <Icon name={busy ? "stop" : "send"} size={16} />
           </Button>
         </div>
+        {draft.length > maxMessageChars * 0.9 ? (
+          <Text
+            as="div"
+            size="xs"
+            tone={draft.length >= maxMessageChars ? "danger" : "tertiary"}
+            className="pf-composer__count"
+            role="status"
+          >
+            {t("chat.charCount", { count: draft.length, max: maxMessageChars })}
+          </Text>
+        ) : null}
       </div>
     </section>
   );
@@ -2314,6 +2365,9 @@ export function TripWorkspace({
   focusedDay,
   map = null,
   updatedIds,
+  draftDays,
+  draftRoute = null,
+  drafting = false,
   changedStayIds,
   changedLegIds,
   languageNotice = null,
@@ -2382,6 +2436,12 @@ export function TripWorkspace({
   /** Shown when the middle view is the map. */
   map?: ReactNode;
   updatedIds?: string[];
+  /** Day sections of the plan being written, shown read-only in every view. */
+  draftDays?: PartialDay[];
+  /** The trip's two ends, for the draft's flight arc. */
+  draftRoute?: PartialRoute | null;
+  /** True from the moment the composer starts, so an empty preview still says so. */
+  drafting?: boolean;
   /** The stays and legs (by id) the last change touched. */
   changedStayIds?: ReadonlySet<string>;
   changedLegIds?: ReadonlySet<string>;
@@ -2581,6 +2641,12 @@ export function TripWorkspace({
       </button>
     ) : null;
 
+  // The map stage keeps the day's information beside it, so the traveller can
+  // read the itinerary without leaving the map.
+  const stageDay = plan.days.find((entry) => entry.date === activeDay) ?? plan.days[0];
+  const stageDayNumber = plan.days.findIndex((entry) => entry.date === stageDay?.date) + 1;
+  const stageItems = (stageDay?.items ?? []).filter((item) => item.type !== "hotel");
+
   return (
     <RouteChoiceProvider tripId={plan.trip_id} version={plan.version}>
     <section className="pf-card pf-workspace" aria-label={t("workspace.label")}>
@@ -2601,6 +2667,7 @@ export function TripWorkspace({
           </button>
         ))}
       </div>
+      {drafting || draftDays?.length ? <DraftPlanPreview days={draftDays ?? []} route={draftRoute} /> : null}
       <div className="pf-workspace__head" data-compact={view === "detail" ? undefined : "true"}>
         <div className="pf-workspace__title">
           <div className="pf-stack" style={{ gap: 3 }}>
@@ -2658,14 +2725,16 @@ export function TripWorkspace({
           {plan.budget ? <MiniStat icon="wallet" label={t("workspace.budget")} value={`${plan.cost.currency} ${plan.budget.amount.toLocaleString()}`} /> : null}
           {onRefresh ? <Button size="sm" variant="ghost" iconLeft="refresh" onClick={onRefresh}>{t("workspace.refresh")}</Button> : null}
         </div>
-        <DayStrip
-          days={plan.days}
-          active={activeDay}
-          onSelect={jump}
-          cityOf={multi ? (day) => segmentOfDay(plan, day.date).destination.name : undefined}
-        />
+        {view !== "map" ? (
+          <DayStrip
+            days={plan.days}
+            active={activeDay}
+            onSelect={jump}
+            cityOf={multi ? (day) => segmentOfDay(plan, day.date).destination.name : undefined}
+          />
+        ) : null}
       </div>
-      <div className="pf-workspace__body pf-scroll" ref={bodyRef}>
+      <div className={`pf-workspace__body pf-scroll${view === "map" ? " pf-workspace__body--stage" : ""}`} ref={bodyRef}>
         {plan.cost.status === "over" && !hideBudget ? (
           <div className="pf-banner" data-tone="warning" role="status">
             <span>{t("warnings.budget")}</span>
@@ -2673,7 +2742,44 @@ export function TripWorkspace({
           </div>
         ) : null}
         {view === "map" ? (
-          map ?? <Text size="sm" tone="secondary">{t("map.empty")}</Text>
+          <div className="pf-stage">
+            <div className="pf-stage__canvas">
+              {map ?? <Text size="sm" tone="secondary">{t("map.empty")}</Text>}
+            </div>
+            <aside className="pf-stage__side" aria-label={t("sheet.detail")}>
+              <div className="pf-stage__side-head">
+                <div className="pf-stack" style={{ gap: 1 }}>
+                  <Text size="xs" tone="tertiary">
+                    {t("day.number", { n: Math.max(1, stageDayNumber) })}
+                  </Text>
+                  <Text size="sm" weight="semibold">
+                    {stageDay?.title || stageDay?.date || ""}
+                  </Text>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setView("detail")}>
+                  {t("sheet.detail")}
+                </Button>
+              </div>
+              <ol className="pf-stage__side-list">
+                {stageItems.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      data-active={item.id === selectedItemId}
+                      onClick={() => onSelectItem(item)}
+                    >
+                      <span className="pf-stage__side-time">{item.start}</span>
+                      <span className="pf-stage__side-name">{item.name}</span>
+                      <span className="pf-stage__side-type">{item.type}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              {stageDay?.note ? (
+                <Text size="xs" tone="tertiary">{stageDay.note}</Text>
+              ) : null}
+            </aside>
+          </div>
         ) : view === "edit" ? (
           <DirectSheet
             plan={plan}
@@ -3394,7 +3500,7 @@ export function MapPanel({
               {travel ? ` · ${travel.label} (${travel.mode})` : ""}
             </Text>
           </div>
-          <div className="pf-row" style={{ gap: 4 }}>
+          <div className="pf-row pf-map__days" style={{ gap: 4 }}>
             {multi ? (
               <button
                 type="button"
@@ -5092,6 +5198,10 @@ export function SettingsView({
       label: t("settings.threshold.turn_deadline_seconds"),
       hint: t("settings.thresholdHint.turn_deadline_seconds"),
     },
+    max_message_chars: {
+      label: t("settings.threshold.max_message_chars"),
+      hint: t("settings.thresholdHint.max_message_chars"),
+    },
   };
   const clusters = (
     [
@@ -5239,7 +5349,7 @@ export function SettingsView({
 
       {config ? (
         <>
-          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.analyst_confidence")} ${t("settings.threshold.jev_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")}`) ? (
+          {show("policy", `${t("settings.thresholds")} ${t("settings.threshold.analyst_confidence")} ${t("settings.threshold.jev_confidence")} ${t("settings.threshold.memory_similarity")} ${t("settings.threshold.preplan_budget_seconds")} ${t("settings.threshold.max_repairs")} ${t("settings.threshold.conversation_turns")} ${t("settings.threshold.reviewer_timeout_seconds")} ${t("settings.threshold.turn_deadline_seconds")} ${t("settings.threshold.llm_timeout_seconds")} ${t("settings.threshold.max_message_chars")}`) ? (
           <div className="pf-card pf-eval__panel">
             <Text size="sm" weight="semibold">{t("settings.thresholds")}</Text>
             {canEditPolicy ? (

@@ -3,6 +3,60 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.0 — 2026-11-24 14:05 HKT
+
+Drafts, the map, and the left column.
+
+- **The itinerary is visible while it is written.** The composer streams a
+  `plan_partial` event as each stop is confirmed: day sections with real names,
+  times and coordinates, plus the trip's two ends for a flight arc. The chat,
+  the Trip map, Detail view and Direct edit all show the same read-only preview;
+  nothing in it can be edited, and any streaming failure still falls back to the
+  whole-answer call and the deterministic plan.
+- **The draft map is the real map.** With a browser map key set, the preview
+  uses the same Google engine as the finished trip: numbered pins fanned apart
+  when stops share an address, one dashed line and colour per day, names on
+  hover. Without a key it falls back to a schematic that also groups by day and
+  names only the newest stop.
+- **A live reading of the message.** The composer shows small "Read as" chips
+  (days, travellers, budget, date, cities) while the traveller types. It is a
+  display aid; the server's analyst still decides.
+- **Long plans no longer time out.** The plan token cap now scales with trip
+  length (`4000 + 900 × days`, capped at 16,000), the stream's wall clock is
+  tied to the turn budget, and the composer reserves time for the fast fallback
+  plan. A change that alters days, dates or cities now rebuilds the trip
+  (including multi-city replans) instead of asking the editor for stops that do
+  not exist. A seven-day Kyoto → Taipei extension finishes in about 140 s.
+- **The planner seat cannot stay stuck.** A live turn refreshes its seat on each
+  keepalive; a seat untouched for 60 s is taken over, and stale seats are
+  cleared at startup. A hard refresh or a deleted trip no longer answers the
+  next message with "the planner is still working".
+- **A smaller left column, and the day list is back.** The trip card is a 32 px
+  toolbar, the vertical Day 1… rail is 176 px of navigation, and the map gained
+  the space. The Trip map keeps the day's stops, times and note beside it, so
+  the detail is readable without leaving the map. The floating day rail over the
+  map was removed; the map's own date chips remain in its foot.
+- **Trip details is a centred dialog.** It adapts from three columns to two to
+  one, and its action row stays visible instead of scrolling out of reach.
+- Small fixes: `buffet_restaurant` reads as "Buffet restaurant"; the message cap
+  is an operator threshold; exported plan JSON carries the conversation, and an
+  import rejects instruction overrides, script markup and operator claims.
+
+Added tests: `test_partial.py`, `test_stream_equivalence.py`, `test_research.py`,
+`test_speed.py`; the frontend typecheck is clean.
+
+## 5.1.5 — 2026-11-24 10:20 HKT
+
+- **A plan file carries the conversation.** Exporting the plan JSON now saves the
+  chat beside the itinerary. Importing that file
+  opens a new trip and restores those messages for reference. A file saved
+  before this change, which is only the plan, still opens and simply has an
+  empty chat. A broken message is skipped; it does not reject the plan.
+  A hand-edited file also cannot import a system line, an instruction override
+  ("ignore previous instructions", "reveal the system prompt", "developer mode"),
+  or script markup. It cannot mark itself as the operator. Ordinary travel text
+  is kept.
+
 ## 5.1.4 — 2026-11-24 09:50 HKT
 
 Reviewed the new `main` commits and merged them into `pathfinder_v5`. They are

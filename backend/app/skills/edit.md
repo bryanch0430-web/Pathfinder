@@ -19,9 +19,11 @@ everything the traveller did not ask about untouched.
 2. Use existing item ids for removal, movement and retiming. Use pool refs for
    additions and replacements.
 3. If a requested addition needs a place that is not in the pool, set
-   `needs_research: true`, put the **place name** in `research_name`, say what kind
-   of place is needed in `research_kind` (`attraction`, `hotel`, `meal` or `ticket`),
-   and give 1–3 specific search queries. Do not invent facts for it.
+   `needs_research: true`, put **each place name as its own entry** in
+   `research_places` (a JSON array), say what kind of place is needed in
+   `research_kind` (`attraction`, `hotel`, `meal` or `ticket`), and give 1–3
+   specific search queries. Do not join names with "and" or ";" in one entry.
+   Do not invent facts for it.
 
    The payload may say `research.attempted: true` with `research.found`. If the
    lookup found nothing and the traveller still wants the place, you may add it as
@@ -60,13 +62,17 @@ Output one JSON object:
   "summary": "one sentence describing the edit for the tick label",
   "detail": "optional second sentence shown under the label",
   "needs_research": false,
-  "research_name": "",
+  "research_kind": "attraction",
+  "research_places": [],
   "research_queries": [],
   "rebuild_reason": "only when scope is whole"
 }
 ```
 
-A `note` op is shown to the traveller. Do not write "one of these" unless you list the
+A `note` op is shown to the traveller. It is never a plan change and never a field
+to fill: do not ask for "note text" as a slot. When the traveller refers to
+something already said in the conversation ("copy the Getting HKD part"), copy that
+text yourself into the note. Do not write "one of these" unless you list the
 choices; if a lookup returned nothing, ask directly: "I could not find X. Should I add
 it as an unconfirmed stop?"
 

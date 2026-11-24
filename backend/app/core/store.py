@@ -16,6 +16,7 @@ import json
 import sqlite3
 import threading
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -668,8 +669,24 @@ class Store:
 
     # -- turn seat (one planning turn per trip) ----------------------
 
-    async def claim_seat(self, session_id: str, turn_id: str) -> bool:
+    async def claim_seat(self, session_id: str, turn_id: str, stale_after: float = 60.0) -> bool:
+        """Take the trip's single planning seat.
+
+        A seat left by a turn that was killed (server restart, a dropped
+        connection that never reached its `finally`) would otherwise block that
+        trip forever, so a seat older than `stale_after` seconds is taken over.
+        """
+
         def op(conn):
+            row = conn.execute(
+                "SELECT turn_id, started_at FROM seats WHERE session_id=?", (session_id,)
+            ).fetchone()
+            if row is not None:
+                started = _parse_iso(row["started_at"])
+                age = (datetime.now(timezone.utc) - started).total_seconds() if started else stale_after + 1
+                if age <= stale_after:
+                    return False
+                conn.execute("DELETE FROM seats WHERE session_id=?", (session_id,))
             try:
                 conn.execute(
                     "INSERT INTO seats (session_id, turn_id, started_at) VALUES (?,?,?)",
@@ -687,10 +704,38 @@ class Store:
 
         await self._run(op)
 
+    async def touch_seat(self, session_id: str, turn_id: str) -> None:
+        """A running turn says it is alive; an abandoned one stops saying so."""
+
+        def op(conn):
+            conn.execute(
+                "UPDATE seats SET started_at=? WHERE session_id=? AND turn_id=?",
+                (_now(), session_id, turn_id),
+            )
+
+        await self._run(op)
+
     async def seat_holder(self, session_id: str) -> str | None:
         def op(conn):
             row = conn.execute("SELECT turn_id FROM seats WHERE session_id=?", (session_id,)).fetchone()
             return row["turn_id"] if row else None
+
+        return await self._run(op)
+
+    async def clear_stale_seats(self, stale_after: float = 60.0) -> int:
+        """Drop seats left by turns that died with the process."""
+
+        def op(conn):
+            rows = conn.execute("SELECT session_id, started_at FROM seats").fetchall()
+            dropped = 0
+            now = datetime.now(timezone.utc)
+            for row in rows:
+                started = _parse_iso(row["started_at"])
+                age = (now - started).total_seconds() if started else stale_after + 1
+                if age > stale_after:
+                    conn.execute("DELETE FROM seats WHERE session_id=?", (row["session_id"],))
+                    dropped += 1
+            return dropped
 
         return await self._run(op)
 
@@ -699,6 +744,16 @@ def _now() -> str:
     from datetime import datetime, timezone
 
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _message(row: sqlite3.Row) -> dict[str, Any]:

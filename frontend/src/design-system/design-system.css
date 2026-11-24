@@ -599,6 +599,78 @@ button.pf-badge:hover {
   z-index: var(--p30-layer-drawer);
 }
 
+/* The trip form is the task, not side work: a centred dialog rather than a
+   sheet the eye has to travel to the right edge for. */
+.pf-drawer-overlay--center {
+  justify-content: center;
+  padding: var(--p30-gap-md);
+}
+
+.pf-drawer--center {
+  width: min(980px, 96vw);
+  height: auto;
+  max-height: min(90vh, 940px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-xl);
+}
+
+.pf-drawer--center > .pf-row {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.pf-drawer--center .pf-trip-drawer {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 22px 0;
+}
+
+/* The form adapts to the width it is given: one column on a phone, two on a
+   tablet, three in the wide dialog, instead of a fixed pair. */
+.pf-drawer--center .pf-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
+  gap: 14px 20px;
+}
+
+.pf-drawer--center .pf-context-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Keep the buttons in reach: the fields scroll, the action row does not. */
+.pf-drawer--center .pf-context-form > .pf-row:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -22px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--pf-line);
+  background: var(--pf-surface);
+}
+
+@media (max-width: 720px) {
+  .pf-drawer--center {
+    width: 100%;
+    max-height: 94vh;
+  }
+
+  .pf-drawer--center > .pf-row,
+  .pf-drawer--center .pf-trip-drawer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .pf-drawer--center .pf-context-form > .pf-row:last-child {
+    margin: 0 -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    flex-wrap: wrap;
+  }
+}
+
 .pf-drawer {
   width: min(480px, 100%);
   height: 100%;
@@ -2639,6 +2711,53 @@ button.pf-badge:hover {
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: none;
+  cursor: grab;
+  scroll-behavior: smooth;
+  touch-action: pan-x;
+}
+
+.pf-day-strip[data-dragging="true"] {
+  cursor: grabbing;
+  scroll-behavior: auto;
+  user-select: none;
+}
+
+/* The rail that floats on the map: glass, pills, grabbed and dragged. */
+.pf-day-strip--floating {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 7px;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--pf-line) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pf-surface) 88%, transparent);
+  box-shadow: 0 6px 18px rgba(27, 25, 21, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.pf-day-strip--floating .pf-day-pill {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  padding: 5px 11px;
+  border-color: transparent;
+  border-radius: 999px;
+  background: transparent;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+
+.pf-day-strip--floating .pf-day-pill:hover {
+  transform: none;
+  border-color: var(--pf-line);
+}
+
+.pf-day-strip--floating .pf-day-pill[data-active="true"] {
+  background: var(--p30-tone-neutral-gray900);
+  border-color: var(--p30-tone-neutral-gray900);
 }
 
 .pf-day-strip::-webkit-scrollbar {
@@ -3702,9 +3821,9 @@ button.pf-badge:hover {
 .pf-trip-bar {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 9px;
   width: 100%;
-  padding: 11px 13px;
+  padding: 9px 11px;
   border: 1px solid var(--pf-line);
   border-radius: var(--p30-round-lg);
   background:
@@ -3733,8 +3852,8 @@ button.pf-badge:hover {
 .pf-trip-bar__icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex: none;
   border-radius: 50%;
   background: var(--p30-tone-brand-primary);
@@ -3759,13 +3878,17 @@ button.pf-badge:hover {
 }
 
 .pf-trip-bar__title {
+  /* Two lines instead of an ellipsis: the left column is narrow and the
+     default title was cut to "Set the trip det…". */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   color: var(--pf-ink);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   line-height: 1.25;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .pf-trip-bar__meta {
@@ -3946,6 +4069,303 @@ button.pf-badge:hover {
   box-shadow: 0 0 0 3px var(--p30-tone-brand-light);
 }
 
+/* Shown only near the message cap, so it never adds noise to every turn. */
+.pf-composer__count {
+  margin: 4px 12px 0;
+  text-align: right;
+}
+
+/* The day sections of a plan that is still being written. */
+.pf-partial-plan {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--pf-line);
+  border-radius: var(--p30-round-lg);
+  background: var(--pf-surface);
+}
+
+.pf-partial-plan ol {
+  margin: 4px 0 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.pf-partial-plan li {
+  display: grid;
+  grid-template-columns: 3.6rem 1fr;
+  gap: 0 8px;
+  font-size: 0.78rem;
+}
+
+.pf-partial-plan__day {
+  color: var(--pf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-partial-plan__title {
+  font-weight: 600;
+}
+
+.pf-partial-plan__stops {
+  grid-column: 2;
+  color: var(--pf-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-partial-plan--panel {
+  margin: 0 0 10px;
+  border-style: dashed;
+  width: 100%;
+}
+
+/* The first plan has no workspace yet: this panel takes its place and must
+   stretch, unlike the welcome card which centres a narrow column. */
+.pf-draft-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--p30-gap-md);
+  padding: var(--p30-gap-lg);
+  overflow: auto;
+  width: 100%;
+}
+
+.pf-draft-panel .pf-partial-plan {
+  padding: 14px 16px;
+}
+
+.pf-partial-plan--panel .pf-text:last-child {
+  display: block;
+  margin-top: 6px;
+}
+
+/* The draft's day key: one colour per day, matching the map lines. */
+.pf-draft-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.pf-draft-legend__day {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--pf-muted);
+}
+
+.pf-draft-legend__day i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Day rows rise as they arrive. */
+.pf-partial-plan li {
+  animation: pf-rise 0.35s ease-out both;
+}
+
+@keyframes pf-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The draft's schematic map: sourced pins, the stop path and the flight arc. */
+.pf-draft-map {
+  display: block;
+  width: 100%;
+  max-width: 760px;
+  aspect-ratio: 360 / 220;
+  height: auto;
+  margin: 8px auto 10px;
+}
+
+/* The draft on the real trip map. */
+.pf-draft-map-live {
+  position: relative;
+  width: 100%;
+  margin: 8px 0 10px;
+  border: 1px solid var(--pf-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f4f0e7;
+}
+
+.pf-draft-map-live__canvas {
+  width: 100%;
+  height: clamp(300px, 38vh, 460px);
+}
+
+.pf-draft-map-live__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  color: var(--pf-muted);
+}
+
+.pf-draft-map-live__route {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-line);
+  background: var(--pf-surface);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pf-draft-map-live__legend {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: calc(100% - 20px);
+}
+
+.pf-draft-map-live__day {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-line);
+  background: color-mix(in srgb, var(--pf-surface) 92%, transparent);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.pf-draft-map-live__day i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.pf-draft-map__ground {
+  fill: color-mix(in srgb, var(--pf-surface) 82%, var(--pf-line));
+}
+
+.pf-draft-map__inset-box {
+  fill: var(--pf-surface);
+  stroke: var(--pf-line);
+  stroke-width: 0.8;
+  opacity: 0.96;
+}
+
+.pf-draft-map__inset-label {
+  font-size: 6.4px;
+  font-weight: 600;
+  fill: var(--pf-muted);
+}
+
+.pf-draft-map__label--new {
+  fill: #1F5F5B;
+}
+
+.pf-draft-map__path {
+  fill: none;
+  stroke: #1F5F5B;
+  stroke-width: 1.6;
+  stroke-dasharray: 3 4;
+  opacity: 0.55;
+  animation: pf-trail 1.6s linear infinite;
+}
+
+@keyframes pf-trail {
+  to { stroke-dashoffset: -14; }
+}
+
+.pf-draft-map__flight-halo {
+  fill: none;
+  stroke: var(--pf-surface);
+  stroke-width: 5;
+  opacity: 0.9;
+}
+
+.pf-draft-map__flight {
+  fill: none;
+  stroke: #B45309;
+  stroke-width: 1.8;
+  stroke-dasharray: 5 5;
+  animation: pf-dash 1.1s linear infinite;
+}
+
+.pf-draft-map__plane {
+  fill: #B45309;
+}
+
+.pf-draft-map__label {
+  font-size: 7.4px;
+  font-weight: 600;
+  fill: var(--pf-text, #16202a);
+  paint-order: stroke;
+  stroke: var(--pf-surface, #fff);
+  stroke-width: 2.4px;
+}
+
+.pf-draft-map__index {
+  font-size: 7px;
+  font-weight: 700;
+  fill: #ffffff;
+}
+
+.pf-draft-map__pin--new {
+  animation: pf-pop 0.45s ease-out both;
+}
+
+@keyframes pf-dash {
+  to { stroke-dashoffset: -20; }
+}
+
+@keyframes pf-pop {
+  from { opacity: 0; transform: scale(0.6); transform-origin: center; }
+  to { opacity: 1; transform: none; }
+}
+
+/* What the box has read so far. A hint, not a decision. */
+.pf-quick-read {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.pf-quick-read__label {
+  font-size: 0.7rem;
+  color: var(--pf-muted);
+  margin-right: 2px;
+}
+
+.pf-quick-read__chip {
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-line);
+  background: var(--pf-surface);
+  color: var(--pf-text, inherit);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-partial-plan li,
+  .pf-draft-map__pin--new,
+  .pf-draft-map__flight {
+    animation: none;
+  }
+}
+
 .pf-composer textarea:disabled {
   cursor: not-allowed;
 }
@@ -4050,6 +4470,144 @@ button.pf-badge:hover {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* The map is a stage, not a card in a scrolling column: the day rail floats on
+   it, like v7, so switching days never scrolls the map out of view. */
+.pf-workspace__body--stage {
+  display: flex;
+  padding: 0;
+  max-height: none;
+  height: calc(100vh - 260px);
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.pf-stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* The day beside the map: the detail view stays readable without leaving the
+   trip map, and the left column no longer repeats the day list. */
+.pf-stage__side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 300px;
+  min-width: 260px;
+  max-width: 34%;
+  padding: 12px;
+  border-left: 1px solid var(--pf-line);
+  background: var(--pf-surface);
+  overflow: auto;
+}
+
+.pf-stage__side-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pf-stage__side-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-stage__side-list button {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pf-stage__side-list button:hover,
+.pf-stage__side-list button[data-active="true"] {
+  background: color-mix(in srgb, var(--pf-line) 55%, transparent);
+}
+
+.pf-stage__side-time {
+  color: var(--pf-ink-secondary);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-stage__side-name {
+  overflow: hidden;
+  color: var(--pf-ink);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+}
+
+.pf-stage__side-type {
+  color: var(--pf-ink-tertiary);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+  .pf-stage__side {
+    display: none;
+  }
+}
+
+.pf-stage__rail {
+  position: absolute;
+  /* The stage includes the map's foot (legend and leg rows), which is about
+     165 px tall; sit just above it so the rail floats on the map image. */
+  bottom: 180px;
+  left: 50%;
+  z-index: 800;
+  width: auto;
+  max-width: min(92%, 720px);
+  display: flex;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* The map keeps its own day chips in the foot; the day list lives in the left
+   rail beside it, so there is no floating rail over the map. */
+
+.pf-stage__rail .pf-day-strip {
+  pointer-events: auto;
+}
+
+.pf-stage__canvas {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.pf-stage__canvas .pf-map {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 420px;
+  width: 100%;
+}
+
+.pf-stage__canvas .pf-map__canvas {
+  flex: 1;
+  height: auto;
+  min-height: 420px;
 }
 
 .pf-sheet {

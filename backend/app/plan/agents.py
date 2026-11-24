@@ -277,7 +277,7 @@ def _notice_source(title: str) -> Any:
     return SourceRef(title=title, url="", source="Disruption report", fetched_at=now_iso())
 
 
-def candidate_pool(bundle: Bundle, *, attractions: int = 16, hotels: int = 5, meals: int = 10, tickets: int = 3) -> dict[str, list[dict[str, Any]]]:
+def candidate_pool(bundle: Bundle, *, attractions: int = 12, hotels: int = 5, meals: int = 8, tickets: int = 3) -> dict[str, list[dict[str, Any]]]:
     """The compact list the planner chooses from, capped so the prompt stays small."""
 
     def usable(items: list[Evidence], limit: int) -> list[dict[str, Any]]:

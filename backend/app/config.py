@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     database_path: str = Field(default="data/pathfinder.db", alias="DATABASE_PATH")
     data_dir: str = Field(default="data", alias="DATA_DIR")
     default_currency: str = Field(default="HKD", alias="DEFAULT_CURRENCY")
+    # An operator can change this on Settings -> Thresholds. The hard ceiling in
+    # app.domain.models stops an absurd body before it is parsed.
+    max_message_chars: int = Field(default=4000, ge=200, le=8000, alias="MAX_MESSAGE_CHARS")
     canary_token: str = Field(default="", alias="CANARY_TOKEN")
     admin_token: str = Field(default="local-admin", alias="ADMIN_TOKEN")
     secret_key: str = Field(default="", alias="SECRET_KEY")

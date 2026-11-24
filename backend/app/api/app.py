@@ -32,6 +32,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         store.init()
+        # A turn interrupted by a restart leaves its seat row behind. Drop the
+        # stale ones now, so the first message on that trip is not refused.
+        try:
+            await store.clear_stale_seats(60.0)
+        except Exception:  # noqa: BLE001 - a cleanup must not stop startup
+            logger.exception("stale seat cleanup failed")
         logger.info("Pathfinder v5 ready: %s (sandbox=%s)", settings.environment, settings.sandbox)
         yield
         await store.close()

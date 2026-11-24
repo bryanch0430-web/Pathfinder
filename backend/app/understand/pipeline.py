@@ -22,6 +22,12 @@ from app.domain.models import ChatMessage, ClarifyPayload, RoutePayload, TripCon
 from app.understand.schemas import ParsedIntent
 
 PART_NAMES = {"attraction", "hotel", "weather", "ticket", "meal", "transport"}
+# Only these may appear as a field on a clarify card. A model may invent a name
+# ("note_text"), and the UI would render a box the trip does not have.
+CLARIFY_SLOTS = {
+    "destination", "origin", "start_date", "end_date", "days", "dates",
+    "party_size", "budget", "currency", "scope",
+}
 CLEARABLE = {
     "destination", "origin", "start_date", "end_date", "days", "party_size",
     "budget", "currency", "hotel_style", "preferences", "hard_constraints",
@@ -264,9 +270,10 @@ def _route(parsed: ParsedIntent, settings: Settings, plan: TripPlan | None) -> R
     if intent in {"plan", "modify"} and not parsed.slots.destination:
         # A plan with no destination can still be fine when the trip already knows one.
         pass
-    if parsed.confidence < threshold and intent in {"plan", "modify", "ask"} and plan is not None:
-        # A low-confidence edit on an existing plan is better as a question than a wrong change.
-        if intent == "modify":
+    if parsed.confidence < threshold and intent == "modify" and plan is not None:
+        # A low-confidence edit is a question only when the analyst actually asked one.
+        # An empty question used to be filled with a made-up slot, such as currency.
+        if parsed.need_clarification or parsed.missing_slots or (parsed.question or "").strip():
             need_clarification = True
     return RoutePayload(
         intent=intent,
@@ -287,7 +294,9 @@ def _clarify(
     plan: TripPlan | None,
     route: RoutePayload,
 ) -> ClarifyPayload:
-    slots = list(parsed.missing_slots)[:6]
+    # A made-up slot name would become a text box the trip cannot store, so
+    # anything outside the real intake fields is dropped here.
+    slots = [slot for slot in parsed.missing_slots if slot in CLARIFY_SLOTS][:6]
     known = _filled(context)
     # Never ask again for a slot the context already has. The analyst can list a
     # slot it left empty while the merge filled it from the sentence ("2 days").
@@ -298,10 +307,14 @@ def _clarify(
         for slot in missing_for_plan(context):
             if slot not in slots:
                 slots.append(slot)
-    if not slots:
+    if not slots and plan is None:
         slots = missing_for_plan(context)
     question = (parsed.question or "").strip()
-    options = {key: [str(value)[:80] for value in values[:6]] for key, values in parsed.options.items() if values}
+    options = {
+        key: [str(value)[:80] for value in values[:6]]
+        for key, values in parsed.options.items()
+        if values and key in CLARIFY_SLOTS
+    }
     # Travellers are whole people; a model-generated range ("3-4") or "5+" cannot be
     # submitted from a number field. Keep the field's numeric choices numeric.
     if "party_size" in options:
@@ -383,14 +396,12 @@ def _filled(context: TripContext) -> dict[str, bool]:
         "party_size": bool(context.party_size),
         "origin": bool((context.origin or "").strip()),
         "budget": context.budget is not None and context.budget > 0,
-        # The stored HKD default is not a choice. Only a named currency counts.
-        "currency": bool(context.currency_set),
     }
 
 
 def missing_for_plan(context: TripContext) -> list[str]:
     filled = _filled(context)
-    return [slot for slot in ("destination", "start_date", "days", "party_size", "origin", "budget", "currency") if not filled[slot]]
+    return [slot for slot in ("destination", "start_date", "days", "party_size", "origin", "budget") if not filled[slot]]
 
 
 def required_clarify(context: TripContext, route: RoutePayload | None) -> tuple[str, list[str]]:

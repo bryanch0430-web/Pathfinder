@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import math
+import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -48,6 +49,25 @@ from app.plan.builder import refresh_derived
 router = APIRouter()
 
 MAX_IMPORT_SUMMARY = 20_000
+MAX_IMPORT_MESSAGES = 200
+MAX_IMPORT_MESSAGE_CHARS = 8_000
+# A file is untrusted. These are attempts to steer the model, or to smuggle markup,
+# not travel talk. A match is left out of the restored chat.
+_BLOCKED_IMPORT = re.compile(
+    r"(ignore\s+(all\s+)?(previous|prior)\s+instructions"
+    r"|disregard\s+(your|the)\s+system\s+prompt"
+    r"|(reveal|print|repeat)\s+(your|the)\s+system\s+prompt"
+    r"|you\s+are\s+now\b.{0,48}\bdeveloper\s+mode"
+    r"|jailbreak"
+    r"|bypass\s+your\s+guardrails"
+    r"|router(\s+rules)?\s+no\s+longer\s+applies?"
+    r"|act\s+as\s+(a\s+)?developer"
+    r"|<\s*script\b"
+    r"|javascript\s*:"
+    r"|onerror\s*="
+    r"|data\s*:\s*text/html)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _c(request: Request) -> Container:
@@ -633,7 +653,10 @@ async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any
     token = (request.headers.get("X-Client-Token") or payload.client_token or "").strip()
     from app.api.deps import bearer_user
 
-    raw = payload.plan or {}
+    raw = dict(payload.plan or {})
+    # A conversation may sit beside the plan or, in a hand-edited file, on it.
+    # It is removed before validation so an old plan file still opens.
+    embedded = raw.pop("messages", None)
     if isinstance(raw.get("summary"), str) and len(raw["summary"]) > MAX_IMPORT_SUMMARY:
         raise HTTPException(status_code=413, detail="That plan's summary is too long to import.")
     try:
@@ -659,6 +682,9 @@ async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any
         language="en",
     )
     await c.store.save_context(session["id"], context.model_dump())
+    supplied = payload.messages if payload.messages else embedded
+    for message in _imported_messages(supplied):
+        await c.store.add_message(session["id"], message)
     session_row = await c.store.get_session(session["id"])
     return await session_view(c, session["id"], session_row)
 
@@ -683,6 +709,41 @@ async def _require_open(c: Container, session_id: str) -> TripContext:
     if context.finalized:
         raise HTTPException(status_code=409, detail="This trip is finalised, so it can be viewed but not changed.")
     return context
+
+
+def _imported_messages(rows: Any) -> list[dict[str, Any]]:
+    """The conversation to restore. A bad row is skipped; it never rejects the plan."""
+    if not isinstance(rows, list):
+        return []
+    restored: list[dict[str, Any]] = []
+    for row in rows[:MAX_IMPORT_MESSAGES]:
+        if not isinstance(row, dict):
+            continue
+        role = str(row.get("role") or "assistant")
+        # A file must not insert a system instruction into later turns.
+        if role not in {"user", "assistant"}:
+            continue
+        content = str(row.get("content") or "")[:MAX_IMPORT_MESSAGE_CHARS]
+        content = "".join(ch for ch in content if ch in "\n\t" or ord(ch) >= 32)
+        if not content.strip() or _BLOCKED_IMPORT.search(content):
+            continue
+        intent = row.get("intent")
+        if intent not in {"plan", "modify", "ask", "unclear"}:
+            intent = None
+        when = str(row.get("created_at") or row.get("at") or now_iso())[:40]
+        # A hand-edited file cannot appoint itself the operator.
+        safe_meta: dict[str, Any] = {}
+        restored.append(
+            {
+                "id": secrets.token_hex(8),
+                "role": role,
+                "content": content,
+                "intent": intent,
+                "created_at": when,
+                "meta": safe_meta,
+            }
+        )
+    return restored
 
 
 def _checked_state(field: str, value: Any) -> Any:

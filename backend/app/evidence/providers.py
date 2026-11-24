@@ -18,6 +18,7 @@ import html
 import ipaddress
 import math
 import random
+import re
 import socket
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -111,6 +112,48 @@ def _peer_address(response: httpx.Response) -> str:
         return str(server[0]) if server else ""
     except Exception:  # noqa: BLE001
         return ""
+
+
+_ACRONYM = re.compile(r"\(([A-Z]{2,6})\)")
+
+
+def _split_place_names(value: Any) -> list[str]:
+    """One research field can name several places, joined by ";" or a newline."""
+    if isinstance(value, (list, tuple)):
+        parts = [str(item) for item in value]
+    else:
+        parts = re.split(r"\s*(?:;|\n)\s*", str(value or ""))
+    names: list[str] = []
+    for part in parts:
+        text = " ".join(part.split()).strip(" .;-")
+        if len(text) >= 3 and text.lower() not in {name.lower() for name in names}:
+            names.append(text[:160])
+    return names[:6]
+
+
+def _lookup_queries(value: Any) -> list[str]:
+    """The searches to try for a research field.
+
+    A model may join two places with "and" ("HKU (HKU) and HKUST (HKUST)"). Splitting
+    on "and" alone is unsafe ("Science and Technology"), so when the text carries two
+    bracketed acronyms each acronym becomes its own search, and the full phrases are
+    kept as well.
+    """
+    queries: list[str] = []
+    values = [str(item) for item in value] if isinstance(value, (list, tuple)) else [str(value or "")]
+    for text in values:
+        acronyms = _ACRONYM.findall(text)
+        if len(acronyms) >= 2:
+            queries.extend(acronyms)
+        queries.extend(_split_place_names(text))
+        if len(acronyms) == 1:
+            queries.append(acronyms[0])
+    unique: list[str] = []
+    for query in queries:
+        clean = " ".join(query.split()).strip()
+        if clean and clean.lower() not in {item.lower() for item in unique}:
+            unique.append(clean)
+    return unique[:6]
 
 
 class Providers:
@@ -843,6 +886,19 @@ class Providers:
         return notes[:limit]
 
     # -- named place lookup -------------------------------------------
+
+    async def lookup_places(self, names: Any, city: str = "") -> list[Evidence]:
+        """Look up named places; a joined string is turned into separate searches."""
+        found: list[Evidence] = []
+        seen: set[str] = set()
+        for query in _lookup_queries(names):
+            hits = await self.lookup_place(query, city)
+            for evidence in hits:
+                key = evidence.name.strip().lower()
+                if key and key not in seen:
+                    seen.add(key)
+                    found.append(evidence)
+        return found
 
     async def lookup_place(self, name: str, city: str = "") -> list[Evidence]:
         """Look up a place the traveller named, even when it is not in the place corpus.

@@ -12,3 +12,5 @@ export const TRIP_STOPS_MAX = 8;
 export const TRIP_LINE_MAX_LENGTH = 200;
 /** Longest destination, departure city or other text of the form, in characters. */
 export const TRIP_FIELD_MAX_LENGTH = 120;
+/** Longest chat message, in characters. Mirrors MAX_MESSAGE_CHARS in backend/app/domain/models.py. */
+export const CHAT_MESSAGE_MAX_LENGTH = 4000;

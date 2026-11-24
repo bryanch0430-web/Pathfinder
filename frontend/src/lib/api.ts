@@ -114,11 +114,16 @@ export function decideProposal(
   });
 }
 
-/** Open a saved plan file as a new trip. `plan` is the JSON from the plan-file download. */
-export function importPlan(clientToken: string, plan: unknown, signal?: AbortSignal): Promise<SessionState> {
+/** Open a saved plan file as a new trip. `messages` restores the conversation when the file has one. */
+export function importPlan(
+  clientToken: string,
+  plan: unknown,
+  signal?: AbortSignal,
+  messages: unknown[] = [],
+): Promise<SessionState> {
   return request("/api/journeys/import", {
     method: "POST",
-    body: JSON.stringify({ client_token: clientToken, plan }),
+    body: JSON.stringify({ client_token: clientToken, plan, messages }),
     signal,
   });
 }

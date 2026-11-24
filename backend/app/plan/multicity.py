@@ -334,6 +334,7 @@ async def build_multi_city_plan(
                     disruptions=gathered.disruptions,
                     notes=gathered.notes,
                     trace=trace,
+                    emit=emit,
                 )
                 if not plan.days:
                     raise LLMError("the segment composer returned no days")

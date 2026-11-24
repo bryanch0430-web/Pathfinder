@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Badge, Button, Checkbox, Heading, IconButton, Input, Select, Text } from "./atoms";
 import {
   AgentChip,
@@ -11,6 +11,7 @@ import {
 } from "./elements";
 import { Icon, type IconName } from "./icons";
 import { isPendingChoice } from "./pendingChoice";
+import { DAY_COLORS, DraftMap } from "./maps/DraftMap";
 import {
   MAX_TRIP_DAYS,
   amountIn,
@@ -41,6 +42,8 @@ import type {
   FxSnapshot,
   IntakePayload,
   MealSlot,
+  PartialDay,
+  PartialRoute,
   PlanAlternative,
   PlanAssessment,
   PlanItem,
@@ -175,7 +178,8 @@ export function SearchField({
   );
 }
 
-const INLINE_MD = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\))/g;
+const INLINE_MD =
+  /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\)|<https?:\/\/[^\s>]+>|https?:\/\/[^\s<>()]+)/g;
 
 function inlineMd(text: string, key: string): ReactNode[] {
   return text
@@ -199,6 +203,25 @@ function inlineMd(text: string, key: string): ReactNode[] {
           <a key={token} href={href} target="_blank" rel="noreferrer noopener">
             {link[1]}
           </a>
+        ) : (
+          part
+        );
+      }
+      // `<https://…>` is a Markdown autolink, and a bare URL is what people expect
+      // to be clickable. Both are shown as the address, not the brackets.
+      const auto = part.match(/^<([^>]+)>$/) || part.match(/^(https?:\/\/\S+)$/);
+      if (auto) {
+        // A sentence's full stop is not part of the address.
+        const address = auto[1].replace(/[.,;:!?)\]}]+$/, "");
+        const tail = auto[1].slice(address.length);
+        const href = safeHref(address);
+        return href ? (
+          <Fragment key={token}>
+            <a href={href} target="_blank" rel="noreferrer noopener">
+              {address}
+            </a>
+            {tail}
+          </Fragment>
         ) : (
           part
         );
@@ -1102,21 +1125,288 @@ export function ClarifyCard({
   );
 }
 
+interface SketchPoint {
+  name: string;
+  lat: number;
+  lng: number;
+  x: number;
+  y: number;
+  index: number;
+  day: number;
+  color: string;
+}
+
+function arcPath(a: { x: number; y: number }, b: { x: number; y: number }, lift = 28): string {
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const controlX = midX - (dy / length) * lift;
+  const controlY = midY + (dx / length) * lift;
+  return `M ${a.x} ${a.y} Q ${controlX} ${controlY} ${b.x} ${b.y}`;
+}
+
+/**
+ * A schematic of the draft: the stops in their own area, numbered as they are
+ * confirmed, and a small inset for the flight between the trip's two ends.
+ *
+ * It is deliberately not the Google map: the pins are real coordinates, but a
+ * draft has no day plan yet, so the map would only show points over an empty
+ * city. The inset keeps the flight visible without squeezing every stop into
+ * one corner, as a single Hong Kong–Kyoto frame did.
+ */
+export function DraftMapSketch({ days, route }: { days: PartialDay[]; route: PartialRoute | null }) {
+  const stops: { name: string; lat: number; lng: number }[] = [];
+  for (const day of days) {
+    for (const stop of day.stops) {
+      if (typeof stop.lat === "number" && typeof stop.lng === "number") {
+        stops.push({ name: stop.name, lat: stop.lat, lng: stop.lng });
+      }
+    }
+  }
+  const ends =
+    route && typeof route.from.lat === "number" && typeof route.from.lng === "number" &&
+    typeof route.to.lat === "number" && typeof route.to.lng === "number"
+      ? [route.from as { name: string; lat: number; lng: number }, route.to as { name: string; lat: number; lng: number }]
+      : [];
+  if (stops.length + ends.length < 2) return null;
+
+  const width = 360;
+  const height = 220;
+  // The stop area wins the frame; the flight is an inset. Two pins in one place
+  // get a small deterministic fan so they do not stack.
+  const frame = stops.length >= 2 ? stops : ends;
+  const minLat = Math.min(...frame.map((point) => point.lat));
+  const maxLat = Math.max(...frame.map((point) => point.lat));
+  const minLng = Math.min(...frame.map((point) => point.lng));
+  const maxLng = Math.max(...frame.map((point) => point.lng));
+  const pad = 34;
+  const spanX = Math.max(0.002, maxLng - minLng);
+  const spanY = Math.max(0.002, maxLat - minLat);
+  const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
+  const offsetX = pad + (width - pad * 2 - spanX * scale) / 2;
+  const offsetY = pad + (height - pad * 2 - spanY * scale) / 2;
+  const project = (lat: number, lng: number) => ({
+    x: offsetX + (lng - minLng) * scale,
+    y: height - offsetY - (lat - minLat) * scale,
+  });
+
+  const seen = new Map<string, number>();
+  const points: SketchPoint[] = [];
+  const dayPaths: { color: string; points: string }[] = [];
+  days.forEach((day, dayIndex) => {
+    const color = DAY_COLORS[dayIndex % DAY_COLORS.length];
+    const own: SketchPoint[] = [];
+    for (const stop of day.stops) {
+      if (typeof stop.lat !== "number" || typeof stop.lng !== "number") continue;
+      const key = `${stop.lat.toFixed(5)}:${stop.lng.toFixed(5)}`;
+      const repeat = seen.get(key) ?? 0;
+      seen.set(key, repeat + 1);
+      const base = project(stop.lat, stop.lng);
+      const ring = 8 + repeat * 6;
+      const angle = (repeat * 2.4) % (Math.PI * 2);
+      const point: SketchPoint = {
+        name: stop.name,
+        lat: stop.lat,
+        lng: stop.lng,
+        x: Math.max(16, Math.min(width - 16, base.x + Math.cos(angle) * ring)),
+        y: Math.max(16, Math.min(height - 16, base.y + Math.sin(angle) * ring)),
+        index: points.length + 1,
+        day: dayIndex,
+        color,
+      };
+      own.push(point);
+      points.push(point);
+    }
+    if (own.length > 1) {
+      dayPaths.push({ color, points: own.map((point) => `${point.x},${point.y}`).join(" ") });
+    }
+  });
+
+  // Only the newest stop is named. A dozen names over one city is the mess this
+  // sketch had; the numbered list below already carries every name in order.
+  const newest = points[points.length - 1];
+  const insetW = 108;
+  const insetH = 62;
+  const insetPad = 12;
+  const from = { x: insetPad + 8, y: insetH - 18 };
+  const to = { x: insetW - insetPad - 8, y: 20 };
+  const arc = ends.length === 2 ? arcPath(from, to, 16) : null;
+
+  return (
+    <svg
+      className="pf-draft-map"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label={`${points.length} stops drafted${ends.length === 2 ? `, flying ${ends[0].name} to ${ends[1].name}` : ""}`}
+    >
+      <defs>
+        <pattern id="pf-draft-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <path d="M 24 0 L 0 0 0 24" fill="none" stroke="currentColor" strokeWidth="0.4" opacity="0.16" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width={width} height={height} rx="14" className="pf-draft-map__ground" />
+      <rect x="0" y="0" width={width} height={height} rx="14" fill="url(#pf-draft-grid)" />
+
+      {dayPaths.map((path, at) => (
+        <polyline
+          key={`day-${at}`}
+          className="pf-draft-map__path"
+          points={path.points}
+          style={{ stroke: path.color, strokeDasharray: "5 4", opacity: 0.75 }}
+        />
+      ))}
+
+      {points.map((point, at) => (
+        <g
+          key={`${point.name}-${at}`}
+          className={`pf-draft-map__pin${at === points.length - 1 ? " pf-draft-map__pin--new" : ""}`}
+        >
+          <circle cx={point.x} cy={point.y} r={6.5} fill={point.color} />
+          <text x={point.x} y={point.y + 2.3} textAnchor="middle" className="pf-draft-map__index">
+            {point.index}
+          </text>
+        </g>
+      ))}
+      {newest ? (
+        <text
+          x={Math.max(40, Math.min(width - 40, newest.x))}
+          y={newest.y - 12}
+          textAnchor="middle"
+          className="pf-draft-map__label pf-draft-map__label--new"
+        >
+          {newest.name.length > 22 ? `${newest.name.slice(0, 21)}…` : newest.name}
+        </text>
+      ) : null}
+
+      {arc ? (
+        <g className="pf-draft-map__inset">
+          <rect x="5" y="5" width={insetW} height={insetH} rx="9" className="pf-draft-map__inset-box" />
+          <path d={arc} className="pf-draft-map__flight" />
+          <circle r="2.6" className="pf-draft-map__plane">
+            <animateMotion dur="3.2s" repeatCount="indefinite" path={arc} />
+          </circle>
+          <circle cx={from.x} cy={from.y} r="3.4" fill="#B45309" />
+          <circle cx={to.x} cy={to.y} r="3.4" fill="#B45309" />
+          <text x={from.x} y={from.y + 12} textAnchor="middle" className="pf-draft-map__inset-label">
+            {ends[0].name.length > 13 ? `${ends[0].name.slice(0, 12)}…` : ends[0].name}
+          </text>
+          <text x={to.x} y={to.y - 6} textAnchor="middle" className="pf-draft-map__inset-label">
+            {ends[1].name.length > 13 ? `${ends[1].name.slice(0, 12)}…` : ends[1].name}
+          </text>
+        </g>
+      ) : null}
+    </svg>
+  );
+}
+
+export function DraftPlanPreview({
+  days,
+  route = null,
+}: {
+  days: PartialDay[];
+  route?: PartialRoute | null;
+}) {
+  const { t } = useI18n();
+  const hasGeo = Boolean(route) || days.some((day) => day.stops.some((stop) => typeof stop.lat === "number"));
+  return (
+    <div className="pf-partial-plan pf-partial-plan--panel" role="status" aria-live="polite">
+      <Text size="xs" tone="tertiary">{t("chat.writingPlan")}</Text>
+      {hasGeo ? (
+        <DraftMap days={days} route={route} fallback={<DraftMapSketch days={days} route={route} />} />
+      ) : null}
+      {days.length > 1 ? (
+        <div className="pf-draft-legend">
+          {days.map((day, index) => (
+            <span key={`legend-${day.date}-${index}`} className="pf-draft-legend__day">
+              <i style={{ background: DAY_COLORS[index % DAY_COLORS.length] }} />
+              {day.date
+                ? new Date(`${day.date}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                : t("day.number", { n: index + 1 })}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {days.length ? (
+        <ol>
+          {days.map((day, index) => (
+            <li key={`${day.date}-${index}`} style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}>
+              <span className="pf-partial-plan__day">
+                {day.date
+                  ? new Date(`${day.date}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                  : t("day.number", { n: index + 1 })}
+              </span>
+              <span className="pf-partial-plan__title">{day.title || t("day.number", { n: index + 1 })}</span>
+              <span className="pf-partial-plan__stops">
+                {day.stops
+                  .map((stop) => (typeof stop === "string" ? stop : [stop.start, stop.name].filter(Boolean).join(" ")))
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      <Text size="xs" tone="tertiary">{t("draft.readOnly")}</Text>
+    </div>
+  );
+}
+
 export function DayStrip({
   days,
   active,
   onSelect,
   cityOf,
+  floating = false,
 }: {
   days: DayPlan[];
   active: string;
   onSelect: (date: string) => void;
   /** The city a day is in; the strip then names each city above its days. */
   cityOf?: (day: DayPlan) => string;
+  /** A rail that sits on the map: grab it and drag sideways. */
+  floating?: boolean;
 }) {
   const { t } = useI18n();
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+  const suppress = useRef(false);
+
+  const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const el = scroller.current;
+    if (!el || !drag.current) return;
+    suppress.current = drag.current.moved;
+    drag.current = null;
+    el.removeAttribute("data-dragging");
+    if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+  };
+
   return (
-    <div className="pf-day-strip" role="tablist" aria-label={t("day.strip")}>
+    <div
+      className={`pf-day-strip${floating ? " pf-day-strip--floating" : ""}`}
+      role="tablist"
+      aria-label={t("day.strip")}
+      ref={scroller}
+      onPointerDown={(event) => {
+        const el = scroller.current;
+        if (!el || event.pointerType !== "mouse" || event.button !== 0) return;
+        drag.current = { x: event.clientX, left: el.scrollLeft, moved: false };
+        el.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const el = scroller.current;
+        if (!el || !drag.current) return;
+        const delta = event.clientX - drag.current.x;
+        if (Math.abs(delta) > 4) {
+          drag.current.moved = true;
+          el.setAttribute("data-dragging", "true");
+        }
+        el.scrollLeft = drag.current.left - delta;
+      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
       {days.map((day, index) => {
         const date = new Date(`${day.date}T12:00:00`);
         const city = cityOf?.(day);
@@ -1134,7 +1424,13 @@ export function DayStrip({
             className="pf-day-pill"
             data-active={day.date === active}
             aria-selected={day.date === active}
-            onClick={() => onSelect(day.date)}
+            onClick={() => {
+              if (suppress.current) {
+                suppress.current = false;
+                return;
+              }
+              onSelect(day.date);
+            }}
           >
             <span>{t("day.number", { n: index + 1 })}</span>
             <b>{date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</b>

@@ -266,6 +266,7 @@ DEFAULT_THRESHOLDS = {
     "jev_confidence": 0.8,
     "max_repairs": 2,
     "turn_deadline": 300,
+    "max_message_chars": 4000,
 }
 from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
 from app.core.llm import PURPOSE_MAX_TOKENS
@@ -290,10 +291,10 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     jev_model = jev_override.get("model") or settings.decision_model
     jev_url = jev_override.get("url") or settings.decision_api_url
     jev_key = jev_override.get("api_key") or settings.decision_api_key
-    purpose_models = overrides.get("purpose_models") or {}
-    purpose_temperatures = overrides.get("purpose_temperatures") or {}
-    purpose_reasoning = overrides.get("purpose_reasoning") or {}
-    purpose_max_tokens = overrides.get("purpose_max_tokens") or {}
+    purpose_models = {**settings.purpose_models, **(overrides.get("purpose_models") or {})}
+    purpose_temperatures = {**settings.purpose_temperatures, **(overrides.get("purpose_temperatures") or {})}
+    purpose_reasoning = {**settings.purpose_reasoning, **(overrides.get("purpose_reasoning") or {})}
+    purpose_max_tokens = {**settings.purpose_max_tokens, **(overrides.get("purpose_max_tokens") or {})}
     base, _key, model = settings.writer
     return {
         "version": "5.0.0",

@@ -4,6 +4,7 @@ import {
   AuthDialog,
   Banner,
   ChatPanel,
+  DraftPlanPreview,
   GuideNotes,
   LoadingScreen,
   MAIN_PANEL_ID,
@@ -34,6 +35,7 @@ import { Icon } from "./design-system/icons";
 import {
   ApiError,
   claimSession,
+  getConfig,
   getFx,
   getGuides,
   getPlanCalendar,
@@ -57,6 +59,7 @@ import { planLocaleFor } from "./lib/planLocale";
 import { forgetSignIn, readStoredValue, subscribeIdentity, writeStoredValue } from "./lib/storage";
 import { readTrips, subscribeTrips, writeTrips, type Trip } from "./lib/tripsStore";
 import { usePathfinder } from "./lib/usePathfinder";
+import { CHAT_MESSAGE_MAX_LENGTH } from "./lib/limits";
 import { EvaluationPage, SavedPage, SettingsPage, TravellerProfileTool } from "./app/pages";
 import { CasesPage } from "./app/cases";
 import { DeskPage } from "./app/learn";
@@ -157,6 +160,22 @@ export default function App() {
   }, [dark]);
   // Counts the requests to put the cursor in the chat box (the plan's question is answered there).
   const [composerFocus, setComposerFocus] = useState(0);
+  // The operator can change the message cap on Thresholds; the box follows it.
+  const [maxMessageChars, setMaxMessageChars] = useState(CHAT_MESSAGE_MAX_LENGTH);
+  useEffect(() => {
+    let live = true;
+    getConfig()
+      .then((config) => {
+        const value = (config as { thresholds?: Record<string, number> }).thresholds?.max_message_chars;
+        if (live && typeof value === "number" && value >= 200) setMaxMessageChars(value);
+      })
+      .catch(() => {
+        /* the default cap still applies */
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
   // The assessment question the next chat message is answering. Shown above the box and sent with the reply.
   const [answering, setAnswering] = useState<string | null>(null);
   const [trending, setTrending] = useState<TrendingPlace[]>([]);
@@ -693,7 +712,7 @@ export default function App() {
         onAuth={() => setAuthOpen(true)}
         onLogout={handleLogout}
         signIn={signIn}
-        onExportFile={pf.plan ? () => downloadPlanFile(pf.plan!) : undefined}
+        onExportFile={pf.plan ? () => downloadPlanFile(pf.plan!, pf.messages) : undefined}
         onExportCalendar={pf.plan ? () => void handleExportCalendar() : undefined}
         onExportSketch={pf.plan ? handleExportSketch : undefined}
         onImport={() => planFileInput.current?.click()}
@@ -805,6 +824,9 @@ export default function App() {
                   onLoadHotelRooms={pf.hotelRooms}
                   onApplyLayout={pf.held ? undefined : (items, drops) => pf.applyLayout(items, drops)}
                   messages={pf.messages}
+                  draftDays={pf.partialDays}
+                  draftRoute={pf.partialRoute}
+                  drafting={pf.drafting}
                   onDecide={(messageId, changeId, accept) => void pf.decideChange(messageId, changeId, accept)}
                   held={pf.held}
                   agentName={pf.agentName}
@@ -823,6 +845,10 @@ export default function App() {
                     setComposerFocus((count) => count + 1);
                   }}
                 />
+              ) : pf.drafting || pf.partialDays.length ? (
+                <div className="pf-card pf-draft-panel">
+                  <DraftPlanPreview days={pf.partialDays} route={pf.partialRoute} />
+                </div>
               ) : (
                 <WelcomePanel
                   key={pf.sessionId}
@@ -873,6 +899,8 @@ export default function App() {
             right={
               <ChatPanel
                 messages={pf.messages}
+                maxMessageChars={maxMessageChars}
+                partialDays={pf.partialDays}
                 busy={pf.busy}
                 agents={pf.agents}
                 progress={pf.progress}

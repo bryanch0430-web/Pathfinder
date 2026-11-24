@@ -31,7 +31,7 @@ def test_known_length_is_not_asked_again_and_month_is_kept():
     assert "2-day" in clarify.question
 
 
-def test_missing_origin_budget_and_currency_are_asked_together():
+def test_missing_origin_and_budget_are_asked_together():
     context = TripContext(
         session_id="dates-test",
         destination="Hong Kong",
@@ -40,8 +40,29 @@ def test_missing_origin_budget_and_currency_are_asked_together():
         party_size=2,
     )
     clarify = _fallback_clarify(context, RoutePayload(intent="plan"))
-    assert clarify.slots == ["origin", "budget", "currency"]
+    assert clarify.slots == ["origin", "budget"]
     assert clarify.question == "I need these before I can plan."
+
+
+def test_a_made_up_slot_name_is_not_shown_on_the_card():
+    from app.understand.pipeline import _clarify
+    from app.understand.schemas import ParsedIntent
+
+    context = TripContext(
+        session_id="note-test", destination="Hong Kong", origin="Singapore",
+        start_date="2027-03-12", end_date="2027-03-14", days=3, party_size=2,
+        budget=9000, currency="HKD", currency_set=True,
+    )
+    parsed = ParsedIntent(
+        intent="modify",
+        confidence=0.85,
+        missing_slots=["note_text"],
+        question="What should the note say?",
+    )
+    route = RoutePayload(intent="modify", need_clarification=True)
+    clarify = _clarify(parsed, context, None, route)
+    assert clarify.slots == []
+    assert clarify.question == "What should the note say?"
 
 
 def test_date_question_does_not_add_a_currency_field():

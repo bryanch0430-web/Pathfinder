@@ -663,6 +663,10 @@ class SessionState(Wire):
 
 # --- request bodies -------------------------------------------------------
 
+# The absolute ceiling the body parser accepts. The per-turn limit an operator
+# sets (Settings -> Thresholds) is usually lower and is checked in the turn route.
+MAX_MESSAGE_HARD_CAP = 8000
+
 
 class BufferedAttachment(Wire):
     name: str
@@ -672,7 +676,7 @@ class BufferedAttachment(Wire):
 
 class ChatRequest(Wire):
     session_id: str | None = None
-    message: str = ""
+    message: str = Field(default="", max_length=MAX_MESSAGE_HARD_CAP)
     locale: str = "en"
     scope_item_id: str | None = None
     scope_label: str | None = None
@@ -735,6 +739,8 @@ class ProposalDecision(Wire):
 class ImportRequest(Wire):
     client_token: str | None = None
     plan: dict[str, Any]
+    # Optional. Absent on files saved before the conversation travelled with the plan.
+    messages: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class FeedbackRequest(Wire):
