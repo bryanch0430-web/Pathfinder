@@ -2065,7 +2065,7 @@ export function ChoiceSlot<T extends { id: string }>({
     body = (
       <>
         {renderOption(chosen, "chosen")}
-        <div className="pf-choice__row">
+        <div className="pf-choice__row pf-choice__row--end">
           {lockButton(chosen)}
         </div>
         {rest.length ? (
@@ -2223,6 +2223,7 @@ function StaySlot({
       onReopen={onReopen}
       booked={Boolean(stay.booked)}
       onBooked={onBooked}
+      fold
       renderOption={(option) =>
         option.id === stay.id ? (
           <StayCard hotel={stay} changed={false} selected={selected} onSelect={onSelect} />
