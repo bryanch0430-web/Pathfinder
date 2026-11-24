@@ -307,3 +307,10 @@ def test_multi_city_builder_searches_flights_once_and_skips_them_per_segment(mon
     assert ticket_calls == [("Hong Kong", "Tokyo", "2026-12-14", "2026-12-21")]
     assert len([line for line in plan.cost.lines if line.kind == "flight"]) == 1
     assert [leg.kind for leg in plan.legs] == ["outbound", "between", "between", "return"]
+
+
+def test_unpriced_parts_stop_the_merged_cost_claiming_within():
+    _context_, _ranges, plan = _merged_hk()
+    assert plan.cost.budget is not None and plan.cost.total < plan.cost.budget
+    assert plan.cost.complete is False
+    assert plan.cost.status == "unknown"

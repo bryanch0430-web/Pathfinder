@@ -16,6 +16,7 @@ plan ships with the problem surfaced as a gap or a failed check, never silently.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 
 from app.core.dates import minutes_between, parse_date
@@ -50,46 +51,153 @@ def check_structure(plan: TripPlan, context: TripContext) -> list[Problem]:
 
 
 def hours_violation(item, day_date: date) -> str | None:
-    hours = [entry.strip() for entry in (item.opening_hours or []) if entry.strip()]
+    """Why this stop's scheduled time clashes with its stated opening hours, if it does.
+
+    Checks the day (closed days), the start (inside an opening window) and the end
+    (not after closing).  Unknown or unparseable hours are never a violation.
+    """
+    windows = hours_windows(item, day_date)
+    if windows is None:
+        return None
+    label = ", ".join(entry for entry in _day_entries(item, day_date)) or "stated hours"
+    if windows == []:
+        return "closed that day"
+    start = _minutes(item.start)
+    if start is None:
+        return None
+    end = _minutes(item.end)
+    for open_minutes, close_minutes in windows:
+        if open_minutes <= close_minutes:
+            if open_minutes - 5 <= start <= close_minutes:
+                if end is not None and end > start and end > close_minutes:
+                    return f"closes at {_clock(close_minutes)} ({label})"
+                return None
+        elif start >= open_minutes or start <= close_minutes:  # overnight, e.g. 18:00-02:00
+            return None
+    return f"opens {label}"
+
+
+def fit_to_hours(item, day_date: date, minimum: int = 30) -> str | None:
+    """Fit a stop into its opening hours on that date; None when it fits, else why not.
+
+    A start before opening moves to opening time (length kept); an end after closing
+    is clamped to closing.  When less than ``minimum`` minutes remain before closing
+    nothing is invented: the reason is returned so the caller can surface it.
+    """
+    windows = hours_windows(item, day_date)
+    if windows is None:
+        return None
+    if windows == []:
+        return "closed that day"
+    start, end = _minutes(item.start), _minutes(item.end)
+    if start is None or end is None:
+        return None
+    if any(open_minutes > close_minutes for open_minutes, close_minutes in windows):
+        return None
+    length = max(end - start, minimum)
+    if not any(o - 5 <= start <= c for o, c in windows):
+        later = sorted(pair for pair in windows if pair[0] > start)
+        if not later:
+            return hours_violation(item, day_date)
+        start = later[0][0]
+        end = start + length
+        item.start, item.end = _clock(start), _clock(end)
+    close_minutes = next(c for o, c in windows if o - 5 <= start <= c)
+    if end > close_minutes:
+        if close_minutes - start < minimum:
+            return f"closes at {_clock(close_minutes)}, too soon after {item.start} to fit a visit"
+        item.end = _clock(close_minutes)
+    return None
+
+
+def hours_windows(item, day_date: date) -> list[tuple[int, int]] | None:
+    """Opening windows (minutes) for that date; [] means closed, None means unknown."""
+    hours = [_clean(entry) for entry in (item.opening_hours or []) if entry and entry.strip()]
     if not hours or item.hours_status != "stated":
         return None
-    weekday = WEEKDAYS[day_date.weekday()]
     if any("24 hours" in entry.lower() or "open 24" in entry.lower() for entry in hours):
         return None
+    weekday = WEEKDAYS[day_date.weekday()]
     # Closure comes first: a list can say both "10:00-17:00" and "closed Monday".
     for entry in hours:
         lowered = entry.lower()
         if lowered.startswith("closed"):
             closed_days = [name for name in WEEKDAYS if name.lower() in lowered]
             if weekday in closed_days or "daily" in lowered:
-                return "closed that day"
-    for entry in hours:
-        window = _window(entry)
-        if window:
-            open_minutes, close_minutes = window
-            start = _minutes(item.start)
-            if start is None:
-                continue
-            if open_minutes <= close_minutes:
-                if not (open_minutes - 5 <= start <= close_minutes):
-                    return f"opens {entry}"
-            else:  # overnight, e.g. 18:00-02:00
-                if not (start >= open_minutes or start <= close_minutes):
-                    return f"opens {entry}"
-            return None
+                return []
+    entries = _day_entries(item, day_date)
+    if not entries:
+        return None
+    windows: list[tuple[int, int]] = []
+    for entry in entries:
+        if entry.lower().startswith("closed"):
+            continue
+        windows.extend(_windows(entry))
+    if not windows:
+        return [] if any(entry.lower().startswith("closed") for entry in entries) else None
+    return windows
+
+
+def _day_entries(item, day_date: date) -> list[str]:
+    """The hour lines that apply to the date, without the weekday label."""
+    hours = [_clean(entry) for entry in (item.opening_hours or []) if entry and entry.strip()]
+    weekday = WEEKDAYS[day_date.weekday()]
+    labelled = [(_label(entry), entry) for entry in hours]
+    if any(day for day, _ in labelled):
+        return [entry.partition(":")[2].strip() for day, entry in labelled if day == weekday]
+    return [entry for entry in hours if not entry.lower().startswith("closed")]
+
+
+def _label(entry: str) -> str | None:
+    head = entry.partition(":")[0].strip().lower()
+    for name in WEEKDAYS:
+        if head == name.lower():
+            return name
     return None
 
 
-def _window(entry: str) -> tuple[int, int] | None:
-    text = entry.replace("–", "-").replace(".", ":")
-    if "-" not in text:
-        return None
-    left, _, right = text.partition("-")
-    first = _minutes(left.strip()[-5:])
-    second = _minutes(right.strip()[:5])
-    if first is None or second is None:
-        return None
-    return first, second
+def _clean(entry: str) -> str:
+    # Google writes narrow no-break spaces and en dashes in its hour lines.
+    for code in (0x202F, 0x2009, 0xA0):
+        entry = entry.replace(chr(code), " ")
+    return entry.replace(chr(0x2013), "-").replace(chr(0x2014), "-").strip()
+
+
+_RANGE = re.compile(
+    r"(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\s*(?:-|to)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?",
+    re.IGNORECASE,
+)
+
+
+def _windows(entry: str) -> list[tuple[int, int]]:
+    found: list[tuple[int, int]] = []
+    for match in _RANGE.finditer(entry):
+        h1, m1, s1, h2, m2, s2 = match.groups()
+        first_hour, second_hour = int(h1), int(h2)
+        if first_hour > 24 or second_hour > 24:
+            continue
+        if s2 and not s1:
+            s1 = s2
+            if _to_24(first_hour, s1) > _to_24(second_hour, s2):
+                s1 = "am"
+        first = _to_24(first_hour, s1) * 60 + int(m1 or 0)
+        second = _to_24(second_hour, s2) * 60 + int(m2 or 0)
+        if second == 0 and first > 0:
+            second = 24 * 60
+        found.append((first, second))
+    return found
+
+
+def _to_24(hour: int, suffix: str | None) -> int:
+    if not suffix:
+        return hour
+    hour %= 12
+    return hour + (12 if suffix.lower() == "pm" else 0)
+
+
+def _clock(minutes: int) -> str:
+    minutes = max(0, min(minutes, 24 * 60 - 1))
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def _minutes(value: str) -> int | None:

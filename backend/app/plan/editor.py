@@ -15,15 +15,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.config import Settings
-from app.core.dates import shift_time
+from app.core.dates import parse_date, shift_time
 from app.core.llm import LLMClient
 from app.core.prompts import context_brief, plan_outline, skill
 from app.core.trace import TurnTrace
-from app.domain.models import DataGap, DayPlan, PlanItem, TripContext, TripPlan
+from app.domain.models import ConstraintCheck, DataGap, DayPlan, PlanItem, TripContext, TripPlan
 from app.evidence.models import Bundle, Evidence
 from app.evidence.providers import Providers
 from app.plan.agents import candidate_pool
-from app.plan.builder import _item_from_evidence, refresh_derived
+from app.plan.builder import GENERIC_PLACE_WORDS, _item_from_evidence, refresh_derived
+from app.plan.validator import fit_to_hours, hours_violation
 from app.understand.schemas import EditDraft, StopChoice
 
 REBUILD_FIELDS = {"start_date", "end_date", "days", "destination", "origin", "stops"}
@@ -123,6 +124,7 @@ async def propose_edit(
         )
     if changed:
         refresh_derived(updated_plan, updated_context)
+        log.extend(refit_changed(plan, updated_plan))
         actual = actual_changes(plan, updated_plan, context, updated_context)
         if not actual:
             # Every step said it worked, yet the candidate equals the current plan.
@@ -340,8 +342,9 @@ def _apply(op, plan: TripPlan, context: TripContext, bundle: Bundle, log: list[s
             return False
         if op.op == "replace" and target is not None:
             day_index, day_plan = _day_of(plan, target.id)
-            start = target.start
-            end = target.end
+            # The new place keeps the slot's start but takes its own typical visit length.
+            start = op.start or target.start
+            end = op.end or shift_time(start, evidence.suggested_minutes or 90)
             _detach(plan, target.id)
         else:
             start = op.start or "15:00"
@@ -431,6 +434,61 @@ def _set_field(op, context: TripContext, log: list[str]) -> bool:
         log.append(f"Party size set to {context.party_size}.")
         return True
     return False
+
+
+def refit_changed(old: TripPlan, new: TripPlan) -> list[str]:
+    """Re-fit every stop the edit touched to its opening hours and retitle stale days.
+
+    A stop counts as touched when it is new or its time differs from the old plan
+    (including stops pushed later by the clock).  Returns warnings for what could not
+    be fitted; the same problem also shows as a failed "Opening hours" check.
+    """
+    before = {item.id: (item.start, item.end) for day in old.days for item in day.items}
+    before_names = {day.date: [item.name for item in day.items] for day in old.days}
+    warnings: list[str] = []
+    for index, day in enumerate(new.days, start=1):
+        day_date = parse_date(day.date)
+        for item in day.items:
+            if day_date is not None and before.get(item.id) != (item.start, item.end):
+                reason = fit_to_hours(item, day_date)
+                if reason:
+                    warnings.append(f"{item.name} on day {index}: {reason}.")
+        if day_date is not None:
+            for item in day.items:
+                reason = hours_violation(item, day_date)
+                if reason and not any(item.name in line for line in warnings):
+                    warnings.append(f"{item.name} on day {index}: {reason}.")
+        if _title_is_stale(day, before_names.get(day.date, [])):
+            day.title = _neutral_title(day, index)
+    if warnings:
+        new.constraints = [
+            *[check for check in new.constraints if check.id != "hours"],
+            ConstraintCheck(id="hours", text="Stops are open when scheduled", status="fail", evidence=" ".join(warnings)[:300]),
+        ]
+    return warnings
+
+
+def _title_is_stale(day: DayPlan, old_names: list[str]) -> bool:
+    """True when the title names a stop that was in the day before and is gone now."""
+    title = (day.title or "").lower()
+    if not title:
+        return False
+    kept = {word for item in day.items for word in _name_words(item.name)}
+    for name in old_names:
+        gone = [word for word in _name_words(name) if word not in kept]
+        if gone and any(word in title for word in gone):
+            return True
+    return False
+
+
+def _name_words(name: str) -> list[str]:
+    words = [word.strip(".,;:()'\"").lower() for word in name.split()]
+    return [word for word in words if len(word) >= 4 and word not in GENERIC_PLACE_WORDS]
+
+
+def _neutral_title(day: DayPlan, index: int) -> str:
+    names = [item.name for item in day.items if item.type != "meal"][:2]
+    return " and ".join(names) if names else f"Day {index}"
 
 
 def _dates_touched(draft: EditDraft) -> bool:

@@ -240,3 +240,56 @@ def test_every_stop_gets_a_photo_fallback():
     )
     items = [item for day in plan.days for item in day.items]
     assert items and all(item.image and item.image.url.startswith("/api/images/place") for item in items)
+
+
+def _unpriced_bundle() -> Bundle:
+    bundle = Bundle()
+    items = [
+        _evidence("at-1", "attraction", "Temple One"),
+        _evidence("me-1", "meal", "Noodle Shop"),
+        _evidence("ho-1", "hotel", "Station Hotel"),
+    ]
+    for item in items:
+        item.price = None
+        item.price_kind = "none"
+    bundle.add(items, "test")
+    return bundle
+
+
+def test_cost_with_unpriced_parts_is_not_claimed_within_budget():
+    context = TripContext(
+        session_id="s1", destination="Kyoto", start_date="2027-04-10", end_date="2027-04-11",
+        days=2, party_size=1, budget=500000, currency="JPY", hard_constraints=["Stay within budget"],
+    )
+    draft = PlanDraft(
+        summary="x",
+        days=[
+            DayChoice(
+                date="2027-04-10",
+                stops=[StopChoice(ref="at-1", start="09:00", end="10:00"), StopChoice(ref="me-1", start="12:00", end="13:00")],
+            ),
+            DayChoice(date="2027-04-11", stops=[]),
+        ],
+        hotel_ref="ho-1",
+    )
+    plan = build_plan(
+        context=context, bundle=_unpriced_bundle(), draft=draft, disruptions=[], weather_by_date={},
+        start=date(2027, 4, 10), end=date(2027, 4, 11), settings=_settings(),
+    )
+    assert plan.cost.status == "unknown"
+    assert plan.cost.complete is False
+    assert any("Not in the total (no price available)" in note and "meal prices" in note for note in plan.cost.notes)
+    assert all(check.status != "pass" for check in plan.constraints if "budget" in check.text.lower())
+
+
+def test_fully_priced_cost_can_still_be_within_budget():
+    context = TripContext(
+        session_id="s1", destination="Kyoto", start_date="2027-04-10", end_date="2027-04-11",
+        days=2, party_size=1, budget=500000, currency="JPY",
+    )
+    plan = build_plan(
+        context=context, bundle=_bundle(), draft=_draft(), disruptions=[], weather_by_date={},
+        start=date(2027, 4, 10), end=date(2027, 4, 11), settings=_settings(),
+    )
+    assert plan.cost.complete is True
+    assert plan.cost.status == "within"

@@ -220,6 +220,9 @@ def _merge(
         left_out.insert(0, "intercity transport")
     if left_out:
         cost.notes.append("Not in the total (no price available): " + ", ".join(left_out) + ".")
+        cost.complete = False
+        if cost.status == "within":
+            cost.status = "unknown"
 
     gaps: list[DataGap] = []
     for plan in plans:

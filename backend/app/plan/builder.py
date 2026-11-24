@@ -302,6 +302,8 @@ def _quick_constraint(plan: TripPlan, text: str) -> tuple[str, str]:
     low = text.lower()
     if "budget" in low and plan.cost.budget is not None:
         ok = plan.cost.total <= plan.cost.budget
+        if ok and not plan.cost.complete:
+            return "unknown", f"Priced parts total {plan.cost.total:.0f} {plan.cost.currency}; some parts have no price."
         return (
             "pass" if ok else "fail",
             f"Total {plan.cost.total:.0f} {plan.cost.currency} against a budget of {plan.cost.budget:.0f}.",
@@ -875,6 +877,13 @@ def _cost(context: TripContext, days: list[DayPlan], hotels: list[HotelStay], ti
     status = "unknown"
     if budget is not None:
         status = "within" if total <= budget else "over"
+    notes = ["Costs use the prices the sources returned; estimates are labelled."]
+    left_out = unpriced_parts(days, hotels, {line.kind for line in lines})
+    if left_out:
+        # A total missing whole parts is only a lower bound: it can show "over", never "within".
+        if status == "within":
+            status = "unknown"
+        notes.append("Not in the total (no price available): " + ", ".join(left_out) + ".")
     return CostBreakdown(
         currency=currency,
         lines=lines,
@@ -882,8 +891,22 @@ def _cost(context: TripContext, days: list[DayPlan], hotels: list[HotelStay], ti
         budget=budget,
         remaining=remaining,
         status=status,
-        notes=["Costs use the prices the sources returned; estimates are labelled."],
+        complete=not left_out,
+        notes=notes,
     )
+
+
+def unpriced_parts(days: list[DayPlan], hotels: list[HotelStay], priced_kinds: set[str]) -> list[str]:
+    """Parts the plan contains but has no price line for (hotel, meals, admissions)."""
+    items = [item for day in days for item in day.items]
+    missing: list[str] = []
+    if hotels and "hotel" not in priced_kinds:
+        missing.append("hotel prices")
+    if "meal" not in priced_kinds and any(item.type == "meal" for item in items):
+        missing.append("meal prices")
+    if "ticket" not in priced_kinds and any(item.type != "meal" for item in items):
+        missing.append("admission prices")
+    return missing
 
 
 def _gaps(bundle: Bundle, draft: PlanDraft) -> list[DataGap]:
