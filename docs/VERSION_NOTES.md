@@ -4,6 +4,20 @@ Running notes for **Pathfinder v5**. The React UI carries the current workspace
 design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
 the core is the rebuilt backend at `backend/`.
 
+## Settings naming audit — 2026-11-24
+
+- The **Models** section now matches the per-part design: “default model”, not a
+  single writer; parts are Turn analyst, Planner, Editor, Constraint verifier,
+  Ask, Intake, Translation, Search query and Memory.
+- Removed the stale “one writer answers every role / reviewer and arms are not
+  used” card; it now explains per-part overrides and the Constraint verifier.
+- Turn routing is named **Turn routing** (`Turn analyst` default, `Jev` System 1),
+  and the save action is **Save routing** instead of “Save orchestrator”.
+- The reply-cap note no longer claims planner 12,000 / editor 2,000 / others
+  4,096; it reflects the current planner growth (up to 16,000), editor 3,000 and
+  verifier 1,500 caps, and per-part temperature.
+- Page description and 简/繁 strings updated to the current model/routing design.
+
 ## Replan-safety audit — 2026-11-24
 
 A `modify` request used to reach a full rebuild through four paths. All four are
