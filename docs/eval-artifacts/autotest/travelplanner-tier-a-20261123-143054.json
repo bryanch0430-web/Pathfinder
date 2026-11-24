@@ -1,0 +1,114 @@
+{
+  "generated_at": "2026-11-23T14:30:54.052384+00:00",
+  "tier": "A corpus-ready",
+  "n": 7,
+  "cases": [
+    {
+      "uid": "TP-VALIDATION-0016",
+      "destination": "San Francisco",
+      "days": 3,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (80% confident): The traveller wants a 3-day Spokane to San Francisco itinerary for 1 person on $1,200, but the stated dates (March 3-5, 2022) are years in the past..",
+        "Assumed: Dates are kept exactly as the traveller wrote them (2022) until they confirm the year."
+      ]
+    },
+    {
+      "uid": "TP-VALIDATION-0019",
+      "destination": "San Francisco",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (85% confident): The traveller asks for a 3-day San Francisco itinerary from Seattle for one person, with dates and a $900 budget..",
+        "Assumed: Dates used exactly as stated (2022-03-21 to 2022-03-23), although they are before today's date (2026-11-23).",
+        "Assumed: Budget of 900 USD is taken as the total for the trip and replaces the previous value.",
+        "Assumed: Mid-range hotel style and balanced pace by default.",
+        "The planner chose 5 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0009",
+      "destination": "New York",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a 3-day plan from Charleston to New York with explicit dates and a budget..",
+        "Assumed: Party size of 1 is carried over from the existing trip context.",
+        "Assumed: The stated dates (March 17-19, 2022) are in the past relative to today; they are used as given.",
+        "Assumed: Budget of $1,700 USD is assumed to cover the whole trip, including travel from Charleston.",
+        "The planner chose 13 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0017",
+      "destination": "San Francisco",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (85% confident): The traveller asks for a 3-day trip from Lihue to San Francisco for one person, with dates and a budget, which is enough to build a plan..",
+        "Assumed: The dates 2022-03-27 to 2022-03-29 are explicitly stated by the traveller, so they are used as given even though they are before today (2026-11-23).",
+        "Assumed: The budget of 2,300 USD is assumed to cover the whole trip, including flights from Lihue.",
+        "Assumed: Hotel style defaults to mid-range and pace to balanced.",
+        "The planner chose 13 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0025",
+      "destination": "New York",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (80% confident): The traveller asks for a 3-day itinerary from Wilmington to New York for one person, with explicit dates and a $1,500 budget..",
+        "Assumed: The dates 12-14 March 2022 are in the past relative to today (2026-11-23) but were stated explicitly, so they are used as given.",
+        "Assumed: The trip starts in Wilmington and ends in New York, treated as origin and destination.",
+        "Assumed: Hotel style and pace use defaults (mid-range, balanced).",
+        "The planner chose 15 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0053",
+      "destination": "San Francisco",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a 3-day trip from Everett to San Francisco on stated dates with a $500 budget..",
+        "Assumed: Party size of 1 carried over from the existing trip context.",
+        "Assumed: The stated dates (2022-03-21 to 2022-03-23) are before today (2026-11-23); they were taken as given because the traveller stated the year explicitly.",
+        "The planner chose 5 stops over 3 days.",
+        "Planning attempt 1 produced 5 stops (47.4s)."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0107",
+      "destination": "New York",
+      "days": 3,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (80% confident): The traveller wants a 3-day solo itinerary from Traverse City to New York City on a $1,100 budget, but the stated dates (March 28-30, 2022) are in the past..",
+        "Assumed: Party size of 1 taken from 'single traveler'.",
+        "Assumed: Dates were stated explicitly but fall before today (2026-11-23), so they are probably a wrong year."
+      ]
+    }
+  ]
+}

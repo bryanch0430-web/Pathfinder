@@ -1,0 +1,522 @@
+{
+  "generated_at": "2026-11-23T15:03:02.799954+00:00",
+  "clock": "2022-03-01T12:00:00+08:00",
+  "population": 423,
+  "n": 30,
+  "cases": [
+    {
+      "uid": "TP-TEST-0017",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "corpus"
+      ],
+      "destination": "San Francisco",
+      "days": 3,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (93% confident): The traveller wants a 3-day San Francisco itinerary from Lihue (Mar 27-29, 2022, one person, budget 2,300), but '$' does not name a specific currency..",
+        "Assumed: One-way trip: starts in Lihue and ends in San Francisco, with the stay in San Francisco from Mar 27 to Mar 29, 2022."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0077",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "provider"
+      ],
+      "destination": "Minneapolis",
+      "days": 3,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a new 3-day San Francisco to Minneapolis trip with all details given, but '$' does not name a specific currency.."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0009",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a 3-day New York itinerary from Charleston, 17-19 March 2022, with a $1,700 budget..",
+        "Assumed: The $ sign with a Charleston-to-New York trip is read as USD.",
+        "Assumed: Party size of 1 is carried over from the existing trip context.",
+        "Assumed: Hotel style defaults to mid-range.",
+        "The planner chose 13 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0004",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "provider"
+      ],
+      "destination": "Norfolk",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (86% confident): The traveller asks for a full Jacksonville to Norfolk itinerary with dates, party size and budget given..",
+        "Assumed: The '$' in a trip between two US cities (Jacksonville to Norfolk) is read as USD.",
+        "Assumed: Hotel style defaults to mid-range and pace to balanced.",
+        "The planner chose 0 stops over 3 days.",
+        "Planning attempt 1 produced 0 stops (9.4s)."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0025",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (88% confident): The traveller asks for a 3-day itinerary from Wilmington to New York, 12-14 March 2022, for one person with a $1,500 budget..",
+        "Assumed: The '$' sign with a Wilmington-to-New York trip is read as US dollars (USD).",
+        "Assumed: Wilmington is taken to be the departure city, so the trip starts there and ends in New York.",
+        "The planner chose 13 stops over 3 days.",
+        "Planning attempt 1 produced 13 stops (41.3s)."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0052",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "provider"
+      ],
+      "destination": "Houston",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a 3-day Tulsa to Houston itinerary and gives dates, party size and a budget in dollars..",
+        "Assumed: The '$' sign on a Tulsa to Houston trip is read as US dollars (USD), not the interface default HKD.",
+        "Assumed: The $1,000 budget is the total for the whole trip, including travel, as the traveller said.",
+        "Assumed: Hotel style and pace use the defaults (mid-range, balanced).",
+        "The planner chose 0 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0107",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a new 3-day itinerary from Traverse City to New York City and gives party size, dates and budget..",
+        "Assumed: The '$' sign with a US departure city (Traverse City, Michigan) is read as USD.",
+        "Assumed: The budget is assumed to cover the whole trip, including transport and lodging.",
+        "The planner chose 12 stops over 3 days.",
+        "Planning attempt 1 produced 12 stops (39.6s)."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0014",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "provider"
+      ],
+      "destination": "Los Angeles",
+      "days": 3,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 3,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a new itinerary from Bozeman to Los Angeles for March 20-22, 2022 with a $1,900 budget..",
+        "Assumed: The '$' sign is read as USD because both the origin (Bozeman, Montana) and the destination (Los Angeles) are in the US.",
+        "Assumed: Party size of 1 is carried over from the trip context; the message says 'I plan to visit'.",
+        "Assumed: Hotel style defaults to mid-range and pace to balanced.",
+        "The planner chose 0 stops over 3 days."
+      ]
+    },
+    {
+      "uid": "TP-VALIDATION-0019",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "corpus"
+      ],
+      "destination": "San Francisco",
+      "days": 3,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller wants a 3-day San Francisco trip from Seattle for one person with a $900 budget, but the dollar sign does not name a specific currency.."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0119",
+      "stratum": [
+        "A",
+        "easy",
+        3,
+        "small",
+        "provider"
+      ],
+      "destination": "Appleton",
+      "days": 3,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (90% confident): The traveller wants a 3-day trip from Punta Gorda to Appleton (Mar 4-6, 2022) planned, but '$' does not say which currency the 1,700 budget is in..",
+        "Assumed: Party size of 1 carried over from the trip so far; 'personal trip' is consistent with that.",
+        "Assumed: The '$' symbol is ambiguous, so the currency was not set."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0184",
+      "stratum": [
+        "B",
+        "easy",
+        5,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 5,
+      "people": 1,
+      "has_plan": false,
+      "day_count": 0,
+      "constraints": [],
+      "why": [
+        "Read as plan (86% confident): The traveller asks for a 5-day, 2-city New York itinerary from Grand Rapids for March 6-10 with a $3,000 budget, but '$' does not name a currency..",
+        "Assumed: Party size of 1 is carried over from the trip context.",
+        "Assumed: '2 cities in New York' is read as two cities within New York State; the cities are not named, so they are left for the planner to choose."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0235",
+      "stratum": [
+        "B",
+        "easy",
+        5,
+        "small",
+        "provider"
+      ],
+      "destination": "Texas",
+      "days": 5,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 5,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit exactly 2 cities in Texas",
+          "status": "unknown",
+          "evidence": "The plan refers only to \"First city\" (days 2–3) and \"Second city\" (day 4) and admits \"No attractions, hotels or restaurants in Texas could be confirmed, so no stops, lodging or meals are scheduled\", so no actual Texas city is named or confirmed."
+        }
+      ],
+      "why": [
+        "Read as plan (80% confident): The traveller asks for a 5-day Texas itinerary from Lawton with dates and a budget, covering 2 cities..",
+        "Assumed: The '$' sign with a Lawton-to-Texas trip is read as USD.",
+        "Assumed: Party size of 1 is carried over from the existing trip context.",
+        "Assumed: The two Texas cities are not named, so the planner picks them.",
+        "The planner chose 0 stops over 5 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0306",
+      "stratum": [
+        "B",
+        "easy",
+        7,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 7,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 7,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit 3 different cities in New York",
+          "status": "fail",
+          "evidence": "Every stop is inside New York City (Chelsea Market, Central Park, MoMA, Brooklyn Bridge, etc.), and the plan's own 'Known gaps' states 'No candidates were available in other New York State cities for the three-city request' — so only one city is visited, not three."
+        }
+      ],
+      "why": [
+        "Read as plan (82% confident): The traveller asks for a 7-day itinerary from Charlotte through 3 cities in New York, with dates and a budget, and no plan exists yet..",
+        "Assumed: 'New York' is read as New York State, since the traveller wants 3 different cities there; the planner picks the cities.",
+        "Assumed: '$' is read as USD because both the origin and the destination are in the US.",
+        "Assumed: Party size of 1 is carried over from the existing trip context.",
+        "The plan answer needed one repair: the reply was not a JSON object"
+      ]
+    },
+    {
+      "uid": "TP-TEST-0281",
+      "stratum": [
+        "B",
+        "easy",
+        7,
+        "small",
+        "provider"
+      ],
+      "destination": "Illinois",
+      "days": 7,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 7,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "Visit three different cities in Illinois",
+          "status": "fail",
+          "evidence": "The plan contains no stops at all — every day is 'Open day ... No attractions or meals are confirmed' and it states outright that 'No attractions, restaurants or hotels in Illinois could be confirmed, so the three-city requirement is unmet.'"
+        }
+      ],
+      "why": [
+        "Read as plan (86% confident): The traveller asks for a 7-day Illinois trip from Tucson for one person with dates and a $8,700 budget, so a plan can be built..",
+        "Assumed: The '$' budget is read as US dollars because the trip starts in Tucson and is entirely in Illinois.",
+        "Assumed: The three Illinois cities are not named, so they are chosen by the planner (for example Chicago, Springfield and one more).",
+        "Assumed: Hotel style defaults to mid-range and pace to balanced.",
+        "The planner chose 0 stops over 7 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0148",
+      "stratum": [
+        "B",
+        "easy",
+        5,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 5,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 5,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit 2 cities in New York",
+          "status": "fail",
+          "evidence": "Every stop is in New York City (Manhattan/Brooklyn) and the plan's own \"Known gaps\" states \"No place in a second New York State city was available, so the two-city requirement is not met.\""
+        }
+      ],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a 5-day itinerary from Houston to New York for 10-14 March 2022, for one person with a $5,000 budget..",
+        "Assumed: The $ sign is read as USD, since the trip starts in Houston and stays in New York.",
+        "Assumed: The two cities in New York are not named, so the planner picks them (for example New York City plus one other).",
+        "Assumed: The dates 10-14 March give 5 days, which matches the stated length.",
+        "The planner chose 16 stops over 5 days."
+      ]
+    },
+    {
+      "uid": "TP-VALIDATION-0024",
+      "stratum": [
+        "B",
+        "easy",
+        5,
+        "small",
+        "provider"
+      ],
+      "destination": "South Carolina",
+      "days": 5,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 5,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "cover two cities in South Carolina",
+          "status": "pass",
+          "evidence": "The plan splits the trip between Charleston (Day 1 arr/first part, Day 2 Charleston day) and Columbia (Day 3 road transfer, Day 4 Columbia day), both South Carolina cities."
+        }
+      ],
+      "why": [
+        "Read as plan (86% confident): The traveller asks for a new 5-day solo itinerary in South Carolina, with origin, dates and budget given..",
+        "Assumed: The '$' sign is read as USD, since the trip starts in Latrobe and ends in South Carolina (both US).",
+        "Assumed: The two South Carolina cities were not named, so the planner picks them.",
+        "The planner chose 0 stops over 5 days.",
+        "Planning attempt 1 produced 0 stops (9.2s)."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0330",
+      "stratum": [
+        "B",
+        "easy",
+        7,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 7,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 7,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit 3 different cities in New York",
+          "status": "fail",
+          "evidence": "The plan states \"All stops are in New York City\" and its own Known gaps note that \"no other New York State city could be scheduled\"; Manhattan and Brooklyn are boroughs of the single city, New York City, so only 1 of the 3 required cities is visited."
+        },
+        {
+          "id": "c2",
+          "text": "total budget within 4400 USD",
+          "status": "pass",
+          "evidence": "The plan's computed cost total is 2380 USD (Travel 290 + Stay 1560 + Food 115 + Admissions 205 + Local transport 210), labelled \"within, budget 4400\"."
+        }
+      ],
+      "why": [
+        "Read as plan (90% confident): The traveller asks for a new itinerary and gives origin, party size, dates, budget and a destination (3 cities in New York)..",
+        "Assumed: '$' read as USD because the trip departs from Myrtle Beach, USA",
+        "Assumed: 'New York' read as New York State since three cities are requested; the planner chooses the cities",
+        "Assumed: Budget assumed to cover the whole trip including transport from Myrtle Beach",
+        "The plan answer needed one repair: the reply was not a JSON object"
+      ]
+    },
+    {
+      "uid": "TP-VALIDATION-0050",
+      "stratum": [
+        "B",
+        "easy",
+        7,
+        "small",
+        "provider"
+      ],
+      "destination": "Texas",
+      "days": 7,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 7,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit 3 distinct cities in Texas",
+          "status": "fail",
+          "evidence": "The plan states: 'No attractions, restaurants or hotels in Texas were available, so the three-city requirement and daily schedule are unfilled,' and all days are open with no cities named."
+        }
+      ],
+      "why": [
+        "Read as plan (93% confident): Traveller asks for a week-long solo Texas itinerary from Columbus, visiting 3 cities, March 1-7 2022, with a $4,200 budget..",
+        "Assumed: The $ sign with a Columbus-to-Texas trip is read as USD.",
+        "Assumed: The three Texas cities are not named, so they will be chosen by the planner.",
+        "Assumed: Hotel style defaults to mid-range.",
+        "The planner chose 0 stops over 7 days."
+      ]
+    },
+    {
+      "uid": "TP-TEST-0196",
+      "stratum": [
+        "B",
+        "easy",
+        5,
+        "small",
+        "corpus"
+      ],
+      "destination": "New York",
+      "days": 5,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 5,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit 2 cities in New York",
+          "status": "fail",
+          "evidence": "The plan covers only Manhattan/New York City (Times Square, Met, Statue of Liberty, High Line, Brooklyn Bridge) and its own Known gaps line states \"No second New York State city could be included because none was available as an option.\""
+        }
+      ],
+      "why": [
+        "Read as plan (85% confident): The traveller asks for a 5-day itinerary from Raleigh to two cities in New York, 12-16 March 2022, with a $2,300 budget..",
+        "Assumed: '$' read as USD because the trip runs from Raleigh to New York",
+        "Assumed: Party size is 1 because the traveller says 'me'",
+        "Assumed: The two cities in New York were not named, so the planner picks them (e.g. New York City plus one other)",
+        "The plan answer needed one repair: the reply was not a JSON object"
+      ]
+    },
+    {
+      "uid": "TP-TEST-0146",
+      "stratum": [
+        "B",
+        "easy",
+        5,
+        "small",
+        "provider"
+      ],
+      "destination": "Texas",
+      "days": 5,
+      "people": 1,
+      "has_plan": true,
+      "day_count": 5,
+      "constraints": [
+        {
+          "id": "c1",
+          "text": "visit 2 cities in Texas",
+          "status": "pass",
+          "evidence": "The plan explicitly organizes the trip around two Texas cities, Austin and San Antonio, with Day 1–2 in Austin and Day 4 in San Antonio after moving between them on Day 3."
+        }
+      ],
+      "why": [
+        "Read as plan (80% confident): The traveller asks for a 5-day, two-city Texas itinerary from Richmond, 22–26 March 2022, with a $2,700 budget..",
+        "Assumed: The $ sign with a Texas trip from Richmond is read as USD.",
+        "Assumed: Party size of 1 is carried over from the trip context.",
+        "Assumed: The two Texas cities are not named, so the planner chooses them.",
+        "The planner chose 0 stops over 5 days."
+      ]
+    }
+  ]
+}

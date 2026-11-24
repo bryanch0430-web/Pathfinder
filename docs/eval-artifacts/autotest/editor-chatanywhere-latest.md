@@ -2,5 +2,5 @@
 
 | Arm | Correct | p50 | Mean tokens |
 |---|---:|---:|---:|
-| claude-sonnet-5-5 @ 0.0 | 7/8 | 6978.6 ms | 4856.8 |
-| claude-sonnet-5-5 @ 0.2 | 8/8 | 7984.9 ms | 4894.4 |
+| deepseek-flash @ 0.0 | 8/8 | 2077.2 ms | 2908.9 |
+| deepseek-flash @ 0.2 | 8/8 | 1822.2 ms | 2917 |
