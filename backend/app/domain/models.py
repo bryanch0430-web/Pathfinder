@@ -236,6 +236,8 @@ class TicketOption(Wire):
     return_depart_at: str | None = None
     return_arrive_at: str | None = None
     return_duration_minutes: float | None = None
+    stops: int | None = None
+    return_stops: int | None = None
     return_airline: str = ""
     return_flight_number: str = ""
     price: Money | None = None
