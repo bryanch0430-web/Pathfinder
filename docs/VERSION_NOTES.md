@@ -3,6 +3,25 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.1.4 — 2026-11-24 09:50 HKT
+
+Reviewed the new `main` commits and merged them into `pathfinder_v5`. They are
+fixes on top of this v5 line, from the same repository, with tests. No secrets
+and no unexpected behavior.
+
+- **Security.** Opening a saved trip checks its owner. A guest can no longer
+  claim a trip that already belongs to an account. URL intake refuses private
+  hosts, unusual ports, and redirects to them. Uploads are capped, and a file
+  that is not a real image is not sent to the vision model. Sign-in locks after
+  repeated failures.
+- **Multi-city.** One flight search for the whole trip, nights kept as given,
+  and both the outbound and return legs are recorded.
+- **Journeys and desk.** Proposal, choice, share, calendar, and finalised-edit
+  fixes. Desk validation separates the operator note from the status, and an
+  edit turn does not claim a change it did not make.
+- **UI.** Model thresholds save. The mobile toolbar, desk window, and polling
+  no longer drift.
+
 ## 5.1.3 — 2026-11-24 00:35 HKT
 
 - **Length chips fill the number field.** A clarify chip such as "5 days" was stored as those words. The length box is a number field, so it stayed empty and Continue stayed disabled. The chip still reads "5 days" and now writes 5.
