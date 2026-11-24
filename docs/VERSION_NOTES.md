@@ -1,7 +1,21 @@
 # Version notes
 
-Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
-app; the core is the rebuilt backend at `backend/`.
+Running notes for **Pathfinder v5**. The React UI carries the current workspace
+design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
+the core is the rebuilt backend at `backend/`.
+
+## Limitations and submission wording — 2026-11-24
+
+- README now names the demo/mocked surfaces explicitly: image import, Evaluation,
+  Error analysis, bulk reference lists, accounts/billing and sandbox evidence.
+- Added the out-of-focus limits: non-English input was only high-level tested;
+  multi-city and extremely long-day plans can time out or fall back because of the
+  turn/pre-plan/answer budgets.
+- Updated the interface wording to the current workspace design (map stage, day
+  panel/rail, compact toolbar, adaptive trip-details dialog).
+- Added `docs/submission/CODE_AND_CHECKS.md`: one ordinary task, one changed
+  request, one failure case, source/prompts/config pointers, evaluation
+  scripts/results, success/failure traces and the submitted version.
 
 ## Submission packaging — tag `submission-v5.2.11` — 2026-11-24
 
