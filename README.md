@@ -176,7 +176,7 @@ cd "Pathfinder v5"
 
 # First run only: create the environment and install runtime + test dependencies.
 python -m venv backend\.venv
-.\backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
+.\backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt -r backend\requirements-dev.txt
 
 copy .env.example .env      # then add a writer key (Poe, OpenAI, xAI, …)
 
@@ -220,8 +220,8 @@ links is in [docs/submission/REFERENCES.md](docs/submission/REFERENCES.md)):
 | Storybook / pptxgenjs / roughjs / perfect-freehand | 8.6.19 / 4.0.1 / 4.6.6 / 1.2.3 |
 
 Development dependencies `pytest>=8` and `pytest-asyncio>=0.24` are in
-`backend/requirements-dev.txt` (which includes `backend/requirements.txt`);
-install them with the command above before running the test suite.
+`backend/requirements-dev.txt`; install both files with the command above before
+running the test suite.
 
 ### Development UI
 
@@ -423,7 +423,7 @@ Pathfinder v5/
 ```powershell
 cd backend
 $env:PYTHONPATH = "."
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt   # once, if pytest is missing
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt   # once, if pytest is missing
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
