@@ -122,7 +122,7 @@ def plan_text(plan: TripPlan | None, *, with_sources: bool = False) -> str:
             else:
                 lines.append("    source: none")
     if plan.tickets:
-        ticket = plan.tickets[0]
+        ticket = next((row for row in plan.tickets if row.selected), plan.tickets[0])
         lines.append(f"Travel: {ticket.name}. {ticket.notes}".strip())
     if plan.cost:
         lines.append(
