@@ -161,8 +161,46 @@ async def effective_settings(c: Container):
     return c.settings.model_copy(update=update)
 
 
-# The running turn of each trip, so Stop can end it. Held here so a turn outlives its connection.
+class TurnFeed:
+    """Every frame of one running turn, so a page opened mid-turn can replay it and follow on."""
+
+    def __init__(self) -> None:
+        self.frames: list[str] = []
+        self.done = False
+        self._wake = asyncio.Event()
+
+    def _poke(self) -> None:
+        previous, self._wake = self._wake, asyncio.Event()
+        previous.set()
+
+    def put(self, frame: str) -> None:
+        self.frames.append(frame)
+        self._poke()
+
+    def finish(self) -> None:
+        self.done = True
+        self._poke()
+
+    async def follow(self):
+        index = 0
+        while True:
+            while index < len(self.frames):
+                index += 1
+                yield self.frames[index - 1]
+            if self.done:
+                return
+            wake = self._wake
+            try:
+                await asyncio.wait_for(wake.wait(), timeout=15.0)
+            except asyncio.TimeoutError:
+                # A comment frame keeps proxies and browsers from dropping a quiet plan.
+                yield KEEPALIVE
+
+
+# The running turn of each trip: its task (so Stop can end it) and its frames (so a reloaded page can follow it).
+# Held here so a turn outlives its connection.
 _RUNNING: dict[str, asyncio.Future] = {}
+_FEEDS: dict[str, TurnFeed] = {}
 
 
 @router.post("/api/turn/stream")
@@ -204,7 +242,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
     deps = Dependencies(settings=settings, store=c.store)
     turn_id = uuid.uuid4().hex
 
-    queue: asyncio.Queue = asyncio.Queue()
+    feed = TurnFeed()
 
     async def work() -> None:
         # The turn belongs to the trip, not to the browser connection: a reload drops the
@@ -225,7 +263,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     break
                 await asyncio.sleep(0.5)
             if not claimed:
-                queue.put_nowait(
+                feed.put(
                     sse_frame(
                         "error",
                         {"code": "planner_busy", "message": "The planner is still working on the previous message. Try again in a moment."},
@@ -256,14 +294,14 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     # The pending __anext__ is NOT cancelled for a keepalive: that would
                     # kill the turn while it is still working.
                     await c.store.touch_seat(session_id, turn_id)
-                    queue.put_nowait(KEEPALIVE)
+                    pass  # listeners send their own keepalives
                     continue
                 try:
                     event = pending.result()
                 except StopAsyncIteration:
                     break
                 pending = asyncio.ensure_future(iterator.__anext__())
-                queue.put_nowait(sse_frame(event.event, event.data))
+                feed.put(sse_frame(event.event, event.data))
             if timed_out:
                 # Cancel the work before telling the client; the seat is released in
                 # the finally block, so another turn can start immediately.
@@ -277,7 +315,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                         await iterator.aclose()
                     except Exception:  # noqa: BLE001 - best-effort cleanup
                         pass
-                queue.put_nowait(
+                feed.put(
                     sse_frame(
                         "error",
                         {
@@ -293,7 +331,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
-            queue.put_nowait(
+            feed.put(
                 sse_frame(
                     "error",
                     {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": str(exc)[:300]},
@@ -310,23 +348,22 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     pass
             if claimed:
                 await c.store.release_seat(session_id, turn_id)
-            queue.put_nowait(None)
+            feed.finish()
 
     task = asyncio.ensure_future(work())
     _RUNNING[session_id] = task
+    _FEEDS[session_id] = feed
 
     def forget(done: asyncio.Future) -> None:
         if _RUNNING.get(session_id) is done:
             _RUNNING.pop(session_id, None)
+            _FEEDS.pop(session_id, None)
 
     task.add_done_callback(forget)
 
     async def stream():
         # Leaving early (a reload) only stops listening; the turn keeps going.
-        while True:
-            frame = await queue.get()
-            if frame is None:
-                return
+        async for frame in feed.follow():
             yield frame
 
     return StreamingResponse(
@@ -347,6 +384,30 @@ def stop_turn(session_id: str) -> bool:
         return False
     task.cancel()
     return True
+
+
+@router.get("/api/turn/{session_id}/stream")
+async def follow_turn(session_id: str, request: Request) -> StreamingResponse:
+    """A page opened (or reloaded) while the trip's turn is running: replay it from the start, then follow it live."""
+    c = container(request)
+    session = await c.store.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="That trip no longer exists.")
+    if not await _may_chat(request, c.store, session):
+        raise HTTPException(status_code=403, detail="That trip belongs to another traveller.")
+    feed = _FEEDS.get(session_id)
+    if feed is None:
+        raise HTTPException(status_code=404, detail="No turn is running for this trip.")
+
+    async def stream():
+        async for frame in feed.follow():
+            yield frame
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/api/turn/{session_id}/cancel")

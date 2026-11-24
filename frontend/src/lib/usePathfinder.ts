@@ -266,7 +266,7 @@ export interface PathfinderHook {
   /** Saves the details form on the open trip. False when it is not saved: the traveller is told and Retry saves again. */
   saveContext: () => Promise<boolean>;
   generate: () => Promise<void>;
-  send: (message: string, attachments?: ChatAttachment[]) => Promise<void>;
+  send: (message: string, attachments?: ChatAttachment[], follow?: boolean) => Promise<void>;
   setClarifyValue: (slot: string, value: string) => void;
   submitClarify: (message?: string) => Promise<void>;
   selectItem: (item: PlanItem | null) => void;
@@ -377,6 +377,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const [plannerBusy, setPlannerBusy] = useState(false);
   const plannerBusyRef = useRef(false);
   plannerBusyRef.current = plannerBusy;
+  const lastFollow = useRef(0);
   const [plannerNote, setPlannerNote] = useState("");
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [progress, setProgress] = useState(0);
@@ -426,7 +427,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   const retryRef = useRef<RetryTarget | null>(null);
   // The latest `send` and `generate`. A target stored when a turn failed calls through here, not the callback of the
   // render in which it was stored: the interface language may have changed since.
-  const sendRef = useRef<(message: string, attachments?: ChatAttachment[]) => Promise<void>>(async () => undefined);
+  const sendRef = useRef<(message: string, attachments?: ChatAttachment[], follow?: boolean) => Promise<void>>(async () => undefined);
   const generateRef = useRef<() => Promise<void>>(async () => undefined);
   // What `send` reads of the trip shown. It is a ref so that a handler made before the trip changed (the trending
   // list makes a trip and then sends its first message) still sends as the trip shown now, not as the one before.
@@ -436,6 +437,19 @@ export function usePathfinder(locale: string): PathfinderHook {
     selectedItem: null,
   });
   shownRef.current = { busy, plan, selectedItem };
+
+  // The server says the planner is working on this trip but this page is not showing it (a reload, another tab): follow
+  // the turn from its start, so it looks the same as a reply that began here.
+  const followTurn = useCallback((): boolean => {
+    if (shownRef.current.busy || abortRef.current || !sessionRef.current) return false;
+    if (Date.now() - lastFollow.current < 4000) return false;
+    lastFollow.current = Date.now();
+    void sendRef.current("", undefined, true);
+    return true;
+  }, []);
+  useEffect(() => {
+    if (plannerBusy && !busy && sessionId) followTurn();
+  }, [plannerBusy, busy, sessionId, followTurn]);
   // The details form as it is now, for a save made from a handler that was created before the last keystroke.
   const contextRef = useRef(context);
   contextRef.current = context;
@@ -516,7 +530,7 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [clearBanner]);
 
   /** Shows a trip in place of the one shown: its plan, messages and context, and the pointer a reload starts from. */
-  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages" | "feedback">) => {
+  const showTrip = useCallback((id: string, trip: Pick<SessionState, "context" | "plan" | "versions" | "messages" | "feedback"> & Partial<Pick<SessionState, "planner_busy" | "planner_note">>) => {
     if (sessionRef.current !== id) {
       // The reply being written for the trip being left stops with it, so its late events cannot land in this one.
       abortRef.current?.abort();
@@ -540,6 +554,8 @@ export function usePathfinder(locale: string): PathfinderHook {
     setFeedbackStars(trip.feedback?.stars ?? null);
     setFeedbackSaved(Boolean(trip.feedback?.useful));
     setFeedbackAdded([]);
+    setPlannerBusy(Boolean(trip.planner_busy));
+    setPlannerNote(trip.planner_note || "");
     const card = clarifyFromHistory(trip.messages.at(-1));
     setClarify(card);
     setClarifyValues(card ? valuesForSuggestions(card) : {});
@@ -856,21 +872,23 @@ export function usePathfinder(locale: string): PathfinderHook {
     if (held || !sessionId) return;
     return startPolling(() => {
       if (shownRef.current.busy) return;
+      if (plannerBusyRef.current) {
+        // Busy on the server but not followed here: follow it, or at least keep the page current.
+        if (followTurn()) return;
+        return refresh();
+      }
       return getHeld(sessionId).then((data) => {
         if (sessionRef.current !== sessionId) return;
-        // A turn that kept running through a reload has now finished: show its answer.
-        const finished = plannerBusyRef.current && !data.planner_busy;
         plannerBusyRef.current = Boolean(data.planner_busy);
         setPlannerBusy(Boolean(data.planner_busy));
         setPlannerNote(data.planner_note || "");
-        if (finished) void refresh();
         if (!data.held) return;
         setHeld(true);
         setAgentName(data.agent_name || "");
         void refresh();
       });
     }, 2500);
-  }, [held, sessionId, refresh]);
+  }, [held, sessionId, refresh, followTurn]);
 
   const setPlanLocale = useCallback(async (value: PlanLocale) => {
     setPlanLocaleState(value);
@@ -986,7 +1004,9 @@ export function usePathfinder(locale: string): PathfinderHook {
   );
 
   const send = useCallback(
-    async (message: string, attachments?: ChatAttachment[]) => {
+    async (message: string, attachments?: ChatAttachment[], follow = false) => {
+      // `follow`: the page was opened while the trip's turn was running. Show that turn the way a normal reply shows
+      // (agents, progress, partial days), without sending anything.
       const id = sessionRef.current;
       const { plan, selectedItem } = shownRef.current;
       if (!id) return;
@@ -1039,7 +1059,7 @@ export function usePathfinder(locale: string): PathfinderHook {
               }
             : undefined,
       };
-      setMessages((current) => [...current, optimistic]);
+      if (!follow) setMessages((current) => [...current, optimistic]);
       setLive([]);
       setSteps([]);
       setPartialDays([]);
@@ -1068,6 +1088,7 @@ export function usePathfinder(locale: string): PathfinderHook {
             scope_label: scopeLabel || null,
             developer: readStoredValue("developer") === "1",
             review: true,
+            ...(follow ? { follow: true } : {}),
             ...(attachments?.length ? { attachments } : {}),
           },
           {
@@ -1258,7 +1279,9 @@ export function usePathfinder(locale: string): PathfinderHook {
           controller.signal,
         );
       } catch (cause) {
-        if (!controller.signal.aborted && turnGen.current === generation) {
+        // Following a turn that has just ended is not a failure: the refresh below shows its result.
+        const alreadyOver = follow && cause instanceof ApiError && cause.status === 404;
+        if (!alreadyOver && !controller.signal.aborted && turnGen.current === generation) {
           const failure = await failureOfCall(cause, "errors.turn");
           if (!controller.signal.aborted && turnGen.current === generation) failTurn(failure);
         }

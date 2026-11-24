@@ -113,3 +113,42 @@ def test_stop_ends_the_running_turn(tmp_path, monkeypatch):
 async def _drain(response):
     async for _ in response.body_iterator:
         pass
+
+
+def test_a_page_opened_mid_turn_replays_it_from_the_start_and_follows(tmp_path, monkeypatch):
+    finished: list = []
+    monkeypatch.setattr(turn_module, "run_turn", _slow_turn(finished))
+    app = _app(tmp_path)
+    with TestClient(app):
+        store = app.state.container.store
+
+        async def scenario():
+            sid, response = await _open(app, store, finished)
+            first = asyncio.ensure_future(_drain(response))
+            await asyncio.sleep(0.2)  # "progress" is out, "done" is not
+            first.cancel()  # reload
+            try:
+                await first
+            except asyncio.CancelledError:
+                pass
+            follower = await turn_module.follow_turn(sid, _request(app, f"/api/turn/{sid}/stream"))
+            return [frame async for frame in follower.body_iterator]
+
+        frames = asyncio.run(scenario())
+    text = "".join(frames)
+    assert text.index("event: progress") < text.index("event: done")
+
+
+def test_following_without_a_running_turn_is_a_404(tmp_path):
+    app = _app(tmp_path)
+    with TestClient(app):
+        store = app.state.container.store
+
+        async def scenario():
+            session = await store.create_session(client_token="seat-owner", user_id="")
+            try:
+                await turn_module.follow_turn(session["id"], _request(app))
+            except turn_module.HTTPException as exc:
+                return exc.status_code
+
+        assert asyncio.run(scenario()) == 404

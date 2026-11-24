@@ -1131,16 +1131,24 @@ export async function streamChat(
     review?: boolean;
     /** Images and PDFs sent with the message; `data` is base64 without a `data:` prefix. */
     attachments?: ChatAttachment[];
+    /** A page opened mid-turn: replay the running turn from its start and follow it, instead of starting one. */
+    follow?: boolean;
   },
   handlers: StreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await fetch(`${BASE}/api/turn/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader(), ...clientTokenHeader() },
-    body: JSON.stringify(payload),
-    signal,
-  });
+  const { follow, ...body } = payload;
+  const response = follow
+    ? await fetch(`${BASE}/api/turn/${payload.session_id}/stream`, {
+        headers: { ...authHeader(), ...clientTokenHeader() },
+        signal,
+      })
+    : await fetch(`${BASE}/api/turn/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader(), ...clientTokenHeader() },
+        body: JSON.stringify(body),
+        signal,
+      });
   if (!response.ok || !response.body) {
     const detail = await errorText(response);
     throw new ApiError(detail || "The chat stream could not be opened.", response.status, detail);
