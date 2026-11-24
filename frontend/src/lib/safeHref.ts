@@ -30,7 +30,7 @@ const API_BASE: string = (import.meta as { env?: { VITE_API_BASE?: string } }).e
  * a source returned; anything else (a `javascript:` or `data:` URL, plain http) is `undefined` and no image is drawn. */
 export function imageSrc(url?: string | null): string | undefined {
   if (!url) return undefined;
-  if (url.startsWith("/api/images/place?")) return `${API_BASE}${url}`;
+  if (url.startsWith("/api/images/place?") || url.startsWith("/api/images/google?")) return `${API_BASE}${url}`;
   return /^https:\/\//i.test(url.trim()) ? safeHref(url) : undefined;
 }
 

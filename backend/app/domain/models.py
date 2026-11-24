@@ -13,6 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.currencies import normalise_currency
+from app.security.redact import scrub_url
 
 DataStatus = Literal["ok", "stale", "unavailable"]
 ItemType = Literal["attraction", "hotel", "meal", "transit", "ticket"]
@@ -55,6 +56,12 @@ class ImageRef(Wire):
     url: str
     attribution: str = ""
     source: Literal["google", "wikimedia", "serpapi"] = "wikimedia"
+
+    @field_validator("url")
+    @classmethod
+    def _no_secret_in_url(cls, value: str) -> str:
+        # An old stored picture address carried the Places key; never let one through.
+        return scrub_url(value)
 
 
 class Link(Wire):

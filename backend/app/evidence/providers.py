@@ -31,6 +31,7 @@ from app.core.trace import TurnTrace
 from app.domain.models import DataGap, GeoPoint, ImageRef, Money, SourceRef, VideoNote, WeatherDay, now_iso
 from app.evidence import place_corpus as corpus
 from app.evidence.models import Evidence
+from app.security.redact import google_photo_url, redact_secrets
 
 IATA = {
     "hong kong": "HKG", "kyoto": "KIX", "osaka": "KIX", "tokyo": "NRT", "singapore": "SIN",
@@ -317,7 +318,7 @@ class Providers:
             payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             if self.trace:
-                self.trace.tool(name="google_places", status="error", latency_ms=0, args={"q": query}, note=str(exc))
+                self.trace.tool(name="google_places", status="error", latency_ms=0, args={"q": query}, note=redact_secrets(str(exc)))
             return []
         out: list[Evidence] = []
         for index, place in enumerate(payload.get("places") or []):
@@ -346,10 +347,8 @@ class Providers:
             photo_name = photos[0].get("name")
             if photo_name:
                 photo = ImageRef(
-                    url=(
-                        f"https://places.googleapis.com/v1/{photo_name}/media"
-                        f"?maxWidthPx=900&key={self.settings.google_places_api_key}"
-                    ),
+                    # The server's picture route adds the key; it never leaves the server.
+                    url=google_photo_url(str(photo_name), 900),
                     attribution="Google",
                     source="google",
                 )
