@@ -5,7 +5,6 @@ from __future__ import annotations
 import html
 import json
 import math
-import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -46,6 +45,7 @@ from app.domain.models import (
     now_iso,
 )
 from app.plan.builder import refresh_derived
+from app.plan.import_screen import clean_text, screen_plan
 
 router = APIRouter()
 
@@ -55,23 +55,6 @@ MAX_IMPORT_MESSAGE_CHARS = 8_000
 # A hand-edited or generated file is a few hundred kilobytes at most; anything
 # larger is a body meant to exhaust the server, not a trip.
 MAX_IMPORT_PLAN_CHARS = 1_500_000
-# A file is untrusted. These are attempts to steer the model, or to smuggle markup,
-# not travel talk. A match is left out of the restored chat.
-_BLOCKED_IMPORT = re.compile(
-    r"(ignore\s+(all\s+)?(previous|prior)\s+instructions"
-    r"|disregard\s+(your|the)\s+system\s+prompt"
-    r"|(reveal|print|repeat)\s+(your|the)\s+system\s+prompt"
-    r"|you\s+are\s+now\b.{0,48}\bdeveloper\s+mode"
-    r"|jailbreak"
-    r"|bypass\s+your\s+guardrails"
-    r"|router(\s+rules)?\s+no\s+longer\s+applies?"
-    r"|act\s+as\s+(a\s+)?developer"
-    r"|<\s*script\b"
-    r"|javascript\s*:"
-    r"|onerror\s*="
-    r"|data\s*:\s*text/html)",
-    re.IGNORECASE | re.DOTALL,
-)
 
 
 def _c(request: Request) -> Container:
@@ -667,6 +650,8 @@ async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any
     embedded = raw.pop("messages", None)
     if isinstance(raw.get("summary"), str) and len(raw["summary"]) > MAX_IMPORT_SUMMARY:
         raise HTTPException(status_code=413, detail="That plan's summary is too long to import.")
+    # A file from someone else is data: unsafe text and links are neutralised field by field.
+    raw, warnings, threats = screen_plan(raw)
     try:
         plan = TripPlan(**raw)
     except Exception as exc:  # noqa: BLE001
@@ -691,10 +676,15 @@ async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any
     )
     await c.store.save_context(session["id"], context.model_dump())
     supplied = payload.messages if payload.messages else embedded
-    for message in _imported_messages(supplied):
+    skipped: list[str] = []
+    for message in _imported_messages(supplied, skipped):
         await c.store.add_message(session["id"], message)
+    warnings += skipped
+    await _count_import_threats(c, threats + len(skipped))
     session_row = await c.store.get_session(session["id"])
-    return await session_view(c, session["id"], session_row)
+    view = await session_view(c, session["id"], session_row)
+    view["warnings"] = warnings[:20]
+    return view
 
 
 @router.delete("/api/journeys/{session_id}")
@@ -723,7 +713,20 @@ def _plan_too_large(raw: dict[str, Any]) -> bool:
     return len(json.dumps(raw, ensure_ascii=False)) > MAX_IMPORT_PLAN_CHARS
 
 
-def _imported_messages(rows: Any) -> list[dict[str, Any]]:
+async def _count_import_threats(c: Container, count: int) -> None:
+    """Add to the admin threat counters. Never fails an import."""
+    if count <= 0:
+        return
+    try:
+        counters = await c.store.get_kv("threats") or {}
+        if isinstance(counters, dict):
+            counters["import_text"] = int(counters.get("import_text", 0) or 0) + count
+            await c.store.set_kv("threats", counters)
+    except Exception:  # noqa: BLE001
+        return
+
+
+def _imported_messages(rows: Any, warnings: list[str] | None = None) -> list[dict[str, Any]]:
     """The conversation to restore. A bad row is skipped; it never rejects the plan."""
     if not isinstance(rows, list):
         return []
@@ -735,9 +738,12 @@ def _imported_messages(rows: Any) -> list[dict[str, Any]]:
         # A file must not insert a system instruction into later turns.
         if role not in {"user", "assistant"}:
             continue
-        content = str(row.get("content") or "")[:MAX_IMPORT_MESSAGE_CHARS]
-        content = "".join(ch for ch in content if ch in "\n\t" or ord(ch) >= 32)
-        if not content.strip() or _BLOCKED_IMPORT.search(content):
+        content, unsafe = clean_text(str(row.get("content") or ""), MAX_IMPORT_MESSAGE_CHARS)
+        if unsafe:
+            if warnings is not None and len(warnings) < 20:
+                warnings.append(f"messages[{len(restored)}]: message left out (unsafe text)")
+            continue
+        if not content.strip():
             continue
         intent = row.get("intent")
         if intent not in {"plan", "modify", "ask", "unclear"}:

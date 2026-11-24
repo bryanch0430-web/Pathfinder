@@ -179,7 +179,22 @@ export function SearchField({
 }
 
 const INLINE_MD =
-  /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)]+\)|<https?:\/\/[^\s>]+>|https?:\/\/[^\s<>()]+)/g;
+  /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`|!?\[[^\]]+\]\([^)]+\)|<https?:\/\/[^\s>]+>|https?:\/\/[^\s<>()]+)/g;
+
+/** The site a link goes to, without a leading www. */
+export function linkHost(href: string): string {
+  try {
+    return new URL(href).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+}
+
+/** True when the link text already is the host (or an address on it), so repeating it adds nothing. */
+function sameHost(text: string, host: string): boolean {
+  const shown = text.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  return shown.toLowerCase().split(/[/?#]/)[0] === host.toLowerCase();
+}
 
 function inlineMd(text: string, key: string): ReactNode[] {
   return text
@@ -196,15 +211,25 @@ function inlineMd(text: string, key: string): ReactNode[] {
       if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
         return <em key={token}>{part.slice(1, -1)}</em>;
       }
+      // An image has no place in a reply: the picture is never fetched, only its description is shown.
+      const image = part.match(/^!\[([^\]]+)\]\(([^)]+)\)$/);
+      if (image) return image[1];
       const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (link) {
-        const href = safeHref(link[2]);
-        return href ? (
-          <a key={token} href={href} target="_blank" rel="noreferrer noopener">
-            {link[1]}
-          </a>
+        // Only an absolute http(s) address is a link. The host is shown beside the text so a friendly
+        // label cannot hide where the click goes.
+        const target = link[2].trim();
+        const href = /^https?:\/\//i.test(target) ? safeHref(target) : undefined;
+        const host = href ? linkHost(href) : "";
+        return href && host ? (
+          <Fragment key={token}>
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {link[1]}
+            </a>
+            {sameHost(link[1], host) ? null : <span className="pf-link-host"> ({host})</span>}
+          </Fragment>
         ) : (
-          part
+          link[1]
         );
       }
       // `<https://…>` is a Markdown autolink, and a bare URL is what people expect
@@ -217,7 +242,7 @@ function inlineMd(text: string, key: string): ReactNode[] {
         const href = safeHref(address);
         return href ? (
           <Fragment key={token}>
-            <a href={href} target="_blank" rel="noreferrer noopener">
+            <a href={href} target="_blank" rel="noopener noreferrer">
               {address}
             </a>
             {tail}
