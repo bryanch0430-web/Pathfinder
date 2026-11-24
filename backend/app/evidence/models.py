@@ -58,6 +58,11 @@ class Evidence:
     flight_number: str = ""
     return_airline: str = ""
     return_flight_number: str = ""
+    # Door-to-door minutes and layover count as the fare source states them.
+    duration_minutes: float | None = None
+    return_duration_minutes: float | None = None
+    stops: int | None = None
+    return_stops: int | None = None
     links: list[Link] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     source_types: list[str] = field(default_factory=list)
@@ -152,6 +157,9 @@ class Evidence:
             "arrive_at": self.arrive_at,
             "return_depart_at": self.return_depart_at,
             "return_arrive_at": self.return_arrive_at,
+            "return_duration_minutes": self.return_duration_minutes,
+            "stops": self.stops,
+            "return_stops": self.return_stops,
             "operator": self.airline,
         }
 

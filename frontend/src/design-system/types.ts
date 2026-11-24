@@ -230,6 +230,9 @@ export interface TicketOption {
   return_depart_at?: string | null;
   return_arrive_at?: string | null;
   return_duration_minutes?: number | null;
+  /** Layovers on the way there and on the way back; 0 is direct. */
+  stops?: number | null;
+  return_stops?: number | null;
   return_airline?: string;
   return_flight_number?: string;
   price: Money | null;

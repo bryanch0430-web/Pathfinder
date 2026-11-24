@@ -236,6 +236,8 @@ class TicketOption(Wire):
     return_depart_at: str | None = None
     return_arrive_at: str | None = None
     return_duration_minutes: float | None = None
+    stops: int | None = None
+    return_stops: int | None = None
     return_airline: str = ""
     return_flight_number: str = ""
     price: Money | None = None
@@ -334,6 +336,8 @@ class CostBreakdown(Wire):
     budget: float | None = None
     remaining: float | None = None
     status: Literal["within", "over", "unknown"] = "unknown"
+    # False when hotels, meals or admissions have no price, so the total is a lower bound.
+    complete: bool = True
     notes: list[str] = Field(default_factory=list)
 
 

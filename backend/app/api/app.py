@@ -21,6 +21,65 @@ from app.config import PROJECT_DIR, Settings, get_settings
 from app.core.store import Store
 
 logger = logging.getLogger("pathfinder")
+
+
+def body_limits(settings: Settings) -> dict[tuple[str, str], int]:
+    return {
+        ("POST", "/api/turn/stream"): settings.max_turn_body_bytes,
+        ("POST", "/api/journeys/import"): settings.max_import_body_bytes,
+    }
+
+
+class BodyLimitMiddleware:
+    """Refuse an oversized body with 413 before the route parses it into memory.
+
+    A declared Content-Length over the cap is answered at once; a chunked body
+    (or one that lies about its length) is cut off as soon as it passes the cap.
+    """
+
+    def __init__(self, app, limits: dict[tuple[str, str], int]) -> None:
+        self.app = app
+        self.limits = limits
+
+    async def __call__(self, scope, receive, send) -> None:
+        limit = self.limits.get((scope.get("method", ""), scope.get("path", ""))) if scope["type"] == "http" else None
+        if limit is None:
+            await self.app(scope, receive, send)
+            return
+        declared = dict(scope.get("headers") or []).get(b"content-length", b"")
+        if declared.isdigit() and int(declared) > limit:
+            await self._refuse(scope, receive, send, limit)
+            return
+        seen = 0
+        refused = False
+
+        async def counted():
+            nonlocal seen, refused
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > limit and not refused:
+                    refused = True
+                    await self._refuse(scope, receive, send, limit)
+                if refused:
+                    # The route sees a dropped connection and never gets the body.
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def guarded(message):
+            if not refused:  # whatever the route says after the 413 is dropped
+                await send(message)
+
+        await self.app(scope, counted, guarded)
+
+    @staticmethod
+    async def _refuse(scope, receive, send, limit: int) -> None:
+        megabytes = max(1, limit // (1024 * 1024))
+        response = JSONResponse(
+            status_code=413, content={"detail": f"That request is too large (limit {megabytes} MB)."}
+        )
+        await response(scope, receive, send)
+
 FRONTEND_DIST = PROJECT_DIR / "frontend" / "dist"
 
 
@@ -49,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.container = container
+    app.add_middleware(BodyLimitMiddleware, limits=body_limits(settings))
     app.add_middleware(
         CORSMiddleware,
         # Only the app's own origins: a page on another site must not be able to

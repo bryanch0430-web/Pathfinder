@@ -1784,9 +1784,25 @@ function stamp(value: string | null | undefined): string {
   return value ? value.replace("T", " ").slice(0, 16) : "";
 }
 
-function durationText(minutes: number | null | undefined, t: Translate): string {
-  if (typeof minutes !== "number" || minutes <= 0) return "";
-  return t("options.duration", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+function durationText(minutes: number | null | undefined, t: Translate, stops?: number | null): string {
+  const stopText = typeof stops === "number" && stops > 0 ? (stops === 1 ? t("options.stopsOne") : t("options.stopsMany", { count: stops })) : "";
+  if (typeof minutes !== "number" || minutes <= 0) return stopText;
+  const time = t("options.duration", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+  return stopText ? `${time} · ${stopText}` : time;
+}
+
+/** The arrival clock, with "+1 day" when the airport's local date is later than the departure's. */
+function arrivalClock(departAt: string | null | undefined, arriveAt: string | null | undefined, t: Translate): string {
+  const arrive = stamp(arriveAt);
+  const depart = stamp(departAt);
+  if (!arrive) return "";
+  if (!depart) return arrive;
+  const day = (value: string) => Date.UTC(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)));
+  const days = Math.round((day(arrive) - day(depart)) / 86400000);
+  const clock = arrive.slice(11);
+  if (!Number.isFinite(days) || days === 0) return clock;
+  if (days < 0) return arrive;
+  return `${clock} ${days === 1 ? t("options.nextDay") : t("options.nextDays", { days })}`;
 }
 
 /** One fare: the flight (airline and number), times, duration and price; the selected one is marked. */
@@ -1809,10 +1825,11 @@ export function TicketCard({
   const { pending, error, run } = useOptionAction();
   const depart = stamp(ticket.depart_at);
   const arrive = stamp(ticket.arrive_at);
-  // The arrival time alone when it lands the same day.
-  const arriveShown = arrive && depart && arrive.slice(0, 10) === depart.slice(0, 10) ? arrive.slice(11) : arrive;
-  const duration = durationText(ticket.duration_minutes, t);
-  const returnDuration = durationText(ticket.return_duration_minutes, t);
+  // The arrival time alone when it lands the same day, with "+1 day" when it does not.
+  const arriveShown = arrive ? arrivalClock(ticket.depart_at, ticket.arrive_at, t) : "";
+  const returnArrive = arrivalClock(ticket.return_depart_at, ticket.return_arrive_at, t);
+  const duration = durationText(ticket.duration_minutes, t, ticket.stops);
+  const returnDuration = durationText(ticket.return_duration_minutes, t, ticket.return_stops);
   const operator = ticket.operator && !ticket.name.includes(ticket.operator) ? ticket.operator : "";
   const estimated = Boolean(ticket.estimated);
   // An estimate has no timetable: its times are "about" times, and it says so.
@@ -1836,7 +1853,7 @@ export function TicketCard({
             <strong>{t("workspace.return")}</strong>
             {` · ${ticket.return_origin || ticket.destination} → ${ticket.return_destination || ticket.origin}`}
             {ticket.return_depart_at ? ` · ${stamp(ticket.return_depart_at)}` : ""}
-            {ticket.return_arrive_at ? ` · ${t("options.arrives", { time: stamp(ticket.return_arrive_at).slice(11) })}` : ""}
+            {returnArrive ? ` · ${t("options.arrives", { time: returnArrive })}` : ""}
             {returnDuration ? ` · ${returnDuration}` : ""}
           </Text>
         ) : null}
@@ -1856,7 +1873,7 @@ export function TicketCard({
               <strong>{t("workspace.return")}</strong>
               {ticket.return_airline ? ` · ${ticket.return_airline} ${ticket.return_flight_number ?? ""}` : ""}
               {` · ${ticket.return_origin} → ${ticket.return_destination} · ${stamp(ticket.return_depart_at)}`}
-              {ticket.return_arrive_at ? ` · ${t("options.arrives", { time: stamp(ticket.return_arrive_at).slice(11) })}` : ""}
+              {returnArrive ? ` · ${t("options.arrives", { time: returnArrive })}` : ""}
               {returnDuration ? ` · ${returnDuration}` : ""}
             </Text>
           ) : (
@@ -1864,7 +1881,11 @@ export function TicketCard({
           )
         ) : null}
         <Text size="sm" weight="semibold">
-          {ticket.price ? `${moneyText(ticket.price)} · ${readableLabel(ticket.price_kind)}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
+          {ticket.price
+            ? ticket.mode === "flight"
+              ? t("options.fareRound", { price: moneyText(ticket.price), kind: readableLabel(ticket.price_kind) })
+              : `${moneyText(ticket.price)} · ${readableLabel(ticket.price_kind)}`
+            : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
         {ticket.booking_url && safeHref(ticket.booking_url) ? (
           <a href={safeHref(ticket.booking_url)} target="_blank" rel="noopener noreferrer">{t("workspace.book")}</a>
