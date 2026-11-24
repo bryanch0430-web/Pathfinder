@@ -4236,7 +4236,12 @@ export function EvalDashboard({
   const metricRun = suite === "all" ? null : runFor(suite);
   const metrics = metricRun?.metrics ?? [];
   const primaryMetric = metrics.find((metric) => metric.unit === "%")?.key ?? "constraint_satisfaction";
-  const snapshot = (metricRun?.model_snapshot ?? {}) as { writer?: string; router?: string; judge?: string };
+  const snapshot = (metricRun?.model_snapshot ?? {}) as {
+    writer?: string;
+    router?: string;
+    verifier?: string;
+    judge?: string;
+  };
   const series = metricRun ? runs.filter((run) => run.dataset_id === metricRun.dataset_id) : runs;
   const needle = caseQuery.trim().toLowerCase();
   const groups = scoredDatasets
@@ -4343,7 +4348,7 @@ export function EvalDashboard({
             {t("eval.modelLine", {
               writer: snapshot.writer || t("eval.notLinked"),
               router: snapshot.router || t("eval.notLinked"),
-              judge: snapshot.judge || t("eval.notLinked"),
+              verifier: snapshot.verifier || snapshot.judge || t("eval.notLinked"),
               latency: metricRun.latency_ms,
               tokens: metricRun.token_usage,
             })}

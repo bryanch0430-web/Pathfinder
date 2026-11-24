@@ -75,6 +75,9 @@ async def run_dataset(c: Container, dataset_id: str, tag: str = "", split: str =
         "model_snapshot": {
             "writer": c.settings.writer[2],
             "writer_endpoint": c.settings.writer[0],
+            # The verifier is the only second model in the runtime; it audits
+            # constraints. No judge model exists.
+            "verifier": c.settings.verifier_model if c.settings.verifier_api_key else "",
             "sandbox": True,
             "analyst_confidence_threshold": c.settings.analyst_confidence_threshold,
             "jev_confidence_threshold": c.settings.jev_confidence_threshold,
@@ -437,7 +440,10 @@ def _row(
         "input": case.input,
         "output_summary": output_summary,
         "judge_reason": judge_reason,
-        "judge_score": score,
+        # Legacy field name kept for the panel and old artifacts. This is the
+        # deterministic check result, not a model's opinion: `score` is 0–1 and
+        # the column is shown on the same 0–5 scale as earlier runs.
+        "judge_score": round(score * 5, 2) if score <= 1 else score,
         "judge_flags": [],
         "tool_summary": [],
         "scores": scores,

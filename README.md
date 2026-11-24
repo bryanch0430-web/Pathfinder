@@ -273,8 +273,12 @@ The `main` numbers are the ones recorded on that branch: the rules layer 64/84
 not yet match, is in [docs/EVALUATION.md](docs/EVALUATION.md).
 
 The same suites are in the UI's **Evaluation** tab (operator views), with a run
-report export. The architecture is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
-what changed against `main` is in [docs/REVAMP.md](docs/REVAMP.md).
+report export. Scores there come from deterministic checks (constraints,
+grounding, budget), not from a judge model; the run summary names the writer,
+router and the verifier that audits constraints, and the panel labels the column
+“Check score”. No judge model exists, so a check score cannot depend on one.
+The architecture is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what changed
+against `main` is in [docs/REVAMP.md](docs/REVAMP.md).
 
 ## Project layout
 
