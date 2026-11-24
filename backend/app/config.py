@@ -120,12 +120,6 @@ class Settings(BaseSettings):
     decision_auth_prefix: str = Field(default="Bearer", alias="DECISION_AUTH_PREFIX")
     decision_timeout_seconds: float = Field(default=1.5, alias="DECISION_TIMEOUT_SECONDS")
 
-    # --- judge ----------------------------------------------------------
-    judge_base_url: str = Field(default="https://api.deepseek.com", alias="JUDGE_BASE_URL")
-    judge_api_key: str = Field(default="", alias="JUDGE_API_KEY")
-    judge_model: str = Field(default="deepseek-chat", alias="JUDGE_MODEL")
-    judge_timeout_seconds: float = Field(default=20.0, alias="JUDGE_TIMEOUT_SECONDS")
-
     # --- observability --------------------------------------------------
     langfuse_enabled: bool = Field(default=False, alias="LANGFUSE_ENABLED")
     langfuse_public_key: str = Field(default="", alias="LANGFUSE_PUBLIC_KEY")

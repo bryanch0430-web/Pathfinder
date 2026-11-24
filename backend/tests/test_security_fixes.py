@@ -139,3 +139,23 @@ def test_an_unchanged_multi_city_trip_is_not_rebuilt():
 def test_an_oversized_import_plan_is_refused():
     assert _plan_too_large({"summary": "x" * (MAX_IMPORT_PLAN_CHARS + 1)}) is True
     assert _plan_too_large({"summary": "a short trip"}) is False
+
+
+def test_the_judge_is_not_part_of_the_runtime(tmp_path):
+    from app.core.llm import LLMClient
+
+    assert not hasattr(LLMClient, "judge")
+    with _client(tmp_path) as client:
+        providers = client.get("/api/runtime").json()["providers"]
+        assert "judge" not in providers
+
+
+def test_a_held_chat_stays_live_after_its_plan_is_ready():
+    from app.api.admin import _desk_state
+
+    # Ready plan + held for a person = still their live conversation.
+    assert _desk_state(finished=True, recent=True, held=True) == "live"
+    # A ready, unheld chat is history even if it was touched today.
+    assert _desk_state(finished=True, recent=True, held=False) == "completed"
+    assert _desk_state(finished=False, recent=True, held=False) == "live"
+    assert _desk_state(finished=False, recent=False, held=False) == "completed"

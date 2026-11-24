@@ -3,6 +3,24 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.5 — 2026-11-24 15:00 HKT
+
+- **The judge is gone from the demo.** `LLMClient.judge`, the `JUDGE_*`
+  settings and the `providers.judge` runtime entry were removed, so an old
+  `.env` key cannot switch it back on. Historical `judge_score` values in
+  evaluation artifacts still render as stored data; nothing calls a judge model.
+- Tests: `test_the_judge_is_not_part_of_the_runtime`.
+
+## 5.2.4 — 2026-11-24 14:55 HKT
+
+- **A traveller who asks for a person stays in the Desk queue after their plan
+  is ready.** The queue treated a finished plan as “completed”, so the held chat
+  never reached the Queue lane and no Accept button appeared. A held chat is now
+  live regardless of plan status, in both the Desk lane filter and the
+  `/api/admin/desk` state.
+- Tests: `test_a_held_chat_stays_live_after_its_plan_is_ready` in
+  `test_security_fixes.py`.
+
 ## 5.2.3 — 2026-11-24 14:50 HKT
 
 Audit of the remaining machine labels on screen.
