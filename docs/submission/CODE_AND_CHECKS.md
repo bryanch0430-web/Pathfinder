@@ -39,12 +39,14 @@ turn is `traces/success-taipei-turn-log.json`.
 exists:
 
 ```text
-Make Day 2 slower and replace Din Tai Fung with a local noodle place.
+Remove all attractions from Day 2.
 ```
 
-**Expected:** an **edit**, not a full replan. The editor returns a typed
-`proposal` that the traveller accepts or rejects; locked stops and the rest of the
-plan survive. Only a trip-shape change triggers a rebuild.
+**Expected:** an **edit proposal**, not a silent change. The editor returns a typed
+proposal that deletes the Day 2 attraction stops; the traveller is asked to
+**accept or reject the deletion**, and nothing changes until the tick is accepted.
+Meals, the hotel and the rest of the plan stay unless the proposal says otherwise;
+an ambiguous “attractions” should trigger a question before deleting.
 
 **Evidence:** `docs/eval-artifacts/v5-model-study/editor-direct-latest.json` and
 [`TRACES.md`](TRACES.md).

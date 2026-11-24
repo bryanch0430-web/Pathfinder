@@ -28,13 +28,14 @@ After the ordinary plan exists, send the follow-up in
 [`changed-input.txt`](changed-input.txt):
 
 ```text
-Make Day 2 slower and replace Din Tai Fung with a local noodle place.
+Remove all attractions from Day 2.
 ```
 
-Expected: an **edit**, not a full replan. The editor returns a typed proposal
-(`proposal` event) that the traveller accepts or rejects; locked items and the
-rest of the plan survive. If the change alters the trip shape (dates, party,
-destination, stops), the orchestrator rebuilds instead.
+Expected: an **edit proposal**, not a silent change. The editor returns a typed
+proposal that deletes the Day 2 attraction stops; the traveller is asked to
+**accept or reject the deletion**, and nothing changes until the tick is accepted.
+Meals, the hotel and the rest of the plan stay unless the proposal says otherwise.
+If “attractions” is ambiguous, the assistant should ask before deleting.
 
 Evidence: the editor rows in
 [`editor-direct-latest.json`](../../docs/eval-artifacts/v5-model-study/editor-direct-latest.json)
