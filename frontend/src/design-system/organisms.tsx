@@ -4299,6 +4299,7 @@ export function EvalDashboard({
         description={t("eval.body")}
         action={
           <div className="pf-row">
+            <Badge tone="warning">{t("eval.demoBadge")}</Badge>
             {metricRun ? <Button variant="secondary" size="sm" iconLeft="download" onClick={() => onExport?.(metricRun.id)}>{t("eval.export")}</Button> : null}
             <Badge tone={metricRun || runs.length ? "success" : "warning"} dot>
               {metricRun ? t("eval.runComplete") : runs.length ? t(runs.length === 1 ? "eval.runsOne" : "eval.runs", { count: runs.length }) : t("eval.noRuns")}
@@ -4331,7 +4332,14 @@ export function EvalDashboard({
             <span className="pf-field__label">{t("eval.tag")}</span>
             <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="router-tune-v2" />
           </label>
-          <Button variant="primary" iconLeft="play" loading={running} onClick={() => onRun(dataset, tag)}>
+          <Button
+            variant="primary"
+            iconLeft="play"
+            loading={running}
+            disabled
+            title={t("eval.experimentBody")}
+            onClick={() => onRun(dataset, tag)}
+          >
             {t("eval.run")}
           </Button>
         </div>

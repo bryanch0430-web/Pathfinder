@@ -98,6 +98,20 @@ def _draft_route(context: TripContext, geo_by_name: dict[str, GeoPoint]) -> dict
     return {"from": origin, "to": destination}
 
 
+TOKEN_FLOOR = 8000
+TOKEN_CEILING = 16000
+
+
+def plan_token_cap(days: int | None) -> int:
+    """The answer budget grows with the trip, with room for a verbose short plan.
+
+    A two-day plan can write near 5,800 tokens with notes; the old formula gave
+    it exactly 5,800, so a long answer hit the cap, failed validation, and cost
+    a second full generation.
+    """
+    return max(TOKEN_FLOOR, min(TOKEN_CEILING, 3000 + 1500 * max(1, int(days or 4))))
+
+
 async def compose(
     *,
     llm: LLMClient,
@@ -142,9 +156,7 @@ async def compose(
     }
     system = skill("plan", skill_overrides)
     user = json.dumps(payload, ensure_ascii=False, indent=1)
-    # A seven-day answer is roughly twice a four-day one. A fixed cap truncated
-    # it, the truncation failed validation, and the retry repeated the same cut.
-    token_cap = min(16000, 4000 + 900 * max(2, int(context.days or 4)))
+    token_cap = plan_token_cap(context.days)
     draft: PlanDraft | None = None
     if emit is not None:
         # The day sections appear while the composer writes them. A failure

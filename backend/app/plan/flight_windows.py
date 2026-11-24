@@ -51,34 +51,36 @@ def flight_windows(plan: TripPlan) -> dict[date, tuple[int | None, int | None, l
 
     A tuple is ``(earliest_start_minutes, latest_end_minutes, notes)``. ``None``
     means that side is not constrained by a flight.
+
+    Only the endpoints at the destination matter: the outbound **arrival** opens
+    the first day, and the return **departure** closes the last one. The outbound
+    departure (from home) and the return arrival (back home) say nothing about
+    what can be done in the destination city, and applying them made an evening
+    arrival impossible to schedule.
     """
     windows: dict[date, tuple[int | None, int | None, list[str]]] = {}
     for ticket in _flight_tickets(plan):
         legs = (
-            (ticket.depart_at, ticket.arrive_at, "outbound"),
-            (ticket.return_depart_at, ticket.return_arrive_at, "return"),
+            (_moment(ticket.arrive_at), "outbound arrival", ARRIVAL_BUFFER_MINUTES, True),
+            (_moment(ticket.return_depart_at), "return departure", DEPARTURE_BUFFER_MINUTES, False),
         )
-        for depart_raw, arrive_raw, label in legs:
-            depart = _moment(depart_raw)
-            arrive = _moment(arrive_raw)
-            if arrive is not None:
-                day = arrive.date()
-                start = _clock_minutes(arrive.strftime("%H:%M"))
-                if start is not None:
-                    start += ARRIVAL_BUFFER_MINUTES
-                old_start, old_end, notes = windows.get(day, (None, None, []))
-                if start is not None and (old_start is None or start > old_start):
+        for moment, label, buffer, opens in legs:
+            if moment is None:
+                continue
+            day = moment.date()
+            clock = _clock_minutes(moment.strftime("%H:%M"))
+            if clock is None:
+                continue
+            old_start, old_end, notes = windows.get(day, (None, None, []))
+            if opens:
+                start = clock + buffer
+                if old_start is None or start > old_start:
                     old_start = start
-                windows[day] = (old_start, old_end, [*notes, f"{label} arrival"])
-            if depart is not None:
-                day = depart.date()
-                end = _clock_minutes(depart.strftime("%H:%M"))
-                if end is not None:
-                    end -= DEPARTURE_BUFFER_MINUTES
-                old_start, old_end, notes = windows.get(day, (None, None, []))
-                if end is not None and (old_end is None or end < old_end):
+            else:
+                end = clock - buffer
+                if old_end is None or end < old_end:
                     old_end = end
-                windows[day] = (old_start, old_end, [*notes, f"{label} departure"])
+            windows[day] = (old_start, old_end, [*notes, label])
     return windows
 
 
