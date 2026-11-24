@@ -4,6 +4,19 @@ Running notes for **Pathfinder v5**. The React UI carries the current workspace
 design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
 the core is the rebuilt backend at `backend/`.
 
+## Reload-resume merge — 2026-11-24
+
+- Merged `59e0e4b` and `573080b`: a turn now belongs to the trip, not the
+  browser connection. A reload keeps it running, a page opened mid-turn replays
+  it and follows live, and Stop calls the new cancel endpoint.
+- Fixed a race in that feature: the running feed and Stop handle were registered
+  before the seat claim. A second request for a busy trip could overwrite them,
+  so a reload could no longer follow the real turn and Stop could miss it. They
+  are now registered only by the claim owner.
+- Verified live: closed the stream after 2 events, followed the same turn from
+  the start, received 36 events through `done`, and found the saved plan and two
+  messages. Seat-release tests and the API suite pass (31 tests).
+
 ## Canonical model-purpose names — 2026-11-24
 
 - Backend purpose names now match Settings: **analyst, planner, editor,
