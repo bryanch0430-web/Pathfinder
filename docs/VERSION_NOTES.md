@@ -3,6 +3,20 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.10 — 2026-11-24 15:50 HKT
+
+- **No empty days.** The plan skill now says every date needs a scheduled stop: the
+  arrival day starts at least 90 minutes after landing, the departure day ends at
+  least 120 minutes before the flight. The Hong Kong 3-day first attempt used to
+  leave Day 1 empty, get rejected, and pay for a second full plan.
+- **Final two/three/four-day timings** (one plan generation each):
+  Hong Kong 3-day **36.1 s** (29.3 s plan), Kyoto 4-day **43.4 s** (34.6 s),
+  Taipei 2-day **27.4 s** (21.9 s).
+- Replaying the old flight-window rule on those plans finds **4, 6 and 8** false
+  boundary problems; the current rule finds **0**.
+- Plan generation still dominates the turn (~22–35 s); understanding is ~7 s and
+  the parallel evidence gather ~1 s.
+
 ## 5.2.9 — 2026-11-24 15:35 HKT
 
 - **The flight window no longer rejects a valid arrival evening.** The check
