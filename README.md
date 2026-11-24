@@ -1,9 +1,10 @@
 # Pathfinder v5
 
-A conversational, state-aware trip planner. **The Pathfinder interface, with a new,
-LLM-first core.** The React app in `frontend/` is carried over with small settings
-changes; the backend behind `/api` is rebuilt around a typed turn analyst, sourced
-evidence, bounded repair and versioned plans.
+A conversational, state-aware trip planner. **The Pathfinder interface, with a
+rebuilt LLM-first core.** The React app in `frontend/` carries the latest workspace
+design — map stage, day panel and draggable day rail, compact toolbar, and the
+centered adaptive trip-details dialog — while the backend behind `/api` is rebuilt
+around a typed turn analyst, sourced evidence, bounded repair and versioned plans.
 
 **Latest:** the submitted patch is **v5.2.11** (tag `submission-v5.2.11`); the
 version table below records the earlier milestones. The Models tab configures a
@@ -36,7 +37,7 @@ from `frontend/dist` and the `/api` routes from the same process.
 | Dependency versions | [Dependency versions](#dependency-versions) and [docs/submission/REFERENCES.md](docs/submission/REFERENCES.md) |
 | Model settings | [Model settings](#model-settings); defaults in `backend/app/config.py`, `backend/app/core/llm.py`; overrides in `.env.example` |
 | Data and service requirements, paid access, hardware | [Data, services and hardware](#data-services-and-hardware) |
-| Sample inputs: ordinary, changed, failure | [docs/submission/README.md](docs/submission/README.md), inputs in `docs/submission/*.txt` |
+| Sample inputs: ordinary, changed, failure | [docs/submission/CODE_AND_CHECKS.md](docs/submission/CODE_AND_CHECKS.md) (one of each), inputs in `docs/submission/*.txt` |
 | Evaluation scripts and results | [Evaluation](#evaluation), `backend/scripts/run_eval.py`, [docs/EVALUATION.md](docs/EVALUATION.md), [docs/eval-artifacts/v5-model-study/RESULTS.md](docs/eval-artifacts/v5-model-study/RESULTS.md) |
 | Prompts and configuration | `backend/app/skills/*.md`, `backend/app/core/prompts.py`, `backend/app/config.py`, `.env.example` |
 | Success/failure traces | [docs/submission/TRACES.md](docs/submission/TRACES.md), `docs/submission/traces/success-taipei-turn-log.json`, `docs/eval-artifacts/v5-model-study/TRACE_INDEX.md` |
@@ -341,11 +342,22 @@ the plan.
 
 Chat currency statements are validated ISO codes, update the trip through a `context` event, and drive searchable FX widgets. See [docs/CURRENCY.md](docs/CURRENCY.md).
 
-## Image import
+## Image import (demo only)
 
-A day-by-day itinerary image is parsed into `ImportedItinerary` and each named stop is sourced before the existing builder validates it. Ordinary planning is unchanged; see [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).
+**This is a demonstration feature, not a production import pipeline.** A
+day-by-day itinerary image is parsed into `ImportedItinerary`, and each named stop
+is sourced before the existing builder validates it. Accuracy depends on image
+quality and the configured vision/model provider; there is no accuracy guarantee,
+and a failed parse falls back to ordinary planning or asks for a clearer image.
+See [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md).
 
 ## Evaluation
+
+> **Demo/admin view.** The Evaluation and Error-analysis tabs are demonstrations
+> over a curated set of frozen suites and stored runs. They are not a production
+> quality-assurance system, not an official benchmark, and not evidence of general
+> model quality. The Run button is disabled so a demo cannot start a long,
+> credit-spending live suite; use the CLI with `EVAL_LIMIT` for experiments.
 
 Part-model evidence (v5, 23 Nov 2026): [TEST_PLAN](docs/eval-artifacts/v5-model-study/TEST_PLAN.md) · [RESULTS](docs/eval-artifacts/v5-model-study/RESULTS.md) · [decision record](docs/eval-artifacts/v5-model-study/PART_MODEL_DECISIONS.md) · [report evidence](docs/eval-artifacts/v5-model-study/REPORT_EVIDENCE.md) · workbook `v5_model_study.xlsx` / `.xls`.
 
@@ -465,6 +477,21 @@ including licences and dependency versions, is
   [docs/submission/AI_ASSISTANCE.md](docs/submission/AI_ASSISTANCE.md). The author
   reviewed and verified all submitted work and remains responsible for it.
 
+## Mocked and demo-only functions
+
+The following surfaces are deliberately mocked or limited for this submission.
+They are labelled in the UI where they appear and must not be read as production
+capabilities:
+
+| Surface | Status |
+|---|---|
+| **Image import** | Demo only. Depends on the vision/model provider and image quality; no accuracy guarantee; a failed parse falls back to ordinary planning. |
+| **Evaluation tab** | Demo/admin harness over frozen suites and stored runs. Run is disabled; scores are deterministic checks, not a production benchmark. |
+| **Error analysis tab** | Demo view over stored evaluation runs and case scans. It is not an automated QA or incident system; empty without prior runs. |
+| **Bulk test lists** | Reference only. The large TravelPlanner/regional sets were executed offline earlier; they are not started from the page and are not the official benchmark score. |
+| **Accounts and billing** | Local mock-ups. No real sign-up, payment, email or subscription is created. |
+| **Sandbox evidence** | Curated 12-city corpus replacing paid providers; marked `data_status: stale`. Model calls still use the configured provider. |
+
 ## Known limits
 
 - Live evidence needs provider keys; without them the app falls back to the
@@ -477,3 +504,14 @@ including licences and dependency versions, is
 - BYOK keys are stored in the local SQLite file and masked in every response. This
   is a single-user local app; do not expose it publicly without adding secret
   storage and HTTPS.
+- **Non-English input is only tested at a high level.** The interface is localised
+  (English, 简体, 繁體), but understanding, planning and evaluation were not
+  exhaustively tested in other languages. Non-English requests can be misread; this
+  is not a main function of the submitted system.
+- **Multi-city planning and extremely long days are not the main focus.** They are
+  supported at a basic level, but the turn budget (`TURN_DEADLINE_SECONDS`, default
+  300 s), pre-plan budget and per-answer token cap can end them in a timeout,
+  partial plan or fallback. Prefer single-city trips with a normal day length.
+- **Image import and the evaluation/error-analysis views are demo-only** (see
+  [Mocked and demo-only functions](#mocked-and-demo-only-functions)). They are not
+  production OCR, QA or benchmark infrastructure.

@@ -3,7 +3,9 @@
 This folder holds the three inputs the submission asks for (an ordinary task, a
 changed request, a failure case), the trace evidence, and the external-reference
 record. **Submitted version: v5.2.11**, tag `submission-v5.2.11`, branch
-`pathfinder_v5`. The full checklist is in the root [README](../../README.md#submission-package).
+`pathfinder_v5`. For the compact requirement-by-requirement index, use
+[`CODE_AND_CHECKS.md`](CODE_AND_CHECKS.md); the full checklist is in the root
+[README](../../README.md#submission-package).
 
 ## 1. Ordinary task
 
@@ -81,10 +83,16 @@ Per-case success and failure rows with trace ids:
 See [`TRACES.md`](TRACES.md) for the success turn log, the failure trace record,
 and how a trace id resolves to the local database.
 
-## 6. What is mocked or unavailable
+## 6. Mocked, demo-only and out-of-focus functions
 
 - **No credentials are in this folder or the repository.** Configuration is in
   `.env` (ignored); the template is `.env.example`.
+- **Image import is demo-only.** It depends on the vision/model provider and image
+  quality; there is no accuracy guarantee, and a failed parse falls back to
+  ordinary planning or asks for a clearer image.
+- **Evaluation and Error analysis are demo/admin views**, not production QA or an
+  official benchmark. The Evaluation tab's Run button is disabled; scores are
+  deterministic checks. Bulk lists are reference-only.
 - **Sandbox mode** (`PATHFINDER_SANDBOX=1`) replaces Google Places, flight and
   route providers with the curated 12-city corpus. Model calls remain live and
   need a writer key; without one the app explains that the model is missing.
@@ -93,3 +101,9 @@ and how a trace id resolves to the local database.
 - **Bulk reference sets** (TravelPlanner 1,225; regional 1,000-query catalogues)
   were executed offline before submission and are listed in the UI for reference
   only. They are not started by the Evaluation page.
+- **Non-English input is only tested at a high level.** The UI is localised, but
+  understanding/planning/evaluation were not exhaustive across languages;
+  unexpected results are possible and this is not a main function.
+- **Multi-city and extremely long-day planning are not the main focus.** They are
+  supported at a basic level and can time out or return a partial/fallback plan
+  because of `TURN_DEADLINE_SECONDS`, the pre-plan budget and the answer token cap.
