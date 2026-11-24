@@ -21,6 +21,8 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.purposes import normalise_purpose_map
+
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PROJECT_DIR = BACKEND_DIR.parent
 
@@ -101,6 +103,18 @@ class Settings(BaseSettings):
     # A second model checks every edit when a key is configured.
     reviewer_reasoning: str = Field(default="low", alias="REVIEWER_REASONING")
     reviewer_timeout_seconds: float = Field(default=25.0, alias="REVIEWER_TIMEOUT_SECONDS")
+
+    @field_validator(
+        "purpose_models",
+        "purpose_temperatures",
+        "purpose_reasoning",
+        "purpose_max_tokens",
+        mode="before",
+    )
+    @classmethod
+    def _purpose_names(cls, value):
+        """Older .env files use understand/plan/edit/verify/translate; accept both."""
+        return normalise_purpose_map(value) if isinstance(value, dict) else value
 
     # --- web search -----------------------------------------------------
     web_search_enabled: bool = Field(default=True, alias="WEB_SEARCH_ENABLED")

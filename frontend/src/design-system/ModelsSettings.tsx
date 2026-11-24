@@ -33,14 +33,14 @@ type OrchestratorConfig = {
 };
 
 const PARTS: { key: string; label: string; hint: string }[] = [
-  { key: "understand", label: "Analyst", hint: "Reads the message, routes the turn and extracts the intent and slots." },
-  { key: "plan", label: "Planner", hint: "Chooses the stops, order and timings for a new plan." },
-  { key: "edit", label: "Editor", hint: "Turns a change request into typed edit operations." },
-  { key: "verify", label: "Verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
+  { key: "analyst", label: "Analyst", hint: "Reads the message, routes the turn and extracts the intent and slots." },
+  { key: "planner", label: "Planner", hint: "Chooses the stops, order and timings for a new plan." },
+  { key: "editor", label: "Editor", hint: "Turns a change request into typed edit operations." },
+  { key: "verifier", label: "Verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
   { key: "ask", label: "Ask", hint: "Answers a question about the current plan." },
   { key: "memory", label: "Memory", hint: "Extracts durable preferences after a finalised trip." },
   { key: "intake", label: "Intake", hint: "Reads pasted text, documents and images into trip details." },
-  { key: "translate", label: "Translation", hint: "Writes the plan in the traveller’s interface language." },
+  { key: "translation", label: "Translation", hint: "Writes the plan in the traveller’s interface language." },
   { key: "search_query", label: "Search query", hint: "Turns a gap in the plan into a short web-search query." },
 ];
 
@@ -100,7 +100,7 @@ export function ModelsSettings({
                   <Input
                     style={{ flex: "1 1 240px" }}
                     value={purposes[part.key] ?? ""}
-                    placeholder={part.key === "verify" && models.verifier?.model ? models.verifier.model : "Default model"}
+                    placeholder={part.key === "verifier" && models.verifier?.model ? models.verifier.model : "Default model"}
                     disabled={!canEdit}
                     onChange={(event) => setPurposes((current) => ({ ...current, [part.key]: event.target.value }))}
                   />

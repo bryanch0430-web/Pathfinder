@@ -82,7 +82,7 @@ async def understand(
     system = skill("understand", skill_overrides)
     try:
         parsed = await llm.json(
-            purpose="understand",
+            purpose="analyst",
             system=system,
             user=user_prompt(user_payload, {"plan": plan_outline(plan)} if plan is not None else None),
             schema=ParsedIntent,

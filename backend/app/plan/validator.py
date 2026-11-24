@@ -233,7 +233,7 @@ async def audit_constraints(
     }
     try:
         result = await llm.json(
-            purpose="verify",
+            purpose="verifier",
             system=skill("verify", skill_overrides),
             user=json.dumps(payload, ensure_ascii=False, indent=1),
             schema=VerifyResult,

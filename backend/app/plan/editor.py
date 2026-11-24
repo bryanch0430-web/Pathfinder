@@ -221,7 +221,7 @@ async def _ask(
         ],
     }
     return await llm.json(
-        purpose="edit",
+        purpose="editor",
         system=skill("edit", overrides),
         user=user_prompt(payload, outside),
         schema=EditDraft,

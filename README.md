@@ -289,9 +289,10 @@ writer/verifier model at runtime.
 | Plan answer budget | floor 8,000 tokens (4 days 9,000; 7 days 13,500; ceiling 16,000) | `PURPOSE_MAX_TOKENS` for the other parts; `MAX_REPAIRS` (default 2) |
 | Turn budget | 300 s (60–900 allowed) | `TURN_DEADLINE_SECONDS`, `PREPLAN_BUDGET_SECONDS` |
 
-The per-purpose caps are `plan 8000`, `edit 3000`, `understand 3000`, `intake
-6000`, `translate 4000`, `verify 1500`, `ask 1400`, `memory 700`, `search_query
-200`. No judge model exists; evaluation scores are deterministic checks.
+The per-purpose caps are `planner 8000` (grows to 16,000 with trip length),
+`editor 3000`, `analyst 3000`, `intake 6000`, `translation 4000`, `verifier
+1500`, `ask 1400`, `memory 700`, `search_query 200`. No judge model exists;
+evaluation scores are deterministic checks.
 
 ### Data, services and hardware
 

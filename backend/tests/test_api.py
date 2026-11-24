@@ -143,12 +143,12 @@ def test_models_and_orchestrator_roundtrip(tmp_path):
             },
         )
         config = client.get("/api/runtime").json()
-        assert config["models"]["purposes"]["plan"] == "planner-model"
-        assert config["models"]["temperatures"]["plan"] == 0.5
-        assert config["models"]["reasoning_by_purpose"]["verify"] == "high"
-        assert config["models"]["max_tokens_by_purpose"]["plan"] == 9000
-        assert config["models"]["effective_max_tokens"]["plan"] == 9000
-        assert config["models"]["effective_max_tokens"]["understand"] == 3000
+        assert config["models"]["purposes"]["planner"] == "planner-model"
+        assert config["models"]["temperatures"]["planner"] == 0.5
+        assert config["models"]["reasoning_by_purpose"]["verifier"] == "high"
+        assert config["models"]["max_tokens_by_purpose"]["planner"] == 9000
+        assert config["models"]["effective_max_tokens"]["planner"] == 9000
+        assert config["models"]["effective_max_tokens"]["analyst"] == 3000
         assert config["orchestrator"]["mode"] == "jev"
         assert config["orchestrator"]["jev"]["model"] == "jev-test"
         assert config["orchestrator"]["jev"]["url"] == "https://jev.test/systemone"

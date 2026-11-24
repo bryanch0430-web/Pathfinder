@@ -16,6 +16,7 @@ from app.api.views import load_context, load_plan, runtime_config, save_plan, se
 from app.core.currencies import normalise_currency
 from app.core.dates import shift_time
 from app.core.prompts import SKILL_DIR, skill_names
+from app.core.purposes import normalise_purpose_map
 from app.domain.models import ChatRequest, TripPlan, now_iso
 from app.plan.builder import refresh_derived
 
@@ -70,26 +71,29 @@ async def save_runtime(request: Request) -> dict[str, Any]:
     ):
         if key in body and body[key] is not None:
             stored[key] = body[key]
+    for key in ("purpose_models", "purpose_temperatures", "purpose_reasoning", "purpose_max_tokens"):
+        if isinstance(body.get(key), dict):
+            stored[key] = normalise_purpose_map(body[key])
     if isinstance(body.get("purpose_temperatures"), dict):
         clean_temperatures = {}
-        for key, value in body["purpose_temperatures"].items():
+        for key, value in normalise_purpose_map(body["purpose_temperatures"]).items():
             try:
-                clean_temperatures[str(key)] = max(0.0, min(2.0, float(value)))
+                clean_temperatures[key] = max(0.0, min(2.0, float(value)))
             except (TypeError, ValueError):
                 continue
         stored["purpose_temperatures"] = clean_temperatures
     if isinstance(body.get("purpose_max_tokens"), dict):
         clean_tokens = {}
-        for key, value in body["purpose_max_tokens"].items():
+        for key, value in normalise_purpose_map(body["purpose_max_tokens"]).items():
             try:
-                clean_tokens[str(key)] = max(16, min(32000, int(value)))
+                clean_tokens[key] = max(16, min(32000, int(value)))
             except (TypeError, ValueError):
                 continue
         stored["purpose_max_tokens"] = clean_tokens
     if isinstance(body.get("purpose_reasoning"), dict):
         stored["purpose_reasoning"] = {
-            str(key): str(value).strip().lower()
-            for key, value in body["purpose_reasoning"].items()
+            key: str(value).strip().lower()
+            for key, value in normalise_purpose_map(body["purpose_reasoning"]).items()
             if str(value).strip().lower() in {"none", "low", "medium", "high"}
         }
     if isinstance(body.get("orchestrator"), dict):
