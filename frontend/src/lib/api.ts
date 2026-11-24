@@ -612,6 +612,11 @@ export function clearMessages(sessionId: string): Promise<{ deleted: number }> {
   return request(`/api/journeys/${sessionId}/turns`, { method: "DELETE" });
 }
 
+/** Stop pressed: ends the trip's running turn. A page reload must not call this; the turn finishes on its own. */
+export function cancelTurn(sessionId: string): Promise<{ cancelled: boolean }> {
+  return request(`/api/turn/${sessionId}/cancel`, { method: "POST" });
+}
+
 export function discardSession(sessionId: string): Promise<{ deleted: Record<string, number> }> {
   return request(`/api/journeys/${sessionId}`, { method: "DELETE" });
 }

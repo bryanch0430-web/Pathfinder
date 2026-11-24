@@ -8,6 +8,7 @@ import {
   setChoiceLock,
   clearMessages,
   createSession,
+  cancelTurn,
   discardSession,
   getLlmProviders,
   getHotelRooms,
@@ -374,6 +375,8 @@ export function usePathfinder(locale: string): PathfinderHook {
   );
   const [busy, setBusy] = useState(false);
   const [plannerBusy, setPlannerBusy] = useState(false);
+  const plannerBusyRef = useRef(false);
+  plannerBusyRef.current = plannerBusy;
   const [plannerNote, setPlannerNote] = useState("");
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [progress, setProgress] = useState(0);
@@ -855,14 +858,18 @@ export function usePathfinder(locale: string): PathfinderHook {
       if (shownRef.current.busy) return;
       return getHeld(sessionId).then((data) => {
         if (sessionRef.current !== sessionId) return;
+        // A turn that kept running through a reload has now finished: show its answer.
+        const finished = plannerBusyRef.current && !data.planner_busy;
+        plannerBusyRef.current = Boolean(data.planner_busy);
         setPlannerBusy(Boolean(data.planner_busy));
         setPlannerNote(data.planner_note || "");
+        if (finished) void refresh();
         if (!data.held) return;
         setHeld(true);
         setAgentName(data.agent_name || "");
         void refresh();
       });
-    }, 5000);
+    }, 2500);
   }, [held, sessionId, refresh]);
 
   const setPlanLocale = useCallback(async (value: PlanLocale) => {
@@ -1527,6 +1534,9 @@ export function usePathfinder(locale: string): PathfinderHook {
   }, [clearBanner, failureOfCall, showBanner]);
 
   const abort = useCallback(() => {
+    // Stop is the only thing that ends the turn on the server; a reload or a closed tab leaves it running.
+    const stopped = sessionRef.current;
+    if (stopped && abortRef.current) void cancelTurn(stopped).catch(() => undefined);
     turnGen.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;

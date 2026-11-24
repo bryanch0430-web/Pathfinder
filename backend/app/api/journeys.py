@@ -691,6 +691,9 @@ async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any
 async def delete_journey(session_id: str, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
+    from app.api.turn import stop_turn
+
+    stop_turn(session_id)  # a turn still writing would otherwise recreate rows for a deleted trip
     return {"deleted": await c.store.delete_session(session_id)}
 
 
@@ -698,6 +701,9 @@ async def delete_journey(session_id: str, request: Request) -> dict[str, Any]:
 async def clear_turns(session_id: str, request: Request) -> dict[str, Any]:
     c = _c(request)
     await require_session(request, session_id)
+    from app.api.turn import stop_turn
+
+    stop_turn(session_id)
     return {"deleted": await c.store.clear_messages(session_id)}
 
 

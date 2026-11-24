@@ -160,6 +160,10 @@ async def effective_settings(c: Container):
     return c.settings.model_copy(update=update)
 
 
+# The running turn of each trip, so Stop can end it. Held here so a turn outlives its connection.
+_RUNNING: dict[str, asyncio.Future] = {}
+
+
 @router.post("/api/turn/stream")
 async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
     c = container(request)
@@ -199,33 +203,41 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
     deps = Dependencies(settings=settings, store=c.store)
     turn_id = uuid.uuid4().hex
 
-    async def stream():
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def work() -> None:
+        # The turn belongs to the trip, not to the browser connection: a reload drops the
+        # connection, and the turn still finishes and saves its answer.
         claimed = False
+        claim: asyncio.Future | None = None
         # A live turn refreshes its seat on every keepalive (15 s). A seat that
         # has not been touched for 60 s belongs to a turn that died, so it is
         # taken over instead of blocking this trip forever.
         stale_after = 60.0
-        for _ in range(40):  # wait for an earlier turn on the same trip, up to ~20 s
-            claimed = await c.store.claim_seat(session_id, turn_id, stale_after=stale_after)
-            if claimed:
-                break
-            await asyncio.sleep(0.5)
-        if not claimed:
-            yield sse_frame(
-                "error",
-                {"code": "planner_busy", "message": "The planner is still working on the previous message. Try again in a moment."},
-            )
-            return
         pending: asyncio.Future | None = None
         iterator = None
-        loop = asyncio.get_running_loop()
-        # This is the execution budget, not a per-model timeout. It is deliberately
-        # generous (default 300 s) so a complex plan can complete; the harness stops
-        # only when the whole turn has spent its budget.
-        budget = turn_budget(deps.settings)
-        deadline = loop.time() + budget
-        timed_out = False
         try:
+            for _ in range(40):  # wait for an earlier turn on the same trip, up to ~20 s
+                claim = asyncio.ensure_future(c.store.claim_seat(session_id, turn_id, stale_after=stale_after))
+                claimed = await asyncio.shield(claim)
+                if claimed:
+                    break
+                await asyncio.sleep(0.5)
+            if not claimed:
+                queue.put_nowait(
+                    sse_frame(
+                        "error",
+                        {"code": "planner_busy", "message": "The planner is still working on the previous message. Try again in a moment."},
+                    )
+                )
+                return
+            loop = asyncio.get_running_loop()
+            # This is the execution budget, not a per-model timeout. It is deliberately
+            # generous (default 300 s) so a complex plan can complete; the harness stops
+            # only when the whole turn has spent its budget.
+            budget = turn_budget(deps.settings)
+            deadline = loop.time() + budget
+            timed_out = False
             events = run_turn(deps, payload, session_id=session_id, user_message=payload.message)
             iterator = events.__aiter__()
             pending = asyncio.ensure_future(iterator.__anext__())
@@ -243,14 +255,14 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     # The pending __anext__ is NOT cancelled for a keepalive: that would
                     # kill the turn while it is still working.
                     await c.store.touch_seat(session_id, turn_id)
-                    yield KEEPALIVE
+                    queue.put_nowait(KEEPALIVE)
                     continue
                 try:
                     event = pending.result()
                 except StopAsyncIteration:
                     break
                 pending = asyncio.ensure_future(iterator.__anext__())
-                yield sse_frame(event.event, event.data)
+                queue.put_nowait(sse_frame(event.event, event.data))
             if timed_out:
                 # Cancel the work before telling the client; the seat is released in
                 # the finally block, so another turn can start immediately.
@@ -264,28 +276,57 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                         await iterator.aclose()
                     except Exception:  # noqa: BLE001 - best-effort cleanup
                         pass
-                yield sse_frame(
-                    "error",
-                    {
-                        "code": "turn_timeout",
-                        "message": (
-                            f"This turn reached its {int(budget)}-second execution budget. "
-                            "The plan was stopped; send the request again or raise the budget in Settings."
-                        ),
-                        "detail": "turn_deadline_seconds",
-                    },
+                queue.put_nowait(
+                    sse_frame(
+                        "error",
+                        {
+                            "code": "turn_timeout",
+                            "message": (
+                                f"This turn reached its {int(budget)}-second execution budget. "
+                                "The plan was stopped; send the request again or raise the budget in Settings."
+                            ),
+                            "detail": "turn_deadline_seconds",
+                        },
+                    )
                 )
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
-            yield sse_frame(
-                "error",
-                {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": str(exc)[:300]},
+            queue.put_nowait(
+                sse_frame(
+                    "error",
+                    {"code": "stream_error", "message": "The stream ended unexpectedly.", "detail": str(exc)[:300]},
+                )
             )
         finally:
             if pending is not None and not pending.done():
                 pending.cancel()
-            await c.store.release_seat(session_id, turn_id)
+            if claim is not None and not claimed:
+                # A claim that was cut short may still have landed in its worker thread.
+                try:
+                    claimed = bool(await claim)
+                except BaseException:  # noqa: BLE001
+                    pass
+            if claimed:
+                await c.store.release_seat(session_id, turn_id)
+            queue.put_nowait(None)
+
+    task = asyncio.ensure_future(work())
+    _RUNNING[session_id] = task
+
+    def forget(done: asyncio.Future) -> None:
+        if _RUNNING.get(session_id) is done:
+            _RUNNING.pop(session_id, None)
+
+    task.add_done_callback(forget)
+
+    async def stream():
+        # Leaving early (a reload) only stops listening; the turn keeps going.
+        while True:
+            frame = await queue.get()
+            if frame is None:
+                return
+            yield frame
 
     return StreamingResponse(
         stream(),
@@ -296,6 +337,27 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             "X-Accel-Buffering": "no",
         },
     )
+
+
+def stop_turn(session_id: str) -> bool:
+    """End the trip's running turn, if any. Also used when the trip or its chat is deleted."""
+    task = _RUNNING.get(session_id)
+    if task is None or task.done():
+        return False
+    task.cancel()
+    return True
+
+
+@router.post("/api/turn/{session_id}/cancel")
+async def cancel_turn(session_id: str, request: Request) -> dict[str, bool]:
+    """The traveller pressed Stop: end the running turn. A reload does not call this."""
+    c = container(request)
+    session = await c.store.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="That trip no longer exists.")
+    if not await _may_chat(request, c.store, session):
+        raise HTTPException(status_code=403, detail="That trip belongs to another traveller.")
+    return {"cancelled": stop_turn(session_id)}
 
 
 async def _may_chat(request: Request, store: Store, session: dict) -> bool:
