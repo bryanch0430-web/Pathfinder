@@ -3,6 +3,18 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.2 — 2026-11-24 14:35 HKT
+
+- **Machine labels read as words.** Data-source badges and the map's stop type go
+  through `readableLabel`: `place_corpus` shows as “Place corpus”, `attraction`
+  as “Attraction”. The helper now leaves human text alone, so “Free Wi-Fi”,
+  “5-star” and “step-free” are no longer rewritten (“Free wi fi”).
+- **Guide videos play again.** The 5.2.1 hardening set
+  `Referrer-Policy: same-origin`, which stripped the referrer from the YouTube
+  iframe and made the player fail with error 153. The policy is now
+  `strict-origin-when-cross-origin`, the iframe declares the same policy, and
+  “Open on” names the source properly (“YouTube”).
+
 ## 5.2.1 — 2026-11-24 14:40 HKT
 
 A defensive pass over the demo; behaviour is unchanged for normal use.

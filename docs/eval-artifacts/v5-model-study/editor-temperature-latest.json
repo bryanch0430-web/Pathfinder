@@ -1,0 +1,136 @@
+{
+  "generated_at": "2026-11-23T09:24:10.004663+00:00",
+  "model": "claude-sonnet-5.5",
+  "arms": {
+    "temperature_0.0": {
+      "temperature": 0.0,
+      "correct": 5,
+      "n": 8,
+      "p50_latency_ms": 4675.1,
+      "mean_tokens": 9306.2,
+      "rows": [
+        {
+          "id": "ed01",
+          "passed": true,
+          "latency_ms": 5371.4,
+          "tokens": 3711,
+          "error": ""
+        },
+        {
+          "id": "ed02",
+          "passed": true,
+          "latency_ms": 23262.7,
+          "tokens": 58857,
+          "error": ""
+        },
+        {
+          "id": "ed03",
+          "passed": true,
+          "latency_ms": 9054.7,
+          "tokens": 4437,
+          "error": ""
+        },
+        {
+          "id": "ed04",
+          "passed": true,
+          "latency_ms": 6335.0,
+          "tokens": 3548,
+          "error": ""
+        },
+        {
+          "id": "ed05",
+          "passed": true,
+          "latency_ms": 3978.9,
+          "tokens": 3897,
+          "error": ""
+        },
+        {
+          "id": "ed06",
+          "passed": false,
+          "latency_ms": 2062.8,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed07",
+          "passed": false,
+          "latency_ms": 2062.1,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed08",
+          "passed": false,
+          "latency_ms": 1951.2,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        }
+      ]
+    },
+    "temperature_0.2": {
+      "temperature": 0.2,
+      "correct": 2,
+      "n": 8,
+      "p50_latency_ms": 1974.3,
+      "mean_tokens": 7526.5,
+      "rows": [
+        {
+          "id": "ed01",
+          "passed": true,
+          "latency_ms": 8748.4,
+          "tokens": 3713,
+          "error": ""
+        },
+        {
+          "id": "ed02",
+          "passed": true,
+          "latency_ms": 26965.0,
+          "tokens": 56499,
+          "error": ""
+        },
+        {
+          "id": "ed03",
+          "passed": false,
+          "latency_ms": 2239.2,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed04",
+          "passed": false,
+          "latency_ms": 1994.6,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed05",
+          "passed": false,
+          "latency_ms": 1842.3,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed06",
+          "passed": false,
+          "latency_ms": 1843.3,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed07",
+          "passed": false,
+          "latency_ms": 1954.1,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        },
+        {
+          "id": "ed08",
+          "passed": false,
+          "latency_ms": 1823.4,
+          "tokens": 0,
+          "error": "model request failed (402): {\"error\": {\"message\": \"You've used up your points! Visit https://poe.com/api/keys to get more.\", \"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        }
+      ]
+    }
+  }
+}

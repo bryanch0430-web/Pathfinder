@@ -1,18 +1,17 @@
 {
-  "generated_at": "2026-11-23T12:46:43.284897+00:00",
+  "generated_at": "2026-11-23T14:15:43.544990+00:00",
   "suite": "memory",
-  "model": "claude-sonnet-5-5",
-  "correct": 6,
+  "model": "deepseek-flash",
+  "correct": 7,
   "n": 8,
-  "mean_recall": 0.9167,
+  "mean_recall": 0.9286,
   "rows": [
     {
       "id": "m01",
       "preferences": [
-        "Prefers trips built around temples and gardens.",
-        "Likes a slow, unhurried pace rather than a packed schedule.",
-        "Wants a long, relaxed lunch built into the day.",
-        "Dislikes early starts; prefers days that begin later."
+        "I love temples and gardens.",
+        "I prefer a slow pace with a long lunch.",
+        "No early starts, please."
       ],
       "gold": [
         "temples/gardens",
@@ -23,18 +22,20 @@
       "hits": [
         "temples/gardens",
         "slow pace",
-        "long lunch"
+        "long lunch",
+        "no early starts"
       ],
-      "recall": 0.75,
+      "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 725,
+      "tokens": 631,
       "error": ""
     },
     {
       "id": "m02",
       "preferences": [
-        "Prefers vegetarian food and needs vegetarian-friendly restaurants.",
-        "Enjoys markets and local food."
+        "I am vegetarian and need vegetarian restaurant options.",
+        "I like markets.",
+        "I like local food."
       ],
       "gold": [
         "vegetarian",
@@ -46,16 +47,14 @@
       ],
       "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 702,
+      "tokens": 579,
       "error": ""
     },
     {
       "id": "m03",
       "preferences": [
         "Prefers luxury hotels with a harbour view.",
-        "Budget is not the main concern when choosing accommodation.",
-        "Enjoys harbour scenery and high viewpoints.",
-        "Happiest with a short itinerary of iconic waterfront sights."
+        "Is comfortable spending more for high-end stays."
       ],
       "gold": [
         "luxury hotel",
@@ -67,35 +66,33 @@
       ],
       "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 1049,
+      "tokens": 659,
       "error": ""
     },
     {
       "id": "m04",
       "preferences": [
-        "Travels with two young children, so family-friendly attractions and pacing matter.",
-        "Uses a stroller, so step-free access is a hard requirement.",
-        "Prefers attractions and transport that are stroller-friendly and easy to navigate.",
-        "Enjoys family-oriented sightseeing and theme parks."
+        "Needs step-free access and stroller-friendly routes.",
+        "Prefers family-friendly attractions suitable for young children."
       ],
       "gold": [
         "travels with children",
         "step-free access"
       ],
       "hits": [
-        "travels with children",
         "step-free access"
       ],
-      "recall": 1.0,
+      "recall": 0.5,
       "latency_ms": 0,
-      "tokens": 1745,
+      "tokens": 777,
       "error": ""
     },
     {
       "id": "m05",
       "preferences": [
-        "Prefers trips built around museums and food.",
-        "Dislikes temples and similar religious sites; keep them out of itineraries."
+        "Likes museums.",
+        "Likes food.",
+        "Dislikes temples."
       ],
       "gold": [
         "museums",
@@ -109,7 +106,7 @@
       ],
       "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 594,
+      "tokens": 603,
       "error": ""
     },
     {
@@ -119,15 +116,15 @@
       "hits": [],
       "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 705,
+      "tokens": 607,
       "error": ""
     },
     {
       "id": "m07",
       "preferences": [
-        "I enjoy night markets and street food.",
-        "I prefer easy, short hikes over strenuous ones.",
-        "I hate early mornings and prefer late starts."
+        "Enjoys night markets.",
+        "Enjoys easy hikes.",
+        "Dislikes early mornings."
       ],
       "gold": [
         "night markets",
@@ -136,19 +133,22 @@
       ],
       "hits": [
         "night markets",
-        "easy hikes"
+        "easy hikes",
+        "dislikes early mornings"
       ],
-      "recall": 0.667,
+      "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 975,
+      "tokens": 507,
       "error": ""
     },
     {
       "id": "m08",
       "preferences": [
-        "Prefers mid-range hotels over luxury or budget options.",
-        "Wants to eat local food rather than tourist-oriented restaurants.",
-        "Likes getting around on foot and walking between places."
+        "Prefers mid-range hotels.",
+        "Values local food experiences.",
+        "Enjoys walking as part of a trip.",
+        "Likes exploring local markets.",
+        "Appreciates temple visits."
       ],
       "gold": [
         "mid-range hotels",
@@ -162,7 +162,7 @@
       ],
       "recall": 1.0,
       "latency_ms": 0,
-      "tokens": 1062,
+      "tokens": 742,
       "error": ""
     }
   ]

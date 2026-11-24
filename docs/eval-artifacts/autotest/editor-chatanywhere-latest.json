@@ -1,152 +1,152 @@
 {
-  "generated_at": "2026-11-23T12:09:29.486854+00:00",
+  "generated_at": "2026-11-23T14:15:18.897043+00:00",
   "suite": "editor",
   "n": 8,
   "arms": {
-    "claude-sonnet-5-5 @ 0.0": {
-      "model": "claude-sonnet-5-5",
+    "deepseek-flash @ 0.0": {
+      "model": "deepseek-flash",
       "temperature": 0.0,
-      "correct": 7,
+      "correct": 8,
       "n": 8,
-      "p50_latency_ms": 6978.6,
-      "mean_tokens": 4856.8,
+      "p50_latency_ms": 2077.2,
+      "mean_tokens": 2908.9,
       "rows": [
         {
           "id": "ed01",
           "input": "Remove the Ghibli Museum, keep everything else.",
           "passed": true,
-          "latency_ms": 6026.5,
-          "tokens": 3481,
+          "latency_ms": 2485.0,
+          "tokens": 2445,
           "error": ""
         },
         {
           "id": "ed02",
           "input": "Move Senso-ji to day 2 in the morning, keep everything else.",
-          "passed": false,
-          "latency_ms": 34092.9,
-          "tokens": 11541,
-          "error": "the model's edit answer was unusable: the reply was not a JSON object | raw: "
+          "passed": true,
+          "latency_ms": 6306.1,
+          "tokens": 4318,
+          "error": ""
         },
         {
           "id": "ed03",
           "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
           "passed": true,
-          "latency_ms": 8287.6,
-          "tokens": 4059,
+          "latency_ms": 2121.0,
+          "tokens": 2780,
           "error": ""
         },
         {
           "id": "ed04",
           "input": "Remove the M+ Museum, keep everything else.",
           "passed": true,
-          "latency_ms": 6744.2,
-          "tokens": 3698,
+          "latency_ms": 1745.4,
+          "tokens": 2418,
           "error": ""
         },
         {
           "id": "ed05",
           "input": "Remove Nishiki Market, keep everything else.",
           "passed": true,
-          "latency_ms": 4307.3,
-          "tokens": 3587,
+          "latency_ms": 1555.4,
+          "tokens": 2725,
           "error": ""
         },
         {
           "id": "ed06",
           "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
           "passed": true,
-          "latency_ms": 7213.1,
-          "tokens": 4135,
+          "latency_ms": 1574.7,
+          "tokens": 2777,
           "error": ""
         },
         {
           "id": "ed07",
           "input": "Remove Ippudo Kyoto, keep everything else.",
           "passed": true,
-          "latency_ms": 4710.7,
-          "tokens": 3826,
+          "latency_ms": 2033.3,
+          "tokens": 2825,
           "error": ""
         },
         {
           "id": "ed08",
           "input": "Change Fushimi Inari Taisha to 15:00, keep the rest.",
           "passed": true,
-          "latency_ms": 10096.2,
-          "tokens": 4527,
+          "latency_ms": 2844.2,
+          "tokens": 2983,
           "error": ""
         }
       ]
     },
-    "claude-sonnet-5-5 @ 0.2": {
-      "model": "claude-sonnet-5-5",
+    "deepseek-flash @ 0.2": {
+      "model": "deepseek-flash",
       "temperature": 0.2,
       "correct": 8,
       "n": 8,
-      "p50_latency_ms": 7984.9,
-      "mean_tokens": 4894.4,
+      "p50_latency_ms": 1822.2,
+      "mean_tokens": 2917,
       "rows": [
         {
           "id": "ed01",
           "input": "Remove the Ghibli Museum, keep everything else.",
           "passed": true,
-          "latency_ms": 8453.0,
-          "tokens": 3686,
+          "latency_ms": 1578.6,
+          "tokens": 2346,
           "error": ""
         },
         {
           "id": "ed02",
           "input": "Move Senso-ji to day 2 in the morning, keep everything else.",
           "passed": true,
-          "latency_ms": 31685.4,
-          "tokens": 11153,
+          "latency_ms": 7980.4,
+          "tokens": 4552,
           "error": ""
         },
         {
           "id": "ed03",
           "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
           "passed": true,
-          "latency_ms": 7118.7,
-          "tokens": 4048,
+          "latency_ms": 1627.2,
+          "tokens": 2769,
           "error": ""
         },
         {
           "id": "ed04",
           "input": "Remove the M+ Museum, keep everything else.",
           "passed": true,
-          "latency_ms": 4645.3,
-          "tokens": 3397,
+          "latency_ms": 1671.8,
+          "tokens": 2456,
           "error": ""
         },
         {
           "id": "ed05",
           "input": "Remove Nishiki Market, keep everything else.",
           "passed": true,
-          "latency_ms": 5266.8,
-          "tokens": 3798,
+          "latency_ms": 1055.8,
+          "tokens": 2650,
           "error": ""
         },
         {
           "id": "ed06",
           "input": "Change Kiyomizu-dera to 15:00, keep the rest.",
           "passed": true,
-          "latency_ms": 9131.7,
-          "tokens": 4228,
+          "latency_ms": 1972.5,
+          "tokens": 2780,
           "error": ""
         },
         {
           "id": "ed07",
           "input": "Remove Ippudo Kyoto, keep everything else.",
           "passed": true,
-          "latency_ms": 7516.9,
-          "tokens": 4129,
+          "latency_ms": 2408.1,
+          "tokens": 2792,
           "error": ""
         },
         {
           "id": "ed08",
           "input": "Change Fushimi Inari Taisha to 15:00, keep the rest.",
           "passed": true,
-          "latency_ms": 12934.2,
-          "tokens": 4716,
+          "latency_ms": 3591.9,
+          "tokens": 2991,
           "error": ""
         }
       ]

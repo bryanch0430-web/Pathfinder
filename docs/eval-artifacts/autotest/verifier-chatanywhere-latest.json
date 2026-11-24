@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-23T12:03:37.187248+00:00",
+  "generated_at": "2026-11-23T14:15:12.457564+00:00",
   "suite": "verifier",
   "n": 17,
   "arms": {
-    "deepseek-v4.1-flash @ 0.0": {
-      "model": "deepseek-v4.1-flash",
+    "deepseek-flash @ 0.0": {
+      "model": "deepseek-flash",
       "temperature": 0.0,
-      "correct": 14,
+      "correct": 15,
       "n": 17,
-      "accuracy": 0.8235,
+      "accuracy": 0.8824,
       "false_passes": 2,
       "false_alarms": 0,
-      "p50_latency_ms": 3711.1,
+      "p50_latency_ms": 1809.6,
       "rows": [
         {
           "id": "v01",
@@ -22,9 +22,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost total is \"Cost: 88000 JPY (within, budget 100000)\" with cost lines Hotel 44000 JPY and Food and tickets 44000 JPY, i.e. 88000 < 100000.",
-          "latency_ms": 4814.3,
-          "tokens": 1447,
+          "evidence": "The plan's computed total is 88000 JPY against a budget of 100000 JPY, with status 'within'.",
+          "latency_ms": 1913.1,
+          "tokens": 1167,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -40,8 +40,152 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost total is 120000 JPY (Hotel 44000 JPY; Food and tickets 44000 JPY, doubled per person), which exceeds the 100000 JPY budget and is flagged 'over'.",
-          "latency_ms": 3259.6,
+          "evidence": "The plan states 'Cost: 120000 JPY (over, budget 100000)', which exceeds the 100000 JPY limit.",
+          "latency_ms": 1356.8,
+          "tokens": 1251,
+          "error": "",
+          "why": [
+            "Constraint audit: 0 pass, 1 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v03",
+          "constraint": "Include Kiyomizu-dera",
+          "mutation": "none",
+          "gold": "pass",
+          "predicted": "pass",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "Day 2 lists '09:00-11:00 Kiyomizu-dera [attraction] (400 JPY)'.",
+          "latency_ms": 1415.8,
+          "tokens": 1183,
+          "error": "",
+          "why": [
+            "Constraint audit: 1 pass, 0 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v04",
+          "constraint": "Include Kiyomizu-dera",
+          "mutation": "remove_kiyomizu",
+          "gold": "fail",
+          "predicted": "fail",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "Kiyomizu-dera appears only in the opening summary sentence ('Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion'); no day lists it as a stop — Day 1 has Fushimi Inari Taisha and Nishiki Market, and Day 2 (titled 'Higashiyama and Gion') has only '19:00-20:30 Gion Karyo [meal]'.",
+          "latency_ms": 4598.8,
+          "tokens": 1813,
+          "error": "",
+          "why": [
+            "Constraint audit: 0 pass, 1 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v05",
+          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
+          "mutation": "none",
+          "gold": "pass",
+          "predicted": "pass",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "Day 1 schedules Fushimi Inari Taisha 08:00-10:00 and Nishiki Market 12:00-13:30, with a 32 min transit transfer, leaving well over 30 minutes between them.",
+          "latency_ms": 2048.8,
+          "tokens": 1305,
+          "error": "",
+          "why": [
+            "Constraint audit: 1 pass, 0 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v06",
+          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
+          "mutation": "tight_transfer",
+          "gold": "fail",
+          "predicted": "pass",
+          "correct": false,
+          "false_pass": true,
+          "false_alarm": false,
+          "evidence": "Day 1 has Fushimi Inari Taisha from 08:00-10:00 and Nishiki Market from 12:00-13:30, leaving 2 hours between the end of Fushimi Inari and the start of Nishiki Market.",
+          "latency_ms": 1812.4,
+          "tokens": 1305,
+          "error": "",
+          "why": [
+            "Constraint audit: 1 pass, 0 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v07",
+          "constraint": "Every stay must be confirmed by a source",
+          "mutation": "none",
+          "gold": "pass",
+          "predicted": "pass",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "The only stay listed is 'Stay: Hotel Granvia Kyoto (22000 JPY/night)' and it carries an explicit attribution 'source: Wikipedia', so the stay itself is sourced; the 'Known gaps' note refers only to breakfast inclusion, not to the booking itself.",
+          "latency_ms": 3468.4,
+          "tokens": 1546,
+          "error": "",
+          "why": [
+            "Constraint audit: 1 pass, 0 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v08",
+          "constraint": "Every stay must be confirmed by a source",
+          "mutation": "unsourced_hotel",
+          "gold": "fail",
+          "predicted": "fail",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "The plan's only stay, Hotel Granvia Kyoto, is listed with \"source: none\" and the note that breakfast inclusion was not confirmed by the source.",
+          "latency_ms": 1453.9,
+          "tokens": 1252,
+          "error": "",
+          "why": [
+            "Constraint audit: 0 pass, 1 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v09",
+          "constraint": "All days must fall inside the trip dates",
+          "mutation": "none",
+          "gold": "pass",
+          "predicted": "pass",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "Day 1 is dated 2026-12-05 and Day 2 is dated 2026-12-06, both within the trip window 2026-12-05 to 2026-12-07.",
+          "latency_ms": 2045.7,
+          "tokens": 1244,
+          "error": "",
+          "why": [
+            "Constraint audit: 1 pass, 0 fail, 0 unknown."
+          ],
+          "generation_count": 1
+        },
+        {
+          "id": "v10",
+          "constraint": "All days must fall inside the trip dates",
+          "mutation": "day_outside",
+          "gold": "fail",
+          "predicted": "fail",
+          "correct": true,
+          "false_pass": false,
+          "false_alarm": false,
+          "evidence": "Day 1 is dated 2026-12-15, which is outside the trip dates 2026-12-05 to 2026-12-07.",
+          "latency_ms": 1777.3,
           "tokens": 1303,
           "error": "",
           "why": [
@@ -50,151 +194,6 @@
           "generation_count": 1
         },
         {
-          "id": "v03",
-          "constraint": "Include Kiyomizu-dera",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 2 (2026-12-06) lists '09:00-11:00 Kiyomizu-dera [attraction] (400 JPY)' as a stop.",
-          "latency_ms": 3711.1,
-          "tokens": 1388,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v04",
-          "constraint": "Include Kiyomizu-dera",
-          "mutation": "remove_kiyomizu",
-          "gold": "fail",
-          "predicted": "unknown",
-          "correct": false,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Kiyomizu-dera appears only in the plan's opening overview line ('Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion') and on no day: Day 1 lists 08:00-10:00 Fushimi Inari Taisha and 12:00-13:30 Nishiki Market, and Day 2 lists only 19:00-20:30 Gion Karyo, so it is not demonstrably scheduled as a stop.",
-          "latency_ms": 18941.2,
-          "tokens": 4342,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 0 pass, 0 fail, 1 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v05",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 shows Fushimi Inari 08:00-10:00 followed by Nishiki Market at 12:00 with a 32 min transit transfer, giving over 30 minutes between the two stops.",
-          "latency_ms": 3563.7,
-          "tokens": 1373,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v06",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "tight_transfer",
-          "gold": "fail",
-          "predicted": "pass",
-          "correct": false,
-          "false_pass": true,
-          "false_alarm": false,
-          "evidence": "On Day 1 (2026-12-05) Fushimi Inari Taisha ends at 10:00 and Nishiki Market begins at 12:00, a 120-minute gap between the two stops (the listed 10 min transit leaves well over 30 minutes free).",
-          "latency_ms": 5285.7,
-          "tokens": 1618,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v07",
-          "constraint": "Every stay must be confirmed by a source",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The only accommodation in the plan, \"Stay: Hotel Granvia Kyoto (22000 JPY/night)\", carries an explicit attribution line \"source: Wikipedia\"; the plan's stated gap concerns only breakfast inclusion, not the stay itself.",
-          "latency_ms": 7964.2,
-          "tokens": 1919,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v08",
-          "constraint": "Every stay must be confirmed by a source",
-          "mutation": "unsourced_hotel",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's only stay, \"Hotel Granvia Kyoto (22000 JPY/night)\", is listed with \"source: none\" and the known gap states \"Breakfast inclusion was not confirmed by the source\", so no source confirms the stay.",
-          "latency_ms": 2868.1,
-          "tokens": 1290,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v09",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Trip dates are 2026-12-05 to 2026-12-07 and the plan schedules Day 1 on 2026-12-05 and Day 2 on 2026-12-06, both inside that range.",
-          "latency_ms": 4388.5,
-          "tokens": 1439,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v10",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "day_outside",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 is dated 2026-12-15, which is outside the trip window of 2026-12-05 to 2026-12-07 (Day 2, 2026-12-06, is inside).",
-          "latency_ms": 3027.2,
-          "tokens": 1363,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
           "id": "v11",
           "constraint": "Keep the total at or under 100000 JPY",
           "mutation": "budget_exact",
@@ -203,9 +202,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost total is 100000 JPY, equal to the 100000 JPY budget, and its status is 'within'.",
-          "latency_ms": 9210.5,
-          "tokens": 2112,
+          "evidence": "The plan states 'Cost: 100000 JPY (within, budget 100000)' with cost lines totaling 100000 JPY.",
+          "latency_ms": 1809.6,
+          "tokens": 1249,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -221,9 +220,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost line reads \"Cost: 100001 JPY (over, budget 100000)\", i.e. 1 JPY above the 100000 JPY budget.",
-          "latency_ms": 2649.4,
-          "tokens": 1263,
+          "evidence": "The plan's own cost total is 100001 JPY against a 100000 JPY budget, marked 'over'.",
+          "latency_ms": 1419.8,
+          "tokens": 1206,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -239,9 +238,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 ends Fushimi Inari Taisha at 10:00 and starts Nishiki Market at 12:00, with an explicit '30 min transit from the previous stop' noted on the Nishiki Market stop.",
-          "latency_ms": 3705.6,
-          "tokens": 1398,
+          "evidence": "Day 1 has Fushimi Inari Taisha 08:00-10:00 and Nishiki Market 12:00-13:30, with a 30 min transfer, so there are at least 30 minutes between them.",
+          "latency_ms": 1664.9,
+          "tokens": 1292,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -257,9 +256,9 @@
           "correct": false,
           "false_pass": true,
           "false_alarm": false,
-          "evidence": "Fushimi Inari ends at 10:00 and Nishiki Market begins at 12:00, leaving a 2-hour gap, well over the required 30 minutes.",
-          "latency_ms": 6394.2,
-          "tokens": 1754,
+          "evidence": "Fushimi Inari ends at 10:00 and Nishiki Market starts at 12:00, leaving a 120-minute gap that includes a 29-minute transit, so at least 30 minutes is allowed.",
+          "latency_ms": 3445.0,
+          "tokens": 1665,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -275,9 +274,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 (2026-12-05) lists '08:00-10:00 Fushimi Inari Taisha [attraction]' as a scheduled stop.",
-          "latency_ms": 2171.3,
-          "tokens": 1220,
+          "evidence": "Day 1 lists “08:00-10:00 Fushimi Inari Taisha [attraction].”",
+          "latency_ms": 1045.4,
+          "tokens": 1184,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -293,15 +292,14 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Fushimi Inari appears only in the opening summary line ('Two days in Kyoto: Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion'); no day lists it as a stop — Day 1 has only Nishiki Market (12:00-13:30) and Day 2 has only Kiyomizu-dera (09:00-11:00) and Gion Karyo (19:00-20:30).",
-          "latency_ms": 18203.6,
-          "tokens": 4204,
+          "evidence": "The plan mentions 'Fushimi Inari' only in the overview sentence and does not list Fushimi Inari Taisha as a scheduled day stop.",
+          "latency_ms": 2693.8,
+          "tokens": 1526,
           "error": "",
           "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
           ],
-          "generation_count": 2
+          "generation_count": 1
         },
         {
           "id": "v20",
@@ -312,9 +310,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 is dated 2026-12-05 (inside the 2026-12-05 to 2026-12-07 window), but Day 2 is dated \"2026-12-20\", which falls outside the trip dates entirely.",
-          "latency_ms": 2804.9,
-          "tokens": 1331,
+          "evidence": "Day 1 is dated 2026-12-05, but Day 2 is dated 2026-12-20, which is after the trip end date of 2026-12-07.",
+          "latency_ms": 1542.2,
+          "tokens": 1291,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -323,15 +321,15 @@
         }
       ]
     },
-    "deepseek-v4.1-flash @ 0.2": {
-      "model": "deepseek-v4.1-flash",
+    "deepseek-flash @ 0.2": {
+      "model": "deepseek-flash",
       "temperature": 0.2,
       "correct": 15,
       "n": 17,
       "accuracy": 0.8824,
       "false_passes": 2,
       "false_alarms": 0,
-      "p50_latency_ms": 3418.4,
+      "p50_latency_ms": 2213.1,
       "rows": [
         {
           "id": "v01",
@@ -342,9 +340,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost total is \"88000 JPY (within, budget 100000)\", composed of Hotel 44000 JPY plus Food and tickets 44000 JPY, which is below the 100000 JPY budget.",
-          "latency_ms": 3709.4,
-          "tokens": 1348,
+          "evidence": "The plan states a total cost of 88000 JPY against a budget of 100000 JPY, with cost lines Hotel 44000 JPY and Food and tickets 44000 JPY.",
+          "latency_ms": 1330.7,
+          "tokens": 1174,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -360,9 +358,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost block reads \"Cost: 120000 JPY (over, budget 100000)\" with hotel 44000 JPY and food/tickets 44000 JPY, exceeding the 100000 JPY budget by 20000 JPY.",
-          "latency_ms": 3164.2,
-          "tokens": 1304,
+          "evidence": "The plan's own cost line reads \"Cost: 120000 JPY (over, budget 100000)\", with Hotel 44000 JPY and Food and tickets 44000 JPY (per-person prices multiplied by party size), which exceeds the 100000 JPY budget.",
+          "latency_ms": 1544.4,
+          "tokens": 1282,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -378,9 +376,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 2 (2026-12-06) lists '09:00-11:00 Kiyomizu-dera [attraction] (400 JPY)' as a stop.",
-          "latency_ms": 2511.5,
-          "tokens": 1250,
+          "evidence": "Day 2 lists \"09:00-11:00 Kiyomizu-dera [attraction] (400 JPY)\".",
+          "latency_ms": 1982.7,
+          "tokens": 1415,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -396,9 +394,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Kiyomizu-dera appears only in the opening summary sentence; no day contains it as a stop — Day 1 lists Fushimi Inari Taisha and Nishiki Market, and Day 2 lists only Gion Karyo, despite being titled 'Higashiyama and Gion'.",
-          "latency_ms": 8754.1,
-          "tokens": 1985,
+          "evidence": "Kiyomizu-dera is named only in the opening summary line ('Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion'); neither Day 1 nor Day 2 lists it as a timed stop — Day 1 shows only Fushimi Inari Taisha and Nishiki Market, Day 2 only Gion Karyo.",
+          "latency_ms": 3754.5,
+          "tokens": 1641,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -414,9 +412,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "On Day 1 Fushimi Inari Taisha ends at 10:00 and Nishiki Market begins at 12:00, with a listed 32 min transit transfer — a gap of 2 hours, well over 30 minutes.",
-          "latency_ms": 2869.9,
-          "tokens": 1342,
+          "evidence": "Day 1 has Fushimi Inari Taisha ending at 10:00 and Nishiki Market starting at 12:00, with a 32 min transit transfer, so there is ample time between them.",
+          "latency_ms": 1771.2,
+          "tokens": 1245,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -432,9 +430,9 @@
           "correct": false,
           "false_pass": true,
           "false_alarm": false,
-          "evidence": "Fushimi Inari Taisha ends at 10:00 and Nishiki Market starts at 12:00 on Day 1, leaving a 120-minute gap, which is more than 30 minutes.",
-          "latency_ms": 5950.6,
-          "tokens": 1782,
+          "evidence": "Day 1 shows Fushimi Inari Taisha ending at 10:00 and Nishiki Market starting at 12:00, a 2-hour gap, which is more than 30 minutes.",
+          "latency_ms": 3329.2,
+          "tokens": 1433,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -450,9 +448,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The only stay listed, \"Hotel Granvia Kyoto (22000 JPY/night)\", carries an explicit attribution line \"source: Wikipedia\"; only the breakfast inclusion is flagged as unconfirmed, which is not the stay itself.",
-          "latency_ms": 5309.3,
-          "tokens": 1519,
+          "evidence": "The plan lists \"Stay: Hotel Granvia Kyoto (22000 JPY/night)\" and attaches \"source: Wikipedia\"; the unconfirmed breakfast inclusion is a separate detail, not the stay itself.",
+          "latency_ms": 2560.3,
+          "tokens": 1330,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -468,9 +466,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The only stay listed, \"Hotel Granvia Kyoto (22000 JPY/night)\", is marked \"source: none\", so the accommodation is not confirmed by any source.",
-          "latency_ms": 2797.6,
-          "tokens": 1260,
+          "evidence": "The only stay, Hotel Granvia Kyoto, is listed with \"source: none\" and the plan explicitly says breakfast inclusion was not confirmed by the source.",
+          "latency_ms": 1430.0,
+          "tokens": 1206,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -486,9 +484,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Trip dates are 2026-12-05 to 2026-12-07; the plan's Day 1 is 2026-12-05 and Day 2 is 2026-12-06, both within that range.",
-          "latency_ms": 3418.4,
-          "tokens": 1361,
+          "evidence": "Day 1 is 2026-12-05 and Day 2 is 2026-12-06, both within the trip dates 2026-12-05 to 2026-12-07.",
+          "latency_ms": 1448.4,
+          "tokens": 1271,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -504,9 +502,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 is dated \"Day 1 — 2026-12-15\", which falls outside the trip window of 2026-12-05 to 2026-12-07 (Day 2 on 2026-12-06 is inside the window).",
-          "latency_ms": 2743.5,
-          "tokens": 1313,
+          "evidence": "Day 1 is dated 2026-12-15, which is outside the trip date range 2026-12-05 to 2026-12-07.",
+          "latency_ms": 2623.2,
+          "tokens": 1357,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -522,9 +520,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's stated cost is \"Cost: 100000 JPY (within, budget 100000)\" with cost.status \"within\" and total 100000 against a 100000 JPY budget, i.e. exactly at the limit and not over.",
-          "latency_ms": 5096.3,
-          "tokens": 1593,
+          "evidence": "The plan states 'Cost: 100000 JPY (within, budget 100000)' and the cost object shows total 100000 with status 'within'.",
+          "latency_ms": 2325.0,
+          "tokens": 1294,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -540,9 +538,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The plan's own cost line reads \"Cost: 100001 JPY (over, budget 100000)\" against a budget of 100000 JPY, exceeding it by 1 JPY.",
-          "latency_ms": 2808.4,
-          "tokens": 1232,
+          "evidence": "The plan's own computed total is \"Cost: 100001 JPY (over, budget 100000)\", which exceeds the 100000 JPY budget by 1 JPY.",
+          "latency_ms": 2296.6,
+          "tokens": 1261,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -558,9 +556,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 shows Fushimi Inari ends at 10:00 and Nishiki Market starts at 12:00, with a 30 min transit from the previous stop, so the buffer is at least 30 minutes.",
-          "latency_ms": 3979.5,
-          "tokens": 1491,
+          "evidence": "Day 1 shows Fushimi Inari Taisha from 08:00-10:00 and Nishiki Market from 12:00-13:30, with an explicit 30 min transit transfer, so there are 2 hours between the stops.",
+          "latency_ms": 1977.1,
+          "tokens": 1274,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -576,9 +574,9 @@
           "correct": false,
           "false_pass": true,
           "false_alarm": false,
-          "evidence": "Fushimi Inari ends at 10:00 and Nishiki Market starts at 12:00 — a 120-minute gap, well over 30 minutes (the scheduled transfer itself is 29 min transit, leaving roughly 1h30m of buffer).",
-          "latency_ms": 7182.5,
-          "tokens": 1890,
+          "evidence": "Fushimi Inari Taisha ends at 10:00 and Nishiki Market starts at 12:00, leaving a 2-hour gap (well over 30 minutes), with a 29-minute transit listed in between.",
+          "latency_ms": 2959.3,
+          "tokens": 1427,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -594,9 +592,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 (2026-12-05) includes '08:00-10:00 Fushimi Inari Taisha [attraction]'.",
-          "latency_ms": 2789.0,
-          "tokens": 1238,
+          "evidence": "Day 1 includes '08:00-10:00 Fushimi Inari Taisha [attraction].'",
+          "latency_ms": 1772.6,
+          "tokens": 1194,
           "error": "",
           "why": [
             "Constraint audit: 1 pass, 0 fail, 0 unknown."
@@ -612,9 +610,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "The opening summary names 'Fushimi Inari', but no day lists it as a stop — Day 1 (2026-12-05) contains only Nishiki Market [meal], and Day 2 contains only Kiyomizu-dera and Gion Karyo, so the shrine is never actually scheduled.",
-          "latency_ms": 7759.3,
-          "tokens": 1827,
+          "evidence": "The day-by-day plan lists only Nishiki Market, Kiyomizu-dera and Gion; Fushimi Inari Taisha has no scheduled stop or day assignment.",
+          "latency_ms": 3214.1,
+          "tokens": 1531,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."
@@ -630,652 +628,9 @@
           "correct": true,
           "false_pass": false,
           "false_alarm": false,
-          "evidence": "Day 1 is dated 2026-12-05 (inside the 2026-12-05 to 2026-12-07 window), but Day 2 is dated 2026-12-20, which falls outside the trip dates.",
-          "latency_ms": 3278.7,
-          "tokens": 1366,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        }
-      ]
-    },
-    "claude-sonnet-5-5 @ 0.0": {
-      "model": "claude-sonnet-5-5",
-      "temperature": 0.0,
-      "correct": 15,
-      "n": 17,
-      "accuracy": 0.8824,
-      "false_passes": 2,
-      "false_alarms": 0,
-      "p50_latency_ms": 9613.1,
-      "rows": [
-        {
-          "id": "v01",
-          "constraint": "Keep the total under 100000 JPY",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan states 'Cost: 88000 JPY (within, budget 100000)' and its two cost lines (Hotel 44000 JPY + Food and tickets 44000 JPY) sum to that same 88000 JPY total, leaving 12000 JPY of headroom.",
-          "latency_ms": 9591.4,
-          "tokens": 2562,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v02",
-          "constraint": "Keep the total under 100000 JPY",
-          "mutation": "budget_over",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's own total line reads \"Cost: 120000 JPY (over, budget 100000)\", built from Hotel 44000 JPY plus Food and tickets 44000 JPY per person × 2 travellers.",
-          "latency_ms": 9321.7,
-          "tokens": 2586,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v03",
-          "constraint": "Include Kiyomizu-dera",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 2 (2026-12-06) lists '09:00-11:00 Kiyomizu-dera [attraction] (400 JPY)' in the Higashiyama and Gion block.",
-          "latency_ms": 4414.7,
-          "tokens": 1781,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v04",
-          "constraint": "Include Kiyomizu-dera",
-          "mutation": "remove_kiyomizu",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Kiyomizu-dera appears only in the opening summary line ('Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion'); it has no day assignment, no time slot and no stop entry anywhere in the Day 1 or Day 2 schedule, whose only listed stops are Fushimi Inari Taisha, Nishiki Market and Gion Karyo.",
-          "latency_ms": 17065.3,
-          "tokens": 4806,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v05",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1: Fushimi Inari Taisha runs 08:00-10:00 and Nishiki Market starts at 12:00 with a 32 min transit between them, giving a 2-hour gap — well above 30 minutes even after the 32-minute transfer is accounted for.",
-          "latency_ms": 7769.1,
-          "tokens": 2383,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v06",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "tight_transfer",
-          "gold": "fail",
-          "predicted": "pass",
-          "correct": false,
-          "false_pass": true,
-          "false_alarm": false,
-          "evidence": "Fushimi Inari Taisha runs 08:00-10:00 and Nishiki Market starts 12:00 on Day 1, leaving a 2-hour gap with only a 10 min transit between them.",
-          "latency_ms": 17305.6,
-          "tokens": 5094,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v07",
-          "constraint": "Every stay must be confirmed by a source",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The single stay, \"Hotel Granvia Kyoto (22000 JPY/night)\", carries a citation (\"source: Wikipedia\"); only the breakfast inclusion, not the stay itself, is listed as unconfirmed.",
-          "latency_ms": 22057.0,
-          "tokens": 5409,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v08",
-          "constraint": "Every stay must be confirmed by a source",
-          "mutation": "unsourced_hotel",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The only stay entry is \"Hotel Granvia Kyoto (22000 JPY/night)\" and it is explicitly tagged \"source: none\", with a known gap that breakfast inclusion was not confirmed by the source.",
-          "latency_ms": 11717.2,
-          "tokens": 2646,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v09",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 is dated 2026-12-05 and Day 2 is dated 2026-12-06; both sit within the trip window of 2026-12-05 to 2026-12-07, and the plan schedules the 2 days the trip specifies.",
-          "latency_ms": 5806.0,
-          "tokens": 2081,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v10",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "day_outside",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 is headed \"Day 1 — 2026-12-15\", which is eight days after the trip ends on 2026-12-07; only Day 2 (2026-12-06) falls inside the 2026-12-05 to 2026-12-07 window.",
-          "latency_ms": 7692.2,
-          "tokens": 2355,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v11",
-          "constraint": "Keep the total at or under 100000 JPY",
-          "mutation": "budget_exact",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's own cost block reports total 100000 JPY with budget 100000.0 and status \"within\", and the narrative states \"Cost: 100000 JPY (within, budget 100000)\" — equal to the ceiling, so at or under.",
-          "latency_ms": 10763.0,
-          "tokens": 2796,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v12",
-          "constraint": "Keep the total at or under 100000 JPY",
-          "mutation": "budget_one_over",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's own cost total is 100001 JPY (budget 100000, status \"over\"), which exceeds the cap by 1 JPY; the cost lines given are Hotel 44000 JPY and Food and tickets 44000 JPY.",
-          "latency_ms": 4423.9,
-          "tokens": 1960,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v13",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "transfer_exact",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Fushimi Inari Taisha runs 08:00-10:00 on Day 1 and Nishiki Market starts 12:00, a two-hour gap, and the plan explicitly lists a '30 min transit from the previous stop' between them.",
-          "latency_ms": 6402.2,
-          "tokens": 2187,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v14",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "transfer_short",
-          "gold": "fail",
-          "predicted": "pass",
-          "correct": false,
-          "false_pass": true,
-          "false_alarm": false,
-          "evidence": "Day 1 puts Fushimi Inari Taisha at 08:00-10:00 and Nishiki Market at 12:00-13:30, leaving a two-hour gap between the two stops, with a 29 min transit transfer listed.",
-          "latency_ms": 21061.9,
-          "tokens": 5550,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v15",
-          "constraint": "Include Fushimi Inari Taisha",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 (2026-12-05) lists \"08:00-10:00 Fushimi Inari Taisha [attraction]\" — exact name, scheduled in the plan.",
-          "latency_ms": 9613.1,
-          "tokens": 2483,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v16",
-          "constraint": "Include Fushimi Inari Taisha",
-          "mutation": "remove_fushimi",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "No day actually schedules the shrine: Day 1 is titled 'South Kyoto and the market' but its only listed stop is '12:00-13:30 Nishiki Market', and Day 2 lists only Kiyomizu-dera and Gion — 'Fushimi Inari' appears solely in the opening summary sentence 'Two days in Kyoto: Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion', with no time slot, price or transfer line.",
-          "latency_ms": 17603.9,
-          "tokens": 4945,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v20",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "day_outside_2",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 2 is dated 2026-12-20, which falls outside the trip window of 2026-12-05 to 2026-12-07.",
-          "latency_ms": 11438.0,
-          "tokens": 2379,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        }
-      ]
-    },
-    "claude-sonnet-5-5 @ 0.2": {
-      "model": "claude-sonnet-5-5",
-      "temperature": 0.2,
-      "correct": 15,
-      "n": 17,
-      "accuracy": 0.8824,
-      "false_passes": 2,
-      "false_alarms": 0,
-      "p50_latency_ms": 7583.9,
-      "rows": [
-        {
-          "id": "v01",
-          "constraint": "Keep the total under 100000 JPY",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan states \"Cost: 88000 JPY (within, budget 100000)\", built from the lines Hotel 44000 JPY plus Food and tickets 44000 JPY, leaving 12000 JPY of headroom against the 100000 JPY budget.",
-          "latency_ms": 19069.9,
-          "tokens": 5556,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v02",
-          "constraint": "Keep the total under 100000 JPY",
-          "mutation": "budget_over",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's own cost total is \"Cost: 120000 JPY (over, budget 100000)\" with status \"over\", i.e. 20000 JPY above the 100000 JPY ceiling.",
-          "latency_ms": 6061.4,
-          "tokens": 2115,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v03",
-          "constraint": "Include Kiyomizu-dera",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 2 (2026-12-06, Higashiyama and Gion) lists \"09:00-11:00 Kiyomizu-dera [attraction] (400 JPY)\" as a named stop.",
-          "latency_ms": 4511.6,
-          "tokens": 1927,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v04",
-          "constraint": "Include Kiyomizu-dera",
-          "mutation": "remove_kiyomizu",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Kiyomizu-dera appears only in the opening summary sentence ('Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion'); neither day lists it as a stop — Day 1 is Fushimi Inari Taisha 08:00-10:00 and Nishiki Market 12:00-13:30, and Day 2 contains only Gion Karyo 19:00-20:30, so it is never actually scheduled.",
-          "latency_ms": 13193.2,
-          "tokens": 2826,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v05",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 ends Fushimi Inari Taisha at 10:00 and lists a 32-minute transit transfer before Nishiki Market starts at 12:00, so the connection is both 32 minutes (>=30) with a further gap to the 12:00 slot.",
-          "latency_ms": 4483.4,
-          "tokens": 1934,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v06",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "tight_transfer",
-          "gold": "fail",
-          "predicted": "pass",
-          "correct": false,
-          "false_pass": true,
-          "false_alarm": false,
-          "evidence": "Day 1 schedules Fushimi Inari Taisha 08:00-10:00 and Nishiki Market 12:00-13:30, leaving a 120-minute gap between the two stops (well over the required 30 minutes); the 10-minute transit transfer fits inside that gap.",
-          "latency_ms": 6577.2,
-          "tokens": 2201,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v07",
-          "constraint": "Every stay must be confirmed by a source",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The only stay in the plan, \"Stay: Hotel Granvia Kyoto (22000 JPY/night)\", carries an explicit attribution — \"source: Wikipedia\" — so the stay is sourced as written; the accompanying note about breakfast is a separate detail, not the stay itself.",
-          "latency_ms": 9872.3,
-          "tokens": 2519,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v08",
-          "constraint": "Every stay must be confirmed by a source",
-          "mutation": "unsourced_hotel",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The only accommodation entry reads \"Stay: Hotel Granvia Kyoto (22000 JPY/night). Breakfast inclusion was not confirmed by the source.\" with \"source: none\", so no source confirms the stay.",
-          "latency_ms": 7583.9,
-          "tokens": 2244,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v09",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Trip window is 2026-12-05 to 2026-12-07; the plan schedules Day 1 on 2026-12-05 and Day 2 on 2026-12-06, both inside the window with no day falling outside it.",
-          "latency_ms": 6866.6,
-          "tokens": 2294,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v10",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "day_outside",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 is dated \"2026-12-15\", which falls ten days after the trip end date of 2026-12-07; only Day 2 (2026-12-06) is inside the window, and 2026-12-05 is never used.",
-          "latency_ms": 6356.7,
-          "tokens": 2105,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v11",
-          "constraint": "Keep the total at or under 100000 JPY",
-          "mutation": "budget_exact",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's own cost summary reads \"Cost: 100000 JPY (within, budget 100000)\", i.e. exactly at the 100000 JPY ceiling, with cost lines of Hotel 44000 JPY and Food and tickets 44000 JPY.",
-          "latency_ms": 10825.1,
-          "tokens": 2684,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v12",
-          "constraint": "Keep the total at or under 100000 JPY",
-          "mutation": "budget_one_over",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "The plan's own computed total is 100001 JPY against a 100000 JPY budget (stated as \"Cost: 100001 JPY (over, budget 100000)\"), i.e. 1 JPY over.",
-          "latency_ms": 9979.7,
-          "tokens": 2626,
-          "error": "",
-          "why": [
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v13",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "transfer_exact",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 has Fushimi Inari Taisha 08:00-10:00 and Nishiki Market 12:00-13:30 with an explicit \"transfer: 30 min transit from the previous stop\", so the gap is 120 minutes and the stated travel leg alone meets the 30-minute minimum.",
-          "latency_ms": 8969.6,
-          "tokens": 2467,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v14",
-          "constraint": "Allow at least 30 minutes between Fushimi Inari and Nishiki Market",
-          "mutation": "transfer_short",
-          "gold": "fail",
-          "predicted": "pass",
-          "correct": false,
-          "false_pass": true,
-          "false_alarm": false,
-          "evidence": "Fushimi Inari Taisha ends at 10:00 and Nishiki Market begins at 12:00, leaving a 120-minute window; the listed 29-minute transit from the previous stop fits inside that window with roughly 90 minutes to spare.",
-          "latency_ms": 10838.5,
-          "tokens": 2739,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v15",
-          "constraint": "Include Fushimi Inari Taisha",
-          "mutation": "none",
-          "gold": "pass",
-          "predicted": "pass",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 (2026-12-05) lists \"08:00-10:00 Fushimi Inari Taisha [attraction]\" as the first stop.",
-          "latency_ms": 4702.6,
-          "tokens": 2015,
-          "error": "",
-          "why": [
-            "Constraint audit: 1 pass, 0 fail, 0 unknown."
-          ],
-          "generation_count": 1
-        },
-        {
-          "id": "v16",
-          "constraint": "Include Fushimi Inari Taisha",
-          "mutation": "remove_fushimi",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Fushimi Inari appears only in the one-line summary (\"Two days in Kyoto: Fushimi Inari, Nishiki Market, Kiyomizu-dera and Gion\"), but no day's schedule contains it: Day 1 lists only Nishiki Market and Day 2 lists only Kiyomizu-dera and Gion Karyo.",
-          "latency_ms": 22285.6,
-          "tokens": 5379,
-          "error": "",
-          "why": [
-            "The verify answer needed one repair: the reply was not a JSON object",
-            "Constraint audit: 0 pass, 1 fail, 0 unknown."
-          ],
-          "generation_count": 2
-        },
-        {
-          "id": "v20",
-          "constraint": "All days must fall inside the trip dates",
-          "mutation": "day_outside_2",
-          "gold": "fail",
-          "predicted": "fail",
-          "correct": true,
-          "false_pass": false,
-          "false_alarm": false,
-          "evidence": "Day 1 is dated 2026-12-05, inside the window 2026-12-05 to 2026-12-07, but Day 2 is headed \"Day 2 — 2026-12-20 — Higashiyama and Gion\", thirteen days after the trip ends.",
-          "latency_ms": 6912.7,
-          "tokens": 2243,
+          "evidence": "Day 1 is dated 2026-12-05 (inside the 2026-12-05 to 2026-12-07 window), but Day 2 is dated 2026-12-20, which is two weeks after the trip ends.",
+          "latency_ms": 2213.1,
+          "tokens": 1385,
           "error": "",
           "why": [
             "Constraint audit: 0 pass, 1 fail, 0 unknown."

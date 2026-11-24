@@ -1,0 +1,592 @@
+{
+  "generated_at": "2026-11-23T09:27:04.211609+00:00",
+  "model": "deepseek-flash",
+  "temperature": 0.0,
+  "n": 24,
+  "arms": {
+    "full": {
+      "condition": "full",
+      "correct": 5,
+      "n": 24,
+      "accuracy": 0.2083,
+      "p50_latency_ms": 367.5,
+      "mean_tokens": 0.0,
+      "by_intent": {
+        "plan": {
+          "n": 8,
+          "correct": 0
+        },
+        "ask": {
+          "n": 5,
+          "correct": 0
+        },
+        "modify": {
+          "n": 6,
+          "correct": 0
+        },
+        "unclear": {
+          "n": 5,
+          "correct": 5
+        }
+      },
+      "rows": [
+        {
+          "id": "r01",
+          "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 407.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r02",
+          "input": "I want to visit Tokyo for a week with my partner",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 360.8,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r03",
+          "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 374.0,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r04",
+          "input": "What is the weather in Kyoto on 12 April?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 364.7,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r05",
+          "input": "Which hotel did you pick and why?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 368.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r06",
+          "input": "How much is the flight?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 366.9,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r07",
+          "input": "Swap the hotel for something boutique",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 366.7,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r08",
+          "input": "Move day 2 to the afternoon and keep the rest",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 361.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r09",
+          "input": "Make the budget 3000 USD instead",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 368.7,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r10",
+          "input": "Add a museum on the last day",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 387.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r11",
+          "input": "Hmm",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 349.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r12",
+          "input": "What about it?",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 356.8,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r13",
+          "input": "Plan something nice",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 405.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r14",
+          "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 369.4,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r15",
+          "input": "Replace the second day's temple with a park",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 361.5,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r16",
+          "input": "Is the hotel near the train station?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 364.0,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r17",
+          "input": "What time does the flight leave?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 370.0,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r18",
+          "input": "Change the dates to the first week of May",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 354.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r19",
+          "input": "Surprise me",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 389.9,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r20",
+          "input": "Help",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 363.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r21",
+          "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 377.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r22",
+          "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 368.9,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r23",
+          "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 393.6,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r24",
+          "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 361.0,
+          "tokens": 0,
+          "error": ""
+        }
+      ]
+    },
+    "minimal": {
+      "condition": "minimal",
+      "correct": 5,
+      "n": 24,
+      "accuracy": 0.2083,
+      "p50_latency_ms": 368.6,
+      "mean_tokens": 0.0,
+      "by_intent": {
+        "plan": {
+          "n": 8,
+          "correct": 0
+        },
+        "ask": {
+          "n": 5,
+          "correct": 0
+        },
+        "modify": {
+          "n": 6,
+          "correct": 0
+        },
+        "unclear": {
+          "n": 5,
+          "correct": 5
+        }
+      },
+      "rows": [
+        {
+          "id": "r01",
+          "input": "Plan a 5-day trip to Kyoto for 2 people in April, budget 4000 USD",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 349.3,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r02",
+          "input": "I want to visit Tokyo for a week with my partner",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 389.7,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r03",
+          "input": "Can you build an itinerary for Hong Kong, 3 days, 2 travellers?",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 366.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r04",
+          "input": "What is the weather in Kyoto on 12 April?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 365.8,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r05",
+          "input": "Which hotel did you pick and why?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 353.8,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r06",
+          "input": "How much is the flight?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 365.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r07",
+          "input": "Swap the hotel for something boutique",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 379.3,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r08",
+          "input": "Move day 2 to the afternoon and keep the rest",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 416.7,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r09",
+          "input": "Make the budget 3000 USD instead",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 362.9,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r10",
+          "input": "Add a museum on the last day",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 398.4,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r11",
+          "input": "Hmm",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 374.7,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r12",
+          "input": "What about it?",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 382.8,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r13",
+          "input": "Plan something nice",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 480.3,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r14",
+          "input": "I am going to Osaka next month with three friends for four days and want a plan under 200000 JPY",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 362.0,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r15",
+          "input": "Replace the second day's temple with a park",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 393.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r16",
+          "input": "Is the hotel near the train station?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 356.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r17",
+          "input": "What time does the flight leave?",
+          "expected": "ask",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 374.6,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r18",
+          "input": "Change the dates to the first week of May",
+          "expected": "modify",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 359.6,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r19",
+          "input": "Surprise me",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 347.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r20",
+          "input": "Help",
+          "expected": "unclear",
+          "predicted": "unclear",
+          "correct": true,
+          "confidence": 0.0,
+          "latency_ms": 374.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r21",
+          "input": "Plan a new trip: 4 days in Osaka for a family of four in July",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 371.2,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r22",
+          "input": "Start over - I'd like a fresh itinerary for Tokyo, 6 nights, solo, mid-range hotels",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 354.1,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r23",
+          "input": "We're thinking of a long weekend in Hong Kong, flying from Singapore, two adults",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 372.0,
+          "tokens": 0,
+          "error": ""
+        },
+        {
+          "id": "r24",
+          "input": "Organise a 3-day food trip to Osaka for me and my sister in November",
+          "expected": "plan",
+          "predicted": "unclear",
+          "correct": false,
+          "confidence": 0.0,
+          "latency_ms": 361.8,
+          "tokens": 0,
+          "error": ""
+        }
+      ]
+    }
+  }
+}

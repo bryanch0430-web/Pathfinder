@@ -2791,7 +2791,7 @@ export function TripWorkspace({
                     >
                       <span className="pf-stage__side-time">{item.start}</span>
                       <span className="pf-stage__side-name">{item.name}</span>
-                      <span className="pf-stage__side-type">{item.type}</span>
+                      <span className="pf-stage__side-type">{readableLabel(item.type)}</span>
                     </button>
                   </li>
                 ))}
@@ -2989,7 +2989,7 @@ export function TripWorkspace({
             <Divider />
             <div className="pf-row pf-row--wrap">
               {plan.data_quality.sources_used.map((source) => (
-                <Badge key={source} tone="neutral">{source}</Badge>
+                <Badge key={source} tone="neutral">{readableLabel(source)}</Badge>
               ))}
             </div>
             <Text size="xs" tone="tertiary">
@@ -4549,7 +4549,8 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
               <iframe
                 src={embed}
                 title={active.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
               />
             ) : (
@@ -4557,7 +4558,14 @@ export function VideoNotes({ notes }: { notes?: VideoNote[] }) {
             )}
             {activeHref ? (
               <a className="pf-video__open" href={activeHref} target="_blank" rel="noreferrer">
-                {t("videos.openOn", { source: active.source })}
+                {t("videos.openOn", {
+                  source:
+                    active.source === "youtube"
+                      ? "YouTube"
+                      : active.source === "bilibili"
+                        ? "Bilibili"
+                        : readableLabel(active.source),
+                })}
               </a>
             ) : null}
           </div>
