@@ -21,9 +21,9 @@ the active writer key. With no verifier key it falls back to the default writer.
 
 ## Submission package
 
-**Submitted version:** **v5.2.11**, branch `pathfinder_v5`, tag
+**Submitted version:** **v5.2.11**, branch `pathfinder_v5`, annotated tag
 `submission-v5.2.11`. The tag marks the exact submitted commit:
-`git rev-parse submission-v5.2.11`.
+`git show submission-v5.2.11` displays its message and commit.
 
 This is a complete runnable application, not a notebook. The entry point is the
 FastAPI app `backend/app/main.py` (`app.main:app`); it serves the built React UI
