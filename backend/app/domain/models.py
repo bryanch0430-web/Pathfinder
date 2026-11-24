@@ -334,6 +334,8 @@ class CostBreakdown(Wire):
     budget: float | None = None
     remaining: float | None = None
     status: Literal["within", "over", "unknown"] = "unknown"
+    # False when hotels, meals or admissions have no price, so the total is a lower bound.
+    complete: bool = True
     notes: list[str] = Field(default_factory=list)
 
 
