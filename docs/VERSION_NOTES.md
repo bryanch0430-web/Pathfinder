@@ -3,6 +3,18 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.7 — 2026-11-24 15:20 HKT
+
+- **Evaluation is a demo view now.** The page says so and the Run button is
+  disabled, so a click cannot start an 84-case live run. A full run uses the
+  configured models and providers for every case and takes a long time with
+  credits; real experiments use `scripts/run_eval.py` with `EVAL_LIMIT` (and
+  `PATHFINDER_SANDBOX=1` for curated evidence).
+- **Bulk tests are marked “Already performed”** instead of “Reference only”.
+  Their note says they were run offline, are shown for reference, and are not
+  the official TravelPlanner score.
+- Copy updated in EN, 简 and 繁.
+
 ## 5.2.6 — 2026-11-24 15:10 HKT
 
 - **Evaluation scoring is named for what it is.** The score column was never
