@@ -4,6 +4,16 @@ Running notes for **Pathfinder v5**. The React UI carries the current workspace
 design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
 the core is the rebuilt backend at `backend/`.
 
+## Clear details fix — 2026-11-24
+
+- **Clear details now clears the optional trip fields.** The form already sent
+  `null` for start/end date, days, party size and budget, but
+  `PATCH /api/journeys/{id}/state` skipped null values, so the saved context
+  restored them. A null is now an explicit clear for those five fields; fields
+  absent from the patch keep their values.
+- Regression test added to `test_api.py`; live API check returns all five as
+  `null` with destination and currency preserved.
+
 ## Limitations and submission wording — 2026-11-24
 
 - README now names the demo/mocked surfaces explicitly: image import, Evaluation,

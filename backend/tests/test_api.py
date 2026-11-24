@@ -51,6 +51,29 @@ def test_journey_lifecycle(tmp_path):
         assert patched.status_code == 200
         assert patched.json()["context"]["destination"] == "Kyoto"
 
+        # Clear details: a null in the patch is an explicit clear, not "leave it".
+        cleared = client.patch(
+            f"/api/journeys/{session_id}/state",
+            json={
+                "start_date": None,
+                "end_date": None,
+                "days": None,
+                "party_size": None,
+                "budget": None,
+            },
+            headers=headers,
+        )
+        assert cleared.status_code == 200
+        context = cleared.json()["context"]
+        assert context["start_date"] is None
+        assert context["end_date"] is None
+        assert context["days"] is None
+        assert context["party_size"] is None
+        assert context["budget"] is None
+        # Fields left out of the patch keep their values.
+        assert context["destination"] == "Kyoto"
+        assert context["currency"] == "JPY"
+
         revisions = client.get(f"/api/journeys/{session_id}/revisions", headers=headers)
         assert revisions.status_code == 200
         assert revisions.json()["versions"] == []
