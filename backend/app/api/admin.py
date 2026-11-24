@@ -372,6 +372,11 @@ def _kv_number(value: Any) -> float:
         return 0.0
 
 
+def _desk_state(finished: bool, recent: bool, held: bool) -> str:
+    """Live while a chat is held for a person, even when its plan is already ready."""
+    return "live" if held or (recent and not finished) else "completed"
+
+
 def _desk_recent(value: str | None, hours: int = 24) -> bool:
     """A session is live while it changed in the last day; older idle chats belong in history."""
     if not value:
@@ -402,7 +407,7 @@ async def desk_list(request: Request) -> dict[str, Any]:
         plan = await load_plan(c, session["id"])
         finished = bool(context.finalized) or (plan is not None and plan.status == "ready")
         recent = _desk_recent(session.get("updated_at"))
-        state = "live" if recent and not finished else "completed"
+        state = _desk_state(finished, recent, bool(session.get("held")))
         last = messages[-1]
         stuck_count = _kv_number(await c.store.get_kv(f"stuck:{session['id']}"))
         frustration = max(0.0, min(1.0, _kv_number(await c.store.get_kv(f"frustration:{session['id']}"))))

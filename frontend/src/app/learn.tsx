@@ -398,14 +398,16 @@ export function DeskPage({ onBack, onPopOut }: { onBack: () => void; onPopOut?: 
       || (chat.preview || "").toLowerCase().includes(needle)
     );
   };
-  const open = (chat: DeskChat) => !chat.finished && matches(chat);
+  // A held chat stays in the queue even when its plan is ready: the traveller
+  // asked for a person, and the plan being complete is why they are waiting.
+  const open = (chat: DeskChat) => matches(chat) && (!chat.finished || chat.held);
   const queued = chats.filter((chat) => open(chat) && chat.held && !(chat.agent_name || "").trim());
   const handling = chats.filter((chat) => open(chat) && chat.held && Boolean((chat.agent_name || "").trim()));
   const answering = chats.filter(
     (chat) => open(chat) && !chat.finished && !chat.held && chat.state !== "completed"
   );
   const records = chats.filter(
-    (chat) => matches(chat) && (Boolean(chat.finished) || chat.state === "completed")
+    (chat) => matches(chat) && !chat.held && (Boolean(chat.finished) || chat.state === "completed")
   );
   const setPresence = (next: boolean) => {
     setReady(next);
