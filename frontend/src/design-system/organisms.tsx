@@ -5351,9 +5351,9 @@ export function SettingsView({
         <Text size="sm" weight="semibold">v5 runtime</Text>
         <Text size="xs" tone="tertiary">
           The default model is set below; each part can override it with its own model,
-          temperature, reasoning effort and reply cap. The turn analyst routes the
+          temperature, reasoning effort and reply cap. The analyst routes the
           conversation by default, and Jev (System 1) can take that routing decision.
-          The constraint verifier can use its own endpoint and key. The legacy reviewer
+          The verifier can use its own endpoint and key. The legacy reviewer
           model and the separate model arms are not part of this build.
         </Text>
       </div>

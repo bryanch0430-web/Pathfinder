@@ -33,20 +33,20 @@ type OrchestratorConfig = {
 };
 
 const PARTS: { key: string; label: string; hint: string }[] = [
-  { key: "understand", label: "Turn analyst (intent + slots)", hint: "Reads the message, routes the turn and extracts the intake slots." },
-  { key: "plan", label: "Planner (composer)", hint: "Chooses the stops, order and timings for a new plan." },
+  { key: "understand", label: "Analyst", hint: "Reads the message, routes the turn and extracts the intent and slots." },
+  { key: "plan", label: "Planner", hint: "Chooses the stops, order and timings for a new plan." },
   { key: "edit", label: "Editor", hint: "Turns a change request into typed edit operations." },
-  { key: "verify", label: "Constraint verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
-  { key: "ask", label: "Ask / quick answers", hint: "Answers a question about the current plan." },
+  { key: "verify", label: "Verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
+  { key: "ask", label: "Ask", hint: "Answers a question about the current plan." },
+  { key: "memory", label: "Memory", hint: "Extracts durable preferences after a finalised trip." },
   { key: "intake", label: "Intake", hint: "Reads pasted text, documents and images into trip details." },
   { key: "translate", label: "Translation", hint: "Writes the plan in the traveller’s interface language." },
   { key: "search_query", label: "Search query", hint: "Turns a gap in the plan into a short web-search query." },
-  { key: "memory", label: "Memory", hint: "Extracts durable preferences after a finalised trip." },
 ];
 
 /**
  * Model routing for the parts of one turn. All parts share the active provider
- * key (BYOK included); only the model name can differ here. The writer card above
+ * key (BYOK included); only the model name can differ here. The model card above
  * chooses that key and the default model.
  */
 export function ModelsSettings({
@@ -195,7 +195,7 @@ export function ModelsSettings({
       <div className="pf-card pf-eval__panel">
         <Text size="sm" weight="semibold">Turn routing</Text>
         <Text size="xs" tone="tertiary">
-          The turn analyst is the default router. Jev (System 1) can make the plan / modify / ask / clarify routing decision before the analyst extracts the intake slots; if Jev is unreachable, the analyst's own route is kept.
+          The analyst is the default router. Jev (System 1) can make the plan / modify / ask / clarify routing decision before the analyst extracts the intake slots; if Jev is unreachable, the analyst's own route is kept.
         </Text>
         <Field label="Who chooses the path?" wide>
           <Select
@@ -203,7 +203,7 @@ export function ModelsSettings({
             disabled={!canEdit}
             onChange={(event) => setMode(event.target.value === "jev" ? "jev" : "analyst")}
           >
-            <option value="analyst">Turn analyst (LLM, default)</option>
+            <option value="analyst">Analyst (LLM, default)</option>
             <option value="jev">Jev — System 1 gate</option>
           </Select>
         </Field>

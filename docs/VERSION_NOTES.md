@@ -7,11 +7,12 @@ the core is the rebuilt backend at `backend/`.
 ## Settings naming audit — 2026-11-24
 
 - The **Models** section now matches the per-part design: “default model”, not a
-  single writer; parts are Turn analyst, Planner, Editor, Constraint verifier,
-  Ask, Intake, Translation, Search query and Memory.
+  single writer. Part labels stay short — **Analyst, Planner, Editor, Verifier,
+  Ask, Memory** — with technical detail in the hints; Intake, Translation and
+  Search query are listed after them because they are configurable purposes too.
 - Removed the stale “one writer answers every role / reviewer and arms are not
-  used” card; it now explains per-part overrides and the Constraint verifier.
-- Turn routing is named **Turn routing** (`Turn analyst` default, `Jev` System 1),
+  used” card; it now explains per-part overrides and the verifier.
+- Turn routing is named **Turn routing** (`Analyst` default, `Jev` System 1),
   and the save action is **Save routing** instead of “Save orchestrator”.
 - The reply-cap note no longer claims planner 12,000 / editor 2,000 / others
   4,096; it reflects the current planner growth (up to 16,000), editor 3,000 and
