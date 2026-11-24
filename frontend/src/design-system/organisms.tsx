@@ -2065,7 +2065,7 @@ export function ChoiceSlot<T extends { id: string }>({
     body = (
       <>
         {renderOption(chosen, "chosen")}
-        <div className="pf-choice__row">
+        <div className="pf-choice__row pf-choice__row--end">
           {lockButton(chosen)}
         </div>
         {rest.length ? (
@@ -2223,6 +2223,7 @@ function StaySlot({
       onReopen={onReopen}
       booked={Boolean(stay.booked)}
       onBooked={onBooked}
+      fold
       renderOption={(option) =>
         option.id === stay.id ? (
           <StayCard hotel={stay} changed={false} selected={selected} onSelect={onSelect} />
@@ -5345,13 +5346,15 @@ export function SettingsView({
           </Text>
         </div>
       ) : null}
-      {show("general", "v5 runtime writer analyst jev reviewer model arms") ? (
+      {show("general", "v5 runtime models by part turn routing verifier model arms") ? (
       <div className="pf-card pf-eval__panel">
         <Text size="sm" weight="semibold">v5 runtime</Text>
         <Text size="xs" tone="tertiary">
-          One writer model answers every role, and the analyst routes the conversation. The
-          reviewer and the model arms are not used in this build, so their controls are not shown.
-          Thresholds below are the ones the planner and the Jev gate read.
+          The default model is set below; each part can override it with its own model,
+          temperature, reasoning effort and reply cap. The analyst routes the
+          conversation by default, and Jev (System 1) can take that routing decision.
+          The verifier can use its own endpoint and key. The legacy reviewer
+          model and the separate model arms are not part of this build.
         </Text>
       </div>
       ) : null}

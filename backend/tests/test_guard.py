@@ -69,7 +69,7 @@ class ScriptedLLM:
 
     async def json(self, *, purpose, schema, **kwargs):
         type(self).calls.append(purpose)
-        if purpose == "understand":
+        if purpose in {"understand", "analyst"}:
             return type(self).parsed
         if purpose == "intake":
             return type(self).intake

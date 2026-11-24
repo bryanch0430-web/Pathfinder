@@ -19,6 +19,7 @@ from app.domain.models import (
 )
 from app.evidence import place_corpus as corpus
 from app.evidence.providers import haversine_km
+from app.core.purposes import CANONICAL_PURPOSES, normalise_purpose_map
 
 MODE_SPEED = {"walk": 4.5, "cycle": 14.0, "transit": 18.0, "drive": 32.0}
 
@@ -230,7 +231,7 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
     llm = LLMClient(c.settings)
     try:
         draft = await llm.json(
-            purpose="translate",
+            purpose="translation",
             system=skill("translate"),
             user=user_prompt({"locale": locale}, {"fields": payload}),
             schema=TranslationDraft,
@@ -294,13 +295,19 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     jev_model = jev_override.get("model") or settings.decision_model
     jev_url = jev_override.get("url") or settings.decision_api_url
     jev_key = jev_override.get("api_key") or settings.decision_api_key
-    purpose_models = {**settings.purpose_models, **(overrides.get("purpose_models") or {})}
-    purpose_temperatures = {**settings.purpose_temperatures, **(overrides.get("purpose_temperatures") or {})}
-    purpose_reasoning = {**settings.purpose_reasoning, **(overrides.get("purpose_reasoning") or {})}
-    purpose_max_tokens = {**settings.purpose_max_tokens, **(overrides.get("purpose_max_tokens") or {})}
+    purpose_models = normalise_purpose_map({**settings.purpose_models, **(overrides.get("purpose_models") or {})})
+    purpose_temperatures = normalise_purpose_map(
+        {**settings.purpose_temperatures, **(overrides.get("purpose_temperatures") or {})}
+    )
+    purpose_reasoning = normalise_purpose_map(
+        {**settings.purpose_reasoning, **(overrides.get("purpose_reasoning") or {})}
+    )
+    purpose_max_tokens = normalise_purpose_map(
+        {**settings.purpose_max_tokens, **(overrides.get("purpose_max_tokens") or {})}
+    )
     base, _key, model = settings.writer
     return {
-        "version": "5.0.0",
+        "version": "5.2.11",
         "environment": settings.environment,
         "sandbox": data_mode == "corpus",
         "data_mode": data_mode,
@@ -325,7 +332,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "max_tokens_by_purpose": purpose_max_tokens,
             "effective_max_tokens": {
                 purpose: purpose_max_tokens.get(purpose) or PURPOSE_MAX_TOKENS.get(purpose, settings.llm_max_tokens)
-                for purpose in ("understand", "plan", "edit", "verify", "ask", "intake", "memory", "search_query", "translate")
+                for purpose in CANONICAL_PURPOSES
             },
             "verifier": {
                 "model": settings.verifier_model if settings.verifier_api_key else writer_model,

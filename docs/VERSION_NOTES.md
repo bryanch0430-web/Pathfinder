@@ -1,7 +1,117 @@
 # Version notes
 
-Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
-app; the core is the rebuilt backend at `backend/`.
+Running notes for **Pathfinder v5**. The React UI carries the current workspace
+design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
+the core is the rebuilt backend at `backend/`.
+
+## Canonical model-purpose names — 2026-11-24
+
+- Backend purpose names now match Settings: **analyst, planner, editor,
+  verifier, translation**; `ask`, `memory`, `intake` and `search_query` keep
+  their names. `understand`, `plan`, `edit`, `verify` and `translate` remain
+  accepted aliases, so older `.env` values, saved overrides and scripts still
+  work.
+- `/api/runtime` reports the canonical names and the Models tab saves them; the
+  backend normalises both spellings to one key.
+- Live smoke turn: a short question used **`analyst`** (`claude-sonnet-5.5`) and
+  completed without error; the API and model alias tests pass.
+
+## Settings naming audit — 2026-11-24
+
+- The **Models** section now matches the per-part design: “default model”, not a
+  single writer. Part labels stay short — **Analyst, Planner, Editor, Verifier,
+  Ask, Memory** — with technical detail in the hints; Intake, Translation and
+  Search query are listed after them because they are configurable purposes too.
+- Removed the stale “one writer answers every role / reviewer and arms are not
+  used” card; it now explains per-part overrides and the verifier.
+- Turn routing is named **Turn routing** (`Analyst` default, `Jev` System 1),
+  and the save action is **Save routing** instead of “Save orchestrator”.
+- The reply-cap note no longer claims planner 12,000 / editor 2,000 / others
+  4,096; it reflects the current planner growth (up to 16,000), editor 3,000 and
+  verifier 1,500 caps, and per-part temperature.
+- Page description and 简/繁 strings updated to the current model/routing design.
+
+## Replan-safety audit — 2026-11-24
+
+A `modify` request used to reach a full rebuild through four paths. All four are
+now closed; a rebuilt itinerary is only produced when the trip's **shape**
+actually changes.
+
+- **Unusable edit answer:** an invalid/truncated edit JSON used to trigger an
+  automatic replan. It now leaves the plan unchanged and asks the traveller to
+  name the item or explicitly ask for a rebuild.
+- **`scope: whole` with concrete ops:** the model sometimes marked the answer
+  whole while supplying `set_hotel`/`set_ticket`/other ops; the ops were discarded.
+  When there is no `rebuild_reason`, the concrete ops now win.
+- **`scope: whole` with no shape change:** the editor could ask for a rebuild for
+  a small request; the orchestrator now confirms instead of spending a replan.
+- **Missing item ops:** flight number, airline and time changes are handled by
+  `set_ticket`; a hotel named by the traveller is handled by `set_hotel` with the
+  old facts cleared and the stay marked unconfirmed. Unsourced stop replacement is
+  `remove` + `add` (skill rule), not a rebuild.
+- **Still intentional:** changing dates/duration, destination/origin or the
+  multi-city stop list changes the itinerary shape and still replans. Those are
+  not item edits.
+
+Tests: 62 backend tests pass (API, editor, security, flight windows, cost); the
+editor suite now includes the same-time flight change, a flight-time change, a
+named-hotel change, and a whole-scope-with-ops case.
+
+## Flight-number edit fix — 2026-11-24
+
+- **A flight number/name correction is now an edit, not a rebuild.** The editor
+  had `swap_ticket` (a sourced replacement) but no way to apply “same times, new
+  flight number”, so the model chose `scope: whole` and the planner rebuilt the
+  trip. Added the `set_ticket` op (`direction: outbound|return|both`,
+  `flight_number`), which keeps times, price and stops, marks the ticket
+  unconfirmed and records the change.
+- `diff_plans` now notices a changed ticket name/number/time, so the proposal is
+  applied as a real edit.
+- Tests: `test_set_ticket_changes_only_the_flight_number` (editor suite, 9/9).
+
+## Clear details fix — 2026-11-24
+
+- **Clear details now clears the optional trip fields.** The form already sent
+  `null` for start/end date, days, party size and budget, but
+  `PATCH /api/journeys/{id}/state` skipped null values, so the saved context
+  restored them. A null is now an explicit clear for those five fields; fields
+  absent from the patch keep their values.
+- Regression test added to `test_api.py`; live API check returns all five as
+  `null` with destination and currency preserved.
+
+## Limitations and submission wording — 2026-11-24
+
+- README now names the demo/mocked surfaces explicitly: image import, Evaluation,
+  Error analysis, bulk reference lists, accounts/billing and sandbox evidence.
+- Added the out-of-focus limits: non-English input was only high-level tested;
+  multi-city and extremely long-day plans can time out or fall back because of the
+  turn/pre-plan/answer budgets.
+- Updated the interface wording to the current workspace design (map stage, day
+  panel/rail, compact toolbar, adaptive trip-details dialog).
+- Added `docs/submission/CODE_AND_CHECKS.md`: one ordinary task, one changed
+  request, one failure case, source/prompts/config pointers, evaluation
+  scripts/results, success/failure traces and the submitted version.
+
+## Submission packaging — tag `submission-v5.2.11` — 2026-11-24
+
+- README now maps every submission requirement to its command or file, and states
+  the submitted version and tag.
+- Added `backend/requirements.txt` and `requirements-dev.txt`, the tested
+  dependency table, model settings, data/services/paid/hardware notes, and the
+  explicit `uvicorn` entry point for port 8100.
+- Added `docs/submission/`: ordinary/changed/failure inputs, trace evidence,
+  external GitHub references, and the AI-assistance declaration + prompt record.
+- Version metadata is now **5.2.11** in `pyproject.toml`, `/api/ready`,
+  `/api/runtime` and the FastAPI docs.
+- Runtime code is unchanged by this packaging pass; the tag marks this commit.
+
+## 5.2.11 — 2026-11-24 16:05 HKT
+
+- **Hotels fold like flights.** A stay shows the current choice with its Lock in
+  button and an “N other options” disclosure; opening it lists the alternatives
+  with their own lock buttons. The other stays are no longer printed in full.
+- **Lock in sits at the bottom-right of a folded choice**, after the card, instead
+  of under its left edge.
 
 ## 5.2.10 — 2026-11-24 15:50 HKT
 

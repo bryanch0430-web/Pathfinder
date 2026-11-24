@@ -33,17 +33,20 @@ type OrchestratorConfig = {
 };
 
 const PARTS: { key: string; label: string; hint: string }[] = [
-  { key: "understand", label: "Analyst (intent + slots)", hint: "Reads the message, routes the turn and extracts the intake slots." },
-  { key: "plan", label: "Planner (composer)", hint: "Chooses the stops, order and timings for a new plan." },
-  { key: "edit", label: "Editor", hint: "Turns a change request into typed edit operations." },
-  { key: "verify", label: "Constraint verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
-  { key: "ask", label: "Ask / quick answers", hint: "Answers a question about the current plan." },
+  { key: "analyst", label: "Analyst", hint: "Reads the message, routes the turn and extracts the intent and slots." },
+  { key: "planner", label: "Planner", hint: "Chooses the stops, order and timings for a new plan." },
+  { key: "editor", label: "Editor", hint: "Turns a change request into typed edit operations." },
+  { key: "verifier", label: "Verifier", hint: "Audits the traveller’s hard constraints against the plan and the sources." },
+  { key: "ask", label: "Ask", hint: "Answers a question about the current plan." },
   { key: "memory", label: "Memory", hint: "Extracts durable preferences after a finalised trip." },
+  { key: "intake", label: "Intake", hint: "Reads pasted text, documents and images into trip details." },
+  { key: "translation", label: "Translation", hint: "Writes the plan in the traveller’s interface language." },
+  { key: "search_query", label: "Search query", hint: "Turns a gap in the plan into a short web-search query." },
 ];
 
 /**
  * Model routing for the parts of one turn. All parts share the active provider
- * key (BYOK included); only the model name can differ here. The writer card above
+ * key (BYOK included); only the model name can differ here. The model card above
  * chooses that key and the default model.
  */
 export function ModelsSettings({
@@ -78,9 +81,9 @@ export function ModelsSettings({
           <div>
             <Text size="sm" weight="semibold">Models by part</Text>
             <Text size="xs" tone="tertiary">
-              Each part can use its own model; leave a field blank to use the default writer
+              Each part can use its own model; leave a field blank to use the default model
               (<span className="pf-mono">{models.default || "not set"}</span>). Each part can also set
-              its own temperature and reasoning effort. All parts use the active provider key,
+              its own temperature, reasoning effort and reply cap. All parts use the active provider key,
               including a BYOK key, except the Constraint verifier when its own endpoint/key is
               configured by the operator.
             </Text>
@@ -97,7 +100,7 @@ export function ModelsSettings({
                   <Input
                     style={{ flex: "1 1 240px" }}
                     value={purposes[part.key] ?? ""}
-                    placeholder={part.key === "verify" && models.verifier?.model ? models.verifier.model : "Default model"}
+                    placeholder={part.key === "verifier" && models.verifier?.model ? models.verifier.model : "Default model"}
                     disabled={!canEdit}
                     onChange={(event) => setPurposes((current) => ({ ...current, [part.key]: event.target.value }))}
                   />
@@ -182,16 +185,17 @@ export function ModelsSettings({
           </Button>
         </div>
         <Text size="xs" tone="tertiary">
-          Temperature applies to every model. A blank reply cap uses the call's built-in cap
-          (planner 12,000; editor 2,000; verifier 1,500; others 4,096). Reasoning effort is sent only
-          to OpenAI reasoning models (GPT-5 / o-series); other providers store it but do not use it.
+          A blank reply cap uses the cap built into that part's call (the planner's cap grows
+          with the trip, up to 16,000; the verifier is 1,500 and the editor 3,000). A blank
+          temperature uses the part's default. Reasoning effort is sent only to providers
+          that support it; other providers store it but do not use it.
         </Text>
       </div>
 
       <div className="pf-card pf-eval__panel">
-        <Text size="sm" weight="semibold">Intent routing</Text>
+        <Text size="sm" weight="semibold">Turn routing</Text>
         <Text size="xs" tone="tertiary">
-          The analyst is the default intent router. Jev can make the plan / modify / ask / clarify routing decision before the analyst extracts the intake slots; if Jev is unreachable, the analyst's own route is kept.
+          The analyst is the default router. Jev (System 1) can make the plan / modify / ask / clarify routing decision before the analyst extracts the intake slots; if Jev is unreachable, the analyst's own route is kept.
         </Text>
         <Field label="Who chooses the path?" wide>
           <Select
@@ -199,7 +203,7 @@ export function ModelsSettings({
             disabled={!canEdit}
             onChange={(event) => setMode(event.target.value === "jev" ? "jev" : "analyst")}
           >
-            <option value="analyst">Intent router (LLM, default)</option>
+            <option value="analyst">Analyst (LLM, default)</option>
             <option value="jev">Jev — System 1 gate</option>
           </Select>
         </Field>
@@ -250,7 +254,7 @@ export function ModelsSettings({
               })
             }
           >
-            Save orchestrator
+            Save routing
           </Button>
         </div>
       </div>

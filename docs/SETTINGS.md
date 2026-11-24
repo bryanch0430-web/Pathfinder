@@ -14,12 +14,12 @@ If a control is not listed here, it is not in the UI.
 | Handoff | Handoff message | **yes** | stored with the policy and shown by the Desk |
 | Instructions | Skill overrides | **yes** | per-skill prompt override (stored in kv, falls back to `app/skills/*.md`) |
 | Models | Provider / key / default model / temperature | **yes** | active writer and BYOK key; default model. The default reply cap is no longer shown here. |
-| Models | Per-part model | **yes** | `purpose_models`; blank = default writer |
+| Models | Per-part model | **yes** | `purpose_models` (`analyst`, `planner`, `editor`, `verifier`, …); the old `understand`/`plan`/`edit`/`verify` keys are accepted as aliases; blank = default model |
 | Models | Per-part temperature | **yes** | `purpose_temperatures`, 0–2 |
-| Models | Per-part reasoning effort | **yes** | `purpose_reasoning`; sent as `reasoning_effort` only to GPT-5/o-series |
-| Models | Per-part reply cap | **yes** | `purpose_max_tokens`, 16–32,000. The field shows the effective cap (planner 12,000; editor 2,000; verifier 1,500; ask 1,400; memory 700; understand 4,096). |
+| Models | Per-part reasoning effort | **yes** | `purpose_reasoning`; sent as `reasoning_effort` only to providers that support it |
+| Models | Per-part reply cap | **yes** | `purpose_max_tokens`, 16–32,000. The field shows the effective cap (planner 8,000 and up to 16,000 with trip length; editor 3,000; verifier 1,500; analyst 3,000; ask 1,400; memory 700). |
 | Models | Constraint verifier endpoint / key | env only | `VERIFIER_BASE_URL`, `VERIFIER_API_KEY`, `VERIFIER_MODEL`; defaults to DeepSeek `deepseek-flash` at temperature 0, cap 1,500. Separate from the writer key. |
-| Models | Constraint verifier model override | **yes** | `purpose_models.verify` or the **Models by part** field; blank uses `VERIFIER_MODEL`. |
+| Models | Constraint verifier model override | **yes** | `purpose_models.verifier` or the **Models by part** field; blank uses `VERIFIER_MODEL`. |
 | Models | Turn orchestrator (Analyst / Jev) | **yes** | Jev routes plan/modify/ask/clarify before the analyst; fallback to analyst |
 | Models | Jev endpoint / model / key | **yes** | used only when Jev is the orchestrator; key is stored server-side and shown masked |
 | Thresholds | LLM router confidence (`ANALYST_CONFIDENCE_THRESHOLD`) | **yes** | Low-confidence edit clarification; model-reported, not deterministic |

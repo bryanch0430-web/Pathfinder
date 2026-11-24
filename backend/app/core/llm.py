@@ -1,9 +1,9 @@
 """The model gateway: one OpenAI-compatible client for every role in the app.
 
 Pathfinder v5 deliberately has **one** way to talk to a model, and every call is
-typed by ``purpose`` ("understand", "plan", "ask", "verify", "translate", ...).
-That makes the system observable (a trace row per call), swappable (Poe today,
-xAI or any compatible endpoint tomorrow) and testable (a fake client in tests).
+typed by ``purpose`` ("analyst", "planner", "ask", "verifier", "translation", ...).
+"understand", "plan", "edit", "verify" and "translate" remain accepted aliases for
+stored overrides and older scripts.
 
 Structured calls use a JSON contract:
 
@@ -12,6 +12,9 @@ Structured calls use a JSON contract:
 3. the parsed object is validated by a Pydantic schema,
 4. on a parse or validation failure the model gets **one** repair turn that
    includes the exact error, then the call fails loudly.
+
+That makes the system observable (a trace row per call), swappable (Poe today,
+xAI or any compatible endpoint tomorrow) and testable (a fake client in tests).
 
 There is no regex-based interpretation of the traveller's text anywhere here:
 understanding, planning and edits are the model's job, with the schemas making
@@ -31,6 +34,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from app.config import Settings
+from app.core.purposes import canonical_purpose, purpose_value
 from app.core.trace import TurnTrace
 
 TModel = TypeVar("TModel", bound=BaseModel)
@@ -38,15 +42,15 @@ TModel = TypeVar("TModel", bound=BaseModel)
 # Built-in reply caps per part. A Models override wins; then an explicit call cap;
 # then this map; then the writer default.
 PURPOSE_MAX_TOKENS = {
-    "plan": 8000,
-    "edit": 3000,
-    "verify": 1500,
+    "planner": 8000,
+    "editor": 3000,
+    "verifier": 1500,
     "ask": 1400,
-    "understand": 3000,
+    "analyst": 3000,
     "intake": 6000,
     "memory": 700,
     "search_query": 200,
-    "translate": 4000,
+    "translation": 4000,
 }
 
 
@@ -100,10 +104,11 @@ class LLMClient:
         return bool(self.api_key and self.base_url and self.model)
 
     def _uses_verifier_provider(self, purpose: str) -> bool:
+        purpose = canonical_purpose(purpose)
         if not self.settings.verifier_api_key:
             return False
-        configured = (self.settings.purpose_models or {}).get(purpose, "").strip()
-        if purpose == "verify":
+        configured = str(purpose_value(self.settings.purpose_models, purpose) or "").strip()
+        if purpose == "verifier":
             # Default and other DeepSeek names use the verifier endpoint; an
             # explicit model from the writer provider keeps the writer endpoint.
             return not configured or configured.lower().startswith("deepseek")
@@ -123,19 +128,21 @@ class LLMClient:
 
     def model_for(self, purpose: str, model: str | None = None) -> str:
         """The model this part uses: explicit, then configured, then verifier/writer."""
-        configured = (self.settings.purpose_models or {}).get(purpose, "").strip()
+        purpose = canonical_purpose(purpose)
+        configured = str(purpose_value(self.settings.purpose_models, purpose) or "").strip()
         if model:
             return model.strip()
         if configured:
             return configured
-        if purpose == "verify" and self._uses_verifier_provider("verify"):
+        if purpose == "verifier" and self._uses_verifier_provider("verifier"):
             return self.settings.verifier_model.strip()
         return self.model
 
     def temperature_for(self, purpose: str, temperature: float | None = None) -> float:
+        purpose = canonical_purpose(purpose)
         if temperature is not None:
             return temperature
-        configured = (self.settings.purpose_temperatures or {}).get(purpose)
+        configured = purpose_value(self.settings.purpose_temperatures, purpose)
         if configured is None:
             if self._uses_verifier_provider(purpose):
                 return max(0.0, min(2.0, float(self.settings.verifier_temperature)))
@@ -146,12 +153,13 @@ class LLMClient:
             return self.settings.llm_temperature
 
     def reasoning_for(self, purpose: str) -> str:
-        configured = (self.settings.purpose_reasoning or {}).get(purpose)
+        configured = purpose_value(self.settings.purpose_reasoning, purpose)
         return (configured or self.settings.llm_reasoning or "none").strip().lower()
 
     def max_tokens_for(self, purpose: str, max_tokens: int | None = None) -> int:
         """A part's explicit cap, then the call's own cap, then the part default."""
-        configured = (self.settings.purpose_max_tokens or {}).get(purpose)
+        purpose = canonical_purpose(purpose)
+        configured = purpose_value(self.settings.purpose_max_tokens, purpose)
         if configured:
             try:
                 return max(16, min(32000, int(configured)))
@@ -199,7 +207,7 @@ class LLMClient:
         """POST once, retrying idempotent failures (429/5xx/timeouts) with jittered backoff."""
         base, key = self.provider_for(purpose)
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        timeout = self.settings.verifier_timeout_seconds if purpose == "verify" else None
+        timeout = self.settings.verifier_timeout_seconds if canonical_purpose(purpose) == "verifier" else None
         last: Exception | None = None
         for attempt in range(2):
             started = time.perf_counter()

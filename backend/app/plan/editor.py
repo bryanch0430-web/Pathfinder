@@ -59,6 +59,11 @@ async def propose_edit(
     log: list[str] = []
     research_failed = False
     draft = await _ask(llm, context, plan, bundle, message, scope_label, scope_item_id, skill_overrides, trace)
+    if draft.scope == "whole" and not draft.rebuild_reason and draft.ops:
+        # The model sometimes marks the answer whole while it has a concrete edit.
+        # Applying those ops is safer than discarding them and spending a replan.
+        draft.scope = "stop"
+        log.append("Applied the concrete changes instead of rebuilding the itinerary.")
     if draft.needs_research:
         extra = await _research(providers, context, draft, trace)
         if extra:
@@ -216,7 +221,7 @@ async def _ask(
         ],
     }
     return await llm.json(
-        purpose="edit",
+        purpose="editor",
         system=skill("edit", overrides),
         user=user_prompt(payload, outside),
         schema=EditDraft,
@@ -287,6 +292,97 @@ def _apply(op, plan: TripPlan, context: TripContext, bundle: Bundle, log: list[s
         hotel.check_out = plan.hotels[0].check_out if plan.hotels else plan.dates.end
         plan.hotels = [hotel]
         log.append(f"Swapped the stay to {hotel.name}.")
+        return True
+    if op.op == "set_hotel":
+        name = (op.name or "").strip()
+        if not name:
+            log.append("No hotel name was given, so the stay is unchanged.")
+            return False
+        if not plan.hotels:
+            log.append("The plan has no stay to update.")
+            return False
+        hotel = plan.hotels[0]
+        if hotel.locked or hotel.confirmed or hotel.booked:
+            log.append("The stay is locked or booked, so it was not replaced.")
+            return False
+        if hotel.name.strip().lower() == name.lower():
+            log.append("That is already the stay on the plan.")
+            return False
+        # The new name is unconfirmed: keep the dates, clear facts that belonged to the old hotel.
+        hotel.name = name
+        hotel.area = ""
+        hotel.geo = None
+        hotel.price_per_night = None
+        hotel.price_kind = "none"
+        hotel.rating = None
+        hotel.review_count = None
+        hotel.distance_to_centre_km = None
+        hotel.source_refs = []
+        hotel.booking_url = ""
+        hotel.room_types = []
+        hotel.property_token = ""
+        hotel.nearby = []
+        hotel.amenities = []
+        hotel.hotel_class = None
+        hotel.data_status = "stale"
+        hotel.confirmed = False
+        hotel.notes = (
+            f"{hotel.notes.strip()} Stay changed to {name} at the traveller's request; "
+            "address, price and rating are unconfirmed."
+        ).strip()
+        log.append(f"Changed the stay to {name}; check-in and check-out were kept, but it is unconfirmed.")
+        return True
+    if op.op == "set_ticket":
+        number = (op.flight_number or "").strip()
+        chosen_tickets = [ticket for ticket in plan.tickets if ticket.selected] or plan.tickets
+        if not chosen_tickets:
+            log.append("The plan has no flight to update.")
+            return False
+        ticket = chosen_tickets[0]
+        direction = op.direction or "outbound"
+        updated: list[str] = []
+        if direction in {"outbound", "both"}:
+            if number:
+                route = f"{ticket.origin} to {ticket.destination}".strip()
+                airline = ticket.operator.strip()
+                ticket.name = f"{route} · {airline + ' ' if airline else ''}{number}".strip() if route else number
+                ticket.notes = _number_note(ticket.notes, number, "Outbound")
+                updated.append(f"outbound {number}")
+            if op.operator and op.operator.strip():
+                ticket.operator = op.operator.strip()
+                updated.append(f"outbound airline {ticket.operator}")
+            if op.depart_at:
+                ticket.depart_at = _merge_time(op.depart_at, ticket.depart_at) or ticket.depart_at
+                updated.append(f"outbound departure {_clock(ticket.depart_at)}")
+            if op.arrive_at:
+                ticket.arrive_at = _merge_time(op.arrive_at, ticket.arrive_at) or ticket.arrive_at
+                updated.append(f"outbound arrival {_clock(ticket.arrive_at)}")
+        if direction in {"return", "both"}:
+            if not ticket.return_depart_at:
+                log.append("That option has no return flight to update.")
+                return bool(updated)
+            if number:
+                ticket.return_flight_number = number
+                ticket.notes = _number_note(ticket.notes, number, "Return")
+                updated.append(f"return {number}")
+            if op.return_airline and op.return_airline.strip():
+                ticket.return_airline = op.return_airline.strip()
+                updated.append(f"return airline {ticket.return_airline}")
+            if op.return_depart_at:
+                ticket.return_depart_at = _merge_time(op.return_depart_at, ticket.return_depart_at) or ticket.return_depart_at
+                updated.append(f"return departure {_clock(ticket.return_depart_at)}")
+            if op.return_arrive_at:
+                ticket.return_arrive_at = _merge_time(op.return_arrive_at, ticket.return_arrive_at) or ticket.return_arrive_at
+                updated.append(f"return arrival {_clock(ticket.return_arrive_at)}")
+        if not updated:
+            log.append("No flight detail changed.")
+            return False
+        ticket.confirmed = False
+        ticket.data_status = "stale"
+        log.append(
+            f"Updated the {', '.join(updated)}; everything else on the ticket was kept. "
+            "The change came from the traveller, so confirm it with the airline."
+        )
         return True
     if op.op == "swap_ticket":
         evidence = bundle.get(op.ref or "")
@@ -538,6 +634,31 @@ def _span(item) -> int:
 # -- diffing -----------------------------------------------------------
 
 
+def _number_note(notes: str, number: str, label: str) -> str:
+    """Keep the old note, and make clear that a traveller-supplied number is unconfirmed."""
+    suffix = f"{label} flight number updated to {number}; confirm it with the airline."
+    return f"{notes.strip()} {suffix}".strip() if notes.strip() else suffix
+
+
+def _merge_time(value: str, existing: str | None) -> str | None:
+    """A new clock time keeps the existing date; a full ISO timestamp is used as given."""
+    text = (value or "").strip()
+    if "T" in text:
+        return text
+    parts = text.replace(".", ":").split(":")
+    if len(parts) < 2 or not parts[0].strip().isdigit() or not parts[1].strip().isdigit():
+        return None
+    clock = f"{int(parts[0]) % 24:02d}:{int(parts[1]) % 60:02d}"
+    if existing and "T" in existing:
+        return f"{existing[:10]}T{clock}"
+    return clock
+
+
+def _clock(value: str | None) -> str:
+    text = (value or "").strip()
+    return text.split("T", 1)[1][:5] if "T" in text else text
+
+
 def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
     if old is None:
         return [{"kind": "created", "detail": new.change_summary}]
@@ -575,5 +696,16 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
     old_ticket = old_pick.id if old_pick else ""
     new_ticket = new_pick.id if new_pick else ""
     if old_ticket != new_ticket and new_ticket:
+        entries.append({"kind": "transport", "leg_id": "leg-out", "id": new_ticket, "to": new_pick.name})
+    elif old_pick and new_pick and (
+        old_pick.name != new_pick.name
+        or old_pick.return_flight_number != new_pick.return_flight_number
+        or old_pick.return_depart_at != new_pick.return_depart_at
+        or old_pick.return_arrive_at != new_pick.return_arrive_at
+        or old_pick.depart_at != new_pick.depart_at
+        or old_pick.arrive_at != new_pick.arrive_at
+        or old_pick.operator != new_pick.operator
+        or old_pick.return_airline != new_pick.return_airline
+    ):
         entries.append({"kind": "transport", "leg_id": "leg-out", "id": new_ticket, "to": new_pick.name})
     return entries[:40]

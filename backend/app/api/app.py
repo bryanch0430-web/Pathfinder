@@ -108,7 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Pathfinder v5",
-        version="5.0.0",
+        version="5.2.11",
         description="An LLM-first conversational trip planner.",
         lifespan=lifespan,
     )

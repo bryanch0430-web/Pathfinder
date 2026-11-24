@@ -215,7 +215,7 @@ async def compose(
 
         try:
             draft = await llm.json_stream(
-                purpose="plan",
+                purpose="planner",
                 system=system,
                 user=user,
                 schema=PlanDraft,
@@ -231,7 +231,7 @@ async def compose(
             draft = None
     if draft is None:
         draft = await llm.json(
-            purpose="plan",
+            purpose="planner",
             system=system,
             user=user,
             schema=PlanDraft,

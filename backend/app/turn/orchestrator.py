@@ -821,33 +821,40 @@ async def _edit_turn(
             skill_overrides=skill_overrides,
         )
     except LLMError:
-        # A change too large for one edit answer is rebuilt instead of failing:
-        # "make it seven days and add Taiwan" needs a new itinerary, not ops.
-        trace.say("The edit answer was unusable, so the trip is replanned from the request.")
-        await push("progress", {"phase": "compose", "message": "Rebuilding the itinerary.", "progress": 48})
-        await _plan_turn(
-            deps=deps,
-            request=request,
-            session_id=session_id,
-            context=context,
-            previous=plan,
-            trace=trace,
-            llm=llm,
-            providers=providers,
-            push=push,
-            skill_overrides=skill_overrides,
-            scenario=scenario,
-            change_summary="Replanned the trip.",
-            research_places=research_places,
-            search_queries=search_queries,
+        # Do not spend a full replan on an unusable edit answer. A broad request
+        # that the editor could not express should be confirmed by the traveller.
+        trace.say("The edit answer was unusable, so the plan was left unchanged.")
+        trace.why.append("The edit answer was unusable; the plan is not rebuilt without confirmation.")
+        reply = (
+            "I couldn't turn that into a small edit, so I left the plan unchanged. "
+            "Name the stop, flight or hotel you want changed — or ask me to rebuild the trip "
+            "if the whole itinerary should be redone."
         )
+        await push("token", {"text": reply})
+        await _save_assistant(store, session_id, reply, intent="modify", meta={"log": {"steps": []}})
+        await _finish(push, trace, session_id=session_id, intent="modify")
         return
     outcome.draft.summary = await _guarded(
         store, session_id, settings, outcome.draft.summary, replacement="Edited the trip."
     )
     outcome.draft.detail = await _guarded(store, session_id, settings, outcome.draft.detail, replacement="")
     outcome.log = [await _guarded(store, session_id, settings, line, replacement=SAFE_FIELD) for line in outcome.log]
-    if outcome.rebuild or _trip_shape_changed(plan, outcome.context):
+    shape_changed = _trip_shape_changed(plan, outcome.context)
+    if outcome.rebuild or shape_changed:
+        if outcome.rebuild and not shape_changed:
+            # The editor could not express this as a small edit, but the trip's
+            # dates, cities and nights are unchanged. Do not spend a full replan
+            # without the traveller asking for one.
+            trace.why.append("The edit asked for a rebuild without changing the trip's shape; confirmation is required.")
+            reply = (
+                "That change would need a fresh itinerary, so I have not started one. "
+                "Name the stop, flight or hotel you want changed, or say “rebuild the trip” "
+                "if you want the whole itinerary redone."
+            )
+            await push("token", {"text": reply})
+            await _save_assistant(store, session_id, reply, intent="modify", meta={"log": {"steps": outcome.log}})
+            await _finish(push, trace, session_id=session_id, intent="modify")
+            return
         trace.say(f"The edit needs a replan: {outcome.rebuild_reason}.")
         await store.save_context(session_id, outcome.context.model_dump())
         await _plan_turn(
@@ -1240,6 +1247,10 @@ def _trip_shape_changed(plan: TripPlan, context: TripContext) -> bool:
     if context.end_date and plan.dates.end and context.end_date != plan.dates.end:
         return True
     if context.days and len(plan.days) and context.days != len(plan.days):
+        return True
+    if context.destination.strip().lower() != (plan.destination.name or "").strip().lower():
+        return True
+    if context.origin.strip().lower() != (plan.origin or "").strip().lower():
         return True
     if context.stops:
         asked = [(stop.city.strip().lower(), int(stop.nights or 0)) for stop in context.stops if stop.city.strip()]

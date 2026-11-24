@@ -46,7 +46,7 @@ async def ready(request: Request) -> dict[str, Any]:
     c = container(request)
     return {
         "status": "ok",
-        "version": "5.0.0",
+        "version": "5.2.11",
         "environment": c.settings.environment,
         "local_admin": is_admin(request),
         "sandbox": c.settings.sandbox,

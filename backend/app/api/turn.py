@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import Container, bearer_user, container, rate_limit
+from app.core.purposes import normalise_purpose_map
 from app.core.store import Store
 from app.domain.models import ChatRequest, TripContext
 from app.turn.orchestrator import Dependencies, TurnEvent, run_turn
@@ -102,24 +103,24 @@ async def effective_settings(c: Container):
     if isinstance(purpose_models, dict):
         update["purpose_models"] = {
             str(key): str(value).strip()
-            for key, value in purpose_models.items()
+            for key, value in normalise_purpose_map(purpose_models).items()
             if str(value).strip()
         }
     purpose_temperatures = overrides.get("purpose_temperatures")
     if isinstance(purpose_temperatures, dict):
         clean = {}
-        for key, value in purpose_temperatures.items():
+        for key, value in normalise_purpose_map(purpose_temperatures).items():
             try:
-                clean[str(key)] = max(0.0, min(2.0, float(value)))
+                clean[key] = max(0.0, min(2.0, float(value)))
             except (TypeError, ValueError):
                 continue
         update["purpose_temperatures"] = clean
     purpose_max_tokens = overrides.get("purpose_max_tokens")
     if isinstance(purpose_max_tokens, dict):
         clean_tokens = {}
-        for key, value in purpose_max_tokens.items():
+        for key, value in normalise_purpose_map(purpose_max_tokens).items():
             try:
-                clean_tokens[str(key)] = max(16, min(32000, int(value)))
+                clean_tokens[key] = max(16, min(32000, int(value)))
             except (TypeError, ValueError):
                 continue
         update["purpose_max_tokens"] = clean_tokens
@@ -127,7 +128,7 @@ async def effective_settings(c: Container):
     if isinstance(purpose_reasoning, dict):
         update["purpose_reasoning"] = {
             str(key): str(value).strip().lower()
-            for key, value in purpose_reasoning.items()
+            for key, value in normalise_purpose_map(purpose_reasoning).items()
             if str(value).strip().lower() in {"none", "low", "medium", "high"}
         }
     if writer.get("reasoning"):

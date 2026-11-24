@@ -110,15 +110,23 @@ async def patch_state(session_id: str, payload: dict[str, Any], request: Request
         "currency", "hotel_style", "pace", "preferences", "hard_constraints", "language",
         "plan_locale", "stops", "one_way", "finalized",
     ):
-        if field in payload and payload[field] is not None:
-            if field == "currency":
-                code = normalise_currency(payload[field])
-                if not code:
-                    raise HTTPException(status_code=400, detail="Use a three-letter currency code such as TWD, JPY or USD.")
-                merged[field] = code
-                merged["currency_set"] = True
-                continue
-            merged[field] = _checked_state(field, payload[field])
+        if field not in payload:
+            continue
+        value = payload[field]
+        if value is None:
+            # Clear details sends null for the optional fields. Ignoring them made
+            # the old dates, party size and budget come back when the form saved.
+            if field in {"start_date", "end_date", "days", "party_size", "budget"}:
+                merged[field] = None
+            continue
+        if field == "currency":
+            code = normalise_currency(value)
+            if not code:
+                raise HTTPException(status_code=400, detail="Use a three-letter currency code such as TWD, JPY or USD.")
+            merged[field] = code
+            merged["currency_set"] = True
+            continue
+        merged[field] = _checked_state(field, value)
     if isinstance(payload.get("profile"), dict):
         merged["profile"] = payload["profile"]
     try:

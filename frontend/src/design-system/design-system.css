@@ -7078,6 +7078,12 @@ button.pf-badge:hover {
   flex-wrap: wrap;
 }
 
+/* A folded choice has only the button in its row: it sits at the bottom-right
+   of the card, where the eye finishes reading. */
+.pf-choice__row--end {
+  justify-content: flex-end;
+}
+
 .pf-choice__summary {
   align-self: flex-start;
   padding: 4px 12px;

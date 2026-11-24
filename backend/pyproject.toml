@@ -1,6 +1,6 @@
 [project]
 name = "pathfinder-v5"
-version = "5.0.0"
+version = "5.2.11"
 description = "Pathfinder v5 - LLM-first agentic trip planner"
 requires-python = ">=3.11"
 dependencies = [
