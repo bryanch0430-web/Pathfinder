@@ -2171,7 +2171,7 @@ export function PlaceCard({
         {isStay ? (
           <Text size="xs" tone="tertiary">
             {item.price
-              ? `${t("workspace.perNight", { price: `${item.price.currency} ${item.price.amount.toLocaleString()}` })} · ${item.price_kind}`
+              ? `${t("workspace.perNight", { price: `${item.price.currency} ${item.price.amount.toLocaleString()}` })} · ${readableLabel(item.price_kind)}`
               : t("workspace.noRate")}
           </Text>
         ) : null}

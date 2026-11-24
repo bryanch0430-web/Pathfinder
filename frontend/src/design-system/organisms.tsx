@@ -1572,7 +1572,7 @@ function StayMatchNote({ match }: { match: StayMatch }) {
                 ) : (
                   title
                 )}
-                {ref.source && ref.source !== title ? <span className="pf-muted"> · {ref.source}</span> : null}
+                {ref.source && ref.source !== title ? <span className="pf-muted"> · {readableLabel(ref.source)}</span> : null}
               </li>
             );
           })}
@@ -1650,7 +1650,7 @@ function HotelOptionCard({
       ) : hotel.price_per_night ? (
         <Text size="sm" weight="semibold">
           {t("workspace.perNight", { price: moneyText(hotel.price_per_night) })}
-          {hotel.price_kind !== "none" ? <span className="pf-muted pf-small"> · {hotel.price_kind}</span> : null}
+          {hotel.price_kind !== "none" ? <span className="pf-muted pf-small"> · {readableLabel(hotel.price_kind)}</span> : null}
         </Text>
       ) : null}
       {location.length ? <Text size="xs" tone="secondary">{location.join(" · ")}</Text> : null}
@@ -1729,10 +1729,10 @@ function HotelOptionCard({
                   {href ? (
                     <>
                       {" · "}
-                      <a href={href} target="_blank" rel="noreferrer">{room.source || t("workspace.checkHotel")}</a>
+                      <a href={href} target="_blank" rel="noreferrer">{readableLabel(room.source) || t("workspace.checkHotel")}</a>
                     </>
                   ) : room.source ? (
-                    <span className="pf-muted"> · {room.source}</span>
+                    <span className="pf-muted"> · {readableLabel(room.source)}</span>
                   ) : null}
                 </li>
               );
@@ -1864,7 +1864,7 @@ export function TicketCard({
           )
         ) : null}
         <Text size="sm" weight="semibold">
-          {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
+          {ticket.price ? `${moneyText(ticket.price)} · ${readableLabel(ticket.price_kind)}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
         {ticket.booking_url && safeHref(ticket.booking_url) ? (
           <a href={safeHref(ticket.booking_url)} target="_blank" rel="noopener noreferrer">{t("workspace.book")}</a>
@@ -1927,7 +1927,7 @@ function StayCard({
         </Text>
         <Text size="xs" tone="secondary">
           {hotel.price_per_night
-            ? `${t("workspace.perNight", { price: `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()}` })} · ${hotel.price_kind}`
+            ? `${t("workspace.perNight", { price: `${hotel.price_per_night.currency} ${hotel.price_per_night.amount.toLocaleString()}` })} · ${readableLabel(hotel.price_kind)}`
             : t("workspace.noRate")}
         </Text>
         <RankNote rank={hotel.rank} reasons={hotel.reasons} />
@@ -3497,7 +3497,7 @@ export function MapPanel({
                 meals: points.filter((item) => item.type === "meal").length,
               })}{" "}
               · {overview && multi ? routeLabel(plan) : scope.segment.destination.name}
-              {travel ? ` · ${travel.label} (${travel.mode})` : ""}
+              {travel ? ` · ${travel.label} (${readableLabel(travel.mode)})` : ""}
             </Text>
           </div>
           <div className="pf-row pf-map__days" style={{ gap: 4 }}>

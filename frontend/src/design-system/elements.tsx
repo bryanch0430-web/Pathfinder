@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
 import { safeHref } from "../lib/safeHref";
+import { readableLabel } from "../lib/readableLabel";
 import { useI18n, type MessageKey } from "../lib/i18n";
 
 type DataStatus = "ok" | "stale" | "unavailable";
@@ -44,6 +45,7 @@ const AGENT_LABEL: Record<string, MessageKey> = {
   hotel: "agent.hotel",
   weather: "agent.weather",
   ticket: "agent.ticket",
+  videos: "agent.videos",
 };
 
 const AGENT_ICON: Record<string, IconName> = {
@@ -51,6 +53,7 @@ const AGENT_ICON: Record<string, IconName> = {
   hotel: "hotel",
   weather: "cloud",
   ticket: "ticket",
+  videos: "play",
 };
 
 export function AgentChip({
@@ -78,7 +81,7 @@ export function SourceLink({ title, url, source }: { title: string; url?: string
   const body = (
     <>
       <Icon name="external" size={11} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{source ? `${source}: ${title}` : title}</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{source ? `${readableLabel(source)}: ${title}` : title}</span>
     </>
   );
   const href = safeHref(url);

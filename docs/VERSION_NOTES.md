@@ -3,6 +3,22 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.3 — 2026-11-24 14:50 HKT
+
+Audit of the remaining machine labels on screen.
+
+- Prices now read **Live / Reference / Estimate** instead of the raw
+  `price_kind`; travel modes read **Transit / Walk / Drive**; room and evidence
+  sources, and source-link prefixes, go through the same helper, so
+  `place_corpus` shows as “Place corpus”.
+- The video agent has a proper label in all three languages (**Videos / 视频 /
+  影片**) instead of the raw key, and the desk stop-type field reads
+  “Attraction”, not `attraction`.
+- `readableLabel` keeps brand spelling through a proper-name map: OSRM,
+  SerpAPI, YouTube, Bilibili, Google Places, Open-Meteo, Wikipedia, LLM, HKID.
+- Left raw deliberately: developer-trace fields (`phase`, `tool`, `status`) and
+  diagnostics, which are operator-only and not traveller-facing labels.
+
 ## 5.2.2 — 2026-11-24 14:35 HKT
 
 - **Machine labels read as words.** Data-source badges and the map's stop type go
