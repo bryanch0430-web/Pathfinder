@@ -41,7 +41,8 @@ from `frontend/dist` and the `/api` routes from the same process.
 | Evaluation scripts and results | [Evaluation](#evaluation), `backend/scripts/run_eval.py`, [docs/EVALUATION.md](docs/EVALUATION.md), [docs/eval-artifacts/v5-model-study/RESULTS.md](docs/eval-artifacts/v5-model-study/RESULTS.md) |
 | Prompts and configuration | `backend/app/skills/*.md`, `backend/app/core/prompts.py`, `backend/app/config.py`, `.env.example` |
 | Success/failure traces | [docs/submission/TRACES.md](docs/submission/TRACES.md), `docs/submission/traces/success-taipei-turn-log.json`, `docs/eval-artifacts/v5-model-study/TRACE_INDEX.md` |
-| Credentials, mocks and transparency | [Access, transparency and AI assistance](#access-transparency-and-ai-assistance); `.env.example`; `.env` is ignored |
+| Credentials, mocks and transparency | [Access, transparency and AI assistance](#access-transparency-and-ai-assistance); [Mocked and demo-only functions](#mocked-and-demo-only-functions); `.env.example`; `.env` is ignored |
+| Known limits (language, multi-city, long days) | [Known limits](#known-limits) |
 | AI assistance declaration and prompt record | [docs/submission/AI_ASSISTANCE.md](docs/submission/AI_ASSISTANCE.md) |
 
 ## Version notes
