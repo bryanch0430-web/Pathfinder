@@ -360,7 +360,6 @@ async def runtime_config(c: Container) -> dict[str, Any]:
             "routes": ["OSRM", "estimate"],
             "flights": ["Google Flights (SerpAPI)", "estimate"],
             "search": ["SerpAPI", "Wikipedia", "DeepSeek Search"],
-            "judge": ["DeepSeek"] if settings.judge_api_key else [],
         },
         "features": {
             "flights": settings.enable_flights,

@@ -205,7 +205,7 @@ The important keys:
 | search | `DEEPSEEK_SEARCH_API_KEY` | final web-search fallback after SerpAPI and Wikipedia |
 | verifier | `VERIFIER_*` | constraint audit on its own DeepSeek endpoint |
 | weather | none | Open-Meteo forecast |
-| judge | `JUDGE_*` | reserved; not called by the v5 runtime or evaluator |
+| judge | none | removed from the v5 runtime; no key, method or call path exists |
 | security | `CANARY_TOKEN`, `ADMIN_TOKEN`, `LOCAL_ADMIN` | injection fence, operator views |
 | sandbox | `PATHFINDER_SANDBOX=1` | curated evidence, no network |
 

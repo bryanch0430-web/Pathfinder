@@ -3,6 +3,14 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.5 — 2026-11-24 15:00 HKT
+
+- **The judge is gone from the demo.** `LLMClient.judge`, the `JUDGE_*`
+  settings and the `providers.judge` runtime entry were removed, so an old
+  `.env` key cannot switch it back on. Historical `judge_score` values in
+  evaluation artifacts still render as stored data; nothing calls a judge model.
+- Tests: `test_the_judge_is_not_part_of_the_runtime`.
+
 ## 5.2.4 — 2026-11-24 14:55 HKT
 
 - **A traveller who asks for a person stays in the Desk queue after their plan

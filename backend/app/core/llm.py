@@ -540,58 +540,6 @@ class LLMClient:
         except ValidationError as exc:
             raise LLMError(f"the streamed answer was unusable: {_short_validation(exc)}", retryable=False) from exc
 
-    # -- judge --------------------------------------------------------
-    async def judge(
-        self,
-        *,
-        purpose: str,
-        system: str,
-        user: str,
-        schema: type[TModel],
-        model: str | None = None,
-    ) -> TModel:
-        """A second, independent model (DeepSeek by default) for grading. Optional."""
-        base = self.settings.judge_base_url or "https://api.deepseek.com"
-        key = self.settings.judge_api_key
-        chosen = model or self.settings.judge_model
-        if not (base and key and chosen):
-            raise LLMError("no judge model is configured", retryable=False)
-        payload = {
-            "model": chosen,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "temperature": 0.0,
-            "max_tokens": 1200,
-        }
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        started = time.perf_counter()
-        try:
-            response = await self.client.post(
-                f"{base.rstrip('/')}/chat/completions",
-                json=payload,
-                headers=headers,
-                timeout=self.settings.judge_timeout_seconds,
-            )
-            response.raise_for_status()
-        except (httpx.HTTPError, httpx.TimeoutException) as exc:
-            raise LLMError(f"judge unavailable: {exc}") from exc
-        data = response.json()
-        content = (((data.get("choices") or [{}])[0].get("message")) or {}).get("content") or ""
-        usage = data.get("usage") or {}
-        if self.trace:
-            self.trace.generation(
-                purpose=purpose,
-                model=chosen,
-                prompt_tokens=int(usage.get("prompt_tokens") or 0),
-                completion_tokens=int(usage.get("completion_tokens") or 0),
-                latency_ms=(time.perf_counter() - started) * 1000,
-                output_preview=content,
-                user_preview=user,
-            )
-        parsed = extract_json(content)
-        if parsed is None:
-            raise LLMError("judge answer was not JSON", retryable=False)
-        return schema.model_validate(parsed)
-
     # -- internals ----------------------------------------------------
 
     def _record(self, purpose: str, reply: LLMReply, user: str) -> None:
