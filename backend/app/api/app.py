@@ -64,7 +64,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Referrer-Policy", "same-origin")
+        # Keep the embedding site's origin for cross-origin iframes: YouTube
+        # refuses to play an embed that arrives with no referrer (error 153).
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
     @app.exception_handler(Exception)
