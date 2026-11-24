@@ -3,6 +3,23 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.9 — 2026-11-24 15:35 HKT
+
+- **The flight window no longer rejects a valid arrival evening.** The check
+  applied the **outbound departure** (from home) as a deadline in the destination
+  city and the **return arrival** (back home) as an opening. An evening arrival
+  therefore had an impossible window, so the planner regenerated the plan twice
+  for nothing. Now only the outbound **arrival** opens the first day and the
+  return **departure** closes the last day. The reported Taipei plan went from
+  3 false boundary problems to **0**.
+- **The two-day token cap has room for a verbose plan.** The old formula gave a
+  two-day answer exactly 5,800 tokens; one attempt hit that cap, failed
+  validation, and paid for a second full generation. The floor is now 8,000
+  (4 days 9,000; 7 days 13,500; ceiling 16,000).
+- **Measured on the same two-day Taipei request:** **133.7 s → 45.3 s**, with
+  **one** plan generation (37.4 s) instead of three (37.9 + 46.6 + 41.6 s).
+- Tests: `test_flight_windows.py` (9 tests), including the reported plan.
+
 ## 5.2.8 — 2026-11-24 15:25 HKT
 
 - **Bulk tests are described accurately.** They were executed offline against
