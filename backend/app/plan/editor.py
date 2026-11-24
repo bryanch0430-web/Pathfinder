@@ -288,6 +288,38 @@ def _apply(op, plan: TripPlan, context: TripContext, bundle: Bundle, log: list[s
         plan.hotels = [hotel]
         log.append(f"Swapped the stay to {hotel.name}.")
         return True
+    if op.op == "set_ticket":
+        number = (op.flight_number or op.name or "").strip()
+        if not number:
+            log.append("No flight number was given, so the ticket was left alone.")
+            return False
+        chosen_tickets = [ticket for ticket in plan.tickets if ticket.selected] or plan.tickets
+        if not chosen_tickets:
+            log.append("The plan has no flight to update.")
+            return False
+        ticket = chosen_tickets[0]
+        direction = op.direction or "outbound"
+        changed_numbers: list[str] = []
+        if direction in {"outbound", "both"}:
+            route = f"{ticket.origin} to {ticket.destination}".strip()
+            airline = ticket.operator.strip()
+            ticket.name = f"{route} · {airline + ' ' if airline else ''}{number}".strip() if route else number
+            ticket.notes = _number_note(ticket.notes, number, "Outbound")
+            changed_numbers.append(f"outbound {number}")
+        if direction in {"return", "both"}:
+            if not ticket.return_depart_at:
+                log.append("That option has no return flight to update.")
+                return bool(changed_numbers)
+            ticket.return_flight_number = number
+            ticket.notes = _number_note(ticket.notes, number, "Return")
+            changed_numbers.append(f"return {number}")
+        ticket.confirmed = False
+        ticket.data_status = "stale"
+        log.append(
+            f"Updated the {' and '.join(changed_numbers)}; times and price were kept. "
+            "The number came from the traveller, so confirm it with the airline."
+        )
+        return True
     if op.op == "swap_ticket":
         evidence = bundle.get(op.ref or "")
         if evidence is None or evidence.kind != "ticket":
@@ -538,6 +570,12 @@ def _span(item) -> int:
 # -- diffing -----------------------------------------------------------
 
 
+def _number_note(notes: str, number: str, label: str) -> str:
+    """Keep the old note, and make clear that a traveller-supplied number is unconfirmed."""
+    suffix = f"{label} flight number updated to {number}; confirm it with the airline."
+    return f"{notes.strip()} {suffix}".strip() if notes.strip() else suffix
+
+
 def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
     if old is None:
         return [{"kind": "created", "detail": new.change_summary}]
@@ -575,5 +613,12 @@ def diff_plans(old: TripPlan | None, new: TripPlan) -> list[dict[str, Any]]:
     old_ticket = old_pick.id if old_pick else ""
     new_ticket = new_pick.id if new_pick else ""
     if old_ticket != new_ticket and new_ticket:
+        entries.append({"kind": "transport", "leg_id": "leg-out", "id": new_ticket, "to": new_pick.name})
+    elif old_pick and new_pick and (
+        old_pick.name != new_pick.name
+        or old_pick.return_flight_number != new_pick.return_flight_number
+        or old_pick.return_depart_at != new_pick.return_depart_at
+        or old_pick.depart_at != new_pick.depart_at
+    ):
         entries.append({"kind": "transport", "leg_id": "leg-out", "id": new_ticket, "to": new_pick.name})
     return entries[:40]

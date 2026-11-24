@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from app.config import Settings
-from app.domain.models import GeoPoint, Money, SourceRef, TripContext, TripPlan
+from app.domain.models import GeoPoint, Money, SourceRef, TicketOption, TripContext, TripPlan
 from app.evidence.models import Bundle, Evidence
 from app.plan.builder import build_plan
 from app.plan.editor import _apply, diff_plans
@@ -80,6 +80,70 @@ def test_add_uses_sourced_evidence_only():
     changed = _apply(EditOp(op="add", ref="at-2", day=2, start="15:00", end="16:00"), plan, _context(), bundle, log)
     assert changed is True
     assert any(entry.name == "Museum" for entry in plan.days[1].items)
+
+
+def test_set_ticket_changes_only_the_flight_number():
+    plan = _plan()
+    plan.tickets = [
+        TicketOption(
+            id="tk-1",
+            mode="flight",
+            name="Kyoto to Tokyo · Test Air TA123",
+            origin="Kyoto",
+            destination="Tokyo",
+            depart_at="2027-04-10T09:00",
+            arrive_at="2027-04-10T10:00",
+            return_depart_at="2027-04-11T18:00",
+            return_arrive_at="2027-04-11T19:00",
+            return_airline="Test Air",
+            return_flight_number="TA456",
+            operator="Test Air",
+            selected=True,
+            notes="Outbound Test Air TA123. Return Test Air TA456.",
+        )
+    ]
+    before = plan.tickets[0].model_copy(deep=True)
+    log: list[str] = []
+    changed = _apply(
+        EditOp(op="set_ticket", direction="return", flight_number="XX0223"),
+        plan,
+        _context(),
+        Bundle(),
+        log,
+    )
+    ticket = plan.tickets[0]
+    assert changed is True
+    assert ticket.return_flight_number == "XX0223"
+    # Times, price, route and the outbound flight stay untouched.
+    assert ticket.return_depart_at == before.return_depart_at
+    assert ticket.depart_at == before.depart_at
+    assert ticket.name == before.name
+    assert ticket.confirmed is False
+    assert any("XX0223" in line and "confirm" in line for line in log)
+    assert any(entry["kind"] == "transport" for entry in diff_plans(_ticket_plan(), plan))
+
+
+def _ticket_plan() -> TripPlan:
+    plan = _plan()
+    plan.tickets = [
+        TicketOption(
+            id="tk-1",
+            mode="flight",
+            name="Kyoto to Tokyo · Test Air TA123",
+            origin="Kyoto",
+            destination="Tokyo",
+            depart_at="2027-04-10T09:00",
+            arrive_at="2027-04-10T10:00",
+            return_depart_at="2027-04-11T18:00",
+            return_arrive_at="2027-04-11T19:00",
+            return_airline="Test Air",
+            return_flight_number="TA456",
+            operator="Test Air",
+            selected=True,
+            notes="Outbound Test Air TA123. Return Test Air TA456.",
+        )
+    ]
+    return plan
 
 
 def test_swap_hotel_keeps_dates():

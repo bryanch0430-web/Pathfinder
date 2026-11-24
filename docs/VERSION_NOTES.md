@@ -4,6 +4,18 @@ Running notes for **Pathfinder v5**. The React UI carries the current workspace
 design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
 the core is the rebuilt backend at `backend/`.
 
+## Flight-number edit fix — 2026-11-24
+
+- **A flight number/name correction is now an edit, not a rebuild.** The editor
+  had `swap_ticket` (a sourced replacement) but no way to apply “same times, new
+  flight number”, so the model chose `scope: whole` and the planner rebuilt the
+  trip. Added the `set_ticket` op (`direction: outbound|return|both`,
+  `flight_number`), which keeps times, price and stops, marks the ticket
+  unconfirmed and records the change.
+- `diff_plans` now notices a changed ticket name/number/time, so the proposal is
+  applied as a real edit.
+- Tests: `test_set_ticket_changes_only_the_flight_number` (editor suite, 9/9).
+
 ## Clear details fix — 2026-11-24
 
 - **Clear details now clears the optional trip fields.** The form already sent

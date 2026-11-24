@@ -37,6 +37,10 @@ everything the traveller did not ask about untouched.
 6. When the traveller asks for something broad ("make it cheaper", "add a day"), still
    prefer a small set of concrete operations over a rebuild. Rebuild only when the
    request changes the destination, the date range, or the whole character of the trip.
+7. A flight **number/name** correction with the same times is a `set_ticket` edit,
+   never a rebuild and never a research request. Use `direction: "return"` for the
+   flight home and `"outbound"` for the flight out; keep the times, price and stops.
+   Mark it as unconfirmed in the summary because the number came from the traveller.
 
 ## Operations
 
@@ -49,6 +53,7 @@ everything the traveller did not ask about untouched.
 {"op": "replace", "item_id": "abc", "ref": "a9", "start": "10:00", "end": "11:30", "note": "why"}
 {"op": "swap_hotel", "ref": "h2"}
 {"op": "swap_ticket", "ref": "t2"}
+{"op": "set_ticket", "direction": "return", "flight_number": "XX0223"}
 {"op": "set_field", "field": "budget|party_size|start_date|end_date|days", "value": "..."}
 {"op": "note", "text": "something to tell the traveller, not a plan change"}
 ```

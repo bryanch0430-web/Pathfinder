@@ -244,6 +244,7 @@ class EditOp(Draft):
         "replace",
         "swap_hotel",
         "swap_ticket",
+        "set_ticket",
         "set_field",
         "note",
     ]
@@ -253,6 +254,8 @@ class EditOp(Draft):
     end: str | None = None
     ref: str | None = None
     name: str | None = None
+    direction: Literal["outbound", "return", "both"] | None = None
+    flight_number: str | None = None
     note: str | None = None
     text: str | None = None
     field: str | None = None
