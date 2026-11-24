@@ -3569,7 +3569,8 @@ button.pf-badge:hover {
   position: sticky;
   top: 0;
   z-index: var(--p30-layer-header);
-  height: var(--p30-frame-header);
+  height: auto;
+  min-height: var(--p30-frame-header);
   overflow: visible;
   border-bottom: 1px solid var(--pf-line);
   background: color-mix(in srgb, var(--pf-bg) 88%, transparent);
@@ -3580,9 +3581,10 @@ button.pf-badge:hover {
   display: flex;
   align-items: center;
   gap: var(--p30-gap-md);
+  flex-wrap: wrap;
   width: 100%;
   max-width: var(--p30-frame-max);
-  height: 100%;
+  min-height: var(--p30-frame-header);
   margin: 0 auto;
   padding: 0 var(--p30-gap-md);
 }
@@ -3673,6 +3675,9 @@ button.pf-badge:hover {
   align-items: center;
   gap: var(--p30-gap-sm);
   margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
 }
 
 .pf-lang {

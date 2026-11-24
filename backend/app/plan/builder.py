@@ -663,11 +663,8 @@ def _tickets(context: TripContext, bundle: Bundle, draft: PlanDraft, start: date
 
 
 def _duration_of(evidence: Evidence) -> float | None:
-    text = evidence.summary or ""
-    for token in text.split():
-        if token.isdigit() and len(token) >= 2:
-            return float(token)
-    return None
+    """The fare source's own travel time; never guessed from the summary text (a flight number is not minutes)."""
+    return evidence.duration_minutes
 
 
 def _attach_alternatives(days: list[DayPlan], bundle: Bundle, city: str = "") -> None:

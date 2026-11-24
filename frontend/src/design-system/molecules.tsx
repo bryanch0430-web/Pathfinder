@@ -958,11 +958,23 @@ export function ClarifyCard({
   const slotsOnly = slots.length > 0;
   // A number the trip could not take (a party of -2) flags its field and holds Continue;
   // an empty field is just unanswered and the backend still re-asks anything missing.
+  // "How long, or what dates?" is either/or: a whole-number length answers it, and so does a start and end.
+  const lengthGiven = (() => {
+    const amount = Number((values.days ?? "").trim());
+    return Number.isInteger(amount) && amount >= 1 && amount <= 60;
+  })();
+  const rangeGiven = (() => {
+    const span = dateSpan(values.dates ?? "");
+    const start = span.start || (values.start_date ?? "").trim();
+    const end = span.end || (values.end_date ?? "").trim();
+    const count = dayCount(start, end);
+    return count !== null && count >= 1 && count <= MAX_TRIP_DAYS;
+  })();
   const badNumber = (slot: string): boolean => {
     const raw = (values[slot] ?? "").trim();
     // A required count is not "answered" by leaving the field blank; the card's
     // Continue button stays disabled until a whole number is chosen or typed.
-    if (!raw) return slot === "party_size" || slot === "days" || slot === "origin" || slot === "destination" || slot === "budget";
+    if (!raw) return (slot === "days" && rangeGiven) ? false : slot === "party_size" || slot === "days" || slot === "origin" || slot === "destination" || slot === "budget";
     if (slot === "budget") {
       const amount = amountIn(raw);
       return amount === null || amount <= 0;
@@ -975,6 +987,7 @@ export function ClarifyCard({
   const dateProblem = (slot: string): boolean => {
     if (slot !== "dates") return false;
     const span = dateSpan(values[slot] ?? "");
+    if (lengthGiven && !span.end) return false;
     const count = dayCount(span.start, span.end);
     return !span.start || !span.end || count === null || count < 1 || count > MAX_TRIP_DAYS;
   };

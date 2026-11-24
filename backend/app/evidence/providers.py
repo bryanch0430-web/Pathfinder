@@ -582,6 +582,8 @@ class Providers:
                         "return_arrive_at": _leg_time(last_return, "arrival_airport"),
                         "return_airline": first_return.get("airline") or "",
                         "return_flight_number": first_return.get("flight_number") or "",
+                        "return_duration_minutes": _trip_minutes(return_flights[0]),
+                        "return_stops": len(return_legs) - 1,
                     }
         out: list[Evidence] = []
         for index, flight in enumerate((payload or {}).get("best_flights") or []):
@@ -629,6 +631,8 @@ class Providers:
                     tags=["flight"],
                     depart_at=depart_at,
                     arrive_at=arrive_at,
+                    duration_minutes=_trip_minutes(flight),
+                    stops=len(legs) - 1,
                     airline=airline,
                     flight_number=flight_number,
                     **return_info,
@@ -1084,6 +1088,21 @@ def _same_city(origin: str, destination: str) -> bool:
 def _leg_time(leg: dict[str, Any], key: str) -> str | None:
     value = ((leg.get(key) or {}).get("time") or "").strip()
     return value.replace(" ", "T") or None
+
+
+def _trip_minutes(option: dict[str, Any]) -> float | None:
+    """Total travel time of a fare option, layovers included, as Google Flights states it.
+
+    The airport clock times are local to each airport, so their difference is not the duration.
+    """
+    total = option.get("total_duration")
+    if isinstance(total, (int, float)) and total > 0:
+        return float(total)
+    legs = option.get("flights") or []
+    parts = [leg.get("duration") for leg in legs] + [layover.get("duration") for layover in option.get("layovers") or []]
+    if legs and all(isinstance(part, (int, float)) and part > 0 for part in parts):
+        return float(sum(parts))
+    return None
 
 
 def _flight_minutes(origin: str, destination: str) -> int:
