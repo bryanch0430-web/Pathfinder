@@ -3,6 +3,14 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.11 — 2026-11-24 16:05 HKT
+
+- **Hotels fold like flights.** A stay shows the current choice with its Lock in
+  button and an “N other options” disclosure; opening it lists the alternatives
+  with their own lock buttons. The other stays are no longer printed in full.
+- **Lock in sits at the bottom-right of a folded choice**, after the card, instead
+  of under its left edge.
+
 ## 5.2.10 — 2026-11-24 15:50 HKT
 
 - **No empty days.** The plan skill now says every date needs a scheduled stop: the
