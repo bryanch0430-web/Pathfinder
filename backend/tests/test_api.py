@@ -27,7 +27,7 @@ def test_ready_reports_the_version(tmp_path):
     with _client(tmp_path) as client:
         response = client.get("/api/ready")
         assert response.status_code == 200
-        assert response.json()["version"] == "5.0.0"
+        assert response.json()["version"] == "5.2.11"
 
 
 def test_journey_lifecycle(tmp_path):

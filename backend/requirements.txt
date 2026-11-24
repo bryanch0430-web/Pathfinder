@@ -1,0 +1,9 @@
+# Runtime dependencies for Pathfinder v5. Ranges mirror backend/pyproject.toml.
+# Tested versions: see README "Dependency versions".
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+httpx>=0.27,<1
+pydantic>=2.9,<3
+pydantic-settings>=2.6,<3
+pypdf>=5,<7
+tzdata>=2024.1

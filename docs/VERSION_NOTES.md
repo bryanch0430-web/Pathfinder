@@ -3,6 +3,19 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## Submission packaging — tag `submission-v5.2.11` — 2026-11-24
+
+- README now maps every submission requirement to its command or file, and states
+  the submitted version and tag.
+- Added `backend/requirements.txt` and `requirements-dev.txt`, the tested
+  dependency table, model settings, data/services/paid/hardware notes, and the
+  explicit `uvicorn` entry point for port 8100.
+- Added `docs/submission/`: ordinary/changed/failure inputs, trace evidence,
+  external GitHub references, and the AI-assistance declaration + prompt record.
+- Version metadata is now **5.2.11** in `pyproject.toml`, `/api/ready`,
+  `/api/runtime` and the FastAPI docs.
+- Runtime code is unchanged by this packaging pass; the tag marks this commit.
+
 ## 5.2.11 — 2026-11-24 16:05 HKT
 
 - **Hotels fold like flights.** A stay shows the current choice with its Lock in

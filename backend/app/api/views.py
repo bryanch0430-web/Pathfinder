@@ -300,7 +300,7 @@ async def runtime_config(c: Container) -> dict[str, Any]:
     purpose_max_tokens = {**settings.purpose_max_tokens, **(overrides.get("purpose_max_tokens") or {})}
     base, _key, model = settings.writer
     return {
-        "version": "5.0.0",
+        "version": "5.2.11",
         "environment": settings.environment,
         "sandbox": data_mode == "corpus",
         "data_mode": data_mode,
