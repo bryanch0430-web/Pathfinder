@@ -270,6 +270,13 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                     )
                 )
                 return
+            # Register only after the seat is ours. A second request that fails the
+            # claim must not replace the feed or the Stop handle of the turn that
+            # is already running.
+            running = asyncio.current_task()
+            if running is not None:
+                _RUNNING[session_id] = running
+                _FEEDS[session_id] = feed
             loop = asyncio.get_running_loop()
             # This is the execution budget, not a per-model timeout. It is deliberately
             # generous (default 300 s) so a complex plan can complete; the harness stops
@@ -351,8 +358,8 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             feed.finish()
 
     task = asyncio.ensure_future(work())
-    _RUNNING[session_id] = task
-    _FEEDS[session_id] = feed
+    # Keep a Stop handle from the first instant; never replace a turn already running.
+    _RUNNING.setdefault(session_id, task)
 
     def forget(done: asyncio.Future) -> None:
         if _RUNNING.get(session_id) is done:
