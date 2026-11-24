@@ -1391,6 +1391,9 @@ export function DayStrip({
       onPointerDown={(event) => {
         const el = scroller.current;
         if (!el || event.pointerType !== "mouse" || event.button !== 0) return;
+        // A new press is a new intent: a drag that ended off a pill must not
+        // swallow this click.
+        suppress.current = false;
         drag.current = { x: event.clientX, left: el.scrollLeft, moved: false };
         el.setPointerCapture(event.pointerId);
       }}

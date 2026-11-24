@@ -1866,8 +1866,8 @@ export function TicketCard({
         <Text size="sm" weight="semibold">
           {ticket.price ? `${moneyText(ticket.price)} · ${ticket.price_kind}` : estimated ? t("options.estimatedNote") : t("workspace.noFare")}
         </Text>
-        {ticket.booking_url ? (
-          <a href={ticket.booking_url} target="_blank" rel="noopener noreferrer">{t("workspace.book")}</a>
+        {ticket.booking_url && safeHref(ticket.booking_url) ? (
+          <a href={safeHref(ticket.booking_url)} target="_blank" rel="noopener noreferrer">{t("workspace.book")}</a>
         ) : null}
         <RankNote rank={ticket.rank} reasons={ticket.reasons} />
         <LinkRow links={ticket.links} />

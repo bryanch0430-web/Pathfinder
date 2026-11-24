@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import math
 import re
 import secrets
@@ -14,7 +15,7 @@ from pydantic import ValidationError
 
 from app.core.currencies import normalise_currency
 
-from app.api.deps import Container, container, require_session
+from app.api.deps import Container, container, rate_limit, require_session
 from app.api.views import (
     calendar_ics,
     fingerprint,
@@ -51,6 +52,9 @@ router = APIRouter()
 MAX_IMPORT_SUMMARY = 20_000
 MAX_IMPORT_MESSAGES = 200
 MAX_IMPORT_MESSAGE_CHARS = 8_000
+# A hand-edited or generated file is a few hundred kilobytes at most; anything
+# larger is a body meant to exhaust the server, not a trip.
+MAX_IMPORT_PLAN_CHARS = 1_500_000
 # A file is untrusted. These are attempts to steer the model, or to smuggle markup,
 # not travel talk. A match is left out of the restored chat.
 _BLOCKED_IMPORT = re.compile(
@@ -77,6 +81,7 @@ def _c(request: Request) -> Container:
 @router.post("/api/journeys")
 async def create_journey(payload: CreateSessionRequest, request: Request) -> dict[str, Any]:
     c = _c(request)
+    rate_limit(request, "create", 120, 3600.0)
     token = (request.headers.get("X-Client-Token") or payload.client_token or "").strip()
     from app.api.deps import bearer_user
 
@@ -650,10 +655,13 @@ async def calendar(session_id: str, request: Request) -> Response:
 @router.post("/api/journeys/import")
 async def import_plan(payload: ImportRequest, request: Request) -> dict[str, Any]:
     c = _c(request)
+    rate_limit(request, "import", 30, 3600.0)
     token = (request.headers.get("X-Client-Token") or payload.client_token or "").strip()
     from app.api.deps import bearer_user
 
     raw = dict(payload.plan or {})
+    if _plan_too_large(raw):
+        raise HTTPException(status_code=413, detail="That plan file is too large to import.")
     # A conversation may sit beside the plan or, in a hand-edited file, on it.
     # It is removed before validation so an old plan file still opens.
     embedded = raw.pop("messages", None)
@@ -711,6 +719,10 @@ async def _require_open(c: Container, session_id: str) -> TripContext:
     return context
 
 
+def _plan_too_large(raw: dict[str, Any]) -> bool:
+    return len(json.dumps(raw, ensure_ascii=False)) > MAX_IMPORT_PLAN_CHARS
+
+
 def _imported_messages(rows: Any) -> list[dict[str, Any]]:
     """The conversation to restore. A bad row is skipped; it never rejects the plan."""
     if not isinstance(rows, list):
@@ -731,8 +743,9 @@ def _imported_messages(rows: Any) -> list[dict[str, Any]]:
         if intent not in {"plan", "modify", "ask", "unclear"}:
             intent = None
         when = str(row.get("created_at") or row.get("at") or now_iso())[:40]
-        # A hand-edited file cannot appoint itself the operator.
-        safe_meta: dict[str, Any] = {}
+        # A hand-edited file cannot appoint itself the operator. The imported mark
+        # also keeps this line out of the model's own history.
+        safe_meta: dict[str, Any] = {"imported": True}
         restored.append(
             {
                 "id": secrets.token_hex(8),

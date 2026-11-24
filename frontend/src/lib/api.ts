@@ -693,7 +693,7 @@ export async function getSavedTrip(clientToken: string, id: string): Promise<{
   stars: number | null;
   days: { date: string; title: string; items: string[] }[];
 }> {
-  return request(`/api/wishlist/${encodeURIComponent(id)}?client_token=${encodeURIComponent(clientToken)}`, {
+  return request(`/api/wishlist/${encodeURIComponent(id)}`, {
     headers: { "X-Client-Token": clientToken },
   });
 }

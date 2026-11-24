@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="", alias="SECRET_KEY")
     local_admin: bool = Field(default=True, alias="LOCAL_ADMIN")
     local_admin_proxy: str = Field(default="", alias="LOCAL_ADMIN_PROXY")
+    # Browser origins allowed to call the API. A same-origin page needs none of
+    # these; the defaults are the local app and the Vite dev server.
+    cors_origins: str = Field(
+        default=(
+            "http://127.0.0.1:8100,http://localhost:8100,"
+            "http://127.0.0.1:5173,http://localhost:5173"
+        ),
+        alias="CORS_ORIGINS",
+    )
     wikimedia_user_agent: str = Field(
         default="Pathfinder50/1.0 (educational project) python-httpx",
         alias="WIKIMEDIA_USER_AGENT",
@@ -187,6 +196,11 @@ class Settings(BaseSettings):
         path = Path(self.database_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """The origins the browser may call from, trimmed and without blanks."""
+        return [item.strip().rstrip("/") for item in self.cors_origins.split(",") if item.strip()]
 
     @property
     def secret_key_value(self) -> str:

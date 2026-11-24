@@ -1044,6 +1044,10 @@ export function usePathfinder(locale: string): PathfinderHook {
       // A failed turn is what Retry sends again, whatever failed while it was running. Its text goes back into the box of
       // its trip, unless something else was typed there since, so it is not lost when the banner goes.
       const failTurn = (failure: Failure) => {
+        // A failed turn has no plan coming; its draft must not sit under the error.
+        setDrafting(false);
+        setPartialDays([]);
+        setPartialRoute(null);
         showBanner(failure, { kind: "turn", run: () => sendRef.current(message, attachments) });
         setDrafts((current) => (current[id] ? current : { ...current, [id]: message }));
       };

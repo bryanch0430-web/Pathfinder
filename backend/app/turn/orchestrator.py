@@ -216,7 +216,9 @@ async def _produce(
         context = merged_context_memory(context, profile)
         await store.save_context(session_id, context.model_dump())
     plan = await _load_plan(store, session_id)
-    history = await store.recent_messages(session_id, limit=MAX_CONTEXT_TURNS)
+    history = _model_history(
+        await store.recent_messages(session_id, limit=max(MAX_CONTEXT_TURNS * 4, MAX_CONTEXT_TURNS))
+    )
     chat_history = [
         ChatMessage(**{**row, "content": mask_pii(row.get("content") or "", redaction)}) for row in history
     ]
@@ -1145,6 +1147,16 @@ def _plan_reply(plan: TripPlan, gaps) -> str:
     return "\n\n".join(lines[:8])
 
 
+def _model_history(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The turns the model may treat as its own, newest last.
+
+    A message restored from an imported plan is shown to the traveller but is
+    untrusted: it must not sit in the model's history as if the model said it.
+    """
+    own = [row for row in rows if not (row.get("meta") or {}).get("imported")]
+    return own[-MAX_CONTEXT_TURNS:]
+
+
 def _trip_shape_changed(plan: TripPlan, context: TripContext) -> bool:
     """True when the request changed the trip itself, not a stop inside it.
 
@@ -1157,7 +1169,20 @@ def _trip_shape_changed(plan: TripPlan, context: TripContext) -> bool:
         return True
     if context.days and len(plan.days) and context.days != len(plan.days):
         return True
-    return bool(context.stops)
+    if context.stops:
+        asked = [(stop.city.strip().lower(), int(stop.nights or 0)) for stop in context.stops if stop.city.strip()]
+        planned: list[tuple[str, int]] = []
+        for segment in plan.segments:
+            destination = (segment.destination or {}).get("name") or ""
+            dates = segment.dates or {}
+            start = parse_date(str(dates.get("start") or ""))
+            end = parse_date(str(dates.get("end") or ""))
+            nights = (end - start).days if start and end else 0
+            planned.append((str(destination).strip().lower(), nights))
+        # Only a new or changed city list needs a rebuild; an unchanged multi-city
+        # trip must still allow an ordinary stop edit.
+        return bool(asked) and asked != planned
+    return False
 
 
 def _edit_reply(plan: TripPlan, summary: str, log: list[str]) -> str:

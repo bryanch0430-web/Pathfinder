@@ -35,8 +35,7 @@ export function parseQuickFacts(text: string): QuickFact[] {
 
   const party =
     value.match(/\b(\d{1,2})\s*(?:people|persons?|travellers?|travelers?|adults?|pax)\b/i) ||
-    value.match(/\b(\d{1,2})\s+of\s+us\b/i) ||
-    value.match(/\bfor\s+(\d{1,2})\b/i);
+    value.match(/\b(\d{1,2})\s+of\s+us\b/i);
   if (party) facts.push({ key: "party", label: `${party[1]} travellers` });
 
   const budget = value.match(/\b(\d[\d,.]{2,})\s*(?:HKD|JPY|TWD|USD|EUR|GBP|SGD|CNY|KRW|THB)\b/i);
@@ -50,7 +49,11 @@ export function parseQuickFacts(text: string): QuickFact[] {
   const dayMonth = value.match(
     new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${monthPattern}\\b(?:\\s+(\\d{4}))?`, "i"),
   );
-  const monthOnly = MONTHS.find((name) => new RegExp(`\\b${name}\\b`, "i").test(value));
+  const monthOnly = MONTHS.find((name) => {
+    // "may" is usually the verb ("I may go"); only a capitalised May is a date.
+    if (name === "may" && /\bmay\b/.test(value) && !/\bMay\b/.test(value)) return false;
+    return new RegExp(`\\b${name}\\b`, "i").test(value);
+  });
   if (dayMonth) {
     const name = dayMonth[2].slice(0, 3).toLowerCase();
     const label = `${dayMonth[1]} ${name.charAt(0).toUpperCase()}${name.slice(1)}${dayMonth[3] ? ` ${dayMonth[3]}` : ""}`;

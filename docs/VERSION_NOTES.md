@@ -3,6 +3,37 @@
 Running notes for **Pathfinder v5**. The UI is still the existing Pathfinder React
 app; the core is the rebuilt backend at `backend/`.
 
+## 5.2.1 — 2026-11-24 14:40 HKT
+
+A defensive pass over the demo; behaviour is unchanged for normal use.
+
+- **Another site can no longer drive the operator API.** CORS is now an
+  allow-list (`CORS_ORIGINS`, defaulting to the app and the Vite dev server)
+  instead of `*`, and an operator request carrying a foreign `Origin` is
+  refused even where `LOCAL_ADMIN` trusts loopback. A same-origin page still
+  works, including a LAN address.
+- **Forwarded-for is only trusted from the configured proxy.** A remote caller
+  can no longer become the operator by sending `X-Forwarded-For: 127.0.0.1`.
+- **Browser-facing hardening:** `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`.
+- **Imported conversations are shown, not trusted.** Their messages are marked
+  `meta.imported` and are kept out of the model's history, so a shared plan file
+  cannot steer later turns with an “assistant” instruction.
+- **Anonymous routes are rate-limited** per address: trip creation, import and
+  the planning stream, with generous demo-sized limits.
+- **An oversized plan import is refused** (`MAX_IMPORT_PLAN_CHARS`), and the
+  ticket booking link now passes `safeHref` like every other data link.
+- **An unchanged multi-city trip is no longer rebuilt.** The shape check compares
+  cities and nights with the plan's segments, so an ordinary stop edit stays an
+  edit.
+- **Small UI fixes:** a failed turn clears its draft preview; a day-rail drag
+  released off a pill no longer swallows the next click; the saved-trip read
+  sends its token in the header, not the query string; the draft map frames a
+  route-only draft; “for 2 nights” is no longer read as two travellers and the
+  verb “may” is no longer a month.
+- Tests: `backend/tests/test_security_fixes.py` (8 tests), plus the existing
+  API, partial, stream and builder suites.
+
 ## 5.2.0 — 2026-11-24 14:05 HKT
 
 Drafts, the map, and the left column.

@@ -137,8 +137,11 @@ export function DraftMap({
         const lift = Math.sin(Math.PI * t) * Math.abs(to.lng - from.lng) * 0.12;
         arc.push({ lat: lat + (lat > (from.lat + to.lat) / 2 ? lift : -lift), lng });
       }
-      if (points.length) {
-        engine.polyline(arc, { color: "#B45309", weight: 2, opacity: 0.55, dashed: true });
+      engine.polyline(arc, { color: "#B45309", weight: 2, opacity: 0.55, dashed: true });
+      if (!points.length) {
+        // A route-only draft still deserves a frame around the two ends.
+        engine.fit([from, to], [40, 40, 40, 40]);
+        fitted.current = 2;
       }
     }
     if (points.length > fitted.current) {

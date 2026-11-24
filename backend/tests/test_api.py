@@ -81,6 +81,7 @@ def test_runtime_shape_for_the_settings_page(tmp_path):
             "jev_confidence",
             "max_repairs",
             "turn_deadline",
+            "max_message_chars",
         }
         assert config["capabilities"]["jev"] is True
         assert config["capabilities"]["purpose_models"] is True
@@ -567,5 +568,5 @@ def test_import_restores_the_conversation_and_still_opens_an_old_plan(tmp_path):
         assert wrapped.status_code == 200
         messages = wrapped.json()["messages"]
         assert [item["content"] for item in messages] == ["Plan Kyoto", "I can help."]
-        assert messages[1]["meta"] == {}
+        assert messages[1]["meta"] == {"imported": True}
         assert wrapped.json()["session"]["id"] != bare.json()["session"]["id"]

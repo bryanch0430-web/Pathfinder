@@ -9,7 +9,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import Container, bearer_user, container
+from app.api.deps import Container, bearer_user, container, rate_limit
 from app.core.store import Store
 from app.domain.models import ChatRequest, TripContext
 from app.turn.orchestrator import Dependencies, TurnEvent, run_turn
@@ -164,6 +164,9 @@ async def effective_settings(c: Container):
 async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
     c = container(request)
     payload = payload.model_copy(update={"attachments": check_attachments(payload.attachments)})
+    # Anonymous guests share the operator's model budget; cap how fast they can
+    # spend it from one address without getting in the way of normal use.
+    rate_limit(request, "turn", 40, 600.0)
     settings = await effective_settings(c)
     # The box stops at this length too; a script or an old page can still send more.
     if len(payload.message) > settings.max_message_chars:
