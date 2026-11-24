@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 
 from app.config import Settings
-from app.domain.models import GeoPoint, Money, SourceRef, TicketOption, TripContext, TripPlan
+from app.domain.models import GeoPoint, HotelStay, Money, SourceRef, TicketOption, TripContext, TripPlan
 from app.evidence.models import Bundle, Evidence
 from app.plan.builder import build_plan
-from app.plan.editor import _apply, diff_plans
-from app.understand.schemas import DayChoice, EditOp, PlanDraft, StopChoice
+from app.plan.editor import _apply, actual_changes, diff_plans, propose_edit
+import app.plan.editor as editor
+from app.understand.schemas import DayChoice, EditDraft, EditOp, PlanDraft, StopChoice
 
 
 def _plan() -> TripPlan:
@@ -121,6 +123,86 @@ def test_set_ticket_changes_only_the_flight_number():
     assert ticket.confirmed is False
     assert any("XX0223" in line and "confirm" in line for line in log)
     assert any(entry["kind"] == "transport" for entry in diff_plans(_ticket_plan(), plan))
+
+
+def test_set_ticket_changes_a_time_and_keeps_the_date():
+    plan = _ticket_plan()
+    before = plan.tickets[0].model_copy(deep=True)
+    log: list[str] = []
+    changed = _apply(
+        EditOp(op="set_ticket", direction="return", return_depart_at="10:30", return_arrive_at="12:55"),
+        plan,
+        _context(),
+        Bundle(),
+        log,
+    )
+    ticket = plan.tickets[0]
+    assert changed is True
+    assert ticket.return_depart_at == "2027-04-11T10:30"
+    assert ticket.return_arrive_at == "2027-04-11T12:55"
+    assert ticket.depart_at == before.depart_at
+    assert ticket.price == before.price
+    assert any(entry["kind"] == "transport" for entry in diff_plans(_ticket_plan(), plan))
+
+
+def test_set_hotel_changes_the_name_and_clears_old_facts():
+    plan = _plan()
+    plan.hotels = [
+        HotelStay(
+            id="ho-1",
+            name="Old Hotel",
+            area="Central",
+            check_in=plan.dates.start,
+            check_out=plan.dates.end,
+            price_per_night=Money(amount=9000, currency="JPY"),
+            price_kind="live",
+            confirmed=True,
+        )
+    ]
+    log: list[str] = []
+    # A confirmed stay is protected; the traveller must unlock it first.
+    assert _apply(EditOp(op="set_hotel", name="New Inn"), plan, _context(), Bundle(), log) is False
+    plan.hotels[0].confirmed = False
+    assert _apply(EditOp(op="set_hotel", name="New Inn"), plan, _context(), Bundle(), log) is True
+    hotel = plan.hotels[0]
+    assert hotel.name == "New Inn"
+    assert hotel.check_in == plan.dates.start and hotel.check_out == plan.dates.end
+    assert hotel.price_per_night is None and hotel.area == ""
+    assert hotel.data_status == "stale"
+    assert any(entry["kind"] == "hotel" for entry in actual_changes(_ticket_plan(), plan, _context(), _context()))
+
+
+def test_concrete_ops_win_over_a_whole_scope_without_a_rebuild_reason():
+    plan = _plan()
+    plan.hotels = [
+        HotelStay(id="ho-1", name="Old Hotel", check_in=plan.dates.start, check_out=plan.dates.end)
+    ]
+    draft = EditDraft(scope="whole", ops=[EditOp(op="set_hotel", name="New Inn")], summary="Change stay")
+    original = editor._ask
+
+    async def fake_ask(*_args, **_kwargs):
+        return draft
+
+    editor._ask = fake_ask
+    try:
+        outcome = asyncio.run(
+            propose_edit(
+                llm=None,
+                providers=None,
+                settings=Settings(database_path="data/test.db"),
+                context=_context(),
+                plan=plan,
+                bundle=Bundle(),
+                message="change the hotel",
+                scope_label=None,
+                scope_item_id=None,
+            )
+        )
+    finally:
+        editor._ask = original
+    assert outcome.rebuild is False
+    assert outcome.changed is True
+    assert outcome.plan.hotels[0].name == "New Inn"
 
 
 def _ticket_plan() -> TripPlan:

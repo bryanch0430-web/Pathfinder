@@ -4,6 +4,32 @@ Running notes for **Pathfinder v5**. The React UI carries the current workspace
 design (map stage, day panel/rail, compact toolbar, adaptive trip-details dialog);
 the core is the rebuilt backend at `backend/`.
 
+## Replan-safety audit — 2026-11-24
+
+A `modify` request used to reach a full rebuild through four paths. All four are
+now closed; a rebuilt itinerary is only produced when the trip's **shape**
+actually changes.
+
+- **Unusable edit answer:** an invalid/truncated edit JSON used to trigger an
+  automatic replan. It now leaves the plan unchanged and asks the traveller to
+  name the item or explicitly ask for a rebuild.
+- **`scope: whole` with concrete ops:** the model sometimes marked the answer
+  whole while supplying `set_hotel`/`set_ticket`/other ops; the ops were discarded.
+  When there is no `rebuild_reason`, the concrete ops now win.
+- **`scope: whole` with no shape change:** the editor could ask for a rebuild for
+  a small request; the orchestrator now confirms instead of spending a replan.
+- **Missing item ops:** flight number, airline and time changes are handled by
+  `set_ticket`; a hotel named by the traveller is handled by `set_hotel` with the
+  old facts cleared and the stay marked unconfirmed. Unsourced stop replacement is
+  `remove` + `add` (skill rule), not a rebuild.
+- **Still intentional:** changing dates/duration, destination/origin or the
+  multi-city stop list changes the itinerary shape and still replans. Those are
+  not item edits.
+
+Tests: 62 backend tests pass (API, editor, security, flight windows, cost); the
+editor suite now includes the same-time flight change, a flight-time change, a
+named-hotel change, and a whole-scope-with-ops case.
+
 ## Flight-number edit fix — 2026-11-24
 
 - **A flight number/name correction is now an edit, not a rebuild.** The editor

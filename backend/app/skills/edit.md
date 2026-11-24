@@ -37,10 +37,19 @@ everything the traveller did not ask about untouched.
 6. When the traveller asks for something broad ("make it cheaper", "add a day"), still
    prefer a small set of concrete operations over a rebuild. Rebuild only when the
    request changes the destination, the date range, or the whole character of the trip.
-7. A flight **number/name** correction with the same times is a `set_ticket` edit,
+7. A flight **number, name, airline or time** correction is a `set_ticket` edit,
    never a rebuild and never a research request. Use `direction: "return"` for the
-   flight home and `"outbound"` for the flight out; keep the times, price and stops.
-   Mark it as unconfirmed in the summary because the number came from the traveller.
+   flight home and `"outbound"` for the flight out; give the fields that changed
+   (`flight_number`, `return_depart_at`, `return_arrive_at`, `depart_at`,
+   `arrive_at`, `operator`, `return_airline`) and keep everything else. Mark it
+   unconfirmed in the summary because the change came from the traveller.
+8. A hotel the traveller **names** but the pool does not source is a `set_hotel`
+   edit with its name, not a rebuild. Keep the stay's check-in/check-out, clear
+   the old address/price/rating (they no longer belong to it), and say the stay is
+   unconfirmed. Use `swap_hotel` when the requested hotel is in the candidate pool.
+9. Renaming or replacing a stop with a place the pool lacks is `remove` plus
+   `add` with the traveller's `name` (marked unconfirmed), not a rebuild. A
+   request that only changes existing items must never use `scope: whole`.
 
 ## Operations
 
@@ -54,6 +63,8 @@ everything the traveller did not ask about untouched.
 {"op": "swap_hotel", "ref": "h2"}
 {"op": "swap_ticket", "ref": "t2"}
 {"op": "set_ticket", "direction": "return", "flight_number": "XX0223"}
+{"op": "set_ticket", "direction": "return", "return_depart_at": "10:30"}
+{"op": "set_hotel", "name": "Hotel the traveller named"}
 {"op": "set_field", "field": "budget|party_size|start_date|end_date|days", "value": "..."}
 {"op": "note", "text": "something to tell the traveller, not a plan change"}
 ```
