@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.security.redact import redact_secrets
 from app.domain.models import (
     DataGap,
     GeoPoint,
@@ -192,7 +193,7 @@ class Bundle:
             self.items.append(entry)
 
     def gap(self, section: str, kind: str, message: str, retryable: bool = True) -> None:
-        self.gaps.append(DataGap(section=section, kind=kind, message=message, retryable=retryable))
+        self.gaps.append(DataGap(section=section, kind=kind, message=redact_secrets(message), retryable=retryable))
 
     def of_kind(self, *kinds: str) -> list[Evidence]:
         return [item for item in self.items if item.kind in kinds]

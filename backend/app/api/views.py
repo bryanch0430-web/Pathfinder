@@ -370,8 +370,9 @@ async def runtime_config(c: Container) -> dict[str, Any]:
         },
         "maps": {
             "google": {
-                "key": settings.google_maps_api_key or settings.google_places_api_key,
-                "enabled": bool(settings.google_maps_api_key or settings.google_places_api_key),
+                # The browser key only: the server-side Places key must never be sent to a page.
+                "key": settings.google_maps_api_key,
+                "enabled": bool(settings.google_maps_api_key),
             }
         },
         "cities": len(corpus.CITIES),

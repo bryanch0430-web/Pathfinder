@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import time
 from typing import Any
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -15,11 +16,16 @@ from app.api.views import runtime_config
 from app.core.currencies import normalise_currency
 from app.evidence import place_corpus as corpus
 from app.evidence.providers import Providers
+from app.security.redact import GOOGLE_PHOTO_NAME, clamp_width, google_photo_url
 
 router = APIRouter()
 
 _FX_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _PHOTO_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
+_GOOGLE_PHOTO_CACHE: dict[tuple[str, int], tuple[float, bytes, str]] = {}
+GOOGLE_PHOTO_CACHE_MAX = 64
+GOOGLE_PHOTO_MAX_BYTES = 5_000_000
+GOOGLE_PHOTO_TTL = 6 * 3600
 
 FALLBACK_RATES = {
     "HKD": 1.0, "USD": 0.128, "EUR": 0.118, "GBP": 0.101, "JPY": 19.4,
@@ -139,15 +145,15 @@ async def place_image(request: Request, name: str = "", q: str = "", city: str =
     except (httpx.HTTPError, ValueError):
         pass
     # A named business often has no Wikipedia page but does have a Places photo.
-    key = settings.google_places_api_key
-    if key:
+    api_key = settings.google_places_api_key
+    if api_key:
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 response = await client.post(
                     "https://places.googleapis.com/v1/places:searchText",
                     json={"textQuery": " ".join(part for part in (title, city) if part), "maxResultCount": 1},
                     headers={
-                        "X-Goog-Api-Key": key,
+                        "X-Goog-Api-Key": api_key,
                         "X-Goog-FieldMask": "places.photos",
                         "Content-Type": "application/json",
                     },
@@ -158,12 +164,11 @@ async def place_image(request: Request, name: str = "", q: str = "", city: str =
                 if photos:
                     photo_name = photos[0].get("name")
                     if photo_name:
-                        url = (
-                            f"https://places.googleapis.com/v1/{photo_name}/media"
-                            f"?maxWidthPx=1200&key={key}"
-                        )
-                        _PHOTO_CACHE[key] = (time.time(), url)
-                        return RedirectResponse(url, status_code=302)
+                        if GOOGLE_PHOTO_NAME.fullmatch(str(photo_name)):
+                            # The key stays on the server: send the browser to our own picture route.
+                            url = google_photo_url(str(photo_name), 1200)
+                            _PHOTO_CACHE[key] = (time.time(), url)
+                            return RedirectResponse(url, status_code=302)
         except (httpx.HTTPError, ValueError, IndexError):
             pass
     initials = "".join(word[0] for word in title.split()[:2]).upper() or "?"
@@ -178,6 +183,63 @@ async def place_image(request: Request, name: str = "", q: str = "", city: str =
         "</svg>"
     )
     return Response(svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
+
+
+def _google_photo_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))
+
+
+def _is_google_cdn(url: str) -> bool:
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (host == "googleusercontent.com" or host.endswith(".googleusercontent.com"))
+
+
+@router.get("/api/images/google")
+async def google_image(request: Request, photo: str = "", w: str = "900") -> Response:
+    """A Google Places photo fetched with the server's key, so the key never reaches a page.
+
+    Not an open proxy: the host is fixed, the photo name is validated, the answer must be an
+    image and is capped in size. Errors say nothing about the upstream URL.
+    """
+    if not GOOGLE_PHOTO_NAME.fullmatch(photo or ""):
+        raise HTTPException(status_code=404, detail="No such picture.")
+    api_key = container(request).settings.google_places_api_key
+    if not api_key:
+        raise HTTPException(status_code=404, detail="No such picture.")
+    width = clamp_width(w)
+    cached = _GOOGLE_PHOTO_CACHE.get((photo, width))
+    if cached and time.time() - cached[0] < GOOGLE_PHOTO_TTL:
+        return Response(cached[1], media_type=cached[2], headers={"Cache-Control": "public, max-age=86400"})
+    try:
+        async with _google_photo_client() as client:
+            response = await client.get(
+                f"https://places.googleapis.com/v1/{photo}/media",
+                params={"maxWidthPx": width},
+                headers={"X-Goog-Api-Key": api_key},
+                follow_redirects=False,
+            )
+            if response.is_redirect:
+                # Google answers with a redirect to its image host; follow it without the key.
+                target = urljoin(str(response.url), response.headers.get("location", ""))
+                if not _is_google_cdn(target):
+                    raise HTTPException(status_code=502, detail="The picture is unavailable.")
+                response = await client.get(target, follow_redirects=False)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+            data = response.content
+    except HTTPException:
+        raise
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(status_code=502, detail="The picture is unavailable.") from None
+    if not content_type.startswith("image/") or content_type == "image/svg+xml":
+        raise HTTPException(status_code=502, detail="The picture is unavailable.")
+    if not data or len(data) > GOOGLE_PHOTO_MAX_BYTES:
+        raise HTTPException(status_code=502, detail="The picture is unavailable.")
+    if len(_GOOGLE_PHOTO_CACHE) >= GOOGLE_PHOTO_CACHE_MAX:
+        _GOOGLE_PHOTO_CACHE.pop(next(iter(_GOOGLE_PHOTO_CACHE)), None)
+    _GOOGLE_PHOTO_CACHE[(photo, width)] = (time.time(), data, content_type)
+    return Response(data, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/api/handbook")
