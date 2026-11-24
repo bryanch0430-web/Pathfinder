@@ -26,7 +26,8 @@ from app.domain.models import ChatMessage, TripContext
 router = APIRouter()
 
 
-MAX_SIGNIN_FAILURES = 10
+MAX_SIGNIN_FAILURES = 10  # per (email, address) pair
+MAX_SIGNIN_FAILURES_PER_EMAIL = 50  # across every address, against distributed guessing
 SIGNIN_WINDOW_SECONDS = 600.0
 
 
@@ -53,12 +54,21 @@ def _claimable(session: dict[str, Any], user_id: str, guest: str) -> bool:
     return not owner_token or hmac.compare_digest(owner_token, guest)
 
 
-def _failures(request: Request, key: str) -> list[float]:
-    store = request.app.state.__dict__.setdefault("signin_failures", {})
-    now = time.monotonic()
-    recent = [t for t in store.get(key, []) if now - t < SIGNIN_WINDOW_SECONDS]
-    store[key] = recent
-    return recent
+def _client_address(request: Request, settings) -> str:
+    """The caller's address; behind the configured proxy, the one the proxy appended."""
+    host = request.client.host if request.client else "unknown"
+    if settings.local_admin_proxy and host == settings.local_admin_proxy:
+        forwarded = (request.headers.get("X-Forwarded-For") or "").split(",")[-1].strip()
+        if forwarded:
+            return forwarded
+    return host
+
+
+def _lock_seconds(times: list[float], limit: int) -> int:
+    """Seconds until a lock lifts (0 when there is none): `limit` failures must age out of the window."""
+    if len(times) < limit:
+        return 0
+    return max(1, int(times[-limit] + SIGNIN_WINDOW_SECONDS - time.time()) + 1)
 
 
 def _auth_payload(settings, user: dict[str, Any]) -> dict[str, Any]:
@@ -92,13 +102,21 @@ async def signin(request: Request) -> dict[str, Any]:
     body = await _json_object(request)
     email = str(body.get("email", "")).strip().lower()
     password = str(body.get("password", ""))
-    if len(_failures(request, email)) >= MAX_SIGNIN_FAILURES:
-        raise HTTPException(status_code=429, detail="Too many failed sign-ins. Try again in a few minutes.")
+    email = email[:254]
+    address = _client_address(request, c.settings)
+    pair, anyone = await c.store.signin_failures(email, address, SIGNIN_WINDOW_SECONDS)
+    wait = max(_lock_seconds(pair, MAX_SIGNIN_FAILURES), _lock_seconds(anyone, MAX_SIGNIN_FAILURES_PER_EMAIL))
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed sign-ins. Try again in a few minutes.",
+            headers={"Retry-After": str(wait)},
+        )
     user = await c.store.get_user_by_email(email)
     if user is None or not password_ok(password, user["password_hash"]):
-        _failures(request, email).append(time.monotonic())
+        await c.store.record_signin_failure(email, address)
         raise HTTPException(status_code=401, detail="That email and password do not match an account.")
-    request.app.state.__dict__.setdefault("signin_failures", {}).pop(email, None)
+    await c.store.clear_signin_failures(email, address)
     session_id = str(body.get("session_id") or "")
     if session_id:
         session = await c.store.get_session(session_id)
@@ -290,6 +308,7 @@ async def open_wishlist(saved_id: str, request: Request) -> dict[str, Any]:
     user_id = bearer_user(request)
     session = await c.store.create_session(client_token=token, user_id=user_id)
     from app.domain.models import TripPlan
+    from app.plan.builder import _trip_id
 
     try:
         copy = TripPlan(**plan)
@@ -297,6 +316,7 @@ async def open_wishlist(saved_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=f"That saved trip is unreadable: {exc}") from exc
     copy.session_id = session["id"]
     copy.version = 1
+    copy.trip_id = _trip_id(session["id"])  # the copy is its own trip, not the saved one
     await c.store.save_plan(copy.model_dump(mode="json"))
     context = TripContext(
         session_id=session["id"],

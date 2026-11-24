@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # An operator can change this on Settings -> Thresholds. The hard ceiling in
     # app.domain.models stops an absurd body before it is parsed.
     max_message_chars: int = Field(default=4000, ge=200, le=8000, alias="MAX_MESSAGE_CHARS")
+    # Hard body caps, checked before a request body is read into memory.
+    max_turn_body_bytes: int = Field(default=24 * 1024 * 1024, ge=1024, alias="MAX_TURN_BODY_BYTES")
+    max_import_body_bytes: int = Field(default=4 * 1024 * 1024, ge=1024, alias="MAX_IMPORT_BODY_BYTES")
     canary_token: str = Field(default="", alias="CANARY_TOKEN")
     admin_token: str = Field(default="local-admin", alias="ADMIN_TOKEN")
     secret_key: str = Field(default="", alias="SECRET_KEY")

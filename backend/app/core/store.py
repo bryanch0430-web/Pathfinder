@@ -15,6 +15,7 @@ import asyncio
 import json
 import sqlite3
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -127,6 +128,13 @@ CREATE TABLE IF NOT EXISTS seats (
     turn_id TEXT NOT NULL,
     started_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS signin_failures (
+    email TEXT NOT NULL,
+    address TEXT NOT NULL,
+    at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS signin_failures_email ON signin_failures (email, address);
 """
 
 
@@ -642,6 +650,36 @@ class Store:
             return {"useful": bool(row["useful"]), "stars": row["stars"], "created_at": row["created_at"]}
 
         return await self._run(op)
+
+    # -- sign-in throttle ---------------------------------------------
+
+    async def signin_failures(self, email: str, address: str, window: float) -> tuple[list[float], list[float]]:
+        """Failure times inside `window` seconds: for this (email, address) pair, and for the email overall.
+
+        Older rows are pruned on the way.
+        """
+        cutoff = time.time() - window
+
+        def op(conn):
+            conn.execute("DELETE FROM signin_failures WHERE at < ?", (cutoff,))
+            pair = [r[0] for r in conn.execute(
+                "SELECT at FROM signin_failures WHERE email=? AND address=? ORDER BY at", (email, address))]
+            anyone = [r[0] for r in conn.execute("SELECT at FROM signin_failures WHERE email=? ORDER BY at", (email,))]
+            return pair, anyone
+
+        return await self._run(op)
+
+    async def record_signin_failure(self, email: str, address: str) -> None:
+        def op(conn):
+            conn.execute("INSERT INTO signin_failures (email, address, at) VALUES (?,?,?)", (email, address, time.time()))
+
+        await self._run(op)
+
+    async def clear_signin_failures(self, email: str, address: str) -> None:
+        def op(conn):
+            conn.execute("DELETE FROM signin_failures WHERE email=? AND address=?", (email, address))
+
+        await self._run(op)
 
     # -- kv -----------------------------------------------------------
 
