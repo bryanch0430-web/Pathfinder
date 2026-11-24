@@ -938,6 +938,7 @@ export const EN = {
   "agent.hotel": "Hotels",
   "agent.weather": "Weather",
   "agent.ticket": "Tickets",
+  "agent.videos": "Videos",
 
   "common.search": "Search",
 

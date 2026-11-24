@@ -5,6 +5,7 @@ import { Icon } from "./icons";
 import { DirectSheet, type LayoutMove, type StopCommit } from "./directEdit";
 import type { TripPlan } from "./types";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { readableLabel } from "../lib/readableLabel";
 
 function plannerLine(note: string, t: (key: MessageKey) => string): string {
   const text = note.trim();
@@ -211,7 +212,7 @@ export function PlanStudio({
               <Text size="sm" weight="semibold">{t("desk.hand")}</Text>
               <Text size="xs" tone="tertiary">{t("desk.handHint")}</Text>
               <label className="pf-desk__field">
-                <span>{picked.item.type}</span>
+                <span>{readableLabel(picked.item.type)}</span>
                 <input value={form.name} disabled={saving || picked.item.locked || picked.item.confirmed} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               </label>
               <label className="pf-desk__field">

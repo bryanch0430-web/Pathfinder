@@ -936,6 +936,7 @@ export const ZH_HANS: Messages = {
   "agent.hotel": "酒店",
   "agent.weather": "天气",
   "agent.ticket": "票务",
+  "agent.videos": "视频",
 
   "common.search": "搜索",
 

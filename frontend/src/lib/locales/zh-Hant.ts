@@ -938,6 +938,7 @@ export const ZH_HANT: Messages = {
   "agent.hotel": "酒店",
   "agent.weather": "天氣",
   "agent.ticket": "票務",
+  "agent.videos": "影片",
 
   "common.search": "搜尋",
 
