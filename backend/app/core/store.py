@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from app.security.redact import scrub_text
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 
@@ -175,6 +177,8 @@ class Store:
                 conn.execute("ALTER TABLE sessions ADD COLUMN planner_status TEXT NOT NULL DEFAULT ''")
             if "operator_note" not in session_columns:
                 conn.execute("ALTER TABLE sessions ADD COLUMN operator_note TEXT NOT NULL DEFAULT ''")
+            # Pictures once carried the Places key in their address; rewrite what is stored.
+            scrub_stored_secrets(conn)
         self._ready = True
 
     async def _run(self, fn, *args, **kwargs):
@@ -289,7 +293,7 @@ class Store:
             conn.execute(
                 "INSERT INTO contexts (session_id, body) VALUES (?,?) "
                 "ON CONFLICT(session_id) DO UPDATE SET body=excluded.body",
-                (session_id, json.dumps(body, ensure_ascii=False)),
+                (session_id, _dumps(body)),
             )
 
         await self._run(op)
@@ -297,7 +301,7 @@ class Store:
     async def load_context(self, session_id: str) -> dict[str, Any] | None:
         def op(conn):
             row = conn.execute("SELECT body FROM contexts WHERE session_id=?", (session_id,)).fetchone()
-            return json.loads(row["body"]) if row else None
+            return json.loads(scrub_text(row["body"])) if row else None
 
         return await self._run(op)
 
@@ -316,7 +320,7 @@ class Store:
                     message.get("intent"),
                     message.get("confidence"),
                     message.get("created_at") or _now(),
-                    json.dumps(message.get("meta") or {}, ensure_ascii=False),
+                    _dumps(message.get("meta") or {}),
                 ),
             )
             return message
@@ -328,7 +332,7 @@ class Store:
             if content is not None:
                 conn.execute("UPDATE messages SET content=? WHERE id=?", (content, message_id))
             if meta is not None:
-                conn.execute("UPDATE messages SET meta=? WHERE id=?", (json.dumps(meta, ensure_ascii=False), message_id))
+                conn.execute("UPDATE messages SET meta=? WHERE id=?", (_dumps(meta), message_id))
 
         await self._run(op)
 
@@ -377,7 +381,7 @@ class Store:
                 (
                     plan["session_id"],
                     plan["version"],
-                    json.dumps(plan, ensure_ascii=False),
+                    _dumps(plan),
                     plan.get("change_summary", ""),
                     plan.get("created_at") or _now(),
                     sum(len(day.get("items", [])) for day in plan.get("days", [])),
@@ -398,7 +402,7 @@ class Store:
                 row = conn.execute(
                     "SELECT body FROM plans WHERE session_id=? AND version=?", (session_id, version)
                 ).fetchone()
-            return json.loads(row["body"]) if row else None
+            return json.loads(scrub_text(row["body"])) if row else None
 
         return await self._run(op)
 
@@ -504,7 +508,7 @@ class Store:
                     entry.get("summary", ""),
                     entry.get("stars"),
                     entry.get("useful"),
-                    json.dumps(entry["body"], ensure_ascii=False),
+                    _dumps(entry["body"]),
                     entry.get("created_at") or _now(),
                 ),
             )
@@ -527,14 +531,14 @@ class Store:
             rows = conn.execute(
                 "SELECT * FROM wishlist WHERE identity=? ORDER BY created_at DESC", (identity,)
             ).fetchall()
-            return [dict(row) for row in rows]
+            return [_wish_row(row) for row in rows]
 
         return await self._run(op)
 
     async def get_wishlist(self, entry_id: str) -> dict[str, Any] | None:
         def op(conn):
             row = conn.execute("SELECT * FROM wishlist WHERE id=?", (entry_id,)).fetchone()
-            return dict(row) if row else None
+            return _wish_row(row) if row else None
 
         return await self._run(op)
 
@@ -794,6 +798,39 @@ def _parse_iso(value: str | None) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+def _dumps(value: Any) -> str:
+    """JSON for storage, with any API key or keyed picture address removed."""
+    return scrub_text(json.dumps(value, ensure_ascii=False))
+
+
+def _wish_row(row: sqlite3.Row) -> dict[str, Any]:
+    entry = dict(row)
+    if isinstance(entry.get("body"), str):
+        entry["body"] = scrub_text(entry["body"])
+    return entry
+
+
+# Columns that hold stored JSON a browser can later be sent.
+_SCRUB_COLUMNS = (("plans", "body"), ("wishlist", "body"), ("messages", "meta"), ("contexts", "body"))
+
+
+def scrub_stored_secrets(conn: sqlite3.Connection) -> int:
+    """Rewrite rows saved before the picture route existed (they carried the Places key). Idempotent."""
+    changed = 0
+    for table, column in _SCRUB_COLUMNS:
+        rows = conn.execute(
+            f"SELECT rowid, {column} FROM {table} WHERE {column} LIKE '%googleapis.com%' OR {column} LIKE '%key=%' "
+            f"OR {column} LIKE '%KEY=%' OR {column} LIKE '%Key=%'"
+        ).fetchall()
+        for row in rows:
+            text = row[1]
+            clean = scrub_text(text) if isinstance(text, str) else text
+            if clean != text:
+                conn.execute(f"UPDATE {table} SET {column}=? WHERE rowid=?", (clean, row[0]))
+                changed += 1
+    return changed
+
+
 def _message(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -802,5 +839,5 @@ def _message(row: sqlite3.Row) -> dict[str, Any]:
         "intent": row["intent"],
         "confidence": row["confidence"],
         "created_at": row["created_at"],
-        "meta": json.loads(row["meta"] or "{}"),
+        "meta": json.loads(scrub_text(row["meta"] or "{}")),
     }

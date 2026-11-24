@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -218,7 +217,8 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
     if cached:
         return cached
     from app.core.llm import LLMClient, LLMError
-    from app.core.prompts import skill
+    from app.core.prompts import skill, user_prompt
+    from app.security.guard import record_threat, screen_obj
     from app.understand.schemas import TranslationDraft
 
     payload = {
@@ -232,12 +232,15 @@ async def translate_plan(c: Container, plan: TripPlan, locale: str) -> dict[str,
         draft = await llm.json(
             purpose="translate",
             system=skill("translate"),
-            user=json.dumps({"locale": locale, "fields": payload}, ensure_ascii=False),
+            user=user_prompt({"locale": locale}, {"fields": payload}),
             schema=TranslationDraft,
             max_tokens=4000,
         )
         status = "translated"
-        fields = draft.model_dump(exclude_none=True)
+        hits: list[str] = []
+        fields = screen_obj(draft.model_dump(exclude_none=True), c.settings.canary_token, hits=hits)
+        for _ in hits:
+            await record_threat(c.store, "output_leak", source="output", session_id=plan.session_id)
         reason = ""
     except LLMError as exc:
         status = "unavailable"
@@ -370,8 +373,9 @@ async def runtime_config(c: Container) -> dict[str, Any]:
         },
         "maps": {
             "google": {
-                "key": settings.google_maps_api_key or settings.google_places_api_key,
-                "enabled": bool(settings.google_maps_api_key or settings.google_places_api_key),
+                # The browser key only: the server-side Places key must never be sent to a page.
+                "key": settings.google_maps_api_key,
+                "enabled": bool(settings.google_maps_api_key),
             }
         },
         "cities": len(corpus.CITIES),

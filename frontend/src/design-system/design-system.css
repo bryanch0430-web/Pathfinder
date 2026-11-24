@@ -7175,6 +7175,9 @@ button.pf-badge:hover {
   text-underline-offset: 2px;
 }
 
+/* The site a Markdown link goes to, shown beside its text. */
+.pf-link-host { opacity: 0.75; font-size: 0.9em; }
+
 /* Assistant Markdown: compact lists and bold labels, without turning model text into HTML. */
 .pf-md > :first-child { margin-top: 0; }
 .pf-md > :last-child { margin-bottom: 0; }

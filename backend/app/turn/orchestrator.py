@@ -27,7 +27,7 @@ from app.config import Settings
 from app.core.currencies import normalise_currency
 from app.core.dates import parse_date
 from app.core.llm import LLMClient, LLMError
-from app.core.prompts import context_brief, dialogue, plan_text, retrieved, skill
+from app.core.prompts import _canary, context_brief, dialogue, plan_text, retrieved, skill, user_prompt
 from app.core.store import Store
 from app.core.trace import TurnTrace
 from app.domain.models import (
@@ -49,6 +49,7 @@ from app.plan.builder import Problem, compose, refresh_derived
 from app.plan.editor import diff_plans, propose_edit
 from app.plan.imported import build_imported_plan
 from app.plan.validator import audit_constraints, check_structure, problems_from_verify
+from app.security.guard import SAFE_FIELD, SAFE_REPLY, record_threat, screen, screen_obj
 from app.security.pii import Redaction, mask_pii
 from app.understand.pipeline import dates_usable, missing_for_plan, understand
 from app.understand.schemas import IntakeFacts
@@ -259,10 +260,13 @@ async def _produce(
         message=message,
         trace=trace,
         redaction=redaction,
+        include_urls=False,
     )
+    rejected: list[str] = []
     if intake_payload is not None:
         await push("intake", intake_payload.model_dump())
-        context = _apply_intake(context, intake_json)
+        context = _apply_intake(context, intake_json, rejected)
+        await _count_rejected(store, session_id, rejected, "pdf")
 
     if llm.available is False:
         await _finish_plain(
@@ -279,18 +283,49 @@ async def _produce(
 
     # -- understand ----------------------------------------------------
     await store.touch_session(session_id, planner_note="Working out what you want")
-    understanding = await understand(
-        llm=llm,
-        settings=settings,
-        context=context,
-        plan=plan,
-        messages=chat_history,
-        message=message,
-        scope_label=request.scope_label,
-        scope_item_id=request.scope_item_id,
-        locale=request.locale,
-        skill_overrides=skill_overrides,
-    )
+
+    async def read_message(trip_context: TripContext):
+        return await understand(
+            llm=llm,
+            settings=settings,
+            context=trip_context,
+            plan=plan,
+            messages=chat_history,
+            message=message,
+            scope_label=request.scope_label,
+            scope_item_id=request.scope_item_id,
+            locale=request.locale,
+            skill_overrides=skill_overrides,
+        )
+
+    understanding = await read_message(context)
+    # A link is opened only once the analyst has judged the message safe: a flagged
+    # message fetches nothing, so a hostile link is never visited on its say-so.
+    if _urls_in(message):
+        if understanding.parsed.injection_suspected:
+            trace.say("Links in the message were not opened because the message tried to give instructions.")
+        elif llm.available is not False:
+            page_payload, page_json, _ = await _intake(
+                settings=settings,
+                llm=llm,
+                request=request,
+                message=message,
+                trace=trace,
+                redaction=redaction,
+                include_attachments=False,
+            )
+            if page_payload is not None:
+                if intake_payload is not None:
+                    page_payload = IntakePayload(
+                        sources=[*intake_payload.sources, *page_payload.sources],
+                        filled=list(dict.fromkeys([*intake_payload.filled, *page_payload.filled])),
+                        places=[*intake_payload.places, *page_payload.places][:12],
+                    )
+                await push("intake", page_payload.model_dump())
+                enriched = _apply_intake(context, page_json, rejected)
+                await _count_rejected(store, session_id, rejected, "page")
+                if enriched.model_dump() != context.model_dump():
+                    understanding = await read_message(enriched)
     context = understanding.context
     route = understanding.route
     if not deps.operator:
@@ -350,8 +385,15 @@ async def _produce(
             return
     if understanding.parsed.assumptions:
         trace.why.extend(f"Assumed: {line}" for line in understanding.parsed.assumptions[:3])
+    if understanding.clarify is not None:
+        hits: list[str] = []
+        understanding.clarify = ClarifyPayload(
+            **screen_obj(understanding.clarify.model_dump(), settings.canary_token, hits=hits)
+        )
+        for _hit in hits:
+            await _count_threat(store, "output_leak", source="output", session_id=session_id)
     if understanding.parsed.injection_suspected:
-        await _count_threat(store, "instruction_override")
+        await _count_threat(store, "instruction_override", session_id=session_id, text=message)
         trace.say("The message tried to give the assistant new instructions; it was treated as data.")
     # An uploaded day-by-day itinerary is a plan request even when the short
     # message says only "this". The analyst cannot see the image itself, so it
@@ -800,6 +842,11 @@ async def _edit_turn(
             search_queries=search_queries,
         )
         return
+    outcome.draft.summary = await _guarded(
+        store, session_id, settings, outcome.draft.summary, replacement="Edited the trip."
+    )
+    outcome.draft.detail = await _guarded(store, session_id, settings, outcome.draft.detail, replacement="")
+    outcome.log = [await _guarded(store, session_id, settings, line, replacement=SAFE_FIELD) for line in outcome.log]
     if outcome.rebuild or _trip_shape_changed(plan, outcome.context):
         trace.say(f"The edit needs a replan: {outcome.rebuild_reason}.")
         await store.save_context(session_id, outcome.context.model_dump())
@@ -917,7 +964,6 @@ async def _ask_turn(
         "trip": context_brief(context),
         "plan": plan_text(plan, with_sources=True),
         "recent_turns": dialogue(chat_history),
-        "sources": retrieved(results),
         "cost": plan.cost.model_dump() if plan else None,
         # The UI's selected stop is context, not just a hint for the router.
         # Without this the ask model cannot resolve "this" / "that one".
@@ -934,11 +980,15 @@ async def _ask_turn(
     async for chunk in llm.stream_text(
         purpose="ask",
         system=system,
-        user=json.dumps(payload, ensure_ascii=False, indent=1),
+        user=user_prompt(payload, {"sources": retrieved(results)}),
     ):
         collected.append(chunk)
-        await push("token", {"text": chunk})
-    reply = mask_pii(_guard_output("".join(collected), deps.settings), redaction)
+    # The whole reply is checked before any of it reaches the traveller.
+    reply = mask_pii(
+        await _guarded(store, session_id, deps.settings, "".join(collected), replacement=SAFE_REPLY),
+        redaction,
+    )
+    await _stream_text(push, reply)
     await _save_assistant(store, session_id, reply, intent="ask", meta={"sources": [row.get("url", "") for row in results[:4]]})
     await _reset_stuck(store, session_id)
     await _finish(push, trace, session_id=session_id, intent="ask")
@@ -1051,6 +1101,7 @@ async def _persist_plan(
     *,
     draft: bool = False,
 ) -> TripPlan:
+    await _screen_plan(store, session_id, plan)
     version = (previous.version + 1) if previous else 1
     plan.version = version
     plan.session_id = session_id
@@ -1108,27 +1159,48 @@ async def _finish_plain(push, store: Store, session_id: str, text: str, trace: T
     await push("done", {"request_id": request_id, "intent": intent, "session_id": session_id})
 
 
-LEAK_MARKERS = (
-    "Skill: turn analyst",
-    "Skill: traveller answer",
-    "Skill: itinerary composer",
-    "You are the understanding layer",
-    "You are the planning layer",
-    "You are the same assistant that built the plan",
-    "{{threshold}}",
-)
-
-
-def _guard_output(text: str, settings: Settings) -> str:
+def _guard_output(text: str, settings: Settings, hits: list[str] | None = None) -> str:
     """Never let a model reply carry the instructions it was given."""
-    canary = settings.canary_token
-    leaked = bool(canary and canary in text) or any(marker in text for marker in LEAK_MARKERS)
-    if leaked:
-        return (
-            "I cannot share that. I can help with the trip itself — the itinerary, places, "
-            "prices, weather or transport."
-        )
-    return text
+    return screen(text, settings.canary_token, replacement=SAFE_REPLY, hits=hits)
+
+
+async def _guarded(
+    store: Store, session_id: str, settings: Settings, text: str, *, replacement: str = SAFE_FIELD
+) -> str:
+    """Screen one model string; a hit is counted and the leaked text is dropped."""
+    hits: list[str] = []
+    safe = screen(text, settings.canary_token, replacement=replacement, hits=hits)
+    for _ in hits:
+        await _count_threat(store, "output_leak", source="output", session_id=session_id)
+    return safe
+
+
+async def _screen_plan(store: Store, session_id: str, plan: TripPlan) -> None:
+    """Replace any model-written plan text that carries instructions or the canary."""
+    canary = _canary()
+    hits: list[str] = []
+
+    def check(text: str, replacement: str = SAFE_FIELD) -> str:
+        return screen(text, canary, replacement=replacement, hits=hits)
+
+    plan.summary = check(plan.summary, "A trip plan built from the sourced places.")
+    plan.change_summary = check(plan.change_summary, "Edited the trip.")
+    for day in plan.days:
+        day.title = check(day.title, "Day plan")
+        day.note = check(day.note, "")
+        for item in day.items:
+            item.name = check(item.name)
+            item.notes = check(item.notes, "")
+    for hotel in plan.hotels:
+        hotel.name = check(hotel.name)
+        hotel.notes = check(hotel.notes, "")
+    for ticket in plan.tickets:
+        ticket.name = check(ticket.name)
+        ticket.notes = check(ticket.notes, "")
+    for gap in plan.data_quality.gaps:
+        gap.message = check(gap.message)
+    for _ in hits:
+        await _count_threat(store, "output_leak", source="output", session_id=session_id)
 
 
 def _plan_reply(plan: TripPlan, gaps) -> str:
@@ -1310,10 +1382,17 @@ async def _handoff(
     await _finish(push, trace, session_id=session_id, intent="ask")
 
 
-async def _count_threat(store: Store, category: str) -> None:
-    counters = await store.get_kv("threats") or {}
-    counters[category] = int(counters.get(category, 0)) + 1
-    await store.set_kv("threats", counters)
+async def _count_threat(
+    store: Store, category: str, *, source: str = "chat", session_id: str = "", text: str = ""
+) -> None:
+    await record_threat(store, category, source=source, session_id=session_id, text=text)
+
+
+async def _count_rejected(store: Store, session_id: str, rejected: list[str], source: str) -> None:
+    """Facts an uploaded file or page stated that failed the range checks are a threat signal."""
+    for name in rejected:
+        await _count_threat(store, "intake_rejected", source=source, session_id=session_id, text=name)
+    rejected.clear()
 
 
 async def _skill_overrides(store: Store) -> dict[str, str]:
@@ -1331,9 +1410,11 @@ async def _intake(
     message: str,
     trace: TurnTrace,
     redaction: Redaction | None = None,
+    include_urls: bool = True,
+    include_attachments: bool = True,
 ) -> tuple[IntakePayload | None, IntakeFacts | None, list[str]]:
-    attachments = request.attachments or []
-    urls = _urls_in(message)
+    attachments = (request.attachments or []) if include_attachments else []
+    urls = _urls_in(message) if include_urls else []
     if not attachments and not urls:
         return None, None, []
     sources: list[IntakeSource] = []
@@ -1392,24 +1473,102 @@ async def _intake(
     return payload, facts, images
 
 
-def _apply_intake(context: TripContext, facts: IntakeFacts | None) -> TripContext:
+MAX_INTAKE_BUDGET = 10_000_000.0
+MAX_INTAKE_DAYS = 60
+MAX_INTAKE_ITEM = 200
+INTAKE_NOTE = "From shared material: "
+
+
+def _intake_text(value: Any, limit: int) -> str:
+    return " ".join(str(value).split())[:limit]
+
+
+def _intake_items(values: list[str], rejected: list[str] | None, name: str, prefix: str = "") -> list[str]:
+    kept: list[str] = []
+    for value in values[:6]:
+        text = " ".join(str(value).split())
+        if not text:
+            continue
+        if len(text) > MAX_INTAKE_ITEM:
+            if rejected is not None:
+                rejected.append(name)
+            continue
+        kept.append(prefix + text)
+    return kept
+
+
+def _apply_intake(context: TripContext, facts: IntakeFacts | None, rejected: list[str] | None = None) -> TripContext:
+    """Write what an uploaded file or page stated, under the same limits the analyst's slots obey.
+
+    A fact outside its range is refused, not clamped: a file that says "party of 99999" is
+    wrong or hostile, and neither should shape the trip. Constraints from a file are
+    suggestions, so they are kept as marked preferences, never as hard constraints.
+    """
     if facts is None:
         return context
     updated = context.model_copy(deep=True)
-    for field in ("destination", "origin", "start_date", "end_date", "days", "party_size", "budget", "currency"):
-        value = getattr(facts, field, None)
+
+    def refuse(name: str) -> None:
+        if rejected is not None:
+            rejected.append(name)
+
+    for name in ("destination", "origin"):
+        value = getattr(facts, name, None)
         if value in (None, ""):
             continue
-        if field == "currency":
-            code = normalise_currency(value)
-            if code:
-                updated.currency = code
-            continue
-        setattr(updated, field, value)
-    if facts.preferences:
-        updated.preferences = list(dict.fromkeys([*updated.preferences, *facts.preferences]))[:16]
-    if facts.hard_constraints:
-        updated.hard_constraints = list(dict.fromkeys([*updated.hard_constraints, *facts.hard_constraints]))[:16]
+        text = _intake_text(value, 120)
+        if text:
+            setattr(updated, name, text)
+        else:
+            refuse(name)
+    if facts.days is not None:
+        if 1 <= facts.days <= MAX_INTAKE_DAYS:
+            updated.days = facts.days
+        else:
+            refuse("days")
+    if facts.party_size is not None:
+        if 1 <= facts.party_size <= 40:
+            updated.party_size = facts.party_size
+        else:
+            refuse("party_size")
+    if facts.budget is not None:
+        if 0 < facts.budget < MAX_INTAKE_BUDGET:
+            updated.budget = float(facts.budget)
+        else:
+            refuse("budget")
+    if facts.currency not in (None, ""):
+        code = normalise_currency(facts.currency)
+        if code:
+            updated.currency = code
+        else:
+            refuse("currency")
+    start = parse_date(facts.start_date)
+    end = parse_date(facts.end_date)
+    for name, raw, parsed in (("start_date", facts.start_date, start), ("end_date", facts.end_date, end)):
+        if raw not in (None, "") and (parsed is None or not 2000 <= parsed.year <= 2100):
+            refuse(name)
+            if name == "start_date":
+                start = None
+            else:
+                end = None
+    first = start or parse_date(updated.start_date)
+    last = end or parse_date(updated.end_date)
+    if first and last and (last < first or (last - first).days + 1 > MAX_INTAKE_DAYS):
+        if start:
+            refuse("start_date")
+        if end:
+            refuse("end_date")
+        start = end = None
+    if start:
+        updated.start_date = start.isoformat()
+    if end:
+        updated.end_date = end.isoformat()
+    added = [
+        *_intake_items(facts.preferences, rejected, "preferences"),
+        *_intake_items(facts.hard_constraints, rejected, "hard_constraints", INTAKE_NOTE),
+    ]
+    if added:
+        updated.preferences = list(dict.fromkeys([*updated.preferences, *added]))[:16]
     if facts.itinerary and facts.itinerary.days:
         # Keep the image's day-by-day structure. Planning uses it only on a new
         # plan; the normal single-city path remains the fallback if lookups fail.

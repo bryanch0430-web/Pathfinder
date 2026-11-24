@@ -9,7 +9,6 @@ decision the model can only recommend.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -17,7 +16,8 @@ from typing import Any
 from app.config import Settings
 from app.core.dates import parse_date, shift_time
 from app.core.llm import LLMClient
-from app.core.prompts import context_brief, plan_outline, skill
+from app.core.prompts import context_brief, plan_outline, skill, user_prompt
+from app.security.guard import clean_text
 from app.core.trace import TurnTrace
 from app.domain.models import ConstraintCheck, DataGap, DayPlan, PlanItem, TripContext, TripPlan
 from app.evidence.models import Bundle, Evidence
@@ -200,13 +200,16 @@ async def _ask(
 ) -> EditDraft:
     payload = {
         "trip": context_brief(context),
-        "plan": plan_outline(plan),
         "selected_stop": {"id": scope_item_id, "label": scope_label} if scope_item_id or scope_label else None,
         "request": message,
+        "plan": "see the untrusted_data block below",
+    }
+    outside = {
+        "plan": plan_outline(plan),
         "candidates": candidate_pool(bundle),
         "research": research or {"attempted": False, "found": 0},
         "locked": [
-            {"id": item.id, "name": item.name}
+            {"id": item.id, "name": clean_text(item.name, 120)}
             for day in plan.days
             for item in day.items
             if item.locked or item.confirmed
@@ -215,7 +218,7 @@ async def _ask(
     return await llm.json(
         purpose="edit",
         system=skill("edit", overrides),
-        user=json.dumps(payload, ensure_ascii=False, indent=1),
+        user=user_prompt(payload, outside),
         schema=EditDraft,
     )
 

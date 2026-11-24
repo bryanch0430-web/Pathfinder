@@ -19,6 +19,7 @@ from app.api import account, admin, evals, journeys, llm, misc, turn
 from app.api.deps import Container
 from app.config import PROJECT_DIR, Settings, get_settings
 from app.core.store import Store
+from app.security.redact import install_log_redaction
 
 logger = logging.getLogger("pathfinder")
 
@@ -85,6 +86,10 @@ FRONTEND_DIST = PROJECT_DIR / "frontend" / "dist"
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    install_log_redaction()
+    from app.core.prompts import set_canary
+
+    set_canary(settings.canary_token)
     store = Store(settings.database_file)
     container = Container(settings=settings, store=store)
 
