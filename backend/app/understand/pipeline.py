@@ -17,7 +17,7 @@ from app.config import Settings
 from app.core.currencies import normalise_currency
 from app.core.dates import finish_dates, parse_date, relative_window_label
 from app.core.llm import LLMClient, LLMError
-from app.core.prompts import context_brief, dialogue, plan_outline, skill
+from app.core.prompts import context_brief, dialogue, plan_outline, skill, user_prompt
 from app.domain.models import ChatMessage, ClarifyPayload, RoutePayload, TripContext, TripPlan
 from app.understand.schemas import ParsedIntent
 
@@ -74,19 +74,17 @@ async def understand(
         "timezone": str(today.tzinfo),
         "interface_locale": locale,
         "trip": context_brief(context),
-        "plan": plan_outline(plan),
+        "plan": None if plan is None else "see the untrusted_data block below",
         "recent_turns": dialogue(messages),
         "selected_stop": {"id": scope_item_id, "label": scope_label} if scope_item_id or scope_label else None,
         "message": message,
     }
     system = skill("understand", skill_overrides)
-    import json
-
     try:
         parsed = await llm.json(
             purpose="understand",
             system=system,
-            user=json.dumps(user_payload, ensure_ascii=False, indent=1),
+            user=user_prompt(user_payload, {"plan": plan_outline(plan)} if plan is not None else None),
             schema=ParsedIntent,
         )
     except LLMError:

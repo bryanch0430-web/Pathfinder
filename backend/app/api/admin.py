@@ -21,6 +21,7 @@ from app.plan.builder import refresh_derived
 
 router = APIRouter()
 
+from app.security.guard import severity as threat_severity
 from app.security.pii import CARD, EMAIL, HK_PHONE, HKID
 
 DEFAULT_PATTERNS = {
@@ -342,11 +343,27 @@ async def threats(request: Request) -> dict[str, Any]:
     require_admin(request)
     c = container(request)
     counters = await c.store.get_kv("threats") or {}
-    events = [
-        {"category": category, "severity": "high" if "reveal" in category else "medium", "count": int(count)}
-        for category, count in counters.items()
+    log = await c.store.get_kv("threat_log") or []
+    events = []
+    for category, count in counters.items():
+        rows = [row for row in log if row.get("category") == category]
+        sources: dict[str, int] = {}
+        for row in rows:
+            sources[row.get("source", "chat")] = sources.get(row.get("source", "chat"), 0) + 1
+        events.append(
+            {
+                "category": category,
+                "severity": threat_severity(category),
+                "count": int(count),
+                "sources": sources,
+                "last_at": rows[-1].get("at", "") if rows else "",
+                "last_session_id": rows[-1].get("session_id", "") if rows else "",
+            }
+        )
+    recent = [
+        {**row, "severity": threat_severity(row.get("category", ""))} for row in reversed(log[-100:])
     ]
-    return {"events": events}
+    return {"events": events, "log": recent}
 
 
 # -- the desk -----------------------------------------------------------
