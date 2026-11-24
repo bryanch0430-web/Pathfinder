@@ -39,6 +39,10 @@ could follow.
 12. Traveller profile: `pace: relaxed` means fewer, longer stops; `packed` allows more
     stops; `with_children` avoids late nights and very long walks; `step_free` avoids
     stairs-only sites; `purpose: business` keeps days lighter and central.
+13. **Never leave a day empty.** Every date in the range needs at least one scheduled
+    stop. On the arrival day put the first stop at least 90 minutes after the flight
+    lands (a meal or a nearby sight is enough); on the departure day end before the
+    flight leaves minus 120 minutes. An empty day is a failed plan.
 
 ## Choices to make well
 
